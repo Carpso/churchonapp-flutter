@@ -1,0 +1,127 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+
+import '../../events/presentation/events_screen.dart';
+import '../../jobs/presentation/jobs_portal_screen.dart';
+import '../../logistics/presentation/weather_maps_screen.dart';
+import '../../kids/presentation/kids_zone_screen.dart';
+import '../../media/presentation/kingdom_radio_screen.dart';
+import '../../../admin/presentation/admin_hub_screen.dart';
+
+class MoreHubScreen extends ConsumerWidget {
+  const MoreHubScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFFFAEB),
+      appBar: AppBar(
+        title: const Text("Kingdom Life & Modules", style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(25),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Logistics & Life", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              mainAxisSpacing: 15,
+              crossAxisSpacing: 15,
+              childAspectRatio: 1.1,
+              children: [
+                _buildModuleCard(context, "Events & Calendars", LucideIcons.calendar, Colors.blue, const EventsScreen()),
+                _buildModuleCard(context, "Logistics & Weather", LucideIcons.map, Colors.orange, const WeatherMapsScreen()),
+                _buildModuleCard(context, "Jobs & Serve", LucideIcons.briefcase, Colors.green, const JobsPortalScreen()),
+              ],
+            ),
+            const SizedBox(height: 40),
+            const Text("Spiritual & Media", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              mainAxisSpacing: 15,
+              crossAxisSpacing: 15,
+              childAspectRatio: 1.1,
+              children: [
+                _buildModuleCard(context, "Kids Zone", LucideIcons.gamepad2, Colors.purple, const KidsZoneScreen()),
+                _buildModuleCard(context, "Kingdom Radio", LucideIcons.radio, Colors.red, const KingdomRadioScreen()),
+              ],
+            ),
+            const SizedBox(height: 40),
+            const Text("Administration", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            _buildAdminBanner(context),
+            const SizedBox(height: 50),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModuleCard(BuildContext context, String title, IconData icon, Color color, Widget destination) {
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => destination)),
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.withOpacity(0.1)),
+          boxShadow: [BoxShadow(color: color.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(height: 15),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdminBanner(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminHubScreen())),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(15)),
+              child: const Icon(LucideIcons.shieldCheck, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 20),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Kingdom Admin Hub", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text("Manage members, finance & streams", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                ],
+              ),
+            ),
+            const Icon(LucideIcons.chevronRight, color: Colors.white54),
+          ],
+        ),
+      ),
+    );
+  }
+}
