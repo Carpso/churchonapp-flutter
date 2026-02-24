@@ -10,7 +10,10 @@ class Tenant {
   final String? logoUrl;
   final Color primaryColor;
   final Color accentColor;
+  final double? latitude;
+  final double? longitude;
   final Map<String, dynamic>? settings;
+  final String? treasurerPhone;
 
   Tenant({
     required this.id,
@@ -20,6 +23,9 @@ class Tenant {
     required this.primaryColor,
     required this.accentColor,
     this.settings,
+    this.latitude,
+    this.longitude,
+    this.treasurerPhone,
   });
 
   factory Tenant.fromMap(Map<String, dynamic> map) {
@@ -31,7 +37,15 @@ class Tenant {
       primaryColor: _parseColor(map['primary_color'], const Color(0xFFFFD700)),
       accentColor: _parseColor(map['accent_color'], const Color(0xFF1A1A1A)),
       settings: map['settings'] is Map ? Map<String, dynamic>.from(map['settings']) : null,
+      latitude: map['latitude'] != null ? (map['latitude'] as num).toDouble() : null,
+      longitude: map['longitude'] != null ? (map['longitude'] as num).toDouble() : null,
+      treasurerPhone: map['treasurer_phone'],
     );
+  }
+
+  bool isFeatureEnabled(String featureKey) {
+    if (settings == null) return true; // Default enabled
+    return settings![featureKey] ?? true;
   }
 
   static Color _parseColor(String? colorString, Color fallback) {
@@ -84,6 +98,24 @@ class TenantService {
     }
     return null;
   }
+
+  Future<List<Tenant>> getNearbyChurches(double lat, double lng, {double radiusKm = 50}) async {
+    try {
+      // In a real app with PostGIS: 
+      // return await _client.rpc('nearby_churches', params: {'lat': lat, 'lng': lng, 'radius': radiusKm});
+      
+      // Simple fallback: Get all churches with coordinates and filter (or use simple box)
+      final data = await _client
+          .from('churches')
+          .select('*')
+          .not('latitude', 'is', null);
+      
+      return (data as List).map((map) => Tenant.fromMap(map)).toList();
+    } catch (e) {
+      debugPrint('Error fetching nearby churches: $e');
+      return [];
+    }
+  }
 }
 
 final tenantServiceProvider = Provider((ref) => TenantService(Supabase.instance.client));
@@ -91,11 +123,10 @@ final tenantServiceProvider = Provider((ref) => TenantService(Supabase.instance.
 class CurrentTenantNotifier extends Notifier<Tenant?> {
   @override
   Tenant? build() {
-    _loadTenant();
     return null;
   }
 
-  Future<void> _loadTenant() async {
+  Future<void> loadTenant() async {
     final prefs = await SharedPreferences.getInstance();
     final tenantId = prefs.getString('selected_tenant_id');
     if (tenantId != null) {
@@ -119,5 +150,6 @@ class CurrentTenantNotifier extends Notifier<Tenant?> {
 final currentTenantProvider = NotifierProvider<CurrentTenantNotifier, Tenant?>(() => CurrentTenantNotifier());
 
 final tenantInitializerProvider = FutureProvider<void>((ref) async {
-  // Navigation may happen elsewhere, but we ensure at least one attempt to load is made
+  final notifier = ref.read(currentTenantProvider.notifier);
+  await notifier.loadTenant();
 });

@@ -30,26 +30,31 @@ class KingdomLogo extends ConsumerWidget {
   }
 
   Widget _buildDefaultLogo(BuildContext context) {
-    // Default logo is the app icon (Sunflower style)
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: white ? Colors.white : Theme.of(context).primaryColor,
-        borderRadius: BorderRadius.circular(size * 0.3),
+        color: white ? Colors.white : Colors.white, // Standardize on white background for logo
+        borderRadius: BorderRadius.circular(size * 0.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Center(
-        child: Icon(
-          Icons.church,
-          color: white ? Theme.of(context).primaryColor : Colors.black,
-          size: size * 0.6,
+        child: Image.asset(
+          'assets/app_logo.png',
+          width: size * 0.8,
+          height: size * 0.8,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => Icon(
+            Icons.church,
+            color: Theme.of(context).primaryColor,
+            size: size * 0.6,
+          ),
         ),
       ),
     );

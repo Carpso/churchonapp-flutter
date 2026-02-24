@@ -24,8 +24,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         _nameController.text.trim(),
       );
       if (mounted) {
+        bool needsConfirmation = ref.read(authProvider).user == null;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Account created successfully! Please login.")),
+          SnackBar(
+            content: Text(needsConfirmation 
+              ? "Account created! Please check your email for verification." 
+              : "Account created successfully!"),
+            backgroundColor: Colors.green,
+          ),
         );
         Navigator.pop(context);
       }
@@ -121,7 +127,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
       child: TextField(
         controller: controller,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../data/sermon_service.dart';
 import 'sermon_player_screen.dart';
+import 'sermon_search_screen.dart';
+import '../../bible/presentation/deep_study_suite_screen.dart';
 
 class SermonLibraryScreen extends StatefulWidget {
   const SermonLibraryScreen({super.key});
@@ -12,17 +14,27 @@ class SermonLibraryScreen extends StatefulWidget {
 
 class _SermonLibraryScreenState extends State<SermonLibraryScreen> {
   String _selectedCategory = "All";
-  final List<String> _categories = ["All", "Miracles", "Faith", "Prosperity", "Healing", "Worship"];
+  final List<String> _categories = ["All", "Bible", "Miracles", "Faith", "Prosperity", "Healing", "Worship"];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
-        title: const Text("Kingdom Sermon Library", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Kingdom Audio & Word", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
-          IconButton(icon: const Icon(LucideIcons.search), onPressed: () {}),
-          IconButton(icon: const Icon(LucideIcons.filter), onPressed: () {}),
+          TextButton.icon(
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const DeepStudySuiteScreen()));
+            }, 
+            icon: const Icon(LucideIcons.brainCircuit, size: 18),
+            label: const Text("Deep Study", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).primaryColor),
+          ),
+          IconButton(
+            icon: const Icon(LucideIcons.search), 
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SermonSearchScreen())),
+          ),
         ],
       ),
       body: Column(
@@ -60,7 +72,7 @@ class _SermonLibraryScreenState extends State<SermonLibraryScreen> {
               decoration: BoxDecoration(
                 color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: isSelected ? [BoxShadow(color: Theme.of(context).colorScheme.secondary.withOpacity(0.3), blurRadius: 10)] : [],
+                boxShadow: isSelected ? [BoxShadow(color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3), blurRadius: 10)] : [],
               ),
               child: Center(
                 child: Text(
@@ -97,7 +109,7 @@ class _SermonLibraryScreenState extends State<SermonLibraryScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(30),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

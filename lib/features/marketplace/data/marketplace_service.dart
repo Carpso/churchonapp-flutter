@@ -63,6 +63,14 @@ class MarketplaceService {
     final data = await query.order('created_at', ascending: false);
     return (data as List).map((m) => MarketProduct.fromMap(m)).toList();
   }
+
+  Future<void> postProduct(Map<String, dynamic> productData) async {
+    await _client.from('marketplace_items').insert({
+      ...productData,
+      'status': 'active',
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
 }
 
 final marketplaceServiceProvider = Provider((ref) => MarketplaceService(Supabase.instance.client));

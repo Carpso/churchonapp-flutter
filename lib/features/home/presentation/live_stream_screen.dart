@@ -6,6 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:church_on_app/core/services/tenant_service.dart';
 import '../../finance/presentation/giving_screen.dart';
+import 'package:church_on_app/features/admin/data/reporting_service.dart';
+import '../data/live_chat_service.dart';
+import '../../../core/providers/profile_provider.dart';
+import 'dart:async';
 
 class LiveStreamScreen extends ConsumerStatefulWidget {
   final String streamUrl;
@@ -24,6 +28,8 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
 class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   late VideoPlayerController _videoPlayerController;
   ChewieController? _chewieController;
+  final _chatCtrl = TextEditingController();
+  final _scrollCtrl = ScrollController();
 
   @override
   void initState() {
@@ -46,7 +52,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         playedColor: const Color(0xFFFFD700),
         handleColor: const Color(0xFFFFD700),
         backgroundColor: Colors.grey,
-        bufferedColor: Colors.white.withOpacity(0.3),
+        bufferedColor: Colors.white.withValues(alpha: 0.3),
       ),
     );
     if (mounted) setState(() {});
@@ -56,6 +62,8 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   void dispose() {
     _videoPlayerController.dispose();
     _chewieController?.dispose();
+    _chatCtrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
@@ -116,7 +124,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(tenant?.name ?? "Kingdom Church", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          Text("Join the community", style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+                          Text("Join the community", style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
                         ],
                       ),
                       const Spacer(),
@@ -133,20 +141,15 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 25),
+                  const SizedBox(height: 20),
+                  _buildannouncementTicker(tenant),
+                  const SizedBox(height: 20),
                   const Text("LIVE CHAT", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 12)),
                   const SizedBox(height: 15),
                   Expanded(
-                    child: ListView(
-                      children: [
-                        _buildChatMessage("John Doe", "Amen! What a powerful word."),
-                        _buildChatMessage("Sarah Smith", "Greetings! 🇿🇲"),
-                        _buildChatMessage("Pastor", "God bless everyone joining us today."),
-                        _buildChatMessage("Sister Mary", "Praying for the healing of the sick."),
-                      ],
-                    ),
+                    child: _buildChatMessages(tenant),
                   ),
-                  _buildChatInput(),
+                  _buildChatInput(tenant),
                 ],
               ),
             ),
@@ -156,45 +159,142 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     );
   }
 
-  Widget _buildChatMessage(String user, String msg) {
+
+  Widget _buildannouncementTicker(Tenant? tenant) {
+    if (tenant == null) return const SizedBox.shrink();
+    final reportsAsync = ref.watch(reportsStreamProvider(tenant.id));
+
+    return reportsAsync.when(
+      data: (reports) {
+        final announcements = reports.where((r) => r.type == 'announcement').toList();
+        if (announcements.isEmpty) return const SizedBox.shrink();
+        
+        final latest = announcements.first;
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.amber.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              const Icon(LucideIcons.megaphone, color: Colors.amber, size: 16),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("LATEST ANNOUNCEMENT", style: TextStyle(color: Colors.amber, fontSize: 9, fontWeight: FontWeight.bold)),
+                    Text(latest.title, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
+  Widget _buildChatMessages(Tenant? tenant) {
+    if (tenant == null) return const Center(child: Text("Select a church to chat", style: TextStyle(color: Colors.white54)));
+
+    final chatAsync = ref.watch(liveChatStreamProvider(tenant.id));
+
+    return chatAsync.when(
+      data: (messages) {
+        if (messages.isEmpty) {
+          return const Center(child: Text("No messages yet. Be the first to chat!", style: TextStyle(color: Colors.white24, fontSize: 12)));
+        }
+        
+        // Auto scroll to bottom on new messages
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollCtrl.hasClients) {
+            _scrollCtrl.animateTo(_scrollCtrl.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+          }
+        });
+
+        return ListView.builder(
+          controller: _scrollCtrl,
+          itemCount: messages.length,
+          itemBuilder: (context, index) => _buildChatMessage(messages[index]),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))),
+      error: (e, _) => Center(child: Text("Chat unavailable", style: const TextStyle(color: Colors.red, fontSize: 10))),
+    );
+  }
+
+  Widget _buildChatMessage(LiveChatMessage msg) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("$user: ", style: const TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold, fontSize: 13)),
-          Expanded(child: Text(msg, style: const TextStyle(color: Colors.white, fontSize: 13))),
+          CircleAvatar(
+            radius: 8,
+            backgroundImage: NetworkImage(msg.senderPhoto ?? "https://i.pravatar.cc/100?u=${msg.senderId}"),
+          ),
+          const SizedBox(width: 8),
+          Text("${msg.senderName}: ", style: const TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold, fontSize: 13)),
+          Expanded(child: Text(msg.text, style: const TextStyle(color: Colors.white, fontSize: 13))),
         ],
       ),
     );
   }
 
-  Widget _buildChatInput() {
+  Widget _buildChatInput(Tenant? tenant) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(25),
       ),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: TextField(
-              style: TextStyle(color: Colors.white),
-              decoration: InputDecoration(
+              controller: _chatCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
                 hintText: "Say something...",
                 hintStyle: TextStyle(color: Colors.white24),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(horizontal: 20),
               ),
+              onSubmitted: (_) => _handleSendMessage(tenant),
             ),
           ),
           IconButton(
             icon: const Icon(LucideIcons.send, color: Color(0xFFFFD700), size: 20),
-            onPressed: () {},
+            onPressed: () => _handleSendMessage(tenant),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _handleSendMessage(Tenant? tenant) async {
+    if (tenant == null || _chatCtrl.text.trim().isEmpty) return;
+
+    final profile = ref.read(profileProvider).value;
+    final message = _chatCtrl.text.trim();
+    _chatCtrl.clear();
+
+    try {
+      await ref.read(liveChatServiceProvider).sendLiveMessage(
+        tenantId: tenant.id,
+        content: message,
+        userName: profile?.name ?? "Believer",
+        userPhoto: "https://i.pravatar.cc/100?u=${profile?.id ?? '1'}",
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed to send message")));
+      }
+    }
   }
 }

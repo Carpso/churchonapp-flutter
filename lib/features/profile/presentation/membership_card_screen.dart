@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/services/tenant_service.dart';
-import '../../../core/providers/profile_provider.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
 
 class MembershipCardScreen extends ConsumerWidget {
   const MembershipCardScreen({super.key});
@@ -69,14 +69,14 @@ class MembershipCardScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Stack(
         children: [
           Positioned(
             right: -50,
             top: -50,
-            child: Icon(LucideIcons.flame, size: 200, color: Colors.white.withOpacity(0.05)),
+            child: Icon(LucideIcons.flame, size: 200, color: Colors.white.withValues(alpha: 0.05)),
           ),
           Padding(
             padding: const EdgeInsets.all(30),
@@ -97,7 +97,7 @@ class MembershipCardScreen extends ConsumerWidget {
                 const Spacer(),
                 Text(name.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
                 const SizedBox(height: 5),
-                Text("MEMBER ID: $memberId", style: TextStyle(color: const Color(0xFFFFD700).withOpacity(0.8), fontSize: 10, fontWeight: FontWeight.bold)),
+                Text("MEMBER ID: $memberId", style: TextStyle(color: const Color(0xFFFFD700).withValues(alpha: 0.8), fontSize: 10, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 15),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

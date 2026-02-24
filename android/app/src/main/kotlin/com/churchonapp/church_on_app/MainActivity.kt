@@ -1,4 +1,4 @@
-package com.churchonapp.church_on_app
+package com.churchonapp.app
 
 import io.flutter.embedding.android.FlutterActivity
 

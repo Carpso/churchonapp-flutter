@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:vector_map_tiles/vector_map_tiles.dart';
-import 'package:vector_map_tiles_pmtiles/vector_map_tiles_pmtiles.dart';
-import 'package:vector_tile_renderer/vector_tile_renderer.dart' as renderer;
 import 'package:lucide_icons/lucide_icons.dart';
 
+/// A reusable map widget that uses OpenStreetMap tiles for full street/location display.
+/// Falls back gracefully if tiles can't load.
 class ChurchMap extends StatefulWidget {
   final LatLng center;
   final double zoom;
   final List<Marker> markers;
   final List<LatLng>? path;
+  final bool darkMode;
 
   const ChurchMap({
     super.key,
-    this.center = const LatLng(-15.3875, 28.3228), // Lusaka
+    this.center = const LatLng(-15.3875, 28.3228), // Lusaka default
     this.zoom = 14,
     this.markers = const [],
     this.path,
+    this.darkMode = false,
   });
 
   @override
@@ -34,96 +35,76 @@ class _ChurchMapState extends State<ChurchMap> {
       options: MapOptions(
         initialCenter: widget.center,
         initialZoom: widget.zoom,
+        maxZoom: 18,
+        minZoom: 3,
       ),
       children: [
+        // OpenStreetMap tile layer - shows real streets, buildings, locations
         TileLayer(
-          urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-          subdomains: const ['a', 'b', 'c'],
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.churchonapp.church_on_app',
+          maxZoom: 18,
+          tileBuilder: widget.darkMode ? _darkModeTileBuilder : null,
         ),
+        // Route polyline
         if (widget.path != null && widget.path!.isNotEmpty)
           PolylineLayer(
             polylines: [
               Polyline(
                 points: widget.path!,
-                color: Theme.of(context).primaryColor.withOpacity(0.6),
-                strokeWidth: 6,
-              ),
-              Polyline(
-                points: widget.path!,
-                color: Colors.white.withOpacity(0.8),
-                strokeWidth: 2,
+                color: Theme.of(context).primaryColor,
+                strokeWidth: 5,
+                borderColor: Colors.white,
+                borderStrokeWidth: 2,
               ),
             ],
           ),
+        // Markers
         MarkerLayer(markers: widget.markers),
       ],
     );
   }
 
-  renderer.Theme _getSunflowerVectorTheme() {
-    // Custom vector theme to match the Sunflower style (dark with yellow accents)
-    return renderer.ThemeReader().read({
-      "version": 8,
-      "layers": [
-        {
-          "id": "background",
-          "type": "background",
-          "paint": {"background-color": "#0f172a"}
-        },
-        {
-          "id": "roads",
-          "type": "line",
-          "source": "source",
-          "source-layer": "transportation",
-          "paint": {
-            "line-color": "#fbbf24",
-            "line-width": 1.0,
-            "line-opacity": 0.4
-          }
-        },
-        {
-          "id": "water",
-          "type": "fill",
-          "source": "source",
-          "source-layer": "water",
-          "paint": {"fill-color": "#1e293b"}
-        },
-        {
-          "id": "building",
-          "type": "fill",
-          "source": "source",
-          "source-layer": "building",
-          "paint": {
-            "fill-color": "#334155",
-            "fill-opacity": 0.2
-          }
-        }
-      ]
-    });
+  Widget _darkModeTileBuilder(BuildContext context, Widget tileWidget, TileImage tile) {
+    return ColorFiltered(
+      colorFilter: const ColorFilter.matrix([
+        -0.8, 0, 0, 0, 200,
+        0, -0.8, 0, 0, 200,
+        0, 0, -0.8, 0, 200,
+        0, 0, 0, 1, 0,
+      ]),
+      child: tileWidget,
+    );
   }
 }
 
-Marker buildChurchMarker({required LatLng point, required String name, required Color color}) {
+Marker buildChurchMarker({required LatLng point, required String name, required Color color, String? logoUrl}) {
   return Marker(
     point: point,
-    width: 80,
-    height: 80,
+    width: 100,
+    height: 100,
     child: Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: color,
+            color: Colors.white,
             shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10)],
+            boxShadow: [BoxShadow(color: Colors.black.withAlpha(51), blurRadius: 10)],
+            border: Border.all(color: color, width: 2),
           ),
-          child: const Icon(LucideIcons.church, color: Colors.black, size: 24),
+          child: CircleAvatar(
+            radius: 20,
+            backgroundColor: Colors.white,
+            backgroundImage: logoUrl != null ? NetworkImage(logoUrl) : null,
+            child: logoUrl == null ? Icon(LucideIcons.church, color: color, size: 20) : null,
+          ),
         ),
         const SizedBox(height: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.8),
+            color: Colors.black.withAlpha(204),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
@@ -149,7 +130,7 @@ Marker buildRideMarker({required LatLng point, required Color color}) {
         color: color,
         shape: BoxShape.circle,
         border: Border.all(color: Colors.black, width: 2),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10)],
       ),
       child: const Icon(LucideIcons.car, color: Colors.black, size: 20),
     ),
@@ -168,7 +149,7 @@ Marker buildUserMarker({required LatLng point}) {
           width: 30,
           height: 30,
           decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.2),
+            color: Colors.blue.withValues(alpha: 0.2),
             shape: BoxShape.circle,
           ),
         ),
@@ -179,6 +160,42 @@ Marker buildUserMarker({required LatLng point}) {
             color: Colors.blue,
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 2),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Marker buildBusStopMarker({required LatLng point, required String name}) {
+  return Marker(
+    point: point,
+    width: 80,
+    height: 80,
+    child: Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.orange,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [BoxShadow(color: Colors.orange.withValues(alpha: 0.3), blurRadius: 8)],
+          ),
+          child: const Icon(LucideIcons.bus, color: Colors.white, size: 16),
+        ),
+        const SizedBox(height: 2),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.black87,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            name,
+            style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],

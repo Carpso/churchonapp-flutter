@@ -126,7 +126,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Widget _buildPage(OnboardingData data) {
-    return Padding(
+    bool isDark = data.color.computeLuminance() < 0.5;
+    return Container(
+      color: data.color,
       padding: const EdgeInsets.all(40.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -134,10 +136,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           Container(
             padding: const EdgeInsets.all(40),
             decoration: BoxDecoration(
-              color: data.color.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: Icon(data.icon, size: 100, color: data.color),
+            child: Icon(data.icon, size: 100, color: Colors.white),
           ),
           const SizedBox(height: 60),
           Text(
@@ -146,7 +148,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             style: GoogleFonts.plusJakartaSans(
               fontSize: 32,
               fontWeight: FontWeight.w900,
-              color: const Color(0xFF1A1A1A),
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 20),
@@ -155,7 +157,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 16,
-              color: Colors.grey.shade600,
+              color: Colors.white.withValues(alpha: 0.8),
               height: 1.6,
             ),
           ),

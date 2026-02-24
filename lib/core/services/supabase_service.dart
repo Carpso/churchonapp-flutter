@@ -1,14 +1,12 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../config/env.dart';
 
 class SupabaseService {
-  static const String supabaseUrl = 'https://db.churchonapp.com';
-  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwicmVmIjoic3RyZWFtLWNvcmUiLCJpYXQiOjE3NzA5MDI0MTAsImV4cCI6MjA4NjQ3ODQxMH0.pADzepoU8o3c2-dggmyyFLwLDYR7pfd2BlYWdQK7lMQ';
-
   static Future<void> initialize() async {
     await Supabase.initialize(
-      url: supabaseUrl,
-      anonKey: supabaseAnonKey,
+      url: Env.supabaseUrl,
+      anonKey: Env.supabaseAnonKey,
     );
   }
 

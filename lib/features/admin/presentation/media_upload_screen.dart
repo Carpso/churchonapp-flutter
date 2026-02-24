@@ -180,7 +180,7 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.5), style: BorderStyle.none), // Should be dashed in real CSS
+        border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.5), style: BorderStyle.none), // Should be dashed in real CSS
       ),
       child: Column(
         children: [

@@ -7,6 +7,10 @@ class Sermon {
   final String preacher;
   final String thumbnailUrl;
   final String videoUrl;
+  final bool isLive;
+  final int viewerCount;
+  final String? transcript;
+  final String? aiSummary;
   final DateTime createdAt;
 
   Sermon({
@@ -15,6 +19,10 @@ class Sermon {
     required this.preacher,
     required this.thumbnailUrl,
     required this.videoUrl,
+    this.isLive = false,
+    this.viewerCount = 0,
+    this.transcript,
+    this.aiSummary,
     required this.createdAt,
   });
 
@@ -25,6 +33,10 @@ class Sermon {
       preacher: map['preacher'] ?? 'Unknown Preacher',
       thumbnailUrl: map['thumbnail_url'] ?? 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800&q=80',
       videoUrl: map['video_url'] ?? '',
+      isLive: map['is_live'] ?? false,
+      viewerCount: map['viewer_count'] ?? 0,
+      transcript: map['transcript'],
+      aiSummary: map['ai_summary'],
       createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
@@ -63,6 +75,26 @@ class SermonService {
           createdAt: DateTime.now(),
         ),
       ];
+    }
+  }
+
+  Future<List<Sermon>> searchSermons(String query) async {
+    try {
+      final response = await _client
+          .from('sermons')
+          .select()
+          .textSearch('fts', query, config: 'english')
+          .order('created_at', ascending: false);
+      
+      return (response as List).map((s) => Sermon.fromMap(s)).toList();
+    } catch (e) {
+      // Fallback to simple ILIKE if FTS fails or isn't set up yet
+      final response = await _client
+          .from('sermons')
+          .select()
+          .or('title.ilike.%$query%,preacher.ilike.%$query%,transcript.ilike.%$query%')
+          .order('created_at', ascending: false);
+      return (response as List).map((s) => Sermon.fromMap(s)).toList();
     }
   }
 }

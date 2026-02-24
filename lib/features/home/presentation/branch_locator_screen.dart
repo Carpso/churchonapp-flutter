@@ -1,44 +1,117 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../../../core/services/tenant_service.dart';
 import '../../../core/widgets/church_map.dart';
+import 'package:flutter_map/flutter_map.dart';
 
-class BranchLocatorScreen extends StatelessWidget {
+class BranchLocatorScreen extends ConsumerStatefulWidget {
   const BranchLocatorScreen({super.key});
+
+  @override
+  ConsumerState<BranchLocatorScreen> createState() => _BranchLocatorScreenState();
+}
+
+class _BranchLocatorScreenState extends ConsumerState<BranchLocatorScreen> {
+  List<Tenant> _churches = [];
+  bool _loading = true;
+  Position? _currentPosition;
+
+  @override
+  void initState() {
+    super.initState();
+    _initRadar();
+  }
+
+  Future<void> _initRadar() async {
+    try {
+      // 1. Get Location
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      
+      final pos = await Geolocator.getCurrentPosition();
+      setState(() => _currentPosition = pos);
+
+      // 2. Fetch Nearby from VPS
+      final churches = await ref.read(tenantServiceProvider).getNearbyChurches(pos.latitude, pos.longitude);
+      
+      if (mounted) {
+        setState(() {
+          _churches = churches;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error in radar: $e');
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
-        title: const Text("Kingdom Branches"),
+        title: const Text("Kingdom Branches", style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        elevation: 0,
       ),
       body: Stack(
         children: [
-          const ChurchMap(), // Reusing the map widget
+          ChurchMap(
+            markers: _churches.map((church) {
+              return buildChurchMarker(
+                point: LatLng(church.latitude ?? -15.38, church.longitude ?? 28.32),
+                name: church.name,
+                color: const Color(0xFFFFD700),
+                logoUrl: church.logoUrl,
+              );
+            }).toList() + [
+              if (_currentPosition != null)
+                buildUserMarker(point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude)),
+            ],
+          ),
           DraggableScrollableSheet(
             initialChildSize: 0.4,
             minChildSize: 0.4,
             maxChildSize: 0.9,
             builder: (context, scrollController) {
               return Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
+                  boxShadow: [BoxShadow(color: Colors.black.withAlpha(25), blurRadius: 20)],
                 ),
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.all(25),
-                  children: [
-                    Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)))),
-                    const SizedBox(height: 25),
-                    const Text("Branches Near You", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 20),
-                    _buildBranchTile("Calvary Main Campus", "12 Independence Ave, Lusaka", "1.2 km away"),
-                    _buildBranchTile("Grace Chapel West", "Sunset Blvd, Kitwe", "4.5 km away"),
-                    _buildBranchTile("Faith Center South", "New Market Road, Ndola", "12.8 km away"),
-                  ],
-                ),
+                child: _loading 
+                  ? const Center(child: CircularProgressIndicator(color: Colors.amber))
+                  : ListView.builder(
+                      controller: scrollController,
+                      padding: const EdgeInsets.all(25),
+                      itemCount: _churches.length + 1,
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)))),
+                              const SizedBox(height: 25),
+                              const Text("Branches Near You", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 20),
+                            ],
+                          );
+                        }
+                        final church = _churches[index - 1];
+                        return _buildBranchTile(
+                          church.name, 
+                          "Lusaka, Zambia", 
+                          "Nearby"
+                        );
+                      },
+                    ),
               );
             },
           ),

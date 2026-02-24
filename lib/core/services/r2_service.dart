@@ -1,12 +1,15 @@
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/supabase_service.dart';
+import '../config/env.dart';
 
 class R2Service {
   // These are often handled by Supabase Edge Functions for security,
   // but if needed client-side, we use presigned URLs.
   
-  static const String publicDomain = "media.church-on-app.com";
+  static String get publicDomain => Env.r2PublicDomain;
 
   final SupabaseClient _client;
   R2Service(this._client);
@@ -50,3 +53,8 @@ class R2Service {
     return 'application/octet-stream';
   }
 }
+
+final r2ServiceProvider = Provider((ref) {
+  final client = ref.watch(supabaseServiceProvider).client;
+  return R2Service(client);
+});

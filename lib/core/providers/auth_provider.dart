@@ -32,11 +32,22 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> signUp(String email, String password, String name) async {
     state = AuthState(user: state.user, isLoading: true);
     try {
-      await _client.auth.signUp(
+      final res = await _client.auth.signUp(
         email: email,
         password: password,
         data: {'full_name': name},
       );
+      
+      if (res.user != null) {
+        // Create profile entry
+        await _client.from('profiles').upsert({
+          'id': res.user!.id,
+          'full_name': name,
+          'role': 'member',
+          'coins': 500, // Welcome coins
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
     } catch (e) {
       state = AuthState(user: state.user, isLoading: false);
       rethrow;

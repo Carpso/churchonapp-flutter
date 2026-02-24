@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/providers/profile_provider.dart';
 import 'giving_screen.dart';
 import 'transaction_page.dart';
+import 'payout_request_screen.dart';
 
 class WalletScreen extends ConsumerWidget {
   const WalletScreen({super.key});
@@ -51,7 +52,7 @@ class WalletScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).primaryColor.withOpacity(0.3),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -64,7 +65,7 @@ class WalletScreen extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text("TOTAL BALANCE", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-              Icon(LucideIcons.wallet, color: Colors.white.withOpacity(0.8), size: 24),
+              Icon(LucideIcons.wallet, color: Colors.white.withValues(alpha: 0.8), size: 24),
             ],
           ),
           const SizedBox(height: 15),
@@ -75,7 +76,7 @@ class WalletScreen extends ConsumerWidget {
           const SizedBox(height: 15),
           Row(
             children: [
-              Icon(LucideIcons.shieldCheck, color: Colors.white.withOpacity(0.8), size: 16),
+              Icon(LucideIcons.shieldCheck, color: Colors.white.withValues(alpha: 0.8), size: 16),
               const SizedBox(width: 5),
               const Text("Encrypted & Secure", style: TextStyle(color: Colors.white70, fontSize: 12)),
             ],
@@ -109,12 +110,7 @@ class WalletScreen extends ConsumerWidget {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const GivingScreen()));
         }),
         _buildActionButton(context, LucideIcons.arrowDownLeft, "Withdraw", onTap: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const TransactionPage(
-            title: "Withdraw",
-            description: "Withdraw your coins to your connected bank or mobile money account.",
-            icon: LucideIcons.arrowDownLeft,
-            color: Colors.red,
-          )));
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const PayoutRequestScreen()));
         }),
       ],
     );
@@ -132,7 +128,7 @@ class WalletScreen extends ConsumerWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 5),
                 ),
@@ -174,7 +170,7 @@ class WalletScreen extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: t["isAdd"] == true ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                  color: t["isAdd"] == true ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(

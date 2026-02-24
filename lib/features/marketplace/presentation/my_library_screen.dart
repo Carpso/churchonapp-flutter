@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 // Theme via context
 import '../data/marketplace_service.dart';
+import '../../../core/widgets/pdf_viewer_screen.dart';
 
 class LibraryItem {
   final String id;
@@ -50,7 +51,7 @@ class MyLibraryScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,7 +71,17 @@ class MyLibraryScreen extends ConsumerWidget {
                 const SizedBox(height: 10),
                 ElevatedButton(
                   onPressed: () {
-                    // Logic to open PDF/Reader
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PDFViewerScreen(
+                          url: item.downloadUrl.isNotEmpty 
+                              ? item.downloadUrl 
+                              : "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", // Mock PDF
+                          title: item.title,
+                        ),
+                      ),
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).primaryColor,
@@ -96,7 +107,7 @@ class MyLibraryScreen extends ConsumerWidget {
           const Icon(LucideIcons.bookOpen, size: 50, color: Colors.grey),
           const SizedBox(height: 20),
           const Text("Library is empty", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-          Text("Books you purchase will appear here", style: TextStyle(color: Colors.grey.withOpacity(0.6))),
+          Text("Books you purchase will appear here", style: TextStyle(color: Colors.grey.withValues(alpha: 0.6))),
         ],
       ),
     );

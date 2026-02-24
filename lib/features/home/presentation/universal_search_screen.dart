@@ -117,7 +117,7 @@ class _UniversalSearchScreenState extends State<UniversalSearchScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
                 child: Icon(item['icon'], color: Theme.of(context).primaryColor, size: 20),
               ),
               const SizedBox(width: 15),

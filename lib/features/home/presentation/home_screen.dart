@@ -1,36 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/providers/profile_provider.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import '../../../core/widgets/kingdom_logo.dart';
-import '../../../core/services/supabase_service.dart';
+import 'package:church_on_app/core/widgets/kingdom_logo.dart';
+import 'package:church_on_app/core/services/supabase_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
+import '../data/live_streaming_service.dart';
+import '../data/news_service.dart';
 import '../data/sermon_service.dart';
 import '../widgets/news_ticker.dart';
+import '../widgets/announcement_ticker.dart';
 import 'sermon_player_screen.dart';
 import 'live_stream_screen.dart';
+import 'news_detail_screen.dart';
 import 'sermon_library_screen.dart';
 import 'event_hub_screen.dart';
 import 'universal_search_screen.dart';
-import '../../finance/presentation/giving_screen.dart';
-import '../../transport/presentation/ride_request_screen.dart';
-import '../../marketplace/presentation/marketplace_screen.dart';
-import '../../connect/presentation/prayer_wall_screen.dart';
+import 'package:church_on_app/features/finance/presentation/giving_screen.dart';
+import 'package:church_on_app/features/transport/presentation/ride_request_screen.dart';
+import 'package:church_on_app/features/marketplace/presentation/marketplace_screen.dart';
+import 'package:church_on_app/features/bible/presentation/bible_screen.dart';
+import 'package:church_on_app/features/connect/presentation/prayer_wall_screen.dart';
+import 'package:church_on_app/features/notebook/presentation/notebook_screen.dart';
 import 'branch_locator_screen.dart';
+import 'package:church_on_app/features/auth/presentation/select_church_screen.dart';
 import 'notifications_screen.dart';
-import '../../navigation/presentation/ride_on_scanner_screen.dart';
-import '../../modules/navigation/presentation/more_hub_screen.dart';
-import '../data/news_service.dart';
-import '../data/live_streaming_service.dart';
-import '../../../core/services/tenant_service.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:church_on_app/features/navigation/presentation/ride_on_scanner_screen.dart';
+import 'package:church_on_app/features/modules/logistics/presentation/weather_maps_screen.dart';
+import 'package:church_on_app/features/modules/bible_quiz/presentation/bible_quiz_hub_screen.dart';
+import 'package:church_on_app/features/modules/navigation/presentation/more_hub_screen.dart';
+import 'sermon_notes_screen.dart';
+import 'song_lyrics_screen.dart';
+import 'package:church_on_app/features/modules/media/presentation/kingdom_radio_screen.dart';
+import 'package:church_on_app/features/connect/presentation/create_social_post_screen.dart';
 
-class HomeScreen extends ConsumerWidget {
+import 'package:church_on_app/core/services/notification_service.dart';
+
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final tenant = ref.read(currentTenantProvider);
+      if (tenant != null) {
+        ref.read(notificationServiceProvider).init();
+        ref.read(notificationServiceProvider).listenForAnnouncements(tenant.id);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final supabase = ref.watch(supabaseServiceProvider);
     final tenant = ref.watch(currentTenantProvider);
     final liveStatus = tenant != null 
@@ -43,19 +73,19 @@ class HomeScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildTopBar(context),
+              _buildTopBar(context, tenant),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const NewsTicker(text: "🔴 LIVE NOW: Sunday Service — Join the broadcast!   •   Upcoming: Youth Camp 2026   •   Bible Study at 18:00"),
+                    const AnnouncementTicker(),
                     const SizedBox(height: 20),
-                    _buildGreetingHeader(context, ref),
+                    _buildGreetingHeader(context),
                     const SizedBox(height: 20),
-                    _buildSmartReminder(context),
+                    if (tenant == null) _buildSmartReminder(context),
                     const SizedBox(height: 20),
-                    _buildContextualWidget(context, liveStatus),
+                    _buildContextualWidget(context, liveStatus, tenant),
                     const SizedBox(height: 30),
                     _buildQuickActions(context),
                     const SizedBox(height: 30),
@@ -64,12 +94,19 @@ class HomeScreen extends ConsumerWidget {
                     _buildSectionTitle(context, "Sparkle Picks"),
                     _buildSparkleGrid(context),
                     const SizedBox(height: 30),
-                    _buildLatestSermon(context, ref),
+                    _buildLatestSermon(context),
                     const SizedBox(height: 30),
                     _buildEventTimeline(context),
                     const SizedBox(height: 30),
                     _buildSectionTitle(context, "Kingdom News"),
-                    _buildKingdomNews(context, ref),
+                    const Padding(
+                      padding: EdgeInsets.only(left: 10, bottom: 15),
+                      child: Text(
+                        "Disclaimer: Church On App is not affiliated with any news providers. All content belongs to respective owners.",
+                        style: TextStyle(fontSize: 9, color: Colors.grey, fontStyle: FontStyle.italic),
+                      ),
+                    ),
+                    _buildKingdomNews(context),
                     const SizedBox(height: 100), // Space for FAB
                   ],
                 ),
@@ -78,45 +115,91 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen())),
+        backgroundColor: Theme.of(context).primaryColor,
+        child: Icon(LucideIcons.plus, color: Theme.of(context).colorScheme.secondary),
+      ),
     );
   }
 
-  Widget _buildTopBar(BuildContext context) {
+  String _abbreviateChurchName(String name) {
+    final words = name.split(' ');
+    if (words.length <= 2) return name;
+    return '${words[0]} ${words[1]}';
+  }
+
+  Widget _buildTopBar(BuildContext context, Tenant? tenant) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const KingdomLogo(size: 32),
+          GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SelectChurchScreen())),
+            child: Row(
+              children: [
+                const KingdomLogo(size: 32),
+                if (tenant != null) ...[
+                  const SizedBox(width: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 120),
+                    child: Text(
+                      _abbreviateChurchName(tenant.name),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
+              GestureDetector(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const WeatherMapsScreen())),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.3), blurRadius: 8)],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(LucideIcons.sun, color: Colors.white, size: 14),
+                      SizedBox(width: 4),
+                      Text("28°C", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                    ],
+                  ),
+                ),
+              ),
               IconButton(
                 icon: const Icon(LucideIcons.bell, size: 20),
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationsScreen())),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               ),
               IconButton(
                 icon: const Icon(LucideIcons.search, size: 20),
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UniversalSearchScreen())),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               ),
               IconButton(
                 icon: Icon(LucideIcons.layoutGrid, size: 20, color: Theme.of(context).primaryColor),
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MoreHubScreen())),
-              ),
-              const SizedBox(width: 5),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.3), blurRadius: 8)],
-                ),
-                child: const Row(
-                  children: [
-                    Icon(LucideIcons.sun, color: Colors.white, size: 16),
-                    SizedBox(width: 8),
-                    Text("28°C", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                  ],
-                ),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               ),
             ],
           ),
@@ -125,7 +208,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildGreetingHeader(BuildContext context, WidgetRef ref) {
+  Widget _buildGreetingHeader(BuildContext context) {
     final profileAsync = ref.watch(profileProvider);
     
     return profileAsync.when(
@@ -148,8 +231,8 @@ class HomeScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(25),
-                border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+                border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.2)),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
               ),
               child: Row(
                 children: [
@@ -164,7 +247,7 @@ class HomeScreen extends ConsumerWidget {
                   CircleAvatar(
                     radius: 15,
                     backgroundColor: const Color(0xFFFFFAEB),
-                    child: Text("K", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic)),
+                    child: Text("CC", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w900, fontSize: 10, fontStyle: FontStyle.italic)),
                   )
                 ],
               ),
@@ -181,9 +264,9 @@ class HomeScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
+        border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -210,21 +293,26 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildContextualWidget(BuildContext context, LiveStreamStatus? liveStatus) {
+  Widget _buildContextualWidget(BuildContext context, LiveStreamStatus? liveStatus, Tenant? tenant) {
     final bool isLive = liveStatus?.isLive ?? false;
-    final String title = isLive ? (liveStatus?.title ?? "Live Service") : "Join our Sunday Experience";
-    final String subtitle = isLive ? "WE ARE LIVE NOW" : "SABBATH MORNING";
-    final String timeLabel = isLive ? "${liveStatus?.viewerCount ?? 0} watching" : "Starts in 45 mins";
+    final String title = isLive 
+        ? (liveStatus?.title ?? "Live Service") 
+        : (tenant != null ? "${tenant.name} Experience" : "Join our Sunday Experience");
+    final String subtitle = isLive ? "WE ARE LIVE NOW" : (tenant != null ? "GLORY TO GOD" : "SABBATH MORNING");
+    final String timeLabel = isLive 
+        ? "${liveStatus?.viewerCount ?? 0} watching" 
+        : (tenant != null ? "Next Service: Sunday 09:00" : "Starts in 45 mins");
 
+    final String bgImage = isLive 
+        ? "https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=800&q=80"
+        : (tenant?.logoUrl ?? "https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800&q=80");
     return Container(
       height: 200,
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(30),
         image: DecorationImage(
-          image: NetworkImage(isLive 
-            ? "https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=800&q=80"
-            : "https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800&q=80"),
+          image: NetworkImage(bgImage),
           fit: BoxFit.cover,
         ),
       ),
@@ -234,7 +322,7 @@ class HomeScreen extends ConsumerWidget {
           gradient: LinearGradient(
             begin: Alignment.bottomCenter,
             end: Alignment.topCenter,
-            colors: [Colors.black.withOpacity(0.8), Colors.transparent],
+            colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
           ),
         ),
         padding: const EdgeInsets.all(25),
@@ -252,7 +340,19 @@ class HomeScreen extends ConsumerWidget {
             Text(subtitle, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2)),
             const SizedBox(height: 5),
             Text(title, style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
+            const SizedBox(height: 15),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                   _buildDeepLink(context, LucideIcons.fileText, "Notes"),
+                   _buildDeepLink(context, LucideIcons.music, "Lyrics"),
+                   _buildDeepLink(context, LucideIcons.flame, "Prayer"),
+                   _buildDeepLink(context, LucideIcons.heart, "Giving"),
+                ],
+              ),
+            ),
+            const SizedBox(height: 15),
             Row(
               children: [
                 Icon(isLive ? LucideIcons.users : LucideIcons.clock, color: Colors.white70, size: 14),
@@ -298,10 +398,14 @@ class HomeScreen extends ConsumerWidget {
     final actions = [
       {"icon": LucideIcons.qrCode, "label": "Check-in", "color": Colors.purple},
       {"icon": LucideIcons.bookOpen, "label": "Sermons", "color": Colors.blue},
+      {"icon": LucideIcons.radio, "label": "Radio", "color": Colors.pink},
+      {"icon": LucideIcons.helpCircle, "label": "Bible Quiz", "color": Colors.indigo},
+      {"icon": LucideIcons.book, "label": "Bible", "color": Colors.green},
       {"icon": LucideIcons.calendar, "label": "Events", "color": Colors.orange},
       {"icon": LucideIcons.heart, "label": "Giving", "color": Colors.red},
       {"icon": LucideIcons.flame, "label": "Prayer", "color": Colors.deepOrange},
-      {"icon": LucideIcons.map, "label": "Branches", "color": Colors.teal},
+      {"icon": LucideIcons.penTool, "label": "Notebook", "color": Colors.teal},
+      {"icon": LucideIcons.mapPin, "label": "Branches", "color": Colors.brown},
     ];
 
     return Column(
@@ -320,6 +424,10 @@ class HomeScreen extends ConsumerWidget {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const GivingScreen()));
                   } else if (actions[index]['label'] == "Prayer") {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const PrayerWallScreen()));
+                  } else if (actions[index]['label'] == "Bible Quiz") {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const BibleQuizHubScreen()));
+                  } else if (actions[index]['label'] == "Bible") {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const BibleScreen())); 
                   } else if (actions[index]['label'] == "Check-in") {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const RideOnScannerScreen()));
                   } else if (actions[index]['label'] == "Sermons") {
@@ -328,6 +436,10 @@ class HomeScreen extends ConsumerWidget {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const EventHubScreen()));
                   } else if (actions[index]['label'] == "Branches") {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const BranchLocatorScreen()));
+                  } else if (actions[index]['label'] == "Notebook") {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const NotebookScreen()));
+                  } else if (actions[index]['label'] == "Radio") {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const KingdomRadioScreen()));
                   }
                 },
                 child: Container(
@@ -335,12 +447,12 @@ class HomeScreen extends ConsumerWidget {
                   margin: const EdgeInsets.only(right: 15),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [(actions[index]['color'] as Color).withOpacity(0.8), actions[index]['color'] as Color],
+                      colors: [(actions[index]['color'] as Color).withValues(alpha: 0.8), actions[index]['color'] as Color],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: [BoxShadow(color: (actions[index]['color'] as Color).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+                    boxShadow: [BoxShadow(color: (actions[index]['color'] as Color).withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4))],
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -365,7 +477,7 @@ class HomeScreen extends ConsumerWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
+        border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.2)),
         image: const DecorationImage(
           image: NetworkImage("https://images.unsplash.com/photo-1510133755869-79a639739569?w=800&q=80"),
           fit: BoxFit.cover,
@@ -373,16 +485,36 @@ class HomeScreen extends ConsumerWidget {
       ),
       child: Stack(
         children: [
+          // Dark gradient overlay for visibility
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(25),
+                gradient: LinearGradient(
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.2),
+                    Colors.black.withValues(alpha: 0.7),
+                  ],
+                ),
+              ),
+            ),
+          ),
           Positioned(
             bottom: 20,
             left: 20,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("SPECIAL OFFER", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 5),
-                const Text("Ministry Books - 20% Off", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                Text("Redeem with Church Coins", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(8)),
+                  child: const Text("SPECIAL OFFER", style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.w900)),
+                ),
+                const SizedBox(height: 8),
+                const Text("Ministry Books - 20% Off", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                const Text("Redeem with Church Coins", style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -408,7 +540,7 @@ class HomeScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,7 +570,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildLatestSermon(BuildContext context, WidgetRef ref) {
+  Widget _buildLatestSermon(BuildContext context) {
     final sermonsAsync = ref.watch(latestSermonsProvider);
 
     return Column(
@@ -518,13 +650,13 @@ class HomeScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 5)],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
             child: Icon(icon, color: Theme.of(context).primaryColor, size: 20),
           ),
           const SizedBox(width: 15),
@@ -540,15 +672,27 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildKingdomNews(BuildContext context, WidgetRef ref) {
-    final newsAsync = ref.watch(newsProvider);
+  Widget _buildKingdomNews(BuildContext context) {
+    final publicNewsAsync = ref.watch(publicNewsProvider);
+    final kingdomNewsAsync = ref.watch(kingdomNewsStreamProvider);
 
-    return newsAsync.when(
-      data: (articles) => Column(
-        children: articles.take(4).map((article) => _buildNewsCard(context, article)).toList(),
-      ),
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => const Text("Unable to load latest news"),
+    return Column(
+      children: [
+        kingdomNewsAsync.when(
+          data: (news) => Column(
+            children: news.map((article) => _buildNewsCard(context, article)).toList(),
+          ),
+          loading: () => const CircularProgressIndicator(),
+          error: (_, __) => const SizedBox.shrink(),
+        ),
+        publicNewsAsync.when(
+          data: (news) => Column(
+            children: news.take(4).map((article) => _buildNewsCard(context, article)).toList(),
+          ),
+          loading: () => const SizedBox.shrink(),
+          error: (e, s) => Text("Error loading public news: $e"),
+        ),
+      ],
     );
   }
 
@@ -558,10 +702,16 @@ class HomeScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
       child: InkWell(
-        onTap: () => launchUrl(Uri.parse(article.link)),
+        onTap: () {
+          if (article.isLocal) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => NewsDetailScreen(article: article)));
+          } else {
+            launchUrl(Uri.parse(article.link));
+          }
+        },
         borderRadius: BorderRadius.circular(20),
         child: Row(
           children: [
@@ -621,6 +771,36 @@ class HomeScreen extends ConsumerWidget {
           const SizedBox(width: 10),
           Text(title, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.secondary)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDeepLink(BuildContext context, IconData icon, String label) {
+    return Container(
+      margin: const EdgeInsets.only(right: 10),
+      child: ElevatedButton.icon(
+        onPressed: () {
+          if (label == "Giving") {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const GivingScreen()));
+          } else if (label == "Prayer") {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const PrayerWallScreen()));
+          } else if (label == "Notes") {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const SermonNotesScreen()));
+          } else if (label == "Lyrics") {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const SongLyricsScreen()));
+          } else if (label == "Connect") {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Connecting to Communities...")));
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Opening $label..."), behavior: SnackBarBehavior.floating));
+          }
+        },
+        icon: Icon(icon, color: Colors.white, size: 14),
+        label: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white12,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        ),
       ),
     );
   }

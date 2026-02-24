@@ -10,7 +10,7 @@ class FinanceDashboardScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
-        title: const Text("Financial Oversight"),
+        title: const Text("Financial Oversight", style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(25),
@@ -21,15 +21,16 @@ class FinanceDashboardScreen extends StatelessWidget {
             const SizedBox(height: 30),
             const Text("Stewardship Analytics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
-            _buildChartCard("Monthly Giving (GHS)", _buildLineChart()),
+            _buildChartCard("Monthly Giving (K)", _buildLineChart()),
             const SizedBox(height: 20),
             _buildChartCard("Contribution Breakdown", _buildPieChart()),
             const SizedBox(height: 30),
             const Text("Recent Transactions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
-            _buildTransactionItem("Tithe - John D.", "₵ 1,200", "10 mins ago", Colors.green),
-            _buildTransactionItem("Marketplace - Bible", "₵ 150", "25 mins ago", Colors.blue),
-            _buildTransactionItem("Offering - Sunday", "₵ 4,500", "2 hours ago", Colors.orange),
+            _buildTransactionItem("Tithe - John Mwansa", "K 1,200", "15 mins ago", Colors.green),
+            _buildTransactionItem("Marketplace - Bible", "K 150", "30 mins ago", Colors.blue),
+            _buildTransactionItem("Offering - Sunday", "K 4,500", "2 hours ago", Colors.orange),
+            _buildTransactionItem("Mission - Global", "K 2,500", "5 hours ago", Colors.purple),
           ],
         ),
       ),
@@ -41,9 +42,9 @@ class FinanceDashboardScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -56,24 +57,25 @@ class FinanceDashboardScreen extends StatelessWidget {
                 children: [
                   Text("KINGDOM TREASURY", style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
                   SizedBox(height: 5),
-                  Text("₵ 124,500.00", style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),
+                  Text("K 245,500.00", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
                 ],
               ),
               Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: const Color(0xFFFFD700), borderRadius: BorderRadius.circular(15)),
-                child: const Icon(LucideIcons.landmark, color: Colors.black, size: 24),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+                child: const Icon(LucideIcons.landmark, color: Colors.blueAccent, size: 28),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 25),
           const Divider(color: Colors.white12),
-          const SizedBox(height: 10),
+          const SizedBox(height: 15),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildMiniStat("This Month", "₵ 12.4k", LucideIcons.trendingUp, Colors.green),
-              _buildMiniStat("Target", "₵ 15k", LucideIcons.target, Colors.orange),
+              _buildMiniStat("This Month", "K 12.4k", LucideIcons.trendingUp, Colors.green),
+              _buildMiniStat("Missions", "K 4.2k", LucideIcons.globe, Colors.purple),
+              _buildMiniStat("OpEx", "K 8.1k", LucideIcons.activity, Colors.orange),
             ],
           ),
         ],
@@ -89,7 +91,7 @@ class FinanceDashboardScreen extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+            Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
             Text(label, style: const TextStyle(color: Colors.white54, fontSize: 9)),
           ],
         ),
@@ -103,6 +105,7 @@ class FinanceDashboardScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,13 +135,13 @@ class FinanceDashboardScreen extends StatelessWidget {
               const FlSpot(10, 6),
             ],
             isCurved: true,
-            color: const Color(0xFFFFD700),
+            color: Colors.blueAccent,
             barWidth: 4,
             isStrokeCapRound: true,
             dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
-              color: const Color(0xFFFFD700).withOpacity(0.1),
+              color: Colors.blueAccent.withValues(alpha: 0.1),
             ),
           ),
         ],
@@ -152,8 +155,8 @@ class FinanceDashboardScreen extends StatelessWidget {
         sections: [
           PieChartSectionData(value: 40, title: 'Tithe', color: Colors.green, radius: 50, titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
           PieChartSectionData(value: 30, title: 'Offering', color: Colors.orange, radius: 50, titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-          PieChartSectionData(value: 20, title: 'Market', color: Colors.blue, radius: 50, titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-          PieChartSectionData(value: 10, title: 'Other', color: Colors.grey, radius: 50, titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+          PieChartSectionData(value: 20, title: 'Missions', color: Colors.purple, radius: 50, titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+          PieChartSectionData(value: 10, title: 'Market', color: Colors.blue, radius: 50, titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
         ],
         centerSpaceRadius: 40,
         sectionsSpace: 5,
@@ -165,12 +168,16 @@ class FinanceDashboardScreen extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.01), blurRadius: 5)],
+      ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
             child: Icon(LucideIcons.banknote, color: color, size: 18),
           ),
           const SizedBox(width: 15),
@@ -178,12 +185,12 @@ class FinanceDashboardScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(time, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(time, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
               ],
             ),
           ),
-          Text(amount, style: TextStyle(fontWeight: FontWeight.w900, color: color, fontSize: 15)),
+          Text(amount, style: TextStyle(fontWeight: FontWeight.w900, color: color, fontSize: 14)),
         ],
       ),
     );

@@ -5,6 +5,12 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 // Theme via context
 import '../data/marketplace_service.dart';
 import 'product_details_screen.dart';
+import 'post_product_screen.dart';
+import '../../finance/presentation/lenco_payment_gateway.dart';
+import '../../../core/services/tenant_service.dart';
+import '../../../core/widgets/shimmer_loader.dart';
+import '../../transport/data/transport_service.dart';
+import 'package:latlong2/latlong.dart';
 
 class MarketplaceScreen extends ConsumerStatefulWidget {
   const MarketplaceScreen({super.key});
@@ -83,11 +89,24 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                   },
                 );
               },
-              loading: () => Center(child: CircularProgressIndicator(color: Theme.of(context).primaryColor)),
+              loading: () => const ListSkeleton(),
               error: (err, stack) => _buildMockGrid(), // Fallback for prototype
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context, 
+            MaterialPageRoute(
+              builder: (context) => PostProductScreen(initialCategory: _selectedCategory == 'bookshop' ? 'bookshop' : null),
+            ),
+          );
+        },
+        backgroundColor: const Color(0xFF0F172A),
+        icon: const Icon(LucideIcons.plus, color: Colors.white),
+        label: Text(_selectedCategory == 'bookshop' ? "Sell a Book" : "List Item", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -110,7 +129,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               decoration: BoxDecoration(
                 color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.white,
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
+                border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.2)),
               ),
               child: Center(
                 child: Text(
@@ -130,7 +149,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   }
 
   Widget _buildCategoryRibbon() {
-    final categories = ["all", "books", "merch", "music", "tickets", "media"];
+    final categories = ["all", "bookshop", "apparel", "worship", "tickets", "media"];
     return Container(
       height: 40,
       margin: const EdgeInsets.only(bottom: 10),
@@ -146,7 +165,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               margin: const EdgeInsets.only(right: 10),
               padding: const EdgeInsets.symmetric(horizontal: 15),
               decoration: BoxDecoration(
-                color: isSelected ? Theme.of(context).primaryColor : Colors.white.withOpacity(0.5),
+                color: isSelected ? Theme.of(context).primaryColor : Colors.white.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Center(
@@ -175,7 +194,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
         ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,7 +238,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("${product.price.toInt()} CC", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w900, fontSize: 14)),
+                    Text("K ${product.price.toInt()}", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w900, fontSize: 14)),
                     GestureDetector(
                       onTap: () {
                         ref.read(cartProvider.notifier).addToCart(product);
@@ -252,7 +271,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
           const Icon(LucideIcons.shoppingBag, size: 50, color: Colors.grey),
           const SizedBox(height: 20),
           const Text("No items found", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-          Text("Try changing categories or tabs", style: TextStyle(color: Colors.grey.withOpacity(0.6))),
+          Text("Try changing categories or tabs", style: TextStyle(color: Colors.grey.withValues(alpha: 0.6))),
         ],
       ),
     );
@@ -260,10 +279,44 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
 
   Widget _buildMockGrid() {
     final mockProducts = [
-      MarketProduct(id: '1', name: "Study Bible", price: 150, category: "books", isCurated: true),
-      MarketProduct(id: '2', name: "Faith T-Shirt", price: 85, category: "merch"),
-      MarketProduct(id: '3', name: "Worship CD", price: 45, category: "music"),
-      MarketProduct(id: '4', name: "Conference Ticket", price: 200, category: "tickets"),
+      // Books & Bibles
+      MarketProduct(id: '1', name: "Dake Annotated Reference Bible", price: 450, category: "bookshop", isCurated: true, vendorName: "Kingdom Bookshop"),
+      MarketProduct(id: '5', name: "Purpose Driven Life Book", price: 200, category: "bookshop", vendorName: "Kingdom Bookshop"),
+      MarketProduct(id: '7', name: "NKJV Study Bible, Leather Bound", price: 350, category: "bookshop", vendorName: "Bible Society"),
+      MarketProduct(id: '8', name: "Morning & Evening by Spurgeon", price: 120, category: "bookshop", vendorName: "Grace Publishers"),
+      MarketProduct(id: '9', name: "My Bible Storybook for Kids", price: 90, category: "bookshop", vendorName: "Kingdom Kids"),
+      
+      // Apparel & Fashion
+      MarketProduct(id: '2', name: "Faith Over Fear Hoodie", price: 250, category: "apparel", vendorName: "Ziba Fashion"),
+      MarketProduct(id: '10', name: "Yahweh Embroidered Cap", price: 80, category: "apparel", vendorName: "Ziba Fashion"),
+      MarketProduct(id: '11', name: "Proverbs 31 Woman T-Shirt", price: 120, category: "apparel", vendorName: "Daughters of Zion"),
+      MarketProduct(id: '12', name: "Jesus Saves Denom Jacket", price: 450, category: "apparel", vendorName: "Street Preachers Apparel"),
+      MarketProduct(id: '13', name: "Armor of God Youth T-Shirt", price: 65, category: "apparel", vendorName: "Kingdom Kids"),
+
+      // Spiritual Tools & Elements
+      MarketProduct(id: '6', name: "Anointing Oil (Frankincense & Myrrh)", price: 65, category: "merch", vendorName: "Church Store"),
+      MarketProduct(id: '14', name: "Communion Wafer & Juice Set (100pk)", price: 300, category: "merch", vendorName: "Church Supply Co."),
+      MarketProduct(id: '15', name: "Olive Wood Prayer Cross", price: 45, category: "merch", vendorName: "Holy Land Crafts"),
+      MarketProduct(id: '16', name: "Shofar Ram's Horn", price: 800, category: "merch", vendorName: "Prophetic Instruments"),
+      MarketProduct(id: '17', name: "Clergy Collar & Shirt Set", price: 400, category: "merch", vendorName: "Clerical Wear Intl."),
+
+      // Gifts & Stationary (Pens, Journals, etc)
+      MarketProduct(id: '18', name: "Philippians 4:13 Engraved Metal Pen", price: 45, category: "merch", vendorName: "Kingdom Stationers"),
+      MarketProduct(id: '19', name: "Leather Prayer Journal", price: 110, category: "bookshop", vendorName: "Kingdom Stationers"),
+      MarketProduct(id: '20', name: "Scripture Coffee Mug", price: 75, category: "merch", vendorName: "Daily Bread Mugs"),
+      MarketProduct(id: '21', name: "Faith Mustard Seed Keychain", price: 35, category: "merch", vendorName: "Gift Corner"),
+      MarketProduct(id: '22', name: "Bible Verse Bookmarks (Set of 10)", price: 25, category: "merch", vendorName: "Kingdom Stationers"),
+      MarketProduct(id: '23', name: "Christian Refrigerator Magnets", price: 30, category: "merch", vendorName: "Gift Corner"),
+
+      // Worship & Media
+      MarketProduct(id: '3', name: "Oceans (Live Worship Anthems)", price: 85, category: "worship", vendorName: "Kingdom Radio"),
+      MarketProduct(id: '24', name: "Instrumental Prayer Music Vol 1", price: 60, category: "worship", vendorName: "Kingdom Radio"),
+      MarketProduct(id: '25', name: "Sermon Series: Book of Romans (Audio)", price: 150, category: "media", vendorName: "Church Media"),
+
+      // Events & Tickets
+      MarketProduct(id: '4', name: "Men of Valor Conference Ticket", price: 150, category: "tickets", isCurated: true, vendorName: "Admin Hub"),
+      MarketProduct(id: '26', name: "Women's Retreat 2026 Registration", price: 500, category: "tickets", isCurated: true, vendorName: "Admin Hub"),
+      MarketProduct(id: '27', name: "Youth Summer Camp Early Bird", price: 350, category: "tickets", vendorName: "Youth Ministry"),
     ];
     return MasonryGridView.count(
       padding: const EdgeInsets.all(20),
@@ -323,7 +376,7 @@ class CartSheet extends ConsumerWidget {
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(LucideIcons.package, color: Theme.of(context).primaryColor),
                   title: Text(items[index].product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text("${items[index].quantity} x ${items[index].product.price} CC"),
+                  subtitle: Text("${items[index].quantity} x K ${items[index].product.price}"),
                   trailing: IconButton(
                     icon: const Icon(LucideIcons.trash2, size: 18, color: Colors.grey),
                     onPressed: () => ref.read(cartProvider.notifier).removeFromCart(items[index].product.id),
@@ -335,16 +388,83 @@ class CartSheet extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("Total", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text("${total.toInt()} CC", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Theme.of(context).primaryColor)),
+              const Text("Subtotal", style: TextStyle(fontSize: 16)),
+              Text("K ${total.toInt()}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                   Icon(LucideIcons.info, size: 14, color: Colors.blue),
+                   SizedBox(width: 5),
+                   Text("Transactions Fee (6% + K1.00 Lenco)", style: TextStyle(fontSize: 12, color: Colors.blue)),
+                ]
+              ),
+              Text("+ K ${(total * 0.06 + 1.0).toStringAsFixed(2)}", style: const TextStyle(fontSize: 12, color: Colors.blue)),
+            ],
+          ),
+          const Divider(height: 30),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("Total (Buyer Pays)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text("K ${(total + (total * 0.06 + 1.0)).toStringAsFixed(2)}", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Theme.of(context).primaryColor)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(10)),
+            child: const Text("Mobile Money payouts max K10,000. Card payments available with delayed payout & 7% fee.", style: TextStyle(fontSize: 10, color: Colors.grey), textAlign: TextAlign.center),
           ),
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: items.isEmpty ? null : () {
-              Navigator.pop(context);
-              _showCheckoutSuccess(context);
-              ref.read(cartProvider.notifier).clear();
+              Navigator.pop(context); // Close cart sheet
+              
+              final firstItem = items.first;
+              final isBookshop = firstItem.product.category == "bookshop";
+              final vendor = isBookshop ? "Kingdom Bookshop" : (firstItem.product.vendorName ?? "Market Vendor");
+
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => LencoPaymentGateway(
+                  amount: total + (total * 0.06 + 1.0),
+                  description: "Order #${DateTime.now().millisecond}: ${items.length} items",
+                  category: "product",
+                  recipientName: vendor,
+                  recipientAccount: "MERCHANT-ID-4422",
+                  paymentReason: "Purchase: ${firstItem.product.name}${items.length > 1 ? ' & more' : ''}",
+                  onComplete: (success, txId) async {
+                    Navigator.pop(context); // Close gateway
+                    if (success) {
+                      // Auto-Fulfillment Logic: 
+                      // If products are from 'bookshop' or other physical categories, 
+                      // automatically trigger a delivery request.
+                      for (var item in items) {
+                        if (item.product.category == 'bookshop' || item.product.category == 'apparel') {
+                          await ref.read(transportServiceProvider).requestDelivery(
+                            pickup: LatLng(-15.3875, 28.3228), // Church/Vendor Hub
+                            dest: LatLng(-15.395, 28.35), // Member Home (Mock)
+                            desc: "Order #${txId.hashCode}: ${item.product.name} (Qty: ${item.quantity})",
+                            category: "marketplace",
+                            weight: "Light",
+                            fare: 25.0, // Standard Kingdom Delivery Flat Rate
+                          );
+                        }
+                      }
+
+                      _showCheckoutSuccess(context);
+                      ref.read(cartProvider.notifier).clear();
+                    }
+                  },
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.secondary,

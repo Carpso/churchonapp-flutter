@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/services/supabase_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class NewsArticle {
@@ -7,18 +9,22 @@ class NewsArticle {
   final String title;
   final String source;
   final String description;
+  final String content;
   final String image;
   final String pubDate;
   final String link;
+  final bool isLocal;
 
   NewsArticle({
     required this.id,
     required this.title,
     required this.source,
     required this.description,
+    this.content = '',
     required this.image,
     required this.pubDate,
     required this.link,
+    this.isLocal = false,
   });
 
   factory NewsArticle.fromJson(Map<String, dynamic> json, int index) {
@@ -35,6 +41,20 @@ class NewsArticle {
     );
   }
 
+  factory NewsArticle.fromSupabase(Map<String, dynamic> map) {
+    return NewsArticle(
+      id: map['id']?.toString() ?? '',
+      title: map['title'] ?? '',
+      source: map['author_name'] ?? 'Kingdom Writer',
+      description: map['excerpt'] ?? '',
+      content: map['content'] ?? '',
+      image: map['image_url'] ?? 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800',
+      pubDate: map['created_at'] ?? '',
+      link: '',
+      isLocal: true,
+    );
+  }
+
   static String? _extractImage(String description) {
     final imgRegex = RegExp(r'<img[^>]+src="([^">]+)"', caseSensitive: false);
     final match = imgRegex.firstMatch(description);
@@ -43,6 +63,9 @@ class NewsArticle {
 }
 
 class NewsService {
+  final SupabaseClient _client;
+  NewsService(this._client);
+
   Future<List<NewsArticle>> getPublicNews() async {
     try {
       const rssUrl = 'https://news.google.com/rss/search?q=Global+Christian+Church+News&hl=en-US&gl=US&ceid=US:en';
@@ -58,14 +81,43 @@ class NewsService {
       }
       return [];
     } catch (e) {
-      print('Error fetching news: $e');
       return [];
     }
   }
+
+  Stream<List<NewsArticle>> streamKingdomNews() {
+    return _client
+        .from('kingdom_news')
+        .stream(primaryKey: ['id'])
+        .order('created_at', ascending: false)
+        .map((data) => data.map((map) => NewsArticle.fromSupabase(map)).toList());
+  }
+
+  Future<void> publishArticle({
+    required String title,
+    required String excerpt,
+    required String content,
+    required String imageUrl,
+    required String authorId,
+    required String authorName,
+  }) async {
+    await _client.from('kingdom_news').insert({
+      'title': title,
+      'excerpt': excerpt,
+      'content': content,
+      'image_url': imageUrl,
+      'author_id': authorId,
+      'author_name': authorName,
+    });
+  }
 }
 
-final newsServiceProvider = Provider((ref) => NewsService());
+final newsServiceProvider = Provider((ref) => NewsService(Supabase.instance.client));
 
-final newsProvider = FutureProvider<List<NewsArticle>>((ref) async {
+final publicNewsProvider = FutureProvider<List<NewsArticle>>((ref) async {
   return ref.watch(newsServiceProvider).getPublicNews();
+});
+
+final kingdomNewsStreamProvider = StreamProvider<List<NewsArticle>>((ref) {
+  return ref.watch(newsServiceProvider).streamKingdomNews();
 });

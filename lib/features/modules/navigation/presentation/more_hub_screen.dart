@@ -5,9 +5,14 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../events/presentation/events_screen.dart';
 import '../../jobs/presentation/jobs_portal_screen.dart';
 import '../../logistics/presentation/weather_maps_screen.dart';
+import '../../logistics/presentation/kingdom_map_screen.dart';
 import '../../kids/presentation/kids_zone_screen.dart';
 import '../../media/presentation/kingdom_radio_screen.dart';
-import '../../../admin/presentation/admin_hub_screen.dart';
+import 'package:church_on_app/features/admin/presentation/admin_hub_screen.dart';
+import 'package:church_on_app/features/transport/presentation/rider_onboarding_screen.dart';
+import '../../bible_quiz/presentation/bible_quiz_hub_screen.dart';
+import '../../media/presentation/kael_chat_screen.dart';
+import 'package:church_on_app/features/logistics/presentation/church_commute_screen.dart';
 
 class MoreHubScreen extends ConsumerWidget {
   const MoreHubScreen({super.key});
@@ -35,8 +40,9 @@ class MoreHubScreen extends ConsumerWidget {
               childAspectRatio: 1.1,
               children: [
                 _buildModuleCard(context, "Events & Calendars", LucideIcons.calendar, Colors.blue, const EventsScreen()),
-                _buildModuleCard(context, "Logistics & Weather", LucideIcons.map, Colors.orange, const WeatherMapsScreen()),
+                _buildModuleCard(context, "Kingdom Maps", LucideIcons.map, Colors.orange, const KingdomMapScreen()),
                 _buildModuleCard(context, "Jobs & Serve", LucideIcons.briefcase, Colors.green, const JobsPortalScreen()),
+                _buildModuleCard(context, "Church Commute", LucideIcons.car, Colors.indigo, const ChurchCommuteScreen()),
               ],
             ),
             const SizedBox(height: 40),
@@ -52,6 +58,9 @@ class MoreHubScreen extends ConsumerWidget {
               children: [
                 _buildModuleCard(context, "Kids Zone", LucideIcons.gamepad2, Colors.purple, const KidsZoneScreen()),
                 _buildModuleCard(context, "Kingdom Radio", LucideIcons.radio, Colors.red, const KingdomRadioScreen()),
+                _buildModuleCard(context, "Bible Quizzing", LucideIcons.brainCircuit, Colors.pink, const BibleQuizHubScreen()),
+                _buildModuleCard(context, "Drive & Earn", LucideIcons.car, Colors.teal, const RiderOnboardingScreen()),
+                _buildModuleCard(context, "Kael AI Assistance", LucideIcons.zap, Colors.amber, const KaelChatScreen()),
               ],
             ),
             const SizedBox(height: 40),
@@ -73,15 +82,15 @@ class MoreHubScreen extends ConsumerWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.withOpacity(0.1)),
-          boxShadow: [BoxShadow(color: color.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))],
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 5))],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
               child: Icon(icon, color: color, size: 28),
             ),
             const SizedBox(height: 15),

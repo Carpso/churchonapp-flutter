@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/providers/profile_provider.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/features/finance/data/finance_service.dart';
+import 'package:church_on_app/features/admin/data/admin_service.dart';
+import 'tithe_history_screen.dart';
+import 'lenco_payment_gateway.dart';
+import 'package:church_on_app/features/finance/presentation/qr_payment_screen.dart' as qps;
+import 'package:church_on_app/core/services/tenant_service.dart';
 
 class GivingScreen extends ConsumerStatefulWidget {
   const GivingScreen({super.key});
@@ -24,30 +30,90 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
         title: const Text("Kingdom Giving", style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TitheHistoryScreen())),
+            icon: const Icon(LucideIcons.history, size: 16),
+            label: const Text("HISTORY", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(25),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildTotalGivenCard(profile),
-            const SizedBox(height: 40),
-            const Text("Make a Contribution", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
+            const SizedBox(height: 30),
             _buildCategorySelector(),
             const SizedBox(height: 30),
             _buildAmountInput(),
             const SizedBox(height: 40),
             _buildPaymentMethods(),
-            const SizedBox(height: 50),
+            const SizedBox(height: 40),
             ElevatedButton(
-              onPressed: () => _showConfirmation(),
+              onPressed: () {
+                final amount = double.tryParse(_amountController.text) ?? 0.0;
+                if (amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter a valid amount")));
+                  return;
+                }
+                
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) {
+                    final tenant = ref.read(currentTenantProvider);
+                    return LencoPaymentGateway(
+                      amount: amount * 1.06, // Including fee
+                      description: "Kingdom Giving: $_selectedCategory",
+                      category: _selectedCategory.toLowerCase(),
+                      recipientName: tenant?.name ?? "Local Church",
+                      recipientAccount: tenant?.treasurerPhone ?? "CHURCH-OFFICIAL-AC",
+                      paymentReason: "$_selectedCategory Support",
+                    onComplete: (success, txId) async {
+                      Navigator.pop(context); // Close gateway
+                      if (success) {
+                        await ref.read(financeServiceProvider).logTransaction(
+                          amount, 
+                          _selectedCategory.toLowerCase(), 
+                          txId!,
+                          tenantId: tenant?.id,
+                        );
+                        if (mounted) _showSuccessDialog(txId);
+                      }
+                    },
+                  );
+                },
+              );
+              },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
+                backgroundColor: Theme.of(context).colorScheme.secondary,
                 minimumSize: const Size(double.infinity, 60),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               ),
-              child: const Text("GENERATE GIVING KEY", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              child: const Text("PROCEED TO SECURE PAYMENT", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+            ),
+            const SizedBox(height: 15),
+            TextButton(
+              onPressed: () {
+                final amount = double.tryParse(_amountController.text) ?? 0.0;
+                if (amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter a valid amount")));
+                  return;
+                }
+                Navigator.push(context, MaterialPageRoute(builder: (context) => qps.QrPaymentScreen(
+                  amount: amount,
+                  description: "Giving: $_selectedCategory",
+                  recipient: ref.read(currentTenantProvider)?.name ?? "Kingdom Local Church",
+                )));
+              },
+              child: const Text("Pay via Kingdom QR Code", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 13)),
+            ),
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: () => _showGivingKey(),
+              child: const Text("Generate Offline Giving Key", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
             ),
           ],
         ),
@@ -55,9 +121,32 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
     );
   }
 
+  void _showSuccessDialog(String txId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+        title: const Icon(LucideIcons.checkCircle, color: Colors.green, size: 50),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Transaction Successful!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 10),
+            Text("Reference: $txId", style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            const SizedBox(height: 20),
+            const Text("Your seed has been received. God bless your faithfulness.", textAlign: TextAlign.center),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("AMEN")),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTotalGivenCard(UserProfile? profile) {
-    // For prototype, we show a calculated value based on coins or mock growth
-    final coins = profile?.coins ?? 0;
+    final balanceZmw = profile?.balanceZmw ?? 0.0;
+    final balanceCc = profile?.balanceCc ?? 0.0;
     
     return Container(
       width: double.infinity,
@@ -67,7 +156,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).primaryColor.withOpacity(0.3),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           )
@@ -76,11 +165,29 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("ANNUAL STEWARDSHIP", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-          const SizedBox(height: 10),
-          Text("K ${coins.toDouble()}", style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 5),
-          const Text("+12% From Last Year", style: TextStyle(color: Colors.white70, fontSize: 12)),
+          const Text("STEWARDSHIP REWARDS", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          const SizedBox(height: 15),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   Text("K ${balanceZmw.toInt()}", style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+                   const Text("ZMW BALANCE", style: TextStyle(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                   Text("${balanceCc.toInt()} CC", style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+                   const Text("REWARDS CC", style: TextStyle(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          const Text("Sovereign Material Rewards Active", style: TextStyle(color: Colors.white70, fontSize: 11)),
         ],
       ),
     );
@@ -102,7 +209,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
               decoration: BoxDecoration(
                 color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.white,
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
               ),
               child: Center(
                 child: Text(
@@ -136,6 +243,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
           TextField(
             controller: _amountController,
             keyboardType: TextInputType.number,
+            onChanged: (v) => setState(() {}),
             style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.secondary),
             decoration: const InputDecoration(
               hintText: "0.00",
@@ -143,6 +251,16 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
               border: InputBorder.none,
             ),
           ),
+          if (_amountController.text.isNotEmpty) ...[
+             const SizedBox(height: 10),
+             Row(
+               children: [
+                 const Icon(LucideIcons.info, size: 12, color: Colors.blue),
+                 const SizedBox(width: 5),
+                 Text("+ 6% Transaction Fee (K${(double.parse(_amountController.text) * 0.06).toStringAsFixed(2)})", style: const TextStyle(color: Colors.blue, fontSize: 10)),
+               ],
+             )
+          ]
         ],
       ),
     );
@@ -183,31 +301,42 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
     );
   }
 
-  void _showConfirmation() {
+  void _showGivingKey() {
+    if (_amountController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter an amount first.")));
+      return;
+    }
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-        title: const Text("Blessed Giving", textAlign: TextAlign.center),
+        backgroundColor: const Color(0xFF1E293B), // Premium dark theme for the key
+        title: const Text("OFFICIAL GIVING KEY", textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(LucideIcons.heart, color: Colors.red, size: 50),
-            const SizedBox(height: 20),
-            Text(
-              "You are about to give K${_amountController.text} to the $_selectedCategory. God loves a cheerful giver!",
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
+            const Text("Present this at any verified COA hub or use in USSD checkout.", textAlign: TextAlign.center, style: TextStyle(color: Colors.white60, fontSize: 11)),
+            const SizedBox(height: 30),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)),
+              child: const Text("COA-GIVE-8822-XP", style: TextStyle(color: Colors.greenAccent, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 2)),
             ),
+            const SizedBox(height: 25),
+            const Icon(LucideIcons.qrCode, color: Colors.white, size: 100),
+            const SizedBox(height: 20),
+            Text("Amount: K${_amountController.text}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
-            child: const Text("CONFIRM"),
+          Center(
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+              child: const Text("DONE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
           ),
+          const SizedBox(height: 10),
         ],
       ),
     );
