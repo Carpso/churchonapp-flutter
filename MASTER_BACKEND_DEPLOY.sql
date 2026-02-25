@@ -71,11 +71,23 @@ CREATE TABLE IF NOT EXISTS public.sermon_reactions (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 5. UPDATE EVENTS FOR TENANT SYNC
+-- 5. UPDATE EVENTS FOR TENANT SYNC & SCHEMA CONSISTENCY
 DO $$ 
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'events' AND column_name = 'tenant_id') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'events' AND column_name = 'tenant_id') THEN
         ALTER TABLE public.events ADD COLUMN tenant_id UUID;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'events' AND column_name = 'description') THEN
+        ALTER TABLE public.events ADD COLUMN description TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'events' AND column_name = 'location') THEN
+        ALTER TABLE public.events ADD COLUMN location TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'events' AND column_name = 'category') THEN
+        ALTER TABLE public.events ADD COLUMN category TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'events' AND column_name = 'ticket_price') THEN
+        ALTER TABLE public.events ADD COLUMN ticket_price DOUBLE PRECISION DEFAULT 0.0;
     END IF;
 END $$;
 
@@ -130,7 +142,7 @@ INSERT INTO public.jobs (title, company, location, salary, type, description, co
 SELECT 'Media Director', 'Grace Assemblies', 'Lusaka', 'K15,000', 'Full-time', 'Production lead for Sunday services.', 'media@grace.org'
 WHERE NOT EXISTS (SELECT 1 FROM public.jobs WHERE title = 'Media Director');
 
--- Refresh Events if empty
-INSERT INTO public.events (title, description, location, date, ticket_price, category)
-SELECT 'National Prayer Day', 'Strategic intercession for the nation.', 'National Stadium', now() + interval '10 days', 0, 'Spiritual'
+-- Refresh Events if empty (Using corrected mapping for public.events)
+INSERT INTO public.events (title, description, location, event_date, ticket_price, category)
+SELECT 'National Prayer Day', 'Strategic intercession for the nation.', 'National Stadium', now() + interval '10 days', 0.0, 'Spiritual'
 WHERE NOT EXISTS (SELECT 1 FROM public.events WHERE title = 'National Prayer Day');

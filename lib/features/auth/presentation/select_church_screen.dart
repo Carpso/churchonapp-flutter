@@ -10,6 +10,7 @@ import 'package:church_on_app/core/widgets/church_map.dart';
 import 'package:church_on_app/features/navigation/presentation/main_navigation_shell.dart';
 import 'package:go_router/go_router.dart';
 import 'church_onboarding_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class SelectChurchScreen extends ConsumerStatefulWidget {
   const SelectChurchScreen({super.key});
