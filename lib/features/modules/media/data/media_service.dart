@@ -33,16 +33,16 @@ class KingdomVideo {
 
   factory KingdomVideo.fromMap(Map<String, dynamic> map) {
     return KingdomVideo(
-      id: map['id'],
-      title: map['title'],
+      id: map['id']?.toString() ?? '',
+      title: map['title'] ?? 'Untitled Klip',
       description: map['description'],
-      videoUrl: map['video_url'],
+      videoUrl: map['video_url'] ?? '',
       thumbnailUrl: map['thumbnail_url'],
       views: map['views'] ?? 0,
       likes: map['likes'] ?? 0,
-      speaker: map['speaker'],
+      speaker: map['speaker'] ?? map['user_name'],
       churchName: map['church_name'],
-      createdAt: DateTime.parse(map['created_at']),
+      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 }
@@ -64,11 +64,11 @@ class KingdomFlyer {
 
   factory KingdomFlyer.fromMap(Map<String, dynamic> map) {
     return KingdomFlyer(
-      id: map['id'],
+      id: map['id']?.toString() ?? '',
       name: map['name'],
       url: map['url'],
       createdBy: map['created_by']?.toString(),
-      createdAt: DateTime.parse(map['created_at']),
+      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 }
@@ -80,7 +80,7 @@ class MediaService {
 
   Stream<List<KingdomVideo>> getVideosStream() {
     return _client
-        .from('videos')
+        .from('klips')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
         .map((data) => data.map((map) => KingdomVideo.fromMap(map)).toList());
@@ -95,12 +95,10 @@ class MediaService {
   }
 
   Future<void> logKlipView(String id) async {
-    // In real app, we would use an RPC or increment. 
-    // For now we just do a raw update for demonstration.
     try {
-      final res = await _client.from('videos').select('views').eq('id', id).single();
-      final currentViews = res['views'] as int;
-      await _client.from('videos').update({'views': currentViews + 1}).eq('id', id);
+      final res = await _client.from('klips').select('views').eq('id', id).single();
+      final currentViews = (res['views'] as int?) ?? 0;
+      await _client.from('klips').update({'views': currentViews + 1}).eq('id', id);
     } catch (_) {}
   }
 
@@ -145,15 +143,16 @@ class MediaService {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
-    // Seed Videos (Kingdom Klips)
-    final videos = [
+    // Seed Klips
+    final klips = [
       {
         'title': 'The Power of Prayer',
         'description': 'Pastor John explains the necessity of prayer in the life of a believer.',
         'video_url': 'https://assets.mixkit.co/videos/preview/mixkit-pastor-preaching-at-a-church-service-34538-large.mp4',
         'thumbnail_url': 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800&q=80',
         'speaker': 'Pastor John',
-        'church_name': 'Grace Assemblies'
+        'church_name': 'Grace Assemblies',
+        'user_id': user.id
       },
       {
         'title': 'Kingdom Worship 2024',
@@ -161,12 +160,13 @@ class MediaService {
         'video_url': 'https://assets.mixkit.co/videos/preview/mixkit-group-of-friends-partying-happily-4640-large.mp4',
         'thumbnail_url': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
         'speaker': 'Worship Team',
-        'church_name': 'Zion Gates'
+        'church_name': 'Zion Gates',
+        'user_id': user.id
       }
     ];
 
-    for (var v in videos) {
-      await _client.from('videos').upsert(v, onConflict: 'video_url');
+    for (var k in klips) {
+      await _client.from('klips').upsert(k, onConflict: 'video_url');
     }
 
     // Seed Flyers
@@ -196,3 +196,4 @@ final klipsStreamProvider = StreamProvider<List<KingdomVideo>>((ref) {
 final flyersStreamProvider = StreamProvider<List<KingdomFlyer>>((ref) {
   return ref.watch(mediaServiceProvider).getFlyersStream();
 });
+

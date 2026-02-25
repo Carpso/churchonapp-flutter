@@ -125,7 +125,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(LucideIcons.ticket, size: 80, color: Colors.grey.withValues(alpha: 0.3)),
+                Icon(LucideIcons.ticket, size: 80, color: Colors.grey.withOpacity(0.3)),
                 const SizedBox(height: 20),
                 const Text("No active tickets", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
                 const SizedBox(height: 10),
@@ -154,7 +154,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
     return Container(
        margin: const EdgeInsets.only(bottom: 15),
        padding: const EdgeInsets.all(15),
-       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withValues(alpha: 0.1))),
+       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withOpacity(0.1))),
        child: Row(
          children: [
            ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(event.imageUrl, width: 60, height: 60, fit: BoxFit.cover)),
@@ -185,11 +185,11 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
             decoration: BoxDecoration(
               gradient: LinearGradient(colors: [Theme.of(context).primaryColor, Colors.orangeAccent]),
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 5))]
+              boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))]
             ),
             child: Row(
               children: [
-                CircleAvatar(backgroundColor: Colors.white.withValues(alpha: 0.2), child: const Icon(LucideIcons.plus, color: Colors.white)),
+                CircleAvatar(backgroundColor: Colors.white.withOpacity(0.2), child: const Icon(LucideIcons.plus, color: Colors.white)),
                 const SizedBox(width: 15),
                 const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,7 +219,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
   Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withValues(alpha: 0.1))),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withOpacity(0.1))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -249,7 +249,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 15, offset: const Offset(0, 5))],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,7 +273,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                   right: 15,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 5)]),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 5)]),
                     child: Text(isFree ? "FREE" : "K${event.ticketPrice}", style: TextStyle(fontWeight: FontWeight.w900, color: Theme.of(context).primaryColor)),
                   ),
                 ),
@@ -510,7 +510,7 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
                 child: Row(
                   children: [
                     const Icon(LucideIcons.info, color: Colors.blue, size: 18),
@@ -613,7 +613,7 @@ class HostBusinessMeetingSheet extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: Colors.blueAccent.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: Colors.blueAccent.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
                 child: const Icon(LucideIcons.video, color: Colors.blueAccent),
               ),
               const SizedBox(width: 15),
@@ -664,7 +664,7 @@ class HostBusinessMeetingSheet extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
         child: Row(
           children: [
             Icon(icon, color: color, size: 20),
@@ -684,3 +684,4 @@ class HostBusinessMeetingSheet extends StatelessWidget {
     );
   }
 }
+

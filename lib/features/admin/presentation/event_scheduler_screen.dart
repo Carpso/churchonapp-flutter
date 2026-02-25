@@ -164,3 +164,4 @@ class _EventSchedulerScreenState extends State<EventSchedulerScreen> {
     );
   }
 }
+

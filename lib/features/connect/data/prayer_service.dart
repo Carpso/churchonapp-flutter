@@ -100,3 +100,4 @@ final prayerServiceProvider = Provider((ref) => PrayerService(Supabase.instance.
 final prayerStreamProvider = StreamProvider<List<PrayerRequest>>((ref) {
   return ref.watch(prayerServiceProvider).getPrayerStream();
 });
+

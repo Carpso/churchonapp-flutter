@@ -70,14 +70,14 @@ class IntegrationsScreen extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.grey.shade100),
-          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.05), blurRadius: 15, offset: const Offset(0, 5))],
+          boxShadow: [BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))],
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
               child: Icon(item['icon'], color: color, size: 28),
             ),
             const SizedBox(width: 15),
@@ -146,7 +146,7 @@ class IntegrationsScreen extends StatelessWidget {
               ),
               Container(
                  padding: const EdgeInsets.all(20),
-                 decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+                 decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
                  child: Icon(item['icon'], size: 40, color: color),
               ),
               const SizedBox(height: 20),
@@ -186,3 +186,4 @@ class IntegrationsScreen extends StatelessWidget {
     );
   }
 }
+

@@ -66,3 +66,4 @@ final notebookServiceProvider = Provider((ref) {
 final notesProvider = StreamProvider.family<List<Note>, String>((ref, userId) {
   return ref.watch(notebookServiceProvider).streamNotes(userId);
 });
+

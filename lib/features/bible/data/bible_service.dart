@@ -33,8 +33,9 @@ class BibleService {
         return versesJson.map((v) => BibleVerse.fromJson(v)).toList();
       }
 
+      final encodedBook = Uri.encodeComponent(book);
       final response = await http.get(
-        Uri.parse('https://bible-api.com/$book+$chapter?translation=$translation'),
+        Uri.parse('https://bible-api.com/$encodedBook+$chapter?translation=$translation'),
       ).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
@@ -63,3 +64,4 @@ final bibleChapterProvider = FutureProvider.family<List<BibleVerse>, Map<String,
     params['chapter'] ?? 1,
   );
 });
+

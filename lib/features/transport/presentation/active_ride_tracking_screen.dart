@@ -143,7 +143,7 @@ class _ActiveRideTrackingScreenState extends ConsumerState<ActiveRideTrackingScr
                       ),
                       const Spacer(),
                       CircleAvatar(
-                        backgroundColor: Colors.green.withValues(alpha: 0.1),
+                        backgroundColor: Colors.green.withOpacity(0.1),
                         child: IconButton(
                           icon: const Icon(LucideIcons.phone, color: Colors.green),
                           onPressed: () {},
@@ -151,7 +151,7 @@ class _ActiveRideTrackingScreenState extends ConsumerState<ActiveRideTrackingScr
                       ),
                       const SizedBox(width: 8),
                       CircleAvatar(
-                        backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                        backgroundColor: Colors.blue.withOpacity(0.1),
                         child: IconButton(
                           icon: const Icon(LucideIcons.messageCircle, color: Colors.blue),
                           onPressed: () {
@@ -306,3 +306,4 @@ class _ActiveRideTrackingScreenState extends ConsumerState<ActiveRideTrackingScr
     );
   }
 }
+

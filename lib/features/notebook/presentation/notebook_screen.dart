@@ -95,7 +95,7 @@ class _NotebookScreenState extends ConsumerState<NotebookScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.bookOpen, size: 80, color: Colors.grey.withValues(alpha: 0.2)),
+          Icon(LucideIcons.bookOpen, size: 80, color: Colors.grey.withOpacity(0.2)),
           const SizedBox(height: 20),
           Text("No entries found", style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
           const SizedBox(height: 10),
@@ -112,7 +112,7 @@ class _NotebookScreenState extends ConsumerState<NotebookScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFF1F5F9)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.all(20),
@@ -122,7 +122,7 @@ class _NotebookScreenState extends ConsumerState<NotebookScreen> {
             if (note.topic != null && note.topic!.isNotEmpty)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                decoration: BoxDecoration(color: Colors.amber.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
                 child: Text(note.topic!.toUpperCase(), style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
               ),
             const SizedBox(height: 8),
@@ -355,7 +355,7 @@ class _InteractiveBlankState extends State<_InteractiveBlank> {
     if (_isCorrect) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.green.withValues(alpha: 0.2))),
+        decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.green.withOpacity(0.2))),
         child: Text(widget.answer, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 18)),
       );
     }
@@ -381,3 +381,4 @@ class _InteractiveBlankState extends State<_InteractiveBlank> {
     );
   }
 }
+

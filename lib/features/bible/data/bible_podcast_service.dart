@@ -67,3 +67,4 @@ class BiblePodcastService {
 }
 
 final biblePodcastProvider = Provider((ref) => BiblePodcastService().getAllEpisodes());
+

@@ -112,7 +112,7 @@ class _KingdomGameArenaScreenState extends ConsumerState<KingdomGameArenaScreen>
               const SizedBox(height: 40),
               _buildLargeButton("SOLO CHALLENGE", LucideIcons.user, Colors.white10, _startSolo),
               const SizedBox(height: 15),
-              _buildLargeButton("P2P MULTIPLAYER", LucideIcons.users, Colors.blueAccent.withValues(alpha: 0.2), _startMultiplayer),
+              _buildLargeButton("P2P MULTIPLAYER", LucideIcons.users, Colors.blueAccent.withOpacity(0.2), _startMultiplayer),
             ] else if (_isSearching) ...[
               _buildMatchmakingUI(),
             ] else if (_isMatchFound) ...[
@@ -234,7 +234,7 @@ class _KingdomGameArenaScreenState extends ConsumerState<KingdomGameArenaScreen>
       children: [
         Container(
           width: 80, height: 80, 
-          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.05)), 
+          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.05)), 
           child: const Center(child: Icon(LucideIcons.user, color: Colors.white24, size: 40))
         ),
         const SizedBox(height: 15),
@@ -306,3 +306,4 @@ class GameEngineLauncher extends StatelessWidget {
     }
   }
 }
+

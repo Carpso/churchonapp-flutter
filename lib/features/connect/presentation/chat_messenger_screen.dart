@@ -176,7 +176,7 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
             bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(15),
             bottomLeft: isMe ? const Radius.circular(15) : const Radius.circular(0),
           ),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 3, offset: const Offset(0, 1))]
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 3, offset: const Offset(0, 1))]
         ),
         child: Stack(
           children: [
@@ -289,7 +289,7 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircleAvatar(radius: 25, backgroundColor: color.withValues(alpha: 0.1), child: Icon(icon, color: color)),
+          CircleAvatar(radius: 25, backgroundColor: color.withOpacity(0.1), child: Icon(icon, color: color)),
           const SizedBox(height: 10),
           Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         ],
@@ -309,7 +309,7 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(30),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5)],
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
                 ),
                 child: Row(
                   children: [
@@ -349,3 +349,4 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
     );
   }
 }
+

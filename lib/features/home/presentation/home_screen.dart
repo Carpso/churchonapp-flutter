@@ -36,6 +36,7 @@ import 'sermon_notes_screen.dart';
 import 'song_lyrics_screen.dart';
 import 'package:church_on_app/features/modules/media/presentation/kingdom_radio_screen.dart';
 import 'package:church_on_app/features/connect/presentation/create_social_post_screen.dart';
+import 'package:church_on_app/features/modules/navigation/presentation/kingdom_life_hub_screen.dart';
 
 import 'package:church_on_app/core/services/notification_service.dart';
 
@@ -168,7 +169,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   decoration: BoxDecoration(
                     color: Theme.of(context).primaryColor,
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.3), blurRadius: 8)],
+                    boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.3), blurRadius: 8)],
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
@@ -231,8 +232,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(25),
-                border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.2)),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+                border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
               ),
               child: Row(
                 children: [
@@ -264,9 +265,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+        color: Theme.of(context).primaryColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.2)),
+        border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
       ),
       child: Row(
         children: [
@@ -322,7 +323,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           gradient: LinearGradient(
             begin: Alignment.bottomCenter,
             end: Alignment.topCenter,
-            colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
+            colors: [Colors.black.withOpacity(0.8), Colors.transparent],
           ),
         ),
         padding: const EdgeInsets.all(25),
@@ -398,12 +399,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final actions = [
       {"icon": LucideIcons.qrCode, "label": "Check-in", "color": Colors.purple},
       {"icon": LucideIcons.bookOpen, "label": "Sermons", "color": Colors.blue},
-      {"icon": LucideIcons.radio, "label": "Radio", "color": Colors.pink},
+      {"icon": LucideIcons.flame, "label": "Kingdom Life", "color": Colors.red},
       {"icon": LucideIcons.helpCircle, "label": "Bible Quiz", "color": Colors.indigo},
       {"icon": LucideIcons.book, "label": "Bible", "color": Colors.green},
       {"icon": LucideIcons.calendar, "label": "Events", "color": Colors.orange},
-      {"icon": LucideIcons.heart, "label": "Giving", "color": Colors.red},
-      {"icon": LucideIcons.flame, "label": "Prayer", "color": Colors.deepOrange},
       {"icon": LucideIcons.penTool, "label": "Notebook", "color": Colors.teal},
       {"icon": LucideIcons.mapPin, "label": "Branches", "color": Colors.brown},
     ];
@@ -420,10 +419,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             itemBuilder: (context, index) {
               return GestureDetector(
                 onTap: () {
-                  if (actions[index]['label'] == "Giving") {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const GivingScreen()));
-                  } else if (actions[index]['label'] == "Prayer") {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const PrayerWallScreen()));
+                  if (actions[index]['label'] == "Kingdom Life") {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const KingdomLifeHubScreen()));
                   } else if (actions[index]['label'] == "Bible Quiz") {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const BibleQuizHubScreen()));
                   } else if (actions[index]['label'] == "Bible") {
@@ -440,6 +437,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const NotebookScreen()));
                   } else if (actions[index]['label'] == "Radio") {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const KingdomRadioScreen()));
+                  } else if (actions[index]['label'] == "Kingdom Life") {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const KingdomLifeHubScreen()));
                   }
                 },
                 child: Container(
@@ -447,12 +446,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   margin: const EdgeInsets.only(right: 15),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [(actions[index]['color'] as Color).withValues(alpha: 0.8), actions[index]['color'] as Color],
+                      colors: [(actions[index]['color'] as Color).withOpacity(0.8), actions[index]['color'] as Color],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: [BoxShadow(color: (actions[index]['color'] as Color).withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4))],
+                    boxShadow: [BoxShadow(color: (actions[index]['color'] as Color).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -477,7 +476,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.2)),
+        border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
         image: const DecorationImage(
           image: NetworkImage("https://images.unsplash.com/photo-1510133755869-79a639739569?w=800&q=80"),
           fit: BoxFit.cover,
@@ -494,8 +493,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   begin: Alignment.topRight,
                   end: Alignment.bottomLeft,
                   colors: [
-                    Colors.black.withValues(alpha: 0.2),
-                    Colors.black.withValues(alpha: 0.7),
+                    Colors.black.withOpacity(0.2),
+                    Colors.black.withOpacity(0.7),
                   ],
                 ),
               ),
@@ -540,7 +539,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -650,13 +649,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 5)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5)],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
             child: Icon(icon, color: Theme.of(context).primaryColor, size: 20),
           ),
           const SizedBox(width: 15),
@@ -702,7 +701,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
       ),
       child: InkWell(
         onTap: () {
@@ -805,3 +804,4 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 }
+

@@ -74,3 +74,4 @@ final reportingServiceProvider = Provider((ref) => ReportingService(Supabase.ins
 final reportsStreamProvider = StreamProvider.family<List<ServiceReport>, String>((ref, tenantId) {
   return ref.watch(reportingServiceProvider).getReportsStream(tenantId);
 });
+

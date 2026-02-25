@@ -65,3 +65,4 @@ final titheAutomationServiceProvider = Provider((ref) {
   final client = ref.watch(supabaseServiceProvider).client;
   return TitheAutomationService(client, ref);
 });
+

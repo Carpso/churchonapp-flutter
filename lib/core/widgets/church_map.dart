@@ -78,46 +78,56 @@ class _ChurchMapState extends State<ChurchMap> {
   }
 }
 
-Marker buildChurchMarker({required LatLng point, required String name, required Color color, String? logoUrl}) {
+Marker buildChurchMarker({
+  required LatLng point, 
+  required String name, 
+  required Color color, 
+  String? logoUrl,
+  VoidCallback? onTap,
+}) {
   return Marker(
     point: point,
     width: 100,
     height: 100,
-    child: Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: Colors.black.withAlpha(51), blurRadius: 10)],
-            border: Border.all(color: color, width: 2),
+    child: GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10)],
+              border: Border.all(color: color, width: 2),
+            ),
+            child: CircleAvatar(
+              radius: 20,
+              backgroundColor: Colors.white,
+              backgroundImage: logoUrl != null ? NetworkImage(logoUrl) : null,
+              child: logoUrl == null ? Icon(LucideIcons.church, color: color, size: 20) : null,
+            ),
           ),
-          child: CircleAvatar(
-            radius: 20,
-            backgroundColor: Colors.white,
-            backgroundImage: logoUrl != null ? NetworkImage(logoUrl) : null,
-            child: logoUrl == null ? Icon(LucideIcons.church, color: color, size: 20) : null,
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              name,
+              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.black.withAlpha(204),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            name,
-            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }
+
 
 Marker buildRideMarker({required LatLng point, required Color color}) {
   return Marker(
@@ -130,7 +140,7 @@ Marker buildRideMarker({required LatLng point, required Color color}) {
         color: color,
         shape: BoxShape.circle,
         border: Border.all(color: Colors.black, width: 2),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10)],
       ),
       child: const Icon(LucideIcons.car, color: Colors.black, size: 20),
     ),
@@ -149,7 +159,7 @@ Marker buildUserMarker({required LatLng point}) {
           width: 30,
           height: 30,
           decoration: BoxDecoration(
-            color: Colors.blue.withValues(alpha: 0.2),
+            color: Colors.blue.withOpacity(0.2),
             shape: BoxShape.circle,
           ),
         ),
@@ -180,7 +190,7 @@ Marker buildBusStopMarker({required LatLng point, required String name}) {
             color: Colors.orange,
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 2),
-            boxShadow: [BoxShadow(color: Colors.orange.withValues(alpha: 0.3), blurRadius: 8)],
+            boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 8)],
           ),
           child: const Icon(LucideIcons.bus, color: Colors.white, size: 16),
         ),
@@ -202,3 +212,4 @@ Marker buildBusStopMarker({required LatLng point, required String name}) {
     ),
   );
 }
+

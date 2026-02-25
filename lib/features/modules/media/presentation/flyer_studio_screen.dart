@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/media_service.dart';
 
@@ -169,3 +171,4 @@ class _FlyerStudioScreenState extends ConsumerState<FlyerStudioScreen> {
     );
   }
 }
+

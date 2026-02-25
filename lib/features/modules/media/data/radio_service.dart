@@ -19,7 +19,7 @@ class RadioStation {
 }
 
 class RadioService {
-  final AudioHandler _handler;
+  final AudioHandler? _handler;
   RadioService(this._handler);
 
   final List<RadioStation> stations = [
@@ -31,16 +31,17 @@ class RadioService {
   ];
 
   Future<void> playStation(RadioStation station) async {
-    await _handler.playFromUri(Uri.parse(station.streamUrl), {
+    if (_handler == null) return;
+    await _handler!.playFromUri(Uri.parse(station.streamUrl), {
       'title': station.name,
       'album': "Kingdom Radio",
       'artist': station.location,
     });
   }
 
-  Future<void> pause() => _handler.pause();
-  Future<void> stop() => _handler.stop();
-  Future<void> play() => _handler.play();
+  Future<void> pause() => _handler?.pause() ?? Future.value();
+  Future<void> stop() => _handler?.stop() ?? Future.value();
+  Future<void> play() => _handler?.play() ?? Future.value();
 
   // In a real app, you would fetch from: http://stream.url/status-json.xsl
   // For this VPS setup, we simulate real-time metadata updates.
@@ -79,3 +80,4 @@ final radioServiceProvider = Provider((ref) {
 final radioMetadataProvider = StreamProvider.family<String, String>((ref, stationName) {
   return ref.watch(radioServiceProvider).getMetadataStream(stationName);
 });
+

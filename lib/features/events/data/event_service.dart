@@ -41,7 +41,8 @@ class ChurchEvent {
 
 class EventService {
   final SupabaseClient _client;
-  EventService(this._client);
+  final Ref _ref;
+  EventService(this._client, this._ref);
 
   Stream<List<ChurchEvent>> getEventsStream() {
     return _client
@@ -55,37 +56,50 @@ class EventService {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
-    await _client.from('events').insert({
-      ...eventData,
+    final dbData = {
+      'title': eventData['title'],
+      'description': eventData['description'] ?? 'No description',
+      'location': eventData['location'] ?? 'Main Hall',
+      'date': DateTime.now().add(const Duration(days: 7)).toIso8601String(),
+      'image_url': eventData['cover'] ?? eventData['image_url'],
+      'ticket_price': (eventData['price'] ?? eventData['ticket_price'] ?? 0.0).toDouble(),
+      'category': eventData['type'] ?? eventData['category'] ?? 'General',
       'created_by': user.id,
-      'attendee_count': 0,
-    });
+      'tenant_id': eventData['tenant_id'],
+    };
+
+    await _client.from('events').insert(dbData);
+    _ref.invalidate(eventsStreamProvider);
   }
 
   Future<void> registerForEvent(String eventId) async {
     final user = _client.auth.currentUser;
-    if (user == null) return;
+    if (user == null) throw Exception("Please login to register");
 
-    // Insert into event_registrations junction table
-    await _client.from('event_registrations').upsert({
-      'event_id': eventId,
-      'user_id': user.id,
-    });
+    try {
+      await _client.from('event_registrations').upsert({
+        'event_id': eventId,
+        'user_id': user.id,
+      });
 
-    // Increment count on event (or better: use a trigger in DB)
-    final currentCount = await _getAttendeeCount(eventId);
-    await _client.from('events').update({
-      'attendee_count': currentCount + 1
-    }).eq('id', eventId);
+      // Update attendee count
+      final res = await _client.from('events').select('attendee_count').eq('id', eventId).single();
+      final current = res['attendee_count'] ?? 0;
+      await _client.from('events').update({'attendee_count': current + 1}).eq('id', eventId);
+      
+      _ref.invalidate(myTicketsStreamProvider);
+    } catch (e) {
+      if (e.toString().contains('22023')) {
+        throw Exception("Registration failed: Invalid user session or profile role missing.");
+      }
+      rethrow;
+    }
   }
 
   Stream<List<ChurchEvent>> getMyTicketsStream() {
     final user = _client.auth.currentUser;
     if (user == null) return Stream.value([]);
 
-    // This requires a join or complex query. For now, assuming event_registrations has event details or 
-    // we use rpc. Let's simplify and just fetch events where the user is in event_registrations.
-    // Simplifying for mock/real hybrid:
     return _client
         .from('event_registrations')
         .stream(primaryKey: ['id'])
@@ -97,14 +111,9 @@ class EventService {
            return (res as List).map((e) => ChurchEvent.fromMap(e)).toList();
         });
   }
-
-  Future<int> _getAttendeeCount(String eventId) async {
-     final res = await _client.from('events').select('attendee_count').eq('id', eventId).single();
-     return res['attendee_count'] ?? 0;
-  }
 }
 
-final eventServiceProvider = Provider((ref) => EventService(Supabase.instance.client));
+final eventServiceProvider = Provider((ref) => EventService(Supabase.instance.client, ref));
 
 final eventsStreamProvider = StreamProvider<List<ChurchEvent>>((ref) {
   return ref.watch(eventServiceProvider).getEventsStream();
@@ -113,3 +122,4 @@ final eventsStreamProvider = StreamProvider<List<ChurchEvent>>((ref) {
 final myTicketsStreamProvider = StreamProvider<List<ChurchEvent>>((ref) {
   return ref.watch(eventServiceProvider).getMyTicketsStream();
 });
+

@@ -101,7 +101,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)],
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -174,7 +174,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                 Center(
                   child: CircleAvatar(
                     radius: 45,
-                    backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                    backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
                     child: Text(
                       userName.isNotEmpty ? userName[0].toUpperCase() : "R",
                       style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
@@ -189,7 +189,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.1),
+                      color: Colors.green.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Row(
@@ -264,7 +264,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20)],
         ),
         child: Column(
           children: [
@@ -325,7 +325,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                   color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.transparent,
                   borderRadius: BorderRadius.circular(15),
                   boxShadow: isSelected
-                      ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 6, offset: const Offset(0, 2))]
+                      ? [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 2))]
                       : [],
                 ),
                 child: Column(
@@ -347,7 +347,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                         child: Text(
                           cat['desc'] as String,
                           style: TextStyle(
-                            color: Theme.of(context).primaryColor.withValues(alpha: 0.8),
+                            color: Theme.of(context).primaryColor.withOpacity(0.8),
                             fontSize: 7,
                             fontWeight: FontWeight.w500,
                           ),
@@ -457,7 +457,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(25),
             border: Border.all(color: Colors.grey[200]!),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
           ),
           child: Column(
             children: [
@@ -531,7 +531,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
               minimumSize: const Size(double.infinity, 65),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
               elevation: 8,
-              shadowColor: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+              shadowColor: Theme.of(context).primaryColor.withOpacity(0.5),
             ),
             child: Text(
               isWaiting ? "SEARCHING FOR DRIVER..." : "PAY & REQUEST RIDE",
@@ -716,3 +716,4 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
     );
   }
 }
+

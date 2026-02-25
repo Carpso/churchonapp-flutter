@@ -65,7 +65,7 @@ class ManageApplicationsScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
       ),
       child: Column(
         children: [
@@ -73,7 +73,7 @@ class ManageApplicationsScreen extends ConsumerWidget {
             children: [
               CircleAvatar(
                 radius: 25,
-                backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                backgroundColor: Colors.blue.withOpacity(0.1),
                 child: const Icon(LucideIcons.user, color: Colors.blue),
               ),
               const SizedBox(width: 15),
@@ -130,3 +130,4 @@ class ManageApplicationsScreen extends ConsumerWidget {
     );
   }
 }
+

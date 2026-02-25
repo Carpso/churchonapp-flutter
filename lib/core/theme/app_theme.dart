@@ -35,7 +35,7 @@ class AppTheme {
           fontSize: 16,
         ),
         bodyMedium: GoogleFonts.inter(
-          color: charcoal.withValues(alpha: 0.8),
+          color: charcoal.withOpacity(0.8),
           fontSize: 14,
         ),
       ),
@@ -73,7 +73,7 @@ class AppTheme {
   static LinearGradient getGradient(Tenant? tenant) {
     final primary = tenant?.primaryColor ?? const Color(0xFFFFD700);
     return LinearGradient(
-      colors: [primary, primary.withValues(alpha: 0.8)],
+      colors: [primary, primary.withOpacity(0.8)],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
@@ -84,3 +84,4 @@ final themeProvider = Provider<ThemeData>((ref) {
   final tenant = ref.watch(currentTenantProvider);
   return AppTheme.getTheme(tenant);
 });
+

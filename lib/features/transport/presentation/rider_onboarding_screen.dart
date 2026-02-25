@@ -422,3 +422,4 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
     );
   }
 }
+

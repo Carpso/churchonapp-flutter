@@ -277,7 +277,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen> {
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10)),
+          decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10)),
           child: Text(option, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ),
@@ -301,10 +301,11 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen> {
   Widget _buildSearchingLoader() {
     return Column(
       children: [
-        Container(width: 80, height: 80, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.05)), child: const Center(child: Icon(LucideIcons.user, color: Colors.white24, size: 40))),
+        Container(width: 80, height: 80, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.05)), child: const Center(child: Icon(LucideIcons.user, color: Colors.white24, size: 40))),
         const SizedBox(height: 15),
         const Text("???", style: TextStyle(color: Colors.white24, fontWeight: FontWeight.bold)),
       ],
     );
   }
 }
+

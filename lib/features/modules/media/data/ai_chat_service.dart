@@ -74,3 +74,4 @@ final aiChatServiceProvider = Provider((ref) {
   final client = ref.watch(supabaseServiceProvider).client;
   return AiChatService(client);
 });
+

@@ -41,9 +41,9 @@ class _LencoPaymentGatewayState extends ConsumerState<LencoPaymentGateway> {
   String _statusMessage = "Initializing payload...";
 
   final List<Map<String, dynamic>> _networks = [
-    {"name": "MTN", "color": Colors.yellow, "id": "mtn"},
-    {"name": "Airtel", "color": Colors.red, "id": "airtel"},
-    {"name": "Zamtel", "color": Colors.green, "id": "zamtel"},
+    {"name": "MTN", "color": Colors.yellow, "id": "mtn_zambia"},
+    {"name": "Airtel", "color": Colors.red, "id": "airtel_zambia"},
+    {"name": "Zamtel", "color": Colors.green, "id": "zamtel_zambia"},
   ];
 
   Future<void> _initiatePayment() async {
@@ -59,7 +59,7 @@ class _LencoPaymentGatewayState extends ConsumerState<LencoPaymentGateway> {
     });
 
     try {
-      final String apiKey = dotenv.get('LENCO_API_KEY');
+      final String apiKey = dotenv.get('LENCO_API_KEY').trim();
       const String baseUrl = "https://api.lenco.co/access/v2";
       final tenant = ref.read(currentTenantProvider);
       
@@ -180,7 +180,7 @@ class _LencoPaymentGatewayState extends ConsumerState<LencoPaymentGateway> {
             decoration: BoxDecoration(
               color: const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.blue.withValues(alpha: 0.1)),
+              border: Border.all(color: Colors.blue.withOpacity(0.1)),
             ),
             child: Column(
               children: [
@@ -216,7 +216,7 @@ class _LencoPaymentGatewayState extends ConsumerState<LencoPaymentGateway> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     decoration: BoxDecoration(
-                      color: isSelected ? n['color'].withValues(alpha: 0.1) : Colors.white,
+                      color: isSelected ? n['color'].withOpacity(0.1) : Colors.white,
                       borderRadius: BorderRadius.circular(15),
                       border: Border.all(color: isSelected ? n['color'] : const Color(0xFFF1F5F9), width: 2),
                     ),
@@ -287,3 +287,4 @@ class _LencoPaymentGatewayState extends ConsumerState<LencoPaymentGateway> {
     );
   }
 }
+

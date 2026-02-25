@@ -90,6 +90,7 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
       };
 
       await ref.read(marketplaceServiceProvider).postProduct(productData);
+      ref.invalidate(productsProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -164,7 +165,7 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+                    border: Border.all(color: Colors.grey.withOpacity(0.1)),
                   ),
                   child: _imageFile != null
                       ? ClipRRect(
@@ -332,3 +333,4 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
     );
   }
 }
+

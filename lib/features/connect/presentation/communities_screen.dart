@@ -8,12 +8,9 @@ class CommunitiesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
-      appBar: AppBar(
-        title: const Text("Kingdom Communities", style: TextStyle(fontWeight: FontWeight.bold)),
-      ),
-      body: SingleChildScrollView(
+    return Container(
+      color: const Color(0xFFFFFAEB),
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(25),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,7 +66,7 @@ class CommunitiesScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).primaryColor,
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: const Row(
         children: [
@@ -95,9 +92,9 @@ class CommunitiesScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.amber.withValues(alpha: 0.1),
+          color: Colors.amber.withOpacity(0.1),
           borderRadius: BorderRadius.circular(25),
-          border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+          border: Border.all(color: Colors.amber.withOpacity(0.3)),
         ),
         child: Row(
           children: [
@@ -144,7 +141,7 @@ class CommunitiesScreen extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
         ),
         child: Row(
           children: [
@@ -172,3 +169,4 @@ class CommunitiesScreen extends StatelessWidget {
     );
   }
 }
+

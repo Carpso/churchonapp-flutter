@@ -87,7 +87,11 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
                     children: [
                       Text("TRENDING PODCASTS", style: GoogleFonts.plusJakartaSans(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2)),
                       const SizedBox(height: 20),
-                      _buildFeaturedCard(context, episodes.first),
+                      if (episodes.isNotEmpty) ...[
+                        _buildFeaturedCard(context, episodes.first),
+                      ] else ...[
+                        const Center(child: Text("No podcasts available", style: TextStyle(color: Colors.white54))),
+                      ],
                       const SizedBox(height: 40),
                       Text("ALL BIBLE BOOKS", style: GoogleFonts.plusJakartaSans(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2)),
                       const SizedBox(height: 20),
@@ -128,7 +132,7 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
         decoration: BoxDecoration(
           color: const Color(0xFF1E293B),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20)],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -239,9 +243,9 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 15), padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isCurrent ? Colors.amber.withValues(alpha: 0.15) : const Color(0xFF1E293B),
+          color: isCurrent ? Colors.amber.withOpacity(0.15) : const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(20),
-          border: isCurrent ? Border.all(color: Colors.amber.withValues(alpha: 0.3)) : null,
+          border: isCurrent ? Border.all(color: Colors.amber.withOpacity(0.3)) : null,
         ),
         child: Row(
           children: [
@@ -272,3 +276,4 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
     );
   }
 }
+

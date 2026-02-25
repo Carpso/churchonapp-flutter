@@ -82,3 +82,4 @@ final liveChatServiceProvider = Provider((ref) {
 final liveChatStreamProvider = StreamProvider.family<List<LiveChatMessage>, String>((ref, tenantId) {
   return ref.watch(liveChatServiceProvider).streamLiveMessages(tenantId);
 });
+

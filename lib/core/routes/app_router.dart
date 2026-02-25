@@ -7,6 +7,9 @@ import 'package:church_on_app/features/auth/presentation/login_screen.dart';
 import 'package:church_on_app/features/auth/presentation/signup_screen.dart';
 import 'package:church_on_app/features/auth/presentation/onboarding_screen.dart';
 import 'package:church_on_app/features/auth/presentation/select_church_screen.dart';
+import 'package:church_on_app/features/auth/presentation/landing_screen.dart';
+import 'package:church_on_app/features/auth/presentation/church_onboarding_screen.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:church_on_app/features/home/presentation/home_screen.dart';
 import 'package:church_on_app/features/home/presentation/sermon_library_screen.dart';
 import 'package:church_on_app/features/transport/presentation/ride_request_screen.dart';
@@ -31,7 +34,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/',
+    initialLocation: kIsWeb ? '/landing' : '/',
     redirect: (context, state) {
       final seenOnboarding = onboardingAsync.value ?? true;
       if (!seenOnboarding && state.uri.path != '/onboarding') {
@@ -41,14 +44,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loggedIn = authState.user != null;
       final isLoggingIn = state.uri.path == '/login';
       final isSelectingChurch = state.uri.path == '/select-church';
+      final isLanding = state.uri.path == '/landing';
+      final isSignUp = state.uri.path == '/signup';
 
       if (!loggedIn) {
-        if (tenant == null && !isSelectingChurch) return '/select-church';
-        if (tenant != null && !isLoggingIn && !isSelectingChurch) return '/login';
-        return null;
+        if (isLoggingIn || isSelectingChurch || isSignUp || 
+            state.uri.path == '/onboarding' || 
+            state.uri.path == '/register-church') return null;
+        if (kIsWeb && isLanding) return null;
+        if (kIsWeb) return '/landing';
+        if (tenant == null) return '/select-church';
+        return '/login';
       }
 
-      if (loggedIn && (isLoggingIn || isSelectingChurch || state.uri.path == '/onboarding')) {
+      if (loggedIn && (isLoggingIn || isSelectingChurch || isLanding || state.uri.path == '/onboarding')) {
         return '/';
       }
 
@@ -66,6 +75,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/signup',
         builder: (context, state) => const SignupScreen(),
+      ),
+      GoRoute(
+        path: '/register-church',
+        builder: (context, state) => const ChurchOnboardingScreen(),
+      ),
+
+
+      GoRoute(
+        path: '/landing',
+        builder: (context, state) => const LandingScreen(),
       ),
       GoRoute(
         path: '/login',
@@ -152,3 +171,4 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+

@@ -134,9 +134,9 @@ class BishopHubScreen extends ConsumerWidget {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha: 0.05),
+              color: Colors.amber.withOpacity(0.05),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.amber.withValues(alpha: 0.1)),
+              border: Border.all(color: Colors.amber.withOpacity(0.1)),
             ),
             child: const Row(
               children: [
@@ -209,3 +209,4 @@ class BishopHubScreen extends ConsumerWidget {
     );
   }
 }
+

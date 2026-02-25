@@ -128,7 +128,7 @@ class AdminHubScreen extends ConsumerWidget {
                 context,
                 LucideIcons.video,
                 "Kingdom Live Studio",
-                "Connect to VPS & start church-wide broadcast",
+                "Connect to Prophetic Hub & start church-wide broadcast",
                 Colors.red,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LiveStreamStudioScreen())),
               ),
@@ -385,7 +385,7 @@ class AdminHubScreen extends ConsumerWidget {
               await ref.read(adminServiceProvider).triggerGlobalWorkerPayouts();
               if (context.mounted) {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Global Driver Payout Settlement verified on VPS ledger.")));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Global Driver Payout Settlement verified on Prophetic ledger.")));
               }
             },
             child: const Text("VERIFY ALL"),
@@ -418,7 +418,7 @@ class AdminHubScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,13 +442,13 @@ class AdminHubScreen extends ConsumerWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
               child: Icon(icon, color: color, size: 24),
             ),
             const SizedBox(width: 20),
@@ -468,3 +468,4 @@ class AdminHubScreen extends ConsumerWidget {
     );
   }
 }
+

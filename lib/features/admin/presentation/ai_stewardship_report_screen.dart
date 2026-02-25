@@ -70,9 +70,9 @@ class _AIStewardshipReportScreenState extends ConsumerState<AIStewardshipReportS
     return Container(
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        color: Colors.blueAccent.withValues(alpha: 0.1),
+        color: Colors.blueAccent.withOpacity(0.1),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.3)),
+        border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
       ),
       child: Row(
         children: [
@@ -83,7 +83,7 @@ class _AIStewardshipReportScreenState extends ConsumerState<AIStewardshipReportS
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text("Prophetic Oversight", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-                Text("Analyzing the material health of the Kingdom ledger.", style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+                Text("Analyzing the material health of the Kingdom ledger.", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
               ],
             ),
           ),
@@ -96,7 +96,7 @@ class _AIStewardshipReportScreenState extends ConsumerState<AIStewardshipReportS
     return Center(
       child: Column(
         children: [
-          Icon(LucideIcons.lineChart, size: 60, color: Colors.white.withValues(alpha: 0.1)),
+          Icon(LucideIcons.lineChart, size: 60, color: Colors.white.withOpacity(0.1)),
           const SizedBox(height: 20),
           const Text("Ready to analyze this month's stewardship.", style: TextStyle(color: Colors.white60)),
         ],
@@ -108,7 +108,7 @@ class _AIStewardshipReportScreenState extends ConsumerState<AIStewardshipReportS
     return Container(
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: Colors.white10),
       ),
@@ -145,3 +145,4 @@ class _AIStewardshipReportScreenState extends ConsumerState<AIStewardshipReportS
     );
   }
 }
+

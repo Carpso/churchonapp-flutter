@@ -126,7 +126,7 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> {
                     shape: BoxShape.circle,
                     image: DecorationImage(image: NetworkImage(widget.userAvatar), fit: BoxFit.cover),
                     boxShadow: [
-                      BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.3), blurRadius: 40, spreadRadius: 10)
+                      BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.3), blurRadius: 40, spreadRadius: 10)
                     ]
                   ),
                 ),
@@ -148,7 +148,7 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.8),
+                    color: Colors.red.withOpacity(0.8),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -170,7 +170,7 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.4),
+                color: Colors.black.withOpacity(0.4),
                 borderRadius: BorderRadius.circular(30),
               ),
               child: Row(
@@ -261,7 +261,7 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> {
         width: 60,
         height: 60,
         decoration: BoxDecoration(
-          color: isActive ? activeColor : Colors.white.withValues(alpha: 0.1),
+          color: isActive ? activeColor : Colors.white.withOpacity(0.1),
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white12),
         ),
@@ -270,3 +270,4 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> {
     );
   }
 }
+

@@ -153,3 +153,4 @@ final tenantInitializerProvider = FutureProvider<void>((ref) async {
   final notifier = ref.read(currentTenantProvider.notifier);
   await notifier.loadTenant();
 });
+

@@ -82,9 +82,9 @@ class _TransactionPageState extends State<TransactionPage> {
             Container(
               padding: const EdgeInsets.all(30),
               decoration: BoxDecoration(
-                color: widget.color.withValues(alpha: 0.1),
+                color: widget.color.withOpacity(0.1),
                 shape: BoxShape.circle,
-                border: Border.all(color: widget.color.withValues(alpha: 0.3), width: 2)
+                border: Border.all(color: widget.color.withOpacity(0.3), width: 2)
               ),
               child: Icon(widget.icon, color: widget.color, size: 60),
             ),
@@ -127,7 +127,7 @@ class _TransactionPageState extends State<TransactionPage> {
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   elevation: 5,
-                  shadowColor: widget.color.withValues(alpha: 0.4),
+                  shadowColor: widget.color.withOpacity(0.4),
                 ),
                 onPressed: _isProcessing ? null : _handleTransaction,
                 child: _isProcessing 
@@ -157,3 +157,4 @@ class _TransactionPageState extends State<TransactionPage> {
     );
   }
 }
+

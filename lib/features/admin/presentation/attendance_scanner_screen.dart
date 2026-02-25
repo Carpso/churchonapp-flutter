@@ -87,3 +87,4 @@ class _AttendanceScannerScreenState extends ConsumerState<AttendanceScannerScree
     );
   }
 }
+

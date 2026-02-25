@@ -112,3 +112,4 @@ final chatServiceProvider = Provider((ref) {
   final client = ref.watch(supabaseServiceProvider).client;
   return ChatService(client);
 });
+

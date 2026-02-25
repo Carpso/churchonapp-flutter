@@ -68,3 +68,4 @@ final kingdomGameServiceProvider = Provider((ref) {
   final client = ref.watch(supabaseServiceProvider).client;
   return KingdomGameService(client);
 });
+

@@ -43,9 +43,29 @@ class ProfileScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       body: profileAsync.when(
-        data: (profile) => CustomScrollView(
-          slivers: [
-            _buildAppBar(context, profile, tenant),
+        data: (profile) {
+          if (profile == null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(LucideIcons.userX, size: 60, color: Colors.grey),
+                  const SizedBox(height: 20),
+                  const Text("Profile Not Found", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  const SizedBox(height: 10),
+                  const Text("Please sign in to view your profile", style: TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () => ref.read(authProvider.notifier).signOut(),
+                    child: const Text("LOGIN / SIGNUP"),
+                  ),
+                ],
+              ),
+            );
+          }
+          return CustomScrollView(
+            slivers: [
+              _buildAppBar(context, profile, tenant),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(25.0),
@@ -74,7 +94,8 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ),
           ],
-        ),
+          );
+        },
         loading: () => const Center(child: CircularProgressIndicator(color: Colors.amber)),
         error: (e, st) => Center(child: Text("Error: $e")),
       ),
@@ -95,7 +116,7 @@ class ProfileScreen extends ConsumerWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Theme.of(context).primaryColor, Theme.of(context).primaryColor.withValues(alpha: 0.8)],
+                    colors: [Theme.of(context).primaryColor, Theme.of(context).primaryColor.withOpacity(0.8)],
                   ),
                 ),
               ),
@@ -120,11 +141,11 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 15),
                   Text(profile?.name ?? "Believer", style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                  Text(tenant?.name ?? "Global Member", style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 14)),
+                  Text(tenant?.name ?? "Global Member", style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14)),
                   const SizedBox(height: 5),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
+                    decoration: BoxDecoration(color: Colors.black.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
                     child: Text(profile?.role?.toUpperCase() ?? "MEMBER", style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
                   ),
                 ],
@@ -145,7 +166,7 @@ class ProfileScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         children: [
@@ -169,13 +190,13 @@ class ProfileScreen extends ConsumerWidget {
               ],
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15)),
-                child: QrImageView(data: walletId, version: QrVersions.auto, size: 60.0, foregroundColor: Theme.of(context).colorScheme.secondary),
+                decoration: BoxDecoration(color: Colors.grey.withOpacity(0.05), borderRadius: BorderRadius.circular(15)),
+                child: QrImageView(data: profile?.id ?? walletId, version: QrVersions.auto, size: 60.0, foregroundColor: Theme.of(context).colorScheme.secondary),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          Divider(color: Colors.grey.withValues(alpha: 0.1)),
+          Divider(color: Colors.grey.withOpacity(0.1)),
           const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -258,7 +279,7 @@ class ProfileScreen extends ConsumerWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.1), shape: BoxShape.circle),
             child: Icon(icon, color: Theme.of(context).primaryColor, size: 22),
           ),
           const SizedBox(height: 8),
@@ -345,9 +366,9 @@ class ProfileScreen extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
         decoration: BoxDecoration(
-          color: mode ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+          color: mode ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: mode ? Colors.green : Colors.grey.withValues(alpha: 0.3)),
+          border: Border.all(color: mode ? Colors.green : Colors.grey.withOpacity(0.3)),
         ),
         child: Column(
           children: [
@@ -406,7 +427,7 @@ class ProfileScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.grey.withValues(alpha: 0.05)),
+              border: Border.all(color: Colors.grey.withOpacity(0.05)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -514,9 +535,9 @@ class ProfileScreen extends ConsumerWidget {
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -649,7 +670,7 @@ class ProfileScreen extends ConsumerWidget {
                     dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: Colors.amber.withValues(alpha: 0.1),
+                      color: Colors.amber.withOpacity(0.1),
                     ),
                   ),
                 ],
@@ -668,7 +689,7 @@ class ProfileScreen extends ConsumerWidget {
       children: [
         Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+          decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
           child: Icon(icon, color: color, size: 20),
         ),
         const SizedBox(height: 10),
@@ -701,3 +722,4 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 }
+

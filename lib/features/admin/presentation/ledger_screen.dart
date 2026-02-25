@@ -103,7 +103,7 @@ class LedgerScreen extends ConsumerWidget {
                     color: Colors.blue,
                     barWidth: 4,
                     dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(show: true, color: Colors.blue.withValues(alpha: 0.1)),
+                    belowBarData: BarAreaData(show: true, color: Colors.blue.withOpacity(0.1)),
                   ),
                 ],
               ),
@@ -188,7 +188,7 @@ class LedgerScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,7 +250,7 @@ class LedgerScreen extends ConsumerWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: Colors.blue.withOpacity(0.05), borderRadius: BorderRadius.circular(12)),
             child: const Icon(LucideIcons.arrowDownLeft, color: Colors.blue, size: 20),
           ),
           const SizedBox(width: 15),
@@ -305,3 +305,4 @@ class _StatItem extends StatelessWidget {
 final ledgerStreamProvider = StreamProvider.family<List<Transaction>, String>((ref, tenantId) {
   return ref.watch(financeServiceProvider).getTenantLedgerStream(tenantId);
 });
+

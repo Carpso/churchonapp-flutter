@@ -67,7 +67,7 @@ class PropheticHeatmapScreen extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B).withValues(alpha: 0.9),
+          color: const Color(0xFF1E293B).withOpacity(0.9),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.white10),
         ),
@@ -138,7 +138,7 @@ class PropheticHeatmapScreen extends ConsumerWidget {
                 ),
                 const SizedBox(width: 15),
                 Container(
-                   decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15)),
+                   decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(15)),
                    child: IconButton(
                      icon: const Icon(LucideIcons.refreshCw, color: Colors.white, size: 20), 
                      onPressed: () async {
@@ -164,3 +164,4 @@ class PropheticHeatmapScreen extends ConsumerWidget {
 final heatmapStreamProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   return ref.watch(adminServiceProvider).getHeatmapData();
 });
+

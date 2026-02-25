@@ -82,3 +82,4 @@ final testimonyServiceProvider = Provider((ref) => TestimonyService(Supabase.ins
 final testimonyStreamProvider = StreamProvider<List<Testimony>>((ref) {
   return ref.watch(testimonyServiceProvider).getTestimoniesStream();
 });
+

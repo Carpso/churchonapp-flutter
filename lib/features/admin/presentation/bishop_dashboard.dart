@@ -73,7 +73,7 @@ class BishopDashboard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+        border: Border.all(color: Colors.grey.withOpacity(0.1)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -82,7 +82,7 @@ class BishopDashboard extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: growthColor.withValues(alpha: 0.1),
+              color: growthColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(growth, style: TextStyle(color: growthColor, fontWeight: FontWeight.bold, fontSize: 12)),
@@ -92,3 +92,4 @@ class BishopDashboard extends ConsumerWidget {
     );
   }
 }
+

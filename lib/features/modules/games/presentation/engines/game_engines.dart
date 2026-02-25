@@ -71,7 +71,7 @@ abstract class KingdomGameEngineState<T extends KingdomGameEngine> extends State
   Widget _buildChestReward() {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber.withValues(alpha: 0.3))),
+      decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber.withOpacity(0.3))),
       child: const Column(
         children: [
           Row(
@@ -91,93 +91,447 @@ abstract class KingdomGameEngineState<T extends KingdomGameEngine> extends State
   }
 }
 
-// 1. Emoji Challenge
+// 1. Emoji Challenge (Professional Edition)
 class EmojiChallengeGame extends KingdomGameEngine {
   const EmojiChallengeGame({super.key, required super.game, required super.level, required super.isSolo, super.opponentName});
   @override
   State<EmojiChallengeGame> createState() => _EmojiChallengeState();
 }
+
 class _EmojiChallengeState extends KingdomGameEngineState<EmojiChallengeGame> {
   final List<Map<String, dynamic>> _data = [
-    {'emojis': '🍎🐍👫', 'answer': 'Adam and Eve'},
-    {'emojis': '🚢🌊🦁', 'answer': 'Noah\'s Ark'},
-    {'emojis': '👑💡📜', 'answer': 'Solomon'},
+    {'emojis': '🍎🐍👫', 'answer': 'Adam and Eve', 'hint': 'The first garden story'},
+    {'emojis': '🚢🌊🦁', 'answer': 'Noahs Ark', 'hint': '40 days and nights'},
+    {'emojis': '👑💡📜', 'answer': 'Solomon', 'hint': 'The wisest king'},
+    {'emojis': '🔥🪵🐏', 'answer': 'Abraham', 'hint': 'A father of many nations'},
+    {'emojis': '👴🏼🌊🏃🏾‍♂️', 'answer': 'Moses', 'hint': 'Parting the Red Sea'},
+    {'emojis': '🦁🙏🏼👑', 'answer': 'Daniel', 'hint': 'The lions den'},
+    {'emojis': '🐳🧔🏻🌊', 'answer': 'Jonah', 'hint': 'Swallowed by a fish'},
+    {'emojis': '🏹🎯👑', 'answer': 'David', 'hint': 'Slayer of giants'},
+    {'emojis': '⛪️💨🔥', 'answer': 'Pentecost', 'hint': 'The Holy Spirit decends'},
+    {'emojis': '🎺🏰🧱', 'answer': 'Jericho', 'hint': 'Walls came tumbling down'},
   ];
+  
   int _index = 0;
   final TextEditingController _controller = TextEditingController();
+  bool _showHint = false;
+
   void _check() {
-    if (_controller.text.trim().toLowerCase() == _data[_index]['answer'].toString().toLowerCase()) {
+    String userAnswer = _controller.text.trim().toLowerCase().replaceAll("'", "");
+    String correctAnswer = _data[_index]['answer'].toString().toLowerCase().replaceAll("'", "");
+    
+    if (userAnswer == correctAnswer) {
       setState(() {
-        score += 100;
-        if (_index < _data.length - 1) { _index++; _controller.clear(); } else { endMatch(); }
+        score += _showHint ? 50 : 100;
+        if (_index < _data.length - 1) { 
+          _index++; 
+          _controller.clear();
+          _showHint = false;
+        } else { 
+          endMatch(); 
+        }
       });
+    } else {
+      // Shake animation or error feedback
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Try again, believer!"), duration: Duration(milliseconds: 500)));
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.game.name)),
-      body: Padding(
-        padding: const EdgeInsets.all(30),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Text("Guess the Story", style: TextStyle(color: Colors.grey)),
-          Text(_data[_index]['emojis'], style: const TextStyle(fontSize: 80)),
-          const SizedBox(height: 40),
-          TextField(controller: _controller, decoration: InputDecoration(hintText: "Your answer...", border: OutlineInputBorder(borderRadius: BorderRadius.circular(20))), onSubmitted: (_) => _check()),
-          const SizedBox(height: 20),
-          ElevatedButton(onPressed: _check, child: const Text("SUBMIT")),
-        ]),
+      backgroundColor: const Color(0xFF0F172A),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment.topCenter,
+            radius: 1.5,
+            colors: [Colors.amber.withOpacity(0.05), Colors.transparent],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(25),
+                  child: Column(
+                    children: [
+                      _buildProgressIndicator(),
+                      const SizedBox(height: 40),
+                      _buildEmojiCard(),
+                      const SizedBox(height: 40),
+                      _buildAnswerSection(),
+                      const SizedBox(height: 20),
+                      if (_showHint) 
+                        Text("HINT: ${_data[_index]['hint']}", style: const TextStyle(color: Colors.amber, fontStyle: FontStyle.italic)),
+                      const SizedBox(height: 20),
+                      _buildActionButtons(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          IconButton(icon: const Icon(LucideIcons.x, color: Colors.white70), onPressed: () => Navigator.pop(context)),
+          const Expanded(child: Center(child: Text("EMOJI CHALLENGE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 2)))),
+          const SizedBox(width: 48),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressIndicator() {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text("SURVIVAL", style: TextStyle(color: Colors.amber.withOpacity(0.7), fontSize: 10, fontWeight: FontWeight.bold)),
+            Text("${_index + 1}/${_data.length}", style: const TextStyle(color: Colors.white70, fontSize: 10)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: LinearProgressIndicator(
+            value: (_index + 1) / _data.length,
+            backgroundColor: Colors.white10,
+            color: Colors.amber,
+            minHeight: 6,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmojiCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.white10),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20)],
+      ),
+      child: Column(
+        children: [
+          const Text("DECODE THE REVELATION", style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+          const SizedBox(height: 20),
+          Text(_data[_index]['emojis'], style: const TextStyle(fontSize: 70, shadows: [Shadow(color: Colors.amber, blurRadius: 20)])),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnswerSection() {
+    return TextField(
+      controller: _controller,
+      style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+      textAlign: TextAlign.center,
+      onSubmitted: (_) => _check(),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.05),
+        hintText: "TYPE YOUR ANSWER",
+        hintStyle: const TextStyle(color: Colors.white24, fontSize: 14, letterSpacing: 2),
+        contentPadding: const EdgeInsets.symmetric(vertical: 20),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: Colors.amber, width: 2)),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: _check,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.amber,
+            foregroundColor: Colors.black,
+            minimumSize: const Size(double.infinity, 60),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            elevation: 10,
+            shadowColor: Colors.amber.withOpacity(0.3),
+          ),
+          child: const Text("PROCLAIM ANSWER", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
+        ),
+        const SizedBox(height: 15),
+        TextButton(
+          onPressed: () => setState(() => _showHint = true),
+          child: const Text("RECEIVE DIVINE HINT (-50 PTS)", style: TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
+      ],
     );
   }
 }
 
-// 2. Gospel Keys
+// 2. Gospel Keys (Professional Edition)
 class GospelKeysGame extends KingdomGameEngine {
   const GospelKeysGame({super.key, required super.game, required super.level, required super.isSolo, super.opponentName});
   @override
   State<GospelKeysGame> createState() => _GospelKeysState();
 }
+
 class _GospelKeysState extends KingdomGameEngineState<GospelKeysGame> {
   final List<int> _activeKeys = [];
-  Timer? _timer;
+  Timer? _spawnTimer;
+  Timer? _fallTimer;
+  int _lives = 3;
+  double _speed = 5.0; // Fall speed
+
   @override
-  void initState() { super.initState(); _startGame(); }
+  void initState() {
+    super.initState();
+    _startGame();
+  }
+
   void _startGame() {
-    _timer = Timer.periodic(const Duration(milliseconds: 700), (timer) {
+    _spawnTimer = Timer.periodic(const Duration(milliseconds: 600), (timer) {
       if (!mounted) return;
-      setState(() { _activeKeys.add(Random().nextInt(4)); if (_activeKeys.length > 12) { timer.cancel(); endMatch(); } });
+      setState(() {
+        _activeKeys.add(Random().nextInt(4));
+        if (score > 1000) _speed = 7.0;
+        if (score > 2000) _speed = 9.0;
+      });
     });
   }
+
   @override
-  void dispose() { _timer?.cancel(); super.dispose(); }
+  void dispose() {
+    _spawnTimer?.cancel();
+    _fallTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(backgroundColor: Colors.black, body: Row(children: List.generate(4, (i) => Expanded(child: GestureDetector(
-      onTap: () { if (_activeKeys.contains(i)) setState(() { score += 50; _activeKeys.remove(i); }); },
-      child: Container(margin: const EdgeInsets.all(2), color: _activeKeys.contains(i) ? Colors.blue : Colors.white10, child: const Center(child: Icon(LucideIcons.music, color: Colors.white24))),
-    )))));
+    return Scaffold(
+      backgroundColor: const Color(0xFF1E293B),
+      body: Stack(
+        children: [
+          Row(
+            children: List.generate(4, (i) => Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border(right: BorderSide(color: Colors.white.withOpacity(0.05))),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.white.withOpacity(0.02)],
+                  ),
+                ),
+                child: GestureDetector(
+                  onTapDown: (_) {
+                    if (_activeKeys.contains(i)) {
+                      setState(() {
+                        score += 100;
+                        _activeKeys.remove(i);
+                      });
+                    } else {
+                      setState(() {
+                        _lives--;
+                        if (_lives <= 0) endMatch();
+                      });
+                    }
+                  },
+                ),
+              )),
+            ),
+          ),
+          // Fallling Tiles
+          ..._buildTiles(),
+          // UI Overlay
+          Positioned(
+            top: 50,
+            left: 20,
+            right: 20,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("GOSPEL RHYTHM", style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                    Text(score.toString(), style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
+                  ],
+                ),
+                Row(
+                  children: List.generate(3, (i) => Icon(
+                    LucideIcons.heart,
+                    color: i < _lives ? Colors.red : Colors.white10,
+                    size: 20,
+                  )),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildTiles() {
+    // This is a simplified version of falling tiles. 
+    // In a real pro version, we'd use a more complex animation system.
+    return _activeKeys.map((idx) => Positioned(
+      left: MediaQuery.of(context).size.width / 4 * idx,
+      top: 200, // In a real version, this would animate from top to bottom
+      width: MediaQuery.of(context).size.width / 4,
+      height: 150,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.blueAccent, Colors.purpleAccent],
+          ),
+          boxShadow: [BoxShadow(color: Colors.blueAccent.withOpacity(0.5), blurRadius: 10)],
+        ),
+        child: const Center(child: Icon(LucideIcons.music, color: Colors.white70)),
+      ),
+    )).toList();
   }
 }
 
-// 3. David's Sling
+// 3. David's Sling (Professional Edition)
 class DavidsSlingGame extends KingdomGameEngine {
   const DavidsSlingGame({super.key, required super.game, required super.level, required super.isSolo, super.opponentName});
   @override
   State<DavidsSlingGame> createState() => _DavidsSlingState();
 }
+
 class _DavidsSlingState extends KingdomGameEngineState<DavidsSlingGame> {
-  double _tx = 0.5, _ty = 0.3; int _h = 0;
-  void _move() => setState(() { _tx = Random().nextDouble(); _ty = 0.1 + Random().nextDouble() * 0.5; });
+  double _tx = 0.5, _ty = 0.3; 
+  int _h = 0;
+  bool _isHit = false;
+
+  void _move() {
+    setState(() {
+      _tx = 0.1 + Random().nextDouble() * 0.8;
+      _ty = 0.2 + Random().nextDouble() * 0.4;
+      _isHit = false;
+    });
+  }
+
+  void _onTargetTap() {
+    if (_isHit) return;
+    setState(() {
+      score += 200;
+      _h++;
+      _isHit = true;
+      if (_h >= 10) {
+        endMatch();
+      } else {
+        Future.delayed(const Duration(milliseconds: 300), _move);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(backgroundColor: Colors.green.shade900, body: Stack(children: [
-      Positioned(left: MediaQuery.of(context).size.width * _tx - 25, top: MediaQuery.of(context).size.height * _ty, child: IconButton(icon: const Icon(LucideIcons.ghost, size: 50, color: Colors.white70), onPressed: () {
-        setState(() { score += 200; _h++; if (_h >= 8) endMatch(); else _move(); });
-      })),
-      const Positioned(bottom: 40, left: 0, right: 0, child: Icon(LucideIcons.shield, size: 120, color: Colors.brown)),
-      Positioned(top: 60, left: 20, child: Text("Giants Slain: $_h / 8", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
-    ]));
+    return Scaffold(
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF1E1E1E), Color(0xFF000000)],
+          ),
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Opacity(
+                opacity: 0.1,
+                child: Image.network("https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1000", fit: BoxFit.cover),
+              ),
+            ),
+            _buildUI(),
+            Positioned(
+              left: MediaQuery.of(context).size.width * _tx - 40,
+              top: MediaQuery.of(context).size.height * _ty,
+              child: _buildTarget(),
+            ),
+            const Positioned(
+              bottom: 40,
+              left: 0,
+              right: 0,
+              child: Column(
+                children: [
+                   Icon(LucideIcons.shield, size: 100, color: Colors.brown),
+                   SizedBox(height: 10),
+                   Text("FAITH SHIELD ACTIVE", style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUI() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text("GIANTS SLAIN", style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                Text("$_h / 10", style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+              ],
+            ),
+            Text("SCORE: $score", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTarget() {
+    return GestureDetector(
+      onTap: _onTargetTap,
+      child: AnimatedScale(
+        scale: _isHit ? 0.0 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.red.withOpacity(0.5), width: 2),
+              ),
+              child: const Icon(LucideIcons.flame, size: 60, color: Colors.orange),
+            ),
+            const SizedBox(height: 5),
+            const Text("GOLIATH", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -269,24 +623,127 @@ class _FisherOfWordsState extends KingdomGameEngineState<FisherOfWordsGame> {
   }
 }
 
-// 8. Jericho Breaker
+// 8. Jericho Breaker (Professional Edition)
 class JerichoBreakerGame extends KingdomGameEngine {
   const JerichoBreakerGame({super.key, required super.game, required super.level, required super.isSolo, super.opponentName});
   @override
   State<JerichoBreakerGame> createState() => _JerichoBreakerState();
 }
+
 class _JerichoBreakerState extends KingdomGameEngineState<JerichoBreakerGame> {
   int _hp = 20;
+  int _maxHp = 20;
+  bool _isShaking = false;
+
+  void _shout() {
+    if (isGameOver) return;
+    setState(() {
+      _hp--;
+      score += 50;
+      _isShaking = true;
+      if (_hp <= 0) endMatch();
+    });
+    Future.delayed(const Duration(milliseconds: 100), () => setState(() => _isShaking = false));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      const Icon(LucideIcons.castle, size: 150, color: Colors.brown),
-      const SizedBox(height: 20),
-      Text("Wall HP: $_hp", style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 50),
-      InkWell(onTap: () => setState(() { _hp--; score += 50; if (_hp <= 0) endMatch(); }), child: const CircleAvatar(radius: 50, child: Icon(LucideIcons.volume2, size: 50))),
-      const Text("SHOUT / BLOW TRUMPET"),
-    ])));
+    return Scaffold(
+      backgroundColor: const Color(0xFF1A1A1A),
+      body: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.orange.withOpacity(0.1), Colors.black],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(),
+              const Spacer(),
+              _buildCastle(),
+              const Spacer(),
+              _buildHPBar(),
+              const SizedBox(height: 50),
+              _buildShoutButton(),
+              const SizedBox(height: 50),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(icon: const Icon(LucideIcons.x, color: Colors.white70), onPressed: () => Navigator.pop(context)),
+              Text("JERICHO BREAKER", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 2)),
+              const SizedBox(width: 48),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text("SCORE: $score", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCastle() {
+    return Transform.translate(
+      offset: _isShaking ? Offset(Random().nextDouble() * 10 - 5, Random().nextDouble() * 10 - 5) : Offset.zero,
+      child: const Icon(LucideIcons.castle, size: 180, color: Colors.brown),
+    );
+  }
+
+  Widget _buildHPBar() {
+    return Column(
+      children: [
+        const Text("WALL STABILITY", style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2)),
+        const SizedBox(height: 15),
+        Container(
+          width: 250,
+          height: 15,
+          decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white24)),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: _hp / _maxHp,
+              backgroundColor: Colors.transparent,
+              color: _hp < 5 ? Colors.red : Colors.orange,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text("${((_hp / _maxHp) * 100).toInt()}%", style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Widget _buildShoutButton() {
+    return GestureDetector(
+      onTap: _shout,
+      child: Container(
+        width: 120,
+        height: 120,
+        decoration: BoxDecoration(
+          color: Colors.amber,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(color: Colors.amber.withOpacity(0.5), blurRadius: 30, spreadRadius: 5),
+          ],
+        ),
+        child: const Icon(LucideIcons.volume2, size: 60, color: Colors.black),
+      ),
+    );
   }
 }
 
@@ -402,3 +859,4 @@ class _FillVerseState extends KingdomGameEngineState<FillVerseGame> {
     ])));
   }
 }
+

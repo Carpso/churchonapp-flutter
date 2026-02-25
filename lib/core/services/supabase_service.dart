@@ -32,3 +32,4 @@ class SupabaseService {
 }
 
 final supabaseServiceProvider = Provider((ref) => SupabaseService());
+

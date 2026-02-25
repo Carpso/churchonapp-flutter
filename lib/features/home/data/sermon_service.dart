@@ -78,24 +78,25 @@ class SermonService {
     }
   }
 
-  Future<List<Sermon>> searchSermons(String query) async {
-    try {
-      final response = await _client
-          .from('sermons')
-          .select()
-          .textSearch('fts', query, config: 'english')
-          .order('created_at', ascending: false);
-      
-      return (response as List).map((s) => Sermon.fromMap(s)).toList();
-    } catch (e) {
-      // Fallback to simple ILIKE if FTS fails or isn't set up yet
-      final response = await _client
-          .from('sermons')
-          .select()
-          .or('title.ilike.%$query%,preacher.ilike.%$query%,transcript.ilike.%$query%')
-          .order('created_at', ascending: false);
-      return (response as List).map((s) => Sermon.fromMap(s)).toList();
-    }
+  Future<void> reactToSermon(String sermonId, String type, {String? content}) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    await _client.from('sermon_reactions').insert({
+      'sermon_id': sermonId,
+      'user_id': user.id,
+      'reaction_type': type,
+      'content': content,
+    });
+  }
+
+  Stream<List<Map<String, dynamic>>> streamSermonInsights(String sermonId) {
+    return _client
+        .from('sermon_reactions')
+        .stream(primaryKey: ['id'])
+        .eq('sermon_id', sermonId)
+        .eq('reaction_type', 'discuss')
+        .order('created_at', ascending: false);
   }
 }
 
@@ -104,3 +105,8 @@ final sermonServiceProvider = Provider((ref) => SermonService(Supabase.instance.
 final latestSermonsProvider = FutureProvider<List<Sermon>>((ref) async {
   return ref.watch(sermonServiceProvider).fetchLatestSermons();
 });
+
+final sermonInsightsProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, sermonId) {
+  return ref.watch(sermonServiceProvider).streamSermonInsights(sermonId);
+});
+

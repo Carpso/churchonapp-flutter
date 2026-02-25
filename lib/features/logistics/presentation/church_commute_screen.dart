@@ -100,13 +100,13 @@ class _ChurchCommuteScreenState extends ConsumerState<ChurchCommuteScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 30,
-            backgroundColor: Colors.blue.withValues(alpha: 0.1),
+            backgroundColor: Colors.blue.withOpacity(0.1),
             child: Icon(isDriver ? LucideIcons.car : LucideIcons.bike, color: Colors.blue),
           ),
           const SizedBox(width: 20),
@@ -158,3 +158,4 @@ class _ChurchCommuteScreenState extends ConsumerState<ChurchCommuteScreen> {
     );
   }
 }
+

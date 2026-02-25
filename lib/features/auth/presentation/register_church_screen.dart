@@ -30,17 +30,15 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
 
       final slug = _nameController.text.toLowerCase().replaceAll(' ', '-').replaceAll(RegExp(r'[^a-z0-9-]'), '');
       
-      final churchData = {
+      await Supabase.instance.client.from('churches').insert({
         'name': _nameController.text.trim(),
-        'location': _locationController.text.trim(),
+        'address': _locationController.text.trim(),
+        'country': 'Zambia',
         'treasurer_phone': _treasurerPhoneController.text.trim(),
-        'owner_id': user.id,
         'slug': slug,
         'status': 'pending',
         'role_requested': _selectedRole,
-      };
-
-      await Supabase.instance.client.from('churches').insert(churchData);
+      });
 
       if (mounted) {
         _showSuccessDialog();
@@ -202,7 +200,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
         decoration: BoxDecoration(
           color: active ? Colors.black : Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: active ? Colors.black : Colors.grey.withValues(alpha: 0.2)),
+          border: Border.all(color: active ? Colors.black : Colors.grey.withOpacity(0.2)),
         ),
         child: Column(
           children: [
@@ -233,3 +231,4 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
     );
   }
 }
+

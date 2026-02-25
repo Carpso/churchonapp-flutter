@@ -50,7 +50,7 @@ class _KingdomAIModeratorScreenState extends ConsumerState<KingdomAIModeratorScr
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
       ),
       child: Row(
         children: [
@@ -108,8 +108,8 @@ class _KingdomAIModeratorScreenState extends ConsumerState<KingdomAIModeratorScr
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: isModerated ? Colors.green.withValues(alpha: 0.2) : Colors.orange.withValues(alpha: 0.2)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+        border: Border.all(color: isModerated ? Colors.green.withOpacity(0.2) : Colors.orange.withOpacity(0.2)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,7 +135,7 @@ class _KingdomAIModeratorScreenState extends ConsumerState<KingdomAIModeratorScr
               if (isModerated)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
                   child: Text(category.toUpperCase(), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 10)),
                 ),
             ],
@@ -153,7 +153,7 @@ class _KingdomAIModeratorScreenState extends ConsumerState<KingdomAIModeratorScr
                 Expanded(
                   child: LinearProgressIndicator(
                     value: weight,
-                    backgroundColor: Colors.grey.withValues(alpha: 0.1),
+                    backgroundColor: Colors.grey.withOpacity(0.1),
                     color: weight > 0.7 ? Colors.green : Colors.amber,
                     minHeight: 8,
                     borderRadius: BorderRadius.circular(4),
@@ -169,3 +169,4 @@ class _KingdomAIModeratorScreenState extends ConsumerState<KingdomAIModeratorScr
     );
   }
 }
+

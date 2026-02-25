@@ -1,6 +1,6 @@
 {
-    "name": "church_on_app",
-    "short_name": "church_on_app",
+    "name": "Church On App",
+    "short_name": "Church On App",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

@@ -65,3 +65,4 @@ final notificationServiceProvider = Provider((ref) {
   final client = ref.watch(supabaseServiceProvider).client;
   return NotificationService(client);
 });
+

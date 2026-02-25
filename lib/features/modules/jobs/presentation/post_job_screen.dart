@@ -125,3 +125,4 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
     );
   }
 }
+

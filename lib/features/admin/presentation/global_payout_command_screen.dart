@@ -87,7 +87,7 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.wallet, size: 80, color: Colors.white.withValues(alpha: 0.1)),
+          Icon(LucideIcons.wallet, size: 80, color: Colors.white.withOpacity(0.1)),
           const SizedBox(height: 20),
           const Text("No pending global payout requests.", style: TextStyle(color: Colors.white38)),
         ],
@@ -102,9 +102,9 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
       margin: const EdgeInsets.only(bottom: 25),
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: isProcessed ? Colors.green.withValues(alpha: 0.2) : Colors.white10),
+        border: Border.all(color: isProcessed ? Colors.green.withOpacity(0.2) : Colors.white10),
       ),
       child: Column(
         children: [
@@ -112,7 +112,7 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.greenAccent.withValues(alpha: 0.1), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: Colors.greenAccent.withOpacity(0.1), shape: BoxShape.circle),
                 child: const Icon(LucideIcons.user, color: Colors.greenAccent, size: 20),
               ),
               const SizedBox(width: 15),
@@ -154,3 +154,4 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
     );
   }
 }
+

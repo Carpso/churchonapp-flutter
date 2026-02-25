@@ -11,6 +11,7 @@ import 'prayer_wall_screen.dart';
 import 'communities_screen.dart';
 import 'create_social_post_screen.dart';
 import '../../modules/games/presentation/game_hub_screen.dart';
+import '../../../core/utils/connectivity_util.dart';
 
 class ConnectScreen extends StatefulWidget {
   const ConnectScreen({super.key});
@@ -24,130 +25,145 @@ class _ConnectScreenState extends State<ConnectScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
+    return DefaultTabController(
+      length: 4,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFFFFAEB),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(100),
+          child: Container(
+            padding: const EdgeInsets.only(top: 50, bottom: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+            ),
+            child: TabBar(
+              isScrollable: true,
+              indicatorColor: Colors.amber,
+              dividerColor: Colors.transparent,
+              labelColor: Colors.black,
+              unselectedLabelColor: Colors.grey,
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1),
+              tabs: const [
+                Tab(text: "KINGDOM KLIPS"),
+                Tab(text: "COMMUNITIES"),
+                Tab(text: "CHURCH SOCIAL"),
+                Tab(text: "KINGDOM GAMES"),
+              ],
+            ),
+          ),
+        ),
+        body: Stack(
+          children: [
+            TabBarView(
+              children: [
+                const KingdomKlipsScreen(),
+                const CommunitiesScreen(),
+                _buildChurchSocial(),
+                const KingdomGamesHubScreen(),
+              ],
+            ),
+            const Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: OfflineBanner(),
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen())),
+          backgroundColor: Colors.amber,
+          child: const Icon(LucideIcons.plus, color: Colors.black),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChurchSocial() {
+    return Container(
+      color: const Color(0xFFFFFAEB),
+      child: Column(
         children: [
-          _buildContent(),
-          Positioned(
-            top: 50,
-            left: 20,
-            right: 20,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildToggleButton("KINGDOM KLIPS", _activeTab == 0, 0),
-                  const SizedBox(width: 10),
-                  _buildToggleButton("COMMUNITIES", _activeTab == 1, 1),
-                  const SizedBox(width: 10),
-                  _buildToggleButton("KINGDOM LIFE", _activeTab == 2, 2),
-                  const SizedBox(width: 10),
-                  _buildToggleButton("KINGDOM GAMES", _activeTab == 3, 3),
-                ],
-              ),
+          _buildStoryBar(),
+          Expanded(
+            child: Consumer(
+              builder: (context, ref, child) {
+                final postsAsync = ref.watch(socialPostsProvider);
+
+                return ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    _buildChurchSocialHeader(ref),
+                    const SizedBox(height: 20),
+                    postsAsync.when(
+                      data: (posts) => posts.isEmpty 
+                        ? _buildEmptySocialState()
+                        : Column(children: posts.map((p) => _buildRealSocialPost(p)).toList()),
+                      loading: () => const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(40),
+                          child: CircularProgressIndicator(color: Colors.amber),
+                        ),
+                      ),
+                      error: (e, s) => _buildSocialErrorState(e.toString()),
+                    ),
+                  ],
+                );
+              }
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen())),
-        backgroundColor: Theme.of(context).primaryColor,
-        child: Icon(LucideIcons.plus, color: Theme.of(context).colorScheme.secondary),
-      ),
     );
   }
 
-  Widget _buildContent() {
-    switch (_activeTab) {
-      case 0:
-        return const KingdomKlipsScreen();
-      case 1:
-        return const CommunitiesScreen();
-      case 2:
-        return _buildKingdomLife();
-      case 3:
-        return const KingdomGamesHubScreen();
-      default:
-        return const KingdomKlipsScreen();
-    }
-  }
-
-  Widget _buildToggleButton(String label, bool isActive, int index) {
-    return GestureDetector(
-      onTap: () => setState(() => _activeTab = index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: isActive ? Theme.of(context).primaryColor : Colors.black.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isActive ? Colors.transparent : Colors.white.withValues(alpha: 0.3)),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isActive ? Theme.of(context).colorScheme.secondary : Colors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.1,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildKingdomLife() {
+  Widget _buildStoryBar() {
     return Container(
-      color: const Color(0xFFFFFAEB),
-      padding: const EdgeInsets.only(top: 110),
-      child: Consumer(
-        builder: (context, ref, child) {
-          final postsAsync = ref.watch(socialPostsProvider);
-
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              _buildChurchSocialHeader(ref),
-              const SizedBox(height: 20),
-              postsAsync.when(
-                data: (posts) => posts.isEmpty 
-                  ? _buildEmptySocialState()
-                  : Column(children: posts.map((p) => _buildRealSocialPost(p)).toList()),
-                loading: () => const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(40),
-                    child: CircularProgressIndicator(color: Colors.amber),
+      height: 110,
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Colors.grey.withOpacity(0.1))),
+      ),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 15),
+        itemCount: 8, // Mock count
+        itemBuilder: (context, index) {
+          final isMe = index == 0;
+          return Padding(
+            padding: const EdgeInsets.only(right: 15),
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const KingdomKlipsScreen()));
+              },
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFFFFD700), // Sunflower Yellow
+                        width: 2.5,
+                      ),
+                    ),
+                    child: CircleAvatar(
+                      radius: 30,
+                      backgroundImage: NetworkImage("https://i.pravatar.cc/150?img=${index + 10}"),
+                    ),
                   ),
-                ),
-                error: (e, s) => _buildSocialErrorState(e.toString()),
+                  const SizedBox(height: 5),
+                  Text(
+                    isMe ? "Your Klip" : "Member ${index + 1}",
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
-              const SizedBox(height: 20),
-              _buildKingdomLifeFeature(
-                "Kingdom Radio",
-                "24/7 Gospel Broadcast",
-                LucideIcons.radio,
-                Colors.orange,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const KingdomRadioScreen()))
-              ),
-              const SizedBox(height: 15),
-              _buildKingdomLifeFeature(
-                "Testimonies",
-                "Praise Reports & Miracles",
-                LucideIcons.flame,
-                Colors.red,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TestimoniesScreen()))
-              ),
-              const SizedBox(height: 15),
-              _buildKingdomLifeFeature(
-                "Prayer Wall",
-                "Intercede for the Brethren",
-                LucideIcons.helpingHand,
-                Colors.blue,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PrayerWallScreen()))
-              ),
-            ],
+            ),
           );
-        }
+        },
       ),
     );
   }
@@ -196,7 +212,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -308,14 +324,14 @@ class _ConnectScreenState extends State<ConnectScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
+                color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Icon(icon, color: color, size: 28),
@@ -429,7 +445,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
         ),
         child: Row(
           children: [
@@ -470,13 +486,13 @@ class _ConnectScreenState extends State<ConnectScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
         ),
         child: Row(
           children: [
             CircleAvatar(
               radius: 25,
-              backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+              backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
               child: Icon(LucideIcons.users, color: Theme.of(context).primaryColor),
             ),
             const SizedBox(width: 15),
@@ -509,3 +525,4 @@ class _ConnectScreenState extends State<ConnectScreen> {
     );
   }
 }
+

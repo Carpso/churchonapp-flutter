@@ -57,7 +57,7 @@ class QrPaymentScreen extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(40),
         boxShadow: [
-          BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.3), blurRadius: 40, spreadRadius: 10),
+          BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.3), blurRadius: 40, spreadRadius: 10),
         ],
       ),
       child: Column(
@@ -136,3 +136,4 @@ class QrPaymentScreen extends StatelessWidget {
     );
   }
 }
+

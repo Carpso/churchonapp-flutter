@@ -102,7 +102,7 @@ class _TestimoniesScreenState extends ConsumerState<TestimoniesScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,7 +153,7 @@ class _TestimoniesScreenState extends ConsumerState<TestimoniesScreen> {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
         child: Row(
           children: [
             Icon(icon, color: color, size: 14),
@@ -165,3 +165,4 @@ class _TestimoniesScreenState extends ConsumerState<TestimoniesScreen> {
     );
   }
 }
+

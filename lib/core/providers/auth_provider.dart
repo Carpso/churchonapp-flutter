@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
+
 
 class AuthState {
   final User? user;
@@ -13,11 +15,18 @@ class AuthNotifier extends Notifier<AuthState> {
 
   @override
   AuthState build() {
-    _client.auth.onAuthStateChange.listen((data) {
-      state = AuthState(user: data.session?.user);
-    });
-    return AuthState(user: _client.auth.currentUser);
+    try {
+      final client = _client;
+      client.auth.onAuthStateChange.listen((data) {
+        state = AuthState(user: data.session?.user);
+      });
+      return AuthState(user: client.auth.currentUser);
+    } catch (e) {
+      debugPrint("AuthNotifier build error: $e");
+      return AuthState(user: null);
+    }
   }
+
 
   Future<void> signIn(String email, String password) async {
     state = AuthState(user: state.user, isLoading: true);
@@ -32,22 +41,13 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> signUp(String email, String password, String name) async {
     state = AuthState(user: state.user, isLoading: true);
     try {
-      final res = await _client.auth.signUp(
+      await _client.auth.signUp(
         email: email,
         password: password,
         data: {'full_name': name},
       );
-      
-      if (res.user != null) {
-        // Create profile entry
-        await _client.from('profiles').upsert({
-          'id': res.user!.id,
-          'full_name': name,
-          'role': 'member',
-          'coins': 500, // Welcome coins
-          'updated_at': DateTime.now().toIso8601String(),
-        });
-      }
+      // Profile creation is now handled by ProfileNotifier._init on first login
+      // to avoid RLS/Session timing issues during signup.
     } catch (e) {
       state = AuthState(user: state.user, isLoading: false);
       rethrow;
@@ -64,3 +64,4 @@ class AuthNotifier extends Notifier<AuthState> {
 final authProvider = NotifierProvider<AuthNotifier, AuthState>(() {
   return AuthNotifier();
 });
+

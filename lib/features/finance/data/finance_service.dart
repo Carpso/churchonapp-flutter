@@ -86,3 +86,4 @@ final financeServiceProvider = Provider((ref) => FinanceService(Supabase.instanc
 final transactionsStreamProvider = StreamProvider<List<Transaction>>((ref) {
   return ref.watch(financeServiceProvider).getTransactionsStream();
 });
+

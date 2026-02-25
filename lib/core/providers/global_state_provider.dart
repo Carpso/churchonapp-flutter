@@ -60,3 +60,4 @@ class GlobalStateNotifier extends Notifier<GlobalAppState> {
 final globalStateProvider = NotifierProvider<GlobalStateNotifier, GlobalAppState>(() {
   return GlobalStateNotifier();
 });
+

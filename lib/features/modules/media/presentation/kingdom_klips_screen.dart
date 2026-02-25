@@ -1,3 +1,6 @@
+import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/media_service.dart';
 
@@ -176,7 +179,7 @@ class _KlipPlayerState extends State<KlipPlayer> {
                   const SizedBox(width: 8),
                   Text(
                     "Original Sound - Kingdom Worship",
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
+                    style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
                   ),
                 ],
               ),
@@ -200,3 +203,4 @@ class _KlipPlayerState extends State<KlipPlayer> {
     );
   }
 }
+

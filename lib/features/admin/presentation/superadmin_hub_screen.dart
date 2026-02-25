@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/services/tenant_service.dart';
 import '../../../core/providers/profile_provider.dart';
+import '../../../core/utils/db_seeder.dart';
 
 class SuperadminHubScreen extends ConsumerStatefulWidget {
   const SuperadminHubScreen({super.key});
@@ -73,7 +74,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
                     hintText: "Secret Key",
                     hintStyle: const TextStyle(color: Colors.white24),
                     filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.05),
+                    fillColor: Colors.white.withOpacity(0.05),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                     errorText: _error,
                   ),
@@ -116,9 +117,21 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             const SizedBox(height: 40),
             const Text("Global Overrides", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
-            _buildGlobalAction(LucideIcons.refreshCw, "Force Data Sync", "Triggers re-fetch for all CDN assets", Colors.blue),
-            _buildGlobalAction(LucideIcons.shieldAlert, "Emergency Lockdown", "Instantly disable app for maintenance", Colors.red),
-            _buildGlobalAction(LucideIcons.database, "Clear Tenant Cache", "Wipe local storage for current church", Colors.amber),
+            _buildGlobalAction(LucideIcons.refreshCw, "Force Data Sync", "Triggers re-fetch for all CDN assets", Colors.blue, () {}),
+            _buildGlobalAction(LucideIcons.shieldAlert, "Emergency Lockdown", "Instantly disable app for maintenance", Colors.red, () {}),
+            _buildGlobalAction(LucideIcons.database, "Clear Tenant Cache", "Wipe local storage for current church", Colors.amber, () {}),
+            _buildGlobalAction(LucideIcons.sparkles, "Seed Mock Data", "Populate all tables with demo data", Colors.green, () async {
+              try {
+                await DbSeeder.seedAll();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mock data seeded successfully! ✅")));
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Seeding failed: $e"), backgroundColor: Colors.red));
+                }
+              }
+            }),
           ],
         ),
       ),
@@ -139,7 +152,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10)),
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -155,7 +168,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
 
   Widget _buildFeatureToggles(Tenant? tenant) {
     return Container(
-      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(25), border: Border.all(color: Colors.white10)),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(25), border: Border.all(color: Colors.white10)),
       child: Column(
         children: _allFeatures.map((feature) {
           final isEnabled = tenant?.settings?[feature.toLowerCase().replaceAll(' ', '_')] ?? true;
@@ -174,14 +187,16 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
     );
   }
 
-  Widget _buildGlobalAction(IconData icon, String title, String sub, Color color) {
-    return Container(
+  Widget _buildGlobalAction(IconData icon, String title, String sub, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.03), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10)),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.03), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10)),
       child: Row(
         children: [
-          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 20)),
+          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 20)),
           const SizedBox(width: 20),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -192,6 +207,8 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
           Icon(LucideIcons.chevronRight, color: Colors.white24, size: 16),
         ],
       ),
-    );
-  }
+    ),
+  );
 }
+}
+

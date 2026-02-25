@@ -52,7 +52,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         playedColor: const Color(0xFFFFD700),
         handleColor: const Color(0xFFFFD700),
         backgroundColor: Colors.grey,
-        bufferedColor: Colors.white.withValues(alpha: 0.3),
+        bufferedColor: Colors.white.withOpacity(0.3),
       ),
     );
     if (mounted) setState(() {});
@@ -124,7 +124,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(tenant?.name ?? "Kingdom Church", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          Text("Join the community", style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
+                          Text("Join the community", style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
                         ],
                       ),
                       const Spacer(),
@@ -173,9 +173,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.amber.withValues(alpha: 0.1),
+            color: Colors.amber.withOpacity(0.1),
             borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+            border: Border.all(color: Colors.amber.withOpacity(0.3)),
           ),
           child: Row(
             children: [
@@ -250,7 +250,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(25),
       ),
       child: Row(
@@ -298,3 +298,4 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     }
   }
 }
+

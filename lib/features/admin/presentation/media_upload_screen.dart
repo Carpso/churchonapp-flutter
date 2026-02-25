@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../../../core/services/r2_service.dart';
-import '../../../core/services/supabase_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MediaUploadScreen extends ConsumerStatefulWidget {
   const MediaUploadScreen({super.key});
@@ -14,36 +16,63 @@ class MediaUploadScreen extends ConsumerStatefulWidget {
 class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
   bool _isUploading = false;
   double _progress = 0.0;
-  String _targetFolder = 'sermons';
+  String _targetFolder = 'klips';
+  File? _selectedFile;
   final _titleController = TextEditingController();
+  final _speakerController = TextEditingController();
 
-  final List<String> _folders = ['sermons', 'klips', 'profiles', 'marketplace'];
+  final List<String> _folders = ['klips', 'sermons', 'marketplace'];
 
-  void _simulateUpload() async {
-    if (_titleController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter a title")));
+  Future<void> _pickFile() async {
+    final picker = ImagePicker();
+    final file = await picker.pickVideo(source: ImageSource.gallery);
+    if (file != null) {
+      setState(() => _selectedFile = File(file.path));
+    }
+  }
+
+  Future<void> _startUpload() async {
+    if (_titleController.text.isEmpty || _selectedFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Title and File are required")));
       return;
     }
 
     setState(() {
       _isUploading = true;
-      _progress = 0.1;
+      _progress = 0.2;
     });
 
-    // Simulate progress
-    for (int i = 0; i <= 10; i++) {
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (!mounted) return;
-      setState(() => _progress = (i + 1) / 10);
-    }
+    try {
+      final r2Service = ref.read(r2ServiceProvider);
+      final user = Supabase.instance.client.auth.currentUser;
+      
+      final fileName = "${DateTime.now().millisecondsSinceEpoch}_${_selectedFile!.path.split('/').last}";
+      final publicUrl = await r2Service.uploadFile(_selectedFile!, "$_targetFolder/$fileName");
 
-    // In a real scenario, we would call:
-    // final url = await ref.read(r2ServiceProvider).uploadFile(pickedFile, "$_targetFolder/filename");
-    
-    setState(() => _isUploading = false);
-    
-    if (mounted) {
-       _showSuccessDialog();
+      if (publicUrl != null) {
+        setState(() => _progress = 0.8);
+        
+        // Save to DB
+        await Supabase.instance.client.from('klips').insert({
+          'user_id': user?.id,
+          'title': _titleController.text,
+          'video_url': publicUrl,
+          'speaker': _speakerController.text.isEmpty ? 'Kingdom Member' : _speakerController.text,
+          'description': 'Uploaded via Media Manager',
+          'thumbnail_url': 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=400&q=60',
+        });
+
+        setState(() => _progress = 1.0);
+        if (mounted) _showSuccessDialog();
+      } else {
+        throw Exception("R2 Upload Failed");
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Upload Error: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
@@ -59,7 +88,7 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
             const SizedBox(height: 20),
             const Text("Upload Successful!", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Text("Your file has been saved to Cloudflare R2 and indexed in the Kingdom Database.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600)),
+            const Text("Your file has been saved to Cloudflare R2 and indexed in the Kingdom Database.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
           ],
         ),
         actions: [
@@ -88,6 +117,10 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
             _buildInputLabel("CONTENT TITLE"),
             _buildTextField(_titleController, "e.g. Sunday Morning Miracle"),
             
+            const SizedBox(height: 20),
+            _buildInputLabel("SPEAKER / AUTHOR"),
+            _buildTextField(_speakerController, "e.g. Pastor John Doe"),
+            
             const SizedBox(height: 25),
             
             _buildInputLabel("TARGET FOLDER"),
@@ -95,7 +128,10 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
             
             const SizedBox(height: 40),
             
-            _buildUploadZone(),
+            GestureDetector(
+              onTap: _pickFile,
+              child: _buildUploadZone(),
+            ),
             
             const SizedBox(height: 50),
             
@@ -103,7 +139,7 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
               _buildProgressIndicator()
             else
               ElevatedButton(
-                onPressed: _simulateUpload,
+                onPressed: _startUpload,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).primaryColor,
                   minimumSize: const Size(double.infinity, 65),
@@ -180,11 +216,15 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.5), style: BorderStyle.none), // Should be dashed in real CSS
+        border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.5)),
       ),
       child: Column(
         children: [
-          Icon(LucideIcons.fileVideo, size: 50, color: Theme.of(context).primaryColor),
+          Icon(
+            _selectedFile == null ? LucideIcons.fileVideo : LucideIcons.checkCircle, 
+            size: 50, 
+            color: _selectedFile == null ? Theme.of(context).primaryColor : Colors.green
+          ),
           const SizedBox(height: 20),
           const Text("TAP TO SELECT MEDIA", style: TextStyle(fontWeight: FontWeight.bold)),
           const Text("Supports MP4, JPG, PNG up to 5GB", style: TextStyle(color: Colors.grey, fontSize: 11)),
@@ -209,3 +249,4 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
     );
   }
 }
+

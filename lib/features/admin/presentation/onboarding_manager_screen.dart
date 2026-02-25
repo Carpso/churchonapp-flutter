@@ -105,7 +105,7 @@ class _OnboardingManagerScreenState extends ConsumerState<OnboardingManagerScree
           Text(
             "Onboard riders, drivers, writers, and employees into the Kingdom Ecosystem.",
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
+            style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
           ),
         ],
       ),
@@ -122,7 +122,7 @@ class _OnboardingManagerScreenState extends ConsumerState<OnboardingManagerScree
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.05) : Colors.white,
+              color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.05) : Colors.white,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: isSelected ? Theme.of(context).primaryColor : const Color(0xFFF1F5F9), width: 2),
             ),
@@ -202,3 +202,4 @@ class _OnboardingManagerScreenState extends ConsumerState<OnboardingManagerScree
     }
   }
 }
+

@@ -35,16 +35,16 @@ class SocialPost {
 
   factory SocialPost.fromMap(Map<String, dynamic> map) {
     return SocialPost(
-      id: map['id'],
-      userId: map['user_id'],
-      content: map['content'],
+      id: map['id']?.toString() ?? '',
+      userId: map['user_id']?.toString() ?? '',
+      content: map['content'] ?? '',
       mediaUrl: map['media_url'],
       mediaType: map['media_type'],
       likesCount: map['likes_count'] ?? 0,
       commentsCount: map['comments_count'] ?? 0,
-      createdAt: DateTime.parse(map['created_at']),
-      userName: map['profiles']?['full_name'],
-      userAvatar: map['profiles']?['avatar_url'] ?? "https://i.pravatar.cc/100?u=${map['user_id']}",
+      createdAt: map['created_at'] != null ? DateTime.parse(map['created_at']) : DateTime.now(),
+      userName: map['profiles'] is Map ? map['profiles']['full_name'] : 'Kingdom Member',
+      userAvatar: map['profiles'] is Map ? map['profiles']['avatar_url'] : "https://i.pravatar.cc/100?u=${map['user_id']}",
       isModerated: map['is_moderated'] ?? false,
       propheticWeight: (map['prophetic_weight'] as num?)?.toDouble() ?? 0.0,
       category: map['category'] ?? 'general',
@@ -56,12 +56,43 @@ class SocialService {
   final SupabaseClient _client;
   SocialService(this._client);
 
+  Future<List<SocialPost>> fetchPosts() async {
+    try {
+      final response = await _client
+          .from('social_posts')
+          .select('*, profiles(full_name, avatar_url, role)')
+          .order('created_at', ascending: false)
+          .limit(20);
+      
+      return (response as List).map((map) => SocialPost.fromMap(map)).toList();
+    } catch (e) {
+      print("Error fetching social posts: $e");
+      return _getMockPosts();
+    }
+  }
+
+  List<SocialPost> _getMockPosts() {
+    return [
+      SocialPost(
+        id: '1',
+        userId: 'mock1',
+        content: 'Welcome to the new Church Social! Share your testimonies here. 🙏',
+        userName: 'Admin',
+        createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+      ),
+      SocialPost(
+        id: '2',
+        userId: 'mock2',
+        content: 'Just watched the latest Kingdom Klip. So powerful! 🔥',
+        userName: 'Sister Sarah',
+        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+      ),
+    ];
+  }
+
   Stream<List<SocialPost>> streamPosts() {
-    return _client
-        .from('social_posts')
-        .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
-        .map((data) => data.map((map) => SocialPost.fromMap(map)).toList());
+    // Return a stream that fetches every 30 seconds as a fallback for realtime
+    return Stream.periodic(const Duration(seconds: 30)).asyncMap((_) => fetchPosts());
   }
 
   Future<void> createPost({String? content, String? mediaUrl, String? mediaType}) async {
@@ -118,5 +149,10 @@ final socialServiceProvider = Provider((ref) {
 });
 
 final socialPostsProvider = StreamProvider<List<SocialPost>>((ref) {
-  return ref.watch(socialServiceProvider).streamPosts();
+  final service = ref.watch(socialServiceProvider);
+  return (() async* {
+    yield await service.fetchPosts();
+    yield* Stream.periodic(const Duration(seconds: 30)).asyncMap((_) => service.fetchPosts());
+  })();
 });
+

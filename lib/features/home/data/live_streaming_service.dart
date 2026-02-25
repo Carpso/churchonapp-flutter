@@ -55,3 +55,4 @@ final liveStreamingServiceProvider = Provider((ref) => LiveStreamingService(Supa
 final liveStatusProvider = StreamProvider.family<LiveStreamStatus, String>((ref, churchId) {
   return ref.watch(liveStreamingServiceProvider).streamLiveStatus(churchId);
 });
+

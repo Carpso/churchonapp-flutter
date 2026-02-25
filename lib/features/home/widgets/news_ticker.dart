@@ -49,7 +49,7 @@ class _NewsTickerState extends State<NewsTicker> with SingleTickerProviderStateM
     return Container(
       height: 32,
       decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+        color: Theme.of(context).primaryColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(10),
       ),
       child: ListView.builder(
@@ -73,3 +73,4 @@ class _NewsTickerState extends State<NewsTicker> with SingleTickerProviderStateM
     );
   }
 }
+

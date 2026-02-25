@@ -156,7 +156,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+            color: Theme.of(context).primaryColor.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           )
@@ -209,7 +209,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
               decoration: BoxDecoration(
                 color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.white,
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+                border: Border.all(color: Colors.grey.withOpacity(0.1)),
               ),
               child: Center(
                 child: Text(
@@ -319,7 +319,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
             const SizedBox(height: 30),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)),
               child: const Text("COA-GIVE-8822-XP", style: TextStyle(color: Colors.greenAccent, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 2)),
             ),
             const SizedBox(height: 25),
@@ -342,3 +342,4 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
     );
   }
 }
+

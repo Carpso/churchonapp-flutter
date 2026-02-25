@@ -78,7 +78,7 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
             color: widget.navigationShell.currentIndex == 2 ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.secondary,
             boxShadow: [
               BoxShadow(
-                color: (widget.navigationShell.currentIndex == 2 ? Theme.of(context).primaryColor : Colors.black).withValues(alpha: 0.3),
+                color: (widget.navigationShell.currentIndex == 2 ? Theme.of(context).primaryColor : Colors.black).withOpacity(0.3),
                 blurRadius: 15,
                 offset: const Offset(0, 5),
               ),
@@ -142,3 +142,4 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
     );
   }
 }
+

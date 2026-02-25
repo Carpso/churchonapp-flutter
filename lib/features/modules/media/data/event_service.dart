@@ -98,3 +98,4 @@ final eventServiceProvider = Provider((ref) {
 final upcomingEventsProvider = FutureProvider<List<KingdomEvent>>((ref) {
   return ref.watch(eventServiceProvider).fetchUpcomingEvents();
 });
+

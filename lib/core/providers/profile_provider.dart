@@ -148,3 +148,4 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
 final profileProvider = NotifierProvider<ProfileNotifier, AsyncValue<UserProfile?>>(() {
   return ProfileNotifier();
 });
+

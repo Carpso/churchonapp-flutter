@@ -98,7 +98,7 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
       ),
       child: Row(
         children: [
@@ -119,7 +119,7 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.1),
+              color: Colors.green.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Text(
@@ -151,3 +151,4 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
     );
   }
 }
+

@@ -47,7 +47,7 @@ class _SovereignMatchmakingScreenState extends State<SovereignMatchmakingScreen>
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+            color: Theme.of(context).primaryColor.withOpacity(0.1),
             child: Row(
               children: [
                 const Icon(LucideIcons.heartHandshake, color: Colors.orange),
@@ -74,7 +74,7 @@ class _SovereignMatchmakingScreenState extends State<SovereignMatchmakingScreen>
                         bottomLeft: msg.isMe ? const Radius.circular(20) : const Radius.circular(0),
                       ),
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5)
+                        BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)
                       ]
                     ),
                     child: Text(
@@ -131,3 +131,4 @@ class Message {
   final bool isMe;
   Message(this.text, {required this.isMe});
 }
+

@@ -306,3 +306,4 @@ final postsStreamProvider = StreamProvider<List<SocialPost>>((ref) {
   final client = Supabase.instance.client;
   return client.from('social_posts').stream(primaryKey: ['id']).order('created_at').map((data) => data.map((e) => SocialPost.fromMap(e)).toList());
 });
+

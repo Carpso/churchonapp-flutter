@@ -62,3 +62,4 @@ class LedgerPdfService {
     await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
   }
 }
+

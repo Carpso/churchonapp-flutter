@@ -21,30 +21,17 @@ import 'core/services/audio_handler.dart';
 import 'core/providers/audio_provider.dart' as ap;
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final binding = WidgetsFlutterBinding.ensureInitialized();
   
-  ap.audioHandler = await AudioService.init(
-    builder: () => MyAudioHandler(),
-    config: const AudioServiceConfig(
-      androidNotificationChannelId: 'com.churchonapp.channel.audio',
-      androidNotificationChannelName: 'Kingdom Radio',
-      androidNotificationOngoing: true,
-      androidStopForegroundOnPause: true,
-    ),
-  );
-  
-  // Load environment variables for R2 and API Keys
-  await dotenv.load(fileName: ".env");
-  
-  // Initialize Supabase
-  await SupabaseService.initialize();
-
-  // Phase 7: Global Error Boundary Trapping
+  // Phase 7: Global Error Boundary Trapping - Move to start
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
+    debugPrint('FlutterError: ${details.exception}');
   };
   
   PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('Global Dispatcher Error: $error');
+    debugPrint('Stack: $stack');
     return true; 
   };
 
@@ -52,12 +39,45 @@ void main() async {
     return CustomErrorBoundary(errorDetails: details);
   };
 
+  try {
+    debugPrint('Starting services initialization...');
+    
+    // 1. Environment MUST be loaded first
+    await dotenv.load(fileName: ".env");
+    debugPrint('Environment loaded.');
+
+    // 2. Remaining services in parallel
+    await Future.wait([
+      // Audio Service
+      AudioService.init(
+        builder: () => MyAudioHandler(),
+        config: const AudioServiceConfig(
+          androidNotificationChannelId: 'com.churchonapp.channel.audio',
+          androidNotificationChannelName: 'Kingdom Radio',
+          androidNotificationOngoing: true,
+          androidStopForegroundOnPause: true,
+        ),
+      ).then((handler) => ap.audioHandler = handler),
+      
+      // Supabase
+      SupabaseService.initialize(),
+    ]);
+    
+    debugPrint('Services initialized successfully.');
+  } catch (e, stack) {
+    debugPrint('CRITICAL Initialization error: $e');
+    debugPrint('Stack trace: $stack');
+    // We should probably show a critical error screen instead of just continuing
+  }
+
+
   runApp(
     const ProviderScope(
       child: ChurchOnApp(),
     ),
   );
 }
+
 
 class ChurchOnApp extends ConsumerWidget {
   const ChurchOnApp({super.key});
@@ -80,3 +100,4 @@ class ChurchOnApp extends ConsumerWidget {
     );
   }
 }
+

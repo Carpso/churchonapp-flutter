@@ -95,7 +95,7 @@ class _YearPlannerScreenState extends ConsumerState<YearPlannerScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15)),
+            decoration: BoxDecoration(color: Colors.blue.withOpacity(0.05), borderRadius: BorderRadius.circular(15)),
             child: Column(
               children: [
                 Text(DateFormat('MMM').format(date).toUpperCase(), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 10)),
@@ -168,3 +168,4 @@ class _YearPlannerScreenState extends ConsumerState<YearPlannerScreen> {
     );
   }
 }
+

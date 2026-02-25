@@ -52,8 +52,8 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
         point: pos,
         radius: (church['attendance'] as int) * 0.1, // Adjusted density scaling for OSM
         useRadiusInMeter: true,
-        color: Colors.red.withValues(alpha: 0.2),
-        borderColor: Colors.red.withValues(alpha: 0.5),
+        color: Colors.red.withOpacity(0.2),
+        borderColor: Colors.red.withOpacity(0.5),
         borderStrokeWidth: 1,
       ));
     }
@@ -95,7 +95,7 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)],
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
               ),
               child: Row(
                 children: [
@@ -112,7 +112,7 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                    decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
                     child: const Text("LIVE", style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
                   ),
                 ],
@@ -124,3 +124,4 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
     );
   }
 }
+

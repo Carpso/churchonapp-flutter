@@ -18,7 +18,6 @@ class KingdomGamesHubScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 100), // Height for the top toggle
           const Row(
             children: [
               Icon(LucideIcons.gamepad2, color: Colors.brown, size: 32),
@@ -75,8 +74,8 @@ class KingdomGamesHubScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 15, offset: const Offset(0, 5))],
-        border: Border.all(color: color.withValues(alpha: 0.1)),
+        boxShadow: [BoxShadow(color: color.withOpacity(0.1), blurRadius: 15, offset: const Offset(0, 5))],
+        border: Border.all(color: color.withOpacity(0.1)),
       ),
       child: Material(
         color: Colors.transparent,
@@ -94,7 +93,7 @@ class KingdomGamesHubScreen extends ConsumerWidget {
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+                  decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
                   child: Icon(icon, color: color, size: 28),
                 ),
                 const SizedBox(width: 20),
@@ -120,3 +119,4 @@ class KingdomGamesHubScreen extends ConsumerWidget {
     );
   }
 }
+

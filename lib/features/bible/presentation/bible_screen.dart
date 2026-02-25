@@ -103,7 +103,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+                    decoration: BoxDecoration(color: Colors.amber.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
                     child: Text("Chapter $selectedChapter", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber.shade800)),
                   ),
                   IconButton(
@@ -141,7 +141,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                       margin: const EdgeInsets.only(bottom: 4),
                       decoration: isHighlighted ? BoxDecoration(
-                        color: Colors.amber.withValues(alpha: 0.15),
+                        color: Colors.amber.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(8),
                       ) : null,
                       child: RichText(
@@ -233,7 +233,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -309,7 +309,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
       padding: const EdgeInsets.only(bottom: 35, top: 12, left: 10, right: 10),
       decoration: BoxDecoration(
         color: isDarkTheme ? const Color(0xFF1A1A1A) : Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -335,7 +335,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               duration: const Duration(milliseconds: 200),
               padding: EdgeInsets.symmetric(horizontal: isActive ? 14 : 8, vertical: 6),
               decoration: isActive ? BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.15),
+                color: Colors.amber.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(15),
               ) : null,
               child: Row(
@@ -378,13 +378,13 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               children: [
                 Expanded(child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(color: Colors.amber.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
                   child: const Center(child: Text("Old Testament", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.amber))),
                 )),
                 const SizedBox(width: 10),
                 Expanded(child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
                   child: const Center(child: Text("New Testament", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue))),
                 )),
               ],
@@ -408,7 +408,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                     },
                     child: Container(
                       decoration: BoxDecoration(
-                        color: isSelected ? Colors.amber : (isDarkTheme ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.08)),
+                        color: isSelected ? Colors.amber : (isDarkTheme ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.08)),
                         borderRadius: BorderRadius.circular(12),
                         border: isSelected ? Border.all(color: Colors.amber) : null,
                       ),
@@ -544,3 +544,4 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
     );
   }
 }
+

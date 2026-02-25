@@ -153,3 +153,4 @@ class _BranchLocatorScreenState extends ConsumerState<BranchLocatorScreen> {
     );
   }
 }
+

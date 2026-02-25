@@ -6,7 +6,7 @@ import '../../../core/providers/profile_provider.dart';
 
 /// Specialized service for real-time geolocation synchronization.
 /// This ensures that active drivers and riders have their coordinates 
-/// mirrored to the VPS-hosted Supabase instance for live map tracking.
+/// mirrored to the cloud-hosted Supabase instance for live map tracking.
 class LocationTrackerService {
   final Ref _ref;
   StreamSubscription<Position>? _positionSubscription;
@@ -76,3 +76,4 @@ class LocationTrackerService {
 }
 
 final locationTrackerProvider = Provider((ref) => LocationTrackerService(ref));
+

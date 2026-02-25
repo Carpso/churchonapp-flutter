@@ -85,3 +85,4 @@ final organizationServiceProvider = Provider((ref) {
   final client = ref.watch(supabaseServiceProvider).client;
   return OrganizationService(client);
 });
+

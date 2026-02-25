@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/providers/auth_provider.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
@@ -23,18 +25,35 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         _passwordController.text.trim(),
         _nameController.text.trim(),
       );
+      
       if (mounted) {
-        bool needsConfirmation = ref.read(authProvider).user == null;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(needsConfirmation 
-              ? "Account created! Please check your email for verification." 
-              : "Account created successfully!"),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context);
+        final session = Supabase.instance.client.auth.currentSession;
+        if (session == null) {
+          // Success but needs email verification
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+              title: const Text("Success!"),
+              content: const Text("Your account has been created. Please check your email inbox to verify your account before logging in."),
+              actions: [
+                ElevatedButton(
+                  onPressed: () => context.go('/login'),
+                  child: const Text("GO TO LOGIN"),
+                ),
+              ],
+            ),
+          );
+        } else {
+          // Logged in automatically (uncommon in prod Supabase, but possible)
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Account created successfully!"), backgroundColor: Colors.green),
+          );
+          context.go('/');
+        }
       }
+
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -127,7 +146,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
       ),
       child: TextField(
         controller: controller,
@@ -148,3 +167,4 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     );
   }
 }
+

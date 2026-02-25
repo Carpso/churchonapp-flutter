@@ -14,3 +14,4 @@ class Env {
   static String get geminiApiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
   static String get lencoAccountId => dotenv.env['LENCO_MAIN_ACCOUNT_ID'] ?? '';
 }
+

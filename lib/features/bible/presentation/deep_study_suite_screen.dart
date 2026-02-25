@@ -106,7 +106,7 @@ class _DeepStudySuiteScreenState extends State<DeepStudySuiteScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(colors: [Colors.indigo.shade600, Colors.purple.shade600], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.indigo.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.indigo.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,7 +190,7 @@ class _DeepStudySuiteScreenState extends State<DeepStudySuiteScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -198,7 +198,7 @@ class _DeepStudySuiteScreenState extends State<DeepStudySuiteScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(height: 12),
@@ -313,13 +313,13 @@ class _ExegesisScreenState extends State<_ExegesisScreen> {
     final isGreek = data.containsKey('greek');
     return Container(
       padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 15)]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: isGreek ? Colors.blue.withValues(alpha: 0.1) : Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: isGreek ? Colors.blue.withOpacity(0.1) : Colors.amber.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
                 child: Text(isGreek ? "GREEK" : "HEBREW", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: isGreek ? Colors.blue : Colors.amber, letterSpacing: 1)),
               ),
               const Spacer(),
@@ -405,7 +405,7 @@ class _BiblicalAtlasScreen extends StatelessWidget {
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+                  decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
                   child: Icon(loc['icon'] as IconData, color: Colors.teal, size: 22),
                 ),
                 const SizedBox(width: 15),
@@ -421,7 +421,7 @@ class _BiblicalAtlasScreen extends StatelessWidget {
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(color: Colors.amber.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
                   child: Text(loc['era'] as String, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.amber)),
                 ),
               ],
@@ -477,7 +477,7 @@ class _VerseMemoryScreenState extends State<_VerseMemoryScreen> {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
+                  decoration: BoxDecoration(color: Colors.amber.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
                   child: Row(children: [
                     const Icon(LucideIcons.trophy, color: Colors.amber, size: 16),
                     const SizedBox(width: 6),
@@ -501,9 +501,9 @@ class _VerseMemoryScreenState extends State<_VerseMemoryScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(30),
                 decoration: BoxDecoration(
-                  color: _showVerse ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.05),
+                  color: _showVerse ? Colors.white.withOpacity(0.1) : Colors.white.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(25),
-                  border: Border.all(color: _showVerse ? Colors.amber.withValues(alpha: 0.5) : Colors.white12),
+                  border: Border.all(color: _showVerse ? Colors.amber.withOpacity(0.5) : Colors.white12),
                 ),
                 child: _showVerse
                   ? Text(verse['text']!, style: const TextStyle(color: Colors.white, fontSize: 18, height: 1.6, fontStyle: FontStyle.italic), textAlign: TextAlign.center)
@@ -590,7 +590,7 @@ class _ReadingPlansScreen extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white, borderRadius: BorderRadius.circular(25),
-              border: isActive ? Border.all(color: (plan['color'] as Color).withValues(alpha: 0.3), width: 2) : null,
+              border: isActive ? Border.all(color: (plan['color'] as Color).withOpacity(0.3), width: 2) : null,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -599,7 +599,7 @@ class _ReadingPlansScreen extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(color: (plan['color'] as Color).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                      decoration: BoxDecoration(color: (plan['color'] as Color).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
                       child: Icon(plan['icon'] as IconData, color: plan['color'] as Color, size: 22),
                     ),
                     const SizedBox(width: 15),
@@ -637,7 +637,7 @@ class _ReadingPlansScreen extends StatelessWidget {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Started: ${plan['title']}!"), backgroundColor: plan['color'] as Color));
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: (plan['color'] as Color).withValues(alpha: 0.1),
+                        backgroundColor: (plan['color'] as Color).withOpacity(0.1),
                         foregroundColor: plan['color'] as Color,
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -682,7 +682,7 @@ class _ScriptureSearchScreen extends StatelessWidget {
         children: results.map((r) => Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10)]),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)]),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -698,3 +698,4 @@ class _ScriptureSearchScreen extends StatelessWidget {
     );
   }
 }
+

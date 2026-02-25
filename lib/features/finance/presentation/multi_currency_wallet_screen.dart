@@ -65,7 +65,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(40),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).primaryColor.withValues(alpha: 0.3), 
+            color: Theme.of(context).primaryColor.withOpacity(0.3), 
             blurRadius: 25, 
             offset: const Offset(0, 10)
           )
@@ -112,13 +112,13 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15)],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
             child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(width: 20),
@@ -143,7 +143,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.1)),
+        border: Border.all(color: Colors.blueAccent.withOpacity(0.1)),
       ),
       child: const Row(
         children: [
@@ -182,3 +182,4 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
     );
   }
 }
+

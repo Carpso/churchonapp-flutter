@@ -1,23 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/meeting_service.dart';
 
-class BusinessMeetingsScreen extends StatefulWidget {
+class BusinessMeetingsScreen extends ConsumerStatefulWidget {
+  final String meetingId;
   final String meetingTitle;
-  const BusinessMeetingsScreen({super.key, this.meetingTitle = "Weekly Leadership Sync"});
+  const BusinessMeetingsScreen({
+    super.key, 
+    this.meetingId = "MEET-2024-SYS",
+    this.meetingTitle = "Weekly Leadership Sync"
+  });
 
   @override
-  State<BusinessMeetingsScreen> createState() => _BusinessMeetingsScreenState();
+  ConsumerState<BusinessMeetingsScreen> createState() => _BusinessMeetingsScreenState();
 }
 
-class _BusinessMeetingsScreenState extends State<BusinessMeetingsScreen> {
+class _BusinessMeetingsScreenState extends ConsumerState<BusinessMeetingsScreen> {
   bool _isMuted = false;
   bool _isVideoOff = false;
   bool _isScreenSharing = false;
 
+  void _showRecords() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _MeetingRecordsPanel(meetingId: widget.meetingId),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Premium obsidian dark
+      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -51,9 +67,9 @@ class _BusinessMeetingsScreenState extends State<BusinessMeetingsScreen> {
               mainAxisSpacing: 15,
               crossAxisSpacing: 15,
               children: [
-                _buildParticipant("Pastor John (You)", "https://i.pravatar.cc/150?u=me", isMe: true),
+                _buildParticipant("Pastor (You)", "https://i.pravatar.cc/150?u=me", isMe: true),
                 _buildParticipant("Bishop David", "https://i.pravatar.cc/150?u=bishop"),
-                _buildParticipant("Deacon Sarah", "https://i.pravatar.cc/150?u=deacon"),
+                _buildParticipant("Secretary", "https://i.pravatar.cc/150?u=sec"),
                 _buildParticipant("Elder Moses", "https://i.pravatar.cc/150?u=elder"),
               ],
             ),
@@ -67,7 +83,7 @@ class _BusinessMeetingsScreenState extends State<BusinessMeetingsScreen> {
   Widget _buildParticipant(String name, String avatar, {bool isMe = false}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white10),
         image: DecorationImage(image: NetworkImage(avatar), fit: BoxFit.cover, opacity: 0.3),
@@ -102,22 +118,9 @@ class _BusinessMeetingsScreenState extends State<BusinessMeetingsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildControlButton(
-            _isMuted ? LucideIcons.micOff : LucideIcons.mic,
-            _isMuted ? Colors.redAccent : Colors.white,
-            () => setState(() => _isMuted = !_isMuted),
-          ),
-          _buildControlButton(
-            _isVideoOff ? LucideIcons.videoOff : LucideIcons.video,
-            _isVideoOff ? Colors.redAccent : Colors.white,
-            () => setState(() => _isVideoOff = !_isVideoOff),
-          ),
-          _buildControlButton(
-            LucideIcons.monitorUp,
-            _isScreenSharing ? Colors.blueAccent : Colors.white,
-            () => setState(() => _isScreenSharing = !_isScreenSharing),
-          ),
-          _buildControlButton(LucideIcons.messageSquare, Colors.white, () {}),
+          _buildControlButton(_isMuted ? LucideIcons.micOff : LucideIcons.mic, _isMuted ? Colors.redAccent : Colors.white, () => setState(() => _isMuted = !_isMuted)),
+          _buildControlButton(_isVideoOff ? LucideIcons.videoOff : LucideIcons.video, _isVideoOff ? Colors.redAccent : Colors.white, () => setState(() => _isVideoOff = !_isVideoOff)),
+          _buildControlButton(LucideIcons.messageSquare, Colors.blueAccent, _showRecords),
           Container(
             height: 50,
             width: 70,
@@ -139,3 +142,98 @@ class _BusinessMeetingsScreenState extends State<BusinessMeetingsScreen> {
     );
   }
 }
+
+class _MeetingRecordsPanel extends ConsumerWidget {
+  final String meetingId;
+  const _MeetingRecordsPanel({required this.meetingId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notesAsync = ref.watch(meetingNotesProvider(meetingId));
+    final votesAsync = ref.watch(meetingVotesProvider(meetingId));
+    final noteCtrl = TextEditingController();
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.8,
+      decoration: const BoxDecoration(color: Color(0xFF0F172A), borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+      padding: const EdgeInsets.all(25),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Leadership Records", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 25),
+          
+          // Voting Section
+          const Text("CURRENT MOTION: 'Approve Building Expansion'", style: TextStyle(color: Colors.blueAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _buildVoteBtn(ref, "YES", Colors.green),
+              const SizedBox(width: 10),
+              _buildVoteBtn(ref, "NO", Colors.red),
+              const Spacer(),
+              votesAsync.when(
+                data: (results) => Text("Results: ${results['YES'] ?? 0}Y | ${results['NO'] ?? 0}N", style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+            ],
+          ),
+          
+          const Divider(height: 40, color: Colors.white10),
+          
+          // Notes Section
+          const Text("Live Minutes", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 15),
+          Expanded(
+            child: notesAsync.when(
+              data: (notes) => ListView.builder(
+                itemCount: notes.length,
+                itemBuilder: (context, i) => Container(
+                  margin: const EdgeInsets.only(bottom: 15),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(15)),
+                  child: Text(notes[i].content, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                ),
+              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text("Sync Error: $e", style: const TextStyle(color: Colors.red))),
+            ),
+          ),
+          
+          Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+            child: TextField(
+              controller: noteCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: "Enter record or motion...",
+                hintStyle: const TextStyle(color: Colors.white24),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.05),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                suffixIcon: IconButton(
+                  icon: const Icon(LucideIcons.send, color: Colors.blueAccent),
+                  onPressed: () {
+                    if (noteCtrl.text.isEmpty) return;
+                    ref.read(meetingServiceProvider).saveNote(meetingId, noteCtrl.text);
+                    noteCtrl.clear();
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVoteBtn(WidgetRef ref, String label, Color color) {
+    return ElevatedButton(
+      onPressed: () => ref.read(meetingServiceProvider).castVote(meetingId, label),
+      style: ElevatedButton.styleFrom(backgroundColor: color.withOpacity(0.2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+      child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+    );
+  }
+}
+

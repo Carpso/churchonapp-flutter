@@ -57,7 +57,7 @@ class MarketplaceService {
     }
     
     if (marketType != null) {
-      query = query.eq('marketType', marketType);
+      query = query.eq('market_type', marketType);
     }
 
     final data = await query.order('created_at', ascending: false);
@@ -119,3 +119,4 @@ class CartNotifier extends Notifier<List<CartItem>> {
 }
 
 final cartProvider = NotifierProvider<CartNotifier, List<CartItem>>(() => CartNotifier());
+

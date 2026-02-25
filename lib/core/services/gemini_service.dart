@@ -117,3 +117,4 @@ class GeminiService {
 }
 
 final geminiServiceProvider = Provider((ref) => GeminiService());
+

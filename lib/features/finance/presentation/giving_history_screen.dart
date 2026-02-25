@@ -34,7 +34,7 @@ class GivingHistoryScreen extends StatelessWidget {
                   const SizedBox(height: 10),
                   const Text("K 12,450.00", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 10),
-                  Text("You are 80% towards your 2024 Kingdom Goal", style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
+                  Text("You are 80% towards your 2024 Kingdom Goal", style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
                 ],
               ),
             ),
@@ -87,3 +87,4 @@ class GivingHistoryScreen extends StatelessWidget {
     );
   }
 }
+

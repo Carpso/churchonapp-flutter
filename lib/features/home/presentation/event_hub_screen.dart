@@ -117,7 +117,7 @@ class _EventHubScreenState extends State<EventHubScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
             child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(width: 20),
@@ -161,7 +161,7 @@ class _EventHubScreenState extends State<EventHubScreen> {
           gradient: LinearGradient(
             begin: Alignment.bottomCenter,
             end: Alignment.topCenter,
-            colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
+            colors: [Colors.black.withOpacity(0.8), Colors.transparent],
           ),
         ),
         child: Column(
@@ -176,10 +176,11 @@ class _EventHubScreenState extends State<EventHubScreen> {
             const SizedBox(height: 10),
             Text(title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 5),
-            Text(date, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+            Text(date, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
           ],
         ),
       ),
     );
   }
 }
+

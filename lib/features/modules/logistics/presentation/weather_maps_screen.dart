@@ -28,7 +28,7 @@ class WeatherMapsScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                 gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)]),
                 borderRadius: BorderRadius.circular(30),
-                boxShadow: [BoxShadow(color: Colors.blue.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
+                boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
               ),
               child: const Column(
                 children: [
@@ -93,7 +93,7 @@ class WeatherMapsScreen extends ConsumerWidget {
                       right: 15,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)]),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)]),
                         child: const Row(
                           children: [
                             Icon(LucideIcons.bus, color: Colors.orange, size: 22),
@@ -140,7 +140,7 @@ class WeatherMapsScreen extends ConsumerWidget {
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, Colors.black.withValues(alpha: 0.6)],
+                            colors: [Colors.transparent, Colors.black.withOpacity(0.6)],
                           ),
                         ),
                       ),
@@ -193,7 +193,7 @@ class WeatherMapsScreen extends ConsumerWidget {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(color: color.withOpacity(0.9), borderRadius: BorderRadius.circular(10)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -214,7 +214,7 @@ class WeatherMapsScreen extends ConsumerWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
             child: Icon(LucideIcons.car, color: statusColor, size: 20),
           ),
           const SizedBox(width: 15),
@@ -229,7 +229,7 @@ class WeatherMapsScreen extends ConsumerWidget {
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
             child: Text(
               available == 0 ? "FULL" : available < 5 ? "LOW" : "OPEN",
               style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w900),
@@ -249,7 +249,7 @@ class WeatherMapsScreen extends ConsumerWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 15),
@@ -264,7 +264,7 @@ class WeatherMapsScreen extends ConsumerWidget {
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
             child: Text(time, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
           ),
         ],
@@ -276,10 +276,10 @@ class WeatherMapsScreen extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)]),
       child: Row(
         children: [
-          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 18)),
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 18)),
           const SizedBox(width: 15),
           Expanded(child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
         ],
@@ -304,3 +304,4 @@ class _WeatherStat extends StatelessWidget {
     ]);
   }
 }
+

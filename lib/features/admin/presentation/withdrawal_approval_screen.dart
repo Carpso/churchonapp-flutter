@@ -64,7 +64,7 @@ class _WithdrawalApprovalScreenState extends ConsumerState<WithdrawalApprovalScr
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.checkCircle2, color: Colors.green.withValues(alpha: 0.2), size: 100),
+          Icon(LucideIcons.checkCircle2, color: Colors.green.withOpacity(0.2), size: 100),
           const SizedBox(height: 20),
           const Text("All Clear!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           const Text("No pending payout requests found.", style: TextStyle(color: Colors.grey)),
@@ -83,7 +83,7 @@ class _WithdrawalApprovalScreenState extends ConsumerState<WithdrawalApprovalScr
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,7 +141,7 @@ class _WithdrawalApprovalScreenState extends ConsumerState<WithdrawalApprovalScr
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
       child: Text(
         status.toUpperCase(),
         style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10),
@@ -149,3 +149,4 @@ class _WithdrawalApprovalScreenState extends ConsumerState<WithdrawalApprovalScr
     );
   }
 }
+

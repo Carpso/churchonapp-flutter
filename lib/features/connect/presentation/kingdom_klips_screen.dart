@@ -30,6 +30,21 @@ class _KingdomKlipsScreenState extends State<KingdomKlipsScreen> {
       'author': '@bible_study_hub',
       'caption': 'Psalm 23: The Lord is my Shepherd. Mediate on this today.',
     },
+    {
+      'url': 'https://assets.mixkit.co/videos/preview/mixkit-man-singing-in-a-choir-34536-large.mp4',
+      'author': '@choir_melodies',
+      'caption': 'Songs of Zion! Join our choir tonight for a special session. 🎶 #Worship',
+    },
+    {
+      'url': 'https://assets.mixkit.co/videos/preview/mixkit-pastor-reading-the-bible-in-church-34535-large.mp4',
+      'author': '@truth_seeker',
+      'caption': 'The truth shall set you free. Diving deep into Romans 8. #BibleStudy',
+    },
+    {
+      'url': 'https://assets.mixkit.co/videos/preview/mixkit-hands-clapping-at-a-church-service-34542-large.mp4',
+      'author': '@praise_unlimited',
+      'caption': 'Clap your hands all ye people! Shout unto God with the voice of triumph! 🙌',
+    },
   ];
 
   @override
@@ -146,10 +161,10 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with SingleTickerProv
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withValues(alpha: 0.3),
+                  Colors.black.withOpacity(0.3),
                   Colors.transparent,
                   Colors.transparent,
-                  Colors.black.withValues(alpha: 0.6),
+                  Colors.black.withOpacity(0.6),
                 ],
               ),
             ),
@@ -230,7 +245,7 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with SingleTickerProv
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: Colors.black.withOpacity(0.3),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: color, size: 28),
@@ -241,3 +256,4 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with SingleTickerProv
     );
   }
 }
+

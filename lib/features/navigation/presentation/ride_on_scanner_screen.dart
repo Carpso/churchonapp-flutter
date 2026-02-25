@@ -65,7 +65,7 @@ class _RideOnScannerScreenState extends State<RideOnScannerScreen> {
                   const SizedBox(height: 10),
                   Text(
                     "Earn Church Coins for staying faithful",
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+                    style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
                   ),
                   const SizedBox(height: 40),
                   ElevatedButton.icon(
@@ -132,3 +132,4 @@ class _RideOnScannerScreenState extends State<RideOnScannerScreen> {
     ).then((_) => setState(() => isScanning = true));
   }
 }
+

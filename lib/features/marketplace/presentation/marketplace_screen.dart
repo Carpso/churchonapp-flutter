@@ -129,7 +129,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               decoration: BoxDecoration(
                 color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.white,
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.2)),
+                border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
               ),
               child: Center(
                 child: Text(
@@ -165,7 +165,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               margin: const EdgeInsets.only(right: 10),
               padding: const EdgeInsets.symmetric(horizontal: 15),
               decoration: BoxDecoration(
-                color: isSelected ? Theme.of(context).primaryColor : Colors.white.withValues(alpha: 0.5),
+                color: isSelected ? Theme.of(context).primaryColor : Colors.white.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Center(
@@ -194,7 +194,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
         ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,7 +271,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
           const Icon(LucideIcons.shoppingBag, size: 50, color: Colors.grey),
           const SizedBox(height: 20),
           const Text("No items found", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-          Text("Try changing categories or tabs", style: TextStyle(color: Colors.grey.withValues(alpha: 0.6))),
+          Text("Try changing categories or tabs", style: TextStyle(color: Colors.grey.withOpacity(0.6))),
         ],
       ),
     );
@@ -500,3 +500,4 @@ class CartSheet extends ConsumerWidget {
     );
   }
 }
+

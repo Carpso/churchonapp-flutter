@@ -121,3 +121,4 @@ final publicNewsProvider = FutureProvider<List<NewsArticle>>((ref) async {
 final kingdomNewsStreamProvider = StreamProvider<List<NewsArticle>>((ref) {
   return ref.watch(newsServiceProvider).streamKingdomNews();
 });
+

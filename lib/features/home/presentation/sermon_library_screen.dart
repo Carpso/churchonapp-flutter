@@ -72,7 +72,7 @@ class _SermonLibraryScreenState extends State<SermonLibraryScreen> {
               decoration: BoxDecoration(
                 color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: isSelected ? [BoxShadow(color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3), blurRadius: 10)] : [],
+                boxShadow: isSelected ? [BoxShadow(color: Theme.of(context).colorScheme.secondary.withOpacity(0.3), blurRadius: 10)] : [],
               ),
               child: Center(
                 child: Text(
@@ -109,7 +109,7 @@ class _SermonLibraryScreenState extends State<SermonLibraryScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(30),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,3 +173,4 @@ class _SermonLibraryScreenState extends State<SermonLibraryScreen> {
     );
   }
 }
+

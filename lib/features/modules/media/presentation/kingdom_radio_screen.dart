@@ -34,13 +34,30 @@ class _KingdomRadioScreenState extends ConsumerState<KingdomRadioScreen> with Si
 
   @override
   Widget build(BuildContext context) {
-    final radioService = ref.read(radioServiceProvider);
-    final audioHandler = ref.watch(audioHandlerProvider);
+    final radioService = ref.watch(radioServiceProvider);
+    if (audioHandler == null) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF0F172A),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(LucideIcons.radio, color: Colors.amber, size: 50),
+              SizedBox(height: 20),
+              Text("Initializing Radio...", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              SizedBox(height: 10),
+              CircularProgressIndicator(color: Colors.amber),
+            ],
+          ),
+        ),
+      );
+    }
+
     final metadataAsync = ref.watch(radioMetadataProvider(_selectedStationName));
     final currentTrack = metadataAsync.value ?? "Fetching Live Stream...";
 
     return StreamBuilder<PlaybackState>(
-      stream: audioHandler.playbackState,
+      stream: audioHandler!.playbackState,
       builder: (context, snapshot) {
         final playing = snapshot.data?.playing ?? false;
 
@@ -52,7 +69,7 @@ class _KingdomRadioScreenState extends ConsumerState<KingdomRadioScreen> with Si
                 center: const Alignment(0, -0.3),
                 radius: 1.5,
                 colors: [
-                  Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                  Theme.of(context).primaryColor.withOpacity(0.1),
                   const Color(0xFF0F172A),
                 ],
               ),
@@ -102,9 +119,9 @@ class _KingdomRadioScreenState extends ConsumerState<KingdomRadioScreen> with Si
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: playing ? Colors.red.withValues(alpha: 0.1) : Colors.white10,
+        color: playing ? Colors.red.withOpacity(0.1) : Colors.white10,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: playing ? Colors.red.withValues(alpha: 0.5) : Colors.white24),
+        border: Border.all(color: playing ? Colors.red.withOpacity(0.5) : Colors.white24),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -146,8 +163,8 @@ class _KingdomRadioScreenState extends ConsumerState<KingdomRadioScreen> with Si
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 30, spreadRadius: 5),
-                if (playing) BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.3), blurRadius: 60, spreadRadius: 10),
+                BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 30, spreadRadius: 5),
+                if (playing) BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.3), blurRadius: 60, spreadRadius: 10),
               ],
             ),
             child: ClipRRect(
@@ -176,7 +193,7 @@ class _KingdomRadioScreenState extends ConsumerState<KingdomRadioScreen> with Si
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
             child: Text(
               track.toUpperCase(),
               textAlign: TextAlign.center,
@@ -201,7 +218,7 @@ class _KingdomRadioScreenState extends ConsumerState<KingdomRadioScreen> with Si
             decoration: BoxDecoration(
               color: Theme.of(context).primaryColor,
               shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.4), blurRadius: 30, offset: const Offset(0, 10))],
+              boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.4), blurRadius: 30, offset: const Offset(0, 10))],
             ),
             child: Icon(playing ? LucideIcons.pause : LucideIcons.play, color: Colors.black, size: 40),
           ),
@@ -240,7 +257,7 @@ class _KingdomRadioScreenState extends ConsumerState<KingdomRadioScreen> with Si
                   margin: const EdgeInsets.only(right: 15),
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: isCurrent ? Theme.of(context).primaryColor : Colors.white.withValues(alpha: 0.05),
+                    color: isCurrent ? Theme.of(context).primaryColor : Colors.white.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(25),
                     border: Border.all(color: isCurrent ? Colors.transparent : Colors.white10),
                   ),
@@ -272,7 +289,7 @@ class _KingdomRadioScreenState extends ConsumerState<KingdomRadioScreen> with Si
       margin: const EdgeInsets.all(25),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
+        color: Colors.white.withOpacity(0.03),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white10),
       ),
@@ -293,7 +310,7 @@ class VisualizerPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final paint = Paint()
-      ..color = Colors.amber.withValues(alpha: 0.5)
+      ..color = Colors.amber.withOpacity(0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
 
@@ -315,3 +332,4 @@ class VisualizerPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
+

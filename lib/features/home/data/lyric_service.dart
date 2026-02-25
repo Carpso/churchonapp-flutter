@@ -60,3 +60,4 @@ final lyricServiceProvider = Provider((ref) => LyricService());
 final currentLyricProvider = FutureProvider<Lyric>((ref) async {
   return ref.watch(lyricServiceProvider).getCurrentSong();
 });
+

@@ -39,8 +39,8 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       materialProgressColors: ChewieProgressColors(
         playedColor: Theme.of(context).primaryColor,
         handleColor: Theme.of(context).primaryColor,
-        backgroundColor: Colors.grey.withValues(alpha: 0.5),
-        bufferedColor: Colors.white.withValues(alpha: 0.3),
+        backgroundColor: Colors.grey.withOpacity(0.5),
+        bufferedColor: Colors.white.withOpacity(0.3),
       ),
     );
     setState(() {});
@@ -157,14 +157,15 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
         _buildActionItem(LucideIcons.heart, "Amen", onTap: () async {
-          // In a real app, this would use the social service to like a linked post
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Amen! Seed of faith received.")));
+          await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'amen');
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Amen! Seed of faith received.")));
         }),
         _buildActionItem(LucideIcons.messageSquare, "Discuss", onTap: () {
           _showComments();
         }),
-        _buildActionItem(LucideIcons.share2, "Forward", onTap: () {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sharing spiritual wisdom...")));
+        _buildActionItem(LucideIcons.share2, "Forward", onTap: () async {
+           await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'forward');
+           if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sharing spiritual wisdom...")));
         }),
         _buildActionItem(LucideIcons.bookOpen, "Notes", onTap: () {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const SermonNotesScreen()));
@@ -178,28 +179,56 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-        padding: const EdgeInsets.all(25),
-        child: Column(
-          children: [
-            const Text("Communal Insights", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            const Divider(height: 40),
-            const Expanded(child: Center(child: Text("Join the spiritual conversation. First insight pending..."))),
-            Padding(
-              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: "Add your spiritual insight...",
-                  suffixIcon: const Icon(LucideIcons.send),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+      builder: (context) => Consumer(builder: (context, ref, child) {
+        final insightsAsync = ref.watch(sermonInsightsProvider(widget.sermon.id));
+        final commentCtrl = TextEditingController();
+
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+          padding: const EdgeInsets.all(25),
+          child: Column(
+            children: [
+              const Text("Communal Insights", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const Divider(height: 40),
+              Expanded(
+                child: insightsAsync.when(
+                  data: (comments) => comments.isEmpty 
+                    ? const Center(child: Text("Join the spiritual conversation. First insight pending..."))
+                    : ListView.builder(
+                        itemCount: comments.length,
+                        itemBuilder: (context, i) => ListTile(
+                          leading: const CircleAvatar(child: Icon(LucideIcons.user, size: 14)),
+                          title: Text(comments[i]['content'] ?? "", style: const TextStyle(fontSize: 14)),
+                          subtitle: const Text("Kingdom Citizen", style: TextStyle(fontSize: 10)),
+                        ),
+                      ),
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text("Sync Error: $e")),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
+              Padding(
+                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+                child: TextField(
+                  controller: commentCtrl,
+                  decoration: InputDecoration(
+                    hintText: "Add your spiritual insight...",
+                    suffixIcon: IconButton(
+                      icon: const Icon(LucideIcons.send),
+                      onPressed: () async {
+                        if (commentCtrl.text.isEmpty) return;
+                        await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'discuss', content: commentCtrl.text);
+                        commentCtrl.clear();
+                      },
+                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
     );
   }
 
@@ -210,7 +239,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: Colors.grey.withValues(alpha: 0.1))),
+            decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: Colors.grey.withOpacity(0.1))),
             child: Icon(icon, color: Theme.of(context).colorScheme.secondary, size: 22),
           ),
           const SizedBox(height: 8),
@@ -264,7 +293,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -346,3 +375,4 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
     );
   }
 }
+

@@ -43,3 +43,4 @@ final smsServiceProvider = Provider((ref) {
   final client = ref.watch(supabaseServiceProvider).client;
   return SmsService(client);
 });
+

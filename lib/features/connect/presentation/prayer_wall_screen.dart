@@ -126,7 +126,7 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,9 +158,9 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.05),
+                color: Colors.blue.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.blue.withValues(alpha: 0.1)),
+                border: Border.all(color: Colors.blue.withOpacity(0.1)),
               ),
               child: Row(
                 children: [
@@ -196,7 +196,7 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
         child: Row(
           children: [
             Icon(icon, color: color, size: 14),
@@ -208,3 +208,4 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
     );
   }
 }
+

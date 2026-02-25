@@ -112,3 +112,4 @@ final incomingCallStreamProvider = StreamProvider<CallSession?>((ref) {
   final service = ref.watch(callServiceProvider);
   return service.incomingCallsStream.map((calls) => calls.isNotEmpty ? calls.first : null);
 });
+

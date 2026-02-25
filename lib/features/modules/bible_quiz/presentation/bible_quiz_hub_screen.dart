@@ -42,7 +42,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
               decoration: BoxDecoration(
                 gradient: const LinearGradient(colors: [Color(0xFF6A11CB), Color(0xFF2575FC)]),
                 borderRadius: BorderRadius.circular(25),
-                boxShadow: [BoxShadow(color: const Color(0xFF2575FC).withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
+                boxShadow: [BoxShadow(color: const Color(0xFF2575FC).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10))],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,7 +166,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       decoration: BoxDecoration(
         gradient: const LinearGradient(colors: [Color(0xFF6A11CB), Color(0xFF2575FC)]),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.blue.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -247,9 +247,9 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       child: Container(
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.1),
+          color: iconColor.withOpacity(0.1),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: iconColor.withValues(alpha: 0.2)),
+          border: Border.all(color: iconColor.withOpacity(0.2)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,14 +271,14 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: Colors.white.withOpacity(0.05),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.white10),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: iconColor)),
+            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: iconColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: iconColor)),
             const SizedBox(height: 15),
             Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
             Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 11)),
@@ -293,10 +293,10 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       width: 160,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: iconColor.withValues(alpha: 0.1),
+        color: iconColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: iconColor.withValues(alpha: 0.2)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 5))],
+        border: Border.all(color: iconColor.withOpacity(0.2)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,13 +316,13 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: Colors.white.withOpacity(0.05),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.white10),
         ),
         child: Row(
           children: [
-            Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)), child: Icon(icon, color: iconColor, size: 24)),
+            Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: iconColor.withOpacity(0.1), borderRadius: BorderRadius.circular(15)), child: Icon(icon, color: iconColor, size: 24)),
             const SizedBox(width: 15),
             Expanded(
               child: Column(
@@ -480,7 +480,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(30),
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10, style: BorderStyle.none)),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10, style: BorderStyle.none)),
               child: const Column(
                 children: [
                   Icon(LucideIcons.fileText, size: 40, color: Colors.white54),
@@ -579,3 +579,4 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
     );
   }
 }
+

@@ -12,7 +12,7 @@ class CustomErrorBoundary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final body = Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         elevation: 0,
@@ -29,7 +29,7 @@ class CustomErrorBoundary extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(25),
                 decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
+                  color: Colors.red.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(LucideIcons.alertTriangle, color: Colors.red, size: 60),
@@ -37,7 +37,7 @@ class CustomErrorBoundary extends StatelessWidget {
               const SizedBox(height: 25),
               const Text(
                 "An unexpected error occurred.",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.black),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 15),
@@ -61,7 +61,11 @@ class CustomErrorBoundary extends StatelessWidget {
               const SizedBox(height: 30),
               ElevatedButton.icon(
                 onPressed: () {
-                   Navigator.of(context).popUntil((route) => route.isFirst);
+                   try {
+                     Navigator.of(context).popUntil((route) => route.isFirst);
+                   } catch (_) {
+                     // If we are at root, we can't pop
+                   }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,
@@ -76,5 +80,19 @@ class CustomErrorBoundary extends StatelessWidget {
         ),
       ),
     );
+
+    // If we are the root error widget, we need a MaterialApp
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: body,
+      builder: (context, child) {
+        return Directionality(
+          textDirection: TextDirection.ltr,
+          child: child!,
+        );
+      },
+    );
   }
+
 }
+

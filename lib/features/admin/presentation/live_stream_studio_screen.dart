@@ -64,14 +64,14 @@ class _LiveStreamStudioScreenState extends State<LiveStreamStudioScreen> {
   void _startStream() {
     setState(() {
       _isLive = true;
-      _streamStatus = "VPS -> R2 HSL STREAM";
+      _streamStatus = "HUB -> R2 HSL STREAM";
     });
 
-    // Simulate VPS Handshake and WebRTC SDP Offer creation
+    // Simulate HUB Handshake and WebRTC SDP Offer creation
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted) return;
       setState(() {
-        _streamStatus = "LIVE ON VPS";
+        _streamStatus = "LIVE ON HUB";
         _viewers = 14;
       });
       // Mock viewers joining
@@ -319,3 +319,4 @@ class _LiveStreamStudioScreenState extends State<LiveStreamStudioScreen> {
     );
   }
 }
+

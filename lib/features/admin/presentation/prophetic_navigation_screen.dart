@@ -79,7 +79,7 @@ class _PropheticNavigationScreenState extends ConsumerState<PropheticNavigationS
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.truck, size: 80, color: Colors.white.withValues(alpha: 0.1)),
+          Icon(LucideIcons.truck, size: 80, color: Colors.white.withOpacity(0.1)),
           const SizedBox(height: 20),
           const Text("No pending cargo missions to optimize.", style: TextStyle(color: Colors.white38)),
         ],
@@ -94,7 +94,7 @@ class _PropheticNavigationScreenState extends ConsumerState<PropheticNavigationS
       margin: const EdgeInsets.only(bottom: 25),
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: Colors.white10),
       ),
@@ -105,7 +105,7 @@ class _PropheticNavigationScreenState extends ConsumerState<PropheticNavigationS
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.blueAccent.withValues(alpha: 0.1), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: Colors.blueAccent.withOpacity(0.1), shape: BoxShape.circle),
                 child: const Icon(LucideIcons.package, color: Colors.blueAccent, size: 20),
               ),
               const SizedBox(width: 15),
@@ -151,7 +151,7 @@ class _PropheticNavigationScreenState extends ConsumerState<PropheticNavigationS
                 const SizedBox(height: 15),
                 Container(
                   padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15)),
+                  decoration: BoxDecoration(color: Colors.amber.withOpacity(0.05), borderRadius: BorderRadius.circular(15)),
                   child: Text(
                     optimization['prophetic_insight'],
                     style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5, fontStyle: FontStyle.italic),
@@ -164,3 +164,4 @@ class _PropheticNavigationScreenState extends ConsumerState<PropheticNavigationS
     );
   }
 }
+

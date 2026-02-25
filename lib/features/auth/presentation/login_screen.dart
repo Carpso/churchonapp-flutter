@@ -31,6 +31,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
+      if (mounted && ref.read(authProvider).user != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Signed in successfully!"), backgroundColor: Colors.green),
+        );
+        context.go('/');
+      }
+
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -65,7 +72,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
               decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.1),
+                color: Colors.grey.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: TextField(
@@ -238,7 +245,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget _buildTextField({required TextEditingController controller, required String label, required IconData icon, bool isPassword = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)]),
       child: TextField(
         controller: controller,
         obscureText: isPassword && !_isPasswordVisible,
@@ -260,7 +267,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       onPressed: () {},
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(double.infinity, 60),
-        side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+        side: BorderSide(color: Colors.grey.withOpacity(0.2)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -271,3 +278,4 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 }
+

@@ -62,3 +62,4 @@ class ActivityDetailsPage extends StatelessWidget {
     );
   }
 }
+

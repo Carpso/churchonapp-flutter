@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:uuid/uuid.dart';
 
 class ChurchOnboardingScreen extends ConsumerStatefulWidget {
@@ -20,8 +20,50 @@ class _ChurchOnboardingScreenState extends ConsumerState<ChurchOnboardingScreen>
   final _pastorController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+  final _treasurerPhoneController = TextEditingController();
+  final _logoUrlController = TextEditingController(text: "https://churchonapp.com/churchonappicon.png");
+  final _directionsController = TextEditingController();
   String _selectedThemeColor = "#8B5CF6";
+  String _currentCountry = "Zambia";
+  double? _lat;
+  double? _lng;
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _detectLocation();
+  }
+
+  Future<void> _detectLocation() async {
+    try {
+      final position = await _determinePosition();
+      if (mounted) {
+        setState(() {
+          _lat = position.latitude;
+          _lng = position.longitude;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<dynamic> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return Future.error('Location services are disabled.');
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return Future.error('Location permissions are denied');
+    }
+    
+    if (permission == LocationPermission.deniedForever) return Future.error('Location permissions are permanently denied'); 
+
+    return await Geolocator.getCurrentPosition();
+  }
 
   void _next() {
     if (_currentStep < 2) {
@@ -43,8 +85,14 @@ class _ChurchOnboardingScreenState extends ConsumerState<ChurchOnboardingScreen>
         'pastor_name': _pastorController.text,
         'contact_phone': _phoneController.text,
         'address': _addressController.text,
+        'country': _currentCountry,
+        'latitude': _lat,
+        'longitude': _lng,
         'primary_color': _selectedThemeColor,
-        'is_verified': true, // Auto-verified for this demo
+        'treasurer_phone': _treasurerPhoneController.text,
+        'logo_url': _logoUrlController.text,
+        'directions': _directionsController.text,
+        'is_verified': true,
       });
 
       if (mounted) {
@@ -67,7 +115,7 @@ class _ChurchOnboardingScreenState extends ConsumerState<ChurchOnboardingScreen>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(LucideIcons.checkCircle, color: Colors.green, size: 80),
+                const Icon(Icons.check_circle, color: Colors.green, size: 80),
             const SizedBox(height: 20),
             const Text("Kingdom Gateway Active!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
             const SizedBox(height: 10),
@@ -98,7 +146,7 @@ class _ChurchOnboardingScreenState extends ConsumerState<ChurchOnboardingScreen>
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
         title: const Text("Church Onboarding", style: TextStyle(fontWeight: FontWeight.bold)),
-        leading: IconButton(icon: const Icon(LucideIcons.x), onPressed: () => Navigator.pop(context)),
+        leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
       ),
       body: Column(
         children: [
@@ -152,10 +200,10 @@ class _ChurchOnboardingScreenState extends ConsumerState<ChurchOnboardingScreen>
           const Text("Tell us about your congregation.", style: TextStyle(color: Colors.grey)),
           const SizedBox(height: 30),
           _buildFormLabel("Church Registered Name"),
-          _buildTextField(_nameController, "e.g. Grace Chapel International", LucideIcons.church),
+          _buildTextField(_nameController, "e.g. Grace Chapel International", Icons.church),
           const SizedBox(height: 20),
           _buildFormLabel("Physical Address in Zambia"),
-          _buildTextField(_addressController, "e.g. Plot 123, Great East Road", LucideIcons.mapPin),
+          _buildTextField(_addressController, "e.g. Plot 123, Great East Road", Icons.map),
         ],
       ),
     );
@@ -171,10 +219,13 @@ class _ChurchOnboardingScreenState extends ConsumerState<ChurchOnboardingScreen>
           const Text("Who is the lead visionary?", style: TextStyle(color: Colors.grey)),
           const SizedBox(height: 30),
           _buildFormLabel("Lead Pastor / Bishop Name"),
-          _buildTextField(_pastorController, "e.g. Rev. John Banda", LucideIcons.user),
+          _buildTextField(_pastorController, "e.g. Rev. John Banda", Icons.person),
           const SizedBox(height: 20),
           _buildFormLabel("Administrative Phone Number"),
-          _buildTextField(_phoneController, "e.g. +260 977 ...", LucideIcons.phone),
+          _buildTextField(_phoneController, "e.g. +260 977 ...", Icons.phone),
+          const SizedBox(height: 20),
+          _buildFormLabel("Treasurer Payout Phone Number"),
+          _buildTextField(_treasurerPhoneController, "e.g. +260 966 ... (MTN/Airtel)", Icons.account_balance_wallet),
         ],
       ),
     );
@@ -206,19 +257,25 @@ class _ChurchOnboardingScreenState extends ConsumerState<ChurchOnboardingScreen>
                     shape: BoxShape.circle,
                     border: isSelected ? Border.all(color: Colors.amber, width: 4) : null,
                   ),
-                  child: isSelected ? const Icon(LucideIcons.check, color: Colors.white) : null,
+                  child: isSelected ? const Icon(Icons.check, color: Colors.white) : null,
                 ),
               );
             }).toList(),
           ),
+          const SizedBox(height: 30),
+          _buildFormLabel("Church Logo URL (Optional)"),
+          _buildTextField(_logoUrlController, "URL to church logo", Icons.image),
+          const SizedBox(height: 20),
+          _buildFormLabel("Directions (e.g. Next to Post Office)"),
+          _buildTextField(_directionsController, "Simple directions for members", Icons.navigation),
           const SizedBox(height: 40),
           const Center(
             child: Column(
               children: [
-                Icon(LucideIcons.shieldCheck, color: Colors.amber, size: 40),
+                Icon(Icons.verified_user, color: Colors.amber, size: 40),
                 SizedBox(height: 10),
                 Text("AUTO-VERIFICATION ENABLED", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                Text("VPS Multi-Tenant Isolation Secure", style: TextStyle(fontSize: 10, color: Colors.grey)),
+                Text("Kingdom Cloud Multi-Tenant Isolation Secure", style: TextStyle(fontSize: 10, color: Colors.grey)),
               ],
             ),
           )
@@ -232,7 +289,7 @@ class _ChurchOnboardingScreenState extends ConsumerState<ChurchOnboardingScreen>
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -10))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -10))],
       ),
       child: Row(
         children: [
@@ -292,3 +349,4 @@ class _ChurchOnboardingScreenState extends ConsumerState<ChurchOnboardingScreen>
     );
   }
 }
+

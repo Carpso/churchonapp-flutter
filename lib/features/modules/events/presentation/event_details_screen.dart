@@ -35,7 +35,7 @@ class EventDetailsScreen extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                      decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
                       child: Text((event['type'] ?? 'Event').toUpperCase(), style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(height: 15),
@@ -68,7 +68,7 @@ class EventDetailsScreen extends StatelessWidget {
         padding: const EdgeInsets.all(25),
         decoration: BoxDecoration(
           color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5))],
         ),
         child: Row(
           children: [
@@ -175,3 +175,4 @@ class EventDetailsScreen extends StatelessWidget {
     );
   }
 }
+

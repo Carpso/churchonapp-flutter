@@ -18,7 +18,10 @@ class JobsService {
   }
 
   Future<void> postJob(Job job) async {
-    await _client.from('jobs').insert(job.toMap());
+    final user = _client.auth.currentUser;
+    final map = job.toMap();
+    if (user != null) map['user_id'] = user.id;
+    await _client.from('jobs').insert(map);
   }
 
   Stream<List<Job>> streamJobs() {
@@ -26,7 +29,40 @@ class JobsService {
         .from('jobs')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
-        .map((data) => data.map((e) => Job.fromMap(e)).toList());
+        .map((data) {
+          final dbJobs = data.map((e) => Job.fromMap(e)).toList();
+          if (dbJobs.isEmpty) {
+            return _getMockJobs();
+          }
+          return dbJobs;
+        });
+  }
+
+  List<Job> _getMockJobs() {
+    return [
+      Job(
+        id: 'mock-j1',
+        title: 'Media Production Lead',
+        company: 'Grace Assemblies',
+        location: 'Lusaka',
+        salaryRange: 'K15,000 - K20,000',
+        type: 'Full-time',
+        description: 'Lead the audio-visual team for international broadcasts.',
+        requirements: ['3+ years in OBS', 'Vmix Specialist'],
+        createdAt: DateTime.now(),
+      ),
+      Job(
+        id: 'mock-j2',
+        title: 'Children’s Pastor',
+        company: 'Zion Gates',
+        location: 'Bulawayo',
+        salaryRange: 'Competitive',
+        type: 'Part-time',
+        description: 'Develop spiritual curriculum for ages 5-12.',
+        requirements: ['Teaching background', 'Love for kids'],
+        createdAt: DateTime.now(),
+      ),
+    ];
   }
 
   Future<void> applyForJob(JobApplication application) async {
@@ -41,7 +77,7 @@ class JobsService {
         .order('created_at', ascending: false)
         .map((data) => data.map((e) => JobApplication.fromMap(e)).toList());
   }
-
+}
   Future<void> updateApplicationStatus(String id, String status) async {
     await _client.from('job_applications').update({'status': status}).eq('id', id);
   }
@@ -59,3 +95,4 @@ final jobsPortalProvider = StreamProvider<List<Job>>((ref) {
 final jobApplicationsProvider = StreamProvider.family<List<JobApplication>, String>((ref, jobId) {
   return ref.watch(jobsServiceProvider).streamApplicationsForJob(jobId);
 });
+
