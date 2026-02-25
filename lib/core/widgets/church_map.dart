@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:vector_map_tiles/vector_map_tiles.dart';
+import 'package:vector_tile_renderer/vector_tile_renderer.dart' as renderer;
+import 'package:vector_map_tiles_pmtiles/vector_map_tiles_pmtiles.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// A reusable map widget that uses OpenStreetMap tiles for full street/location display.
-/// Falls back gracefully if tiles can't load.
 class ChurchMap extends StatefulWidget {
   final LatLng center;
   final double zoom;
@@ -14,7 +16,7 @@ class ChurchMap extends StatefulWidget {
 
   const ChurchMap({
     super.key,
-    this.center = const LatLng(-15.3875, 28.3228), // Lusaka default
+    this.center = const LatLng(-15.3875, 28.3228),
     this.zoom = 14,
     this.markers = const [],
     this.path,
@@ -27,6 +29,14 @@ class ChurchMap extends StatefulWidget {
 
 class _ChurchMapState extends State<ChurchMap> {
   final MapController _mapController = MapController();
+  late final String _pmtilesUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    // Use Zambia as default, can be dynamic based on user location
+    _pmtilesUrl = dotenv.get('MAPS_ZAMBIA_URL');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,13 +49,18 @@ class _ChurchMapState extends State<ChurchMap> {
         minZoom: 3,
       ),
       children: [
-        // OpenStreetMap tile layer - shows real streets, buildings, locations
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.churchonapp.church_on_app',
-          maxZoom: 18,
-          tileBuilder: widget.darkMode ? _darkModeTileBuilder : null,
+        // High-performance Vector Tiles from Kingdom R2 Storage (PMTiles)
+        VectorTileLayer(
+          theme: widget.darkMode 
+              ? renderer.ProvidedThemes.lightTheme()..colorFilters = const [renderer.renderer_color_filter.grayscale()] // Simple dark mock
+              : renderer.ProvidedThemes.lightTheme(),
+          tileProviders: TileProviders({
+            'openmaptiles': PmTilesVectorTileProvider(
+              url: _pmtilesUrl,
+            ),
+          }),
         ),
+        
         // Route polyline
         if (widget.path != null && widget.path!.isNotEmpty)
           PolylineLayer(
@@ -62,18 +77,6 @@ class _ChurchMapState extends State<ChurchMap> {
         // Markers
         MarkerLayer(markers: widget.markers),
       ],
-    );
-  }
-
-  Widget _darkModeTileBuilder(BuildContext context, Widget tileWidget, TileImage tile) {
-    return ColorFiltered(
-      colorFilter: const ColorFilter.matrix([
-        -0.8, 0, 0, 0, 200,
-        0, -0.8, 0, 0, 200,
-        0, 0, -0.8, 0, 200,
-        0, 0, 0, 1, 0,
-      ]),
-      child: tileWidget,
     );
   }
 }

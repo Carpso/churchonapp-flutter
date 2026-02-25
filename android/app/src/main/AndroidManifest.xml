@@ -40,6 +40,24 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Foreground Service Declarations for Play Store Compliance -->
+        <service
+            android:name="com.ryanheise.audioservice.AudioService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="true"
+            android:permission="android.permission.FOREGROUND_SERVICE">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+                <action android:name="android.intent.action.MEDIA_PLAYBACK" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
+            android:foregroundServiceType="dataSync|location"
+            android:exported="false" />
+
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
