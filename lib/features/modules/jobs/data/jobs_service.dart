@@ -84,7 +84,6 @@ class JobsService {
     await _client.from('job_applications').update({'status': status}).eq('id', id);
   }
 }
-}
 
 final jobsServiceProvider = Provider((ref) {
   final client = ref.watch(supabaseServiceProvider).client;
