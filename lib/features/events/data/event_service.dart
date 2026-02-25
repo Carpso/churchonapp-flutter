@@ -49,7 +49,40 @@ class EventService {
         .from('events')
         .stream(primaryKey: ['id'])
         .order('date', ascending: true)
-        .map((data) => data.map((map) => ChurchEvent.fromMap(map)).toList());
+        .map((data) {
+          final events = data.map((map) => ChurchEvent.fromMap(map)).toList();
+          if (events.isEmpty) {
+            return _getMockEvents();
+          }
+          return events;
+        });
+  }
+
+  List<ChurchEvent> _getMockEvents() {
+    return [
+      ChurchEvent(
+        id: 'mock-1',
+        title: 'National Prayer Day',
+        description: 'Join the entire nation in prayer.',
+        location: 'National Stadium, Lusaka',
+        date: DateTime.now().add(const Duration(days: 10)),
+        imageUrl: 'https://images.unsplash.com/photo-1444464666168-49d633b867ad?w=800',
+        ticketPrice: 0,
+        attendeeCount: 1540,
+        category: 'Spiritual',
+      ),
+      ChurchEvent(
+        id: 'mock-2',
+        title: 'Youth Impact Conference',
+        description: 'Empowering the next generation.',
+        location: 'Grace Cathedral, Harare',
+        date: DateTime.now().add(const Duration(days: 5)),
+        imageUrl: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800',
+        ticketPrice: 50,
+        attendeeCount: 420,
+        category: 'Youth',
+      ),
+    ];
   }
 
   Future<void> createEvent(Map<String, dynamic> eventData) async {

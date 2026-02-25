@@ -67,9 +67,11 @@ class MeetingService {
     return _client
         .from('meeting_notes')
         .stream(primaryKey: ['id'])
-        .eq('meeting_id', meetingId)
         .order('created_at', ascending: false)
-        .map((data) => data.map((e) => MeetingNote.fromMap(e)).toList());
+        .map((data) => data
+            .where((e) => e['meeting_id'] == meetingId)
+            .map((e) => MeetingNote.fromMap(e))
+            .toList());
   }
 
   Future<void> castVote(String meetingId, String option) async {
@@ -86,11 +88,11 @@ class MeetingService {
   Stream<Map<String, int>> streamVoteResults(String meetingId) {
     return _client
         .from('meeting_votes')
-        .stream(primaryKey: ['id'])
-        .eq('meeting_id', meetingId)
+        .stream(primaryKey: ['meeting_id', 'voter_id'])
         .map((data) {
           final results = <String, int>{};
-          for (var item in data) {
+          final filtered = data.where((e) => e['meeting_id'] == meetingId);
+          for (var item in filtered) {
             final opt = item['option_selected'] as String;
             results[opt] = (results[opt] ?? 0) + 1;
           }

@@ -95,8 +95,27 @@ class SermonService {
         .from('sermon_reactions')
         .stream(primaryKey: ['id'])
         .eq('sermon_id', sermonId)
-        .eq('reaction_type', 'discuss')
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .map((data) => data.where((e) => e['reaction_type'] == 'discuss').toList());
+  }
+
+  Future<List<Sermon>> searchSermons(String query) async {
+    try {
+      final response = await _client
+          .from('sermons')
+          .select()
+          .textSearch('fts', query, config: 'english')
+          .order('created_at', ascending: false);
+      
+      return (response as List).map((s) => Sermon.fromMap(s)).toList();
+    } catch (e) {
+      final response = await _client
+          .from('sermons')
+          .select()
+          .or('title.ilike.%$query%,preacher.ilike.%$query%')
+          .order('created_at', ascending: false);
+      return (response as List).map((s) => Sermon.fromMap(s)).toList();
+    }
   }
 }
 

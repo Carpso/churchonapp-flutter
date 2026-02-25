@@ -45,10 +45,11 @@ class JobsService {
         title: 'Media Production Lead',
         company: 'Grace Assemblies',
         location: 'Lusaka',
-        salaryRange: 'K15,000 - K20,000',
+        salary: 'K15,000 - K20,000',
         type: 'Full-time',
         description: 'Lead the audio-visual team for international broadcasts.',
-        requirements: ['3+ years in OBS', 'Vmix Specialist'],
+        contact: 'media@grace.org',
+        employerId: 'system',
         createdAt: DateTime.now(),
       ),
       Job(
@@ -56,10 +57,11 @@ class JobsService {
         title: 'Children’s Pastor',
         company: 'Zion Gates',
         location: 'Bulawayo',
-        salaryRange: 'Competitive',
+        salary: 'Competitive',
         type: 'Part-time',
         description: 'Develop spiritual curriculum for ages 5-12.',
-        requirements: ['Teaching background', 'Love for kids'],
+        contact: 'hr@zion.org',
+        employerId: 'system',
         createdAt: DateTime.now(),
       ),
     ];
@@ -77,10 +79,11 @@ class JobsService {
         .order('created_at', ascending: false)
         .map((data) => data.map((e) => JobApplication.fromMap(e)).toList());
   }
-}
+
   Future<void> updateApplicationStatus(String id, String status) async {
     await _client.from('job_applications').update({'status': status}).eq('id', id);
   }
+}
 }
 
 final jobsServiceProvider = Provider((ref) {
