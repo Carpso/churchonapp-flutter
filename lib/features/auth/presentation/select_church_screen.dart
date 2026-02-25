@@ -290,6 +290,9 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
         children: [
           ChurchMap(
             center: center,
+            pmtilesUrl: _currentCountry == "Zimbabwe" 
+                ? dotenv.get('MAPS_ZIMBABWE_URL') 
+                : dotenv.get('MAPS_ZAMBIA_URL'),
             zoom: _currentPosition != null ? 10 : 6,
             markers: _filteredChurches.map((church) {
               final lat = (church['latitude'] ?? -15.3875) as num;

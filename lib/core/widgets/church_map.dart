@@ -13,6 +13,7 @@ class ChurchMap extends StatefulWidget {
   final List<Marker> markers;
   final List<LatLng>? path;
   final bool darkMode;
+  final String? pmtilesUrl;
 
   const ChurchMap({
     super.key,
@@ -21,6 +22,7 @@ class ChurchMap extends StatefulWidget {
     this.markers = const [],
     this.path,
     this.darkMode = false,
+    this.pmtilesUrl,
   });
 
   @override
@@ -29,49 +31,72 @@ class ChurchMap extends StatefulWidget {
 
 class _ChurchMapState extends State<ChurchMap> {
   final MapController _mapController = MapController();
-  late final String _pmtilesUrl;
+  late Future<PmTilesVectorTileProvider> _tileProvider;
 
   @override
   void initState() {
     super.initState();
-    // Use Zambia as default, can be dynamic based on user location
-    _pmtilesUrl = dotenv.get('MAPS_ZAMBIA_URL');
+    _initializeProvider();
+  }
+
+  @override
+  void didUpdateWidget(ChurchMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pmtilesUrl != widget.pmtilesUrl) {
+      _initializeProvider();
+    }
+  }
+
+  void _initializeProvider() {
+    final url = widget.pmtilesUrl ?? dotenv.get('MAPS_ZAMBIA_URL');
+    _tileProvider = PmTilesVectorTileProvider.fromSource(url);
+    if (mounted && widget.pmtilesUrl != null) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    return FlutterMap(
-      mapController: _mapController,
-      options: MapOptions(
-        initialCenter: widget.center,
-        initialZoom: widget.zoom,
-        maxZoom: 18,
-        minZoom: 3,
-      ),
-      children: [
-        // OpenStreetMap tile layer - shows real streets, buildings, locations
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.churchonapp.church_on_app',
-          maxZoom: 18,
-        ),
-        
-        // Route polyline
-        if (widget.path != null && widget.path!.isNotEmpty)
-          PolylineLayer(
-            polylines: [
-              Polyline(
-                points: widget.path!,
-                color: Theme.of(context).primaryColor,
-                strokeWidth: 5,
-                borderColor: Colors.white,
-                borderStrokeWidth: 2,
-              ),
-            ],
+    return FutureBuilder<PmTilesVectorTileProvider>(
+      future: _tileProvider,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        return FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: widget.center,
+            initialZoom: widget.zoom,
+            maxZoom: 18,
+            minZoom: 3,
           ),
-        // Markers
-        MarkerLayer(markers: widget.markers),
-      ],
+          children: [
+            // High-performance Vector Tiles from R2 Kingdom Map Service
+            VectorTileLayer(
+              theme: renderer.ProvidedThemes.lightTheme(),
+              tileProviders: TileProviders({
+                'openmaptiles': snapshot.data!,
+              }),
+            ),
+            
+            // Route polyline
+            if (widget.path != null && widget.path!.isNotEmpty)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: widget.path!,
+                    color: Theme.of(context).primaryColor,
+                    strokeWidth: 5,
+                    borderColor: Colors.white,
+                    borderStrokeWidth: 2,
+                  ),
+                ],
+              ),
+            // Dynamic Markers
+            MarkerLayer(markers: widget.markers),
+          ],
+        );
+      },
     );
   }
 }
