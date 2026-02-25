@@ -49,14 +49,11 @@ class _ChurchMapState extends State<ChurchMap> {
         minZoom: 3,
       ),
       children: [
-        // High-performance Vector Tiles from Kingdom R2 Storage (PMTiles)
-        VectorTileLayer(
-          theme: renderer.ProvidedThemes.lightTheme(),
-          tileProviders: TileProviders({
-            'openmaptiles': PmTilesVectorTileProvider(
-              url: _pmtilesUrl,
-            ),
-          }),
+        // OpenStreetMap tile layer - shows real streets, buildings, locations
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.churchonapp.church_on_app',
+          maxZoom: 18,
         ),
         
         // Route polyline
