@@ -51,9 +51,7 @@ class _ChurchMapState extends State<ChurchMap> {
       children: [
         // High-performance Vector Tiles from Kingdom R2 Storage (PMTiles)
         VectorTileLayer(
-          theme: widget.darkMode 
-              ? renderer.ProvidedThemes.lightTheme()..colorFilters = const [renderer.renderer_color_filter.grayscale()] // Simple dark mock
-              : renderer.ProvidedThemes.lightTheme(),
+          theme: renderer.ProvidedThemes.lightTheme(),
           tileProviders: TileProviders({
             'openmaptiles': PmTilesVectorTileProvider(
               url: _pmtilesUrl,
