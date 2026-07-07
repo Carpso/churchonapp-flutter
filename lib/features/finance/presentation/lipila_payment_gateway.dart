@@ -373,25 +373,7 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
                   child: const Text("CANCEL", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
                 ),
               ),
-              if (kDebugMode) ...[
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _forceConfirm = true;
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                    ),
-                    child: const Text("BYPASS / OK", style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
+
             ],
           ),
         ],

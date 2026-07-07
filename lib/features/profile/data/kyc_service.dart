@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
@@ -43,11 +44,18 @@ class KycService {
     }
   }
 
+  String _deriveEncryptionKey(String userId) {
+    final configSecret = const String.fromEnvironment('KYC_ENCRYPTION_SECRET',
+        defaultValue: 'churchonapp-kyc-v1');
+    final hash = sha256.convert(utf8.encode('$userId-$configSecret'));
+    return hash.toString();
+  }
+
   Future<void> submitDocument({required String filePath, required String documentType}) async {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception("Not authenticated");
 
-    final userSecret = '${user.id}-${user.email ?? 'anon'}';
+    final userSecret = _deriveEncryptionKey(user.id);
     final file = File(filePath);
     final encrypted = EncryptionService.encryptFile(file, userSecret);
 
@@ -77,7 +85,7 @@ class KycService {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception("Not authenticated");
 
-    final userSecret = '${user.id}-${user.email ?? 'anon'}';
+    final userSecret = _deriveEncryptionKey(user.id);
     final file = File(filePath);
     final encrypted = EncryptionService.encryptFile(file, userSecret);
 

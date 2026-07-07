@@ -1,9 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../../../core/config/env.dart';
 import 'package:uuid/uuid.dart';
 
 class Transaction {
@@ -134,39 +131,26 @@ class FinanceService {
     recipientName = finalName;
 
     // AUTOMATIC SPLIT SETTLEMENT ENGINE
-    // Automatically trigger MoMo payout to recipient minus platform fee.
+    // Automatically trigger MoMo payout via server-side edge function.
     if (recipientPhone != null && recipientPhone.trim().isNotEmpty) {
       try {
         final double payoutAmount = amount - platformFee;
-        final String apiKey = Env.lipilaApiKey;
-        final String baseUrl = apiKey.startsWith('lsk_') 
-            ? "https://blz.lipila.io/api" 
-            : "https://api.lipila.dev/api";
-
-        // Format recipient phone to 260
         String targetPhone = recipientPhone.replaceAll(RegExp(r'\D'), '');
         if (targetPhone.startsWith('0')) targetPhone = '260${targetPhone.substring(1)}';
         if (targetPhone.startsWith('9')) targetPhone = '260$targetPhone';
         if (targetPhone.length == 9) targetPhone = '260$targetPhone';
 
         final payoutRef = const Uuid().v4();
-        
-        await http.post(
-          Uri.parse("$baseUrl/v1/payouts/mobile-money"),
-          headers: {
-            "x-api-key": apiKey,
-            "Content-Type": "application/json",
-            "accept": "application/json",
+
+        await _client.functions.invoke(
+          'lipila-payout',
+          method: HttpMethod.post,
+          body: {
+            'accountNumber': targetPhone,
+            'amount': payoutAmount,
+            'narration': 'COA Settlement split: $reference',
+            'referenceId': payoutRef,
           },
-          body: jsonEncode({
-            "callbackUrl": Env.lipilaPayoutWebhookUrl,
-            "referenceId": payoutRef,
-            "amount": payoutAmount,
-            "narration": "COA Settlement split: $reference",
-            "accountNumber": targetPhone,
-            "currency": "ZMW",
-            "email": "payouts@churchonapp.com"
-          }),
         );
       } catch (e) {
         debugPrint("Automatic Payout split settlement failed for $recipientPhone: $e");

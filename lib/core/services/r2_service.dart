@@ -7,9 +7,17 @@ import '../services/supabase_service.dart';
 import '../config/env.dart';
 
 class R2Service {
-  // These are often handled by Supabase Edge Functions for security,
-  // but if needed client-side, we use presigned URLs.
-  
+  static const int _maxImageSize = 10 * 1024 * 1024;
+  static const int _maxVideoSize = 100 * 1024 * 1024;
+  static const int _maxDocumentSize = 20 * 1024 * 1024;
+
+  static const Set<String> _allowedExtensions = {
+    '.jpg', '.jpeg', '.png', '.gif', '.webp',
+    '.mp4', '.mov', '.avi', '.mkv', '.webm',
+    '.pdf', '.doc', '.docx', '.xls', '.xlsx',
+    '.mp3', '.wav', '.aac', '.ogg',
+  };
+
   static String get publicDomain => Env.r2PublicDomain;
 
   final SupabaseClient _client;
@@ -17,7 +25,28 @@ class R2Service {
 
   Future<String?> uploadFile(File file, String path) async {
     try {
-      // 1. Request signed URL from Supabase Edge Function
+      final fileSize = await file.length();
+      final extension = path.split('.').last.toLowerCase();
+
+      if (!_allowedExtensions.contains('.$extension')) {
+        debugPrint("R2 Upload Error: File type .$extension not allowed");
+        return null;
+      }
+
+      final contentType = _getContentType(file.path);
+      if (contentType.startsWith('image/') && fileSize > _maxImageSize) {
+        debugPrint("R2 Upload Error: Image exceeds 10MB limit");
+        return null;
+      }
+      if (contentType.startsWith('video/') && fileSize > _maxVideoSize) {
+        debugPrint("R2 Upload Error: Video exceeds 100MB limit");
+        return null;
+      }
+      if (contentType == 'application/pdf' && fileSize > _maxDocumentSize) {
+        debugPrint("R2 Upload Error: Document exceeds 20MB limit");
+        return null;
+      }
+
       final response = await _client.functions.invoke('r2-sign', body: {
         'filename': path.split('/').last,
         'contentType': _getContentType(file.path),
@@ -28,7 +57,6 @@ class R2Service {
         final signedUrl = response.data['signedUrl'];
         final publicUrl = response.data['publicUrl'];
 
-        // 2. Upload directly to R2
         final uploadResponse = await http.put(
           Uri.parse(signedUrl),
           body: await file.readAsBytes(),
@@ -69,8 +97,13 @@ class R2Service {
   String _getContentType(String path) {
     if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg';
     if (path.endsWith('.png')) return 'image/png';
+    if (path.endsWith('.gif')) return 'image/gif';
+    if (path.endsWith('.webp')) return 'image/webp';
     if (path.endsWith('.mp4')) return 'video/mp4';
+    if (path.endsWith('.mov')) return 'video/quicktime';
     if (path.endsWith('.pdf')) return 'application/pdf';
+    if (path.endsWith('.mp3')) return 'audio/mpeg';
+    if (path.endsWith('.wav')) return 'audio/wav';
     return 'application/octet-stream';
   }
 }

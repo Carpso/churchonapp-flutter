@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,28 @@ class TwoFactorService {
   static const _totpIntervalSeconds = 30;
   static const _totpDigits = 6;
   static const _issuer = 'ChurchOnApp';
+
+  String _encryptSecret(String secret, String userId) {
+    final key = sha256.convert(utf8.encode('$userId-coa-totp-v1'));
+    final iv = List<int>.generate(16, (_) => Random.secure().nextInt(256));
+    final secretBytes = utf8.encode(secret);
+    final encrypted = <int>[];
+    encrypted.addAll(iv);
+    for (int i = 0; i < secretBytes.length; i++) {
+      encrypted.add(secretBytes[i] ^ key.bytes[i % key.bytes.length]);
+    }
+    return base64.encode(encrypted);
+  }
+
+  String _decryptSecret(String encryptedBase64, String userId) {
+    final key = sha256.convert(utf8.encode('$userId-coa-totp-v1'));
+    final encrypted = base64.decode(encryptedBase64);
+    final decrypted = <int>[];
+    for (int i = 16; i < encrypted.length; i++) {
+      decrypted.add(encrypted[i] ^ key.bytes[(i - 16) % key.bytes.length]);
+    }
+    return utf8.decode(decrypted);
+  }
 
   String _base32Encode(List<int> bytes) {
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -105,8 +128,10 @@ class TwoFactorService {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception("Not authenticated");
 
+    final encrypted = _encryptSecret(secretBase32, user.id);
+
     await _client.from('profiles').update({
-      'totp_secret': secretBase32,
+      'totp_secret': encrypted,
       'totp_enabled': true,
     }).eq('id', user.id);
   }
@@ -144,7 +169,14 @@ class TwoFactorService {
         .eq('id', user.id)
         .maybeSingle();
 
-    return res?['totp_secret']?.toString();
+    final encrypted = res?['totp_secret']?.toString();
+    if (encrypted == null) return null;
+
+    try {
+      return _decryptSecret(encrypted, user.id);
+    } catch (_) {
+      return null;
+    }
   }
 }
 

@@ -100,9 +100,34 @@ serve(async (req) => {
     );
   }
 
+  const allowedTypes = [
+    "image/jpeg", "image/png", "image/gif", "image/webp",
+    "video/mp4", "video/quicktime", "video/webm",
+    "application/pdf", "audio/mpeg", "audio/wav", "audio/ogg",
+  ];
+  if (!allowedTypes.includes(body.contentType)) {
+    return new Response(
+      JSON.stringify({ error: "File type not allowed", allowed: allowedTypes }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      }
+    );
+  }
+
   if (body.folder === "kyc" && !userId) {
     return new Response(
       JSON.stringify({ error: "Authentication required for KYC document uploads" }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      }
+    );
+  }
+
+  if (["kyc", "sermons", "profile"].includes(body.folder) && !userId) {
+    return new Response(
+      JSON.stringify({ error: "Authentication required for this folder" }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,

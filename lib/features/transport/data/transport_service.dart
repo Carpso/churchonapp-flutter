@@ -6,9 +6,6 @@ import 'ride_request_model.dart';
 import 'delivery_model.dart';
 import '../../../core/services/sms_service.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../../../core/config/env.dart';
 
 class RideRegistration {
   final String id;
@@ -238,40 +235,28 @@ class TransportService {
       'platform_fee': 0.0,
     });
 
-    // 4. Trigger Real MoMo Payout to Driver
+    // 4. Trigger Payout to Driver via server-side edge function
     try {
       final driverProfile = await _client.from('profiles').select('phone_number, full_name').eq('id', driverId).single();
       final driverPhone = driverProfile['phone_number'];
 
       if (driverPhone != null && driverPhone.toString().trim().isNotEmpty) {
-        final String apiKey = Env.lipilaApiKey;
-        final String baseUrl = apiKey.startsWith('lsk_') 
-            ? "https://blz.lipila.io/api" 
-            : "https://api.lipila.dev/api";
-
         String targetPhone = driverPhone.toString().replaceAll(RegExp(r'\D'), '');
         if (targetPhone.startsWith('0')) targetPhone = '260${targetPhone.substring(1)}';
         if (targetPhone.startsWith('9')) targetPhone = '260$targetPhone';
         if (targetPhone.length == 9) targetPhone = '260$targetPhone';
 
         final payoutRef = "RIDE-DISB-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}";
-        
-        await http.post(
-          Uri.parse("$baseUrl/v1/payouts/mobile-money"),
-          headers: {
-            "x-api-key": apiKey,
-            "Content-Type": "application/json",
-            "accept": "application/json",
+
+        await _client.functions.invoke(
+          'lipila-payout',
+          method: HttpMethod.post,
+          body: {
+            'accountNumber': targetPhone,
+            'amount': netEarning,
+            'narration': 'Ride payout $requestId',
+            'referenceId': payoutRef,
           },
-          body: jsonEncode({
-            "callbackUrl": Env.lipilaPayoutWebhookUrl,
-            "referenceId": payoutRef,
-            "amount": netEarning,
-            "narration": "Ride payout $requestId",
-            "accountNumber": targetPhone,
-            "currency": "ZMW",
-            "email": "driver-payouts@churchonapp.com"
-          }),
         );
       }
     } catch (e) {
@@ -447,80 +432,56 @@ class TransportService {
       'platform_fee': 0.0,
     });
 
-    // 1. Trigger Real MoMo Payout to courier/driver for the delivery fare
+    // 1. Trigger Payout to courier/driver via server-side edge function
     try {
       final driverProfile = await _client.from('profiles').select('phone_number, full_name').eq('id', driverId).single();
       final driverPhone = driverProfile['phone_number'];
 
       if (driverPhone != null && driverPhone.toString().trim().isNotEmpty) {
-        final String apiKey = Env.lipilaApiKey;
-        final String baseUrl = apiKey.startsWith('lsk_') 
-            ? "https://blz.lipila.io/api" 
-            : "https://api.lipila.dev/api";
-
         String targetPhone = driverPhone.toString().replaceAll(RegExp(r'\D'), '');
         if (targetPhone.startsWith('0')) targetPhone = '260${targetPhone.substring(1)}';
         if (targetPhone.startsWith('9')) targetPhone = '260$targetPhone';
         if (targetPhone.length == 9) targetPhone = '260$targetPhone';
 
         final payoutRef = "DELIV-DISB-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}";
-        
-        await http.post(
-          Uri.parse("$baseUrl/v1/payouts/mobile-money"),
-          headers: {
-            "x-api-key": apiKey,
-            "Content-Type": "application/json",
-            "accept": "application/json",
+
+        await _client.functions.invoke(
+          'lipila-payout',
+          method: HttpMethod.post,
+          body: {
+            'accountNumber': targetPhone,
+            'amount': netEarning,
+            'narration': 'Delivery payout: $deliveryId',
+            'referenceId': payoutRef,
           },
-          body: jsonEncode({
-            "callbackUrl": Env.lipilaPayoutWebhookUrl,
-            "referenceId": payoutRef,
-            "amount": netEarning,
-            "narration": "Delivery payout: $deliveryId",
-            "accountNumber": targetPhone,
-            "currency": "ZMW",
-            "email": "driver-payouts@churchonapp.com"
-          }),
         );
       }
     } catch (e) {
       debugPrint("transport_service: Courier delivery payout failed: $e");
     }
 
-    // 2. Release Escrow Payout to Marketplace Vendor (Goods confirmed received/delivered)
+    // 2. Release Escrow Payout to Marketplace Vendor via server-side edge function
     final vendorPhone = res['vendor_phone'];
     final itemPrice = res['item_price'] != null ? (res['item_price'] as num).toDouble() : 0.0;
 
     if (vendorPhone != null && vendorPhone.toString().trim().isNotEmpty && itemPrice > 0) {
       try {
-        final String apiKey = Env.lipilaApiKey;
-        final String baseUrl = apiKey.startsWith('lsk_') 
-            ? "https://blz.lipila.io/api" 
-            : "https://api.lipila.dev/api";
-
         String targetPhone = vendorPhone.toString().replaceAll(RegExp(r'\D'), '');
         if (targetPhone.startsWith('0')) targetPhone = '260${targetPhone.substring(1)}';
         if (targetPhone.startsWith('9')) targetPhone = '260$targetPhone';
         if (targetPhone.length == 9) targetPhone = '260$targetPhone';
 
         final payoutRef = "MARKET-RELEASE-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}";
-        
-        await http.post(
-          Uri.parse("$baseUrl/v1/payouts/mobile-money"),
-          headers: {
-            "x-api-key": apiKey,
-            "Content-Type": "application/json",
-            "accept": "application/json",
+
+        await _client.functions.invoke(
+          'lipila-payout',
+          method: HttpMethod.post,
+          body: {
+            'accountNumber': targetPhone,
+            'amount': itemPrice,
+            'narration': 'Market escrow release: ${res['item_description']}',
+            'referenceId': payoutRef,
           },
-          body: jsonEncode({
-            "callbackUrl": Env.lipilaPayoutWebhookUrl,
-            "referenceId": payoutRef,
-            "amount": itemPrice,
-            "narration": "Market escrow release: ${res['item_description']}",
-            "accountNumber": targetPhone,
-            "currency": "ZMW",
-            "email": "vendor-payouts@churchonapp.com"
-          }),
         );
       } catch (e) {
         debugPrint("transport_service: Vendor escrow payout release failed: $e");
