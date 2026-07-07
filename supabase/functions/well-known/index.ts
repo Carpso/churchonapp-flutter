@@ -15,12 +15,14 @@ const assetlinks = [
   }
 ];
 
+const appleTeamId = Deno.env.get("APPLE_TEAM_ID") ?? "YOUR_APPLE_TEAM_ID";
+
 const appleAppSiteAssociation = {
   "applinks": {
     "apps": [],
     "details": [
       {
-        "appID": "YOUR_APPLE_TEAM_ID.com.churchonapp.churchOnApp",
+        "appID": `${appleTeamId}.com.churchonapp.churchOnApp`,
         "paths": [
           "*"
         ]

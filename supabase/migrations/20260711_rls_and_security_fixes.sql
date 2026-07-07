@@ -257,9 +257,11 @@ CREATE POLICY "Superadmins can view sms logs"
     );
 
 DROP POLICY IF EXISTS "System can insert sms logs" ON public.sms_logs;
-CREATE POLICY "System can insert sms logs"
+CREATE POLICY "Service can insert sms logs"
     ON public.sms_logs FOR INSERT
-    WITH CHECK (true);
+    WITH CHECK (
+        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('superadmin', 'employee'))
+    );
 
 -- 15. SOCIAL POSTS — enable RLS with proper moderation
 ALTER TABLE public.social_posts ENABLE ROW LEVEL SECURITY;
@@ -415,7 +417,34 @@ ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS type TEXT;
 ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS reference_id TEXT;
 ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES public.churches(id);
 
--- 26. Enable realtime for core tables
+-- 26. Add missing columns to profiles (if not already present from auth trigger or old migrations)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS streak_count INTEGER DEFAULT 0;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_read_at TIMESTAMPTZ;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS kyc_status TEXT DEFAULT 'unverified';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS referral_code TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS fcm_token TEXT;
+
+-- 27. Add missing columns to other existing tables
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS type TEXT;
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS reference_id TEXT;
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES public.churches(id);
+
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS hosted_by UUID REFERENCES auth.users(id);
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS host_type TEXT DEFAULT 'church';
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS is_paid_event BOOLEAN DEFAULT false;
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS ticket_price DOUBLE PRECISION;
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS ticket_limit INTEGER;
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS tickets_sold INTEGER DEFAULT 0;
+
+ALTER TABLE public.sermons ADD COLUMN IF NOT EXISTS church_id UUID REFERENCES public.churches(id);
+ALTER TABLE public.sermons ADD COLUMN IF NOT EXISTS transcript TEXT;
+ALTER TABLE public.sermons ADD COLUMN IF NOT EXISTS ai_summary TEXT;
+
+ALTER TABLE public.churches ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ;
+ALTER TABLE public.churches ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
+ALTER TABLE public.churches ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'trial';
+
+-- 28. Enable realtime for core tables
 DO $$
 DECLARE
     realtime_tables TEXT[] := ARRAY[

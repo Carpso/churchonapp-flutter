@@ -4,6 +4,8 @@ import {
   PutObjectCommand,
 } from "npm:@aws-sdk/client-s3@3.600.0";
 import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner@3.600.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,6 +49,7 @@ serve(async (req) => {
   const authHeader = req.headers.get("Authorization");
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
   let userId: string | null = null;
   if (authHeader) {
@@ -58,6 +61,17 @@ serve(async (req) => {
       if (response.ok) {
         const userData = await response.json();
         userId = userData.id;
+
+        if (userId) {
+          const supabase = createClient(supabaseUrl, supabaseServiceKey);
+          const { allowed } = await checkRateLimit(supabase, userId, "r2_upload", 20, 1);
+          if (!allowed) {
+            return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again later." }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 429,
+            });
+          }
+        }
       }
     } catch {
       // Auth check failed, continue without user context

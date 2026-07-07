@@ -10,6 +10,9 @@ const TABLES = [
   "marketplace_items", "quiz_events", "quiz_participants", "quiz_passes",
 ];
 
+const CHUNK_SIZE = 1000;
+const BACKUP_TIMEOUT_MS = 55000;
+
 serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
@@ -46,10 +49,39 @@ serve(async (req) => {
       });
     }
 
+    const startTime = Date.now();
     const backup: Record<string, unknown[]> = {};
+
     for (const table of TABLES) {
-      const { data } = await supabase.from(table).select("*");
-      backup[table] = data ?? [];
+      if (Date.now() - startTime > BACKUP_TIMEOUT_MS) {
+        backup["_truncated"] = true;
+        break;
+      }
+
+      backup[table] = [];
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        if (Date.now() - startTime > BACKUP_TIMEOUT_MS) {
+          backup["_truncated"] = true;
+          break;
+        }
+
+        const { data } = await supabase
+          .from(table)
+          .select("*")
+          .range(from, from + CHUNK_SIZE - 1)
+          .order("id", { ascending: true });
+
+        if (data && data.length > 0) {
+          backup[table] = [...backup[table], ...data];
+          from += data.length;
+          hasMore = data.length === CHUNK_SIZE;
+        } else {
+          hasMore = false;
+        }
+      }
     }
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -60,8 +92,10 @@ serve(async (req) => {
       action: "system_backup",
       entity_type: "system",
       details: {
-        tables: TABLES,
-        record_count: Object.values(backup).reduce((s, t) => s + t.length, 0),
+        tables: Object.keys(backup).filter((k) => !k.startsWith("_")),
+        record_count: Object.values(backup).reduce((s, t) => s + (Array.isArray(t) ? t.length : 0), 0),
+        truncated: backup["_truncated"] === true,
+        elapsed_ms: Date.now() - startTime,
       },
     });
 
