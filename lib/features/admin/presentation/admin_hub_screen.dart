@@ -9,6 +9,7 @@ import 'integrations_screen.dart';
 import 'global_broadcast_screen.dart';
 import 'superadmin_dashboard.dart';
 import 'bishop_dashboard.dart';
+import 'pastor_dashboard_screen.dart';
 import 'bookshop_dashboard_screen.dart';
 import 'event_scheduler_screen.dart';
 import 'live_viewer_heatmap_screen.dart';
@@ -22,8 +23,10 @@ import 'prophetic_navigation_screen.dart';
 import 'apostolic_resource_planning_screen.dart';
 import 'global_payout_command_screen.dart';
 import 'kingdom_ai_moderator_screen.dart';
+import 'apostle_dashboard_screen.dart';
 import 'zambian_payroll_screen.dart';
 import 'flyer_studio_screen.dart';
+import 'ministry_management_screen.dart';
 import '../../finance/presentation/multi_currency_wallet_screen.dart';
 import 'package:church_on_app/features/finance/data/tithe_automation_service.dart';
 import '../../modules/media/presentation/kingdom_radio_screen.dart';
@@ -123,6 +126,24 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.purple,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BishopDashboard())),
               ),
+            if (role == 'apostle')
+              _buildAdminTile(
+                context,
+                LucideIcons.globe,
+                "Apostle Dashboard",
+                "Network churches, growth metrics and missions",
+                Colors.deepPurple,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ApostleDashboardScreen())),
+              ),
+            if (role == 'pastor')
+              _buildAdminTile(
+                context,
+                LucideIcons.layoutDashboard,
+                "Pastor Dashboard",
+                "Members, sermons, attendance & giving stats",
+                Colors.teal,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PastorDashboardScreen())),
+              ),
             Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
             if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
@@ -141,6 +162,15 @@ class AdminHubScreen extends ConsumerWidget {
                 "Official records, dates, and baptism certificates",
                 Colors.indigo,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BaptismRegistryScreen())),
+              ),
+            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+              _buildAdminTile(
+                context,
+                LucideIcons.church,
+                "Ministries",
+                "Manage ministry groups, leaders, and schedules",
+                Colors.amber,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MinistryManagementScreen())),
               ),
             if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'bookshop_owner' || role == 'vendor' || role == 'merchant')
               _buildAdminTile(

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/features/navigation/presentation/main_navigation_shell.dart';
 import 'package:church_on_app/features/auth/presentation/login_screen.dart';
 import 'package:church_on_app/features/auth/presentation/signup_screen.dart';
+import 'package:church_on_app/features/auth/presentation/forgot_password_screen.dart';
 import 'package:church_on_app/features/auth/presentation/onboarding_screen.dart';
 import 'package:church_on_app/features/auth/presentation/select_church_screen.dart';
 import 'package:church_on_app/features/auth/presentation/landing_screen.dart';
@@ -30,6 +31,7 @@ import '../providers/onboarding_provider.dart';
 import '../services/tenant_service.dart';
 import '../services/navigation_service.dart';
 import 'package:church_on_app/features/connect/presentation/chat_messenger_screen.dart';
+import 'package:church_on_app/features/bible/presentation/daily_devotions_screen.dart';
 import 'package:church_on_app/features/finance/presentation/multi_currency_wallet_screen.dart';
 import 'package:church_on_app/features/finance/presentation/receipt_screen.dart';
 import 'package:church_on_app/features/finance/presentation/transaction_alerts_screen.dart';
@@ -42,6 +44,7 @@ import 'package:church_on_app/features/profile/presentation/about_screen.dart';
 import 'package:church_on_app/features/support/presentation/support_hub_screen.dart';
 import 'package:church_on_app/features/admin/presentation/emergency_shutdown_screen.dart';
 import 'package:church_on_app/features/admin/presentation/ad_management_screen.dart';
+import 'package:church_on_app/features/admin/presentation/report_creator_screen.dart';
 import 'package:church_on_app/features/admin/presentation/job_notifications_screen.dart';
 import 'package:church_on_app/features/profile/presentation/role_onboarding_screen.dart';
 import 'package:church_on_app/features/profile/presentation/security_screen.dart';
@@ -49,8 +52,28 @@ import 'package:church_on_app/features/admin/presentation/role_approval_screen.d
 import 'package:church_on_app/features/admin/presentation/custom_role_management_screen.dart';
 import 'package:church_on_app/features/admin/presentation/writer_approval_screen.dart';
 import 'package:church_on_app/features/admin/presentation/order_tracking_screen.dart';
+import 'package:church_on_app/features/admin/presentation/pastor_dashboard_screen.dart';
+import 'package:church_on_app/features/admin/presentation/apostle_dashboard_screen.dart';
 import 'package:church_on_app/features/profile/presentation/church_referral_screen.dart';
 import 'package:church_on_app/features/profile/presentation/writer_application_screen.dart';
+import 'package:church_on_app/features/marketplace/presentation/cart_screen.dart';
+import 'package:church_on_app/features/marketplace/presentation/checkout_screen.dart';
+import 'package:church_on_app/features/marketplace/presentation/vendor_dashboard_screen.dart';
+import 'package:church_on_app/features/admin/presentation/ministry_management_screen.dart';
+import 'package:church_on_app/features/admin/presentation/ministry_schedule_screen.dart';
+import 'package:church_on_app/features/admin/presentation/news_management_screen.dart';
+import 'package:church_on_app/features/profile/presentation/emergency_contacts_screen.dart';
+import 'package:church_on_app/features/connect/presentation/poll_creator_screen.dart';
+import 'package:church_on_app/features/marketplace/presentation/bookshop_onboarding_screen.dart';
+import 'package:church_on_app/features/profile/presentation/camera_settings_screen.dart';
+import 'package:church_on_app/features/connect/presentation/interchurch_network_screen.dart';
+import 'package:church_on_app/features/connect/presentation/network_activity_screen.dart';
+import 'package:church_on_app/features/connect/presentation/pastors_corner_screen.dart';
+import 'package:church_on_app/features/home/presentation/discover_screen.dart';
+import 'package:church_on_app/features/admin/presentation/system_docs_screen.dart';
+import 'package:church_on_app/features/admin/presentation/database_setup_screen.dart';
+import 'package:church_on_app/features/profile/presentation/feature_request_screen.dart';
+import 'package:church_on_app/features/auth/presentation/demo_church_screen.dart';
 
 class SplashCompletedNotifier extends Notifier<bool> {
   @override
@@ -100,6 +123,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLanding = state.uri.path == '/landing';
       final isSignUp = state.uri.path == '/signup';
       final isRegisteringChurch = state.uri.path == '/register-church';
+      final isForgotPassword = state.uri.path == '/forgot-password';
 
       // Always require selected tenant/church unless onboarding or registering
       if (tenant == null && !isSelectingChurch && !isRegisteringChurch && state.uri.path != '/onboarding') {
@@ -109,7 +133,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!loggedIn) {
         if (isLoggingIn || isSelectingChurch || isSignUp || 
             state.uri.path == '/onboarding' || 
-            isRegisteringChurch) {
+            isRegisteringChurch ||
+            isForgotPassword) {
           return null;
         }
         if (kIsWeb && isLanding) return null;
@@ -159,6 +184,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
         path: '/join',
         builder: (context, state) {
           final churchId = state.uri.queryParameters['church'];
@@ -199,6 +228,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const JobNotificationsScreen(),
       ),
       GoRoute(
+        path: '/report-creator',
+        builder: (context, state) => const ReportCreatorScreen(),
+      ),
+      GoRoute(
         path: '/onboarding/:role',
         builder: (context, state) {
           final role = state.pathParameters['role']!;
@@ -222,12 +255,84 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const WriterApplicationScreen(),
       ),
       GoRoute(
+        path: '/pastor-dashboard',
+        builder: (context, state) => const PastorDashboardScreen(),
+      ),
+      GoRoute(
         path: '/orders',
         builder: (context, state) => const OrderTrackingScreen(),
       ),
       GoRoute(
+        path: '/checkout',
+        builder: (context, state) => const CheckoutScreen(),
+      ),
+      GoRoute(
         path: '/refer-church',
         builder: (context, state) => const ChurchReferralScreen(),
+      ),
+      GoRoute(
+        path: '/apostle-dashboard',
+        builder: (context, state) => const ApostleDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/cart',
+        builder: (context, state) => const CartScreen(),
+      ),
+      GoRoute(
+        path: '/vendor-dashboard',
+        builder: (context, state) => const VendorDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/ministry-management',
+        builder: (context, state) => const MinistryManagementScreen(),
+      ),
+      GoRoute(
+        path: '/ministry-schedule',
+        builder: (context, state) => const MinistryScheduleScreen(),
+      ),
+      GoRoute(
+        path: '/news-management',
+        builder: (context, state) => const NewsManagementScreen(),
+      ),
+      GoRoute(
+        path: '/system-docs',
+        builder: (context, state) => const SystemDocsScreen(),
+      ),
+      GoRoute(
+        path: '/database-setup',
+        builder: (context, state) => const DatabaseSetupScreen(),
+      ),
+      GoRoute(
+        path: '/feature-request',
+        builder: (context, state) => const FeatureRequestScreen(),
+      ),
+      GoRoute(
+        path: '/demo-church',
+        builder: (context, state) => const DemoChurchScreen(),
+      ),
+      GoRoute(
+        path: '/news-management',
+        builder: (context, state) => const NewsManagementScreen(),
+      ),
+      GoRoute(
+        path: '/interchurch-network',
+        builder: (context, state) => const InterchurchNetworkScreen(),
+      ),
+      GoRoute(
+        path: '/network-activity',
+        builder: (context, state) => const NetworkActivityScreen(),
+      ),
+      GoRoute(
+        path: '/pastors-corner',
+        builder: (context, state) => const PastorsCornerScreen(),
+      ),
+      GoRoute(
+        path: '/discover',
+        builder: (context, state) => const DiscoverScreen(),
+      ),
+      GoRoute(
+        path: '/daily-devotions',
+        builder: (context, state) => const DailyDevotionsScreen(),
       ),
       GoRoute(
         path: '/klips/:id',
@@ -347,6 +452,22 @@ final routerProvider = Provider<GoRouter>((ref) {
             callSession: call,
           );
         },
+      ),
+      GoRoute(
+        path: '/emergency-contacts',
+        builder: (context, state) => const EmergencyContactsScreen(),
+      ),
+      GoRoute(
+        path: '/poll-creator',
+        builder: (context, state) => const PollCreatorScreen(),
+      ),
+      GoRoute(
+        path: '/bookshop-onboarding',
+        builder: (context, state) => const BookshopOnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/camera-settings',
+        builder: (context, state) => const CameraSettingsScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

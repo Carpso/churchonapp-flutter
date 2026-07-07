@@ -1,0 +1,12 @@
+name = "churchonapp"
+compatibility_date = "2026-07-02"
+
+pages_build_output_dir = "build/web"
+
+[[r2_buckets]]
+binding = "SERMONS_VAULT"
+bucket_name = "choa-sermons-vault"
+
+[[r2_buckets]]
+binding = "MAPS"
+bucket_name = "church-on-app-maps"

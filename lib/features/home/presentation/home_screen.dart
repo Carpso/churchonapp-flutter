@@ -13,6 +13,11 @@ import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:church_on_app/core/services/platform_settings_service.dart';
 import 'package:church_on_app/core/services/notification_service.dart';
+import 'package:church_on_app/core/widgets/live_stream_indicator.dart';
+import 'package:church_on_app/features/admin/presentation/admin_hub_screen.dart';
+import 'package:church_on_app/features/admin/presentation/global_broadcast_screen.dart';
+import 'package:church_on_app/features/admin/presentation/member_management_screen.dart';
+import 'package:church_on_app/features/admin/presentation/event_scheduler_screen.dart';
 import 'package:church_on_app/features/auth/presentation/select_church_screen.dart';
 import 'package:church_on_app/features/bible/data/bible_verse_service.dart';
 import 'package:church_on_app/features/bible/presentation/bible_screen.dart';
@@ -29,6 +34,7 @@ import 'package:church_on_app/features/modules/navigation/presentation/more_hub_
 import 'package:church_on_app/features/navigation/presentation/carpso_ride_scanner_screen.dart';
 import 'package:church_on_app/features/admin/presentation/widgets/ad_banner_widget.dart';
 import 'package:church_on_app/features/notebook/presentation/notebook_screen.dart';
+import 'package:church_on_app/core/widgets/onboarding_quick_start.dart';
 import '../data/live_streaming_service.dart';
 import '../data/news_service.dart';
 import '../data/sermon_service.dart';
@@ -115,14 +121,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const AnnouncementTicker(),
+                          const SizedBox(height: 16),
+                          const LiveStreamIndicator(),
                           const SizedBox(height: 20),
                           _buildGreetingHeader(context),
+                          const SizedBox(height: 20),
+                          const OnboardingQuickStart(),
                           const SizedBox(height: 20),
                           _buildDailyBibleVerseCard(context),
                           const SizedBox(height: 20),
                           if (tenant == null) _buildSmartReminder(context),
                           const SizedBox(height: 20),
                           _buildContextualWidget(context, liveStatus, tenant),
+                          const SizedBox(height: 30),
+                          _buildAdminDashboard(context),
                           const SizedBox(height: 30),
                           _buildQuickActions(context, tenant),
                           const SizedBox(height: 30),
@@ -625,6 +637,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAdminDashboard(BuildContext context) {
+    final profile = ref.watch(profileProvider).value;
+    if (profile == null || !profile.isAdminOrHigher) return const SizedBox.shrink();
+
+    final chips = [
+      ("Dashboard", LucideIcons.layoutDashboard, Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminHubScreen()))),
+      ("Broadcast", LucideIcons.megaphone, Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GlobalBroadcastScreen()))),
+      ("Members", LucideIcons.users, Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MemberManagementScreen()))),
+      ("Events", LucideIcons.calendarDays, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EventSchedulerScreen()))),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle(context, "Admin Tools"),
+        SizedBox(
+          height: 44,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: chips.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final (label, icon, color, onTap) = chips[index];
+              return ActionChip(
+                onPressed: onTap,
+                backgroundColor: color.withValues(alpha: 0.1),
+                side: BorderSide(color: color.withValues(alpha: 0.3)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 14, color: color),
+                    const SizedBox(width: 6),
+                    Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

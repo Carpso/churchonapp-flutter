@@ -9,6 +9,7 @@ import 'package:church_on_app/core/widgets/qr_code_with_logo.dart';
 import '../../finance/presentation/giving_screen.dart';
 import '../../finance/presentation/giving_history_screen.dart';
 import '../../marketplace/presentation/my_library_screen.dart';
+import '../../marketplace/presentation/vendor_dashboard_screen.dart';
 import 'referral_system_screen.dart';
 import 'package:church_on_app/features/admin/presentation/admin_hub_screen.dart';
 import 'account_settings_screen.dart';
@@ -40,6 +41,8 @@ import 'role_onboarding_screen.dart';
 import 'writer_application_screen.dart';
 import 'church_referral_screen.dart';
 import 'package:church_on_app/features/admin/presentation/order_tracking_screen.dart';
+import 'package:church_on_app/features/admin/presentation/apostle_dashboard_screen.dart';
+import 'package:church_on_app/features/admin/presentation/pastor_dashboard_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -355,6 +358,7 @@ class ProfileScreen extends ConsumerWidget {
         ],
         _buildPremiumItem(context, LucideIcons.calendar, "Yearly Program Planner", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const YearPlannerScreen()))),
         if (profile.isPastor) ...[
+          _buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHighlighted: true, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PastorDashboardScreen()))),
           _buildPremiumItem(context, LucideIcons.clipboardCheck, "Submit Report to Bishop", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PastorBishopReportScreen()))),
         ],
         if (profile.isLedgerManager) ...[
@@ -365,8 +369,14 @@ class ProfileScreen extends ConsumerWidget {
         if (profile.isAdminOrHigher) ...[
           _buildPremiumItem(context, LucideIcons.settings, "SYSTEM ADMIN HUB", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminHubScreen()))),
         ],
+        if (profile.role == 'apostle') ...[
+          _buildPremiumItem(context, LucideIcons.globe, "APOSTLE DASHBOARD", isHighlighted: true, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ApostleDashboardScreen()))),
+        ],
         if (profile.isSuperadmin) ...[
           _buildPremiumItem(context, LucideIcons.zap, "SUPERADMIN CONSOLE", isHighlighted: true, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SuperadminHubScreen()))),
+        ],
+        if (profile.role == 'vendor' || profile.role == 'merchant' || profile.role == 'bookshop_owner') ...[
+          _buildPremiumItem(context, LucideIcons.store, "VENDOR DASHBOARD", isHighlighted: true, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VendorDashboardScreen()))),
         ],
       ],
     );

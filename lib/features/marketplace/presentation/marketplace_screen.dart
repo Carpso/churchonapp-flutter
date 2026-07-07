@@ -1,19 +1,12 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:go_router/go_router.dart';
 import '../data/marketplace_service.dart';
 import 'product_details_screen.dart';
 import 'post_product_screen.dart';
-import '../../finance/presentation/lipila_payment_gateway.dart';
 import '../../../core/widgets/shimmer_loader.dart';
-import '../../transport/data/transport_service.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:church_on_app/core/services/tenant_service.dart';
-import 'package:church_on_app/features/finance/data/finance_service.dart';
-import 'package:church_on_app/features/admin/data/order_service.dart';
 
 class MarketplaceScreen extends ConsumerStatefulWidget {
   final String? initialCategory;
@@ -59,7 +52,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
             children: [
               IconButton(
                 icon: const Icon(LucideIcons.shoppingBag),
-                onPressed: () => _showCartSheet(),
+                onPressed: () => context.push('/cart'),
               ),
               if (cartItems.isNotEmpty)
                 Positioned(
@@ -349,230 +342,5 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     );
   }
 
-  void _showCartSheet() {
-    showModalBottomSheet(
-      context: context,
-      useRootNavigator: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const CartSheet(),
-    );
-  }
-}
-
-class CartSheet extends ConsumerWidget {
-  const CartSheet({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final items = ref.watch(cartProvider);
-    final total = ref.read(cartProvider.notifier).total;
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      padding: const EdgeInsets.all(25),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("Your Cart", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              Text("${items.length} Items", style: const TextStyle(color: Colors.grey)),
-            ],
-          ),
-          const Divider(height: 30),
-          if (items.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
-              child: Text("Cart is empty", style: TextStyle(color: Colors.grey)),
-            )
-          else
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: items.length,
-                itemBuilder: (context, index) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(LucideIcons.package, color: Theme.of(context).primaryColor),
-                  title: Text(items[index].product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text("${items[index].quantity} x K ${items[index].product.price}"),
-                  trailing: IconButton(
-                    icon: const Icon(LucideIcons.trash2, size: 18, color: Colors.grey),
-                    onPressed: () => ref.read(cartProvider.notifier).removeFromCart(items[index].product.id),
-                  ),
-                ),
-              ),
-            ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("Subtotal", style: TextStyle(fontSize: 16)),
-              Text("K ${total.toInt()}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                   const Icon(LucideIcons.info, size: 14, color: Colors.blue),
-                   const SizedBox(width: 5),
-                   Text("Transaction Fee (Mobile Money)", style: TextStyle(fontSize: 12, color: Colors.blue)),
-                ]
-              ),
-              Text("+ K ${(total * 0.05 > 3.00 ? total * 0.05 : 3.00).toStringAsFixed(2)}", style: const TextStyle(fontSize: 12, color: Colors.blue)),
-            ],
-          ),
-          const Divider(height: 30),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("Total (Buyer Pays)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text("K ${(total + (total * 0.05 > 3.00 ? total * 0.05 : 3.00)).toStringAsFixed(2)}", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Theme.of(context).primaryColor)),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(10)),
-            child: const Text("Mobile Money payouts max K10,000. Card payments available via payment gateway.", style: TextStyle(fontSize: 10, color: Colors.grey), textAlign: TextAlign.center),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: items.isEmpty ? null : () {
-              Navigator.pop(context); // Close cart sheet
-              
-              final firstItem = items.first;
-              final isBookshop = firstItem.product.category == "bookshop";
-              final vendor = isBookshop ? "Kingdom Bookshop" : (firstItem.product.vendorName ?? "Market Vendor");
-              final double fee = total * 0.05 > 3.00 ? total * 0.05 : 3.00;
-
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) => LipilaPaymentGateway(
-                  amount: total + fee,
-                  description: "Order #${DateTime.now().millisecond}: ${items.length} items",
-                  category: "product",
-                  recipientName: vendor,
-                  recipientAccount: "MERCHANT-ID-4422",
-                  paymentReason: "Purchase: ${firstItem.product.name}${items.length > 1 ? ' & more' : ''}",
-                  onComplete: (success, txId) async {
-                    Navigator.pop(context); // Close gateway
-                    if (success) {
-                      final tenant = ref.read(currentTenantProvider);
-                      try {
-                        await ref.read(financeServiceProvider).logTransaction(
-                          total,
-                          'product',
-                          txId!,
-                          tenantId: tenant?.id,
-                        );
-                      } catch (e) {
-                        debugPrint("Error logging marketplace transaction: $e");
-                      }
-
-                      try {
-                        await ref.read(orderServiceProvider).createOrder(
-                          items: items.map((item) => {
-                            'item_id': item.product.id,
-                            'item_name': item.product.name,
-                            'quantity': item.quantity,
-                            'unit_price': item.product.price,
-                            'total_price': item.product.price * item.quantity,
-                            'vendor_id': item.product.vendorId,
-                          }).toList(),
-                          totalAmount: total,
-                          deliveryFee: 25.0,
-                          platformFee: total * 0.05 > 3.00 ? total * 0.05 : 3.00,
-                          paymentReference: txId,
-                          tenantId: tenant?.id,
-                        );
-                      } catch (e) {
-                        debugPrint("Error creating order: $e");
-                      }
-                      // Fetch vendor phone number
-                      String? vendorPhone;
-                      if (firstItem.product.vendorId != null) {
-                        try {
-                          final vProf = await Supabase.instance.client
-                              .from('profiles')
-                              .select('phone_number')
-                              .eq('id', firstItem.product.vendorId!)
-                              .maybeSingle();
-                          if (vProf != null) {
-                            vendorPhone = vProf['phone_number'];
-                          }
-                        } catch (e) {
-                          debugPrint('Failed to get vendor phone: $e');
-                        }
-                      }
-
-                      // Auto-Fulfillment Logic: 
-                      // If products are from 'bookshop' or other physical categories, 
-                      // automatically trigger a delivery request.
-                      for (var item in items) {
-                        if (item.product.category == 'bookshop' || item.product.category == 'apparel') {
-                          await ref.read(transportServiceProvider).requestDelivery(
-                            pickup: const LatLng(-15.3875, 28.3228), // Church/Vendor Hub
-                            dest: const LatLng(-15.395, 28.35), // Member Home (Mock)
-                            desc: "Order #${txId.hashCode}: ${item.product.name} (Qty: ${item.quantity})",
-                            category: "marketplace",
-                            weight: "Light",
-                            fare: 25.0, // Standard Kingdom Delivery Flat Rate
-                            vendorPhone: vendorPhone,
-                            vendorName: vendor,
-                            itemPrice: total,
-                          );
-                        }
-                      }
-
-                      if (!context.mounted) return;
-                      _showCheckoutSuccess(context);
-                      ref.read(cartProvider.notifier).clear();
-                    }
-                  },
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.secondary,
-              minimumSize: const Size(double.infinity, 60),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            ),
-            child: const Text("PROCEED TO CHECKOUT", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showCheckoutSuccess(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.checkCircle, color: Colors.green, size: 60),
-            SizedBox(height: 20),
-            Text("Order Placed!", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            SizedBox(height: 10),
-            Text("Your purchase was successful. View your items in 'My Library'.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("DONE")),
-        ],
-      ),
-    );
-  }
 }
 
