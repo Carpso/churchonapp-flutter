@@ -19,11 +19,13 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
     try {
       final data = await ref.read(adminServiceProvider).getMonthlyFinancialStats();
       await Future.delayed(const Duration(seconds: 2)); // Artificial weight for "generating"
+      if (!mounted) return;
       setState(() {
         _reportData = data;
         _generating = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _generating = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
@@ -69,7 +71,7 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20)],
       ),
       child: Column(
         children: [
@@ -109,9 +111,9 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
         Container(
           padding: const EdgeInsets.all(25),
           decoration: BoxDecoration(
-            color: Colors.green.withOpacity(0.05),
+            color: Colors.green.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(25),
-            border: Border.all(color: Colors.green.withOpacity(0.2)),
+            border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

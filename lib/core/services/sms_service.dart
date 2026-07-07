@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
@@ -14,7 +15,7 @@ class SmsService {
     required String message,
   }) async {
     // 1. Mock the external API call
-    print("LOGISTICS SMS -> To: $phoneNumber | Msg: $message");
+    debugPrint("LOGISTICS SMS -> To: $phoneNumber | Msg: $message");
     
     // 2. Log the SMS in our private VPS audit trail for sovereignty
     await _client.from('sms_logs').insert({

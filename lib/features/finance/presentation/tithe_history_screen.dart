@@ -10,8 +10,23 @@ class TitheHistoryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(profileProvider).value;
+    final profileAsync = ref.watch(profileProvider);
     final transactionsAsync = ref.watch(transactionsStreamProvider);
+
+    return profileAsync.when(
+      data: (profile) => _buildScreen(context, ref, profile, transactionsAsync),
+      loading: () => const Scaffold(
+        backgroundColor: Color(0xFFFFFAEB),
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, st) => Scaffold(
+        backgroundColor: Color(0xFFFFFAEB),
+        body: Center(child: Text('Error loading profile: $e')),
+      ),
+    );
+  }
+
+  Widget _buildScreen(BuildContext context, WidgetRef ref, UserProfile? profile, AsyncValue<List<Transaction>> transactionsAsync) {
     final bool isPastor = profile?.role == 'pastor' || profile?.role == 'admin';
 
     return Scaffold(
@@ -23,11 +38,15 @@ class TitheHistoryScreen extends ConsumerWidget {
         data: (transactions) {
           final totalAmount = transactions.fold(0.0, (sum, t) => sum + t.amount);
           
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(25),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(transactionsStreamProvider);
+            },
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(25),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 _buildSummaryCard(
                   isPastor ? "TOTAL COLLECTED (PERSONAL)" : "MY TOTAL GIVING", 
                   totalAmount, 
@@ -63,7 +82,8 @@ class TitheHistoryScreen extends ConsumerWidget {
                       );
                     },
                   ),
-              ],
+                ],
+              ),
             ),
           );
         },
@@ -80,7 +100,7 @@ class TitheHistoryScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,13 +122,13 @@ class TitheHistoryScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), shape: BoxShape.circle),
             child: const Icon(LucideIcons.banknote, color: Colors.green, size: 20),
           ),
           const SizedBox(width: 15),

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/services/coins_service.dart';
+import 'package:church_on_app/features/connect/data/user_activity_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AttendanceScannerScreen extends ConsumerStatefulWidget {
@@ -30,8 +31,18 @@ class _AttendanceScannerScreenState extends ConsumerState<AttendanceScannerScree
         'check_in_time': DateTime.now().toIso8601String(),
       });
 
+      final coins = await ref.read(coinsServiceProvider).addAttendanceCoins();
+      await ref.read(userActivityServiceProvider).logActivity(
+        type: ActivityType.attendanceScanned,
+        description: "Attendance check-in",
+        coinsEarned: coins,
+      );
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Member Checked In Successfully!"), backgroundColor: Colors.green));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Member Checked In! +$coins coins earned."),
+          backgroundColor: Colors.green,
+        ));
       }
     } catch (e) {
       if (mounted) {

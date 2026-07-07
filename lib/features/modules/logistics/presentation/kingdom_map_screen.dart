@@ -119,7 +119,7 @@ class _KingdomMapScreenState extends ConsumerState<KingdomMapScreen> {
               color: color,
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 10)],
+              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 10)],
             ),
             child: Icon(_getServiceIcon(type), color: Colors.white, size: 14),
           ),
@@ -149,7 +149,7 @@ class _KingdomMapScreenState extends ConsumerState<KingdomMapScreen> {
       decoration: BoxDecoration(
         color: isActive ? color : Colors.white,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)],
       ),
       child: Row(
         children: [
@@ -163,15 +163,13 @@ class _KingdomMapScreenState extends ConsumerState<KingdomMapScreen> {
 
   Widget _RegionButton(String label, LatLng center, bool isSelected) {
     return GestureDetector(
-      onTap: () {
-        // Map controller navigation would go here
-      },
+      onTap: () {},
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.black : Colors.white.withOpacity(0.9),
+          color: isSelected ? Colors.black : Colors.white.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(15),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)],
         ),
         child: Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5)),
       ),

@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:church_on_app/core/providers/profile_provider.dart';
-import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../auth/presentation/register_church_screen.dart';
 
@@ -17,17 +15,30 @@ class OnboardingManagerScreen extends ConsumerStatefulWidget {
 class _OnboardingManagerScreenState extends ConsumerState<OnboardingManagerScreen> {
   final _emailCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
-  String _selectedRole = 'writer'; // 'writer', 'rider', 'driver', 'employee', 'usher'
+  final _phoneCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  String _selectedRole = 'writer'; // 'writer', 'rider', 'driver', 'employee', 'usher', 'event_organizer'
   bool _isSubmitting = false;
+  Map<String, dynamic>? _lastOnboarded;
 
   final List<Map<String, dynamic>> _roles = [
     {'id': 'church', 'label': 'New Ministry', 'icon': LucideIcons.church, 'desc': 'Register a new church tenant'},
     {'id': 'writer', 'label': 'Church Writer', 'icon': LucideIcons.penTool, 'desc': 'Can publish Kingdom News'},
-    {'id': 'rider', 'label': 'Rider', 'icon': LucideIcons.bike, 'desc': 'Delivery personal'},
+    {'id': 'rider', 'label': 'Rider', 'icon': LucideIcons.bike, 'desc': 'Delivery personnel'},
     {'id': 'driver', 'label': 'Driver', 'icon': LucideIcons.car, 'desc': 'Transport driver'},
+    {'id': 'event_organizer', 'label': 'Event Organizer', 'icon': LucideIcons.calendarDays, 'desc': 'Can create & manage events'},
     {'id': 'employee', 'label': 'COA Employee', 'icon': LucideIcons.briefcase, 'desc': 'Global app operations'},
     {'id': 'usher', 'label': 'Church Usher', 'icon': LucideIcons.userCheck, 'desc': 'Service reporting & finance'},
   ];
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,14 +63,28 @@ class _OnboardingManagerScreenState extends ConsumerState<OnboardingManagerScree
             const SizedBox(height: 30),
             TextField(
               controller: _nameCtrl,
-              decoration: _inputDecoration("Full Name", LucideIcons.user),
+              decoration: _inputDecoration("Full Name *", LucideIcons.user),
             ),
-            const SizedBox(height: 15),
-            TextField(
-              controller: _emailCtrl,
-              decoration: _inputDecoration("Email Address", LucideIcons.mail),
-              keyboardType: TextInputType.emailAddress,
-            ),
+            if (_selectedRole != 'church') ...[
+              const SizedBox(height: 15),
+              TextField(
+                controller: _phoneCtrl,
+                decoration: _inputDecoration("Phone Number (e.g. 0977123456)", LucideIcons.phone),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 15),
+              TextField(
+                controller: _emailCtrl,
+                decoration: _inputDecoration("Email Address (optional)", LucideIcons.mail),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 15),
+              TextField(
+                controller: _notesCtrl,
+                decoration: _inputDecoration("Notes (optional)", LucideIcons.fileText),
+                maxLines: 2,
+              ),
+            ],
             const SizedBox(height: 30),
             ElevatedButton(
               onPressed: _isSubmitting ? null : _handleOnboarding,
@@ -68,18 +93,35 @@ class _OnboardingManagerScreenState extends ConsumerState<OnboardingManagerScree
                 minimumSize: const Size(double.infinity, 65),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               ),
-              child: _isSubmitting 
+              child: _isSubmitting
                 ? const CircularProgressIndicator(color: Colors.white)
-                : const Text("ONBOARD ENTITY", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                : const Text("ONBOARD ENTITY", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
             ),
-            const SizedBox(height: 20),
-            const Center(
-              child: Text(
-                "Note: The user must already have an account. This tool updates their permissions.",
-                style: TextStyle(color: Colors.grey, fontSize: 10),
-                textAlign: TextAlign.center,
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.withValues(alpha: 0.15)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(LucideIcons.info, color: Colors.blue, size: 16),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "Users without accounts are pre-registered and automatically linked when they sign up with the same phone number.",
+                      style: TextStyle(color: Colors.blue, fontSize: 11),
+                    ),
+                  ),
+                ],
               ),
             ),
+            if (_lastOnboarded != null) ...[
+              const SizedBox(height: 25),
+              _buildSuccessCard(_lastOnboarded!),
+            ],
           ],
         ),
       ),
@@ -103,9 +145,9 @@ class _OnboardingManagerScreenState extends ConsumerState<OnboardingManagerScree
           ),
           const SizedBox(height: 5),
           Text(
-            "Onboard riders, drivers, writers, and employees into the Kingdom Ecosystem.",
+            "Pre-register riders, drivers, writers, event organizers and employees into the Kingdom Ecosystem — even before they have an account.",
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
           ),
         ],
       ),
@@ -122,7 +164,7 @@ class _OnboardingManagerScreenState extends ConsumerState<OnboardingManagerScree
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.05) : Colors.white,
+              color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.05) : Colors.white,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: isSelected ? Theme.of(context).primaryColor : const Color(0xFFF1F5F9), width: 2),
             ),
@@ -148,6 +190,51 @@ class _OnboardingManagerScreenState extends ConsumerState<OnboardingManagerScree
     );
   }
 
+  Widget _buildSuccessCard(Map<String, dynamic> data) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.green.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(LucideIcons.checkCircle2, color: Colors.green, size: 20),
+              SizedBox(width: 10),
+              Text("Pre-Registration Successful", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _infoRow("Name", data['full_name'] ?? ''),
+          if ((data['phone_number'] ?? '').isNotEmpty) _infoRow("Phone", data['phone_number']),
+          if ((data['email'] ?? '').isNotEmpty) _infoRow("Email", data['email']),
+          _infoRow("Role", data['role'].toString().toUpperCase()),
+          const SizedBox(height: 8),
+          Text(
+            "They will be linked automatically when they sign up with the same phone number.",
+            style: TextStyle(color: Colors.grey[600], fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          SizedBox(width: 60, child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12))),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
   InputDecoration _inputDecoration(String hint, IconData icon) {
     return InputDecoration(
       hintText: hint,
@@ -164,42 +251,59 @@ class _OnboardingManagerScreenState extends ConsumerState<OnboardingManagerScree
       Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterChurchScreen()));
       return;
     }
-    
-    if (_emailCtrl.text.isEmpty) return;
+
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Full name is required"), backgroundColor: Colors.red));
+      return;
+    }
 
     setState(() => _isSubmitting = true);
     try {
-      // 1. Find user by email (Note: This normally requires admin service role in Production)
       final client = Supabase.instance.client;
-      
-      // We'll update the profile by email matching
-      // In a real app, you'd find the UUID first.
-      // For this simulation/admin tool, we update profiles table where full_name or email matches if we had email col.
-      // Since our profiles only have ID, we'll try to find user in profiles by name or assume user is logged in.
-      
-      // Let's assume we use a dedicated RPC or just update by ID if we had it.
-      // For the sake of the TASK, we'll simulate the successful update.
-      
-      // Actual Logic:
-      // await client.from('profiles').update({'role': _selectedRole}).eq('email', _emailCtrl.text);
-      
-      await Future.delayed(const Duration(seconds: 2));
-      
+      final currentUser = client.auth.currentUser;
+
+      final preRegData = {
+        'full_name': name,
+        'phone_number': _phoneCtrl.text.trim(),
+        'email': _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
+        'role': _selectedRole,
+        'notes': _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+        'onboarded_by': currentUser?.id,
+      };
+
+      // Insert into pre_registrations table
+      await client.from('pre_registrations').insert(preRegData);
+
+      // For drivers/riders: also add a pre-registration row to ride_registrations
+      if (_selectedRole == 'driver' || _selectedRole == 'rider') {
+        await client.from('ride_registrations').insert({
+          'type': _selectedRole,
+          'status': 'offline',
+          'pre_registered_name': name,
+          'pre_registered_phone': _phoneCtrl.text.trim(),
+          'pre_registered_role': _selectedRole,
+        });
+      }
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Onboarded ${_nameCtrl.text} as ${_selectedRole.toUpperCase()}"),
-            backgroundColor: Colors.green,
-          ),
-        );
-        _emailCtrl.clear();
-        _nameCtrl.clear();
+        setState(() {
+          _lastOnboarded = preRegData;
+          _nameCtrl.clear();
+          _emailCtrl.clear();
+          _phoneCtrl.clear();
+          _notesCtrl.clear();
+        });
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Onboarding failed: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Onboarding failed: $e"),
+          backgroundColor: Colors.red,
+        ));
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 }
-

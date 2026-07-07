@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../profile/data/notification_service.dart';
 import '../../../core/providers/profile_provider.dart';
@@ -36,8 +35,13 @@ class _ChurchCommuteScreenState extends ConsumerState<ChurchCommuteScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
+          final profile = ref.watch(profileProvider).value;
           final allUsers = snapshot.data ?? [];
-          final drivers = allUsers.where((u) => u['role'] == 'driver' || u['role'] == 'rider').toList();
+          final drivers = allUsers.where((u) {
+            if (u['role'] != 'driver' && u['role'] != 'rider') return false;
+            if (profile?.tenantId != null && u['tenant_id'] != profile!.tenantId) return false;
+            return true;
+          }).toList();
           if (drivers.isEmpty) {
             return _buildEmptyState();
           }
@@ -100,13 +104,13 @@ class _ChurchCommuteScreenState extends ConsumerState<ChurchCommuteScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 30,
-            backgroundColor: Colors.blue.withOpacity(0.1),
+            backgroundColor: Colors.blue.withValues(alpha: 0.1),
             child: Icon(isDriver ? LucideIcons.car : LucideIcons.bike, color: Colors.blue),
           ),
           const SizedBox(width: 20),
@@ -132,20 +136,19 @@ class _ChurchCommuteScreenState extends ConsumerState<ChurchCommuteScreen> {
               
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Requesting Commute...")));
               
-              await ref.read(notificationServiceProvider).sendNotification(
+              await ref.read(profileNotificationServiceProvider).sendNotification(
                 userId: driver['id'],
                 title: "Commute Request",
                 body: "$userName is requesting a ride to church!",
               );
               
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("Request sent to ${driver['full_name']}!"),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              }
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("Request sent to ${driver['full_name']}!"),
+                  backgroundColor: Colors.green,
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0F172A),

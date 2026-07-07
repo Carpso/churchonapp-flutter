@@ -1,122 +1,80 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../data/game_service.dart';
-import 'game_arena_screen.dart';
+import '../../bible_quiz/presentation/bible_quiz_hub_screen.dart';
 
 class KingdomGamesHubScreen extends ConsumerWidget {
   const KingdomGamesHubScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final service = ref.watch(kingdomGameServiceProvider);
-    final games = service.games;
+    final theme = Theme.of(context);
+    final primary = theme.primaryColor;
 
     return Container(
-      color: const Color(0xFFFDEFD5), // Warm parchment feel
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      color: primary.withValues(alpha: 0.05),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(LucideIcons.gamepad2, color: Colors.brown, size: 32),
-              SizedBox(width: 15),
+              Icon(LucideIcons.gamepad2, color: primary, size: 32),
+              const SizedBox(width: 15),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Kingdom Games", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.brown)),
-                  Text("Pure edifying entertainment", style: TextStyle(fontSize: 12, color: Colors.brown, fontWeight: FontWeight.bold)),
+                  Text("Kingdom Games", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: primary)),
+                  Text("Pure edifying entertainment", style: TextStyle(fontSize: 12, color: primary.withValues(alpha: 0.7), fontWeight: FontWeight.bold)),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 30),
-          Expanded(
-            child: ListView.builder(
-              itemCount: games.length,
-              itemBuilder: (context, index) {
-                final game = games[index];
-                return _buildGameCard(context, game);
-              },
-            ),
-          ),
+          const SizedBox(height: 25),
+          _buildQuizBanner(context, primary),
+          const SizedBox(height: 15),
         ],
       ),
     );
   }
 
-  Widget _buildGameCard(BuildContext context, KingdomGame game) {
-    // Map icons from strings
-    IconData icon;
-    Color color;
-
-    switch (game.id) {
-      case 'emoji': icon = LucideIcons.smile; color = Colors.orange; break;
-      case 'rap': icon = LucideIcons.mic; color = Colors.purple; break;
-      case 'dilemma': icon = LucideIcons.flame; color = Colors.red; break;
-      case 'dove': icon = LucideIcons.bird; color = Colors.blue; break;
-      case 'sling': icon = LucideIcons.target; color = Colors.green; break;
-      case 'charades': icon = LucideIcons.users2; color = Colors.indigo; break;
-      case 'breaker': icon = LucideIcons.hammer; color = Colors.deepOrange; break;
-      case 'keys': icon = LucideIcons.music; color = Colors.pink; break;
-      case 'fisher': icon = LucideIcons.anchor; color = Colors.teal; break;
-      case 'hangman': icon = LucideIcons.helpCircle; color = Colors.brown; break;
-      case 'sidom': icon = LucideIcons.grid; color = Colors.cyan; break;
-      case 'hunt': icon = LucideIcons.search; color = Colors.amber; break;
-      case 'v_match': icon = LucideIcons.link; color = Colors.lightBlue; break;
-      case 'fill_verse': icon = LucideIcons.edit3; color = Colors.deepPurple; break;
-      default: icon = LucideIcons.gamepad2; color = Colors.grey;
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: color.withOpacity(0.1), blurRadius: 15, offset: const Offset(0, 5))],
-        border: Border.all(color: color.withOpacity(0.1)),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => KingdomGameArenaScreen(game: game)),
-            );
-          },
-          borderRadius: BorderRadius.circular(25),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
+  Widget _buildQuizBanner(BuildContext context, Color primary) {
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BibleQuizHubScreen())),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(25),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [primary, primary.withValues(alpha: 0.7)]),
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [BoxShadow(color: primary.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
-                  child: Icon(icon, color: color, size: 28),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(game.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                        ],
-                      ),
-                      Text(game.description, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                    ],
-                  ),
-                ),
-                const Icon(LucideIcons.playCircle, color: Colors.black26),
+                const Icon(LucideIcons.trophy, color: Colors.amber, size: 30),
+                const SizedBox(width: 10),
+                Text("SEASON 1 OPEN", style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
               ],
             ),
-          ),
+            const SizedBox(height: 15),
+            const Text("Bible Quizzing Arena", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+            const Text("Join thousands of members in the international Bible competition.", style: TextStyle(color: Colors.white70, fontSize: 13)),
+            const SizedBox(height: 25),
+            ElevatedButton(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BibleQuizHubScreen())),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: primary,
+                minimumSize: const Size(double.infinity, 55),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              ),
+              child: const Text("ENTER ARENA", style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
         ),
       ),
     );
   }
 }
-

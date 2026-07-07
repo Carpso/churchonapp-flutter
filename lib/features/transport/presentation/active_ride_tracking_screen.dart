@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
 import '../../../core/widgets/church_map.dart';
 import 'package:church_on_app/features/connect/presentation/chat_messenger_screen.dart';
+import 'package:church_on_app/features/connect/presentation/audio_call_screen.dart';
 import '../data/transport_service.dart';
-import '../data/ride_request_model.dart';
 
 class ActiveRideTrackingScreen extends ConsumerStatefulWidget {
   final LatLng startPos;
@@ -42,8 +43,7 @@ class _ActiveRideTrackingScreenState extends ConsumerState<ActiveRideTrackingScr
   void _initTracking() async {
     // 1. Get driver ID from the request
     final service = ref.read(transportServiceProvider);
-    String? driverId;
-    
+
     if (widget.type == 'ride' && widget.requestId != null) {
       final rideStream = service.getMyRideRequestStream();
       _sub = rideStream.listen((ride) {
@@ -143,15 +143,26 @@ class _ActiveRideTrackingScreenState extends ConsumerState<ActiveRideTrackingScr
                       ),
                       const Spacer(),
                       CircleAvatar(
-                        backgroundColor: Colors.green.withOpacity(0.1),
+                        backgroundColor: Colors.green.withValues(alpha: 0.1),
                         child: IconButton(
                           icon: const Icon(LucideIcons.phone, color: Colors.green),
-                          onPressed: () {},
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const AudioCallScreen(
+                                  userName: "Brother John",
+                                  userAvatar: "https://i.pravatar.cc/150?img=11",
+                                  recipientId: "driver_id_mock",
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                       const SizedBox(width: 8),
                       CircleAvatar(
-                        backgroundColor: Colors.blue.withOpacity(0.1),
+                        backgroundColor: Colors.blue.withValues(alpha: 0.1),
                         child: IconButton(
                           icon: const Icon(LucideIcons.messageCircle, color: Colors.blue),
                           onPressed: () {
@@ -161,10 +172,26 @@ class _ActiveRideTrackingScreenState extends ConsumerState<ActiveRideTrackingScr
                                 builder: (context) => const ChatMessengerScreen(
                                   userName: "Kingdom Driver",
                                   userAvatar: "https://i.pravatar.cc/150?img=11",
-                                  receiverId: "driver_id_mock", // Replace with real driver ID
+                                  receiverId: "driver_id_mock",
                                 ),
                               ),
                             );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      CircleAvatar(
+                        backgroundColor: Colors.amber.withValues(alpha: 0.1),
+                        child: IconButton(
+                          icon: const Icon(LucideIcons.share2, color: Colors.amber),
+                          onPressed: () async {
+                            final String tripUrl = "https://carpso.churchonapp.com/track/${widget.requestId ?? widget.deliveryId}";
+                            await Clipboard.setData(ClipboardData(text: tripUrl));
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Secure Share Link copied to clipboard!")),
+                              );
+                            }
                           },
                         ),
                       )
@@ -194,12 +221,12 @@ class _ActiveRideTrackingScreenState extends ConsumerState<ActiveRideTrackingScr
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                       Expanded(
+                        Expanded(
                          child: ElevatedButton.icon(
                             onPressed: () => _refuseRide(),
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade100, foregroundColor: Colors.red),
                             icon: const Icon(LucideIcons.xCircle, size: 16),
-                            label: const Text("Refuse Ride"),
+                            label: const Text("Refuse Carpso Ride"),
                          )
                        ),
                        const SizedBox(width: 10),
@@ -226,8 +253,8 @@ class _ActiveRideTrackingScreenState extends ConsumerState<ActiveRideTrackingScr
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Cancel Ride?"),
-        content: const Text("Are you sure you want to refuse this ride? Nothing happens if you cancel now."),
+        title: const Text("Cancel Carpso Ride?"),
+        content: const Text("Are you sure you want to refuse this Carpso Ride? Nothing happens if you cancel now."),
         actions: [
            TextButton(onPressed: () => Navigator.pop(context), child: const Text("BACK")),
            ElevatedButton(
@@ -236,7 +263,7 @@ class _ActiveRideTrackingScreenState extends ConsumerState<ActiveRideTrackingScr
                  Navigator.pop(context); // close tracking
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-              child: const Text("CANCEL RIDE"),
+              child: const Text("CANCEL CARPSO RIDE"),
            )
         ]
       )
@@ -290,11 +317,10 @@ class _ActiveRideTrackingScreenState extends ConsumerState<ActiveRideTrackingScr
                         await service.updateDeliveryStatus(widget.deliveryId!, 'delivered');
                      }
                      
-                     if (mounted) {
-                       Navigator.pop(context); // close dialog
-                       Navigator.pop(context); // close tracking
-                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mission Accomplished! Coins settled.")));
-                     }
+                     if (!context.mounted) return;
+                     Navigator.pop(context); // close dialog
+                     Navigator.pop(context); // close tracking
+                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mission Accomplished! Coins settled.")));
                   },
                   style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Theme.of(context).primaryColor, foregroundColor: Colors.white),
                   child: const Text("SUBMIT & SETTLE"),

@@ -1,27 +1,37 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-// Theme via context
 import '../data/marketplace_service.dart';
 import 'product_details_screen.dart';
 import 'post_product_screen.dart';
-import '../../finance/presentation/lenco_payment_gateway.dart';
-import '../../../core/services/tenant_service.dart';
+import '../../finance/presentation/lipila_payment_gateway.dart';
 import '../../../core/widgets/shimmer_loader.dart';
 import '../../transport/data/transport_service.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/features/finance/data/finance_service.dart';
+import 'package:church_on_app/features/admin/data/order_service.dart';
 
 class MarketplaceScreen extends ConsumerStatefulWidget {
-  const MarketplaceScreen({super.key});
+  final String? initialCategory;
+  const MarketplaceScreen({super.key, this.initialCategory});
 
   @override
   ConsumerState<MarketplaceScreen> createState() => _MarketplaceScreenState();
 }
 
 class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
-  String _selectedCategory = "all";
+  late String _selectedCategory;
   String _activeTab = "shop";
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCategory = widget.initialCategory ?? "all";
+  }
 
   final List<Map<String, dynamic>> _tabs = [
     {'id': 'shop', 'label': 'Buy On App', 'marketType': 'general'},
@@ -78,19 +88,30 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                 if (products.isEmpty) {
                   return _buildEmptyState();
                 }
-                return MasonryGridView.count(
-                  padding: const EdgeInsets.all(20),
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 15,
-                  crossAxisSpacing: 15,
-                  itemCount: products.length,
-                  itemBuilder: (context, index) {
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(productsProvider(filters));
+                  },
+                  child: MasonryGridView.count(
+                    padding: const EdgeInsets.all(20),
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 15,
+                    crossAxisSpacing: 15,
+                    itemCount: products.length,
+                    itemBuilder: (context, index) {
                     return _buildMarketItem(products[index]);
                   },
+                ),
                 );
               },
               loading: () => const ListSkeleton(),
-              error: (err, stack) => _buildMockGrid(), // Fallback for prototype
+              error: (err, stack) => RefreshIndicator(
+                onRefresh: () async {
+                  setState(() {});
+                  await Future.delayed(const Duration(seconds: 1));
+                },
+                child: _buildMockGrid(),
+              ), // Fallback for prototype
             ),
           ),
         ],
@@ -129,7 +150,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               decoration: BoxDecoration(
                 color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.white,
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
+                border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.2)),
               ),
               child: Center(
                 child: Text(
@@ -165,7 +186,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               margin: const EdgeInsets.only(right: 10),
               padding: const EdgeInsets.symmetric(horizontal: 15),
               decoration: BoxDecoration(
-                color: isSelected ? Theme.of(context).primaryColor : Colors.white.withOpacity(0.5),
+                color: isSelected ? Theme.of(context).primaryColor : Colors.white.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Center(
@@ -194,7 +215,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
         ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,7 +292,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
           const Icon(LucideIcons.shoppingBag, size: 50, color: Colors.grey),
           const SizedBox(height: 20),
           const Text("No items found", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-          Text("Try changing categories or tabs", style: TextStyle(color: Colors.grey.withOpacity(0.6))),
+          Text("Try changing categories or tabs", style: TextStyle(color: Colors.grey.withValues(alpha: 0.6))),
         ],
       ),
     );
@@ -331,6 +352,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   void _showCartSheet() {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const CartSheet(),
     );
@@ -396,14 +418,14 @@ class CartSheet extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                   Icon(LucideIcons.info, size: 14, color: Colors.blue),
-                   SizedBox(width: 5),
-                   Text("Transactions Fee (6% + K1.00 Lenco)", style: TextStyle(fontSize: 12, color: Colors.blue)),
+                   const Icon(LucideIcons.info, size: 14, color: Colors.blue),
+                   const SizedBox(width: 5),
+                   Text("Transaction Fee (Mobile Money)", style: TextStyle(fontSize: 12, color: Colors.blue)),
                 ]
               ),
-              Text("+ K ${(total * 0.06 + 1.0).toStringAsFixed(2)}", style: const TextStyle(fontSize: 12, color: Colors.blue)),
+              Text("+ K ${(total * 0.05 > 3.00 ? total * 0.05 : 3.00).toStringAsFixed(2)}", style: const TextStyle(fontSize: 12, color: Colors.blue)),
             ],
           ),
           const Divider(height: 30),
@@ -411,14 +433,14 @@ class CartSheet extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text("Total (Buyer Pays)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text("K ${(total + (total * 0.06 + 1.0)).toStringAsFixed(2)}", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Theme.of(context).primaryColor)),
+              Text("K ${(total + (total * 0.05 > 3.00 ? total * 0.05 : 3.00)).toStringAsFixed(2)}", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Theme.of(context).primaryColor)),
             ],
           ),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(10)),
-            child: const Text("Mobile Money payouts max K10,000. Card payments available with delayed payout & 7% fee.", style: TextStyle(fontSize: 10, color: Colors.grey), textAlign: TextAlign.center),
+            child: const Text("Mobile Money payouts max K10,000. Card payments available via payment gateway.", style: TextStyle(fontSize: 10, color: Colors.grey), textAlign: TextAlign.center),
           ),
           const SizedBox(height: 20),
           ElevatedButton(
@@ -428,13 +450,14 @@ class CartSheet extends ConsumerWidget {
               final firstItem = items.first;
               final isBookshop = firstItem.product.category == "bookshop";
               final vendor = isBookshop ? "Kingdom Bookshop" : (firstItem.product.vendorName ?? "Market Vendor");
+              final double fee = total * 0.05 > 3.00 ? total * 0.05 : 3.00;
 
               showModalBottomSheet(
                 context: context,
                 isScrollControlled: true,
                 backgroundColor: Colors.transparent,
-                builder: (context) => LencoPaymentGateway(
-                  amount: total + (total * 0.06 + 1.0),
+                builder: (context) => LipilaPaymentGateway(
+                  amount: total + fee,
                   description: "Order #${DateTime.now().millisecond}: ${items.length} items",
                   category: "product",
                   recipientName: vendor,
@@ -443,22 +466,74 @@ class CartSheet extends ConsumerWidget {
                   onComplete: (success, txId) async {
                     Navigator.pop(context); // Close gateway
                     if (success) {
+                      final tenant = ref.read(currentTenantProvider);
+                      try {
+                        await ref.read(financeServiceProvider).logTransaction(
+                          total,
+                          'product',
+                          txId!,
+                          tenantId: tenant?.id,
+                        );
+                      } catch (e) {
+                        debugPrint("Error logging marketplace transaction: $e");
+                      }
+
+                      try {
+                        await ref.read(orderServiceProvider).createOrder(
+                          items: items.map((item) => {
+                            'item_id': item.product.id,
+                            'item_name': item.product.name,
+                            'quantity': item.quantity,
+                            'unit_price': item.product.price,
+                            'total_price': item.product.price * item.quantity,
+                            'vendor_id': item.product.vendorId,
+                          }).toList(),
+                          totalAmount: total,
+                          deliveryFee: 25.0,
+                          platformFee: total * 0.05 > 3.00 ? total * 0.05 : 3.00,
+                          paymentReference: txId,
+                          tenantId: tenant?.id,
+                        );
+                      } catch (e) {
+                        debugPrint("Error creating order: $e");
+                      }
+                      // Fetch vendor phone number
+                      String? vendorPhone;
+                      if (firstItem.product.vendorId != null) {
+                        try {
+                          final vProf = await Supabase.instance.client
+                              .from('profiles')
+                              .select('phone_number')
+                              .eq('id', firstItem.product.vendorId!)
+                              .maybeSingle();
+                          if (vProf != null) {
+                            vendorPhone = vProf['phone_number'];
+                          }
+                        } catch (e) {
+                          debugPrint('Failed to get vendor phone: $e');
+                        }
+                      }
+
                       // Auto-Fulfillment Logic: 
                       // If products are from 'bookshop' or other physical categories, 
                       // automatically trigger a delivery request.
                       for (var item in items) {
                         if (item.product.category == 'bookshop' || item.product.category == 'apparel') {
                           await ref.read(transportServiceProvider).requestDelivery(
-                            pickup: LatLng(-15.3875, 28.3228), // Church/Vendor Hub
-                            dest: LatLng(-15.395, 28.35), // Member Home (Mock)
+                            pickup: const LatLng(-15.3875, 28.3228), // Church/Vendor Hub
+                            dest: const LatLng(-15.395, 28.35), // Member Home (Mock)
                             desc: "Order #${txId.hashCode}: ${item.product.name} (Qty: ${item.quantity})",
                             category: "marketplace",
                             weight: "Light",
                             fare: 25.0, // Standard Kingdom Delivery Flat Rate
+                            vendorPhone: vendorPhone,
+                            vendorName: vendor,
+                            itemPrice: total,
                           );
                         }
                       }
 
+                      if (!context.mounted) return;
                       _showCheckoutSuccess(context);
                       ref.read(cartProvider.notifier).clear();
                     }

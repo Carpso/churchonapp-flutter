@@ -12,6 +12,9 @@ class DeliveryRequest {
   final double fare;
   final String status; // 'pending', 'accepted', 'assigned', 'in_transit', 'delivered', 'cancelled'
   final DateTime createdAt;
+  final String? vendorPhone;
+  final String? vendorName;
+  final double? itemPrice;
 
   DeliveryRequest({
     required this.id,
@@ -25,6 +28,9 @@ class DeliveryRequest {
     required this.fare,
     required this.status,
     required this.createdAt,
+    this.vendorPhone,
+    this.vendorName,
+    this.itemPrice,
   });
 
   factory DeliveryRequest.fromMap(Map<String, dynamic> map) {
@@ -40,6 +46,9 @@ class DeliveryRequest {
       fare: (map['offered_fare'] as num).toDouble(),
       status: map['status'],
       createdAt: DateTime.parse(map['created_at']),
+      vendorPhone: map['vendor_phone'],
+      vendorName: map['vendor_name'],
+      itemPrice: map['item_price'] != null ? (map['item_price'] as num).toDouble() : null,
     );
   }
 
@@ -58,6 +67,9 @@ class DeliveryRequest {
       'offered_fare': fare,
       'status': status,
       'created_at': createdAt.toIso8601String(),
+      'vendor_phone': vendorPhone,
+      'vendor_name': vendorName,
+      'item_price': itemPrice,
     };
   }
 }

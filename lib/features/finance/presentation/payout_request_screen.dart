@@ -22,8 +22,12 @@ class _PayoutRequestScreenState extends ConsumerState<PayoutRequestScreen> {
     
     final amount = double.tryParse(_amountController.text) ?? 0;
     final profile = ref.read(profileProvider).value;
+    if (profile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profile not loaded yet. Please wait.")));
+      return;
+    }
     
-    if (amount <= 0 || amount > (profile?.coins ?? 0)) {
+    if (amount <= 0 || amount > profile.coins) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid amount or insufficient balance")));
       return;
     }
@@ -53,7 +57,21 @@ class _PayoutRequestScreenState extends ConsumerState<PayoutRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profile = ref.watch(profileProvider).value;
+    final profileAsync = ref.watch(profileProvider);
+    return profileAsync.when(
+      data: (profile) => _buildScreen(context, profile),
+      loading: () => const Scaffold(
+        backgroundColor: Color(0xFFFFFAEB),
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, st) => Scaffold(
+        backgroundColor: Color(0xFFFFFAEB),
+        body: Center(child: Text('Error: $e')),
+      ),
+    );
+  }
+
+  Widget _buildScreen(BuildContext context, UserProfile? profile) {
     final balance = profile?.coins ?? 0;
 
     return Scaffold(
@@ -109,6 +127,25 @@ class _PayoutRequestScreenState extends ConsumerState<PayoutRequestScreen> {
     );
   }
 
+  String detectZambianNetwork(String phone) {
+    final clean = phone.replaceAll(RegExp(r'\D'), '');
+    String localNumber = clean;
+    if (clean.startsWith('260')) {
+      localNumber = '0${clean.substring(3)}';
+    } else if (!clean.startsWith('0') && clean.length == 9) {
+      localNumber = '0$clean';
+    }
+    
+    if (localNumber.startsWith('096') || localNumber.startsWith('076')) {
+      return "MTN";
+    } else if (localNumber.startsWith('097') || localNumber.startsWith('077')) {
+      return "Airtel";
+    } else if (localNumber.startsWith('095') || localNumber.startsWith('075')) {
+      return "Zamtel";
+    }
+    return "MTN";
+  }
+
   Widget _buildInputField(String label, TextEditingController controller, IconData icon, TextInputType type) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -121,6 +158,14 @@ class _PayoutRequestScreenState extends ConsumerState<PayoutRequestScreen> {
           child: TextField(
             controller: controller,
             keyboardType: type,
+            onChanged: (val) {
+              if (type == TextInputType.phone) {
+                final detected = detectZambianNetwork(val);
+                if (detected != _selectedNetwork) {
+                  setState(() => _selectedNetwork = detected);
+                }
+              }
+            },
             decoration: InputDecoration(
               icon: Icon(icon, color: Colors.amber, size: 20),
               border: InputBorder.none,

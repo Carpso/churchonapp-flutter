@@ -12,7 +12,7 @@ class GoLiveScreen extends ConsumerStatefulWidget {
 }
 
 class _GoLiveScreenState extends ConsumerState<GoLiveScreen> {
-  final _urlController = TextEditingController(text: "rtmp://vps.church-on-app.com/live");
+  final _urlController = TextEditingController(text: "rtmp://live.churchonapp.com/live");
   final _titleController = TextEditingController(text: "Sunday Morning Service");
   bool _isBroadcasting = false;
 
@@ -26,10 +26,11 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen> {
     await ref.read(liveStreamingServiceProvider).setLiveStatus(
       tenant.id, 
       _isBroadcasting,
-      streamUrl: "https://vps.church-on-app.com/hls/stream.m3u8", // HLS endpoint for players
+      streamUrl: "https://live.churchonapp.com/hls/stream.m3u8", // HLS endpoint for players
       title: _titleController.text,
     );
 
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(_isBroadcasting ? "Streaming to VPS Started!" : "Broadcast Ended"),

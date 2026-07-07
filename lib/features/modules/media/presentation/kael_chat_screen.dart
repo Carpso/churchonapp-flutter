@@ -14,6 +14,7 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> {
   final TextEditingController _controller = TextEditingController();
   String? _sessionId;
   bool _isLoading = false;
+  bool _isTyping = false;
 
   @override
   void initState() {
@@ -31,6 +32,7 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> {
       });
     } catch (e) {
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     }
@@ -38,11 +40,19 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> {
 
   void _sendMessage() async {
     if (_controller.text.trim().isEmpty || _sessionId == null) return;
-    
+
     final content = _controller.text.trim();
     _controller.clear();
-    
-    await ref.read(aiChatServiceProvider).sendMessage(_sessionId!, content);
+
+    setState(() => _isTyping = true);
+    try {
+      await ref.read(aiChatServiceProvider).sendMessage(_sessionId!, content);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    }
+    if (mounted) setState(() => _isTyping = false);
   }
 
   @override
@@ -62,7 +72,7 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> {
           ],
         ),
       ),
-      body: _isLoading 
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
@@ -74,26 +84,14 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> {
                       final messages = snapshot.data!;
                       return ListView.builder(
                         padding: const EdgeInsets.all(20),
-                        itemCount: messages.length,
+                        itemCount: messages.length + (_isTyping ? 1 : 0),
                         itemBuilder: (context, index) {
+                          if (index == messages.length && _isTyping) {
+                            return _buildTypingIndicator();
+                          }
                           final msg = messages[index];
                           final isUser = msg.role == 'user';
-                          return Align(
-                            alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 15),
-                              padding: const EdgeInsets.all(15),
-                              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-                              decoration: BoxDecoration(
-                                color: isUser ? Theme.of(context).primaryColor : Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                msg.content,
-                                style: TextStyle(color: isUser ? Colors.white : Colors.black87),
-                              ),
-                            ),
-                          );
+                          return _buildMessageBubble(msg, isUser);
                         },
                       );
                     },
@@ -102,6 +100,79 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> {
                 _buildInput(),
               ],
             ),
+    );
+  }
+
+  Widget _buildMessageBubble(AiChatMessage msg, bool isUser) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: Row(
+        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isUser)
+            const CircleAvatar(
+              backgroundColor: Colors.amber,
+              radius: 16,
+              child: Text("K", style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+            ),
+          if (!isUser) const SizedBox(width: 10),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.all(15),
+              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.6),
+              decoration: BoxDecoration(
+                color: isUser ? Theme.of(context).primaryColor : Colors.grey.shade100,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(20),
+                  topRight: const Radius.circular(20),
+                  bottomLeft: isUser ? const Radius.circular(20) : Radius.zero,
+                  bottomRight: isUser ? Radius.zero : const Radius.circular(20),
+                ),
+              ),
+              child: Text(
+                msg.content,
+                style: TextStyle(color: isUser ? Colors.white : Colors.black87),
+              ),
+            ),
+          ),
+          if (isUser) const SizedBox(width: 10),
+          if (isUser)
+            CircleAvatar(
+              backgroundColor: Colors.grey.shade300,
+              radius: 16,
+              child: const Icon(LucideIcons.user, size: 18, color: Colors.white),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTypingIndicator() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            backgroundColor: Colors.amber,
+            radius: 16,
+            child: Text("K", style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(20),
+                topRight: const Radius.circular(20),
+                bottomRight: const Radius.circular(20),
+              ),
+            ),
+            child: Text("Kael is typing...", style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -114,6 +185,7 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> {
           Expanded(
             child: TextField(
               controller: _controller,
+              enabled: !_isTyping,
               decoration: InputDecoration(
                 hintText: "Ask Kael anything...",
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
@@ -125,10 +197,10 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> {
           ),
           const SizedBox(width: 10),
           CircleAvatar(
-            backgroundColor: Theme.of(context).primaryColor,
+            backgroundColor: _isTyping ? Colors.grey : Theme.of(context).primaryColor,
             child: IconButton(
               icon: const Icon(LucideIcons.send, color: Colors.white, size: 20),
-              onPressed: _sendMessage,
+              onPressed: _isTyping ? null : _sendMessage,
             ),
           ),
         ],

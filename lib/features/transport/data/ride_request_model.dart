@@ -7,8 +7,9 @@ class RideRequest {
   final LatLng pickup;
   final LatLng destination;
   final double fare;
-  final String status; // 'pending', 'accepted', 'active', 'completed', 'cancelled'
+  final String status; // 'pending', 'accepted', 'confirmed', 'completed', 'cancelled'
   final DateTime createdAt;
+  final bool escrowHeld;
 
   RideRequest({
     required this.id,
@@ -19,6 +20,7 @@ class RideRequest {
     required this.fare,
     required this.status,
     required this.createdAt,
+    this.escrowHeld = false,
   });
 
   factory RideRequest.fromMap(Map<String, dynamic> map) {
@@ -31,6 +33,7 @@ class RideRequest {
       fare: (map['offered_fare'] as num).toDouble(),
       status: map['status'],
       createdAt: DateTime.parse(map['created_at']),
+      escrowHeld: map['escrow_held'] ?? false,
     );
   }
 
@@ -46,6 +49,7 @@ class RideRequest {
       'offered_fare': fare,
       'status': status,
       'created_at': createdAt.toIso8601String(),
+      'escrow_held': escrowHeld,
     };
   }
 }

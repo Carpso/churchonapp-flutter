@@ -12,6 +12,16 @@ class Env {
   static String get r2PublicDomain => dotenv.env['R2_PUBLIC_DOMAIN'] ?? 'media.churchonapp.com';
   
   static String get geminiApiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
-  static String get lencoAccountId => dotenv.env['LENCO_MAIN_ACCOUNT_ID'] ?? '';
+  static String get lipilaShortCode => dotenv.env['LIPILA_SHORT_CODE'] ?? '68907';
+  static String get lipilaApiKey => (dotenv.env['LIPILA_API_KEY'] ?? '').trim();
+  static String get googleWebClientId => dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '';
+  static String get huggingFaceToken => dotenv.env['HUGGINGFACE_TOKEN'] ?? '';
+
+  static String get lipilaWebhookUrl =>
+      dotenv.env['LIPILA_WEBHOOK_URL'] ??
+      'https://supabase.churchonapp.com/functions/v1/lipila-webhook';
+  static String get lipilaPayoutWebhookUrl =>
+      dotenv.env['LIPILA_PAYOUT_WEBHOOK_URL'] ??
+      'https://supabase.churchonapp.com/functions/v1/lipila-webhook';
 }
 

@@ -3,7 +3,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/admin_service.dart';
 import '../../../core/providers/profile_provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class MemberManagementScreen extends ConsumerStatefulWidget {
   const MemberManagementScreen({super.key});
@@ -18,14 +17,44 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
   @override
   Widget build(BuildContext context) {
     final membersAsync = ref.watch(membersStreamProvider);
+    final profileAsync = ref.watch(profileProvider);
 
+    return profileAsync.when(
+      data: (currentProfile) => _buildScreen(context, membersAsync, currentProfile),
+      loading: () => const Scaffold(
+        backgroundColor: Color(0xFFFFFAEB),
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, st) => Scaffold(
+        backgroundColor: Color(0xFFFFFAEB),
+        body: Center(child: Text('Error: $e')),
+      ),
+    );
+  }
+
+  Widget _buildScreen(BuildContext context, AsyncValue<List<UserProfile>> membersAsync, UserProfile? currentProfile) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
         title: const Text("Member Directory"),
         actions: [
-          IconButton(icon: const Icon(LucideIcons.search), onPressed: () {}),
-          IconButton(icon: const Icon(LucideIcons.userPlus), onPressed: () {}),
+          IconButton(icon: const Icon(LucideIcons.search), onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Search will filter members")),
+            );
+          }),
+          IconButton(icon: const Icon(LucideIcons.userPlus), onPressed: () {
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text("Add Member"),
+                content: const Text("Use the Admin Hub or invite a user through the Church On App platform to add a new member."),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("OK")),
+                ],
+              ),
+            );
+          }),
         ],
       ),
       body: Column(
@@ -34,14 +63,25 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
           Expanded(
             child: membersAsync.when(
               data: (members) {
-                final filtered = _filter == "All People" 
+                var filtered = _filter == "All People" 
                   ? members 
-                  : members.where((m) => m.role?.toLowerCase() == _filter.toLowerCase().replaceAll('s', '')).toList();
+                  : members.where((m) => m.role.toLowerCase() == _filter.toLowerCase().replaceAll('s', '')).toList();
                 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(20),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) => _buildMemberCard(filtered[index]),
+                final isGlobalAdmin = currentProfile?.isSuperadmin == true || currentProfile?.role == 'employee';
+                final currentTenantId = currentProfile?.tenantId;
+                if (!isGlobalAdmin && currentTenantId != null) {
+                  filtered = filtered.where((m) => m.tenantId == currentTenantId).toList();
+                }
+                
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(membersStreamProvider);
+                  },
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(20),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) => _buildMemberCard(filtered[index], currentProfile),
+                  ),
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -91,14 +131,14 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
     );
   }
 
-  Widget _buildMemberCard(UserProfile member) {
+  Widget _buildMemberCard(UserProfile member, UserProfile? currentProfile) {
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
       child: Row(
         children: [
@@ -112,14 +152,14 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(member.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                Text(member.role?.toUpperCase() ?? 'MEMBER', style: TextStyle(color: Colors.grey.shade600, fontSize: 10, letterSpacing: 1.1)),
+                Text(member.role.toUpperCase(), style: TextStyle(color: Colors.grey.shade600, fontSize: 10, letterSpacing: 1.1)),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.1),
+              color: Colors.green.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Text(
@@ -137,14 +177,19 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
             onSelected: (val) {
               ref.read(adminServiceProvider).updateUserRole(member.id, val);
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'member', child: Text("Set as Member")),
-              const PopupMenuItem(value: 'driver', child: Text("Set as Kingdom Driver")),
-              const PopupMenuItem(value: 'rider', child: Text("Set as Kingdom Rider")),
-              const PopupMenuItem(value: 'pastor', child: Text("Set as Pastor")),
-              const PopupMenuItem(value: 'employee', child: Text("Set as Employee")),
-              const PopupMenuItem(value: 'admin', child: Text("Promote to Admin")),
-            ],
+            itemBuilder: (context) {
+              final isGlobalAdmin = currentProfile?.isSuperadmin == true || currentProfile?.role == 'employee';
+              return [
+                const PopupMenuItem(value: 'member', child: Text("Set as Member")),
+                if (isGlobalAdmin) ...[
+                  const PopupMenuItem(value: 'driver', child: Text("Set as Kingdom Driver")),
+                  const PopupMenuItem(value: 'rider', child: Text("Set as Kingdom Rider")),
+                  const PopupMenuItem(value: 'employee', child: Text("Set as Employee")),
+                ],
+                const PopupMenuItem(value: 'pastor', child: Text("Set as Pastor")),
+                const PopupMenuItem(value: 'admin', child: Text("Promote to Admin")),
+              ];
+            },
           ),
         ],
       ),

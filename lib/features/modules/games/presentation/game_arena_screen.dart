@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:async';
 import '../data/game_service.dart';
-import 'engines/game_engines.dart';
+import '../../bible_quiz/presentation/bible_quiz_hub_screen.dart';
 
 class KingdomGameArenaScreen extends ConsumerStatefulWidget {
   final KingdomGame game;
@@ -112,7 +112,7 @@ class _KingdomGameArenaScreenState extends ConsumerState<KingdomGameArenaScreen>
               const SizedBox(height: 40),
               _buildLargeButton("SOLO CHALLENGE", LucideIcons.user, Colors.white10, _startSolo),
               const SizedBox(height: 15),
-              _buildLargeButton("P2P MULTIPLAYER", LucideIcons.users, Colors.blueAccent.withOpacity(0.2), _startMultiplayer),
+              _buildLargeButton("P2P MULTIPLAYER", LucideIcons.users, Colors.blueAccent.withValues(alpha: 0.2), _startMultiplayer),
             ] else if (_isSearching) ...[
               _buildMatchmakingUI(),
             ] else if (_isMatchFound) ...[
@@ -234,7 +234,7 @@ class _KingdomGameArenaScreenState extends ConsumerState<KingdomGameArenaScreen>
       children: [
         Container(
           width: 80, height: 80, 
-          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.05)), 
+          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.05)), 
           child: const Center(child: Icon(LucideIcons.user, color: Colors.white24, size: 40))
         ),
         const SizedBox(height: 15),
@@ -258,52 +258,27 @@ class GameEngineLauncher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    switch (game.id) {
-      case 'emoji':
-        return EmojiChallengeGame(game: game, level: level, isSolo: isSolo, opponentName: opponentName);
-      case 'keys':
-        return GospelKeysGame(game: game, level: level, isSolo: isSolo, opponentName: opponentName);
-      case 'sling':
-        return DavidsSlingGame(game: game, level: level, isSolo: isSolo, opponentName: opponentName);
-      case 'hangman':
-        return BibleHangmanGame(game: game, level: level, isSolo: isSolo, opponentName: opponentName);
-      case 'dove':
-        return SpiritDoveGame(game: game, level: level, isSolo: isSolo, opponentName: opponentName);
-      case 'v_match':
-        return VerseMatchGame(game: game, level: level, isSolo: isSolo, opponentName: opponentName);
-      case 'fisher':
-        return FisherOfWordsGame(game: game, level: level, isSolo: isSolo, opponentName: opponentName);
-      case 'breaker':
-        return JerichoBreakerGame(game: game, level: level, isSolo: isSolo, opponentName: opponentName);
-      case 'dilemma':
-        return ProphetsDilemmaGame(game: game, level: level, isSolo: isSolo, opponentName: opponentName);
-      case 'hunt':
-        return WordHuntGame(game: game, level: level, isSolo: isSolo, opponentName: opponentName);
-      case 'sidom':
-        return SidomPatternGame(game: game, level: level, isSolo: isSolo, opponentName: opponentName);
-      case 'rap':
-        return GospelRapGame(game: game, level: level, isSolo: isSolo, opponentName: opponentName);
-      case 'charades':
-        return BibleCharadesGame(game: game, level: level, isSolo: isSolo, opponentName: opponentName);
-      case 'fill_verse':
-        return FillVerseGame(game: game, level: level, isSolo: isSolo, opponentName: opponentName);
-      default:
-        return Scaffold(
-          backgroundColor: Colors.white,
-          appBar: AppBar(title: Text(game.name), leading: IconButton(icon: const Icon(LucideIcons.x), onPressed: () => Navigator.pop(context))),
-          body: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(LucideIcons.construction, size: 80, color: Colors.orange),
-                const SizedBox(height: 20),
-                Text("Developing ${game.name}", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                const Text("Divine inspiration in progress...", style: TextStyle(fontStyle: FontStyle.italic)),
-              ],
-            ),
-          ),
-        );
+    if (game.id == 'bible_quiz') {
+      return BibleQuizHubScreen();
     }
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: Text(game.name),
+        leading: IconButton(icon: const Icon(LucideIcons.x), onPressed: () => Navigator.pop(context)),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.swords, size: 80, color: Theme.of(context).primaryColor),
+            const SizedBox(height: 20),
+            Text("Coming Soon", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
+            const Text("Bible Quizzing Arena is currently available.", style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
   }
 }
 

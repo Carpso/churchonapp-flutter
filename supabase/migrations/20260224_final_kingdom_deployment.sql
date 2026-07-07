@@ -2,9 +2,11 @@
 -- KINGDOM INFRASTRUCTURE: CONSOLIDATED SOVEREIGN DEPLOYMENT
 -- ########################################################
 
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- 1. NOTIFICATIONS & REALTIME
 CREATE TABLE IF NOT EXISTS notifications (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id),
   title TEXT NOT NULL,
   body TEXT NOT NULL,
@@ -12,11 +14,16 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
-ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'notifications') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+  END IF;
+END $$;
 
--- 2. LOGISTICS (RIDE-ON & CARGO)
+-- 2. LOGISTICS (CARPSO RIDE & CARGO)
 CREATE TABLE IF NOT EXISTS ride_requests (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   rider_id UUID REFERENCES auth.users(id),
   driver_id UUID REFERENCES auth.users(id),
   pickup_lat DOUBLE PRECISION NOT NULL,
@@ -28,7 +35,7 @@ CREATE TABLE IF NOT EXISTS ride_requests (
 );
 
 CREATE TABLE IF NOT EXISTS delivery_requests (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   sender_id UUID REFERENCES auth.users(id),
   driver_id UUID REFERENCES auth.users(id),
   item_description TEXT NOT NULL,
@@ -43,12 +50,22 @@ CREATE TABLE IF NOT EXISTS delivery_requests (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
-ALTER PUBLICATION supabase_realtime ADD TABLE ride_requests;
-ALTER PUBLICATION supabase_realtime ADD TABLE delivery_requests;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'ride_requests') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE ride_requests;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'delivery_requests') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE delivery_requests;
+  END IF;
+END $$;
 
 -- 3. FINANCE & STEWARDSHIP
 CREATE TABLE IF NOT EXISTS wallet_transactions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id),
   amount DOUBLE PRECISION NOT NULL,
   type TEXT NOT NULL,
@@ -58,7 +75,7 @@ CREATE TABLE IF NOT EXISTS wallet_transactions (
 );
 
 CREATE TABLE IF NOT EXISTS payout_requests (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id),
   amount DOUBLE PRECISION NOT NULL,
   mobile_number TEXT NOT NULL,
@@ -68,7 +85,7 @@ CREATE TABLE IF NOT EXISTS payout_requests (
 );
 
 CREATE TABLE IF NOT EXISTS tithe_records (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id),
   amount DOUBLE PRECISION NOT NULL,
   transaction_id TEXT,
@@ -79,7 +96,7 @@ CREATE TABLE IF NOT EXISTS tithe_records (
 
 -- 4. CHURCHES & CONGREGATIONS
 CREATE TABLE IF NOT EXISTS churches (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
   address TEXT,
@@ -95,7 +112,7 @@ CREATE TABLE IF NOT EXISTS churches (
 
 -- 5. SERMONS (PROPHETIC ARCHIVE)
 CREATE TABLE IF NOT EXISTS sermons (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   preacher TEXT NOT NULL,
   description TEXT,
@@ -124,7 +141,7 @@ CREATE INDEX sermons_fts_idx ON sermons USING GIN (fts);
 
 -- 6. EVENTS & TICKETING
 CREATE TABLE IF NOT EXISTS events (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   description TEXT,
   location TEXT,
@@ -137,7 +154,7 @@ CREATE TABLE IF NOT EXISTS events (
 );
 
 CREATE TABLE IF NOT EXISTS tickets (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID REFERENCES events(id),
   user_id UUID REFERENCES auth.users(id),
   status TEXT DEFAULT 'valid',
@@ -146,7 +163,7 @@ CREATE TABLE IF NOT EXISTS tickets (
 
 -- 7. COMMUNITIES & INTER-CHURCH
 CREATE TABLE IF NOT EXISTS channels (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   church_id UUID REFERENCES churches(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   type TEXT DEFAULT 'public', -- 'public', 'private', 'group'
@@ -155,7 +172,7 @@ CREATE TABLE IF NOT EXISTS channels (
 );
 
 CREATE TABLE IF NOT EXISTS messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   channel_id UUID REFERENCES channels(id) ON DELETE CASCADE,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   content TEXT,
@@ -165,7 +182,7 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 CREATE TABLE IF NOT EXISTS groups (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT,
   avatar_url TEXT,
@@ -173,10 +190,17 @@ CREATE TABLE IF NOT EXISTS groups (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
-ALTER TABLE messages ADD CONSTRAINT fk_messages_group FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'messages' AND column_name = 'group_id' AND data_type = 'uuid') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_messages_group') THEN
+      ALTER TABLE messages ADD CONSTRAINT fk_messages_group FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL;
+    END IF;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS group_members (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id UUID REFERENCES groups(id),
   user_id UUID REFERENCES auth.users(id),
   role TEXT DEFAULT 'member',
@@ -185,12 +209,22 @@ CREATE TABLE IF NOT EXISTS group_members (
 );
 
 -- Enable Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE messages;
-ALTER PUBLICATION supabase_realtime ADD TABLE channels;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'messages') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'channels') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE channels;
+  END IF;
+END $$;
 
 -- 8. INFRASTRUCTURE LOGS
 CREATE TABLE IF NOT EXISTS sms_logs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   phone_number TEXT NOT NULL,
   message TEXT NOT NULL,
   type TEXT,
@@ -210,7 +244,7 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS phone_number TEXT;
 
 -- 10. PROPHETIC NAVIGATION (Route Optimization)
 CREATE TABLE IF NOT EXISTS route_optimizations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   mission_id UUID REFERENCES delivery_requests(id),
   optimized_path JSONB, -- Stores the AI recommended coordinates
   efficiency_rating DOUBLE PRECISION,
@@ -220,7 +254,7 @@ CREATE TABLE IF NOT EXISTS route_optimizations (
 
 -- 11. APOSTOLIC RESOURCE ALLOCATION
 CREATE TABLE IF NOT EXISTS resource_allocations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   hub_id UUID REFERENCES churches(id),
   resource_type TEXT NOT NULL, -- chair, bible, fuel, welfare, etc.
   predicted_need_quantity INTEGER,
@@ -232,7 +266,7 @@ CREATE TABLE IF NOT EXISTS resource_allocations (
 
 -- 12. LENCO GLOBAL PAYOUTS
 CREATE TABLE IF NOT EXISTS lenco_payouts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id),
   amount DOUBLE PRECISION NOT NULL,
   currency TEXT DEFAULT 'ZMW',
@@ -246,7 +280,7 @@ CREATE TABLE IF NOT EXISTS lenco_payouts (
 
 -- 13. SOVEREIGN SOCIAL ENGINE
 CREATE TABLE IF NOT EXISTS social_posts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   content TEXT,
   media_url TEXT,
@@ -260,14 +294,14 @@ CREATE TABLE IF NOT EXISTS social_posts (
 );
 
 CREATE TABLE IF NOT EXISTS social_likes (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   post_id UUID REFERENCES social_posts(id) ON DELETE CASCADE,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   UNIQUE(post_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS social_comments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   post_id UUID REFERENCES social_posts(id) ON DELETE CASCADE,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
@@ -276,7 +310,7 @@ CREATE TABLE IF NOT EXISTS social_comments (
 
 -- 14. PROPHETIC SURVEILLANCE DATA
 CREATE TABLE IF NOT EXISTS growth_heatmap_data (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   lat DOUBLE PRECISION NOT NULL,
   lng DOUBLE PRECISION NOT NULL,
   weight DOUBLE PRECISION DEFAULT 1.0,

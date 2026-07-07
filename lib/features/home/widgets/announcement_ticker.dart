@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/features/admin/data/reporting_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
@@ -95,9 +94,9 @@ class _StaticTickerState extends State<_StaticTicker> with SingleTickerProviderS
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: widget.isPrivate ? Colors.amber.withOpacity(0.1) : Theme.of(context).primaryColor.withOpacity(0.05),
+        color: widget.isPrivate ? Colors.amber.withValues(alpha: 0.1) : Theme.of(context).primaryColor.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: widget.isPrivate ? Colors.amber.withOpacity(0.3) : Theme.of(context).primaryColor.withOpacity(0.1)),
+        border: Border.all(color: widget.isPrivate ? Colors.amber.withValues(alpha: 0.3) : Theme.of(context).primaryColor.withValues(alpha: 0.1)),
       ),
       child: SingleChildScrollView(
         controller: _scrollController,

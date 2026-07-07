@@ -12,29 +12,24 @@ class RiderOnboardingScreen extends ConsumerStatefulWidget {
 
 class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
   int _step = 1;
+  final _formKeys = List.generate(4, (_) => GlobalKey<FormState>());
 
   // Form Data
   String _fullName = '';
+  // ignore: unused_field
   String _phone = '';
+  // ignore: unused_field
   String _email = '';
   String _payoutOperator = 'mtn';
   String _vehicleType = 'motorbike';
+  // ignore: unused_field
   String _makeModel = '';
   String _licensePlate = '';
+  // ignore: unused_field
   String _color = '';
 
   void _handleNext() {
-    if (_step == 1) {
-      if (_fullName.isEmpty || _phone.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill required fields')));
-        return;
-      }
-    } else if (_step == 2) {
-      if (_makeModel.isEmpty || _licensePlate.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vehicle details required')));
-        return;
-      }
-    }
+    if (!_formKeys[_step - 1].currentState!.validate()) return;
     setState(() => _step++);
   }
 
@@ -130,55 +125,75 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
   }
 
   Widget _buildStep1() {
+    final stepKey = _formKeys[0];
     return ListView(
       padding: const EdgeInsets.all(25),
       children: [
-        Center(
-          child: CircleAvatar(
-            radius: 35,
-            backgroundColor: Colors.blue.shade100,
-            child: Icon(LucideIcons.user, size: 35, color: Colors.blue.shade600),
-          ),
-        ),
-        const SizedBox(height: 15),
-        const Text("Personal Details", textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        const Text("Let's get to know you.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-        const SizedBox(height: 30),
-        _buildTextField("Full Legal Name", "e.g. John Banda", (val) => _fullName = val),
-        const SizedBox(height: 15),
-        _buildTextField("Phone Number", "e.g. 0977 123 456", (val) => _phone = val, isNumber: true),
-        const SizedBox(height: 15),
-        _buildTextField("Email Address", "e.g. john@example.com", (val) => _email = val),
-        const SizedBox(height: 30),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.green.shade50,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.green.shade100),
-          ),
+        Form(
+          key: stepKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("💰 Payout Settings", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800)),
-              Text("Where we send your earnings", style: TextStyle(color: Colors.green.shade600, fontSize: 12)),
+              Center(
+                child: CircleAvatar(
+                  radius: 35,
+                  backgroundColor: Colors.blue.shade100,
+                  child: Icon(LucideIcons.user, size: 35, color: Colors.blue.shade600),
+                ),
+              ),
               const SizedBox(height: 15),
-              _buildTextField("Mobile Money Number", "097XXXXXXX", (val) {}, isNumber: true),
+              const Text("Personal Details", textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              const Text("Let's get to know you.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 30),
+              _buildTextField("Full Legal Name", "e.g. John Banda", (val) => _fullName = val, validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Required';
+                if (v.trim().length < 2) return 'Min 2 characters';
+                return null;
+              }),
               const SizedBox(height: 15),
-              const Text("Mobile Network", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  _buildNetworkBtn("MTN", "mtn", Colors.amber),
-                  const SizedBox(width: 8),
-                  _buildNetworkBtn("Airtel", "airtel", Colors.red),
-                  const SizedBox(width: 8),
-                  _buildNetworkBtn("Zamtel", "zamtel", Colors.green),
-                ],
-              )
+              _buildTextField("Phone Number", "e.g. 0977 123 456", (val) => _phone = val, isNumber: true, validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Required';
+                if (v.replaceAll(RegExp(r'\D'), '').length < 10) return 'Min 10 digits';
+                return null;
+              }),
+              const SizedBox(height: 15),
+              _buildTextField("Email Address", "e.g. john@example.com", (val) => _email = val, validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Required';
+                if (!v.contains('@')) return 'Enter a valid email';
+                return null;
+              }),
+              const SizedBox(height: 30),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.green.shade100),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("💰 Payout Settings", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800)),
+                    Text("Where we send your earnings", style: TextStyle(color: Colors.green.shade600, fontSize: 12)),
+                    const SizedBox(height: 15),
+                    _buildTextField("Mobile Money Number", "097XXXXXXX", (val) {}, isNumber: true),
+                    const SizedBox(height: 15),
+                    const Text("Mobile Network", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        _buildNetworkBtn("MTN", "mtn", Colors.amber),
+                        const SizedBox(width: 8),
+                        _buildNetworkBtn("Airtel", "airtel", Colors.red),
+                        const SizedBox(width: 8),
+                        _buildNetworkBtn("Zamtel", "zamtel", Colors.green),
+                      ],
+                    )
+                  ],
+                ),
+              ),
             ],
           ),
-        )
+        ),
       ],
     );
   }
@@ -204,68 +219,83 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
   }
 
   Widget _buildStep2() {
+    final stepKey = _formKeys[1];
     return ListView(
       padding: const EdgeInsets.all(25),
       children: [
-        Center(
-          child: CircleAvatar(
-            radius: 35,
-            backgroundColor: Colors.green.shade100,
-            child: Icon(LucideIcons.truck, size: 35, color: Colors.green.shade600),
-          ),
-        ),
-        const SizedBox(height: 15),
-        const Text("Vehicle Information", textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        const Text("What will you be driving?", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-        const SizedBox(height: 30),
-        GridView.count(
-          shrinkWrap: true,
-          crossAxisCount: 2,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 3,
-          physics: const NeverScrollableScrollPhysics(),
-          children: ['motorbike', 'bicycle', 'car', 'van'].map((type) {
-            bool isSelected = _vehicleType == type;
-            return GestureDetector(
-              onTap: () => setState(() => _vehicleType = type),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isSelected ? Colors.blue.shade50 : Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: isSelected ? Colors.blue.shade600 : Colors.grey.shade200, width: 2),
-                ),
-                child: Center(child: Text(type.toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isSelected ? Colors.blue.shade800 : Colors.grey))),
-              ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 20),
-        _buildTextField("Make & Model", "e.g. Honda Ace 125", (val) => _makeModel = val),
-        const SizedBox(height: 15),
-        Row(
-          children: [
-            Expanded(child: _buildTextField("License Plate", "ABC 123", (val) => _licensePlate = val)),
-            const SizedBox(width: 15),
-            Expanded(child: _buildTextField("Color", "Red", (val) => _color = val)),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Container(
-          padding: const EdgeInsets.all(30),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey.shade300, style: BorderStyle.none),
-          ),
-          child: const Column(
+        Form(
+          key: stepKey,
+          child: Column(
             children: [
-              Icon(LucideIcons.camera, size: 40, color: Colors.grey),
-              SizedBox(height: 10),
-              Text("Tap to upload vehicle photo", style: TextStyle(color: Colors.grey, fontSize: 12)),
+              Center(
+                child: CircleAvatar(
+                  radius: 35,
+                  backgroundColor: Colors.green.shade100,
+                  child: Icon(LucideIcons.truck, size: 35, color: Colors.green.shade600),
+                ),
+              ),
+              const SizedBox(height: 15),
+              const Text("Vehicle Information", textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              const Text("What will you be driving?", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 30),
+              GridView.count(
+                shrinkWrap: true,
+                crossAxisCount: 2,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 3,
+                physics: const NeverScrollableScrollPhysics(),
+                children: ['motorbike', 'bicycle', 'car', 'van'].map((type) {
+                  bool isSelected = _vehicleType == type;
+                  return GestureDetector(
+                    onTap: () => setState(() => _vehicleType = type),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.blue.shade50 : Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: isSelected ? Colors.blue.shade600 : Colors.grey.shade200, width: 2),
+                      ),
+                      child: Center(child: Text(type.toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isSelected ? Colors.blue.shade800 : Colors.grey))),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+              _buildTextField("Make & Model", "e.g. Honda Ace 125", (val) => _makeModel = val, validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Required';
+                if (v.trim().length < 2) return 'Min 2 characters';
+                return null;
+              }),
+              const SizedBox(height: 15),
+              Row(
+                children: [
+                  Expanded(child: _buildTextField("License Plate", "ABC 123", (val) => _licensePlate = val, validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Required';
+                    return null;
+                  })),
+                  const SizedBox(width: 15),
+                  Expanded(child: _buildTextField("Color", "Red", (val) => _color = val)),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(30),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.grey.shade300, style: BorderStyle.none),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(LucideIcons.camera, size: 40, color: Colors.grey),
+                    SizedBox(height: 10),
+                    Text("Tap to upload vehicle photo", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
+                ),
+              ),
             ],
           ),
-        )
+        ),
       ],
     );
   }
@@ -401,15 +431,16 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
     );
   }
 
-  Widget _buildTextField(String label, String hint, Function(String) onChanged, {bool isNumber = false}) {
+  Widget _buildTextField(String label, String hint, Function(String) onChanged, {bool isNumber = false, String? Function(String?)? validator}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
         const SizedBox(height: 8),
-        TextField(
+        TextFormField(
           onChanged: onChanged,
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+          validator: validator,
           decoration: InputDecoration(
             hintText: hint,
             filled: true,

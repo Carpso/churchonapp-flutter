@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -38,7 +39,7 @@ class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       await _player.setAudioSource(AudioSource.uri(uri));
       play();
     } catch (e) {
-      print("Error loading audio: $e");
+      debugPrint("Error loading audio: $e");
     }
   }
 

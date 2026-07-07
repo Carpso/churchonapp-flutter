@@ -1,5 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../../../core/config/env.dart';
+import 'package:uuid/uuid.dart';
 
 class Transaction {
   final String id;
@@ -10,6 +15,8 @@ class Transaction {
   final String reference;
   final String? tenantId;
   final DateTime createdAt;
+  final String? recipientName;
+  final String? recipientPhone;
 
   Transaction({
     required this.id,
@@ -20,6 +27,8 @@ class Transaction {
     required this.reference,
     this.tenantId,
     required this.createdAt,
+    this.recipientName,
+    this.recipientPhone,
   });
 
   factory Transaction.fromMap(Map<String, dynamic> map) {
@@ -32,6 +41,8 @@ class Transaction {
       reference: map['reference'] ?? '',
       tenantId: map['tenant_id'],
       createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      recipientName: map['recipient_name'],
+      recipientPhone: map['recipient_phone'],
     );
   }
 }
@@ -61,9 +72,34 @@ class FinanceService {
         .map((data) => data.map((map) => Transaction.fromMap(map)).toList());
   }
 
-  Future<void> logTransaction(double amount, String category, String reference, {String? tenantId}) async {
+  Future<void> logTransaction(
+    double amount,
+    String category,
+    String reference, {
+    String? tenantId,
+    String? recipientPhone,
+    String? recipientName,
+  }) async {
     final user = _client.auth.currentUser;
     if (user == null) return;
+
+    final cutPercent = category == 'event' ? 0.10 : 0.05;
+    final platformFee = amount * cutPercent > 5.0 ? amount * cutPercent : 5.0;
+
+    // Dynamic fallback for Church Giving/Offerings if recipientPhone is null
+    String? finalPhone = recipientPhone;
+    String? finalName = recipientName;
+    if (finalPhone == null && tenantId != null) {
+      try {
+        final church = await _client.from('churches').select('treasurer_phone, name').eq('id', tenantId).maybeSingle();
+        if (church != null) {
+          finalPhone = church['treasurer_phone'];
+          finalName = church['name'];
+        }
+      } catch (e) {
+        debugPrint('Failed to look up church treasurer: $e');
+      }
+    }
 
     await _client.from('transactions').insert({
       'user_id': user.id,
@@ -72,12 +108,70 @@ class FinanceService {
       'reference': reference,
       'status': 'completed',
       'tenant_id': tenantId,
+      'platform_fee': platformFee,
+      'recipient_name': finalName,
+      'recipient_phone': finalPhone,
     });
     
     // Also update profile coins (stewardship points)
     final profile = await _client.from('profiles').select('coins').eq('id', user.id).single();
     final currentCoins = profile['coins'] ?? 0;
     await _client.from('profiles').update({'coins': currentCoins + amount.toInt()}).eq('id', user.id);
+
+    // Update Central Treasury coins
+    try {
+      final treasury = await _client.from('profiles').select('coins').eq('id', '00000000-0000-0000-0000-000000000000').maybeSingle();
+      if (treasury != null) {
+        final treasuryCoins = treasury['coins'] ?? 0;
+        await _client.from('profiles').update({'coins': treasuryCoins + platformFee.toInt()}).eq('id', '00000000-0000-0000-0000-000000000000');
+      }
+    } catch (e) {
+      debugPrint('Error updating treasury coins: $e');
+    }
+
+    // Set variable scope for subsequent payout call
+    recipientPhone = finalPhone;
+    recipientName = finalName;
+
+    // AUTOMATIC SPLIT SETTLEMENT ENGINE
+    // Automatically trigger MoMo payout to recipient minus platform fee.
+    if (recipientPhone != null && recipientPhone.trim().isNotEmpty) {
+      try {
+        final double payoutAmount = amount - platformFee;
+        final String apiKey = Env.lipilaApiKey;
+        final String baseUrl = apiKey.startsWith('lsk_') 
+            ? "https://blz.lipila.io/api" 
+            : "https://api.lipila.dev/api";
+
+        // Format recipient phone to 260
+        String targetPhone = recipientPhone.replaceAll(RegExp(r'\D'), '');
+        if (targetPhone.startsWith('0')) targetPhone = '260${targetPhone.substring(1)}';
+        if (targetPhone.startsWith('9')) targetPhone = '260$targetPhone';
+        if (targetPhone.length == 9) targetPhone = '260$targetPhone';
+
+        final payoutRef = const Uuid().v4();
+        
+        await http.post(
+          Uri.parse("$baseUrl/v1/payouts/mobile-money"),
+          headers: {
+            "x-api-key": apiKey,
+            "Content-Type": "application/json",
+            "accept": "application/json",
+          },
+          body: jsonEncode({
+            "callbackUrl": Env.lipilaPayoutWebhookUrl,
+            "referenceId": payoutRef,
+            "amount": payoutAmount,
+            "narration": "COA Settlement split: $reference",
+            "accountNumber": targetPhone,
+            "currency": "ZMW",
+            "email": "payouts@churchonapp.com"
+          }),
+        );
+      } catch (e) {
+        debugPrint("Automatic Payout split settlement failed for $recipientPhone: $e");
+      }
+    }
   }
 }
 

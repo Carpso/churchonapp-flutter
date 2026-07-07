@@ -27,9 +27,13 @@ class LedgerScreen extends ConsumerWidget {
         elevation: 0,
       ),
       body: ledgerAsync.when(
-        data: (txs) => CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(child: _buildSummaryCard(txs)),
+        data: (txs) => RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(ledgerStreamProvider(tenant.id));
+          },
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: _buildSummaryCard(context, txs, ref, tenant.id)),
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               sliver: SliverToBoxAdapter(child: _buildAnalyticsSection(txs)),
@@ -49,8 +53,9 @@ class LedgerScreen extends ConsumerWidget {
                 childCount: txs.length,
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 50)),
-          ],
+              const SliverToBoxAdapter(child: SizedBox(height: 50)),
+            ],
+          ),
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, s) => Center(child: Text("Error loading ledger: $e")),
@@ -103,7 +108,7 @@ class LedgerScreen extends ConsumerWidget {
                     color: Colors.blue,
                     barWidth: 4,
                     dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(show: true, color: Colors.blue.withOpacity(0.1)),
+                    belowBarData: BarAreaData(show: true, color: Colors.blue.withValues(alpha: 0.1)),
                   ),
                 ],
               ),
@@ -121,8 +126,9 @@ class LedgerScreen extends ConsumerWidget {
 
     for (var tx in txs) {
       final cat = tx.category.toLowerCase();
-      if (cat.contains('tithe')) tithes += tx.amount;
-      else if (cat.contains('offering') || cat.contains('giving')) offerings += tx.amount;
+      if (cat.contains('tithe')) {
+        tithes += tx.amount;
+      } else if (cat.contains('offering') || cat.contains('giving')) offerings += tx.amount;
       else others += tx.amount;
     }
 
@@ -176,7 +182,7 @@ class LedgerScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSummaryCard(List<Transaction> txs) {
+  Widget _buildSummaryCard(BuildContext context, List<Transaction> txs, WidgetRef ref, String tenantId) {
     double total = txs.fold(0.0, (sum, item) => sum + item.amount);
     double tithes = txs.where((tx) => tx.category.toLowerCase().contains('tithe')).fold(0.0, (sum, item) => sum + item.amount);
     double offerings = txs.where((tx) => tx.category.toLowerCase().contains('offering') || tx.category.toLowerCase().contains('giving')).fold(0.0, (sum, item) => sum + item.amount);
@@ -188,7 +194,7 @@ class LedgerScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,7 +219,36 @@ class LedgerScreen extends ConsumerWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () {}, // Remit logic
+              onPressed: () {
+                final total = txs.fold(0.0, (sum, item) => sum + item.amount);
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text("Confirm Remittance"),
+                    content: Text("Are you sure you want to remit K ${total.toStringAsFixed(2)} to HQ / Bishop?"),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+                      ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          await ref.read(financeServiceProvider).logTransaction(
+                            -total,
+                            'remittance',
+                            'HQ Remittance - ${DateTime.now().toIso8601String()}',
+                            tenantId: tenantId,
+                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Remittance completed successfully")),
+                            );
+                          }
+                        },
+                        child: const Text("Confirm"),
+                      ),
+                    ],
+                  ),
+                );
+              },
               icon: const Icon(LucideIcons.landmark, size: 16),
               label: const Text("REMIT TO HQ / BISHOP", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
               style: ElevatedButton.styleFrom(
@@ -250,7 +285,7 @@ class LedgerScreen extends ConsumerWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Colors.blue.withOpacity(0.05), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(12)),
             child: const Icon(LucideIcons.arrowDownLeft, color: Colors.blue, size: 20),
           ),
           const SizedBox(width: 15),

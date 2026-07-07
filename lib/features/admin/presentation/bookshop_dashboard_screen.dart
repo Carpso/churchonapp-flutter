@@ -19,13 +19,16 @@ class _BookshopDashboardScreenState extends State<BookshopDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text("Bookshop Management", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text("Bookshop Management", style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+        backgroundColor: theme.colorScheme.surface,
+        foregroundColor: theme.colorScheme.onSurface,
         actions: [
           IconButton(
-            icon: const Icon(LucideIcons.plus),
+            icon: Icon(LucideIcons.plus, color: theme.colorScheme.onSurface),
             onPressed: () {
               Navigator.push(
                 context, 
@@ -37,12 +40,15 @@ class _BookshopDashboardScreenState extends State<BookshopDashboardScreen> {
           )
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Analytics Cards
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await Future.delayed(const Duration(seconds: 1));
+        },
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Row(
               children: [
                 Expanded(child: _buildMetricCard("Total Sales (MTD)", "K 12,450", LucideIcons.trendingUp, Colors.green)),
@@ -51,36 +57,39 @@ class _BookshopDashboardScreenState extends State<BookshopDashboardScreen> {
               ],
             ),
             const SizedBox(height: 30),
-            const Text("Inventory Management", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text("Inventory Management", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
             const SizedBox(height: 15),
-            ..._inventory.map((item) => _buildInventoryTile(item)).toList(),
-          ],
+            ..._inventory.map((item) => _buildInventoryTile(item)),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: color, size: 28),
           const SizedBox(height: 10),
-          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+          Text(title, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
         ],
       ),
     );
   }
 
   Widget _buildInventoryTile(Map<String, dynamic> item) {
+    final theme = Theme.of(context);
     final statusColor = item['status'] == 'In Stock'
         ? Colors.green
         : item['status'] == 'Low Stock' ? Colors.orange : Colors.red;
@@ -89,16 +98,16 @@ class _BookshopDashboardScreenState extends State<BookshopDashboardScreen> {
       margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.grey[200]!),
+        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(LucideIcons.book, color: Theme.of(context).colorScheme.secondary),
@@ -108,11 +117,11 @@ class _BookshopDashboardScreenState extends State<BookshopDashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item['title'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(item['title'], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: theme.colorScheme.onSurface)),
                 const SizedBox(height: 5),
                 Row(
                   children: [
-                    Text("Stock: ${item['stock']}", style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                    Text("Stock: ${item['stock']}", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
                     const SizedBox(width: 15),
                     Text("Price: K${item['price']}", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold, fontSize: 12)),
                   ],
@@ -123,7 +132,7 @@ class _BookshopDashboardScreenState extends State<BookshopDashboardScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.1),
+              color: statusColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(item['status'], style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
@@ -133,4 +142,3 @@ class _BookshopDashboardScreenState extends State<BookshopDashboardScreen> {
     );
   }
 }
-

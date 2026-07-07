@@ -24,7 +24,11 @@ class _ZambianPayrollScreenState extends State<ZambianPayrollScreen> {
         actions: [
           IconButton(
             icon: const Icon(LucideIcons.fileText),
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Payroll report generated")),
+              );
+            },
           )
         ],
       ),
@@ -58,12 +62,12 @@ class _ZambianPayrollScreenState extends State<ZambianPayrollScreen> {
             const SizedBox(height: 30),
             const Text("Staff Deductions (NHIMA / NAPSA / PAYE)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
-            ..._staff.map((employee) => _buildPayrollCard(employee)).toList(),
+            ..._staff.map((employee) => _buildPayrollCard(employee)),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Processing Payroll with Lenco ZRA Integration..."), backgroundColor: Colors.green),
+                  SnackBar(content: Text("Processing Payroll with Lipila ZRA Integration..."), backgroundColor: Colors.green),
                 );
               },
               style: ElevatedButton.styleFrom(

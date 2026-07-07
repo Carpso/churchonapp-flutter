@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'member_management_screen.dart';
+import 'baptism_registry_screen.dart';
 import 'finance_dashboard_screen.dart';
 import 'media_upload_screen.dart';
-import 'go_live_screen.dart';
 import 'live_stream_studio_screen.dart';
+import 'integrations_screen.dart';
+import 'global_broadcast_screen.dart';
 import 'superadmin_dashboard.dart';
 import 'bishop_dashboard.dart';
 import 'bookshop_dashboard_screen.dart';
-import 'integrations_screen.dart';
 import 'event_scheduler_screen.dart';
 import 'live_viewer_heatmap_screen.dart';
 import 'logistics_dashboard_screen.dart';
@@ -21,9 +22,13 @@ import 'prophetic_navigation_screen.dart';
 import 'apostolic_resource_planning_screen.dart';
 import 'global_payout_command_screen.dart';
 import 'kingdom_ai_moderator_screen.dart';
+import 'zambian_payroll_screen.dart';
+import 'flyer_studio_screen.dart';
 import '../../finance/presentation/multi_currency_wallet_screen.dart';
 import 'package:church_on_app/features/finance/data/tithe_automation_service.dart';
 import '../../modules/media/presentation/kingdom_radio_screen.dart';
+import 'onboarding_manager_screen.dart';
+import '../../modules/games/presentation/game_management_screen.dart';
 
 import 'package:church_on_app/features/admin/data/admin_service.dart';
 import 'package:church_on_app/features/auth/presentation/church_onboarding_screen.dart';
@@ -38,22 +43,36 @@ class AdminHubScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(adminStatsProvider);
-    final profile = ref.watch(profileProvider).value;
-    
-    if (profile == null || !profile.isAdminOrHigher && !profile.isEmployee) {
-      return const SizedBox.shrink();
-    }
+    final profileAsync = ref.watch(profileProvider);
 
+    return profileAsync.when(
+      data: (profile) {
+        if (profile == null || !profile.isAdminOrHigher && !profile.isEmployee) {
+          return const SizedBox.shrink();
+        }
+        return _buildScreen(context, ref, statsAsync, profile);
+      },
+      loading: () => Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, st) => Scaffold(
+        body: Center(child: Text('Error loading profile: $e')),
+      ),
+    );
+  }
+
+  Widget _buildScreen(BuildContext context, WidgetRef ref, AsyncValue<AdminStats> statsAsync, UserProfile profile) {
     final isSuperOrEmployee = profile.isSuperadmin || profile.isEmployee;
     final role = profile.role;
 
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text("Kingdom Admin Hub", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
+        title: Text("Kingdom Admin Hub", style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+        backgroundColor: theme.colorScheme.surface,
         elevation: 0,
-        foregroundColor: Colors.black,
+        foregroundColor: theme.colorScheme.onSurface,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(25),
@@ -61,12 +80,12 @@ class AdminHubScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             statsAsync.when(
-              data: (stats) => _buildStatGrid(stats),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              data: (stats) => _buildStatGrid(context, stats),
+              loading: () => Center(child: CircularProgressIndicator(color: theme.primaryColor)),
               error: (e, s) => const Center(child: Text("Error loading stats")),
             ),
             const SizedBox(height: 40),
-            const Text("Management Console", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text("Management Console", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
             const SizedBox(height: 20),
             if (isSuperOrEmployee) // SuperAdmin console for Admins/Employees only
               _buildAdminTile(
@@ -86,7 +105,16 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.indigo,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ChurchOnboardingScreen())),
               ),
-            if (role == 'admin' || role == 'pastor')
+            if (isSuperOrEmployee)
+              _buildAdminTile(
+                context,
+                LucideIcons.userPlus,
+                "Entity Onboarding",
+                "Pre-register drivers, riders, staff & organizers",
+                Colors.teal,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const OnboardingManagerScreen())),
+              ),
+            if (role == 'bishop' || role == 'superadmin')
               _buildAdminTile(
                 context,
                 LucideIcons.globe,
@@ -95,8 +123,8 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.purple,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BishopDashboard())),
               ),
-            const Divider(height: 30),
-            if (isSuperOrEmployee)
+            Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
+            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.users,
@@ -105,7 +133,16 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.blue,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MemberManagementScreen())),
               ),
-            if (isSuperOrEmployee)
+            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+              _buildAdminTile(
+                context,
+                LucideIcons.award,
+                "Baptism Registry",
+                "Official records, dates, and baptism certificates",
+                Colors.indigo,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BaptismRegistryScreen())),
+              ),
+            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'bookshop_owner' || role == 'vendor' || role == 'merchant')
               _buildAdminTile(
                 context,
                 LucideIcons.bookOpen,
@@ -123,7 +160,16 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.green,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FinanceDashboardScreen())),
               ),
-            if (role == 'admin' || role == 'pastor')
+            if (isSuperOrEmployee)
+              _buildAdminTile(
+                context,
+                LucideIcons.fileSpreadsheet,
+                "Zambian Statutory Payroll",
+                "Calculate NHIMA, NAPSA, & PAYE deductions",
+                Colors.blueGrey,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ZambianPayrollScreen())),
+              ),
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.video,
@@ -132,7 +178,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.red,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LiveStreamStudioScreen())),
               ),
-            if (role == 'admin' || role == 'pastor')
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.uploadCloud,
@@ -141,20 +187,25 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.orange,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MediaUploadScreen())),
               ),
-            if (role == 'admin' || role == 'pastor')
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+              _buildAdminTile(
+                context,
+                LucideIcons.paintbrush,
+                "Flyer Studio",
+                "Design visual announcement templates for events",
+                Colors.amber,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FlyerStudioScreen())),
+              ),
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.megaphone,
                 "Global Broadcast",
                 "Send push notifications & church-wide alerts",
                 Colors.purple,
-                () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Sending Global Broadcast Alert... Synced with Church Hub.")),
-                  );
-                },
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const GlobalBroadcastScreen())),
               ),
-            if (role == 'admin' || role == 'pastor')
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.calendarDays,
@@ -163,7 +214,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.red,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EventSchedulerScreen())),
               ),
-            if (role == 'admin' || role == 'pastor')
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.map,
@@ -178,14 +229,10 @@ class AdminHubScreen extends ConsumerWidget {
                 "Enterprise Integrations",
                 "Connect banking, accounting & parking systems",
                 Colors.indigo,
-                () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Integrations coming soon for your region.")),
-                  );
-                },
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const IntegrationsScreen())),
               ),
-            const Divider(height: 30),
-            const Text("Logistics & Finance", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
+            Text("Logistics & Finance", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
             const SizedBox(height: 20),
             _buildAdminTile(
               context,
@@ -341,7 +388,7 @@ class AdminHubScreen extends ConsumerWidget {
               context,
               LucideIcons.send,
               "Global Payout Command",
-              "Execute Lenco settlements (MTN/Airtel)",
+              "Execute Lipila settlements (MTN/Airtel)",
               Colors.greenAccent,
               () {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => const GlobalPayoutCommandScreen()));
@@ -365,6 +412,18 @@ class AdminHubScreen extends ConsumerWidget {
               Colors.orangeAccent,
               () => _showDriverVerificationDialog(context, ref),
             ),
+            Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
+            Text("Games & Entertainment", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+            const SizedBox(height: 20),
+            if (isSuperOrEmployee)
+              _buildAdminTile(
+                context,
+                LucideIcons.gamepad2,
+                "Games Management",
+                "Control all games, host premium quizzes & events",
+                Colors.amberAccent,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const GameManagementScreen())),
+              ),
           ],
         ),
       ),
@@ -395,7 +454,8 @@ class AdminHubScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatGrid(AdminStats stats) {
+  Widget _buildStatGrid(BuildContext ctx, AdminStats stats) {
+    final theme = Theme.of(ctx);
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -404,21 +464,21 @@ class AdminHubScreen extends ConsumerWidget {
       crossAxisSpacing: 15,
       childAspectRatio: 1.5,
       children: [
-        _buildStatCard("Total Members", stats.totalMembers.toString(), LucideIcons.users, Colors.blue),
-        _buildStatCard("Active Missions", stats.totalMissions.toString(), LucideIcons.zap, Colors.amber),
-        _buildStatCard("Monthly Revenue", stats.recentGiving, LucideIcons.heartPulse, Colors.red),
-        _buildStatCard("Active Couriers", stats.activeCouriers.toString(), LucideIcons.truck, Colors.green),
+        _buildStatCard(theme, "Total Members", stats.totalMembers.toString(), LucideIcons.users, Colors.blue),
+        _buildStatCard(theme, "Active Missions", stats.totalMissions.toString(), LucideIcons.zap, Colors.amber),
+        _buildStatCard(theme, "Monthly Revenue", stats.recentGiving, LucideIcons.heartPulse, Colors.red),
+        _buildStatCard(theme, "Active Couriers", stats.activeCouriers.toString(), LucideIcons.truck, Colors.green),
       ],
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(ThemeData theme, String label, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -426,29 +486,30 @@ class AdminHubScreen extends ConsumerWidget {
         children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+          Text(label, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 10)),
         ],
       ),
     );
   }
 
   Widget _buildAdminTile(BuildContext context, IconData icon, String title, String subtitle, Color color, VoidCallback onTap) {
+    final theme = Theme.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 15),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
               child: Icon(icon, color: color, size: 24),
             ),
             const SizedBox(width: 20),
@@ -456,12 +517,12 @@ class AdminHubScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text(subtitle, style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: theme.colorScheme.onSurface)),
+                  Text(subtitle, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11)),
                 ],
               ),
             ),
-            const Icon(LucideIcons.chevronRight, size: 18, color: Colors.grey),
+            Icon(LucideIcons.chevronRight, size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
           ],
         ),
       ),

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:chewie/chewie.dart';
 import 'package:video_player/video_player.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../connect/data/social_service.dart';
 // Theme via context
 import '../data/sermon_service.dart';
 import 'sermon_notes_screen.dart';
@@ -18,7 +16,6 @@ class SermonPlayerScreen extends ConsumerStatefulWidget {
 
 class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
   late VideoPlayerController _videoController;
-  ChewieController? _chewieController;
 
   @override
   void initState() {
@@ -27,29 +24,22 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
   }
 
   Future<void> _initializePlayer() async {
-    _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.sermon.videoUrl));
-    await _videoController.initialize();
-
-    _chewieController = ChewieController(
-      videoPlayerController: _videoController,
-      autoPlay: true,
-      looping: false,
-      aspectRatio: _videoController.value.aspectRatio,
-      placeholder: Image.network(widget.sermon.thumbnailUrl, fit: BoxFit.cover),
-      materialProgressColors: ChewieProgressColors(
-        playedColor: Theme.of(context).primaryColor,
-        handleColor: Theme.of(context).primaryColor,
-        backgroundColor: Colors.grey.withOpacity(0.5),
-        bufferedColor: Colors.white.withOpacity(0.3),
-      ),
-    );
-    setState(() {});
+    try {
+      _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.sermon.videoUrl));
+      _videoController.addListener(() {
+        if (mounted) setState(() {});
+      });
+      await _videoController.initialize();
+      _videoController.play();
+    } catch (e) {
+      debugPrint("Sermon player init error: $e");
+    }
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _videoController.dispose();
-    _chewieController?.dispose();
     super.dispose();
   }
 
@@ -112,44 +102,167 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
   }
 
   Widget _buildPlayer() {
-    if (_chewieController != null && _chewieController!.videoPlayerController.value.isInitialized) {
-      return Stack(
-        children: [
-          AspectRatio(
-            aspectRatio: _videoController.value.aspectRatio,
-            child: Chewie(controller: _chewieController!),
-          ),
-          if (widget.sermon.isLive)
-            Positioned(
-              top: 40,
-              left: 20,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)),
-                child: Row(
+    final bool isInitialized = _videoController.value.isInitialized;
+    final bool isPlaying = _videoController.value.isPlaying;
+    final Duration position = _videoController.value.position;
+    final Duration duration = _videoController.value.duration;
+
+    return Container(
+      width: double.infinity,
+      height: 280,
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        image: DecorationImage(
+          image: NetworkImage(widget.sermon.thumbnailUrl),
+          fit: BoxFit.cover,
+          colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: 0.85), BlendMode.dstATop),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Theme.of(context).primaryColor, width: 3),
+                image: DecorationImage(
+                  image: NetworkImage(widget.sermon.thumbnailUrl),
+                  fit: BoxFit.cover,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.4),
+                    blurRadius: 15,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 15),
+            AudioVisualizerWidget(isPlaying: isPlaying),
+            const SizedBox(height: 15),
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(LucideIcons.music, color: Colors.amber, size: 14),
+                SizedBox(width: 8),
+                Text(
+                  "STREAMING AUDIO ONLY",
+                  style: TextStyle(
+                    color: Colors.amber,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 10,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            
+            // Slider Progress bar
+            if (isInitialized)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Column(
                   children: [
-                    const Icon(LucideIcons.radio, color: Colors.white, size: 14),
-                    const SizedBox(width: 8),
-                    const Text("LIVE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                    const SizedBox(width: 12),
-                    const Icon(LucideIcons.eye, color: Colors.white, size: 14),
-                    const SizedBox(width: 4),
-                    Text("${widget.sermon.viewerCount}", style: const TextStyle(color: Colors.white, fontSize: 12)),
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 3,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                        activeTrackColor: Theme.of(context).primaryColor,
+                        inactiveTrackColor: Colors.white24,
+                        thumbColor: Theme.of(context).primaryColor,
+                      ),
+                      child: Slider(
+                        value: position.inMilliseconds.toDouble(),
+                        max: duration.inMilliseconds.toDouble() > 0 ? duration.inMilliseconds.toDouble() : 1.0,
+                        onChanged: (val) {
+                          _videoController.seekTo(Duration(milliseconds: val.toInt()));
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _formatDuration(position),
+                            style: const TextStyle(color: Colors.white70, fontSize: 10),
+                          ),
+                          Text(
+                            _formatDuration(duration),
+                            style: const TextStyle(color: Colors.white70, fontSize: 10),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
+            
+            const SizedBox(height: 5),
+            
+            // Audio Controls
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(LucideIcons.skipBack, color: Colors.white, size: 22),
+                  onPressed: () {
+                    final target = position - const Duration(seconds: 10);
+                    _videoController.seekTo(target < Duration.zero ? Duration.zero : target);
+                  },
+                ),
+                const SizedBox(width: 15),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (isPlaying) {
+                        _videoController.pause();
+                      } else {
+                        _videoController.play();
+                      }
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isPlaying ? LucideIcons.pause : LucideIcons.play,
+                      color: Theme.of(context).colorScheme.secondary,
+                      size: 24,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 15),
+                IconButton(
+                  icon: const Icon(LucideIcons.skipForward, color: Colors.white, size: 22),
+                  onPressed: () {
+                    final target = position + const Duration(seconds: 10);
+                    _videoController.seekTo(target > duration ? duration : target);
+                  },
+                ),
+              ],
             ),
-        ],
-      );
-    } else {
-      return AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Container(
-          color: Colors.black,
-          child: Center(child: CircularProgressIndicator(color: Theme.of(context).primaryColor)),
+          ],
         ),
-      );
-    }
+      ),
+    );
+  }
+
+  String _formatDuration(Duration d) {
+    String minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    String seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return "$minutes:$seconds";
   }
 
   Widget _buildActionRow() {
@@ -239,7 +352,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: Colors.grey.withOpacity(0.1))),
+            decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: Colors.grey.withValues(alpha: 0.1))),
             child: Icon(icon, color: Theme.of(context).colorScheme.secondary, size: 22),
           ),
           const SizedBox(height: 8),
@@ -293,7 +406,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -372,6 +485,83 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class AudioVisualizerWidget extends StatefulWidget {
+  final bool isPlaying;
+  const AudioVisualizerWidget({super.key, required this.isPlaying});
+
+  @override
+  State<AudioVisualizerWidget> createState() => _AudioVisualizerWidgetState();
+}
+
+class _AudioVisualizerWidgetState extends State<AudioVisualizerWidget> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  final List<double> _barHeights = [0.2, 0.5, 0.8, 0.3, 0.6, 0.9, 0.4, 0.7, 0.5, 0.3];
+  
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    if (widget.isPlaying) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant AudioVisualizerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isPlaying) {
+      _controller.repeat(reverse: true);
+    } else {
+      _controller.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: List.generate(_barHeights.length, (index) {
+            final double value = widget.isPlaying 
+                ? (_controller.value + (index * 0.15)) % 1.0 
+                : 0.05;
+            final double currentHeight = 10.0 + (_barHeights[index] * 35.0 * (0.3 + 0.7 * (value - 0.5).abs() * 2));
+            return Container(
+              width: 3,
+              height: currentHeight,
+              margin: const EdgeInsets.symmetric(horizontal: 2.5),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor,
+                borderRadius: BorderRadius.circular(2),
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Theme.of(context).primaryColor,
+                    Colors.amberAccent,
+                  ],
+                ),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/auth_provider.dart';
-import 'signup_screen.dart';
 import 'package:go_router/go_router.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -18,32 +17,53 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _rememberMe = true;
+  bool _isGoogleLoading = false;
+  final _formKey = GlobalKey<FormState>();
 
   Future<void> _handleLogin() async {
-    if (_emailController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter email and password"), backgroundColor: Colors.red),
-      );
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
+
     try {
       await ref.read(authProvider.notifier).signIn(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
-      if (mounted && ref.read(authProvider).user != null) {
+      
+      final authState = ref.read(authProvider);
+      if (authState.errorMessage != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(authState.errorMessage!), backgroundColor: Colors.red),
+        );
+      } else if (mounted && authState.user != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Signed in successfully!"), backgroundColor: Colors.green),
         );
         context.go('/');
       }
-
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
         );
       }
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    setState(() => _isGoogleLoading = true);
+    try {
+      await ref.read(authProvider.notifier).signInWithGoogle();
+      if (mounted && ref.read(authProvider).user != null) {
+        context.go('/');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Google Sign-In Error: $e"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
     }
   }
 
@@ -72,7 +92,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
               decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.1),
+                color: Colors.grey.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: TextField(
@@ -141,16 +161,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             _buildHeader(),
             Padding(
               padding: const EdgeInsets.all(30.0),
-              child: Column(
+              child: Form(
+                key: _formKey,
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("Welcome Back", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.secondary)),
                   const SizedBox(height: 10),
                   Text("Sign in to continue your spiritual journey.", style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
                   const SizedBox(height: 40),
-                  _buildTextField(controller: _emailController, label: "Email Address", icon: LucideIcons.mail),
+                  _buildTextField(controller: _emailController, label: "Email Address", icon: LucideIcons.mail, keyboardType: TextInputType.emailAddress, validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Required';
+                    if (!v.contains('@') && v.replaceAll(RegExp(r'\D'), '').length < 10) return 'Enter a valid email or phone';
+                    return null;
+                  }),
                   const SizedBox(height: 20),
-                  _buildTextField(controller: _passwordController, label: "Password", icon: LucideIcons.lock, isPassword: true),
+                  _buildTextField(controller: _passwordController, label: "Password", icon: LucideIcons.lock, isPassword: true, validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Required';
+                    if (v.length < 6) return 'Min 6 characters';
+                    return null;
+                  }),
                   const SizedBox(height: 10),
                   Row(
                     children: [
@@ -192,7 +222,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Expanded(child: Divider()),
                   ]),
                   const SizedBox(height: 30),
-                  _buildSocialButton("Continue with Google", LucideIcons.chrome),
+                  _buildSocialButton("Continue with Google", LucideIcons.chrome, _isGoogleLoading, _handleGoogleSignIn),
                   const SizedBox(height: 30),
                   Center(
                     child: TextButton(
@@ -209,6 +239,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                 ],
+              ),
               ),
             ),
           ],
@@ -242,13 +273,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _buildTextField({required TextEditingController controller, required String label, required IconData icon, bool isPassword = false}) {
+  Widget _buildTextField({required TextEditingController controller, required String label, required IconData icon, bool isPassword = false, String? Function(String?)? validator, TextInputType? keyboardType}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)]),
-      child: TextField(
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)]),
+      child: TextFormField(
         controller: controller,
         obscureText: isPassword && !_isPasswordVisible,
+        validator: validator,
+        keyboardType: keyboardType,
         decoration: InputDecoration(
           icon: Icon(icon, color: Theme.of(context).primaryColor, size: 20),
           labelText: label,
@@ -262,20 +295,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _buildSocialButton(String label, IconData icon) {
+  Widget _buildSocialButton(String label, IconData icon, bool isLoading, VoidCallback onTap) {
     return OutlinedButton(
-      onPressed: () {},
+      onPressed: isLoading ? null : onTap,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(double.infinity, 60),
-        side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+        side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
-      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(icon, size: 20, color: Theme.of(context).colorScheme.secondary),
-        const SizedBox(width: 15),
-        Text(label, style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold)),
-      ]),
+      child: isLoading 
+        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+        : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 20, color: Theme.of(context).colorScheme.secondary),
+            const SizedBox(width: 15),
+            Text(label, style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold)),
+          ]),
     );
   }
 }
-

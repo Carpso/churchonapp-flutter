@@ -7,17 +7,20 @@ class BishopDashboard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text("Apostolic Oversight", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text("Apostolic Oversight", style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+        backgroundColor: theme.colorScheme.surface,
+        foregroundColor: theme.colorScheme.onSurface,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(25),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Global Metrics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text("Global Metrics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
             const SizedBox(height: 15),
             GridView.count(
               shrinkWrap: true,
@@ -34,12 +37,12 @@ class BishopDashboard extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 40),
-            const Text("Branch Performance", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text("Branch Performance", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
             const SizedBox(height: 15),
-            _buildBranchRow(context, "HQ - Strategic Lane", "+15%", Colors.green),
-            _buildBranchRow(context, "North Campus", "+8%", Colors.green),
-            _buildBranchRow(context, "East Campus", "-2%", Colors.red),
-            _buildBranchRow(context, "South Parish", "+5%", Colors.green),
+            _buildBranchRow(context, theme, "HQ - Strategic Lane", "+15%", Colors.green),
+            _buildBranchRow(context, theme, "North Campus", "+8%", Colors.green),
+            _buildBranchRow(context, theme, "East Campus", "-2%", Colors.red),
+            _buildBranchRow(context, theme, "South Parish", "+5%", Colors.green),
           ],
         ),
       ),
@@ -47,42 +50,43 @@ class BishopDashboard extends ConsumerWidget {
   }
 
   Widget _buildMetricCard(BuildContext context, String title, String value, IconData icon) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor,
+        color: theme.primaryColor,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: Colors.white, size: 28),
+          Icon(icon, color: theme.colorScheme.onSecondary, size: 28),
           const Spacer(),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
-          Text(title, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+          Text(value, style: TextStyle(color: theme.colorScheme.onSecondary, fontSize: 24, fontWeight: FontWeight.w900)),
+          Text(title, style: TextStyle(color: theme.colorScheme.onSecondary.withValues(alpha: 0.7), fontSize: 10)),
         ],
       ),
     );
   }
 
-  Widget _buildBranchRow(BuildContext context, String branchName, String growth, Color growthColor) {
+  Widget _buildBranchRow(BuildContext context, ThemeData theme, String branchName, String growth, Color growthColor) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(branchName, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(branchName, style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: growthColor.withOpacity(0.1),
+              color: growthColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(growth, style: TextStyle(color: growthColor, fontWeight: FontWeight.bold, fontSize: 12)),
@@ -92,4 +96,3 @@ class BishopDashboard extends ConsumerWidget {
     );
   }
 }
-

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import '../../../core/providers/auth_provider.dart';
 
 class RegisterChurchScreen extends ConsumerStatefulWidget {
@@ -19,6 +21,34 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
   final _treasurerPhoneController = TextEditingController();
   String _selectedRole = 'pastor'; // pastor or bishop
   bool _loading = false;
+  double? _lat;
+  double? _lng;
+  String _detectedCountry = 'Zambia';
+
+  @override
+  void initState() {
+    super.initState();
+    _detectLocation();
+  }
+
+  Future<void> _detectLocation() async {
+    try {
+      final pos = await Geolocator.getCurrentPosition();
+      final placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+      if (placemarks.isNotEmpty) {
+        setState(() {
+          _lat = pos.latitude;
+          _lng = pos.longitude;
+          _detectedCountry = placemarks.first.country ?? 'Zambia';
+          if (_detectedCountry != 'Zambia' && _detectedCountry != 'Zimbabwe') {
+             _detectedCountry = 'Zambia'; // Fallback
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Error detecting location: $e");
+    }
+  }
 
   Future<void> _handleRegistration() async {
     if (!_formKey.currentState!.validate()) return;
@@ -33,11 +63,14 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
       await Supabase.instance.client.from('churches').insert({
         'name': _nameController.text.trim(),
         'address': _locationController.text.trim(),
-        'country': 'Zambia',
-        'treasurer_phone': _treasurerPhoneController.text.trim(),
+        'country': _detectedCountry,
+        'latitude': _lat,
+        'longitude': _lng,
+        'contact_phone': _treasurerPhoneController.text.trim(),
         'slug': slug,
-        'status': 'pending',
-        'role_requested': _selectedRole,
+        'is_verified': false,
+        'pastor_name': "${user.id}:$_selectedRole",
+        'subscription_ends_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
       });
 
       if (mounted) {
@@ -79,7 +112,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
               child: const Column(
                 children: [
                   Text("Zamtel/Airtel/MTN Money", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  Text("Merchant ID: 123456", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.blue)),
+                  Text("Superadmin MoMo: 0976847775", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.blue)),
                 ],
               ),
             ),
@@ -200,7 +233,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
         decoration: BoxDecoration(
           color: active ? Colors.black : Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: active ? Colors.black : Colors.grey.withOpacity(0.2)),
+          border: Border.all(color: active ? Colors.black : Colors.grey.withValues(alpha: 0.2)),
         ),
         child: Column(
           children: [
@@ -220,7 +253,12 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
       child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
-        validator: (v) => v!.isEmpty ? "Required" : null,
+        validator: (v) {
+          if (v == null || v.trim().isEmpty) return 'Required';
+          if (label == "Church Name" && v.trim().length < 2) return 'Min 2 characters';
+          if (label == "Treasurer / Financial Phone #" && v.replaceAll(RegExp(r'\D'), '').length < 10) return 'Min 10 digits';
+          return null;
+        },
         decoration: InputDecoration(
           icon: Icon(icon, color: Colors.grey, size: 20),
           labelText: label,

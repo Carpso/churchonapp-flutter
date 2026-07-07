@@ -67,7 +67,7 @@ class _SermonSearchScreenState extends ConsumerState<SermonSearchScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.search, size: 80, color: Colors.grey.withOpacity(0.2)),
+          Icon(LucideIcons.search, size: 80, color: Colors.grey.withValues(alpha: 0.2)),
           const SizedBox(height: 20),
           const Text("Enter a word, preacher, or topic", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
           const Text("to retrieve apostolic insights.", style: TextStyle(color: Colors.grey, fontSize: 12)),
@@ -85,7 +85,7 @@ class _SermonSearchScreenState extends ConsumerState<SermonSearchScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
         ),
         child: Row(
           children: [

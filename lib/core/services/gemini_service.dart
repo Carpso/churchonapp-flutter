@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/env.dart';
@@ -34,20 +37,12 @@ class GeminiService {
     try {
       final content = [Content.text(prompt)];
       final response = await _model.generateContent(content);
-      // For the prototype, we return a structured mock along with the AI insight
       return {
-        'optimized_path': [
-          {'lat': -15.3875, 'lng': 28.3228},
-          {'lat': -15.4210, 'lng': 28.2800}
-        ],
-        'efficiency_rating': 0.95,
-        'prophetic_insight': response.text ?? "Success is ordained for this mission.",
+        'ai_response': response.text ?? "Success is ordained for this mission.",
       };
     } catch (e) {
       return {
-        'optimized_path': [],
-        'efficiency_rating': 0.8,
-        'prophetic_insight': "Proceed with caution; divine protection is your primary navigator.",
+        'ai_response': "Route optimization unavailable at this time.",
       };
     }
   }
@@ -60,20 +55,12 @@ class GeminiService {
     try {
       final content = [Content.text(prompt)];
       final response = await _model.generateContent(content);
-      // Prototype returns structured AI resource map
       return {
-        'predictions': [
-          {'type': 'Seating/Chairs', 'quantity': 50},
-          {'type': 'Apostolic Bibles', 'quantity': 100},
-          {'type': 'Welfare Support', 'quantity': 5000},
-          {'type': 'Logistics Fuel', 'quantity': 200},
-        ],
-        'prophetic_justification': response.text ?? "Material expansion is required to contain the harvest.",
+        'ai_response': response.text ?? "Material expansion is required to contain the harvest.",
       };
     } catch (e) {
       return {
-        'predictions': [],
-        'prophetic_justification': "Visionary growth is projected. Prepare the storehouse.",
+        'ai_response': "Resource prediction unavailable at this time.",
       };
     }
   }
@@ -90,28 +77,78 @@ class GeminiService {
       final response = await _model.generateContent(textContent);
       final rawText = response.text ?? "";
       
-      // Simple parse attempt for the prototype
-      if (rawText.contains('{')) {
-        // In a real app we'd use json.decode properly
+      try {
+        final parsed = jsonDecode(rawText) as Map<String, dynamic>;
         return {
-          'weight': 0.85,
-          'category': 'Vision',
-          'justification': 'High prophetic density detected.',
-          'raw_ai': rawText,
+          'weight': (parsed['weight'] as num?)?.toDouble() ?? 0.5,
+          'category': parsed['category']?.toString() ?? 'General',
+          'justification': parsed['justification']?.toString() ?? 'Standard Kingdom communication.',
+        };
+      } catch (_) {
+        return {
+          'weight': 0.5,
+          'category': 'General',
+          'justification': rawText.isNotEmpty ? rawText : 'Standard Kingdom communication.',
         };
       }
-      
-      return {
-        'weight': 0.5,
-        'category': 'General',
-        'justification': 'Standard Kingdom communication.',
-      };
     } catch (e) {
       return {
         'weight': 0.0,
         'category': 'System',
         'justification': 'Gatekeeper currently offline.',
       };
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> generateBibleQuizQuestions({
+    required int count,
+    String? category,
+    String? difficulty,
+    List<String>? excludeQuestions,
+  }) async {
+    final catHint = category != null ? "Category: $category. " : "";
+    final diffHint = difficulty != null ? "Difficulty: $difficulty. " : "";
+    final excludeHint = excludeQuestions != null && excludeQuestions.isNotEmpty
+        ? "Do NOT repeat any of these questions: ${excludeQuestions.join('; ')}. "
+        : "";
+    final prompt = "You are a Bible quiz expert. Generate $count multiple-choice Bible quiz questions. "
+        "$catHint$diffHint${excludeHint}Each question must be factual, scripture-based, and theologically sound. "
+        "Return ONLY valid JSON array — no markdown, no code fences. "
+        "Each item: {"
+        "\"question\": \"...\", "
+        "\"options\": [\"A\", \"B\", \"C\", \"D\"], "
+        "\"correct_answer\": 0, "
+        "\"difficulty\": \"Easy|Medium|Hard\", "
+        "\"category\": \"People|History|NT|OT|Prophecy|Miracles|Scripture|Language|Law|Angels\", "
+        "\"scripture_reference\": \"Book Chapter:Verse\""
+        "}";
+
+    try {
+      final content = [Content.text(prompt)];
+      final response = await _model.generateContent(content);
+      final raw = response.text ?? '[]';
+      final cleaned = raw
+          .replaceAll(RegExp(r'```json\s*'), '')
+          .replaceAll(RegExp(r'```\s*'), '')
+          .trim();
+
+      List<dynamic> parsed = [];
+      try {
+        parsed = (jsonDecode(cleaned) as List?) ?? [];
+      } catch (_) {
+        // Try to extract array from markdown
+        final match = RegExp(r'\[[\s\S]*\]').firstMatch(cleaned);
+        if (match != null) {
+          parsed = jsonDecode(match.group(0)!) as List? ?? [];
+        } else {
+          return [];
+        }
+      }
+
+      return parsed.cast<Map<String, dynamic>>();
+    } catch (e) {
+      debugPrint("Gemini quiz generation failed: $e");
+      return [];
     }
   }
 }

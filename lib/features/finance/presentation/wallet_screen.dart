@@ -2,16 +2,93 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/providers/profile_provider.dart';
+import '../../../core/services/coins_service.dart';
+import '../../connect/data/user_activity_service.dart';
+import '../data/finance_service.dart';
 import 'giving_screen.dart';
 import 'transaction_page.dart';
 import 'payout_request_screen.dart';
+import 'lipila_payment_gateway.dart';
 
 class WalletScreen extends ConsumerWidget {
   const WalletScreen({super.key});
 
+  void _showTopUpSheet(BuildContext context, WidgetRef actionRef) {
+    final amountCtrl = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        padding: EdgeInsets.only(left: 25, right: 25, top: 30, bottom: MediaQuery.of(ctx).viewInsets.bottom + 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Top Up Wallet", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                IconButton(icon: const Icon(LucideIcons.x), onPressed: () => Navigator.pop(ctx)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: amountCtrl,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: "Amount (K)",
+                hintText: "Enter amount to add",
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                prefixIcon: const Icon(LucideIcons.banknote, size: 20),
+              ),
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: () {
+                final amt = double.tryParse(amountCtrl.text);
+                if (amt == null || amt <= 0) return;
+                Navigator.pop(ctx);
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => LipilaPaymentGateway(
+                    amount: amt,
+                    description: "Wallet Top Up",
+                    category: "top_up",
+                    onComplete: (success, txId) async {
+                      Navigator.pop(context);
+                      if (success && context.mounted) {
+                        actionRef.invalidate(profileProvider);
+                      }
+                    },
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F172A),
+                minimumSize: const Size(double.infinity, 60),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+              child: const Text("PROCEED TO PAYMENT", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(profileProvider);
+    final transactionsAsync = ref.watch(transactionsStreamProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
@@ -21,20 +98,25 @@ class WalletScreen extends ConsumerWidget {
       body: profileAsync.when(
         data: (profile) {
           final coins = profile?.coins ?? 0;
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(25),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(transactionsStreamProvider);
+            },
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(25),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 _buildWalletCard(context, coins),
                 const SizedBox(height: 30),
-                _buildActionButtons(context),
-                const SizedBox(height: 40),
+        _buildActionButtons(context, ref),
+        const SizedBox(height: 40),
                 const Text("Recent Transactions", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
-                _buildTransactionsList(context),
+                _buildTransactionsList(context, transactionsAsync),
               ],
             ),
+          ),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -52,7 +134,7 @@ class WalletScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).primaryColor.withOpacity(0.3),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -65,7 +147,7 @@ class WalletScreen extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text("TOTAL BALANCE", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-              Icon(LucideIcons.wallet, color: Colors.white.withOpacity(0.8), size: 24),
+              Icon(LucideIcons.wallet, color: Colors.white.withValues(alpha: 0.8), size: 24),
             ],
           ),
           const SizedBox(height: 15),
@@ -76,7 +158,7 @@ class WalletScreen extends ConsumerWidget {
           const SizedBox(height: 15),
           Row(
             children: [
-              Icon(LucideIcons.shieldCheck, color: Colors.white.withOpacity(0.8), size: 16),
+              Icon(LucideIcons.shieldCheck, color: Colors.white.withValues(alpha: 0.8), size: 16),
               const SizedBox(width: 5),
               const Text("Encrypted & Secure", style: TextStyle(color: Colors.white70, fontSize: 12)),
             ],
@@ -86,18 +168,11 @@ class WalletScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildActionButtons(BuildContext context) {
+  Widget _buildActionButtons(BuildContext context, WidgetRef actionRef) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _buildActionButton(context, LucideIcons.arrowUpRight, "Top Up", onTap: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const TransactionPage(
-            title: "Top Up",
-            description: "Add funds to your Kingdom wallet using Mobile Money or Cards.",
-            icon: LucideIcons.arrowUpRight,
-            color: Colors.green,
-          )));
-        }),
+        _buildActionButton(context, LucideIcons.arrowUpRight, "Top Up", onTap: () => _showTopUpSheet(context, actionRef)),
         _buildActionButton(context, LucideIcons.send, "Send", onTap: () {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const TransactionPage(
             title: "Send",
@@ -112,8 +187,70 @@ class WalletScreen extends ConsumerWidget {
         _buildActionButton(context, LucideIcons.arrowDownLeft, "Withdraw", onTap: () {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const PayoutRequestScreen()));
         }),
+        _buildDailyCollectButton(context),
       ],
     );
+  }
+
+  Widget _buildDailyCollectButton(BuildContext context) {
+    return Consumer(builder: (context, ref, child) {
+      final canCollectAsync = ref.watch(canCollectDailyProvider);
+      return canCollectAsync.when(
+        data: (canCollect) => _buildCollectButton(context, canCollect, ref),
+        loading: () => const SizedBox.shrink(),
+        error: (e, st) => const SizedBox.shrink(),
+      );
+    });
+  }
+
+  Widget _buildCollectButton(BuildContext context, bool canCollect, WidgetRef ref) {
+    return GestureDetector(
+        onTap: () async {
+          if (!canCollect) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Already collected today!"), backgroundColor: Colors.orange));
+            }
+            return;
+          }
+          final service = ref.read(coinsServiceProvider);
+          final activity = ref.read(userActivityServiceProvider);
+          final earned = await service.collectDailyCoins();
+          if (earned > 0) {
+            await activity.logActivity(type: ActivityType.coinCollected, description: "Daily coin reward", coinsEarned: earned);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("+$earned coins collected!"), backgroundColor: Colors.green));
+            }
+          }
+        },
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: canCollect ? Colors.amber : Colors.grey.shade300,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: (canCollect ? Colors.amber : Colors.grey).withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Icon(
+                canCollect ? LucideIcons.coins : LucideIcons.checkCircle,
+                color: canCollect ? Colors.black : Colors.grey,
+                size: 24,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              canCollect ? "Daily" : "Done",
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: canCollect ? Colors.amber.shade800 : Colors.grey),
+            ),
+          ],
+        ),
+      );
   }
 
   Widget _buildActionButton(BuildContext context, IconData icon, String label, {required VoidCallback onTap}) {
@@ -128,7 +265,7 @@ class WalletScreen extends ConsumerWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 5),
                 ),
@@ -143,65 +280,104 @@ class WalletScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTransactionsList(BuildContext context) {
-    // Placeholder transactions for now. In a real scenario, this would be fetched from a repository.
-    final transactions = [
-      {"title": "Wallet Top Up", "date": "Today, 10:30 AM", "amount": "+K 500.00", "isAdd": true},
-      {"title": "Tithe", "date": "Yesterday, 9:00 AM", "amount": "-K 250.00", "isAdd": false},
-      {"title": "Bookshop Purchase", "date": "Feb 15, 2:15 PM", "amount": "-K 120.00", "isAdd": false},
-      {"title": "Transfer from Bro. John", "date": "Feb 10, 8:45 AM", "amount": "+K 100.00", "isAdd": true},
-    ];
+  Widget _buildTransactionsList(BuildContext context, AsyncValue<List<Transaction>> transactionsAsync) {
+    return transactionsAsync.when(
+      data: (transactions) {
+        if (transactions.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 30.0),
+              child: Text("No transactions found", style: TextStyle(color: Colors.grey)),
+            ),
+          );
+        }
+        return ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: transactions.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 15),
+          itemBuilder: (context, index) {
+            final t = transactions[index];
+            final isAdd = t.category == 'top_up' || t.amount > 0;
+            final amountText = "${isAdd ? '+' : ''}K ${t.amount.toStringAsFixed(2)}";
+            
+            // Format date
+            final dateStr = "${t.createdAt.day}/${t.createdAt.month}/${t.createdAt.year}";
 
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: transactions.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 15),
-      itemBuilder: (context, index) {
-        final t = transactions[index];
-        return Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: t["isAdd"] == true ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  t["isAdd"] == true ? LucideIcons.arrowDownLeft : LucideIcons.arrowUpRight,
-                  color: t["isAdd"] == true ? Colors.green : Colors.red,
-                  size: 20,
-                ),
+            // Map category to a friendly name and icon
+            String title = t.category;
+            IconData icon = LucideIcons.arrowUpRight;
+            Color iconColor = Colors.green;
+
+            if (t.category == 'tithe') {
+              title = "Tithe Payment";
+              icon = LucideIcons.heart;
+              iconColor = Colors.red;
+            } else if (t.category == 'giving') {
+              title = "Kingdom Offering";
+              icon = LucideIcons.gift;
+              iconColor = Colors.purple;
+            } else if (t.category == 'top_up') {
+              title = "Wallet Top Up";
+              icon = LucideIcons.arrowDownLeft;
+              iconColor = Colors.green;
+            } else if (t.category == 'transfer') {
+              title = "Coins Transfer";
+              icon = LucideIcons.send;
+              iconColor = Colors.blue;
+            } else if (t.category == 'withdrawal') {
+              title = "Wallet Withdrawal";
+              icon = LucideIcons.arrowUpRight;
+              iconColor = Colors.orange;
+            }
+
+            return Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
               ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(t["title"] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    const SizedBox(height: 2),
-                    Text(t["date"] as String, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                  ],
-                ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: iconColor.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      icon,
+                      color: iconColor,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        const SizedBox(height: 2),
+                        Text(dateStr, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    amountText,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      color: isAdd ? Colors.green : Theme.of(context).colorScheme.secondary,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                t["amount"] as String,
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                  color: t["isAdd"] == true ? Colors.green : Theme.of(context).colorScheme.secondary,
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, s) => Center(child: Text("Error loading transactions: $e")),
     );
   }
 }

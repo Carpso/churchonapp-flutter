@@ -41,26 +41,41 @@ abstract class KingdomGameEngineState<T extends KingdomGameEngine> extends State
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2D2D3F),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        backgroundColor: const Color(0xFF1E1E1E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(40), 
+          side: BorderSide(color: Colors.amber.withValues(alpha: 0.2)),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(LucideIcons.crown, color: Colors.amber, size: 80),
             const SizedBox(height: 20),
-            const Text("DIVINE VICTORY!", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+            const Text("DIVINE VICTORY!", style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -1)),
             const SizedBox(height: 10),
-            Text("Score: $score", style: const TextStyle(color: Colors.white70, fontSize: 18)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+              child: Text("SCORE: $score", style: const TextStyle(color: Colors.amber, fontSize: 24, fontWeight: FontWeight.bold)),
+            ),
             const SizedBox(height: 30),
             _buildChestReward(),
             const SizedBox(height: 30),
             ElevatedButton(
               onPressed: () { 
-                Navigator.pop(context); // Close dialog
-                Navigator.pop(context); // Exit arena
+                // Return to Hub specifically
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(); // Exit arena
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, minimumSize: const Size(double.infinity, 50)),
-              child: const Text("REDEMPTION COMPLETE", style: TextStyle(fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber, 
+                foregroundColor: Colors.black, 
+                overlayColor: Colors.amber.shade200.withValues(alpha: 0.3),
+                minimumSize: const Size(double.infinity, 60),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                elevation: 10,
+              ),
+              child: const Text("RETURN TO HUB", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
             ),
           ],
         ),
@@ -71,7 +86,7 @@ abstract class KingdomGameEngineState<T extends KingdomGameEngine> extends State
   Widget _buildChestReward() {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber.withOpacity(0.3))),
+      decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber.withValues(alpha: 0.3))),
       child: const Column(
         children: [
           Row(
@@ -146,7 +161,7 @@ class _EmojiChallengeState extends KingdomGameEngineState<EmojiChallengeGame> {
           gradient: RadialGradient(
             center: Alignment.topCenter,
             radius: 1.5,
-            colors: [Colors.amber.withOpacity(0.05), Colors.transparent],
+            colors: [Colors.amber.withValues(alpha: 0.05), Colors.transparent],
           ),
         ),
         child: SafeArea(
@@ -198,7 +213,7 @@ class _EmojiChallengeState extends KingdomGameEngineState<EmojiChallengeGame> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("SURVIVAL", style: TextStyle(color: Colors.amber.withOpacity(0.7), fontSize: 10, fontWeight: FontWeight.bold)),
+            Text("SURVIVAL", style: TextStyle(color: Colors.amber.withValues(alpha: 0.7), fontSize: 10, fontWeight: FontWeight.bold)),
             Text("${_index + 1}/${_data.length}", style: const TextStyle(color: Colors.white70, fontSize: 10)),
           ],
         ),
@@ -221,10 +236,10 @@ class _EmojiChallengeState extends KingdomGameEngineState<EmojiChallengeGame> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 40),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: Colors.white10),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 20)],
       ),
       child: Column(
         children: [
@@ -244,7 +259,7 @@ class _EmojiChallengeState extends KingdomGameEngineState<EmojiChallengeGame> {
       onSubmitted: (_) => _check(),
       decoration: InputDecoration(
         filled: true,
-        fillColor: Colors.white.withOpacity(0.05),
+        fillColor: Colors.white.withValues(alpha: 0.05),
         hintText: "TYPE YOUR ANSWER",
         hintStyle: const TextStyle(color: Colors.white24, fontSize: 14, letterSpacing: 2),
         contentPadding: const EdgeInsets.symmetric(vertical: 20),
@@ -265,7 +280,7 @@ class _EmojiChallengeState extends KingdomGameEngineState<EmojiChallengeGame> {
             minimumSize: const Size(double.infinity, 60),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             elevation: 10,
-            shadowColor: Colors.amber.withOpacity(0.3),
+            shadowColor: Colors.amber.withValues(alpha: 0.3),
           ),
           child: const Text("PROCLAIM ANSWER", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
         ),
@@ -291,6 +306,7 @@ class _GospelKeysState extends KingdomGameEngineState<GospelKeysGame> {
   Timer? _spawnTimer;
   Timer? _fallTimer;
   int _lives = 3;
+  // ignore: unused_field
   double _speed = 5.0; // Fall speed
 
   @override
@@ -327,11 +343,11 @@ class _GospelKeysState extends KingdomGameEngineState<GospelKeysGame> {
             children: List.generate(4, (i) => Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  border: Border(right: BorderSide(color: Colors.white.withOpacity(0.05))),
+                  border: Border(right: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.white.withOpacity(0.02)],
+                    colors: [Colors.transparent, Colors.white.withValues(alpha: 0.02)],
                   ),
                 ),
                 child: GestureDetector(
@@ -401,7 +417,7 @@ class _GospelKeysState extends KingdomGameEngineState<GospelKeysGame> {
             end: Alignment.bottomCenter,
             colors: [Colors.blueAccent, Colors.purpleAccent],
           ),
-          boxShadow: [BoxShadow(color: Colors.blueAccent.withOpacity(0.5), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.blueAccent.withValues(alpha: 0.5), blurRadius: 10)],
         ),
         child: const Center(child: Icon(LucideIcons.music, color: Colors.white70)),
       ),
@@ -520,9 +536,9 @@ class _DavidsSlingState extends KingdomGameEngineState<DavidsSlingGame> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
+                color: Colors.red.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.red.withOpacity(0.5), width: 2),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.5), width: 2),
               ),
               child: const Icon(LucideIcons.flame, size: 60, color: Colors.orange),
             ),
@@ -543,7 +559,7 @@ class BibleHangmanGame extends KingdomGameEngine {
 }
 class _BibleHangmanState extends KingdomGameEngineState<BibleHangmanGame> {
   final String _word = "PENTECOST";
-  List<String> _guessed = [];
+  final List<String> _guessed = [];
   int _wrongs = 0;
   void _guess(String l) {
     if (_guessed.contains(l)) return;
@@ -598,7 +614,9 @@ class _VerseMatchState extends KingdomGameEngineState<VerseMatchGame> {
     return Scaffold(appBar: AppBar(title: const Text("Verse Match")), body: Row(children: [
       Expanded(child: ListView(children: _refs.map((r) => ListTile(title: Text(r), selected: _selRef == r, onTap: () => setState(() => _selRef = r))).toList())),
       Expanded(child: ListView(children: _texts.map((t) => ListTile(title: Text(t), selected: _selTxt == t, onTap: () {
-        setState(() { _selTxt = t; if (_selRef != null) { score += 500; if (score >= 1500) endMatch(); else { _selRef = null; _selTxt = null; } } });
+        setState(() { _selTxt = t; if (_selRef != null) { score += 500; if (score >= 1500) {
+          endMatch();
+        } else { _selRef = null; _selTxt = null; } } });
       })).toList())),
     ]));
   }
@@ -611,13 +629,17 @@ class FisherOfWordsGame extends KingdomGameEngine {
   State<FisherOfWordsGame> createState() => _FisherOfWordsState();
 }
 class _FisherOfWordsState extends KingdomGameEngineState<FisherOfWordsGame> {
-  List<String> _words = ["Faith", "Hope", "Love", "Grace", "Sin"];
+  final List<String> _words = ["Faith", "Hope", "Love", "Grace", "Sin"];
   @override
   Widget build(BuildContext context) {
     return Scaffold(backgroundColor: Colors.blue.shade900, body: Stack(children: _words.map((w) => Positioned(
       left: Random().nextDouble() * 300, top: Random().nextDouble() * 600,
       child: ActionChip(label: Text(w), onPressed: () {
-        setState(() { if (w != "Sin") score += 300; else score -= 500; _words.remove(w); if (_words.isEmpty) endMatch(); });
+        setState(() { if (w != "Sin") {
+          score += 300;
+        } else {
+          score -= 500;
+        } _words.remove(w); if (_words.isEmpty) endMatch(); });
       }),
     )).toList()));
   }
@@ -632,7 +654,7 @@ class JerichoBreakerGame extends KingdomGameEngine {
 
 class _JerichoBreakerState extends KingdomGameEngineState<JerichoBreakerGame> {
   int _hp = 20;
-  int _maxHp = 20;
+  final int _maxHp = 20;
   bool _isShaking = false;
 
   void _shout() {
@@ -656,7 +678,7 @@ class _JerichoBreakerState extends KingdomGameEngineState<JerichoBreakerGame> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.orange.withOpacity(0.1), Colors.black],
+            colors: [Colors.orange.withValues(alpha: 0.1), Colors.black],
           ),
         ),
         child: SafeArea(
@@ -738,7 +760,7 @@ class _JerichoBreakerState extends KingdomGameEngineState<JerichoBreakerGame> {
           color: Colors.amber,
           shape: BoxShape.circle,
           boxShadow: [
-            BoxShadow(color: Colors.amber.withOpacity(0.5), blurRadius: 30, spreadRadius: 5),
+            BoxShadow(color: Colors.amber.withValues(alpha: 0.5), blurRadius: 30, spreadRadius: 5),
           ],
         ),
         child: const Icon(LucideIcons.volume2, size: 60, color: Colors.black),
@@ -792,7 +814,7 @@ class SidomPatternGame extends KingdomGameEngine {
   State<SidomPatternGame> createState() => _SidomPatternState();
 }
 class _SidomPatternState extends KingdomGameEngineState<SidomPatternGame> {
-  List<int> _p = [0, 2, 1, 3], _u = [];
+  final List<int> _p = [0, 2, 1, 3], _u = [];
   @override
   Widget build(BuildContext context) {
     return Scaffold(body: GridView.count(crossAxisCount: 2, children: List.generate(4, (i) => GestureDetector(onTap: () {
@@ -812,7 +834,7 @@ class _GospelRapState extends KingdomGameEngineState<GospelRapGame> {
   Widget build(BuildContext context) {
     return Scaffold(body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       const Text("Finish the Rhyme:", style: TextStyle(fontSize: 18)),
-      const Text("'I was lost but now I\'m found...'"),
+      const Text("'I was lost but now I'm found...'"),
       const SizedBox(height: 20),
       ElevatedButton(onPressed: () { score += 1000; endMatch(); }, child: const Text("'Amazing Grace, how sweet the sound'")),
       ElevatedButton(onPressed: () => endMatch(), child: const Text("'Testing testing 1 2 3'")),

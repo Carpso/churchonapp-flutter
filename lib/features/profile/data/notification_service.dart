@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,11 +27,49 @@ class NotificationService {
 
     await _notificationsPlugin.initialize(settings: initializationSettings);
 
-    // 2. Persistent Supabase Real-time Listener (Proprietary VPS Infrastructure)
-    // Listens for 'notifications' table inserts specifically for the current user.
+    // Request permissions for Android (13+) and iOS
+    try {
+      final androidImplementation = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      if (androidImplementation != null) {
+        await androidImplementation.requestNotificationsPermission();
+      }
+      final iosImplementation = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>();
+      if (iosImplementation != null) {
+        await iosImplementation.requestPermissions(alert: true, badge: true, sound: true);
+      }
+    } catch (e) {
+      debugPrint('Error requesting notification permissions: $e');
+    }
+
     final currentUser = _client.auth.currentUser;
     if (currentUser == null) return;
 
+    // 2. Fetch Catch-up Notifications (sent while phone or app was OFF)
+    try {
+      final unread = await _client
+          .from('notifications')
+          .select()
+          .eq('user_id', currentUser.id)
+          .eq('is_read', false);
+      
+      for (final n in unread) {
+        await _showLocalNotification(
+          n['id'].hashCode,
+          n['title'] ?? 'Kingdom Update',
+          n['body'] ?? '',
+        );
+        await _markAsRead(n['id']);
+      }
+    } catch (e) {
+      debugPrint('Error fetching catch-up notifications: $e');
+    }
+
+    // 3. Persistent Supabase Real-time Listener (Proprietary VPS Infrastructure)
+    // Listens for 'notifications' table inserts specifically for the current user.
     _client
         .from('notifications')
         .stream(primaryKey: ['id'])
@@ -47,8 +86,8 @@ class NotificationService {
             if (latest['is_read'] == false && diff <= 1) {
               _showLocalNotification(
                 latest['id'].hashCode,
-                latest['title'],
-                latest['body'],
+                latest['title'] ?? 'Kingdom Update',
+                latest['body'] ?? '',
               );
               _markAsRead(latest['id']);
             }
@@ -87,7 +126,7 @@ class NotificationService {
   }
 }
 
-final notificationServiceProvider = Provider((ref) {
+final profileNotificationServiceProvider = Provider((ref) {
   final client = ref.watch(supabaseServiceProvider).client;
   return NotificationService(client, ref);
 });

@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/social_service.dart';
 import 'kingdom_klips_screen.dart';
-import 'chat_messenger_screen.dart';
-import '../../modules/media/presentation/kingdom_radio_screen.dart';
-import 'testimonies_screen.dart';
-import 'prayer_wall_screen.dart';
 import 'communities_screen.dart';
 import 'create_social_post_screen.dart';
 import '../../modules/games/presentation/game_hub_screen.dart';
@@ -21,8 +17,6 @@ class ConnectScreen extends StatefulWidget {
 }
 
 class _ConnectScreenState extends State<ConnectScreen> {
-  int _activeTab = 0; // 0: Klips, 1: Communities, 2: Kingdom Life, 3: Kingdom Games
-
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -35,7 +29,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
             padding: const EdgeInsets.only(top: 50, bottom: 10),
             decoration: BoxDecoration(
               color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
             ),
             child: TabBar(
               isScrollable: true,
@@ -72,6 +66,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
           ],
         ),
         floatingActionButton: FloatingActionButton(
+          heroTag: null,
           onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen())),
           backgroundColor: Colors.amber,
           child: const Icon(LucideIcons.plus, color: Colors.black),
@@ -91,24 +86,29 @@ class _ConnectScreenState extends State<ConnectScreen> {
               builder: (context, ref, child) {
                 final postsAsync = ref.watch(socialPostsProvider);
 
-                return ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    _buildChurchSocialHeader(ref),
-                    const SizedBox(height: 20),
-                    postsAsync.when(
-                      data: (posts) => posts.isEmpty 
-                        ? _buildEmptySocialState()
-                        : Column(children: posts.map((p) => _buildRealSocialPost(p)).toList()),
-                      loading: () => const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(40),
-                          child: CircularProgressIndicator(color: Colors.amber),
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(socialPostsProvider);
+                  },
+                  child: ListView(
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      _buildChurchSocialHeader(ref),
+                      const SizedBox(height: 20),
+                      postsAsync.when(
+                        data: (posts) => posts.isEmpty 
+                          ? _buildEmptySocialState()
+                          : Column(children: posts.map((p) => _buildRealSocialPost(p)).toList()),
+                        loading: () => const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(40),
+                            child: CircularProgressIndicator(color: Colors.amber),
+                          ),
                         ),
+                        error: (e, s) => _buildSocialErrorState(e.toString()),
                       ),
-                      error: (e, s) => _buildSocialErrorState(e.toString()),
-                    ),
-                  ],
+                    ],
+                  ),
                 );
               }
             ),
@@ -124,7 +124,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.withOpacity(0.1))),
+        border: Border(bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.1))),
       ),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
@@ -212,7 +212,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,7 +250,28 @@ class _ConnectScreenState extends State<ConnectScreen> {
               ],
             ),
           ),
-          if (post.mediaUrl != null && post.mediaType == 'image')
+          if (post.images.isNotEmpty)
+            SizedBox(
+              height: 250,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: post.images.length,
+                itemBuilder: (context, index) => Container(
+                  width: MediaQuery.of(context).size.width - 30,
+                  margin: const EdgeInsets.only(right: 4),
+                  child: Image.network(
+                    post.images[index], 
+                    width: double.infinity, 
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: Colors.grey[200],
+                      child: const Center(child: Icon(LucideIcons.imageOff, size: 40, color: Colors.grey)),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else if (post.mediaUrl != null && post.mediaType == 'image')
             SizedBox(
               height: 250,
               child: Image.network(
@@ -268,19 +289,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Icon(LucideIcons.heart, size: 24, color: Colors.red),
-                    const SizedBox(width: 6),
-                    Text("${post.likesCount}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    const SizedBox(width: 15),
-                    const Icon(LucideIcons.messageCircle, size: 24),
-                    const SizedBox(width: 15),
-                    const Icon(LucideIcons.send, size: 24),
-                    const Spacer(),
-                    const Icon(LucideIcons.bookmark, size: 24),
-                  ],
-                ),
+                _SocialPostActions(post: post),
                 const SizedBox(height: 10),
                 if (post.content != null && post.content!.isNotEmpty)
                   Text(post.content!, style: const TextStyle(fontSize: 14)),
@@ -302,225 +311,341 @@ class _ConnectScreenState extends State<ConnectScreen> {
   }
 
   Widget _buildChurchSocialHeader(WidgetRef ref) {
-    return Row(
+    final currentFilter = ref.watch(socialFilterProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Church Social", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        const Spacer(),
-        IconButton(
-          icon: const Icon(LucideIcons.plusSquare, color: Colors.amber),
-          onPressed: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen()));
-          },
+        Row(
+          children: [
+            const Text("Church Social", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(LucideIcons.plusSquare, color: Colors.amber),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen()));
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            _buildFilterChip(ref, "All", SocialFeedFilter.all, currentFilter),
+            const SizedBox(width: 8),
+            _buildFilterChip(ref, "My Church", SocialFeedFilter.church, currentFilter),
+            const SizedBox(width: 8),
+            _buildFilterChip(ref, "Friends", SocialFeedFilter.friends, currentFilter),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildKingdomLifeFeature(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildFilterChip(WidgetRef ref, String label, SocialFeedFilter filterValue, SocialFeedFilter currentFilter) {
+    final isSelected = currentFilter == filterValue;
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        ref.read(socialFilterProvider.notifier).setFilter(filterValue);
+      },
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+          color: isSelected ? Colors.amber : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isSelected ? Colors.amber : Colors.grey.shade300),
         ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Icon(icon, color: color, size: 28),
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                ],
-              ),
-            ),
-            const Icon(LucideIcons.chevronRight, color: Colors.grey),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChatHub() {
-    return Container(
-      color: const Color(0xFFFFFAEB),
-      padding: const EdgeInsets.only(top: 110),
-      child: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          const Text("Communities", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 15),
-          _buildCommunityItem("General Grace Group", "Pastor James: God bless you...", "12:45", 3, 'general_grace'),
-          _buildCommunityItem("Youth Ministry", "Sarah: See you at 4pm!", "Yesterday", 0, 'youth_ministry'),
-          const SizedBox(height: 30),
-          const Text("Direct Messages", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 15),
-          Consumer(
-            builder: (context, ref, child) {
-              return FutureBuilder<List<Map<String, dynamic>>>(
-                future: _fetchRecentUsers(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: Colors.amber));
-                  }
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          children: [
-                            Icon(LucideIcons.users, size: 40, color: Colors.grey[300]),
-                            const SizedBox(height: 8),
-                            const Text("No members found yet", style: TextStyle(color: Colors.grey)),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-                  final users = snapshot.data!;
-                  return Column(
-                    children: users.map((u) => _buildUserChatItem(
-                      u['full_name'] ?? 'Member',
-                      u['last_msg'] ?? "Say Shalom!",
-                      "10:30",
-                      0,
-                      u['id'] ?? '',
-                    )).toList(),
-                  );
-                },
-              );
-            },
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.black : Colors.grey.shade600,
           ),
-        ],
+        ),
       ),
     );
   }
+}
 
-  Future<List<Map<String, dynamic>>> _fetchRecentUsers() async {
+/// Stateful widget per post for independent like/comment state management
+class _SocialPostActions extends ConsumerStatefulWidget {
+  final SocialPost post;
+  const _SocialPostActions({required this.post});
+
+  @override
+  ConsumerState<_SocialPostActions> createState() => _SocialPostActionsState();
+}
+
+class _SocialPostActionsState extends ConsumerState<_SocialPostActions> {
+  late int _likeCount;
+  bool _liked = false;
+  bool _likeLoading = false;
+  bool _saved = false;
+  late int _commentsCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _likeCount = widget.post.likesCount;
+    _commentsCount = widget.post.commentsCount;
+    _loadLikeState();
+  }
+
+  Future<void> _loadLikeState() async {
+    final service = ref.read(socialServiceProvider);
+    final liked = await service.hasLiked(widget.post.id);
+    if (mounted) setState(() => _liked = liked);
+  }
+
+  Future<void> _handleLike() async {
+    if (_likeLoading) return;
+    setState(() => _likeLoading = true);
     try {
-      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-      if (currentUserId == null) return [];
-      
-      final res = await Supabase.instance.client
-          .from('profiles')
-          .select('full_name, id')
-          .neq('id', currentUserId)
-          .limit(5);
-      return List<Map<String, dynamic>>.from(res);
-    } catch (e) {
-      debugPrint('Error fetching users: $e');
-      return [];
+      final service = ref.read(socialServiceProvider);
+      final nowLiked = await service.toggleLike(widget.post.id);
+      if (mounted) {
+        setState(() {
+          _liked = nowLiked;
+          _likeCount = (_likeCount + (nowLiked ? 1 : -1)).clamp(0, 999999);
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _likeLoading = false);
     }
   }
 
-  Widget _buildUserChatItem(String name, String lastMsg, String time, int badgeCount, String userId) {
-    String avatar = "https://i.pravatar.cc/150?u=$userId";
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => ChatMessengerScreen(
-            userName: name, 
-            userAvatar: avatar,
-            receiverId: userId,
-          )),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 15),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(radius: 25, backgroundImage: NetworkImage(avatar)),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 4),
-                  Text(lastMsg, style: const TextStyle(color: Colors.grey, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
-            Text(time, style: const TextStyle(color: Colors.grey, fontSize: 10)),
-          ],
-        ),
+  void _showCommentsSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CommentsSheet(
+        postId: widget.post.id,
+        onCommentAdded: () {
+          setState(() {
+            _commentsCount = (_commentsCount + 1).clamp(0, 999999);
+          });
+        },
       ),
     );
   }
 
-  Widget _buildCommunityItem(String title, String lastMsg, String time, int badgeCount, String channelId) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => ChatMessengerScreen(
-            userName: title, 
-            userAvatar: "https://i.pravatar.cc/150?img=${title.length % 50}",
-            receiverId: channelId,
-          )),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 15),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: _handleLike,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              _liked ? LucideIcons.heart : LucideIcons.heart,
+              key: ValueKey(_liked),
+              size: 24,
+              color: _liked ? Colors.red : Colors.grey,
+            ),
+          ),
         ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 25,
-              backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-              child: Icon(LucideIcons.users, color: Theme.of(context).primaryColor),
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.secondary)),
-                  const SizedBox(height: 4),
-                  Text(lastMsg, style: const TextStyle(color: Colors.grey, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-                ],
+        const SizedBox(width: 6),
+        Text("$_likeCount", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        const SizedBox(width: 20),
+        GestureDetector(
+          onTap: _showCommentsSheet,
+          child: Row(
+            children: [
+              const Icon(LucideIcons.messageCircle, size: 24, color: Colors.grey),
+              const SizedBox(width: 6),
+              Text("$_commentsCount", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+        ),
+        const SizedBox(width: 20),
+        GestureDetector(
+          onTap: () {
+            Clipboard.setData(ClipboardData(text: "https://churchonapp.com/posts/${widget.post.id}"));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Post link copied to clipboard!"), backgroundColor: Colors.green),
+            );
+          },
+          child: const Icon(LucideIcons.send, size: 24, color: Colors.grey),
+        ),
+        const Spacer(),
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _saved = !_saved;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(_saved ? "Post saved to bookmarks!" : "Post removed from bookmarks!"),
+                backgroundColor: _saved ? Colors.indigo : Colors.grey,
               ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            );
+          },
+          child: Icon(
+            _saved ? LucideIcons.bookmark : LucideIcons.bookmark,
+            size: 24,
+            color: _saved ? Colors.amber : Colors.grey,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Comments bottom sheet with live loading and add-comment input
+class _CommentsSheet extends ConsumerStatefulWidget {
+  final String postId;
+  final VoidCallback? onCommentAdded;
+  const _CommentsSheet({required this.postId, this.onCommentAdded});
+
+  @override
+  ConsumerState<_CommentsSheet> createState() => _CommentsSheetState();
+}
+
+class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
+  final _commentCtrl = TextEditingController();
+  List<SocialComment> _comments = [];
+  bool _loading = true;
+  bool _sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadComments();
+  }
+
+  @override
+  void dispose() {
+    _commentCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadComments() async {
+    final service = ref.read(socialServiceProvider);
+    final comments = await service.fetchComments(widget.postId);
+    if (mounted) setState(() { _comments = comments; _loading = false; });
+  }
+
+  Future<void> _sendComment() async {
+    final text = _commentCtrl.text.trim();
+    if (text.isEmpty || _sending) return;
+    setState(() => _sending = true);
+    try {
+      final service = ref.read(socialServiceProvider);
+      await service.addComment(widget.postId, text);
+      _commentCtrl.clear();
+      await _loadComments();
+      if (widget.onCommentAdded != null) {
+        widget.onCommentAdded!();
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.75,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 20),
+          const Text("Comments", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          const Divider(height: 20),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: Colors.amber))
+                : _comments.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(LucideIcons.messageCircle, size: 40, color: Colors.grey[300]),
+                            const SizedBox(height: 10),
+                            const Text("No comments yet. Be the first!", style: TextStyle(color: Colors.grey)),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        itemCount: _comments.length,
+                        itemBuilder: (context, index) {
+                          final c = _comments[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 18,
+                                  backgroundImage: c.userAvatar != null ? NetworkImage(c.userAvatar!) : null,
+                                  child: c.userAvatar == null ? Text((c.userName ?? 'M')[0]) : null,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[50],
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(c.userName ?? 'Member', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                        const SizedBox(height: 4),
+                                        Text(c.content, style: const TextStyle(fontSize: 14)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+            child: Row(
               children: [
-                Text(time, style: const TextStyle(color: Colors.grey, fontSize: 10)),
-                const SizedBox(height: 8),
-                if (badgeCount > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: Theme.of(context).primaryColor, shape: BoxShape.circle),
-                    child: Text(badgeCount.toString(), style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                Expanded(
+                  child: TextField(
+                    controller: _commentCtrl,
+                    decoration: InputDecoration(
+                      hintText: "Write a comment...",
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(25), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    ),
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _sendComment(),
                   ),
+                ),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: _sendComment,
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: const BoxDecoration(color: Colors.amber, shape: BoxShape.circle),
+                    child: _sending
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                        : const Icon(LucideIcons.send, color: Colors.black, size: 20),
+                  ),
+                ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

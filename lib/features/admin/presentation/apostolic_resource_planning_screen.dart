@@ -14,7 +14,7 @@ class ApostolicResourcePlanningScreen extends ConsumerStatefulWidget {
 class _ApostolicResourcePlanningScreenState extends ConsumerState<ApostolicResourcePlanningScreen> {
   List<Map<String, dynamic>> _hubs = [];
   bool _isLoading = false;
-  Map<String, Map<String, dynamic>> _predictions = {};
+  final Map<String, Map<String, dynamic>> _predictions = {};
 
   @override
   void initState() {
@@ -75,7 +75,7 @@ class _ApostolicResourcePlanningScreenState extends ConsumerState<ApostolicResou
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,7 +130,7 @@ class _ApostolicResourcePlanningScreenState extends ConsumerState<ApostolicResou
         const SizedBox(height: 15),
         Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: Colors.blueAccent.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
+          decoration: BoxDecoration(color: Colors.blueAccent.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(10)),
           child: Text(
             prediction['prophetic_justification'],
             style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.black87),

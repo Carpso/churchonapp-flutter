@@ -39,8 +39,8 @@ class PropheticHeatmapScreen extends ConsumerWidget {
                     decoration: BoxDecoration(
                       gradient: RadialGradient(
                         colors: [
-                          Colors.red.withValues(alpha: 0.6 * p['weight']),
-                          Colors.orange.withValues(alpha: 0.3 * p['weight']),
+                          Colors.red.withValues(alpha: (0.6 * p['weight']!).clamp(0.0, 1.0)),
+                          Colors.orange.withValues(alpha: (0.3 * p['weight']!).clamp(0.0, 1.0)),
                           Colors.transparent,
                         ],
                       ),
@@ -67,7 +67,7 @@ class PropheticHeatmapScreen extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B).withOpacity(0.9),
+          color: const Color(0xFF1E293B).withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.white10),
         ),
@@ -138,7 +138,7 @@ class PropheticHeatmapScreen extends ConsumerWidget {
                 ),
                 const SizedBox(width: 15),
                 Container(
-                   decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(15)),
+                   decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15)),
                    child: IconButton(
                      icon: const Icon(LucideIcons.refreshCw, color: Colors.white, size: 20), 
                      onPressed: () async {
@@ -148,6 +148,7 @@ class PropheticHeatmapScreen extends ConsumerWidget {
                           await admin.generatePropheticDataPoint(-15.3875 + (0.05 * i), 28.3228 + (0.05 * i), weight: 0.8 + (0.05 * i), region: "Lusaka Exp Hub");
                         }
                         await admin.generatePropheticDataPoint(-15.4200, 28.3100, weight: 1.0, region: "Chilenje Mission");
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Prophetic Data synchronized from VPS.")));
                      },
                    ),

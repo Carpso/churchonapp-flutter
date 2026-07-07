@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/supabase_service.dart';
@@ -5,7 +6,9 @@ import 'ride_request_model.dart';
 import 'delivery_model.dart';
 import '../../../core/services/sms_service.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:uuid/uuid.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../../../core/config/env.dart';
 
 class RideRegistration {
   final String id;
@@ -76,7 +79,7 @@ class TransportService {
     if (user == null) return null;
 
     final request = RideRequest(
-      id: const Uuid().v4(),
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       riderId: user.id,
       pickup: start,
       destination: dest,
@@ -144,7 +147,7 @@ class TransportService {
         );
       }
     } catch (e) {
-      print("SMS Alert Failed: $e");
+      debugPrint("transport_service: SMS Alert Failed: $e");
     }
   }
 
@@ -157,37 +160,123 @@ class TransportService {
     }
   }
 
+  Future<void> confirmRidePayment(String requestId, double fare) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    // Hold fare in escrow (deduct from rider's coins)
+    await _updateUserBalance(user.id, -fare);
+    await _client.from('ride_requests').update({
+      'status': 'confirmed',
+      'escrow_held': true,
+    }).eq('id', requestId);
+
+    // Log escrow transaction
+    await _client.from('wallet_transactions').insert({
+      'user_id': user.id,
+      'amount': -fare,
+      'type': 'ride_escrow',
+      'reference_id': requestId,
+      'description': 'Ride fare held in escrow pending completion',
+      'platform_fee': 0.0,
+    });
+  }
+
   Future<void> _settleRide(String requestId) async {
     // 1. Fetch ride details
-    final res = await _client.from('ride_requests').select('rider_id, driver_id, offered_fare').eq('id', requestId).single();
+    final res = await _client.from('ride_requests').select('rider_id, driver_id, offered_fare, escrow_held').eq('id', requestId).single();
     final riderId = res['rider_id'];
     final driverId = res['driver_id'];
     final fare = (res['offered_fare'] as num).toDouble();
+    final escrowHeld = res['escrow_held'] ?? false;
 
     if (driverId == null) return;
 
-    // 2. Transfer Coins
-    // Deduct from Rider
-    await _updateUserBalance(riderId, -fare);
-    // Add to Driver
-    await _updateUserBalance(driverId, fare);
+    final platformCut = fare * 0.10;
+    final netEarning = fare - platformCut;
 
-    // 3. Log Transaction
+    // 2. Transfer Coins
+    if (!escrowHeld) {
+      // Legacy: deduct from rider now
+      await _updateUserBalance(riderId, -fare);
+    }
+    // Release from escrow: pay net earning to Driver
+    await _updateUserBalance(driverId, netEarning);
+    // Add cut to Central Treasury
+    await _updateUserBalance('00000000-0000-0000-0000-000000000000', platformCut);
+
+    // Update ride request with platform fee
+    await _client.from('ride_requests').update({
+      'platform_fee': platformCut,
+    }).eq('id', requestId);
+
+    // 3. Log Transactions
     await _client.from('wallet_transactions').insert({
       'user_id': riderId,
       'amount': -fare,
       'type': 'ride_payment',
       'reference_id': requestId,
-      'description': 'Payment for Kingdom Ride',
+      'description': 'Payment for Kingdom Ride (10% platform cut applied)',
+      'platform_fee': platformCut,
     });
 
     await _client.from('wallet_transactions').insert({
       'user_id': driverId,
-      'amount': fare,
+      'amount': netEarning,
       'type': 'ride_earning',
       'reference_id': requestId,
-      'description': 'Earning from Kingdom Ride',
+      'description': 'Earning from Kingdom Ride (10% platform cut applied)',
+      'platform_fee': platformCut,
     });
+
+    await _client.from('wallet_transactions').insert({
+      'user_id': '00000000-0000-0000-0000-000000000000',
+      'amount': platformCut,
+      'type': 'platform_cut_revenue',
+      'reference_id': requestId,
+      'description': 'Platform revenue cut from ride request $requestId',
+      'platform_fee': 0.0,
+    });
+
+    // 4. Trigger Real MoMo Payout to Driver
+    try {
+      final driverProfile = await _client.from('profiles').select('phone_number, full_name').eq('id', driverId).single();
+      final driverPhone = driverProfile['phone_number'];
+
+      if (driverPhone != null && driverPhone.toString().trim().isNotEmpty) {
+        final String apiKey = Env.lipilaApiKey;
+        final String baseUrl = apiKey.startsWith('lsk_') 
+            ? "https://blz.lipila.io/api" 
+            : "https://api.lipila.dev/api";
+
+        String targetPhone = driverPhone.toString().replaceAll(RegExp(r'\D'), '');
+        if (targetPhone.startsWith('0')) targetPhone = '260${targetPhone.substring(1)}';
+        if (targetPhone.startsWith('9')) targetPhone = '260$targetPhone';
+        if (targetPhone.length == 9) targetPhone = '260$targetPhone';
+
+        final payoutRef = "RIDE-DISB-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}";
+        
+        await http.post(
+          Uri.parse("$baseUrl/v1/payouts/mobile-money"),
+          headers: {
+            "x-api-key": apiKey,
+            "Content-Type": "application/json",
+            "accept": "application/json",
+          },
+          body: jsonEncode({
+            "callbackUrl": Env.lipilaPayoutWebhookUrl,
+            "referenceId": payoutRef,
+            "amount": netEarning,
+            "narration": "Ride payout $requestId",
+            "accountNumber": targetPhone,
+            "currency": "ZMW",
+            "email": "driver-payouts@churchonapp.com"
+          }),
+        );
+      }
+    } catch (e) {
+      debugPrint("transport_service: Driver ride payout failed: $e");
+    }
   }
 
   Future<void> _updateUserBalance(String userId, double delta) async {
@@ -220,12 +309,15 @@ class TransportService {
     required String category,
     required String weight,
     required double fare,
+    String? vendorPhone,
+    String? vendorName,
+    double? itemPrice,
   }) async {
     final user = _client.auth.currentUser;
     if (user == null) return null;
 
     final request = DeliveryRequest(
-      id: const Uuid().v4(),
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       senderId: user.id,
       itemDescription: desc,
       itemCategory: category,
@@ -235,6 +327,9 @@ class TransportService {
       fare: fare,
       status: 'pending',
       createdAt: DateTime.now(),
+      vendorPhone: vendorPhone,
+      vendorName: vendorName,
+      itemPrice: itemPrice,
     );
 
     await _client.from('delivery_requests').insert(request.toMap());
@@ -283,7 +378,7 @@ class TransportService {
         );
       }
     } catch (e) {
-      print("SMS Alert Failed: $e");
+      debugPrint("transport_service: SMS Alert Failed: $e");
     }
   }
 
@@ -297,33 +392,140 @@ class TransportService {
   }
 
   Future<void> _settleDelivery(String deliveryId) async {
-    final res = await _client.from('delivery_requests').select('sender_id, driver_id, offered_fare, item_description').eq('id', deliveryId).single();
+    final res = await _client
+        .from('delivery_requests')
+        .select('sender_id, driver_id, offered_fare, item_description, vendor_phone, vendor_name, item_price')
+        .eq('id', deliveryId)
+        .single();
     final senderId = res['sender_id'];
     final driverId = res['driver_id'];
     final fare = (res['offered_fare'] as num).toDouble();
 
     if (driverId == null) return;
 
-    // Transfer Coins
-    await _updateUserBalance(senderId, -fare);
-    await _updateUserBalance(driverId, fare);
+    final platformCut = fare * 0.10;
+    final netEarning = fare - platformCut;
 
-    // Log Transaction
+    // Transfer Coins
+    // Deduct full fare from Sender
+    await _updateUserBalance(senderId, -fare);
+    // Add net earning to Courier
+    await _updateUserBalance(driverId, netEarning);
+    // Add cut to Central Treasury
+    await _updateUserBalance('00000000-0000-0000-0000-000000000000', platformCut);
+
+    // Update delivery request with platform fee
+    await _client.from('delivery_requests').update({
+      'platform_fee': platformCut,
+    }).eq('id', deliveryId);
+
+    // Log Transactions
     await _client.from('wallet_transactions').insert({
       'user_id': senderId,
       'amount': -fare,
       'type': 'delivery_payment',
       'reference_id': deliveryId,
-      'description': 'Payment for Cargo: ${res['item_description']}',
+      'description': 'Payment for Cargo: ${res['item_description']} (10% platform cut applied)',
+      'platform_fee': platformCut,
     });
 
     await _client.from('wallet_transactions').insert({
       'user_id': driverId,
-      'amount': fare,
+      'amount': netEarning,
       'type': 'delivery_earning',
       'reference_id': deliveryId,
-      'description': 'Earning from Cargo mission',
+      'description': 'Earning from Cargo mission (10% platform cut applied)',
+      'platform_fee': platformCut,
     });
+
+    await _client.from('wallet_transactions').insert({
+      'user_id': '00000000-0000-0000-0000-000000000000',
+      'amount': platformCut,
+      'type': 'platform_cut_revenue',
+      'reference_id': deliveryId,
+      'description': 'Platform revenue cut from cargo request $deliveryId',
+      'platform_fee': 0.0,
+    });
+
+    // 1. Trigger Real MoMo Payout to courier/driver for the delivery fare
+    try {
+      final driverProfile = await _client.from('profiles').select('phone_number, full_name').eq('id', driverId).single();
+      final driverPhone = driverProfile['phone_number'];
+
+      if (driverPhone != null && driverPhone.toString().trim().isNotEmpty) {
+        final String apiKey = Env.lipilaApiKey;
+        final String baseUrl = apiKey.startsWith('lsk_') 
+            ? "https://blz.lipila.io/api" 
+            : "https://api.lipila.dev/api";
+
+        String targetPhone = driverPhone.toString().replaceAll(RegExp(r'\D'), '');
+        if (targetPhone.startsWith('0')) targetPhone = '260${targetPhone.substring(1)}';
+        if (targetPhone.startsWith('9')) targetPhone = '260$targetPhone';
+        if (targetPhone.length == 9) targetPhone = '260$targetPhone';
+
+        final payoutRef = "DELIV-DISB-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}";
+        
+        await http.post(
+          Uri.parse("$baseUrl/v1/payouts/mobile-money"),
+          headers: {
+            "x-api-key": apiKey,
+            "Content-Type": "application/json",
+            "accept": "application/json",
+          },
+          body: jsonEncode({
+            "callbackUrl": Env.lipilaPayoutWebhookUrl,
+            "referenceId": payoutRef,
+            "amount": netEarning,
+            "narration": "Delivery payout: $deliveryId",
+            "accountNumber": targetPhone,
+            "currency": "ZMW",
+            "email": "driver-payouts@churchonapp.com"
+          }),
+        );
+      }
+    } catch (e) {
+      debugPrint("transport_service: Courier delivery payout failed: $e");
+    }
+
+    // 2. Release Escrow Payout to Marketplace Vendor (Goods confirmed received/delivered)
+    final vendorPhone = res['vendor_phone'];
+    final itemPrice = res['item_price'] != null ? (res['item_price'] as num).toDouble() : 0.0;
+
+    if (vendorPhone != null && vendorPhone.toString().trim().isNotEmpty && itemPrice > 0) {
+      try {
+        final String apiKey = Env.lipilaApiKey;
+        final String baseUrl = apiKey.startsWith('lsk_') 
+            ? "https://blz.lipila.io/api" 
+            : "https://api.lipila.dev/api";
+
+        String targetPhone = vendorPhone.toString().replaceAll(RegExp(r'\D'), '');
+        if (targetPhone.startsWith('0')) targetPhone = '260${targetPhone.substring(1)}';
+        if (targetPhone.startsWith('9')) targetPhone = '260$targetPhone';
+        if (targetPhone.length == 9) targetPhone = '260$targetPhone';
+
+        final payoutRef = "MARKET-RELEASE-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}";
+        
+        await http.post(
+          Uri.parse("$baseUrl/v1/payouts/mobile-money"),
+          headers: {
+            "x-api-key": apiKey,
+            "Content-Type": "application/json",
+            "accept": "application/json",
+          },
+          body: jsonEncode({
+            "callbackUrl": Env.lipilaPayoutWebhookUrl,
+            "referenceId": payoutRef,
+            "amount": itemPrice,
+            "narration": "Market escrow release: ${res['item_description']}",
+            "accountNumber": targetPhone,
+            "currency": "ZMW",
+            "email": "vendor-payouts@churchonapp.com"
+          }),
+        );
+      } catch (e) {
+        debugPrint("transport_service: Vendor escrow payout release failed: $e");
+      }
+    }
   }
 
   Stream<DeliveryRequest?> getMyDeliveryStream() {

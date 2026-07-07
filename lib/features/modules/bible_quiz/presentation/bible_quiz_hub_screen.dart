@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/providers/profile_provider.dart';
 import '../data/bible_quiz_service.dart';
 import 'bible_quiz_arena_screen.dart';
+import 'quiz_event_lobby_screen.dart';
 
 class BibleQuizHubScreen extends ConsumerStatefulWidget {
   const BibleQuizHubScreen({super.key});
@@ -12,8 +14,7 @@ class BibleQuizHubScreen extends ConsumerStatefulWidget {
 }
 
 class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
-  // Simulate if the current user is a superadmin or Church On App employee
-  final bool _isSuperAdmin = true; 
+  // No longer hardcoded
 
   void _startP2P(String mode) {
     Navigator.push(context, MaterialPageRoute(builder: (context) => BibleQuizArenaScreen(mode: mode)));
@@ -42,7 +43,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
               decoration: BoxDecoration(
                 gradient: const LinearGradient(colors: [Color(0xFF6A11CB), Color(0xFF2575FC)]),
                 borderRadius: BorderRadius.circular(25),
-                boxShadow: [BoxShadow(color: const Color(0xFF2575FC).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10))],
+                boxShadow: [BoxShadow(color: const Color(0xFF2575FC).withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,6 +110,68 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
 
             // UPCI-style question formats (anonymized)
             const SizedBox(height: 30),
+            // Premium Events
+            const SizedBox(height: 24),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const QuizEventLobbyScreen()),
+                );
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.greenAccent.withAlpha(30),
+                      Colors.tealAccent.withAlpha(15),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.greenAccent.withAlpha(50)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.greenAccent.withAlpha(25),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(LucideIcons.trophy, color: Colors.greenAccent, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Premium Quiz Events',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Compete for prizes • Hosted by churches • Buy a pass & play',
+                            style: TextStyle(color: Colors.white54, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(LucideIcons.chevronRight, color: Colors.greenAccent, size: 20),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+
             const Text("STANDARDIZED QUESTION FORMATS", style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
             const SizedBox(height: 15),
             SizedBox(
@@ -141,7 +204,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             ),
             
             // Admin Question Seeding (Restricted)
-                if (_isSuperAdmin) ...[
+            if (ref.watch(profileProvider).value?.isEmployee == true) ...[
                   const SizedBox(height: 15),
                   _buildActionTile(
                     "Superadmin: AI Question Seeding",
@@ -166,7 +229,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       decoration: BoxDecoration(
         gradient: const LinearGradient(colors: [Color(0xFF6A11CB), Color(0xFF2575FC)]),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.blue.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -202,8 +265,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   }
 
   void _showTournamentAccess(BuildContext context) {
-    // Check if the church has paid for the season (mock check)
-    const bool hasPaid = false; 
+    // TODO: Check if the church has paid for the season
+    bool hasPaid = false; 
 
     if (!hasPaid) {
       showModalBottomSheet(
@@ -236,9 +299,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
           ),
         ),
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Welcome to the Tournament! Arena Opening...")));
     }
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Welcome to the Tournament! Arena Opening...")));
   }
 
   Widget _buildP2PCard(String title, String subtitle, IconData icon, Color iconColor, VoidCallback onTap) {
@@ -247,9 +309,9 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       child: Container(
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: iconColor.withOpacity(0.1),
+          color: iconColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: iconColor.withOpacity(0.2)),
+          border: Border.all(color: iconColor.withValues(alpha: 0.2)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,14 +333,14 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.white10),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: iconColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: iconColor)),
+            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: iconColor)),
             const SizedBox(height: 15),
             Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
             Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 11)),
@@ -293,10 +355,10 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       width: 160,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: iconColor.withOpacity(0.1),
+        color: iconColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: iconColor.withOpacity(0.2)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5))],
+        border: Border.all(color: iconColor.withValues(alpha: 0.2)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 5))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,13 +378,13 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.white10),
         ),
         child: Row(
           children: [
-            Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: iconColor.withOpacity(0.1), borderRadius: BorderRadius.circular(15)), child: Icon(icon, color: iconColor, size: 24)),
+            Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)), child: Icon(icon, color: iconColor, size: 24)),
             const SizedBox(width: 15),
             Expanded(
               child: Column(
@@ -399,14 +461,17 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text("Lease Quizzing Engine", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                    const Expanded(child: Text("Lease Quizzing Engine", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900))),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text("ZMW", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                        Switch(value: isUsd, activeColor: Colors.green, onChanged: (v) => setState(() => isUsd = v)),
-                        const Text("USD", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                        Switch(value: isUsd, activeThumbColor: Colors.green, onChanged: (v) => setState(() => isUsd = v)),
+                        const Padding(
+                          padding: EdgeInsets.only(right: 4),
+                          child: Text("USD", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                        ),
                       ],
                     )
                   ],
@@ -480,7 +545,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(30),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10, style: BorderStyle.none)),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10, style: BorderStyle.none)),
               child: const Column(
                 children: [
                   Icon(LucideIcons.fileText, size: 40, color: Colors.white54),
@@ -510,9 +575,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("AI Engine Processing & Seeding DB...")));
                 await ref.read(bibleQuizServiceProvider).seedQuestions();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Database seeded with 200+ canonical questions! 🚀")));
-                }
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Database seeded with 200+ canonical questions! 🚀")));
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.pinkAccent,

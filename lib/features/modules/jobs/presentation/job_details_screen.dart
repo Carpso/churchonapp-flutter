@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../data/job_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/jobs_service.dart';
 import 'package:church_on_app/core/providers/auth_provider.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
-import 'package:uuid/uuid.dart';
-import 'manage_applications_screen.dart';
 
 class JobDetailsScreen extends ConsumerWidget {
   final Job job;
@@ -24,7 +23,7 @@ class JobDetailsScreen extends ConsumerWidget {
     }
 
     final application = JobApplication(
-      id: const Uuid().v4(),
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       jobId: job.id,
       applicantId: user.id,
       applicantName: profile?.name ?? "Kingdom Citizen",
@@ -66,7 +65,7 @@ class JobDetailsScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
@@ -90,10 +89,21 @@ class JobDetailsScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 30),
-            _buildInfoRow(LucideIcons.mapPin, "Location", job.location),
-            _buildInfoRow(LucideIcons.clock, "Job Type", job.type),
-            if (job.salary != null) _buildInfoRow(LucideIcons.banknote, "Salary / Stipend", job.salary!),
-            _buildInfoRow(LucideIcons.mail, "Contact", job.contact),
+            _buildInfoRow(context, LucideIcons.mapPin, "Location", job.location),
+            _buildInfoRow(context, LucideIcons.clock, "Job Type", job.type),
+            if (job.salary != null) _buildInfoRow(context, LucideIcons.banknote, "Salary / Stipend", job.salary!),
+            _buildInfoRow(context, LucideIcons.mail, "Contact", job.contact, onTap: () async {
+              final uri = Uri.tryParse(job.contact);
+              if (uri != null && await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              } else {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Could not open: ${job.contact}")),
+                  );
+                }
+              }
+            }),
             const Divider(height: 40),
             const Text("Job Description", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
@@ -125,21 +135,24 @@ class JobDetailsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 15),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Colors.grey),
-          const SizedBox(width: 15),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1)),
-              Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ],
+  Widget _buildInfoRow(BuildContext context, IconData icon, String label, String value, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 15),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: onTap != null ? Theme.of(context).primaryColor : Colors.grey),
+            const SizedBox(width: 15),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: onTap != null ? Theme.of(context).primaryColor : null, decoration: onTap != null ? TextDecoration.underline : null)),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'transport_service.dart';
@@ -39,7 +40,7 @@ class LocationTrackerService {
       (Position position) {
         _syncLocationToCloud(position);
       },
-      onError: (e) => print("Location Tracking Error: $e"),
+      onError: (e) => debugPrint("Location Tracking Error: $e"),
     );
   }
 
@@ -71,7 +72,7 @@ class LocationTrackerService {
     );
     
     _lastUpdate = now;
-    print("[SYNC] GPS Heartbeat: ${position.latitude}, ${position.longitude}");
+    debugPrint("[SYNC] GPS Heartbeat: ${position.latitude}, ${position.longitude}");
   }
 }
 

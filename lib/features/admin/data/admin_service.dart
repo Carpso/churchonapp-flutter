@@ -42,7 +42,11 @@ class AdminService {
   Future<double> getTotalTransactionVolume() async {
     final res = await _client.from('wallet_transactions').select('amount');
     final data = res as List;
-    return data.fold<double>(0.0, (sum, item) => sum + (item['amount'] as num).toDouble().abs());
+    return data.fold<double>(0.0, (sum, item) {
+      final amt = item['amount'];
+      if (amt == null) return sum;
+      return sum + (amt as num).toDouble().abs();
+    });
   }
 
   Future<Map<String, double>> getMonthlyFinancialStats() async {
@@ -60,8 +64,9 @@ class AdminService {
       final amt = (item['amount'] as num).toDouble().abs();
       final type = item['type'] as String;
       
-      if (type.contains('ride')) rides += amt;
-      else if (type.contains('delivery')) deliveries += amt;
+      if (type.contains('ride')) {
+        rides += amt;
+      } else if (type.contains('delivery')) deliveries += amt;
       else if (type == 'tithe' || type == 'giving') tithes += amt;
     }
     
@@ -146,8 +151,9 @@ class AdminService {
 
   /// Verifies a driver's payout status and settles any pending balance discrepancies.
   Future<void> verifyDriverPayout(String driverId) async {
-    final res = await _client.from('profiles').select('coins, full_name').eq('id', driverId).single();
-    final coins = (res['coins'] as num).toDouble();
+    final res = await _client.from('profiles').select('coins, full_name').eq('id', driverId).maybeSingle();
+    if (res == null) return;
+    final coins = (res['coins'] as num?)?.toDouble() ?? 0.0;
     
     // Log verification event
     await _client.from('wallet_transactions').insert({
@@ -161,9 +167,10 @@ class AdminService {
   // --- Multi-Currency Wallet Management ---
 
   Future<void> updateMultiCurrencyBalance(String userId, {double? addCC, double? addZMW}) async {
-    final profile = await _client.from('profiles').select('balance_cc, balance_zmw').eq('id', userId).single();
-    final newCC = (profile['balance_cc'] as num).toDouble() + (addCC ?? 0);
-    final newZMW = (profile['balance_zmw'] as num).toDouble() + (addZMW ?? 0);
+    final profile = await _client.from('profiles').select('balance_cc, balance_zmw').eq('id', userId).maybeSingle();
+    if (profile == null) return;
+    final newCC = ((profile['balance_cc'] as num?)?.toDouble() ?? 0.0) + (addCC ?? 0);
+    final newZMW = ((profile['balance_zmw'] as num?)?.toDouble() ?? 0.0) + (addZMW ?? 0);
 
     await _client.from('profiles').update({
       'balance_cc': newCC,
@@ -206,9 +213,9 @@ class AdminService {
     }
   }
 
-  // --- Lenco Global Payout Automation ---
+  // --- Lipila Global Payout Automation ---
 
-  Future<Map<String, dynamic>> executeLencoPayout({
+  Future<Map<String, dynamic>> executeLipilaPayout({
     required String userId,
     required double amount,
     required String phone,
@@ -224,9 +231,9 @@ class AdminService {
     }).select().single();
 
     try {
-      // In a real production environment, this would call http.post to Lenco Payout API
-      // For this high-fidelity protocol, we simulate the Lenco Settlement success
-      final reference = "LENCO-PAY-${DateTime.now().millisecondsSinceEpoch}";
+      // In a real production environment, this would call http.post to Lipila Payout API
+      // For this high-fidelity protocol, we simulate the Lipila Settlement success
+      final reference = "LIPILA-PAY-${DateTime.now().millisecondsSinceEpoch}";
       
       await _client.from('lenco_payouts').update({
         'status': 'successful',

@@ -2,15 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/providers/profile_provider.dart';
-import 'package:church_on_app/features/admin/data/admin_service.dart';
 
 class MultiCurrencyWalletScreen extends ConsumerWidget {
   const MultiCurrencyWalletScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(profileProvider).value;
+    final profileAsync = ref.watch(profileProvider);
+    return profileAsync.when(
+      data: (profile) => _buildScreen(context, profile),
+      loading: () => const Scaffold(
+        backgroundColor: Color(0xFFFFFAEB),
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, st) => Scaffold(
+        backgroundColor: Color(0xFFFFFAEB),
+        body: Center(child: Text('Error loading profile: $e')),
+      ),
+    );
+  }
 
+  Widget _buildScreen(BuildContext context, UserProfile? profile) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
@@ -25,7 +37,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
             _buildCurrencyTile(
               context, 
               "Zambian Kwacha", 
-              "K ${profile?.balanceZmw?.toStringAsFixed(2) ?? '0.00'}", 
+              "K ${profile?.balanceZmw.toStringAsFixed(2) ?? '0.00'}", 
               Colors.green, 
               LucideIcons.banknote
             ),
@@ -33,7 +45,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
             _buildCurrencyTile(
               context, 
               "Kingdom Coins (CC)", 
-              "${profile?.balanceCc?.toStringAsFixed(2) ?? '0.00'} CC", 
+              "${profile?.balanceCc.toStringAsFixed(2) ?? '0.00'} CC", 
               Colors.amber, 
               LucideIcons.coins
             ),
@@ -65,7 +77,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(40),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).primaryColor.withOpacity(0.3), 
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.3), 
             blurRadius: 25, 
             offset: const Offset(0, 10)
           )
@@ -86,9 +98,9 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
           const SizedBox(height: 30),
           Row(
             children: [
-              _buildSimpleStat("ZMW", "K ${profile?.balanceZmw?.toInt() ?? 0}"),
+              _buildSimpleStat("ZMW", "K ${profile?.balanceZmw.toInt() ?? 0}"),
               const SizedBox(width: 40),
-              _buildSimpleStat("CC", "${profile?.balanceCc?.toInt() ?? 0}"),
+              _buildSimpleStat("CC", "${profile?.balanceCc.toInt() ?? 0}"),
             ],
           ),
         ],
@@ -112,13 +124,13 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15)],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
             child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(width: 20),
@@ -143,7 +155,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Colors.blueAccent.withOpacity(0.1)),
+        border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.1)),
       ),
       child: const Row(
         children: [
@@ -164,7 +176,30 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
     return Column(
       children: [
         ElevatedButton(
-          onPressed: () {},
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text("Currency Exchange"),
+                content: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Current Exchange Rates:", style: TextStyle(fontWeight: FontWeight.bold)),
+                    SizedBox(height: 10),
+                    Text("1 ZMW → 10 CC"),
+                    Text("1 CC → 0.10 ZMW"),
+                    SizedBox(height: 15),
+                    Text("Exchange fees: 2%", style: TextStyle(color: Colors.grey)),
+                  ],
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CLOSE")),
+                  ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text("EXCHANGE NOW")),
+                ],
+              ),
+            );
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: Theme.of(context).colorScheme.secondary,
             foregroundColor: Colors.white,

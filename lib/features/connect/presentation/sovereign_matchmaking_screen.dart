@@ -38,7 +38,40 @@ class _SovereignMatchmakingScreenState extends State<SovereignMatchmakingScreen>
         actions: [
           IconButton(
             icon: const Icon(LucideIcons.settings),
-            onPressed: () {},
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text("Matchmaking Settings"),
+                  content: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        leading: Icon(LucideIcons.mapPin),
+                        title: Text("Location"),
+                        subtitle: Text("Lusaka, Zambia"),
+                      ),
+                      ListTile(
+                        leading: Icon(LucideIcons.users),
+                        title: Text("Age Range"),
+                        subtitle: Text("18 - 35"),
+                      ),
+                      ListTile(
+                        leading: Icon(LucideIcons.heart),
+                        title: Text("Denomination"),
+                        subtitle: Text("All denominations"),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text("Done"),
+                    ),
+                  ],
+                ),
+              );
+            },
           )
         ],
       ),
@@ -47,7 +80,7 @@ class _SovereignMatchmakingScreenState extends State<SovereignMatchmakingScreen>
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
             child: Row(
               children: [
                 const Icon(LucideIcons.heartHandshake, color: Colors.orange),
@@ -74,7 +107,7 @@ class _SovereignMatchmakingScreenState extends State<SovereignMatchmakingScreen>
                         bottomLeft: msg.isMe ? const Radius.circular(20) : const Radius.circular(0),
                       ),
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5)
                       ]
                     ),
                     child: Text(
@@ -92,7 +125,11 @@ class _SovereignMatchmakingScreenState extends State<SovereignMatchmakingScreen>
             child: SafeArea(
               child: Row(
                 children: [
-                  IconButton(icon: const Icon(LucideIcons.imagePlus, color: Colors.grey), onPressed: () {}),
+                  IconButton(icon: const Icon(LucideIcons.imagePlus, color: Colors.grey), onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Image sharing coming soon"), duration: Duration(seconds: 2)),
+                    );
+                  }),
                   Expanded(
                     child: TextField(
                       controller: _msgController,

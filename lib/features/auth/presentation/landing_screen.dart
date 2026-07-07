@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/expansion_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LandingScreen extends ConsumerWidget {
   const LandingScreen({super.key});
@@ -85,7 +86,7 @@ class LandingScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               color: const Color(0xFFFFF7E6),
               borderRadius: BorderRadius.circular(100),
-              border: Border.all(color: const Color(0xFFFFCC00).withOpacity(0.3)),
+              border: Border.all(color: const Color(0xFFFFCC00).withValues(alpha: 0.3)),
             ),
             child: const Text(
               "✨ CONNECTING CHURCHES THROUGH TECHNOLOGY",
@@ -151,7 +152,7 @@ class LandingScreen extends ConsumerWidget {
           border: Border.all(color: Colors.white10, width: 8),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 100,
               spreadRadius: 10,
             ),
@@ -178,7 +179,7 @@ class LandingScreen extends ConsumerWidget {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(30),
                         boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20)
+                          BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 20)
                         ],
                       ),
                       child: Image.asset("assets/app_logo.png", width: 80, height: 80, errorBuilder: (c,e,s) => const Icon(Icons.church, size: 40)),
@@ -222,8 +223,8 @@ class LandingScreen extends ConsumerWidget {
                 _paymentLogo("assets/logo_mtn.png"),
                 _paymentLogo("assets/logo_zamtel.png"),
                 _partnerLogo("KINGDOM RADIO"),
-                _partnerLogo("RIDE ON APP"),
-                _partnerLogo("LENCO PAY"),
+                _partnerLogo("CARPSO RIDE"),
+                _partnerLogo("MOBILE MONEY"),
               ],
             ),
           ),
@@ -240,7 +241,7 @@ class LandingScreen extends ConsumerWidget {
         style: GoogleFonts.plusJakartaSans(
           fontSize: 16,
           fontWeight: FontWeight.w900,
-          color: Colors.black.withOpacity(0.1),
+          color: Colors.black.withValues(alpha: 0.1),
           letterSpacing: 2,
         ),
       ),
@@ -250,7 +251,7 @@ class LandingScreen extends ConsumerWidget {
   Widget _paymentLogo(String asset) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Image.asset(asset, height: 40, color: Colors.black.withOpacity(0.1), errorBuilder: (c,e,s) => Container()),
+      child: Image.asset(asset, height: 40, color: Colors.black.withValues(alpha: 0.1), errorBuilder: (c,e,s) => Container()),
     );
   }
 
@@ -322,7 +323,7 @@ class LandingScreen extends ConsumerWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(40),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 40, offset: const Offset(0, 20)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 40, offset: const Offset(0, 20)),
         ],
       ),
       child: Column(
@@ -416,10 +417,10 @@ class LandingScreen extends ConsumerWidget {
       width: 280,
       padding: const EdgeInsets.all(35),
       decoration: BoxDecoration(
-        color: isFeatured ? Colors.black : Colors.white.withOpacity(0.9),
+        color: isFeatured ? Colors.black : Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 30, offset: const Offset(0, 15)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 30, offset: const Offset(0, 15)),
         ],
       ),
       child: Column(
@@ -518,18 +519,42 @@ class LandingScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Text("Connecting Churches Through Technology.", style: TextStyle(color: Colors.white.withOpacity(0.4))),
+                  Text("Connecting Churches Through Technology.", style: TextStyle(color: Colors.white.withValues(alpha: 0.4))),
                   const SizedBox(height: 25),
                   _footerContact(Icons.phone, "+260 968 551 110"),
                   _footerContact(Icons.mail, "hello@churchonapp.com"),
                 ],
               ),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _footerLink("Terms"),
-                  _footerLink("Privacy"),
-                  _footerLink("Support"),
-                  _footerLink("Contact"),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _footerHeading("Features"),
+                      _footerLink("Sermons & Teachings", onTap: () => context.push('/sermons')),
+                      _footerLink("Events & Calendars", onTap: () => context.push('/events/0')),
+                      _footerLink("Kingdom Klips", onTap: () => context.push('/klips/0')),
+                      _footerLink("Bible Quiz", onTap: () => {}),
+                      _footerLink("Carpso Ride", onTap: () => context.push('/ride')),
+                      _footerLink("Jobs Portal", onTap: () => context.push('/jobs')),
+                    ],
+                  ),
+                  const SizedBox(width: 40),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _footerHeading("Resources"),
+                      _footerLink("Privacy Policy", onTap: () => context.push('/privacy')),
+                      _footerLink("Terms of Service", onTap: () => context.push('/terms')),
+                      _footerLink("About Us", onTap: () => context.push('/about')),
+                      _footerLink("Support", onTap: () => context.push('/support')),
+                      _footerLink("Contact Us", onTap: () async {
+                        final url = Uri.parse("mailto:hello@churchonapp.com");
+                        if (await canLaunchUrl(url)) await launchUrl(url);
+                      }),
+                    ],
+                  ),
                 ],
               ),
             ],
@@ -545,7 +570,7 @@ class LandingScreen extends ConsumerWidget {
           const SizedBox(height: 40),
           const Divider(color: Colors.white12),
           const SizedBox(height: 20),
-          Text("© 2026 Church On App Global. Powered by Carpso Solutions.", style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12)),
+          Text("© 2026 Church On App Global. Powered by Carpso Solutions.", style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12)),
         ],
       ),
     );
@@ -564,10 +589,20 @@ class LandingScreen extends ConsumerWidget {
     );
   }
 
-  Widget _footerLink(String text) {
+  Widget _footerHeading(String text) {
     return Padding(
-      padding: const EdgeInsets.only(left: 30),
-      child: Text(text, style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+      padding: const EdgeInsets.only(bottom: 15),
+      child: Text(text, style: const TextStyle(color: Colors.amber, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+    );
+  }
+
+  Widget _footerLink(String text, {VoidCallback? onTap}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Text(text, style: const TextStyle(color: Colors.white60, fontSize: 13)),
+      ),
     );
   }
 
@@ -654,6 +689,7 @@ class LandingScreen extends ConsumerWidget {
                       churchName: churchCtrl.text,
                       location: locCtrl.text,
                     );
+                    if (!context.mounted) return;
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text("Thanks! We've logged your interest.")),

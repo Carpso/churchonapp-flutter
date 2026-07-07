@@ -1,50 +1,125 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/features/finance/data/finance_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class FinanceDashboardScreen extends StatelessWidget {
+import 'ledger_screen.dart';
+
+class FinanceDashboardScreen extends ConsumerWidget {
   const FinanceDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final tenant = ref.watch(currentTenantProvider);
+    if (tenant == null) {
+      return const Scaffold(
+        body: Center(child: Text("No Church Selected")),
+      );
+    }
+
+    final ledgerAsync = ref.watch(ledgerStreamProvider(tenant.id));
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text("Financial Oversight", style: TextStyle(fontWeight: FontWeight.bold)),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(25),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSummaryCard(),
-            const SizedBox(height: 30),
-            const Text("Stewardship Analytics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            _buildChartCard("Monthly Giving (K)", _buildLineChart()),
-            const SizedBox(height: 20),
-            _buildChartCard("Contribution Breakdown", _buildPieChart()),
-            const SizedBox(height: 30),
-            const Text("Recent Transactions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 15),
-            _buildTransactionItem("Tithe - John Mwansa", "K 1,200", "15 mins ago", Colors.green),
-            _buildTransactionItem("Marketplace - Bible", "K 150", "30 mins ago", Colors.blue),
-            _buildTransactionItem("Offering - Sunday", "K 4,500", "2 hours ago", Colors.orange),
-            _buildTransactionItem("Mission - Global", "K 2,500", "5 hours ago", Colors.purple),
-          ],
+        title: Text(
+          "${tenant.name} Finance",
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
         ),
+        backgroundColor: theme.colorScheme.surface,
+        foregroundColor: theme.colorScheme.onSurface,
+      ),
+      body: ledgerAsync.when(
+        data: (txs) {
+          double totalBalance = 0.0;
+          double tithesTotal = 0.0;
+          double offeringsTotal = 0.0;
+          double eventsTotal = 0.0;
+          double productsTotal = 0.0;
+
+          final now = DateTime.now();
+          double thisMonthTotal = 0.0;
+
+          for (var tx in txs) {
+            totalBalance += tx.amount;
+            if (tx.createdAt.year == now.year && tx.createdAt.month == now.month) {
+              thisMonthTotal += tx.amount;
+            }
+
+            final cat = tx.category.toLowerCase();
+            if (cat == 'tithe') {
+              tithesTotal += tx.amount;
+            } else if (cat == 'offering') {
+              offeringsTotal += tx.amount;
+            } else if (cat == 'event') {
+              eventsTotal += tx.amount;
+            } else if (cat == 'product') {
+              productsTotal += tx.amount;
+            }
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(ledgerStreamProvider(tenant.id));
+            },
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(25),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                _buildSummaryCard(totalBalance, thisMonthTotal, tithesTotal, offeringsTotal),
+                const SizedBox(height: 30),
+                Text("Stewardship Analytics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                const SizedBox(height: 20),
+                _buildChartCard(theme, "Daily Contribution Trend", _buildLineChart(theme, txs)),
+                const SizedBox(height: 20),
+                _buildChartCard(theme, "Category Breakdown", _buildPieChart(theme, tithesTotal, offeringsTotal, eventsTotal, productsTotal)),
+                const SizedBox(height: 30),
+                Text("Recent Transactions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                const SizedBox(height: 15),
+                if (txs.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Center(child: Text("No transactions recorded yet.", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)))),
+                  )
+                else
+                  ...txs.take(5).map((tx) {
+                    Color catColor = Colors.blue;
+                    final cat = tx.category.toLowerCase();
+                    if (cat == 'tithe') catColor = Colors.green;
+                    if (cat == 'offering') catColor = Colors.orange;
+                    if (cat == 'event') catColor = Colors.purple;
+
+                    return _buildTransactionItem(theme,
+                      "${tx.category.toUpperCase()} - ${tx.reference.substring(0, tx.reference.length > 8 ? 8 : tx.reference.length)}",
+                      "K ${tx.amount.toStringAsFixed(2)}",
+                      "${tx.createdAt.day}/${tx.createdAt.month} ${tx.createdAt.hour}:${tx.createdAt.minute}",
+                      catColor,
+                    );
+                  }),
+              ],
+            ),
+          ),
+          );
+        },
+        loading: () => Center(child: CircularProgressIndicator(color: theme.primaryColor)),
+        error: (err, st) => Center(child: Text("Error loading financial reports: $err")),
       ),
     );
   }
 
-  Widget _buildSummaryCard() {
+  Widget _buildSummaryCard(double total, double monthly, double tithes, double offerings) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -52,18 +127,18 @@ class FinanceDashboardScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("KINGDOM TREASURY", style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-                  SizedBox(height: 5),
-                  Text("K 245,500.00", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
+                  const Text("KINGDOM TREASURY", style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                  const SizedBox(height: 5),
+                  Text("K ${total.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900)),
                 ],
               ),
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
-                child: const Icon(LucideIcons.landmark, color: Colors.blueAccent, size: 28),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+                child: const Icon(LucideIcons.landmark, color: Colors.amber, size: 28),
               ),
             ],
           ),
@@ -73,9 +148,9 @@ class FinanceDashboardScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildMiniStat("This Month", "K 12.4k", LucideIcons.trendingUp, Colors.green),
-              _buildMiniStat("Missions", "K 4.2k", LucideIcons.globe, Colors.purple),
-              _buildMiniStat("OpEx", "K 8.1k", LucideIcons.activity, Colors.orange),
+              _buildMiniStat("This Month", "K ${monthly.toInt()}", LucideIcons.trendingUp, Colors.green),
+              _buildMiniStat("Tithes", "K ${tithes.toInt()}", LucideIcons.heart, Colors.purple),
+              _buildMiniStat("Offerings", "K ${offerings.toInt()}", LucideIcons.coins, Colors.orange),
             ],
           ),
         ],
@@ -99,18 +174,18 @@ class FinanceDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildChartCard(String title, Widget chart) {
+  Widget _buildChartCard(ThemeData theme, String title, Widget chart) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: theme.colorScheme.onSurface)),
           const SizedBox(height: 20),
           SizedBox(height: 180, child: chart),
         ],
@@ -118,7 +193,22 @@ class FinanceDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLineChart() {
+  Widget _buildLineChart(ThemeData theme, List<Transaction> txs) {
+    final Map<String, double> dailyTotals = {};
+    for (var tx in txs) {
+      final dateKey = "${tx.createdAt.month}/${tx.createdAt.day}";
+      dailyTotals[dateKey] = (dailyTotals[dateKey] ?? 0) + tx.amount;
+    }
+
+    final sortedKeys = dailyTotals.keys.toList()..sort();
+    final spots = sortedKeys.asMap().entries.map((e) {
+      return FlSpot(e.key.toDouble(), dailyTotals[e.value]!);
+    }).toList();
+
+    if (spots.isEmpty) {
+      return Center(child: Text("Not enough trend data", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11)));
+    }
+
     return LineChart(
       LineChartData(
         gridData: const FlGridData(show: false),
@@ -126,22 +216,15 @@ class FinanceDashboardScreen extends StatelessWidget {
         borderData: FlBorderData(show: false),
         lineBarsData: [
           LineChartBarData(
-            spots: [
-              const FlSpot(0, 3),
-              const FlSpot(2, 4),
-              const FlSpot(4, 3.5),
-              const FlSpot(6, 5),
-              const FlSpot(8, 4),
-              const FlSpot(10, 6),
-            ],
+            spots: spots,
             isCurved: true,
-            color: Colors.blueAccent,
+            color: Colors.amber,
             barWidth: 4,
             isStrokeCapRound: true,
-            dotData: const FlDotData(show: false),
+            dotData: const FlDotData(show: true),
             belowBarData: BarAreaData(
               show: true,
-              color: Colors.blueAccent.withOpacity(0.1),
+              color: Colors.amber.withValues(alpha: 0.05),
             ),
           ),
         ],
@@ -149,14 +232,47 @@ class FinanceDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPieChart() {
+  Widget _buildPieChart(ThemeData theme, double tithes, double offerings, double events, double products) {
+    final total = tithes + offerings + events + products;
+    if (total == 0.0) {
+      return Center(child: Text("No contributions to classify", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11)));
+    }
+
     return PieChart(
       PieChartData(
         sections: [
-          PieChartSectionData(value: 40, title: 'Tithe', color: Colors.green, radius: 50, titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-          PieChartSectionData(value: 30, title: 'Offering', color: Colors.orange, radius: 50, titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-          PieChartSectionData(value: 20, title: 'Missions', color: Colors.purple, radius: 50, titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-          PieChartSectionData(value: 10, title: 'Market', color: Colors.blue, radius: 50, titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+          if (tithes > 0)
+            PieChartSectionData(
+              value: tithes,
+              title: 'Tithe (${(tithes/total*100).toStringAsFixed(0)}%)',
+              color: Colors.green,
+              radius: 50,
+              titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          if (offerings > 0)
+            PieChartSectionData(
+              value: offerings,
+              title: 'Offering (${(offerings/total*100).toStringAsFixed(0)}%)',
+              color: Colors.orange,
+              radius: 50,
+              titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          if (events > 0)
+            PieChartSectionData(
+              value: events,
+              title: 'Events (${(events/total*100).toStringAsFixed(0)}%)',
+              color: Colors.purple,
+              radius: 50,
+              titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          if (products > 0)
+            PieChartSectionData(
+              value: products,
+              title: 'Market (${(products/total*100).toStringAsFixed(0)}%)',
+              color: Colors.blue,
+              radius: 50,
+              titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
         ],
         centerSpaceRadius: 40,
         sectionsSpace: 5,
@@ -164,20 +280,20 @@ class FinanceDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTransactionItem(String title, String amount, String time, Color color) {
+  Widget _buildTransactionItem(ThemeData theme, String title, String amount, String time, Color color) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 5)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.01), blurRadius: 5)],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
             child: Icon(LucideIcons.banknote, color: color, size: 18),
           ),
           const SizedBox(width: 15),
@@ -185,8 +301,8 @@ class FinanceDashboardScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                Text(time, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: theme.colorScheme.onSurface)),
+                Text(time, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10)),
               ],
             ),
           ),
@@ -196,4 +312,3 @@ class FinanceDashboardScreen extends StatelessWidget {
     );
   }
 }
-

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DbSeeder {
@@ -41,7 +42,7 @@ class DbSeeder {
     try {
       await client.from('churches').upsert(churches);
     } catch (e) {
-      print('Error seeding churches: $e');
+      debugPrint('Error seeding churches: $e');
     }
 
     // 2. Seed Prayers
@@ -71,7 +72,7 @@ class DbSeeder {
     try {
       await client.from('prayers').insert(prayers);
     } catch (e) {
-      print('Error seeding prayers: $e');
+      debugPrint('Error seeding prayers: $e');
     }
 
     // 3. Seed News
@@ -97,7 +98,7 @@ class DbSeeder {
     try {
       await client.from('kingdom_news').insert(news);
     } catch (e) {
-      print('Error seeding news: $e');
+      debugPrint('Error seeding news: $e');
     }
 
     // 4. Seed Sermons
@@ -123,7 +124,7 @@ class DbSeeder {
     try {
       await client.from('sermons').insert(sermons);
     } catch (e) {
-      print('Error seeding sermons: $e');
+      debugPrint('Error seeding sermons: $e');
     }
 
     // 5. Seed Jobs
@@ -149,7 +150,7 @@ class DbSeeder {
     try {
       await client.from('jobs').insert(jobs);
     } catch (e) {
-      print('Error seeding jobs: $e');
+      debugPrint('Error seeding jobs: $e');
     }
 
     // 6. Seed Klips
@@ -173,7 +174,7 @@ class DbSeeder {
     try {
       await client.from('klips').insert(klips);
     } catch (e) {
-      print('Error seeding klips: $e');
+      debugPrint('Error seeding klips: $e');
     }
 
     // 7. Seed Events
@@ -201,7 +202,7 @@ class DbSeeder {
     try {
       await client.from('events').insert(events);
     } catch (e) {
-      print('Error seeding events: $e');
+      debugPrint('Error seeding events: $e');
     }
 
     // 8. Seed Social Posts
@@ -225,7 +226,7 @@ class DbSeeder {
     try {
       await client.from('social_posts').insert(posts);
     } catch (e) {
-      print('Error seeding posts: $e');
+      debugPrint('Error seeding posts: $e');
     }
 
     // 9. Seed Testimonies
@@ -247,7 +248,7 @@ class DbSeeder {
     try {
       await client.from('testimonies').insert(testimonies);
     } catch (e) {
-      print('Error seeding testimonies: $e');
+      debugPrint('Error seeding testimonies: $e');
     }
   }
 }

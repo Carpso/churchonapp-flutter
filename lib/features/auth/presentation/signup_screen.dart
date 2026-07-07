@@ -17,8 +17,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  final _formKey = GlobalKey<FormState>();
 
   Future<void> _handleSignup() async {
+    if (!_formKey.currentState!.validate()) return;
     try {
       await ref.read(authProvider.notifier).signUp(
         _emailController.text.trim(),
@@ -76,7 +78,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(30.0),
-          child: Column(
+          child: Form(
+            key: _formKey,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text("Join Us", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.secondary)),
@@ -87,12 +91,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 controller: _nameController,
                 label: "Full Name",
                 icon: LucideIcons.user,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Required';
+                  if (v.trim().length < 2) return 'Min 2 characters';
+                  return null;
+                },
               ),
               const SizedBox(height: 20),
               _buildTextField(
                 controller: _emailController,
                 label: "Email Address",
                 icon: LucideIcons.mail,
+                keyboardType: TextInputType.emailAddress,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Required';
+                  if (!v.contains('@')) return 'Enter a valid email';
+                  return null;
+                },
               ),
               const SizedBox(height: 20),
               _buildTextField(
@@ -100,6 +115,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 label: "Password",
                 icon: LucideIcons.lock,
                 isPassword: true,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Required';
+                  if (v.length < 6) return 'Min 6 characters';
+                  return null;
+                },
               ),
               const SizedBox(height: 40),
               ElevatedButton(
@@ -130,6 +150,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               ),
             ],
           ),
+          ),
         ),
       ),
     );
@@ -140,17 +161,21 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     required String label,
     required IconData icon,
     bool isPassword = false,
+    String? Function(String?)? validator,
+    TextInputType? keyboardType,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
-      child: TextField(
+      child: TextFormField(
         controller: controller,
         obscureText: isPassword && !_isPasswordVisible,
+        validator: validator,
+        keyboardType: keyboardType,
         decoration: InputDecoration(
           icon: Icon(icon, color: Theme.of(context).primaryColor, size: 20),
           labelText: label,

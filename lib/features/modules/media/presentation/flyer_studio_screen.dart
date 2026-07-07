@@ -145,11 +145,10 @@ class _FlyerStudioScreenState extends ConsumerState<FlyerStudioScreen> {
             ElevatedButton(
               onPressed: () async {
                 await ref.read(mediaServiceProvider).seedMedia();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Template data synchronized with Cloud. Sharing..."), backgroundColor: Colors.blue),
-                  );
-                }
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Template data synchronized with Cloud. Sharing..."), backgroundColor: Colors.blue),
+                );
               },
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 60),

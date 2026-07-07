@@ -3,9 +3,9 @@
     "short_name": "Church On App",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFAEB",
+    "theme_color": "#FFD700",
+    "description": "Connecting Churches Through Technology. Digital ecosystem for modern congregations with sermons, events, ride-sharing, digital giving, and community.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

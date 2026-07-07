@@ -63,7 +63,7 @@ class SermonService {
           title: 'The Path to Faithful Stewardship',
           preacher: 'Pastor John Doe',
           thumbnailUrl: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800&q=80',
-          videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-pastor-preaching-at-a-church-service-34538-large.mp4',
+          videoUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
           createdAt: DateTime.now(),
         ),
         Sermon(
@@ -71,7 +71,7 @@ class SermonService {
           title: 'Grace Abounding',
           preacher: 'Pastor Hope',
           thumbnailUrl: 'https://images.unsplash.com/photo-1543165796-5426273ea430?w=800&q=80',
-          videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-people-praying-in-a-church-34537-large.mp4',
+          videoUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
           createdAt: DateTime.now(),
         ),
       ];

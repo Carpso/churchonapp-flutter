@@ -44,6 +44,24 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Keystore certificate info (contains sensitive fingerprints)
+key_info*.txt
+
 # Environment variables
 .env
+
+# Diagnostics, build outputs, crash logs
+diagnostics/
+scripts/
+.wrangler/
+sql/archive/
+
+# Firebase config (contains project-specific keys)
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# Stale build artifacts
+site_release.zip
+FINAL_MASTER_BACKEND_SYNC.sql
+coa_flutter_blueprint.txt
 

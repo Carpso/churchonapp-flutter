@@ -3,18 +3,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:church_on_app/core/widgets/church_map.dart';
+import '../data/weather_model.dart';
+import '../data/logistics_model.dart';
+import 'providers/weather_provider.dart';
 
 class WeatherMapsScreen extends ConsumerWidget {
   const WeatherMapsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final weatherAsync = ref.watch(refreshableWeatherProvider);
+    final busesAsync = ref.watch(refreshableBusesProvider);
+    final trafficAsync = ref.watch(refreshableTrafficAlertsProvider);
+    final parkingAsync = ref.watch(refreshableParkingZonesProvider);
+    final routesAsync = ref.watch(refreshableQuickRoutesProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
         title: const Text("Logistics & Navigation", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
-          IconButton(icon: const Icon(LucideIcons.refreshCw, size: 20), onPressed: () {}),
+          IconButton(icon: const Icon(LucideIcons.refreshCw, size: 20), onPressed: () {
+            ref.read(weatherRefreshProvider.notifier).refresh();
+          }),
         ],
       ),
       body: SingleChildScrollView(
@@ -22,166 +33,60 @@ class WeatherMapsScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Premium Weather Card
-            Container(
-              padding: const EdgeInsets.all(25),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)]),
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
-              ),
-              child: const Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text("Lusaka, Zambia", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-                        Text("Today", style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      ]),
-                    ],
-                  ),
-                  SizedBox(height: 30),
-                  Row(children: [
-                    Text("28°", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 60)),
-                    SizedBox(width: 10),
-                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text("Mostly Sunny", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text("Feels like 30°", style: TextStyle(color: Colors.white70, fontSize: 12)),
-                    ]),
-                  ]),
-                  Divider(color: Colors.white24, height: 40),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                    _WeatherStat(icon: LucideIcons.wind, label: "12 km/h", subLabel: "Wind"),
-                    _WeatherStat(icon: LucideIcons.droplets, label: "45%", subLabel: "Humidity"),
-                    _WeatherStat(icon: LucideIcons.umbrella, label: "5%", subLabel: "Precip"),
-                  ]),
-                ],
-              ),
+            weatherAsync.when(
+              data: (weather) => _buildWeatherCard(context, weather),
+              loading: () => _buildWeatherShimmer(context),
+              error: (e, _) => _buildWeatherFallback(context),
             ),
             const SizedBox(height: 40),
-            
-            // Live Church Bus Tracking (renamed from shuttle)
             const Text("Live Church Bus Tracking", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(25),
-              child: SizedBox(
-                height: 250,
-                child: Stack(
-                  children: [
-                    ChurchMap(
-                      center: const LatLng(-15.3875, 28.3228),
-                      zoom: 14,
-                      markers: [
-                        buildBusStopMarker(point: const LatLng(-15.3850, 28.3200), name: "Stop A"),
-                        buildBusStopMarker(point: const LatLng(-15.3900, 28.3250), name: "Stop B"),
-                        buildBusStopMarker(point: const LatLng(-15.3950, 28.3300), name: "Stop C"),
-                        buildUserMarker(point: const LatLng(-15.3880, 28.3230)),
-                      ],
-                      path: const [
-                        LatLng(-15.3850, 28.3200),
-                        LatLng(-15.3870, 28.3220),
-                        LatLng(-15.3900, 28.3250),
-                        LatLng(-15.3930, 28.3280),
-                        LatLng(-15.3950, 28.3300),
-                      ],
-                    ),
-                    Positioned(
-                      bottom: 15,
-                      left: 15,
-                      right: 15,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)]),
-                        child: const Row(
-                          children: [
-                            Icon(LucideIcons.bus, color: Colors.orange, size: 22),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text("Bus #4 → Great East Road", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                  Text("ETA: 2 mins • Next Stop: Stop B", style: TextStyle(color: Colors.grey, fontSize: 11)),
-                                ],
-                              ),
-                            ),
-                            Icon(LucideIcons.navigation, color: Colors.blue, size: 20),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            busesAsync.when(
+              data: (buses) => buses.isEmpty
+                  ? _buildEmptyState("No buses running")
+                  : _buildBusTrackingCard(context, buses.first, ref),
+              loading: () => _buildBusShimmer(),
+              error: (e, _) => _buildBusTrackingCard(context, BusInfo(
+                id: 'default',
+                name: 'Bus #4',
+                route: 'Great East Road',
+                eta: '--',
+                nextStop: '--',
+              ), ref),
             ),
             const SizedBox(height: 30),
-            
-            // Traffic & Parking - Live tracking
             const Text("Traffic & Parking Alerts", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
-
-            // Live traffic map
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: SizedBox(
-                height: 180,
-                child: Stack(
-                  children: [
-                    ChurchMap(
-                      center: LatLng(-15.3900, 28.3100),
-                      zoom: 13,
-                    ),
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, Colors.black.withOpacity(0.6)],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 12, left: 12, right: 12,
-                      child: Row(
-                        children: [
-                          _buildTrafficBadge("Cairo Rd", Colors.red, "Heavy"),
-                          const SizedBox(width: 8),
-                          _buildTrafficBadge("Great East", Colors.orange, "Moderate"),
-                          const SizedBox(width: 8),
-                          _buildTrafficBadge("Kafue Rd", Colors.green, "Clear"),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            trafficAsync.when(
+              data: (alerts) => _buildTrafficSection(context, alerts),
+              loading: () => const SizedBox(height: 200, child: Center(child: CircularProgressIndicator())),
+              error: (e, _) => _buildTrafficSection(context, []),
             ),
-            const SizedBox(height: 15),
-
-            // Traffic alerts
-            _buildTrafficAlert(context, "Cairo Road: Heavy traffic — Use Los Angeles Blvd", LucideIcons.alertTriangle, Colors.red),
-            _buildTrafficAlert(context, "Great East Road: Moderate — Expect 10 min delay", LucideIcons.trendingUp, Colors.orange),
-            _buildTrafficAlert(context, "Kafue Road: Clear — All lanes open", LucideIcons.checkCircle, Colors.green),
-            
             const SizedBox(height: 20),
             const Text("Parking Zones", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
-            _buildParkingCard("Zone A - Main Church", 12, 50, Colors.green),
-            _buildParkingCard("Zone B - Overflow", 35, 40, Colors.amber),
-            _buildParkingCard("Zone C - VIP/Pastoral", 2, 10, Colors.green),
-            _buildParkingCard("Zone D - Street Parking", 0, 20, Colors.red),
-
+            parkingAsync.when(
+              data: (zones) => Column(
+                children: zones.map((z) => _buildParkingCard(context, z)).toList(),
+              ),
+              loading: () => const SizedBox(height: 200, child: Center(child: CircularProgressIndicator())),
+              error: (e, _) => Column(
+                children: [
+                  ParkingZone(name: 'Zone A - Main Church', available: 12, total: 50),
+                  ParkingZone(name: 'Zone B - Overflow', available: 35, total: 40),
+                ].map((z) => _buildParkingCard(context, z)).toList(),
+              ),
+            ),
             const SizedBox(height: 20),
             const Text("Quick Routes", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
-            _buildRouteCard(context, "Home → Church", "12 min", "Via Great East Rd", LucideIcons.home, Colors.blue),
-            _buildRouteCard(context, "Church → Mall", "8 min", "Via Addis Ababa Dr", LucideIcons.shoppingBag, Colors.purple),
-            _buildRouteCard(context, "Church → Airport", "25 min", "Via Airport Rd", LucideIcons.plane, Colors.green),
+            routesAsync.when(
+              data: (routes) => Column(
+                children: routes.map((r) => _buildRouteCard(context, r)).toList(),
+              ),
+              loading: () => const SizedBox(height: 200, child: Center(child: CircularProgressIndicator())),
+              error: (e, _) => const SizedBox.shrink(),
+            ),
             const SizedBox(height: 30),
           ],
         ),
@@ -189,23 +94,217 @@ class WeatherMapsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTrafficBadge(String road, Color color, String status) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-        decoration: BoxDecoration(color: color.withOpacity(0.9), borderRadius: BorderRadius.circular(10)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+  Widget _buildWeatherCard(BuildContext context, WeatherData weather) {
+    return Container(
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)]),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [BoxShadow(color: Colors.blue.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(weather.location, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                const Text("Today", style: TextStyle(color: Colors.white70, fontSize: 12)),
+              ]),
+            ],
+          ),
+          const SizedBox(height: 30),
+          Row(children: [
+            Text("${weather.temperature.round()}°", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 60)),
+            const SizedBox(width: 10),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(weather.condition, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              Text("Feels like ${weather.feelsLike.round()}°", style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            ]),
+          ]),
+          const Divider(color: Colors.white24, height: 40),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+            _WeatherStat(icon: LucideIcons.wind, label: "${weather.windSpeed.round()} km/h", subLabel: "Wind"),
+            _WeatherStat(icon: LucideIcons.droplets, label: "${weather.humidity.round()}%", subLabel: "Humidity"),
+            _WeatherStat(icon: LucideIcons.umbrella, label: "${weather.precipitation.round()}%", subLabel: "Precip"),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeatherShimmer(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)]),
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: const Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text("Loading...", style: TextStyle(color: Colors.white70, fontSize: 18)),
+                Text("Please wait", style: TextStyle(color: Colors.white38, fontSize: 12)),
+              ]),
+            ],
+          ),
+          SizedBox(height: 40),
+          Center(child: CircularProgressIndicator(color: Colors.white)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeatherFallback(BuildContext context) {
+    return _buildWeatherCard(context, WeatherData(
+      temperature: 28,
+      feelsLike: 30,
+      humidity: 45,
+      windSpeed: 12,
+      precipitation: 5,
+      weatherCode: 0,
+    ));
+  }
+
+  Widget _buildBusTrackingCard(BuildContext context, BusInfo bus, WidgetRef ref) {
+    final userPos = const LatLng(-15.3880, 28.3230);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(25),
+      child: SizedBox(
+        height: 250,
+        child: Stack(
           children: [
-            Text(road, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-            Text(status, style: const TextStyle(color: Colors.white70, fontSize: 8)),
+            ChurchMap(
+              center: userPos,
+              zoom: 14,
+              markers: [
+                ...bus.stops.map((s) => buildBusStopMarker(point: s.position, name: s.name)),
+                buildUserMarker(point: userPos),
+              ],
+              path: bus.path.isNotEmpty ? bus.path : null,
+            ),
+            Positioned(
+              bottom: 15, left: 15, right: 15,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)]),
+                child: Row(
+                  children: [
+                    const Icon(LucideIcons.bus, color: Colors.orange, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text("${bus.name} → ${bus.route}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text("ETA: ${bus.eta} • Next Stop: ${bus.nextStop}", style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                    const Icon(LucideIcons.navigation, color: Colors.blue, size: 20),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildParkingCard(String zone, int available, int total, Color statusColor) {
+  Widget _buildBusShimmer() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(25),
+      child: Container(
+        height: 250,
+        color: Colors.grey[200],
+        child: const Center(child: CircularProgressIndicator()),
+      ),
+    );
+  }
+
+  Widget _buildTrafficSection(BuildContext context, List<TrafficAlert> alerts) {
+    final activeAlerts = alerts.where((a) => a.severity != 'low').toList();
+    final badges = alerts.take(3).toList();
+
+    return Column(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: SizedBox(
+            height: 180,
+            child: Stack(
+              children: [
+                const ChurchMap(
+                  center: LatLng(-15.3900, 28.3100),
+                  zoom: 13,
+                ),
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Colors.black.withValues(alpha: 0.6)],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 12, left: 12, right: 12,
+                  child: Row(
+                    children: badges.map((a) {
+                      final color = a.severity == 'high' ? Colors.red : a.severity == 'medium' ? Colors.orange : Colors.green;
+                      return Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                            decoration: BoxDecoration(color: color.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(10)),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(a.road, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                Text(a.status, style: const TextStyle(color: Colors.white70, fontSize: 8)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 15),
+        ...activeAlerts.map((a) {
+          final color = a.severity == 'high' ? Colors.red : a.severity == 'medium' ? Colors.orange : Colors.green;
+          final icon = a.severity == 'high' ? LucideIcons.alertTriangle : a.severity == 'medium' ? LucideIcons.trendingUp : LucideIcons.checkCircle;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 15),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)]),
+            child: Row(
+              children: [
+                Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 18)),
+                const SizedBox(width: 15),
+                Expanded(child: Text(a.description, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildParkingCard(BuildContext context, ParkingZone zone) {
+    final statusColor = zone.isFull ? Colors.red : zone.isLow ? Colors.amber : Colors.green;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(16),
@@ -214,7 +313,7 @@ class WeatherMapsScreen extends ConsumerWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
             child: Icon(LucideIcons.car, color: statusColor, size: 20),
           ),
           const SizedBox(width: 15),
@@ -222,16 +321,16 @@ class WeatherMapsScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(zone, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text("$available of $total spots available", style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                Text(zone.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text("${zone.available} of ${zone.total} spots available", style: TextStyle(color: Colors.grey[600], fontSize: 12)),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
             child: Text(
-              available == 0 ? "FULL" : available < 5 ? "LOW" : "OPEN",
+              zone.status,
               style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w900),
             ),
           ),
@@ -240,7 +339,19 @@ class WeatherMapsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildRouteCard(BuildContext context, String title, String time, String via, IconData icon, Color color) {
+  Widget _buildRouteCard(BuildContext context, QuickRoute route) {
+    final iconMap = {
+      'home': LucideIcons.home,
+      'shoppingBag': LucideIcons.shoppingBag,
+      'plane': LucideIcons.plane,
+    };
+    final colorMap = {
+      'home': Colors.blue,
+      'shoppingBag': Colors.purple,
+      'plane': Colors.green,
+    };
+    final icon = iconMap[route.iconName] ?? LucideIcons.navigation;
+    final color = colorMap[route.iconName] ?? Colors.blue;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(16),
@@ -249,7 +360,7 @@ class WeatherMapsScreen extends ConsumerWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 15),
@@ -257,32 +368,34 @@ class WeatherMapsScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(via, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                Text(route.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(route.via, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-            child: Text(time, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+            child: Text(route.time, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTrafficAlert(BuildContext context, String text, IconData icon, Color color) {
+  Widget _buildEmptyState(String message) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)]),
-      child: Row(
-        children: [
-          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 18)),
-          const SizedBox(width: 15),
-          Expanded(child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
-        ],
+      height: 250,
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25)),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(LucideIcons.bus, size: 48, color: Colors.grey),
+            const SizedBox(height: 12),
+            Text(message, style: const TextStyle(color: Colors.grey, fontSize: 16)),
+          ],
+        ),
       ),
     );
   }
@@ -304,4 +417,3 @@ class _WeatherStat extends StatelessWidget {
     ]);
   }
 }
-

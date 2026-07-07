@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class PDFViewerScreen extends StatefulWidget {
   final String url;
@@ -54,7 +56,11 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
       appBar: AppBar(
         title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.bold)),
         actions: [
-          IconButton(icon: const Icon(LucideIcons.share2), onPressed: () {}),
+          IconButton(icon: const Icon(LucideIcons.share2), onPressed: () {
+            if (localPath != null) {
+              Share.shareXFiles([XFile(localPath!)], text: widget.title);
+            }
+          }),
         ],
       ),
       body: isLoading
@@ -68,16 +74,16 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
                       swipeHorizontal: true,
                       autoSpacing: false,
                       pageFling: false,
-                      onRender: (_pages) {
+                      onRender: (pages) {
                         setState(() {
                           // pages = _pages;
                         });
                       },
                       onError: (error) {
-                        print(error.toString());
+                        debugPrint(error.toString());
                       },
                       onPageError: (page, error) {
-                        print('$page: ${error.toString()}');
+                        debugPrint('$page: ${error.toString()}');
                       },
                     )
                   : const Center(child: Text("Could not load PDF")),

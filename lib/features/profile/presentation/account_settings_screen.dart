@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/profile_provider.dart';
+import '../../../core/services/r2_service.dart';
 
 class AccountSettingsScreen extends ConsumerStatefulWidget {
   const AccountSettingsScreen({super.key});
@@ -14,21 +18,61 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
   bool _isUploading = false;
 
   void _pickAndUploadImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    if (picked == null) return;
     setState(() => _isUploading = true);
-    await Future.delayed(const Duration(seconds: 2));
-    if (mounted) {
-      setState(() => _isUploading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Profile updated via Cloudflare R2")),
-      );
+
+    try {
+      final file = File(picked.path);
+      final fileName = "avatar_${DateTime.now().millisecondsSinceEpoch}.jpg";
+      final r2 = R2Service(Supabase.instance.client);
+      final url = await r2.uploadFile(file, "avatars/$fileName");
+
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        await Supabase.instance.client.from('profiles').update({
+          'avatar_url': url,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', user.id);
+      }
+
+      ref.invalidate(profileProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Profile picture updated!"), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Upload failed: $e"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final profile = ref.watch(profileProvider).value;
+    final profileAsync = ref.watch(profileProvider);
+    return profileAsync.when(
+      data: (profile) => _buildScreen(context, profile),
+      loading: () => const Scaffold(
+        backgroundColor: Color(0xFFFFFAEB),
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, st) => Scaffold(
+        backgroundColor: Color(0xFFFFFAEB),
+        body: Center(child: Text('Error loading profile: $e')),
+      ),
+    );
+  }
+
+  Widget _buildScreen(BuildContext context, UserProfile? profile) {
     final userName = profile?.name ?? "Kingdom Believer";
-    final avatar = "https://i.pravatar.cc/300?u=${profile?.id ?? '1'}";
+    final avatar = profile?.avatarUrl ?? "https://i.pravatar.cc/300?u=${profile?.id ?? '1'}";
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
@@ -68,7 +112,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
             const SizedBox(height: 40),
             _buildSettingsInput("FULL NAME", userName),
             const SizedBox(height: 15),
-            _buildSettingsInput("ROLE", profile?.role?.toUpperCase() ?? "MEMBER"),
+            _buildSettingsInput("ROLE", profile?.role.toUpperCase() ?? "MEMBER"),
             const SizedBox(height: 15),
             _buildSettingsInput("KINGDOM ID", profile?.id ?? "N/A"),
             const SizedBox(height: 40),
@@ -98,8 +142,15 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
           child: Row(
             children: [
-              Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-              const Spacer(),
+              Expanded(
+                child: Text(
+                  value, 
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+              const SizedBox(width: 10),
               const Icon(LucideIcons.edit2, size: 14, color: Colors.grey),
             ],
           ),

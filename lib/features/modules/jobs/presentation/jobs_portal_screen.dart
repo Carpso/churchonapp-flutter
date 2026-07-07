@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../data/jobs_service.dart';
 import '../data/job_model.dart';
-import 'job_details_screen.dart';
 import 'post_job_screen.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:go_router/go_router.dart';
@@ -21,7 +20,11 @@ class JobsPortalScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(LucideIcons.search),
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Search jobs feature")),
+              );
+            },
           ),
         ],
       ),
@@ -67,7 +70,7 @@ class JobsPortalScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).primaryColor,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: const Row(
         children: [
@@ -109,7 +112,7 @@ class JobsPortalScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,7 +121,7 @@ class JobsPortalScreen extends ConsumerWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
+                decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
                 child: Icon(
                   job.type == "Volunteer" ? LucideIcons.heart : LucideIcons.briefcase, 
                   color: Theme.of(context).primaryColor, size: 24
@@ -144,7 +147,7 @@ class JobsPortalScreen extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: isVolunteer ? Colors.green.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+                  color: isVolunteer ? Colors.green.withValues(alpha: 0.1) : Colors.blue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(

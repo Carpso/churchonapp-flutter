@@ -1,1 +1,0 @@
-\d public.profiles

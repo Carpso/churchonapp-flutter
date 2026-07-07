@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'business_meetings_screen.dart';
 import 'event_details_screen.dart';
 import 'package:church_on_app/features/events/data/event_service.dart';
@@ -10,6 +9,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 
 // Represents a world-class premium events hub mimicking ticketing platforms like Eventbrite / Ticketmaster
@@ -22,8 +23,8 @@ class EventsScreen extends ConsumerStatefulWidget {
 
 class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  int _ticketsSold = 142;
-  double _revenue = 35500.00;
+  final int _ticketsSold = 142;
+  final double _revenue = 35500.00;
 
   @override
   void initState() {
@@ -38,12 +39,14 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
   }
 
   void _showCreateEventModal() {
+    final tenantId = ref.read(currentTenantProvider)?.id;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => CreateEventBottomSheet(onCreated: (event) {
-        ref.read(eventServiceProvider).createEvent(event);
+        final eventWithTenant = {...event, 'tenant_id': tenantId};
+        ref.read(eventServiceProvider).createEvent(eventWithTenant);
       }),
     );
   }
@@ -104,12 +107,17 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
     return eventsAsync.when(
       data: (events) => events.isEmpty 
         ? const Center(child: Text("No upcoming events found."))
-        : ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: events.length,
-            itemBuilder: (context, index) {
+        : RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(eventsStreamProvider);
+            },
+            child: ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: events.length,
+              itemBuilder: (context, index) {
               return _buildPremiumEventCard(events[index]);
             },
+          ),
           ),
       loading: () => const ListSkeleton(),
       error: (err, stack) => Center(child: Text("Error: $err")),
@@ -125,7 +133,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(LucideIcons.ticket, size: 80, color: Colors.grey.withOpacity(0.3)),
+                Icon(LucideIcons.ticket, size: 80, color: Colors.grey.withValues(alpha: 0.3)),
                 const SizedBox(height: 20),
                 const Text("No active tickets", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
                 const SizedBox(height: 10),
@@ -140,10 +148,15 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
               ],
             ),
           )
-        : ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: tickets.length,
-            itemBuilder: (context, index) => _buildSimpleTicketCard(tickets[index]),
+        : RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(myTicketsStreamProvider);
+            },
+            child: ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: tickets.length,
+              itemBuilder: (context, index) => _buildSimpleTicketCard(tickets[index]),
+            ),
           ),
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text("Error: $err")),
@@ -154,7 +167,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
     return Container(
        margin: const EdgeInsets.only(bottom: 15),
        padding: const EdgeInsets.all(15),
-       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withOpacity(0.1))),
+       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withValues(alpha: 0.1))),
        child: Row(
          children: [
            ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(event.imageUrl, width: 60, height: 60, fit: BoxFit.cover)),
@@ -175,9 +188,14 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
   }
 
   Widget _buildManageTab() {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
+    return RefreshIndicator(
+      onRefresh: () async {
+        setState(() {});
+        await Future.delayed(const Duration(seconds: 1));
+      },
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
         GestureDetector(
           onTap: _showCreateEventModal,
           child: Container(
@@ -185,11 +203,11 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
             decoration: BoxDecoration(
               gradient: LinearGradient(colors: [Theme.of(context).primaryColor, Colors.orangeAccent]),
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))]
+              boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 5))]
             ),
             child: Row(
               children: [
-                CircleAvatar(backgroundColor: Colors.white.withOpacity(0.2), child: const Icon(LucideIcons.plus, color: Colors.white)),
+                CircleAvatar(backgroundColor: Colors.white.withValues(alpha: 0.2), child: const Icon(LucideIcons.plus, color: Colors.white)),
                 const SizedBox(width: 15),
                 const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,14 +230,15 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
             Expanded(child: _buildMetricCard("Revenue (K)", _revenue.toStringAsFixed(2), LucideIcons.wallet, Colors.green)),
           ],
         )
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withOpacity(0.1))),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withValues(alpha: 0.1))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -236,20 +255,26 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
     bool isFree = event.ticketPrice == 0;
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => EventDetailsScreen(event: {
+        'id': event.id,
         'title': event.title,
+        'description': event.description,
         'date': DateFormat.yMMMd().format(event.date),
         'location': event.location,
         'cover': event.imageUrl,
         'price': event.ticketPrice.toInt(),
         'isLiveStream': false,
         'interchurch': true,
+        'speakers': event.speakers,
+        'end_date': event.endDate != null ? DateFormat.yMMMd().format(event.endDate!) : '',
+        'organizer_momo_phone': event.organizerMomoPhone,
+        'organizer_momo_name': event.organizerMomoName,
       }))),
       child: Container(
         margin: const EdgeInsets.only(bottom: 25),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 15, offset: const Offset(0, 5))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,7 +285,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
                   child: CachedNetworkImage(
-                    imageUrl: event.imageUrl,
+                    imageUrl: event.imageUrl.isNotEmpty ? event.imageUrl : "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&q=80",
                     height: 180,
                     width: double.infinity,
                     fit: BoxFit.cover,
@@ -273,7 +298,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                   right: 15,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 5)]),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 5)]),
                     child: Text(isFree ? "FREE" : "K${event.ticketPrice}", style: TextStyle(fontWeight: FontWeight.w900, color: Theme.of(context).primaryColor)),
                   ),
                 ),
@@ -314,8 +339,22 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
-                             ref.read(eventServiceProvider).registerForEvent(event.id);
-                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Registration Successful!")));
+                             if (isFree) {
+                               ref.read(eventServiceProvider).registerForEvent(event.id);
+                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Registration Successful!")));
+                             } else {
+                               Navigator.push(context, MaterialPageRoute(builder: (context) => EventDetailsScreen(event: {
+                                 'id': event.id,
+                                 'title': event.title,
+                                 'description': event.description,
+                                 'date': DateFormat.yMMMd().format(event.date),
+                                 'location': event.location,
+                                 'cover': event.imageUrl,
+                                 'price': event.ticketPrice.toInt(),
+                                 'isLiveStream': false,
+                                 'interchurch': true,
+                               })));
+                             }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Theme.of(context).colorScheme.secondary,
@@ -330,8 +369,12 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                         decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(15)),
                         child: IconButton(
                           icon: const Icon(LucideIcons.share2, color: Colors.black87),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Link Copied!")));
+                          onPressed: () async {
+                            await Clipboard.setData(ClipboardData(text: "https://churchonapp.com/events/${event.id}"));
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Event link copied to clipboard!"), backgroundColor: Colors.green)
+                            );
                           },
                         ),
                       )
@@ -361,6 +404,15 @@ class CreateEventBottomSheet extends ConsumerStatefulWidget {
 class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet> {
   final _titleCtrl = TextEditingController();
   final _priceCtrl = TextEditingController(text: "0");
+  final _descriptionCtrl = TextEditingController();
+  final _locationCtrl = TextEditingController();
+  final _speakersCtrl = TextEditingController();
+  final _momoNameCtrl = TextEditingController();
+  final _momoPhoneCtrl = TextEditingController();
+  DateTime _selectedDate = DateTime.now().add(const Duration(days: 7));
+  TimeOfDay _selectedTime = const TimeOfDay(hour: 10, minute: 0);
+  DateTime _endDate = DateTime.now().add(const Duration(days: 7, hours: 2));
+  TimeOfDay _endTime = const TimeOfDay(hour: 12, minute: 0);
   String _eventType = "Conference";
   bool _isPaid = false;
   bool _isInterchurch = false;
@@ -396,7 +448,7 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
   Future<void> _submitEvent() async {
     if (_titleCtrl.text.isEmpty) return;
 
-    String coverUrl = "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&q=80";
+    String coverUrl = "";
     if (_imageFile != null) {
       final uploadedUrl = await _uploadImage();
       if (uploadedUrl != null) {
@@ -404,12 +456,33 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
       }
     }
 
+    final combinedDateTime = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
+
+    final combinedEndDateTime = DateTime(
+      _endDate.year,
+      _endDate.month,
+      _endDate.day,
+      _endTime.hour,
+      _endTime.minute,
+    );
+
     final newEvent = {
       "title": _titleCtrl.text,
+      "description": _descriptionCtrl.text.isEmpty ? "No description provided." : _descriptionCtrl.text,
       "type": _eventType,
-      "date": "Feb 28, 2026",
-      "time": "10:00 AM",
-      "location": "Main Hall",
+      "date": combinedDateTime.toIso8601String(),
+      "time": "${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}",
+      "end_date": combinedEndDateTime.toIso8601String(),
+      "speakers": _speakersCtrl.text,
+      "organizer_momo_phone": _momoPhoneCtrl.text,
+      "organizer_momo_name": _momoNameCtrl.text,
+      "location": _locationCtrl.text.isEmpty ? "Main Hall" : _locationCtrl.text,
       "isLiveStream": _enableLiveStream,
       "price": _isPaid ? (int.tryParse(_priceCtrl.text) ?? 0) : 0,
       "cover": coverUrl,
@@ -417,6 +490,7 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
     };
 
     widget.onCreated(newEvent);
+    if (!mounted) return;
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Event Created! Banner uploaded securely to Cloudflare R2."), backgroundColor: Colors.green),
@@ -439,6 +513,158 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
             
             _buildTextField("Event Title", _titleCtrl, LucideIcons.type),
             const SizedBox(height: 15),
+            _buildTextField("Event Description", _descriptionCtrl, LucideIcons.fileText),
+            const SizedBox(height: 15),
+            _buildTextField("Event Location", _locationCtrl, LucideIcons.mapPin),
+            const SizedBox(height: 15),
+            _buildTextField("Guest Speakers (e.g. Pastor John, Singer Sarah)", _speakersCtrl, LucideIcons.mic),
+            const SizedBox(height: 20),
+            
+            const Text("Event Starts", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _selectedDate,
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime(2030),
+                      );
+                      if (picked != null) {
+                        setState(() => _selectedDate = picked);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(LucideIcons.calendar, size: 18, color: Colors.grey),
+                          const SizedBox(width: 8),
+                          Text(
+                            "${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}",
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: _selectedTime,
+                      );
+                      if (picked != null) {
+                        setState(() => _selectedTime = picked);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(LucideIcons.clock, size: 18, color: Colors.grey),
+                          const SizedBox(width: 8),
+                          Text(
+                            _selectedTime.format(context),
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 15),
+
+            const Text("Event Ends", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _endDate,
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime(2030),
+                      );
+                      if (picked != null) {
+                        setState(() => _endDate = picked);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(LucideIcons.calendar, size: 18, color: Colors.grey),
+                          const SizedBox(width: 8),
+                          Text(
+                            "${_endDate.day}/${_endDate.month}/${_endDate.year}",
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: _endTime,
+                      );
+                      if (picked != null) {
+                        setState(() => _endTime = picked);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(LucideIcons.clock, size: 18, color: Colors.grey),
+                          const SizedBox(width: 8),
+                          Text(
+                            _endTime.format(context),
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
             
             // Event Type
             Container(
@@ -453,6 +679,12 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
                 ),
               ),
             ),
+            const SizedBox(height: 15),
+            const Text("MoMo Payout Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 8),
+            _buildTextField("MoMo Recipient Name (e.g. Pastor John Payout)", _momoNameCtrl, LucideIcons.userCheck),
+            const SizedBox(height: 10),
+            _buildTextField("Settlement Account Phone (e.g. 097xxxxxxx)", _momoPhoneCtrl, LucideIcons.smartphone),
             const SizedBox(height: 20),
 
             // Interchurch Option
@@ -474,7 +706,7 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text("Enable Live Stream", style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text("Generates VPS stream link & embeds into digital tickets."),
+              subtitle: const Text("Generates live stream link & embeds into digital tickets."),
               value: _enableLiveStream,
               activeThumbColor: Colors.red,
               onChanged: (v) => setState(() => _enableLiveStream = v),
@@ -510,7 +742,7 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
                 child: Row(
                   children: [
                     const Icon(LucideIcons.info, color: Colors.blue, size: 18),
@@ -613,7 +845,7 @@ class HostBusinessMeetingSheet extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: Colors.blueAccent.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: Colors.blueAccent.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
                 child: const Icon(LucideIcons.video, color: Colors.blueAccent),
               ),
               const SizedBox(width: 15),
@@ -664,7 +896,7 @@ class HostBusinessMeetingSheet extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
         child: Row(
           children: [
             Icon(icon, color: color, size: 20),

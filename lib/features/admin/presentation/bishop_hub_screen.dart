@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/admin/presentation/bishop_heatmap_screen.dart';
+import 'package:church_on_app/features/admin/presentation/finance_dashboard_screen.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
 
 class BishopHubScreen extends ConsumerWidget {
@@ -12,9 +13,18 @@ class BishopHubScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(profileProvider).value;
-    if (profile == null) return const Scaffold(body: Center(child: Text("Access Denied")));
+    final profileAsync = ref.watch(profileProvider);
+    return profileAsync.when(
+      data: (profile) {
+        if (profile == null) return const Scaffold(body: Center(child: Text("Access Denied")));
+        return _buildScreen(context, ref, profile);
+      },
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, st) => Scaffold(body: Center(child: Text('Error: $e'))),
+    );
+  }
 
+  Widget _buildScreen(BuildContext context, WidgetRef ref, UserProfile profile) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -40,7 +50,7 @@ class BishopHubScreen extends ConsumerWidget {
                 _buildActionCard(context, LucideIcons.church, "Ministries & Branches", Colors.blue),
                 _buildActionCard(context, LucideIcons.map, "Kingdom Map", Colors.green, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BishopHeatmapScreen()))),
                 _buildActionCard(context, LucideIcons.fileText, "Pastor Reports", Colors.purple),
-                _buildActionCard(context, LucideIcons.banknote, "Central Treasury", Colors.orange),
+                _buildActionCard(context, LucideIcons.banknote, "Central Treasury", Colors.orange, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FinanceDashboardScreen()))),
               ]),
             ),
           ),
@@ -57,7 +67,7 @@ class BishopHubScreen extends ConsumerWidget {
               child: Text("Managed Church Branches", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ),
           ),
-          _buildActivityList(ref),
+          _buildActivityList(context, ref),
         ],
       ),
     );
@@ -84,7 +94,7 @@ class BishopHubScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(profile.name, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                Text(profile.role?.toUpperCase() ?? "EXECUTIVE", style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                Text(profile.role.toUpperCase(), style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 const SizedBox(height: 10),
                 const Row(
                   children: [
@@ -134,9 +144,9 @@ class BishopHubScreen extends ConsumerWidget {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.05),
+              color: Colors.amber.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.amber.withOpacity(0.1)),
+              border: Border.all(color: Colors.amber.withValues(alpha: 0.1)),
             ),
             child: const Row(
               children: [
@@ -160,7 +170,7 @@ class BishopHubScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildActivityList(WidgetRef ref) {
+  Widget _buildActivityList(BuildContext context, WidgetRef ref) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -192,7 +202,25 @@ class BishopHubScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text("Link New Branch"),
+                    content: const Text(
+                      "To link a new branch, please contact the central administration office with the following details:\n\n"
+                      "• Branch Name\n"
+                      "• Pastor/Leader Name\n"
+                      "• Location\n"
+                      "• Organization ID\n\n"
+                      "An invitation token will be generated and sent to the branch leader's email."
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CLOSE")),
+                    ],
+                  ),
+                );
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.blue,

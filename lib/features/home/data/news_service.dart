@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:church_on_app/core/services/supabase_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class NewsArticle {

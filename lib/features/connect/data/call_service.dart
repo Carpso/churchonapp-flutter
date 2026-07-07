@@ -104,6 +104,14 @@ class CallService {
         .eq('call_id', callId)
         .map((data) => List<Map<String, dynamic>>.from(data));
   }
+
+  Stream<CallSession> streamCall(String callId) {
+    return _client
+        .from('calls')
+        .stream(primaryKey: ['id'])
+        .eq('id', callId)
+        .map((data) => CallSession.fromMap(data.first));
+  }
 }
 
 final callServiceProvider = Provider((ref) => CallService());

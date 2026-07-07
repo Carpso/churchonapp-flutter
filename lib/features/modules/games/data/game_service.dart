@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
@@ -60,7 +61,7 @@ class KingdomGameService {
     
     // In real app, we would update a game_scores table
     // For now we just print for simulation
-    print("Recording Score for $gameId: $score");
+    debugPrint("Recording Score for $gameId: $score");
   }
 }
 

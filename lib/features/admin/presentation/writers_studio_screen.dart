@@ -4,7 +4,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/home/data/news_service.dart';
-import 'package:image_picker/image_picker.dart';
 
 class WriterStudioScreen extends ConsumerStatefulWidget {
   const WriterStudioScreen({super.key});
@@ -28,6 +27,13 @@ class _WriterStudioScreenState extends ConsumerState<WriterStudioScreen> {
 
     setState(() => _isPublishing = true);
     final profile = ref.read(profileProvider).value;
+    if (profile == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profile not loaded yet. Please wait.")));
+        setState(() => _isPublishing = false);
+      }
+      return;
+    }
 
     try {
       await ref.read(newsServiceProvider).publishArticle(
@@ -37,8 +43,8 @@ class _WriterStudioScreenState extends ConsumerState<WriterStudioScreen> {
         imageUrl: _imageUrlCtrl.text.isEmpty 
           ? "https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800" 
           : _imageUrlCtrl.text,
-        authorId: profile?.id ?? 'unknown',
-        authorName: profile?.name ?? 'Kingdom Writer',
+        authorId: profile.id,
+        authorName: profile.name,
       );
 
       if (mounted) {

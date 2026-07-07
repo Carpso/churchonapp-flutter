@@ -19,7 +19,7 @@ class _LiveStreamStudioScreenState extends State<LiveStreamStudioScreen> {
   String _streamStatus = "OFFLINE";
   String _streamTitle = "Sunday Celebration Live";
   int _viewers = 0;
-  List<String> _chatMessages = [];
+  final List<String> _chatMessages = [];
 
   @override
   void initState() {
@@ -35,7 +35,7 @@ class _LiveStreamStudioScreenState extends State<LiveStreamStudioScreen> {
         _initCamera(_cameras![0]);
       }
     } else {
-      // Handle permission denied
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Camera and Microphone permissions required.")),
       );

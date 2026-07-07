@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,12 +36,32 @@ class R2Service {
         );
 
         if (uploadResponse.statusCode == 200) {
-          return publicUrl;
+          String url = publicUrl ?? '';
+          if (url.contains("media.church-on-app.com")) {
+            url = url.replaceAll("media.church-on-app.com", publicDomain);
+          }
+          return url.isNotEmpty ? url : null;
         }
       }
-      return null;
+      return _uploadToSupabaseStorageFallback(file, path);
     } catch (e) {
-      print("R2 Upload Error: $e");
+      debugPrint("R2 Upload Error: $e, trying Supabase Storage fallback...");
+      return _uploadToSupabaseStorageFallback(file, path);
+    }
+  }
+
+  Future<String?> _uploadToSupabaseStorageFallback(File file, String path) async {
+    try {
+      const bucket = 'sermons-vault';
+      final storagePath = path;
+      await _client.storage.from(bucket).upload(
+        storagePath,
+        file,
+        fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+      );
+      return _client.storage.from(bucket).getPublicUrl(storagePath);
+    } catch (e) {
+      debugPrint("Supabase Storage Fallback Upload Error: $e");
       return null;
     }
   }

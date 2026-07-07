@@ -3,6 +3,7 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -22,10 +23,11 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("release.keystore")
-            storePassword = "123456"
-            keyAlias = "my-key-alias"
-            keyPassword = "123456"
+            val keystorePath = System.getenv("STORE_FILE") ?: System.getenv("storeFile") ?: "churchonapp_release.keystore"
+            storeFile = file(keystorePath)
+            storePassword = System.getenv("STORE_PASSWORD") ?: System.getenv("storePassword") ?: "123456"
+            keyAlias = System.getenv("KEY_ALIAS") ?: System.getenv("keyAlias") ?: "my-key-alias"
+            keyPassword = System.getenv("KEY_PASSWORD") ?: System.getenv("keyPassword") ?: "123456"
         }
     }
 
@@ -44,6 +46,12 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
+    packaging {
+        jniLibs {
+            keepDebugSymbols.add("/**/*.so")
         }
     }
 }

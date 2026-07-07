@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -84,14 +85,29 @@ class PrayerService {
     });
   }
 
+  // Session-based deduplication
+  final Set<String> _localIntercededPrayers = {};
+
   Future<void> prayForRequest(String prayerId, List<String> currentPrayers) async {
     final user = _client.auth.currentUser;
-    if (user == null || currentPrayers.contains(user.id)) return;
+    if (user == null) return;
 
-    await _client.from('prayers').update({
-      'prayer_count': currentPrayers.length + 1,
-      'prayed_by': [...currentPrayers, user.id],
-    }).eq('id', prayerId);
+    if (currentPraisesContains(currentPrayers, user.id) || _localIntercededPrayers.contains(prayerId)) return;
+
+    _localIntercededPrayers.add(prayerId);
+
+    try {
+      await _client.from('prayers').update({
+        'prayer_count': currentPrayers.length + 1,
+        'prayed_by': [...currentPrayers, user.id],
+      }).eq('id', prayerId);
+    } catch (e) {
+      debugPrint('Error interceding for prayer request: $e');
+    }
+  }
+
+  bool currentPraisesContains(List<String> list, String value) {
+    return list.contains(value);
   }
 }
 

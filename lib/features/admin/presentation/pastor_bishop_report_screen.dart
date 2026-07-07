@@ -4,7 +4,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
-import 'package:church_on_app/features/admin/data/reporting_service.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 

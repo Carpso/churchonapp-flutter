@@ -43,7 +43,7 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
 
     await ref.read(jobsServiceProvider).postJob(job);
     if (mounted) context.pop();
-    
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Job Opportunity Published!"), backgroundColor: Colors.green),
     );

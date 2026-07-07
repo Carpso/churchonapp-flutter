@@ -3,9 +3,10 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/finance/data/finance_service.dart';
-import 'package:church_on_app/features/admin/data/admin_service.dart';
+import 'package:church_on_app/core/widgets/premium_confirmation_sheet.dart';
+import 'package:church_on_app/core/widgets/premium_toast.dart';
 import 'tithe_history_screen.dart';
-import 'lenco_payment_gateway.dart';
+import 'lipila_payment_gateway.dart';
 import 'package:church_on_app/features/finance/presentation/qr_payment_screen.dart' as qps;
 import 'package:church_on_app/core/services/tenant_service.dart';
 
@@ -17,6 +18,7 @@ class GivingScreen extends ConsumerStatefulWidget {
 }
 
 class _GivingScreenState extends ConsumerState<GivingScreen> {
+  final _formKey = GlobalKey<FormState>();
   String _selectedCategory = "Tithe";
   final TextEditingController _amountController = TextEditingController();
 
@@ -24,8 +26,21 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profile = ref.watch(profileProvider).value;
+    final profileAsync = ref.watch(profileProvider);
+    return profileAsync.when(
+      data: (profile) => _buildScreen(context, profile),
+      loading: () => const Scaffold(
+        backgroundColor: Color(0xFFFFFAEB),
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, st) => Scaffold(
+        backgroundColor: Color(0xFFFFFAEB),
+        body: Center(child: Text('Error loading profile: $e')),
+      ),
+    );
+  }
 
+  Widget _buildScreen(BuildContext context, UserProfile? profile) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
@@ -42,21 +57,21 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
         padding: const EdgeInsets.all(25),
         child: Column(
           children: [
-            _buildTotalGivenCard(profile),
+            _buildTotalGivenCard(profile            ),
             const SizedBox(height: 30),
             _buildCategorySelector(),
             const SizedBox(height: 30),
-            _buildAmountInput(),
+            Form(
+              key: _formKey,
+              child: _buildAmountInput(),
+            ),
             const SizedBox(height: 40),
             _buildPaymentMethods(),
             const SizedBox(height: 40),
             ElevatedButton(
               onPressed: () {
+                if (!_formKey.currentState!.validate()) return;
                 final amount = double.tryParse(_amountController.text) ?? 0.0;
-                if (amount <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter a valid amount")));
-                  return;
-                }
                 
                 showModalBottomSheet(
                   context: context,
@@ -64,26 +79,29 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
                   backgroundColor: Colors.transparent,
                   builder: (context) {
                     final tenant = ref.read(currentTenantProvider);
-                    return LencoPaymentGateway(
-                      amount: amount * 1.06, // Including fee
+                    final fee = amount * 0.05 > 3.00 ? amount * 0.05 : 3.00;
+                    return LipilaPaymentGateway(
+                      amount: amount + fee,
                       description: "Kingdom Giving: $_selectedCategory",
                       category: _selectedCategory.toLowerCase(),
                       recipientName: tenant?.name ?? "Local Church",
                       recipientAccount: tenant?.treasurerPhone ?? "CHURCH-OFFICIAL-AC",
                       paymentReason: "$_selectedCategory Support",
-                    onComplete: (success, txId) async {
-                      Navigator.pop(context); // Close gateway
-                      if (success) {
-                        await ref.read(financeServiceProvider).logTransaction(
-                          amount, 
-                          _selectedCategory.toLowerCase(), 
-                          txId!,
-                          tenantId: tenant?.id,
-                        );
-                        if (mounted) _showSuccessDialog(txId);
-                      }
-                    },
-                  );
+                      onComplete: (success, txId) async {
+                        Navigator.pop(context); // Close gateway
+                        if (success) {
+                          await ref.read(financeServiceProvider).logTransaction(
+                            amount, 
+                            _selectedCategory.toLowerCase(), 
+                            txId!,
+                            tenantId: tenant?.id,
+                            recipientPhone: tenant?.treasurerPhone,
+                            recipientName: tenant?.name,
+                          );
+                          if (mounted) _showSuccessSheet(txId);
+                        }
+                      },
+                    );
                 },
               );
               },
@@ -97,11 +115,8 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
             const SizedBox(height: 15),
             TextButton(
               onPressed: () {
+                if (!_formKey.currentState!.validate()) return;
                 final amount = double.tryParse(_amountController.text) ?? 0.0;
-                if (amount <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter a valid amount")));
-                  return;
-                }
                 Navigator.push(context, MaterialPageRoute(builder: (context) => qps.QrPaymentScreen(
                   amount: amount,
                   description: "Giving: $_selectedCategory",
@@ -121,26 +136,15 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
     );
   }
 
-  void _showSuccessDialog(String txId) {
-    showDialog(
+  void _showSuccessSheet(String txId) {
+    PremiumConfirmationSheet.show(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-        title: const Icon(LucideIcons.checkCircle, color: Colors.green, size: 50),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("Transaction Successful!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            const SizedBox(height: 10),
-            Text("Reference: $txId", style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            const SizedBox(height: 20),
-            const Text("Your seed has been received. God bless your faithfulness.", textAlign: TextAlign.center),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("AMEN")),
-        ],
-      ),
+      title: "Transaction Successful!",
+      subtitle: "Your seed has been received.",
+      message: "God bless your faithfulness. Your giving of K${_amountController.text} has been processed securely.",
+      referenceId: txId,
+      type: ConfirmationType.success,
+      primaryLabel: "AMEN",
     );
   }
 
@@ -156,7 +160,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).primaryColor.withOpacity(0.3),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           )
@@ -209,7 +213,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
               decoration: BoxDecoration(
                 color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.white,
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
               ),
               child: Center(
                 child: Text(
@@ -240,10 +244,16 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
         children: [
           const Text("Enter Amount (K)", style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-          TextField(
+          TextFormField(
             controller: _amountController,
             keyboardType: TextInputType.number,
             onChanged: (v) => setState(() {}),
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'Required';
+              final amount = double.tryParse(v.trim());
+              if (amount == null || amount <= 0) return 'Enter a valid positive amount';
+              return null;
+            },
             style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.secondary),
             decoration: const InputDecoration(
               hintText: "0.00",
@@ -257,7 +267,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
                children: [
                  const Icon(LucideIcons.info, size: 12, color: Colors.blue),
                  const SizedBox(width: 5),
-                 Text("+ 6% Transaction Fee (K${(double.parse(_amountController.text) * 0.06).toStringAsFixed(2)})", style: const TextStyle(color: Colors.blue, fontSize: 10)),
+                 Text("+ MoMo Transaction Fee (K${(double.tryParse(_amountController.text) != null ? (double.parse(_amountController.text) * 0.05 > 3.00 ? double.parse(_amountController.text) * 0.05 : 3.00).toStringAsFixed(2) : '3.00')})", style: const TextStyle(color: Colors.blue, fontSize: 10)),
                ],
              )
           ]
@@ -303,7 +313,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
 
   void _showGivingKey() {
     if (_amountController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter an amount first.")));
+      PremiumToast.showWarning(context, "Please enter an amount first.");
       return;
     }
     showDialog(
@@ -319,7 +329,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
             const SizedBox(height: 30),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)),
               child: const Text("COA-GIVE-8822-XP", style: TextStyle(color: Colors.greenAccent, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 2)),
             ),
             const SizedBox(height: 25),

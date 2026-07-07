@@ -3,39 +3,84 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/tenant_service.dart';
 
+final Map<String, TextTheme Function()> _fontFactories = {
+  'Plus Jakarta Sans': () => GoogleFonts.plusJakartaSansTextTheme(),
+  'Inter': () => GoogleFonts.interTextTheme(),
+  'Roboto': () => GoogleFonts.robotoTextTheme(),
+  'Montserrat': () => GoogleFonts.montserratTextTheme(),
+  'Playfair Display': () => GoogleFonts.playfairDisplayTextTheme(),
+  'Lato': () => GoogleFonts.latoTextTheme(),
+  'Poppins': () => GoogleFonts.poppinsTextTheme(),
+  'Merriweather': () => GoogleFonts.merriweatherTextTheme(),
+  'Open Sans': () => GoogleFonts.openSansTextTheme(),
+  'Raleway': () => GoogleFonts.ralewayTextTheme(),
+  'Nunito': () => GoogleFonts.nunitoTextTheme(),
+  'Source Sans 3': () => GoogleFonts.sourceSans3TextTheme(),
+  'Oswald': () => GoogleFonts.oswaldTextTheme(),
+  'PT Serif': () => GoogleFonts.ptSerifTextTheme(),
+  'Work Sans': () => GoogleFonts.workSansTextTheme(),
+  'DM Sans': () => GoogleFonts.dmSansTextTheme(),
+  'Noto Sans': () => GoogleFonts.notoSansTextTheme(),
+  'Libre Baskerville': () => GoogleFonts.libreBaskervilleTextTheme(),
+  'Cabin': () => GoogleFonts.cabinTextTheme(),
+  'Figtree': () => GoogleFonts.figtreeTextTheme(),
+  'Urbanist': () => GoogleFonts.urbanistTextTheme(),
+  'Sora': () => GoogleFonts.soraTextTheme(),
+  'Karla': () => GoogleFonts.karlaTextTheme(),
+  'Manrope': () => GoogleFonts.manropeTextTheme(),
+  'Outfit': () => GoogleFonts.outfitTextTheme(),
+  'Barlow': () => GoogleFonts.barlowTextTheme(),
+  'Commissioner': () => GoogleFonts.commissionerTextTheme(),
+  'Epilogue': () => GoogleFonts.epilogueTextTheme(),
+  'Lexend': () => GoogleFonts.lexendTextTheme(),
+  'Public Sans': () => GoogleFonts.publicSansTextTheme(),
+  'Space Grotesk': () => GoogleFonts.spaceGroteskTextTheme(),
+  'Syne': () => GoogleFonts.syneTextTheme(),
+  'Zilla Slab': () => GoogleFonts.zillaSlabTextTheme(),
+};
+
+TextTheme _buildTextTheme(String fontFamily) {
+  final factory = _fontFactories[fontFamily];
+  if (factory != null) return factory();
+  return GoogleFonts.plusJakartaSansTextTheme();
+}
+
 class AppTheme {
   static ThemeData getTheme(Tenant? tenant) {
     final primary = tenant?.primaryColor ?? const Color(0xFFFFD700);
-    final charcoal = tenant?.accentColor ?? const Color(0xFF1A1A1A);
-    const ivory = Color(0xFFFFFAEB);
+    final secondary = tenant?.accentColor ?? const Color(0xFF1A1A1A);
+    final surface = tenant?.surfaceColor ?? const Color(0xFFFFFAEB);
     const surfaceWhite = Colors.white;
+    final fontFamily = tenant?.fontFamily ?? 'Plus Jakarta Sans';
+    final baseTextTheme = _buildTextTheme(fontFamily);
 
     return ThemeData(
       useMaterial3: true,
-      scaffoldBackgroundColor: ivory,
+      scaffoldBackgroundColor: surface,
       colorScheme: ColorScheme.fromSeed(
         seedColor: primary,
         primary: primary,
-        secondary: charcoal,
+        secondary: secondary,
         surface: surfaceWhite,
+        brightness: Brightness.light,
       ),
-      textTheme: GoogleFonts.plusJakartaSansTextTheme().copyWith(
-        displayLarge: GoogleFonts.plusJakartaSans(
-          color: charcoal,
+      textTheme: baseTextTheme.copyWith(
+        displayLarge: baseTextTheme.displayLarge?.copyWith(
+          color: secondary,
           fontWeight: FontWeight.bold,
           fontSize: 32,
         ),
-        titleLarge: GoogleFonts.plusJakartaSans(
-          color: charcoal,
+        titleLarge: baseTextTheme.titleLarge?.copyWith(
+          color: secondary,
           fontWeight: FontWeight.bold,
           fontSize: 22,
         ),
-        bodyLarge: GoogleFonts.inter(
-          color: charcoal,
+        bodyLarge: baseTextTheme.bodyLarge?.copyWith(
+          color: secondary,
           fontSize: 16,
         ),
-        bodyMedium: GoogleFonts.inter(
-          color: charcoal.withOpacity(0.8),
+        bodyMedium: baseTextTheme.bodyMedium?.copyWith(
+          color: secondary.withValues(alpha: 0.8),
           fontSize: 14,
         ),
       ),
@@ -44,7 +89,7 @@ class AppTheme {
         elevation: 0,
         centerTitle: true,
         titleTextStyle: TextStyle(
-          color: charcoal,
+          color: secondary,
           fontSize: 20,
           fontWeight: FontWeight.bold,
         ),
@@ -52,7 +97,7 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primary,
-          foregroundColor: charcoal,
+          foregroundColor: secondary,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -70,10 +115,78 @@ class AppTheme {
     );
   }
 
+  static ThemeData getDarkTheme(Tenant? tenant) {
+    final primary = tenant?.primaryColor ?? const Color(0xFFFFD700);
+    final surface = const Color(0xFF121212);
+    final cardColor = const Color(0xFF1E1E1E);
+    final fontFamily = tenant?.fontFamily ?? 'Plus Jakarta Sans';
+    final baseTextTheme = _buildTextTheme(fontFamily);
+
+    return ThemeData(
+      useMaterial3: true,
+      scaffoldBackgroundColor: surface,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: primary,
+        primary: primary,
+        secondary: Colors.amberAccent,
+        surface: cardColor,
+        brightness: Brightness.dark,
+      ),
+      textTheme: baseTextTheme.copyWith(
+        displayLarge: baseTextTheme.displayLarge?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 32,
+        ),
+        titleLarge: baseTextTheme.titleLarge?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 22,
+        ),
+        bodyLarge: baseTextTheme.bodyLarge?.copyWith(
+          color: Colors.white70,
+          fontSize: 16,
+        ),
+        bodyMedium: baseTextTheme.bodyMedium?.copyWith(
+          color: Colors.white60,
+          fontSize: 14,
+        ),
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        titleTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: Colors.black,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: cardColor,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+    );
+  }
+
   static LinearGradient getGradient(Tenant? tenant) {
     final primary = tenant?.primaryColor ?? const Color(0xFFFFD700);
     return LinearGradient(
-      colors: [primary, primary.withOpacity(0.8)],
+      colors: [primary, primary.withValues(alpha: 0.8)],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
@@ -85,3 +198,12 @@ final themeProvider = Provider<ThemeData>((ref) {
   return AppTheme.getTheme(tenant);
 });
 
+final darkThemeProvider = Provider<ThemeData>((ref) {
+  final tenant = ref.watch(currentTenantProvider);
+  return AppTheme.getDarkTheme(tenant);
+});
+
+final themeModeProvider = Provider<ThemeMode>((ref) {
+  final tenant = ref.watch(currentTenantProvider);
+  return tenant?.themeMode ?? ThemeMode.light;
+});

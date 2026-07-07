@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../data/bible_podcast_service.dart';
+import 'deep_study_suite_screen.dart';
 
 class BiblePodcastScreen extends ConsumerStatefulWidget {
   const BiblePodcastScreen({super.key});
@@ -132,7 +133,7 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
         decoration: BoxDecoration(
           color: const Color(0xFF1E293B),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20)],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20)],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -208,7 +209,7 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
     return GestureDetector(
       onTap: () => _playEpisode(episode),
       child: Container(
-        height: 200, width: double.infinity,
+        width: double.infinity,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(30),
           image: DecorationImage(image: NetworkImage(episode.thumbnailUrl), fit: BoxFit.cover, colorFilter: ColorFilter.mode(Colors.black.withAlpha(102), BlendMode.darken)),
@@ -216,7 +217,7 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
         child: Padding(
           padding: const EdgeInsets.all(25.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(children: [
@@ -227,9 +228,40 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
                 Container(padding: const EdgeInsets.all(10), decoration: const BoxDecoration(color: Colors.amber, shape: BoxShape.circle), child: const Icon(LucideIcons.play, color: Colors.black, size: 18)),
               ]),
               const SizedBox(height: 10),
-              Text(episode.title, style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+              Text(episode.title, style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 5),
               Text("${episode.book} • ${episode.duration}", style: const TextStyle(color: Colors.white70, fontSize: 12)),
+              const SizedBox(height: 15),
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () => _playEpisode(episode),
+                    icon: const Icon(LucideIcons.play, size: 16),
+                    label: const Text("PLAY"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => DeepStudySuiteScreen()),
+                      );
+                    },
+                    icon: const Icon(LucideIcons.bookOpen, size: 16),
+                    label: const Text("READ"),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white54),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -243,9 +275,9 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 15), padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isCurrent ? Colors.amber.withOpacity(0.15) : const Color(0xFF1E293B),
+          color: isCurrent ? Colors.amber.withValues(alpha: 0.15) : const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(20),
-          border: isCurrent ? Border.all(color: Colors.amber.withOpacity(0.3)) : null,
+          border: isCurrent ? Border.all(color: Colors.amber.withValues(alpha: 0.3)) : null,
         ),
         child: Row(
           children: [
@@ -264,6 +296,15 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
                 const SizedBox(height: 4),
                 Text(episode.duration, style: const TextStyle(color: Colors.white54, fontSize: 11)),
               ]),
+            ),
+            IconButton(
+              icon: const Icon(LucideIcons.bookOpen, color: Colors.white30, size: 20),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => DeepStudySuiteScreen()),
+                );
+              },
             ),
             Container(
               padding: const EdgeInsets.all(8),

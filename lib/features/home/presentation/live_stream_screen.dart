@@ -52,7 +52,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         playedColor: const Color(0xFFFFD700),
         handleColor: const Color(0xFFFFD700),
         backgroundColor: Colors.grey,
-        bufferedColor: Colors.white.withOpacity(0.3),
+        bufferedColor: Colors.white.withValues(alpha: 0.3),
       ),
     );
     if (mounted) setState(() {});
@@ -124,7 +124,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(tenant?.name ?? "Kingdom Church", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          Text("Join the community", style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+                          Text("Join the community", style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
                         ],
                       ),
                       const Spacer(),
@@ -173,9 +173,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.amber.withOpacity(0.1),
+            color: Colors.amber.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: Colors.amber.withOpacity(0.3)),
+            border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -250,7 +250,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(25),
       ),
       child: Row(
@@ -281,6 +281,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     if (tenant == null || _chatCtrl.text.trim().isEmpty) return;
 
     final profile = ref.read(profileProvider).value;
+    if (profile == null) return;
     final message = _chatCtrl.text.trim();
     _chatCtrl.clear();
 
@@ -288,8 +289,8 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
       await ref.read(liveChatServiceProvider).sendLiveMessage(
         tenantId: tenant.id,
         content: message,
-        userName: profile?.name ?? "Believer",
-        userPhoto: "https://i.pravatar.cc/100?u=${profile?.id ?? '1'}",
+        userName: profile.name,
+        userPhoto: "https://i.pravatar.cc/100?u=${profile.id}",
       );
     } catch (e) {
       if (mounted) {

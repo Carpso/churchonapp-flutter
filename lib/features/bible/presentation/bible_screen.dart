@@ -5,7 +5,8 @@ import '../data/bible_service.dart';
 import '../data/bible_books.dart';
 import '../../notebook/presentation/notebook_screen.dart';
 import 'bible_podcast_screen.dart';
-import 'deep_study_suite_screen.dart';
+import 'study_plans_screen.dart';
+import 'scripture_memory_screen.dart';
 
 class BibleScreen extends ConsumerStatefulWidget {
   const BibleScreen({super.key});
@@ -22,13 +23,37 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
   double fontSize = 18.0;
   bool isDarkTheme = false;
   int _activeBottomTab = 0; // 0=Highlight, 1=Notes, 2=Share, 3=Audio, 4=Study
-  Set<String> _highlightedVerses = {};
+  int _bookSelectorTab = 0; // 0=OT, 1=NT
+  final Set<String> _highlightedVerses = {};
+
+  /// Number of chapters per book (all 66 books)
+  static const Map<String, int> _chapterCounts = {
+    'Genesis': 50, 'Exodus': 40, 'Leviticus': 27, 'Numbers': 36, 'Deuteronomy': 34,
+    'Joshua': 24, 'Judges': 21, 'Ruth': 4, '1 Samuel': 31, '2 Samuel': 24,
+    '1 Kings': 22, '2 Kings': 25, '1 Chronicles': 29, '2 Chronicles': 36,
+    'Ezra': 10, 'Nehemiah': 13, 'Esther': 10, 'Job': 42, 'Psalms': 150,
+    'Proverbs': 31, 'Ecclesiastes': 12, 'Song of Solomon': 8, 'Isaiah': 66,
+    'Jeremiah': 52, 'Lamentations': 5, 'Ezekiel': 48, 'Daniel': 12,
+    'Hosea': 14, 'Joel': 3, 'Amos': 9, 'Obadiah': 1, 'Jonah': 4,
+    'Micah': 7, 'Nahum': 3, 'Habakkuk': 3, 'Zephaniah': 3, 'Haggai': 2,
+    'Zechariah': 14, 'Malachi': 4, 'Matthew': 28, 'Mark': 16, 'Luke': 24,
+    'John': 21, 'Acts': 28, 'Romans': 16, '1 Corinthians': 16, '2 Corinthians': 13,
+    'Galatians': 6, 'Ephesians': 6, 'Philippians': 4, 'Colossians': 4,
+    '1 Thessalonians': 5, '2 Thessalonians': 3, '1 Timothy': 6, '2 Timothy': 4,
+    'Titus': 3, 'Philemon': 1, 'Hebrews': 13, 'James': 5, '1 Peter': 5,
+    '2 Peter': 3, '1 John': 5, '2 John': 1, '3 John': 1, 'Jude': 1,
+    'Revelation': 22,
+  };
+
+  int get _maxChapter => _chapterCounts[selectedBook] ?? 150;
 
   final List<Map<String, String>> translations = [
-    {"id": "web", "name": "World English"},
-    {"id": "kjv", "name": "King James"},
-    {"id": "bbe", "name": "Basic English"},
-    {"id": "oeb-cw", "name": "Open English"},
+    {"id": "web", "name": "World English Bible (WEB)"},
+    {"id": "kjv", "name": "King James Version (KJV)"},
+    {"id": "bbe", "name": "Bible in Basic English (BBE)"},
+    {"id": "oeb-cw", "name": "Open English Bible (OEB)"},
+    {"id": "almeida", "name": "João Ferreira de Almeida (Portuguese)"},
+    {"id": "rvr1960", "name": "Reina-Valera 1960 (Spanish)"},
   ];
 
   @override
@@ -48,6 +73,16 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.listTodo),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyPlansScreen())),
+            tooltip: "Study Plans",
+          ),
+          IconButton(
+            icon: const Icon(LucideIcons.brain),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScriptureMemoryScreen())),
+            tooltip: "Scripture Memory",
+          ),
           IconButton(icon: const Icon(LucideIcons.type), onPressed: _showAppearanceSettings),
           IconButton(icon: const Icon(LucideIcons.search), onPressed: _showSearchDialog),
         ],
@@ -103,12 +138,12 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.amber.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
+                    decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
                     child: Text("Chapter $selectedChapter", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber.shade800)),
                   ),
                   IconButton(
                     icon: const Icon(LucideIcons.chevronRight, size: 20),
-                    onPressed: () => setState(() => selectedChapter++),
+                    onPressed: selectedChapter < _maxChapter ? () => setState(() => selectedChapter++) : null,
                   ),
                 ],
               ),
@@ -141,7 +176,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                       margin: const EdgeInsets.only(bottom: 4),
                       decoration: isHighlighted ? BoxDecoration(
-                        color: Colors.amber.withOpacity(0.15),
+                        color: Colors.amber.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ) : null,
                       child: RichText(
@@ -233,7 +268,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -309,7 +344,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
       padding: const EdgeInsets.only(bottom: 35, top: 12, left: 10, right: 10),
       decoration: BoxDecoration(
         color: isDarkTheme ? const Color(0xFF1A1A1A) : Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -335,7 +370,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               duration: const Duration(milliseconds: 200),
               padding: EdgeInsets.symmetric(horizontal: isActive ? 14 : 8, vertical: 6),
               decoration: isActive ? BoxDecoration(
-                color: Colors.amber.withOpacity(0.15),
+                color: Colors.amber.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(15),
               ) : null,
               child: Row(
@@ -360,78 +395,94 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.8,
-        decoration: BoxDecoration(
-          color: isDarkTheme ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-        ),
-        padding: const EdgeInsets.all(25),
-        child: Column(
-          children: [
-            const Text("SELECT BOOK", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            const SizedBox(height: 5),
-            Text("${bibleBooks.length} books", style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            const Divider(height: 20),
-            // OT / NT tabs
-            Row(
-              children: [
-                Expanded(child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(color: Colors.amber.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                  child: const Center(child: Text("Old Testament", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.amber))),
-                )),
-                const SizedBox(width: 10),
-                Expanded(child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                  child: const Center(child: Text("New Testament", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue))),
-                )),
-              ],
-            ),
-            const SizedBox(height: 15),
-            Expanded(
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 2.5),
-                itemCount: bibleBooks.length,
-                itemBuilder: (context, index) {
-                  final book = bibleBooks[index];
-                  final isSelected = book == selectedBook;
-                  final isOT = index < 39;
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        selectedBook = book;
-                        selectedChapter = 1;
-                      });
-                      Navigator.pop(context);
-                    },
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.8,
+          decoration: BoxDecoration(
+            color: isDarkTheme ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          padding: const EdgeInsets.all(25),
+          child: Column(
+            children: [
+              const Text("SELECT BOOK", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const SizedBox(height: 5),
+              Text("${bibleBooks.length} books", style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              const Divider(height: 20),
+              // OT / NT tabs
+              Row(
+                children: [
+                  Expanded(child: GestureDetector(
+                    onTap: () => setModalState(() => _bookSelectorTab = 0),
                     child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        color: isSelected ? Colors.amber : (isDarkTheme ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.08)),
-                        borderRadius: BorderRadius.circular(12),
-                        border: isSelected ? Border.all(color: Colors.amber) : null,
+                        color: _bookSelectorTab == 0 ? Colors.amber.withValues(alpha: 0.2) : Colors.amber.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(10),
+                        border: _bookSelectorTab == 0 ? Border.all(color: Colors.amber, width: 1.5) : null,
                       ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        book,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isSelected
-                            ? Colors.black
-                            : (isDarkTheme ? Colors.white : const Color(0xFF1A1A2E)),
-                          fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      child: Center(child: Text("Old Testament", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: _bookSelectorTab == 0 ? Colors.amber.shade800 : Colors.amber))),
                     ),
-                  );
-                },
+                  )),
+                  const SizedBox(width: 10),
+                  Expanded(child: GestureDetector(
+                    onTap: () => setModalState(() => _bookSelectorTab = 1),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _bookSelectorTab == 1 ? Colors.blue.withValues(alpha: 0.2) : Colors.blue.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(10),
+                        border: _bookSelectorTab == 1 ? Border.all(color: Colors.blue, width: 1.5) : null,
+                      ),
+                      child: Center(child: Text("New Testament", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: _bookSelectorTab == 1 ? Colors.blue : Colors.blue.withValues(alpha: 0.6)))),
+                    ),
+                  )),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 15),
+              Expanded(
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 2.5),
+                  itemCount: _bookSelectorTab == 0 ? 39 : 27,
+                  itemBuilder: (context, index) {
+                    final bookIndex = _bookSelectorTab == 0 ? index : index + 39;
+                    final book = bibleBooks[bookIndex];
+                    final isSelected = book == selectedBook;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedBook = book;
+                          selectedChapter = 1;
+                        });
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isSelected ? Colors.amber : (isDarkTheme ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.08)),
+                          borderRadius: BorderRadius.circular(12),
+                          border: isSelected ? Border.all(color: Colors.amber) : null,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          book,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isSelected
+                              ? Colors.black
+                              : (isDarkTheme ? Colors.white : const Color(0xFF1A1A2E)),
+                            fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -473,7 +524,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               Expanded(child: Slider(value: fontSize, min: 12, max: 32, activeColor: Colors.amber, onChanged: (v) => setState(() => fontSize = v))),
             ]),
             const SizedBox(height: 10),
-            SwitchListTile(title: const Text("Dark Reader Mode"), value: isDarkTheme, activeColor: Colors.amber, onChanged: (v) => setState(() => isDarkTheme = v)),
+            SwitchListTile(title: const Text("Dark Reader Mode"), value: isDarkTheme, activeThumbColor: Colors.amber, onChanged: (v) => setState(() => isDarkTheme = v)),
           ],
         ),
       ),
@@ -507,6 +558,13 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
     );
   }
 
+  void _showAudioPlaceholder(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Audio Bible playback coming soon"), backgroundColor: Colors.amber),
+    );
+  }
+
+  // ignore: unused_element
   void _showAudioPlayer() {
     showModalBottomSheet(
       context: context,
@@ -532,11 +590,11 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
             ]),
             const Spacer(),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              IconButton(icon: const Icon(LucideIcons.skipBack, color: Colors.white), onPressed: () {}),
+              IconButton(icon: const Icon(LucideIcons.skipBack, color: Colors.white), onPressed: () => _showAudioPlaceholder(context)),
               const SizedBox(width: 20),
-              CircleAvatar(radius: 30, backgroundColor: Colors.amber, child: IconButton(icon: const Icon(LucideIcons.play, color: Colors.black), onPressed: () {})),
+              CircleAvatar(radius: 30, backgroundColor: Colors.amber, child: IconButton(icon: const Icon(LucideIcons.play, color: Colors.black), onPressed: () => _showAudioPlaceholder(context))),
               const SizedBox(width: 20),
-              IconButton(icon: const Icon(LucideIcons.skipForward, color: Colors.white), onPressed: () {}),
+              IconButton(icon: const Icon(LucideIcons.skipForward, color: Colors.white), onPressed: () => _showAudioPlaceholder(context)),
             ]),
           ],
         ),

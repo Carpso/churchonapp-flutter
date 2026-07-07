@@ -32,7 +32,7 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
   void _executePayout(Map<String, dynamic> request) async {
     setState(() => _isLoading = true);
     
-    final result = await ref.read(adminServiceProvider).executeLencoPayout(
+    final result = await ref.read(adminServiceProvider).executeLipilaPayout(
       userId: request['user_id'],
       amount: (request['amount'] as num).toDouble(),
       phone: request['mobile_number'],
@@ -44,7 +44,7 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
       await _loadRequests();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Lenco Payout Successful. Ref: ${result['reference']}")),
+          SnackBar(content: Text("Lipila Payout Successful. Ref: ${result['reference']}")),
         );
       }
     } else {
@@ -87,7 +87,7 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.wallet, size: 80, color: Colors.white.withOpacity(0.1)),
+          Icon(LucideIcons.wallet, size: 80, color: Colors.white.withValues(alpha: 0.1)),
           const SizedBox(height: 20),
           const Text("No pending global payout requests.", style: TextStyle(color: Colors.white38)),
         ],
@@ -102,9 +102,9 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
       margin: const EdgeInsets.only(bottom: 25),
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: isProcessed ? Colors.green.withOpacity(0.2) : Colors.white10),
+        border: Border.all(color: isProcessed ? Colors.green.withValues(alpha: 0.2) : Colors.white10),
       ),
       child: Column(
         children: [
@@ -112,7 +112,7 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.greenAccent.withOpacity(0.1), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: Colors.greenAccent.withValues(alpha: 0.1), shape: BoxShape.circle),
                 child: const Icon(LucideIcons.user, color: Colors.greenAccent, size: 20),
               ),
               const SizedBox(width: 15),
@@ -138,7 +138,7 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
                 minimumSize: const Size(double.infinity, 55),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               ),
-              child: const Text("EXECUTE LENCO SETTLEMENT", style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text("EXECUTE LIPILA SETTLEMENT", style: TextStyle(fontWeight: FontWeight.bold)),
             )
           else
             Row(
@@ -146,7 +146,7 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
               children: [
                 const Icon(LucideIcons.checkCircle, color: Colors.green, size: 16),
                 const SizedBox(width: 10),
-                const Text("SETTLED VIA LENCO", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.2)),
+                const Text("SETTLED VIA LIPILA", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.2)),
               ],
             ),
         ],

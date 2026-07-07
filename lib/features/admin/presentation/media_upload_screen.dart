@@ -105,11 +105,15 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
       appBar: AppBar(
         title: const Text("Kingdom Media Manager"),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(25),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await Future.delayed(const Duration(seconds: 1));
+        },
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(25),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             const Text("Upload Content", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const Text("All assets are served via Cloudflare R2 Edge", style: TextStyle(color: Colors.grey, fontSize: 12)),
             const SizedBox(height: 30),
@@ -147,7 +151,8 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
                 ),
                 child: const Text("START SECURE UPLOAD", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -216,7 +221,7 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.5)),
+        border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.5)),
       ),
       child: Column(
         children: [

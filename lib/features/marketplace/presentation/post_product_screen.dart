@@ -27,6 +27,7 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
   String _selectedType = "general";
   bool _isSubmitting = false;
   File? _imageFile;
+  // ignore: unused_field
   String? _uploadedImageUrl;
 
   final List<String> _categories = ["bookshop", "apparel", "worship", "tickets", "media", "electronics", "home"];
@@ -129,7 +130,11 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
                 controller: _nameCtrl,
                 label: "Item Name",
                 hint: "e.g. Vintage Study Bible",
-                validator: (v) => v!.isEmpty ? "Required" : null,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Required';
+                  if (v.trim().length < 2) return 'Min 2 characters';
+                  return null;
+                },
               ),
               const SizedBox(height: 15),
               _buildPriceField(),
@@ -165,7 +170,7 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                    border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
                   ),
                   child: _imageFile != null
                       ? ClipRRect(
@@ -256,7 +261,12 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
         TextFormField(
           controller: _priceCtrl,
           keyboardType: TextInputType.number,
-          validator: (v) => v!.isEmpty ? "Required" : null,
+          validator: (v) {
+            if (v == null || v.trim().isEmpty) return 'Required';
+            final amount = double.tryParse(v.trim());
+            if (amount == null || amount <= 0) return 'Enter a valid positive price';
+            return null;
+          },
           decoration: InputDecoration(
             hintText: "0.00",
             prefixText: "K ",

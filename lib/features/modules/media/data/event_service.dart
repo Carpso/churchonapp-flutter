@@ -90,12 +90,12 @@ class EventService {
   }
 }
 
-final eventServiceProvider = Provider((ref) {
+final kingdomEventServiceProvider = Provider((ref) {
   final client = ref.watch(supabaseServiceProvider).client;
   return EventService(client);
 });
 
-final upcomingEventsProvider = FutureProvider<List<KingdomEvent>>((ref) {
-  return ref.watch(eventServiceProvider).fetchUpcomingEvents();
+final kingdomUpcomingEventsProvider = FutureProvider<List<KingdomEvent>>((ref) {
+  return ref.watch(kingdomEventServiceProvider).fetchUpcomingEvents();
 });
 

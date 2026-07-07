@@ -1,83 +1,212 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../data/chat_service.dart';
 import 'chat_messenger_screen.dart';
 import '../../modules/media/presentation/kingdom_events_screen.dart';
 
-class CommunitiesScreen extends StatelessWidget {
+class CommunitiesScreen extends ConsumerStatefulWidget {
   const CommunitiesScreen({super.key});
+
+  @override
+  ConsumerState<CommunitiesScreen> createState() => _CommunitiesScreenState();
+}
+
+class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
+  List<Map<String, dynamic>> _churchMembers = [];
+  bool _loadingMembers = true;
+
+  // ── Church groups definition ───────────────────────────────────────────────
+  static const List<Map<String, dynamic>> _churchGroups = [
+    {
+      'title': 'Worship Team',
+      'subtitle': 'Internal prep for Sunday missions',
+      'image': 'https://images.unsplash.com/photo-1514525253361-b83f859b73c0?w=800&q=80',
+      'groupId': 'worship-team-id',
+      'badge': 'LIVE',
+      'count': 12,
+    },
+    {
+      'title': 'General Grace Group',
+      'subtitle': 'Whole church community chat',
+      'image': 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=800&q=80',
+      'groupId': 'general_grace',
+      'badge': null,
+      'count': 154,
+    },
+    {
+      'title': 'Youth Ministry',
+      'subtitle': 'Empowering the next generation',
+      'image': 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&q=80',
+      'groupId': 'youth_ministry',
+      'badge': null,
+      'count': 47,
+    },
+    {
+      'title': 'Prayer Warriors',
+      'subtitle': 'Collective intercession for the nation',
+      'image': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
+      'groupId': 'national-prayer-id',
+      'badge': null,
+      'count': 89,
+    },
+    {
+      'title': 'Zambian Apostolic Network',
+      'subtitle': 'Unity across 50+ congregations',
+      'image': 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=800&q=80',
+      'groupId': 'apostolic-network-id',
+      'badge': null,
+      'count': 312,
+    },
+    {
+      'title': 'Kingdom Youth Alliance',
+      'subtitle': 'Cross-church youth empowerment',
+      'image': 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&q=80',
+      'groupId': 'youth-alliance-id',
+      'badge': null,
+      'count': 98,
+    },
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMembers();
+  }
+
+  Future<void> _loadMembers() async {
+    setState(() => _loadingMembers = true);
+    final members = await ref.read(chatServiceProvider).fetchChurchMembers(limit: 30);
+    if (mounted) {
+      setState(() {
+        _churchMembers = members;
+        _loadingMembers = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: const Color(0xFFFFFAEB),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(25),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(context),
-            const SizedBox(height: 30),
-            const Text("STRATEGIC MISSIONS", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.grey)),
-            const SizedBox(height: 15),
-            _buildEventGateway(context),
-            const SizedBox(height: 30),
-            const Text("INTER-CHURCH HUBS", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.grey)),
-            const SizedBox(height: 15),
-            _buildHubTile(
-              context,
-              "Zambian Apostolic Network",
-              "Unity in the spirit across 50+ congregations",
-              "https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=800&q=80",
-              "apostolic-network-id",
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(context),
+                  const SizedBox(height: 25),
+                  _buildEventGateway(context),
+                  const SizedBox(height: 30),
+                  _buildSectionLabel('CHURCH GROUPS'),
+                  const SizedBox(height: 12),
+                ],
+              ),
             ),
-            _buildHubTile(
-              context,
-              "National Prayer Group",
-              "Collective intercession for the nation",
-              "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80",
-              "national-prayer-id",
+          ),
+
+          // Church Groups list
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final group = _churchGroups[index];
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: _buildGroupTile(context, group),
+                );
+              },
+              childCount: _churchGroups.length,
             ),
-            _buildHubTile(
-              context,
-              "Kingdom Youth Alliance",
-              "Empowering the next generation of leaders",
-              "https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&q=80",
-              "youth-alliance-id",
+          ),
+
+          // Direct Messages section
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+              child: _buildSectionLabel('DIRECT MESSAGES — CHURCH MEMBERS'),
             ),
-            const SizedBox(height: 30),
-            const Text("LOCAL CONGREGATION", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.grey)),
-            const SizedBox(height: 15),
-            _buildHubTile(
-              context,
-              "Worship Team Coordination",
-              "Internal prep for Sunday missions",
-              "https://images.unsplash.com/photo-1514525253361-b83f859b73c0?w=800&q=80",
-              "worship-team-id",
+          ),
+
+          if (_loadingMembers)
+            const SliverToBoxAdapter(
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(30),
+                  child: CircularProgressIndicator(color: Color(0xFF075E54)),
+                ),
+              ),
+            )
+          else if (_churchMembers.isEmpty)
+            SliverToBoxAdapter(child: _buildEmptyMembers())
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final member = _churchMembers[index];
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                    child: _buildMemberTile(context, member),
+                  );
+                },
+                childCount: _churchMembers.length,
+              ),
             ),
-          ],
-        ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 80)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String label) {
+    return Text(
+      label,
+      style: const TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 2,
+        color: Colors.grey,
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(25),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+        color: const Color(0xFF075E54),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF075E54).withValues(alpha: 0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(LucideIcons.users, color: Colors.white, size: 40),
-          SizedBox(width: 20),
-          Expanded(
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(LucideIcons.users, color: Colors.white, size: 32),
+          ),
+          const SizedBox(width: 16),
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Unified Presence", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-                Text("Real-time collaboration across the Kingdom.", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                Text('Kingdom Communities',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17)),
+                SizedBox(height: 4),
+                Text('Real-time collaboration across the Kingdom.',
+                    style: TextStyle(color: Colors.white70, fontSize: 12)),
               ],
             ),
           ),
@@ -88,28 +217,31 @@ class CommunitiesScreen extends StatelessWidget {
 
   Widget _buildEventGateway(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const KingdomEventsScreen())),
+      onTap: () => Navigator.push(
+          context, MaterialPageRoute(builder: (_) => const KingdomEventsScreen())),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: Colors.amber.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(color: Colors.amber.withOpacity(0.3)),
+          color: Colors.amber.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: const BoxDecoration(color: Colors.amber, shape: BoxShape.circle),
-              child: const Icon(LucideIcons.ticket, color: Colors.black, size: 24),
+              child: const Icon(LucideIcons.ticket, color: Colors.black, size: 22),
             ),
-            const SizedBox(width: 20),
+            const SizedBox(width: 16),
             const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Multi-Church Ticketing", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  Text("Secure your spot for conferences & worship nights.", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  Text('Multi-Church Ticketing',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text('Secure your spot for conferences & worship nights.',
+                      style: TextStyle(color: Colors.grey, fontSize: 12)),
                 ],
               ),
             ),
@@ -120,45 +252,89 @@ class CommunitiesScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHubTile(BuildContext context, String title, String subtitle, String imageUrl, String hubId) {
+  Widget _buildGroupTile(BuildContext context, Map<String, dynamic> group) {
+    final memberCount = group['count'] as int;
+    final badge = group['badge'] as String?;
+
+    // Generate some fake member avatars for the stack
+    final avatarCount = memberCount > 4 ? 4 : memberCount;
+
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatMessengerScreen(
-              userName: title,
-              userAvatar: imageUrl,
-              groupId: hubId,
-              isGroup: true,
-            ),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatMessengerScreen(
+            userName: group['title']!,
+            userAvatar: group['image']!,
+            groupId: group['groupId']!,
+            isGroup: true,
           ),
-        );
-      },
+        ),
+      ),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 15),
-        padding: const EdgeInsets.all(15),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4)),
+          ],
         ),
         child: Row(
           children: [
-            Container(
-              width: 50, height: 50,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(15),
-                image: DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover),
-              ),
+            // Group image
+            Stack(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    image: DecorationImage(
+                      image: NetworkImage(group['image']!),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+                if (badge != null)
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(badge,
+                          style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900)),
+                    ),
+                  ),
+              ],
             ),
-            const SizedBox(width: 15),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                  Text(group['title']!,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 3),
+                  Text(group['subtitle']!,
+                      style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                  const SizedBox(height: 8),
+                  // Member avatar stack
+                  Row(
+                    children: [
+                      _buildAvatarStack(avatarCount),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$memberCount members',
+                        style: const TextStyle(
+                            color: Color(0xFF075E54), fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -168,5 +344,168 @@ class CommunitiesScreen extends StatelessWidget {
       ),
     );
   }
-}
 
+  Widget _buildAvatarStack(int count) {
+    return SizedBox(
+      width: 16.0 * count + 22,
+      height: 26,
+      child: Stack(
+        children: List.generate(count, (i) {
+          return Positioned(
+            left: i * 16.0,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: CircleAvatar(
+                radius: 11,
+                backgroundImage: NetworkImage('https://i.pravatar.cc/60?img=${i + 20}'),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildMemberTile(BuildContext context, Map<String, dynamic> member) {
+    final name = member['full_name'] as String? ?? 'Member';
+    final id = member['id'] as String? ?? '';
+    final avatar = member['avatar_url'] as String? ?? 'https://i.pravatar.cc/100?u=$id';
+    final role = member['role'] as String? ?? 'member';
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatMessengerScreen(
+            userName: name,
+            userAvatar: avatar,
+            receiverId: id,
+          ),
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8),
+          ],
+        ),
+        child: Row(
+          children: [
+            Stack(
+              children: [
+                CircleAvatar(radius: 24, backgroundImage: NetworkImage(avatar)),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(
+                    _formatRole(role),
+                    style: const TextStyle(color: Colors.grey, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            Row(
+              children: [
+                _buildQuickAction(LucideIcons.phone, const Color(0xFF075E54), () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatMessengerScreen(
+                        userName: name,
+                        userAvatar: avatar,
+                        receiverId: id,
+                      ),
+                    ),
+                  );
+                }),
+                const SizedBox(width: 8),
+                _buildQuickAction(LucideIcons.messageSquare, Colors.amber, () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatMessengerScreen(
+                        userName: name,
+                        userAvatar: avatar,
+                        receiverId: id,
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickAction(IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: color, size: 18),
+      ),
+    );
+  }
+
+  Widget _buildEmptyMembers() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          children: [
+            Icon(LucideIcons.users, size: 48, color: Colors.grey[300]),
+            const SizedBox(height: 12),
+            const Text('No church members found yet', style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              icon: const Icon(LucideIcons.refreshCw, size: 16),
+              label: const Text('Refresh'),
+              onPressed: _loadMembers,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatRole(String role) {
+    switch (role) {
+      case 'pastor': return '🎤 Pastor';
+      case 'admin': return '⚙️ Admin';
+      case 'leader': return '👑 Leader';
+      case 'worship': return '🎵 Worship Team';
+      default: return '🙏 Church Member';
+    }
+  }
+}

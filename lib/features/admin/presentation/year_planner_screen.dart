@@ -47,7 +47,7 @@ class _YearPlannerScreenState extends ConsumerState<YearPlannerScreen> {
           }
           final programs = snapshot.data ?? [];
           if (programs.isEmpty) {
-            return _buildEmptyState();
+            return _buildEmptyState(tenant.id);
           }
 
           return ListView.builder(
@@ -63,7 +63,7 @@ class _YearPlannerScreenState extends ConsumerState<YearPlannerScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(String tenantId) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -73,7 +73,7 @@ class _YearPlannerScreenState extends ConsumerState<YearPlannerScreen> {
           Text("No annual programs planned yet", style: TextStyle(color: Colors.grey[500], fontSize: 16)),
           const SizedBox(height: 10),
           ElevatedButton(
-            onPressed: () {}, // Trigger add dialog
+            onPressed: () => _showAddProgramDialog(context, tenantId),
             child: const Text("Create First Program"),
           ),
         ],
@@ -95,7 +95,7 @@ class _YearPlannerScreenState extends ConsumerState<YearPlannerScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.blue.withOpacity(0.05), borderRadius: BorderRadius.circular(15)),
+            decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15)),
             child: Column(
               children: [
                 Text(DateFormat('MMM').format(date).toUpperCase(), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 10)),
@@ -159,6 +159,7 @@ class _YearPlannerScreenState extends ConsumerState<YearPlannerScreen> {
                 'description': descCtrl.text,
                 'event_date': selectedDate.toIso8601String(),
               });
+              if (!context.mounted) return;
               Navigator.pop(context);
             },
             child: const Text("Add"),

@@ -19,7 +19,8 @@ class BusinessMeetingsScreen extends ConsumerStatefulWidget {
 class _BusinessMeetingsScreenState extends ConsumerState<BusinessMeetingsScreen> {
   bool _isMuted = false;
   bool _isVideoOff = false;
-  bool _isScreenSharing = false;
+  // ignore: unused_field
+  final bool _isScreenSharing = false;
 
   void _showRecords() {
     showModalBottomSheet(
@@ -55,7 +56,32 @@ class _BusinessMeetingsScreenState extends ConsumerState<BusinessMeetingsScreen>
           ],
         ),
         actions: [
-          IconButton(icon: const Icon(LucideIcons.users, color: Colors.white), onPressed: () {}),
+          IconButton(icon: const Icon(LucideIcons.users, color: Colors.white), onPressed: () {
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: const Color(0xFF1E293B),
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+              builder: (ctx) => Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Center(child: Text("MEETING PARTICIPANTS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))),
+                    const SizedBox(height: 20),
+                    _buildParticipant("Pastor (You)", "https://i.pravatar.cc/150?u=me", isMe: true),
+                    const SizedBox(height: 12),
+                    _buildParticipant("Bishop David", "https://i.pravatar.cc/150?u=bishop"),
+                    const SizedBox(height: 12),
+                    _buildParticipant("Secretary", "https://i.pravatar.cc/150?u=sec"),
+                    const SizedBox(height: 12),
+                    _buildParticipant("Elder Moses", "https://i.pravatar.cc/150?u=elder"),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            );
+          }),
         ],
       ),
       body: Column(
@@ -83,7 +109,7 @@ class _BusinessMeetingsScreenState extends ConsumerState<BusinessMeetingsScreen>
   Widget _buildParticipant(String name, String avatar, {bool isMe = false}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white10),
         image: DecorationImage(image: NetworkImage(avatar), fit: BoxFit.cover, opacity: 0.3),
@@ -192,7 +218,7 @@ class _MeetingRecordsPanel extends ConsumerWidget {
                 itemBuilder: (context, i) => Container(
                   margin: const EdgeInsets.only(bottom: 15),
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(15)),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15)),
                   child: Text(notes[i].content, style: const TextStyle(color: Colors.white70, fontSize: 13)),
                 ),
               ),
@@ -210,7 +236,7 @@ class _MeetingRecordsPanel extends ConsumerWidget {
                 hintText: "Enter record or motion...",
                 hintStyle: const TextStyle(color: Colors.white24),
                 filled: true,
-                fillColor: Colors.white.withOpacity(0.05),
+                fillColor: Colors.white.withValues(alpha: 0.05),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                 suffixIcon: IconButton(
                   icon: const Icon(LucideIcons.send, color: Colors.blueAccent),
@@ -231,7 +257,7 @@ class _MeetingRecordsPanel extends ConsumerWidget {
   Widget _buildVoteBtn(WidgetRef ref, String label, Color color) {
     return ElevatedButton(
       onPressed: () => ref.read(meetingServiceProvider).castVote(meetingId, label),
-      style: ElevatedButton.styleFrom(backgroundColor: color.withOpacity(0.2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+      style: ElevatedButton.styleFrom(backgroundColor: color.withValues(alpha: 0.2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
       child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
     );
   }

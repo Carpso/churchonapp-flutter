@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'bible_books.dart';
+import '../../../core/services/r2_service.dart';
 
 class BiblePodcastEpisode {
   final String id;
@@ -22,6 +23,8 @@ class BiblePodcastEpisode {
 }
 
 class BiblePodcastService {
+  BiblePodcastService();
+
   final List<String> _thumbnails = [
     "https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=500&q=80",
     "https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=500&q=80",
@@ -48,23 +51,31 @@ class BiblePodcastService {
     'Revelation': 'The Ultimate Victory',
   };
 
+  String _getAudioUrl(String bookName, int index) {
+    final slug = bookName.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
+    return 'https://${R2Service.publicDomain}/bible-audio/$slug.wav';
+  }
+
   List<BiblePodcastEpisode> getAllEpisodes() {
-    return bibleBooks.map((book) {
+    return bibleBooks.asMap().entries.map((entry) {
+      final index = entry.key;
+      final book = entry.value;
       final subtitle = _bookSubtitles[book] ?? 'Deep Dive into the Word';
-      int index = bibleBooks.indexOf(book);
-      
+
+      final audioUrl = _getAudioUrl(book, index);
       return BiblePodcastEpisode(
         id: 'ep_${index + 1}',
         title: '$book: $subtitle',
         book: book,
         duration: '${15 + (index % 45)}:00',
         thumbnailUrl: _thumbnails[index % _thumbnails.length],
-        audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-${(index % 10) + 1}.mp3',
+        audioUrl: audioUrl,
         description: 'Explore the profound truths and historical context of the Book of $book in this comprehensive audio study.',
       );
     }).toList();
   }
 }
 
-final biblePodcastProvider = Provider((ref) => BiblePodcastService().getAllEpisodes());
-
+final biblePodcastProvider = Provider((ref) {
+  return BiblePodcastService().getAllEpisodes();
+});

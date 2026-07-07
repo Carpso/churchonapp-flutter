@@ -54,7 +54,7 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
                 Switch(
                   value: isAnonymous, 
                   onChanged: (v) => setModalState(() => isAnonymous = v),
-                  activeColor: Colors.red,
+                  activeThumbColor: Colors.red,
                 ),
               ],
             ),
@@ -68,10 +68,9 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
                     "public", 
                     isAnonymous
                   );
-                  if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Request added to the wall! 🙌")));
-                  }
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Request added to the wall! 🙌")));
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -100,13 +99,18 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
         ],
       ),
       body: prayersAsync.when(
-        data: (prayers) => ListView.builder(
-          padding: const EdgeInsets.all(20),
-          itemCount: prayers.length,
-          itemBuilder: (context, index) {
+        data: (prayers) => RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(prayerStreamProvider);
+          },
+          child: ListView.builder(
+            padding: const EdgeInsets.all(20),
+            itemCount: prayers.length,
+            itemBuilder: (context, index) {
             final prayer = prayers[index];
             return _buildPrayerCard(prayer);
           },
+        ),
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text("Error loading wall: $err")),
@@ -126,7 +130,7 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,9 +162,9 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.05),
+                color: Colors.blue.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.blue.withOpacity(0.1)),
+                border: Border.all(color: Colors.blue.withValues(alpha: 0.1)),
               ),
               child: Row(
                 children: [
@@ -196,7 +200,7 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
         child: Row(
           children: [
             Icon(icon, color: color, size: 14),

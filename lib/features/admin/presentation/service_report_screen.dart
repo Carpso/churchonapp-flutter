@@ -25,12 +25,22 @@ class _ServiceReportScreenState extends ConsumerState<ServiceReportScreen> {
   @override
   Widget build(BuildContext context) {
     final tenant = ref.watch(currentTenantProvider);
-    final userProfile = ref.watch(profileProvider).value;
-    
-    if (tenant == null) return const Scaffold(body: Center(child: Text("No Church Context")));
+    final profileAsync = ref.watch(profileProvider);
 
-    final reportsAsync = ref.watch(reportsStreamProvider(tenant.id));
+    return profileAsync.when(
+      data: (userProfile) {
+        if (tenant == null) return const Scaffold(body: Center(child: Text("No Church Context")));
 
+        final reportsAsync = ref.watch(reportsStreamProvider(tenant.id));
+
+        return _buildScreen(context, tenant, userProfile, reportsAsync);
+      },
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, st) => Scaffold(body: Center(child: Text('Error: $e'))),
+    );
+  }
+
+  Widget _buildScreen(BuildContext context, Tenant tenant, UserProfile? userProfile, AsyncValue<List<ServiceReport>> reportsAsync) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -76,9 +86,9 @@ class _ServiceReportScreenState extends ConsumerState<ServiceReportScreen> {
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Theme.of(context).primaryColor, Theme.of(context).primaryColor.withOpacity(0.8)]),
+        gradient: LinearGradient(colors: [Theme.of(context).primaryColor, Theme.of(context).primaryColor.withValues(alpha: 0.8)]),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,7 +102,7 @@ class _ServiceReportScreenState extends ConsumerState<ServiceReportScreen> {
           const SizedBox(height: 5),
           Text(
             "Track attendance, offerings, and announcements for ${tenant.name}",
-            style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13),
           ),
         ],
       ),
@@ -119,7 +129,7 @@ class _ServiceReportScreenState extends ConsumerState<ServiceReportScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: (isAnnouncement ? Colors.amber : Colors.blue).withOpacity(0.1),
+                  color: (isAnnouncement ? Colors.amber : Colors.blue).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -250,7 +260,7 @@ class _ServiceReportScreenState extends ConsumerState<ServiceReportScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 15),
           decoration: BoxDecoration(
-            color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : Colors.grey[50],
+            color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.1) : Colors.grey[50],
             borderRadius: BorderRadius.circular(15),
             border: Border.all(color: isSelected ? Theme.of(context).primaryColor : Colors.transparent),
           ),

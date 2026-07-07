@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:church_on_app/features/notebook/presentation/notebook_screen.dart';
 import 'package:church_on_app/features/notebook/data/notebook_service.dart';
 import 'package:church_on_app/core/providers/auth_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 class SermonNotesScreen extends ConsumerWidget {
   const SermonNotesScreen({super.key});
@@ -50,7 +50,7 @@ Consistency in communion and intercession leads to community miracles.
               }
             }
           ),
-          IconButton(icon: const Icon(LucideIcons.share2), onPressed: () {}),
+          IconButton(icon: const Icon(LucideIcons.share2), onPressed: () => SharePlus.instance.share(ShareParams(text: 'The Marks of a Believer — Acts 2:42-47\n\n1. Devotion to the Apostles\' Doctrine\n2. The Fellowship of the Brethren\n3. Breaking of Bread & Prayer'))),
         ],
       ),
       body: SingleChildScrollView(
@@ -60,7 +60,7 @@ Consistency in communion and intercession leads to community miracles.
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
               child: const Text("TOPIC: THE MARKS OF A BELIEVER", style: TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 20),
@@ -87,7 +87,7 @@ Consistency in communion and intercession leads to community miracles.
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Add your own notes"))),
         backgroundColor: Colors.black,
         child: const Icon(LucideIcons.pencil, color: Colors.white),
       ),

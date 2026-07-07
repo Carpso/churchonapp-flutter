@@ -1,9 +1,23 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../../core/services/tenant_service.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/utils/db_seeder.dart';
+import '../../../core/services/platform_settings_service.dart';
+import '../data/audit_service.dart';
+import 'emergency_shutdown_screen.dart';
+import 'ad_management_screen.dart';
+import 'role_approval_screen.dart';
+import 'writer_approval_screen.dart';
+import 'custom_role_management_screen.dart';
+import 'order_tracking_screen.dart';
+import '../../../features/profile/presentation/church_referral_screen.dart';
 
 class SuperadminHubScreen extends ConsumerStatefulWidget {
   const SuperadminHubScreen({super.key});
@@ -13,9 +27,473 @@ class SuperadminHubScreen extends ConsumerStatefulWidget {
 }
 
 class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
-  bool _isAuthenticated = false;
   final _passController = TextEditingController();
-  String? _error;
+  final _silverFeeController = TextEditingController();
+  final _goldFeeController = TextEditingController();
+  final _churchFeeController = TextEditingController();
+  bool _isSavingRates = false;
+  late final AuditService _audit;
+
+  @override
+  void dispose() {
+    _passController.dispose();
+    _silverFeeController.dispose();
+    _goldFeeController.dispose();
+    _churchFeeController.dispose();
+    super.dispose();
+  }
+
+  int _activeTenantsCount = 0;
+  int _totalUsersCount = 0;
+  double _totalPlatformRevenue = 0.0;
+  List<Map<String, dynamic>> _pendingChurches = [];
+  List<Map<String, dynamic>> _pendingPayments = [];
+  bool _statsLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _audit = AuditService(Supabase.instance.client);
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final client = Supabase.instance.client;
+      
+      // Active verified tenants count
+      final activeChurchesRes = await client.from('churches').select('id').eq('is_verified', true);
+      final tenantsCount = activeChurchesRes.length;
+
+      // Pending registrations list
+      final pendingRes = await client.from('churches').select('*').eq('is_verified', false);
+      final pendingList = List<Map<String, dynamic>>.from(pendingRes);
+
+      // Pending subscription payments
+      final paymentsRes = await client.from('churches').select('*').not('payment_reference', 'is', null);
+      final paymentsList = List<Map<String, dynamic>>.from(paymentsRes)
+          .where((c) => (c['payment_reference'] as String?)?.isNotEmpty == true)
+          .toList();
+
+      final profilesRes = await client.from('profiles').select('id');
+      final usersCount = profilesRes.length;
+
+      final txsRes = await client.from('transactions').select('platform_fee');
+      double rev1 = 0.0;
+      for (var row in txsRes) {
+        rev1 += (row['platform_fee'] as num?)?.toDouble() ?? 0.0;
+      }
+
+      final wTxsRes = await client.from('wallet_transactions').select('platform_fee');
+      double rev2 = 0.0;
+      for (var row in wTxsRes) {
+        rev2 += (row['platform_fee'] as num?)?.toDouble() ?? 0.0;
+      }
+
+      final settings = await ref.read(platformSettingsServiceProvider).fetchSettings();
+      _silverFeeController.text = settings.silverFee.toStringAsFixed(0);
+      _goldFeeController.text = settings.goldFee.toStringAsFixed(0);
+      _churchFeeController.text = settings.churchFee.toStringAsFixed(0);
+
+      if (mounted) {
+        setState(() {
+          _activeTenantsCount = tenantsCount;
+          _totalUsersCount = usersCount;
+          _totalPlatformRevenue = rev1 + rev2;
+          _pendingChurches = pendingList;
+          _pendingPayments = paymentsList;
+          _statsLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading superadmin stats: $e");
+      if (mounted) {
+        setState(() => _statsLoading = false);
+      }
+    }
+  }
+
+  Future<void> _approveChurch(Map<String, dynamic> church) async {
+    try {
+      final client = Supabase.instance.client;
+      await client.from('churches').update({
+        'is_verified': true,
+        'subscription_ends_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+      }).eq('id', church['id']);
+
+      final pastorData = church['pastor_name']?.toString() ?? '';
+      if (pastorData.contains(':')) {
+        final parts = pastorData.split(':');
+        final pastorId = parts[0];
+        final role = parts[1];
+        await client.from('profiles').update({
+          'tenant_id': church['id'],
+          'role': role,
+        }).eq('id', pastorId);
+      }
+
+      await _audit.logChurchAction(
+        action: 'approve',
+        churchId: church['id'],
+        churchName: church['name']?.toString(),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Approved ${church['name']}! ✅"), backgroundColor: Colors.green),
+        );
+        _loadStats();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _rejectChurch(Map<String, dynamic> church) async {
+    try {
+      final client = Supabase.instance.client;
+      await client.from('churches').delete().eq('id', church['id']);
+
+      await _audit.logChurchAction(
+        action: 'reject',
+        churchId: church['id'],
+        churchName: church['name']?.toString(),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Rejected and deleted ${church['name']}"), backgroundColor: Colors.red),
+        );
+        _loadStats();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Widget _buildPendingApprovals() {
+    if (_pendingChurches.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(25),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white10),
+        ),
+        child: const Center(
+          child: Text(
+            "No pending church registrations. ⛪",
+            style: TextStyle(color: Colors.white60, fontSize: 14),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: _pendingChurches.map((church) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 15),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.amber.withValues(alpha: 0.1),
+                child: const Icon(LucideIcons.church, color: Colors.amber),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      church['name'] ?? 'Unknown Church',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Pastor: ${church['pastor_name'] ?? 'None'} • ${church['country'] ?? 'Zambia'}",
+                      style: const TextStyle(color: Colors.white38, fontSize: 12),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "Phone: ${church['contact_phone'] ?? 'None'}",
+                      style: const TextStyle(color: Colors.white38, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(LucideIcons.xCircle, color: Colors.redAccent, size: 24),
+                    tooltip: "Reject Registration",
+                    onPressed: () => _rejectChurch(church),
+                  ),
+                  const SizedBox(width: 5),
+                  IconButton(
+                    icon: const Icon(LucideIcons.checkCircle, color: Colors.greenAccent, size: 24),
+                    tooltip: "Approve Registration",
+                    onPressed: () => _approveChurch(church),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Future<void> _approvePayment(Map<String, dynamic> church) async {
+    try {
+      final client = Supabase.instance.client;
+      final expiry = DateTime.now().add(const Duration(days: 365));
+      
+      await client.from('churches').update({
+        'subscription_ends_at': expiry.toIso8601String(),
+        'payment_reference': null,
+        'payment_submitted_at': null,
+        'is_verified': true,
+      }).eq('id', church['id']);
+
+      await _audit.logPaymentAction(
+        action: 'approve_payment',
+        paymentId: church['id'],
+        churchName: church['name']?.toString(),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Approved payment for ${church['name']}! Subscription active until ${expiry.toLocal()} 🚀"), backgroundColor: Colors.green),
+        );
+        _loadStats();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _rejectPayment(Map<String, dynamic> church) async {
+    try {
+      final client = Supabase.instance.client;
+      await client.from('churches').update({
+        'payment_reference': null,
+        'payment_submitted_at': null,
+      }).eq('id', church['id']);
+
+      await _audit.logPaymentAction(
+        action: 'reject_payment',
+        paymentId: church['id'],
+        churchName: church['name']?.toString(),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Rejected payment reference for ${church['name']}"), backgroundColor: Colors.red),
+        );
+        _loadStats();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Widget _buildPendingPayments() {
+    if (_pendingPayments.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(25),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white10),
+        ),
+        child: const Center(
+          child: Text(
+            "No pending subscription payments. 💵",
+            style: TextStyle(color: Colors.white60, fontSize: 14),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: _pendingPayments.map((church) {
+        final date = church['payment_submitted_at'] != null 
+            ? DateTime.parse(church['payment_submitted_at']).toLocal() 
+            : DateTime.now();
+        return Container(
+          margin: const EdgeInsets.only(bottom: 15),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.amber.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.amber.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.amber.withValues(alpha: 0.1),
+                child: const Icon(LucideIcons.banknote, color: Colors.amber),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      church['name'] ?? 'Unknown Church',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "TXID / Reference: ${church['payment_reference']}",
+                      style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Submitted: ${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}",
+                      style: const TextStyle(color: Colors.white38, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(LucideIcons.xCircle, color: Colors.redAccent, size: 24),
+                    tooltip: "Reject Payment",
+                    onPressed: () => _rejectPayment(church),
+                  ),
+                  const SizedBox(width: 5),
+                  IconButton(
+                    icon: const Icon(LucideIcons.checkCircle, color: Colors.greenAccent, size: 24),
+                    tooltip: "Approve Payment",
+                    onPressed: () => _approvePayment(church),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Future<void> _saveRates() async {
+    final silver = double.tryParse(_silverFeeController.text) ?? 50.0;
+    final gold = double.tryParse(_goldFeeController.text) ?? 150.0;
+    final church = double.tryParse(_churchFeeController.text) ?? 1500.0;
+
+    setState(() => _isSavingRates = true);
+    try {
+      await ref.read(platformSettingsServiceProvider).updateSettings(
+        silverFee: silver,
+        goldFee: gold,
+        churchFee: church,
+      );
+      ref.invalidate(platformSettingsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Platform rates updated successfully! 🚀"), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to update rates: $e"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingRates = false);
+    }
+  }
+
+  Widget _buildRatesEditor() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildRateInput("Silver Partner Subscription Fee (K/month)", _silverFeeController),
+          const SizedBox(height: 15),
+          _buildRateInput("Gold Partner Subscription Fee (K/month)", _goldFeeController),
+          const SizedBox(height: 15),
+          _buildRateInput("Church Annual Subscription Fee (K)", _churchFeeController),
+          const SizedBox(height: 25),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: _isSavingRates ? null : _saveRates,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              ),
+              child: _isSavingRates
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                  : const Text("UPDATE PLATFORM RATES", style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRateInput(String label, TextEditingController controller) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.05),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+          ),
+        ),
+      ],
+    );
+  }
 
   final List<String> _allFeatures = [
     'Kingdom Radio',
@@ -30,72 +508,39 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
     'Bible Quiz'
   ];
 
-  void _verifyPassword() {
-    if (_passController.text == "1000%Dollar") {
-      setState(() {
-        _isAuthenticated = true;
-        _error = null;
-      });
-    } else {
-      setState(() => _error = "Incorrect God-Mode Password");
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final tenant = ref.watch(currentTenantProvider);
-    final profile = ref.watch(profileProvider).value;
+    final profileAsync = ref.watch(profileProvider);
 
-    if (profile == null || !profile.isSuperadmin) {
-       return const Scaffold(body: Center(child: Text("Unauthorized Access")));
-    }
-
-    if (!_isAuthenticated) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF0F172A),
-        body: Center(
-          child: Container(
-            padding: const EdgeInsets.all(40),
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(LucideIcons.shieldAlert, color: Colors.red, size: 80),
-                const SizedBox(height: 30),
-                const Text("GOD-MODE VERIFICATION", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 2)),
-                const SizedBox(height: 10),
-                const Text("Enter the superadmin secret key to proceed.", style: TextStyle(color: Colors.white30, fontSize: 12)),
-                const SizedBox(height: 40),
-                TextField(
-                  controller: _passController,
-                  obscureText: true,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: "Secret Key",
-                    hintStyle: const TextStyle(color: Colors.white24),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.05),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                    errorText: _error,
-                  ),
-                ),
-                const SizedBox(height: 30),
-                ElevatedButton(
-                  onPressed: _verifyPassword,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    minimumSize: const Size(double.infinity, 60),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                  ),
-                  child: const Text("UNLOCKED ACCESS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-              ],
+    return profileAsync.when(
+      data: (profile) {
+        if (profile == null || !profile.isSuperadmin) {
+          return const Scaffold(
+            backgroundColor: Color(0xFF0F172A),
+            body: Center(
+              child: Text(
+                "Unauthorized Access\n(Superadmin Only)",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white60, fontSize: 16),
+              ),
             ),
-          ),
-        ),
-      );
-    }
+          );
+        }
+        return _buildScreen(context, tenant, profile);
+      },
+      loading: () => const Scaffold(
+        backgroundColor: Color(0xFF0F172A),
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, st) => Scaffold(
+        backgroundColor: Color(0xFF0F172A),
+        body: Center(child: Text('Error: $e')),
+      ),
+    );
+  }
 
+  Widget _buildScreen(BuildContext context, Tenant? tenant, UserProfile profile) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A), // Dark mode for superadmin
       appBar: AppBar(
@@ -110,27 +555,59 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildStatCards(),
-            const SizedBox(height: 30),
+            const SizedBox(height: 35),
+            const Text("Pending Church Registrations", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            _buildPendingApprovals(),
+            const SizedBox(height: 35),
+            const Text("Pending Subscription Payments", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            _buildPendingPayments(),
+            const SizedBox(height: 35),
             Text("Tenant Management: ${tenant?.name ?? 'Global'}", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
             _buildFeatureToggles(tenant),
             const SizedBox(height: 40),
+            const Text("Platform Subscription Rates", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            _buildRatesEditor(),
+            const SizedBox(height: 40),
             const Text("Global Overrides", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
             _buildGlobalAction(LucideIcons.refreshCw, "Force Data Sync", "Triggers re-fetch for all CDN assets", Colors.blue, () {}),
-            _buildGlobalAction(LucideIcons.shieldAlert, "Emergency Lockdown", "Instantly disable app for maintenance", Colors.red, () {}),
+            _buildGlobalAction(LucideIcons.shieldAlert, "Emergency Lockdown", "Instantly disable app for maintenance", Colors.red, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const EmergencyShutdownScreen()));
+            }),
             _buildGlobalAction(LucideIcons.database, "Clear Tenant Cache", "Wipe local storage for current church", Colors.amber, () {}),
             _buildGlobalAction(LucideIcons.sparkles, "Seed Mock Data", "Populate all tables with demo data", Colors.green, () async {
               try {
                 await DbSeeder.seedAll();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mock data seeded successfully! ✅")));
-                }
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mock data seeded successfully! ✅")));
               } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Seeding failed: $e"), backgroundColor: Colors.red));
-                }
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Seeding failed: $e"), backgroundColor: Colors.red));
               }
+            }),
+            _buildGlobalAction(LucideIcons.hardDrive, "Create System Backup", "Download snapshot of database schema and settings", Colors.purple, () => _performBackup()),
+            _buildGlobalAction(LucideIcons.scrollText, "Audit Log", "View all admin actions and changes", Colors.orange, () => _showAuditLog()),
+            _buildGlobalAction(LucideIcons.megaphone, "Sponsored Content", "Manage tenant ads and banners", Colors.cyan, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AdManagementScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.userCheck, "Role Approvals", "Approve or elevate user roles", Colors.teal, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const RoleApprovalScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.penTool, "Writer Approvals", "Approve writer applications", Colors.indigo, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const WriterApprovalScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.users, "Custom Roles", "Manage custom tenant roles", Colors.pink, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomRoleManagementScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.package, "Orders & Deliveries", "Track marketplace orders", Colors.brown, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderTrackingScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.phoneCall, "Church Leads", "Manage pastor referrals", Colors.deepOrange, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchReferralScreen()));
             }),
           ],
         ),
@@ -138,12 +615,139 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
     );
   }
 
+  Future<void> _performBackup() async {
+    final client = Supabase.instance.client;
+    final tables = [
+      'profiles', 'churches', 'transactions', 'wallet_transactions',
+      'events', 'event_registrations', 'social_posts', 'prayers',
+      'testimonies', 'klips', 'ride_requests', 'delivery_requests',
+      'service_reports', 'notifications', 'platform_settings',
+    ];
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const AlertDialog(
+        backgroundColor: Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+        content: SizedBox(
+          width: 200,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: Colors.purpleAccent),
+              SizedBox(height: 20),
+              Text("Backing up database...", style: TextStyle(color: Colors.white70)),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final backup = <String, List<dynamic>>{};
+      for (final table in tables) {
+        final res = await client.from(table).select('*');
+        backup[table] = List<dynamic>.from(res);
+      }
+
+      await _audit.logAction(
+        action: 'system_backup',
+        entityType: 'system',
+        details: {'tables': tables, 'record_count': backup.values.fold(0, (s, t) => s + t.length)},
+      );
+
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/churchonapp_backup_${DateTime.now().millisecondsSinceEpoch}.json');
+      await file.writeAsString(const JsonEncoder.withIndent('  ').convert(backup));
+
+      if (mounted) Navigator.pop(context);
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1E293B),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+            title: const Row(
+              children: [
+                Icon(LucideIcons.checkCircle, color: Colors.greenAccent),
+                SizedBox(width: 10),
+                Text("Backup Complete", style: TextStyle(color: Colors.white)),
+              ],
+            ),
+            content: Text(
+              "Database snapshot saved to:\n${file.path}\n\nTables backed up: ${backup.length}\nTotal records: ${backup.values.fold(0, (s, t) => s + t.length)}",
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("OK", style: TextStyle(color: Colors.purpleAccent)),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Backup failed: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _showAuditLog() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => _AuditLogScreen()));
+  }
+
   Widget _buildStatCards() {
-    return Row(
+    if (_statsLoading) {
+      return const Center(child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: CircularProgressIndicator(color: Colors.red),
+      ));
+    }
+
+    return Column(
       children: [
-        _buildStatItem("Active Tenants", "42", LucideIcons.building, Colors.blue),
-        const SizedBox(width: 15),
-        _buildStatItem("Total Users", "12.5k", LucideIcons.users, Colors.green),
+        Row(
+          children: [
+            _buildStatItem("Active Tenants", _activeTenantsCount.toString(), LucideIcons.building, Colors.blue),
+            const SizedBox(width: 15),
+            _buildStatItem("Total Users", _totalUsersCount.toString(), LucideIcons.users, Colors.green),
+          ],
+        ),
+        const SizedBox(height: 15),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("TOTAL PLATFORM REVENUE (5% / 10% CUTS)", style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                  const SizedBox(height: 5),
+                  Text("K ${_totalPlatformRevenue.toStringAsFixed(2)}", style: const TextStyle(color: Colors.amber, fontSize: 24, fontWeight: FontWeight.w900)),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+                child: const Icon(LucideIcons.banknote, color: Colors.amber, size: 24),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -152,7 +756,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10)),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -168,18 +772,50 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
 
   Widget _buildFeatureToggles(Tenant? tenant) {
     return Container(
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(25), border: Border.all(color: Colors.white10)),
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(25), border: Border.all(color: Colors.white10)),
       child: Column(
         children: _allFeatures.map((feature) {
-          final isEnabled = tenant?.settings?[feature.toLowerCase().replaceAll(' ', '_')] ?? true;
+          final key = feature.toLowerCase().replaceAll(' ', '_');
+          final isEnabled = tenant?.settings?[key] ?? true;
           return SwitchListTile(
             title: Text(feature, style: const TextStyle(color: Colors.white, fontSize: 14)),
             value: isEnabled,
-            activeColor: Colors.greenAccent,
+            activeThumbColor: Colors.greenAccent,
             subtitle: Text("Enabled for ${tenant?.name ?? 'all'}", style: const TextStyle(color: Colors.white30, fontSize: 10)),
-            onChanged: (val) {
-              // In real app, update Supabase tenant settings
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$feature toggled to $val")));
+            onChanged: (val) async {
+              if (tenant == null) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No tenant selected to configure"), backgroundColor: Colors.red));
+                return;
+              }
+              final client = Supabase.instance.client;
+              final updatedSettings = Map<String, dynamic>.from(tenant.settings ?? {});
+              updatedSettings[key] = val;
+              
+              try {
+                await client.from('churches').update({
+                  'settings': updatedSettings,
+                }).eq('id', tenant.id);
+                
+                final updatedTenant = await ref.read(tenantServiceProvider).getTenantById(tenant.id);
+                if (updatedTenant != null) {
+                  await ref.read(currentTenantProvider.notifier).setTenant(updatedTenant);
+                }
+                
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text("$feature updated to ${val ? 'Enabled' : 'Disabled'}! ✅"),
+                    backgroundColor: Colors.green,
+                  ));
+                  _loadStats();
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text("Error: $e"),
+                    backgroundColor: Colors.red,
+                  ));
+                }
+              }
             },
           );
         }).toList(),
@@ -193,10 +829,10 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       child: Container(
       margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.03), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10)),
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.03), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10)),
       child: Row(
         children: [
-          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 20)),
+          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 20)),
           const SizedBox(width: 20),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -208,7 +844,110 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
         ],
       ),
     ),
-  );
+    );
+  }
 }
+
+class _AuditLogScreen extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_AuditLogScreen> createState() => _AuditLogScreenState();
+}
+
+class _AuditLogScreenState extends ConsumerState<_AuditLogScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final logsAsync = ref.watch(auditLogStreamProvider);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F0F),
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        title: const Text("Admin Audit Log", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
+      ),
+      body: logsAsync.when(
+        data: (logs) {
+          if (logs.isEmpty) {
+            return const Center(child: Text("No audit logs yet.", style: TextStyle(color: Colors.white38)));
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: logs.length,
+            itemBuilder: (context, i) {
+              final log = logs[i];
+              final action = log['action']?.toString() ?? 'unknown';
+              final entity = log['entity_type']?.toString() ?? '';
+              final entityId = log['entity_id']?.toString() ?? '';
+              final adminEmail = log['admin_email']?.toString() ?? '';
+              final createdAt = log['created_at']?.toString() ?? '';
+              final details = log['details'] is Map ? Map<String, dynamic>.from(log['details']) : <String, dynamic>{};
+
+              IconData icon;
+              Color color;
+              switch (action) {
+                case 'approve':
+                  icon = LucideIcons.checkCircle; color = Colors.green;
+                  break;
+                case 'reject':
+                  icon = LucideIcons.xCircle; color = Colors.red;
+                  break;
+                case 'approve_payment':
+                  icon = LucideIcons.creditCard; color = Colors.greenAccent;
+                  break;
+                case 'reject_payment':
+                  icon = LucideIcons.creditCard; color = Colors.orangeAccent;
+                  break;
+                case 'system_backup':
+                  icon = LucideIcons.hardDrive; color = Colors.purpleAccent;
+                  break;
+                case 'role_change':
+                  icon = LucideIcons.shield; color = Colors.amber;
+                  break;
+                default:
+                  icon = LucideIcons.info; color = Colors.blueGrey;
+              }
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+                      child: Icon(icon, color: color, size: 16),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(action.replaceAll('_', ' ').toUpperCase(), style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                          const SizedBox(height: 4),
+                          Text("$entity${entityId.isNotEmpty ? ': $entityId' : ''}", style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                          if (details.isNotEmpty)
+                            Text(details.toString(), style: const TextStyle(color: Colors.white24, fontSize: 10), maxLines: 2, overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 4),
+                          Text("$adminEmail • ${createdAt.isNotEmpty ? createdAt.substring(0, 19).replaceAll('T', ' ') : ''}", style: const TextStyle(color: Colors.white24, fontSize: 9)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator(color: Colors.orange)),
+        error: (e, st) => Center(child: Text("Error: $e", style: const TextStyle(color: Colors.red))),
+      ),
+    );
+  }
 }
 

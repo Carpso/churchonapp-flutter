@@ -9,7 +9,7 @@ class KingdomEventsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final eventsAsync = ref.watch(upcomingEventsProvider);
+    final eventsAsync = ref.watch(kingdomUpcomingEventsProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
@@ -34,7 +34,7 @@ class KingdomEventsScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 15)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -59,7 +59,7 @@ class KingdomEventsScreen extends ConsumerWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)],
                 ),
               ),
               padding: const EdgeInsets.all(20),
@@ -145,7 +145,7 @@ class KingdomEventsScreen extends ConsumerWidget {
     );
 
     if (confirmed == true) {
-      await ref.read(eventServiceProvider).purchaseTicket(event.id);
+      await ref.read(kingdomEventServiceProvider).purchaseTicket(event.id);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Apostolic Ticket successfully registered on VPS!")));
       }

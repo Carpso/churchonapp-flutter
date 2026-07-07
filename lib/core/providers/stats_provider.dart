@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/supabase_service.dart';
 import 'package:church_on_app/features/admin/data/admin_service.dart';
 
 class AdminStats {
