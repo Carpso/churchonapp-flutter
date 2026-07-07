@@ -6,6 +6,117 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Missing authorization header" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
+
+    const { userId, title, body, data } = await req.json();
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("fcm_token")
+      .eq("id", userId)
+      .single();
+
+    await supabase.from("notifications").insert({
+      user_id: userId,
+      title,
+      body,
+      is_read: false,
+      type: data?.type ?? "general",
+      reference_id: data?.reference_id ?? null,
+    });
+
+    if (profile?.fcm_token) {
+      const projectId = Deno.env.get("FCM_PROJECT_ID") ?? "";
+
+      if (!projectId) {
+        console.warn("FCM_PROJECT_ID not set, skipping push");
+      } else {
+        const accessToken = await getFcmAccessToken();
+        if (accessToken) {
+          const fcmRes = await fetch(
+            `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({
+                message: {
+                  token: profile.fcm_token,
+                  notification: { title, body },
+                  data: data ?? {},
+                  android: { priority: "high" },
+                },
+              }),
+            }
+          );
+
+          if (!fcmRes.ok) {
+            console.error(`FCM V1 send failed: ${fcmRes.status} ${await fcmRes.text()}`);
+          }
+        } else {
+          const serverKey = Deno.env.get("FCM_SERVER_KEY");
+          if (serverKey) {
+            const fcmRes = await fetch("https://fcm.googleapis.com/fcm/send", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `key=${serverKey}`,
+              },
+              body: JSON.stringify({
+                to: profile.fcm_token,
+                notification: { title, body },
+                data: data ?? {},
+                android: { priority: "high" },
+              }),
+            });
+
+            if (!fcmRes.ok) {
+              console.error(`FCM Legacy send failed: ${fcmRes.status} ${await fcmRes.text()}`);
+            }
+          }
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
+    });
+  }
+});
+
 async function getFcmAccessToken(): Promise<string | null> {
   const saJson = Deno.env.get("FCM_SERVICE_ACCOUNT");
   if (!saJson) return null;
@@ -33,8 +144,6 @@ async function getFcmAccessToken(): Promise<string | null> {
       false,
       ["sign"]
     );
-    // Deno doesn't support RSASSA-PKCS1-v1_5 with imported PKCS8 directly,
-    // so we use the Web Crypto API differently
     const sig = await crypto.subtle.sign(
       { name: "RSASSA-PKCS1-v1_5" },
       key,
@@ -65,96 +174,3 @@ async function getFcmAccessToken(): Promise<string | null> {
   const tokenData = await tokenRes.json();
   return tokenData.access_token as string;
 }
-
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
-  try {
-    const { userId, title, body, data } = await req.json();
-
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
-    const { data: profile } = await supabaseClient
-      .from("profiles")
-      .select("fcm_token")
-      .eq("id", userId)
-      .single();
-
-    await supabaseClient.from("notifications").insert({
-      user_id: userId,
-      title,
-      body,
-      is_read: false,
-      type: data?.type ?? "general",
-      reference_id: data?.reference_id ?? null,
-    });
-
-    if (profile?.fcm_token) {
-      const projectId = "studio-7483333628-db257";
-
-      // Try V1 API with service account
-      const accessToken = await getFcmAccessToken();
-      if (accessToken) {
-        const fcmRes = await fetch(
-          `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              message: {
-                token: profile.fcm_token,
-                notification: { title, body },
-                data: data ?? {},
-                android: { priority: "high" },
-              },
-            }),
-          }
-        );
-
-        if (!fcmRes.ok) {
-          console.error(`FCM V1 send failed: ${fcmRes.status} ${await fcmRes.text()}`);
-        }
-      } else {
-        // Fallback: try Legacy API (if server key is set)
-        const serverKey = Deno.env.get("FCM_SERVER_KEY");
-        if (serverKey) {
-          const fcmRes = await fetch("https://fcm.googleapis.com/fcm/send", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `key=${serverKey}`,
-            },
-            body: JSON.stringify({
-              to: profile.fcm_token,
-              notification: { title, body },
-              data: data ?? {},
-              android: { priority: "high" },
-            }),
-          });
-
-          if (!fcmRes.ok) {
-            console.error(`FCM Legacy send failed: ${fcmRes.status} ${await fcmRes.text()}`);
-          }
-        }
-      }
-    }
-
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
-  }
-});

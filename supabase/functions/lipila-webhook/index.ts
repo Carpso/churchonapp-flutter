@@ -8,7 +8,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const TREASURY_ID = "00000000-0000-0000-0000-000000000000";
 const MAX_WEBHOOK_AGE_SEC = 300;
 const LEADER_ROLES = ["admin", "pastor", "bishop", "leader", "general_treasurer", "general_secretary", "superadmin"];
 
@@ -200,18 +199,21 @@ async function handleCollection(
 
     const platformFeeInt = Math.floor(platformFee);
     if (platformFeeInt > 0) {
-      const { data: treasury } = await supabase
-        .from("profiles")
-        .select("coins")
-        .eq("id", TREASURY_ID)
-        .maybeSingle();
-
-      if (treasury) {
-        const currentCoins = (treasury.coins as number) || 0;
-        await supabase
+      const treasuryId = Deno.env.get("TREASURY_ID");
+      if (treasuryId) {
+        const { data: treasury } = await supabase
           .from("profiles")
-          .update({ coins: currentCoins + platformFeeInt })
-          .eq("id", TREASURY_ID);
+          .select("coins")
+          .eq("id", treasuryId)
+          .maybeSingle();
+
+        if (treasury) {
+          const currentCoins = (treasury.coins as number) || 0;
+          await supabase
+            .from("profiles")
+            .update({ coins: currentCoins + platformFeeInt })
+            .eq("id", treasuryId);
+        }
       }
     }
 

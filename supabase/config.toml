@@ -1,0 +1,40 @@
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+
+[db]
+port = 54322
+major_version = 15
+
+[db.pooler]
+enabled = false
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["*"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_confirmations = false
+enable_autoconfirm = true
+
+[storage]
+enabled = true
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+
+[functions]
+enabled = true
+verify_jwt = true
+
+[analytics]
+enabled = false
+
+[experimental]
+orioledb_version = ""
