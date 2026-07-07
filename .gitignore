@@ -63,5 +63,4 @@ ios/Runner/GoogleService-Info.plist
 # Stale build artifacts
 site_release.zip
 FINAL_MASTER_BACKEND_SYNC.sql
-coa_flutter_blueprint.txt
 

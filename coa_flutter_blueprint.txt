@@ -1,0 +1,1464 @@
+================================================================================
+UPDATE (2026-07-07): Implementation Status
+================================================================================
+This blueprint was the original design specification. Key changes since:
+
+PAYMENTS:   Lenco API → REPLACED BY Lipila Mobile Money API (MTN/Airtel/Zamtel)
+            All Lenco references below are superseded by Lipila integration.
+AUTH/BACKEND: Firebase → REPLACED BY Supabase (Postgres, Auth, Realtime, Storage)
+            Security sections referencing Firebase rules now apply to Supabase RLS.
+NAVIGATION: "Carpso Ride" is now under the Transport section (not its own tab).
+            The 5-tab layout is: Home | Sermons | Connect | Transport | Profile.
+LLAMA.CPP:  Removed. AI features use Gemini API directly.
+HIVE:       Removed. Uses SharedPreferences for caching.
+UUID:       Removed. Uses timestamp-based references.
+ANALYSIS:   flutter analyze: 0 errors, 0 warnings (33 info-level tips).
+DEMO:       Demo account credentials removed from production code.
+CATCHES:    All empty catch blocks replaced with proper error logging.
+ASYNC:      All screens use .when() pattern for loading/error/data states.
+BLUEPRINT:  This document is preserved as a reference; some implementation
+            details below may be outdated. Cross-reference with README.md.
+================================================================================
+
+Church On App is a comprehensive multi-tenant religious platform designed specifically for Zambian churches, featuring transportation services through the "Carpso Ride" system. The platform provides role-based dashboards for various church leadership positions and integrates secure payment processing through Lenco API (now Lipila — see update above).
+
+
+## Bottom Navigation Tabs Structure
+### Bottom Navigation Tabs (5 Tabs)
+1. ? **HOME** - Dashboard, Events, Announcements, Live Stream
+2. ? **SERMONS** - Library, Player, Notes, Bible Study
+3. ? **CARPSO RIDE** - Booking, Tracking, Payments, History
+4. ? **CONNECT** - Feed, Prayer Wall, Groups, Chat
+5. ? **PROFILE** - Settings, Giving, Account, Achievements
+
+
+### Tab 1: ?? HOME
+**Primary Features:**
+- Landing/Dashboard
+- Quick Actions
+- Live Stream Status
+- Announcements
+- Events Hub and Calendar
+
+**Connected Plugins:**
+- `splashscreen` - Initial app load
+- `dashboardview` - Main dashboard
+- `personaldashboard` - User-specific dashboard
+- `livestreamwidget` - Live stream indicator
+- `announcementsview` - Church announcements
+- `eventslist` - Upcoming events
+- `eventdetailview` - Event details
+- `notificationswidget` - Push notifications
+- `verseofdaywidget` - Daily scripture
+
+---
+
+### Tab 2: ?? SERMONS
+**Primary Features:**
+- Sermon Library
+- Audio/Video Playback
+- Sermon Search & Filters
+- Speaker Directory
+- Notes & Bookmarks
+
+**Connected Plugins:**
+- `sermonlibrary` - Main sermon list
+- `sermonplayerview` - Sermon player
+- `audiobibleplayer` - Audio playback
+- `biblereader` - Scripture reading
+- `bibleview` - Bible viewer
+- `bibleselector` - Version selection
+- `notebookview` - Sermon notes
+- `notebooklist` - Notes library
+- `notebookeditor` - Note editing
+- `noteeditor` - Quick notes
+- `studyplanswidget` - Study plans
+- `scripturememorywidget` - Memory verses
+
+---
+
+### Tab 3: ?? CARPSO RIDE
+**Primary Features:**
+- Ride Booking
+- Driver Tracking
+- Payment Integration
+- Ride History
+- Driver Dashboard
+
+**Connected Plugins:**
+- `rideview` - Main ride interface
+- `riderdriverdashboard` - Driver dashboard
+- `walletview` - Payment wallet
+- `walletviewetail` - Wallet details
+- `topupview` - Add funds
+- `addpayment` - Payment methods
+- `addpaymentmethod` - Add new payment
+- `transactionhistory` - Transaction log
+- `receiptview` - Payment receipts
+- `feebreakdown` - Fee details
+
+---
+
+### Tab 4: ?? CONNECT
+**Primary Features:**
+- Social Feed
+- Prayer Requests
+- Small Groups
+- Community Chat
+- Member Directory
+- Events Hub
+
+**Connected Plugins:**
+- `connectfeed` - Social feed
+- `connecthub` - Community hub
+- `connecttabs` - Connect sections
+- `prayerwallview` - Prayer wall
+- `prayerdetail` - Prayer details
+- `submitprayer` - Submit prayer
+- `answeredprayersgallery` - Testimonies
+- `prayertimerswidget` - Prayer timers
+- `prayerheatmapwidget` - Prayer analytics
+- `smallgroupsview` - Small groups
+- `smallgroupslist` - Group list
+- `smallgroupdetail` - Group details
+- `communitiesview` - Communities
+- `communitydetail` - Community details
+- `communitywidget` - Community widget
+- `chatroomslist` - Chat rooms
+- `chatroomview` - Chat interface
+- `groupchatwidget` - Group chat
+- `memberdirectory` - Member list
+- `memberdetail` - Member profile
+- `createpost` - Create post
+- `postdetail` - Post details
+- `reactionspicker` - Reactions
+
+---
+
+### Tab 5: ?? PROFILE
+**Primary Features:**
+- User Profile
+- Settings
+- Giving History
+- Saved Content
+- Account Management
+
+**Connected Plugins:**
+- `profileview` - User profile
+- `profilewidget` - Profile widget
+- `userprofileview` - Detailed profile
+- `settingsview` - App settings
+- `languagesettings` - Language options
+- `languageselector` - Language picker
+- `givinghubwidget` - Giving hub
+- `givinghistory` - Donation history
+- `givingform` - Make donation
+- `digitalofferingwidget` - Digital offering
+- `supportdonation` - Support church
+- `churchcoinsview` - Loyalty points
+- `sendcoins` - Transfer coins
+- `achievementssystem` - Gamification
+- `leaderboardswidget` - Leaderboards
+- `globalleaderboard` - Global rankings
+- `dailystreakswidget` - Daily streaks
+- `referralsystem` - Referral program
+
+---
+
+## Additional Feature Categories
+
+### ?? Admin & Management
+**Role-Based Access:**
+- `bishopdashboard` - Bishop dashboard
+- `pastordashboard` - Pastor dashboard
+- `apostledashboard` - Apostle dashboard
+- `prophetdashboard` - Prophet dashboard
+- `superadmindashboard` - Super admin
+- `superadmindash` - Admin overview
+- `superadminsetup` - System setup
+- `admindashboardview` - Admin view
+- `admindashboardwidget` - Admin widget
+- `reportsview` - Reports
+- `reportcreator` - Create reports
+- `createreport` - Report builder
+- `streamingmanager` - Stream management
+- `streamingmgmt` - Stream controls
+- `manageministries` - Ministry management
+- `managenewsview` - News management
+- `adsmanagement` - Ad management
+- `admanager` - Ad controls
+
+### ?? Marketplace & Commerce
+**E-commerce Features:**
+- `marketplaceview` - Marketplace
+- `marketplacedetail` - Product details
+- `bookshopview` - Bookshop
+- `bookshopform` - Bookshop setup
+- `bookshopdashboard` - Bookshop admin
+- `bookdetailview` - Book details
+- `vendordashboard` - Vendor dashboard
+- `cartview` - Shopping cart
+- `checkoutview` - Checkout
+- `sendmoney` - Send payment
+- `sendmoneyview` - Payment view
+
+### ?? Engagement & Games
+**Interactive Features:**
+- `biblegames` - Bible games
+- `gamesmenu` - Games menu
+- `gameplayview` - Gameplay
+- `charadesgame` - Charades
+- `multiplayerlobby` - Multiplayer
+- `questiongenerator` - Quiz generator
+- `pollcreator` - Create polls
+
+### ?? Kids & Youth
+**Family Features:**
+- `kidszonewidget` - Kids zone
+- `baptismregistrywidget` - Baptism registry
+- `devotionview` - Daily devotions
+- `dailydevotion` - Devotional content
+- `fastingtrackerwidget` - Fasting tracker
+- `worshiplyricswidget` - Worship lyrics
+- `ministryschedulerwidget` - Ministry schedule
+
+### ?? Media & Content
+**Streaming & Media:**
+- `livestreamview` - Live stream
+- `livestreamplayer` - Stream player
+- `livestreamwidget` - Stream widget
+- `yearplannerview` - Year planner
+
+### ?? Utility & System
+**System Features:**
+- `onboarding` - App onboarding
+- `onboardingslides` - Onboarding slides
+- `onboardingwidget` - Onboarding widget
+- `onboardchurch` - Church onboarding
+- `onboardbookshop` - Bookshop onboarding
+- `onboarddriverandrider` - Driver and Rider onboarding
+- `loginform` - Login
+- `signupform` - Registration
+- `forgotpassword` - Password reset
+- `authcheck` - Auth verification
+- `churchselector` - Select church
+- `entityselector` - Entity picker
+- `entityselectionwidget` - Entity widget
+- `searchwidget` - Search
+- `offlinemanager` - Offline mode
+- `camerasetup` - Camera config
+- `callinterface` - Call interface
+- `visitorcheckinwidget` - Visitor check-in
+- `emergencycontacts` - Emergency contacts
+- `faqview` - FAQ
+- `termsview` - Terms of service
+- `privacyview` - Privacy policy
+- `systemdocsview` - System docs
+- `featurerequest` - Feature requests
+- `featurerequests` - Request list
+- `databasesetup` - DB setup
+
+### ?? Inter-Church & Jobs
+**Network Features:**
+- `interchurchview` - Inter-church
+- `interchurchactivity` - Church network
+- `jobsview` - Job board
+- `jobdetailview` - Job details
+- `christiannewsview` - Christian news
+- `testimoniesview` - Testimonies
+- `pastorscorner` - Pastor's corner
+- `pastorscornerview` - Pastor content
+- `recommendationsview` - Recommendations
+
+---
+
+## Navigation Implementation Priority
+
+### Phase 1: Core Tabs 
+1. ? Home Tab - Dashboard, Events, Announcements
+2. ? Sermons Tab - Library, Player, Notes
+3. ? Carpso Ride Tab - Booking, Tracking, Payments
+4. ? Connect Tab - Feed, Prayer, Groups
+5. ? Profile Tab - Settings, Giving, Account
+
+### Phase 2: Feature Integration 
+1. Link all admin dashboards to role-based access
+2. Connect marketplace to vendor/bookshop dashboards
+3. Integrate games and engagement features
+4. Set up kids zone and family features
+
+### Phase 3: Advanced Features
+1. Inter-church networking
+2. Job board integration
+3. Advanced analytics and reporting
+4. Multi-language support
+
+
+
+## ?? ENTERPRISE-GRADE QUALITY CHECKLIST
+
+### Performance ?
+- [ ] App launches in <3 seconds
+- [ ] Smooth 60fps navigation
+- [ ] Efficient memory usage
+- [ ] Fast data loading
+- [ ] Offline mode works
+
+### Security ??
+- [ ] API keys not exposed
+- [ ] Secure authentication
+- [ ] Encrypted data storage
+- [ ] HTTPS only
+- [ ] Role-based access enforced
+
+### Scalability ??
+- [ ] Multi-tenant ready
+- [ ] Database indexed
+- [ ] CDN for media
+- [ ] Caching implemented
+- [ ] Load balancing ready
+
+### User Experience ??
+- [ ] Intuitive navigation
+- [ ] Professional design
+- [ ] Loading states
+- [ ] Error handling
+- [ ] Accessibility support
+
+### Reliability ???
+- [ ] Error boundaries
+- [ ] Crash reporting
+- [ ] Analytics tracking
+- [ ] Backup systems
+- [ ] Monitoring setup
+
+---
+
+### **Role-Based Access**
+- **Super Admins**: System-wide administration and feature management
+- **Employees**: Task management and operational responsibilities
+- **Bishops**: Administrative oversight and financial reporting
+- **Pastors**: Congregation and service management
+- **Apostles**: Denomination growth and leadership
+- **Prophets**: Prophecy and revelation tracking
+- **Bookshop Owners**: Inventory and sales management
+- **Vendors**: Marketplace operations
+- **Drivers**: Transportation and ride management
+
+
+# Security Documentation for Church On App
+
+## Overview
+This document outlines the security architecture and measures implemented in the Church On App ecosystem to protect user data, financial transactions, and ensure regulatory compliance.
+
+## Security Architecture
+
+### 1. Multi-Tenant Isolation
+- **Tenant ID Enforcement**: All database records include a `tenantId` field for strict data separation
+- **Firebase Security Rules**: Comprehensive rules preventing cross-tenant data access
+- **Role-Based Access Control**: Different permissions for Bishops, Pastors, Apostles, Prophets, Bookshop owners, Vendors, and Riders
+
+### 2. Payment Security
+- **Lenco API Integration**: Secure payment processing with mobile money and card support
+- **PCI DSS Compliance**: Card data never stored locally, processed through secure channels
+- **Encryption**: API keys encrypted at rest using AES-256 encryption
+- **Transaction Logging**: All payment transactions logged with security events
+
+### 3. Authentication & Authorization
+- **Authentication**: Secure user authentication with email/password and social providers
+- **JWT Token Validation**: Proper token validation on all protected endpoints
+- **Session Management**: Secure session handling with appropriate timeouts
+- **Role Verification**: Strict role checking on all sensitive operations
+
+### 4. Data Protection
+- **Input Validation**: All user inputs validated and sanitized
+- **Output Encoding**: Proper encoding to prevent XSS attacks
+- **SQL Injection Prevention**: Parameterized queries used throughout
+- **Rate Limiting**: Implemented to prevent abuse and DDoS attacks
+
+## Security Measures
+
+### 1. Payment Security Features
+- **Mobile Money Priority**: Zambian mobile money integration as primary payment method
+- **Card Security**: PCI-compliant card processing with tokenization
+- **Transaction Monitoring**: Real-time monitoring for suspicious activities
+- **Refund Controls**: Secure refund process with proper authorization
+
+### 2. API Security
+- **API Key Encryption**: Sensitive API keys encrypted and stored securely
+- **Request Signing**: All API requests properly authenticated
+- **Rate Limiting**: Per-user and per-IP rate limiting
+- **Input Sanitization**: All API inputs validated and sanitized
+
+### 3. Database Security
+- **Field-Level Security**: Sensitive fields properly protected
+- **Query Optimization**: Prevented N+1 queries and optimized database access
+- **Index Security**: Proper indexing without exposing sensitive data
+- **Audit Logging**: All database changes logged for security auditing
+
+## Compliance
+
+### Zambian Regulations
+- **RTSA Compliance**: All vehicles meet Road Transport and Safety Agency requirements
+- **PSV Licensing**: Proper Public Service Vehicle licensing for all transportation services
+- **Insurance Requirements**: Valid insurance for all operational vehicles
+- **Driver Certification**: Proper driver certifications and clearances
+
+### Data Protection
+- **Privacy by Design**: Data minimization and purpose limitation
+- **Consent Management**: Proper consent collection and management
+- **Data Retention**: Defined retention policies for different data types
+- **Breach Notification**: Procedures for security incident response
+
+## Incident Response
+
+### Security Event Handling
+1. **Detection**: Automated monitoring for suspicious activities
+2. **Logging**: Comprehensive security event logging
+3. **Alerting**: Real-time alerts for security incidents
+4. **Response**: Defined incident response procedures
+5. **Recovery**: Steps for system recovery and restoration
+
+### Vulnerability Management
+- **Regular Updates**: Keeping all dependencies up-to-date
+- **Security Scanning**: Automated vulnerability scanning
+- **Penetration Testing**: Regular security assessments
+- **Bug Bounty**: Encouraging responsible disclosure
+
+## Best Practices
+
+### For Developers
+- Always validate user inputs
+- Use parameterized queries
+- Implement proper error handling
+- Follow secure coding practices
+- Conduct security reviews
+
+### For Administrators
+- Regular security audits
+- Access control reviews
+- Password policy enforcement
+- Security awareness training
+- Incident response drills
+
+## Contact
+
+For security concerns or vulnerability disclosures, please contact our security team at security@churchonapp.com.
+
+---
+
+*This document is regularly updated as security measures evolve.*
+
+create to handle the business logic:
+
+1.  **RoleService.js**
+    *   **Feature:** Custom Role Management for Bishop/Pastor.
+    *   **Functionality:** Create custom roles with specific permission sets, fallback to built-in roles.
+    
+2.  **ReportService.js**
+    *   **Feature:** Reporting System (Weekly/Monthly/etc).
+    *   **Functionality:** Create, Update, Submit to HQ (Bishop), Sync metrics from visitors/streams.
+
+3.  **TitheService.js**
+    *   **Feature:** Digital Tithe Cards.
+    *   **Functionality:** Generate unique tithe cards for members, record tithe payments to Ledger.
+
+4.  **ContributionService.js**
+    *   **Feature:** Inter-church & Group Contributions.
+    *   **Functionality:** Manage transfers between churches and member contributions to specific groups (Youth, Men's, etc.).
+
+5.  **QuizService.js**
+    *   **Feature:** Multiplayer "Phygital" Bible Quiz.
+    *   **Functionality:** Methods for creating matches, joining lobbies, scoring, and real-time state updates.
+
+6.  **FlyerGeneratorService.js**
+    *   **Feature:** Flyer & Certificate Generation.
+    *   **Functionality:** Template management and asset generation queuing.
+
+7.  **LedgerService.js (Updated)**
+    *   **Feature:** Financials.
+    *   **Status:** Updated to support `TITHE`, `OFFERING`, and `PARTNER_CONTRIBUTION` types.
+
+
+# ??? FEATURE ACCESS MAP - Where Users Find Each Feature
+
+## Date: 2026-01-20 02:08 AM
+## Complete Navigation Guide for All 81+ Features
+
+---
+
+## ?? **ADMIN & MANAGEMENT** (18 Features)
+
+### **Access Point: Profile Tab ? Admin Menu**
+**Visible to:** Users with admin roles (Bishop, Pastor, Apostle, Prophet, Super Admin)
+
+#### **Role-Based Dashboards:**
+1. **bishopdashboard** - Bishop Dashboard
+   - **Path:** Profile Tab ? "Bishop Dashboard" (if user.role === 'bishop')
+   - **Icon:** Shield icon
+   - **Shows:** oversees all linked churches together with all he leads same as apostle,Diocese stats, congregations, revenue, activities, Network churches, growth, missions, impact
+
+2. **pastordashboard** - Pastor Dashboard
+   - **Path:** Profile Tab ? "Pastor Dashboard" (if user.role === 'pastor')
+   - **Icon:** Users icon
+   - **Shows:** Members, sermons, attendance, giving
+
+3. **apostledashboard** - Apostle Dashboard
+   - **Path:** Profile Tab ? "Apostle Dashboard" (if user.role === 'apostle')
+   - **Icon:** Shield icon (red)
+   - **Shows:** Network churches, growth, missions, impact
+
+4. **prophetdashboard** - Prophet Dashboard
+   - **Path:** Profile Tab ? "Prophet Dashboard" (if user.role === 'prophet')
+   - **Icon:** Shield icon (yellow)
+   - **Shows:** Prayer requests, prophecies, answered prayers
+
+5. **superadmindashboard** - Super Admin Dashboard
+   - **Path:** Profile Tab ? "Super Admin" (if user.role === 'superadmin')
+   - **Icon:** Settings icon
+   - **Shows:** System-wide controls,everything he is the4 app owner, , all churches, global stats
+
+6. **superadmindash** - Admin Overview
+   - **Path:** Profile Tab ? Admin Menu ? "Overview"
+   - **Shows:** Quick admin statistics and actions
+
+7. **superadminsetup** - System Setup
+   - **Path:** Profile Tab ? Admin Menu ? "System Setup"
+   - **Shows:** App configuration, feature flags, integrations
+
+#### **Management Tools:**
+8. **admindashboardview** - Admin View
+   - **Path:** Profile Tab ? "Admin Panel"
+   - **Shows:** Consolidated admin interface
+
+9. **admindashboardwidget** - Admin Widget
+   - **Path:** Home Tab ? Admin Widget (for admin users)
+   - **Shows:** Quick admin actions on home screen
+
+10. **reportsview** - Reports
+    - **Path:** Profile Tab ? Admin Menu ? "Reports"
+    - **Shows:** Financial, attendance, engagement reports
+
+11. **reportcreator** - Create Reports
+    - **Path:** Profile Tab ? Admin Menu ? "Create Report"
+    - **Shows:** Report builder interface
+
+12. **createreport** - Report Builder
+    - **Path:** Profile Tab ? Admin Menu ? "Report Builder"
+    - **Shows:** Advanced report creation
+
+13. **streamingmanager** - Stream Management
+    - **Path:** Home Tab ? Live Stream ? "Manage" (admin only)
+    - **Shows:** Stream controls, settings, analytics
+
+14. **streamingmgmt** - Stream Controls
+    - **Path:** Home Tab ? Live Stream ? "Controls" (admin only)
+    - **Shows:** Start/stop stream, quality settings
+
+15. **manageministries** - Ministry Management
+    - **Path:** Profile Tab ? Admin Menu ? "Ministries"
+    - **Shows:** Ministry list, leaders, schedules
+
+16. **managenewsview** - News Management
+    - **Path:** Connect Tab ? News ? "Manage" (admin only)
+    - **Shows:** Create/edit/delete news articles
+
+17. **adsmanagement** - Ad Management
+    - **Path:** Profile Tab ? Admin Menu ? "Advertisements"
+    - **Shows:** Create/manage app advertisements
+
+18. **admanager** - Ad Controls
+    - **Path:** Profile Tab ? Admin Menu ? "Ad Manager"
+    - **Shows:** Ad campaigns, targeting, analytics
+
+---
+
+## ?? **MARKETPLACE & COMMERCE** (11 Features)
+
+### **Access Point: Home Tab ? Marketplace Icon**
+**Visible to:** All authenticated users
+
+1. **marketplaceview** - Marketplace
+   - **Path:** Home Tab ? "Marketplace" button
+   - **Icon:** Shopping bag
+   - **Shows:** Product grid, categories, search
+
+2. **marketplacedetail** - Product Details
+   - **Path:** Marketplace ? Click any product
+   - **Shows:** Product info, images, price, add to cart
+
+3. **bookshopview** - Bookshop
+   - **Path:** Home Tab ? "Bookshop" OR Marketplace ? "Books" category
+   - **Icon:** Book
+   - **Shows:** Christian books, Bibles, study materials
+
+4. **bookshopform** - Bookshop Setup
+   - **Path:** Profile Tab ? "Vendor Dashboard" ? "Setup Bookshop"
+   - **Shows:** Bookshop configuration form
+
+5. **bookshopdashboard** - Bookshop Admin
+   - **Path:** Profile Tab ? "Bookshop Dashboard" (if user is bookshop owner)
+   - **Shows:** Sales, inventory, orders
+
+6. **bookdetailview** - Book Details
+   - **Path:** Bookshop ? Click any book
+   - **Shows:** Book description, author, reviews, purchase
+
+7. **vendordashboard** - Vendor Dashboard
+   - **Path:** Profile Tab ? "Vendor Dashboard" (if user is vendor)
+   - **Shows:** Products, sales, analytics
+
+8. **cartview** - Shopping Cart
+   - **Path:** Marketplace ? Cart icon (top right)
+   - **Icon:** Shopping cart with badge
+   - **Shows:** Cart items, quantities, total
+
+9. **checkoutview** - Checkout
+   - **Path:** Cart ? "Checkout" button
+   - **Shows:** Shipping, payment, order summary
+
+10. **sendmoney** - Send Payment
+    - **Path:** Profile Tab ? Wallet ? "Send Money"
+    - **Shows:** Payment form, recipient selection
+
+11. **sendmoneyview** - Payment View
+    - **Path:** Profile Tab ? Wallet ? "Payments"
+    - **Shows:** Payment history, receipts
+
+---
+
+## ?? **ENGAGEMENT & GAMES** (7 Features)
+
+### **Access Point: Connect Tab ? Games Section**
+**Visible to:** All authenticated users
+
+1. **biblegames** - Bible Games
+   - **Path:** Connect Tab ? "Games" ? "Bible Games"
+   - **Icon:** Gamepad
+   - **Shows:** Bible trivia, quizzes, challenges
+
+2. **gamesmenu** - Games Menu
+   - **Path:** Connect Tab ? "Games"
+   - **Shows:** All available games, leaderboards
+
+3. **gameplayview** - Gameplay
+   - **Path:** Games Menu ? Select any game
+   - **Shows:** Active game interface
+
+4. **charadesgame** - Charades
+   - **Path:** Games Menu ? "Bible Charades"
+   - **Shows:** Charades game with Bible themes
+
+5. **multiplayerlobby** - Multiplayer
+   - **Path:** Games Menu ? "Multiplayer" ? "Join Lobby"
+   - **Shows:** Available rooms, create room
+
+6. **questiongenerator** - Quiz Generator
+   - **Path:** Games Menu ? "Create Quiz" (admin/leader)
+   - **Shows:** Quiz creation interface
+
+7. **pollcreator** - Create Polls
+   - **Path:** Connect Tab ? "Create Poll" (admin/leader)
+   - **Shows:** Poll creation form
+
+---
+
+## ?? **KIDS & YOUTH** (7 Features)
+
+### **Access Point: Home Tab ? Kids Zone**
+**Visible to:** All users (content filtered by age)
+
+1. **kidszonewidget** - Kids Zone
+   - **Path:** Home Tab ? "Kids Zone" button
+   - **Icon:** Smiley face/child icon
+   - **Shows:** Kid-friendly content, games, videos
+
+2. **baptismregistrywidget** - Baptism Registry
+   - **Path:** Profile Tab ? "Baptism Registry" OR Kids Zone ? "Baptisms"
+   - **Shows:** Baptism records, certificates
+
+3. **devotionview** - Daily Devotions
+   - **Path:** Sermons Tab ? "Devotions"
+   - **Shows:** Daily devotional content
+
+4. **dailydevotion** - Devotional Content
+   - **Path:** Sermons Tab ? "Devotions" ? Select day
+   - **Shows:** Scripture, reflection, prayer
+
+5. **fastingtrackerwidget** - Fasting Tracker
+   - **Path:** Profile Tab ? "Fasting Tracker"
+   - **Shows:** Fasting schedule, progress, prayers
+
+6. **worshiplyricswidget** - Worship Lyrics
+   - **Path:** Sermons Tab ? "Worship" OR during live stream
+   - **Shows:** Song lyrics, chords
+
+7. **ministryschedulerwidget** - Ministry Schedule
+   - **Path:** Home Tab ? "Ministry Schedule"
+   - **Shows:** Ministry calendar, assignments
+
+---
+
+## ?? **MEDIA & CONTENT** (4 Features)
+
+### **Access Point: Home Tab & Sermons Tab**
+**Visible to:** All users
+
+1. **livestreamview** - Live Stream
+   - **Path:** Home Tab ? "WATCH LIVE" button (when live)
+   - **Icon:** Video camera (red when live)
+   - **Shows:** Live video stream, chat
+
+2. **livestreamplayer** - Stream Player
+   - **Path:** Auto-loads when clicking live stream
+   - **Shows:** Video player with controls
+
+3. **livestreamwidget** - Stream Widget
+   - **Path:** Home Tab ? Live indicator widget
+   - **Shows:** Stream status, viewer count, join button
+
+4. **yearplannerview** - Year Planner
+   - **Path:** Home Tab ? "Events" ? "Year View"
+   - **Shows:** Annual calendar, all events
+
+---
+
+## ?? **UTILITY & SYSTEM** (25 Features)
+
+### **Access Points: Various (System-wide)**
+
+#### **Onboarding (First-time users):**
+1. **onboarding** - App Onboarding
+   - **Path:** First app launch
+   - **Shows:** Welcome screens, app tour
+
+2. **onboardingslides** - Onboarding Slides
+   - **Path:** Part of onboarding flow
+   - **Shows:** Feature highlights
+
+3. **onboardingwidget** - Onboarding Widget
+   - **Path:** Home Tab (for new users)
+   - **Shows:** Quick tips, getting started
+
+4. **onboardchurch** - Church Onboarding
+   - **Path:** First launch ? "Setup Church"
+   - **Shows:** Church registration form
+
+5. **onboardbookshop** - Bookshop Onboarding
+   - **Path:** Vendor signup ? "Setup Bookshop"
+   - **Shows:** Bookshop setup wizard
+
+#### **Authentication:**
+6. **loginform** - Login
+   - **Path:** App launch (if not logged in)
+   - **Shows:** Email/password login, social login
+
+7. **signupform** - Registration
+   - **Path:** Login screen ? "Sign Up"
+   - **Shows:** Multi-step registration form
+
+8. **forgotpassword** - Password Reset
+   - **Path:** Login screen ? "Forgot Password?"
+   - **Shows:** Email input, reset link
+
+9. **authcheck** - Auth Verification
+   - **Path:** Background (automatic)
+   - **Shows:** Session validation
+
+
+#### **Church Selection:**
+11. **churchselector** - Select Church
+    - **Path:** First login OR Profile ? "Switch Church"
+    - **Shows:** Church list, search
+
+12. **entityselector** - Entity Picker
+    - **Path:** Various forms (select church, ministry, etc.)
+    - **Shows:** Entity selection dropdown
+
+13. **entityselectionwidget** - Entity Widget
+    - **Path:** Forms with entity selection
+    - **Shows:** Entity picker component
+
+#### **Search & Navigation:**
+14. **searchwidget** - Search
+    - **Path:** Top of every tab (search icon)
+    - **Icon:** Magnifying glass
+    - **Shows:** Global search (sermons, events, people, etc.)
+
+#### **System Features:**
+15. **offlinemanager** - Offline Mode
+    - **Path:** Background (automatic)
+    - **Shows:** Offline data sync, cached content
+
+16. **camerasetup** - Camera Config
+    - **Path:** Profile ? Settings ? "Camera"
+    - **Shows:** Camera permissions, quality settings
+
+17. **callinterface** - Call Interface
+    - **Path:** Connect Tab ? Member ? "Call" button
+    - **Shows:** Voice/video call interface
+
+18. **visitorcheckinwidget** - Visitor Check-in
+    - **Path:** Home Tab ? "Check In" (at church location)
+    - **Shows:** QR code scanner, check-in form
+
+19. **emergencycontacts** - Emergency Contacts
+    - **Path:** Profile Tab ? "Emergency Contacts"
+    - **Shows:** Church emergency numbers, help
+
+#### **Help & Legal:**
+20. **faqview** - FAQ
+    - **Path:** Profile Tab ? "Help" ? "FAQ"
+    - **Shows:** Frequently asked questions
+
+21. **termsview** - Terms of Service
+    - **Path:** Profile Tab ? "Terms of Service"
+    - **Shows:** Legal terms, user agreement
+
+22. **privacyview** - Privacy Policy
+    - **Path:** Profile Tab ? "Privacy Policy"
+    - **Shows:** Data privacy information
+
+23. **systemdocsview** - System Docs
+    - **Path:** Profile Tab ? Admin Menu ? "Documentation"
+    - **Shows:** System documentation (admin only)
+
+#### **Feedback & Demo:**
+24. **featurerequest** / **featurerequests** - Feature Requests
+    - **Path:** Profile Tab ? "Suggest Feature"
+    - **Shows:** Feature request form, voting
+
+25. **demochurchview** - Demo Church
+    - **Path:** Church selector ? "Try Demo"
+    - **Shows:** Sample church with demo data
+
+26. **databasesetup** - DB Setup
+    - **Path:** Super Admin ? "Database Setup"
+    - **Shows:** Database configuration (super admin only)
+
+---
+
+## ?? **INTER-CHURCH & JOBS** (9 Features)
+
+### **Access Point: Connect Tab ? Network Section**
+**Visible to:** All authenticated users
+
+1. **interchurchview** - Inter-church
+   - **Path:** Connect Tab ? "Church Network"
+   - **Icon:** Building/network icon
+   - **Shows:** Connected churches, events
+
+2. **interchurchactivity** - Church Network
+   - **Path:** Connect Tab ? "Network" ? "Activity Feed"
+   - **Shows:** Network-wide activities, updates
+
+3. **jobsview** - Job Board
+   - **Path:** Connect Tab ? "Jobs"
+   - **Icon:** Briefcase
+   - **Shows:** Job listings, search, filters
+
+4. **jobdetailview** - Job Details
+   - **Path:** Jobs ? Click any job
+   - **Shows:** Job description, apply button
+
+5. **christiannewsview** - Christian News
+   - **Path:** Home Tab ? "News" OR Connect Tab ? "News"
+   - **Icon:** Newspaper
+   - **Shows:** Christian news articles, updates
+
+6. **testimoniesview** - Testimonies
+   - **Path:** Connect Tab ? "Testimonies"
+   - **Icon:** Heart
+   - **Shows:** User testimonies, stories
+
+7. **pastorscorner** / **pastorscornerview** - Pastor's Corner
+   - **Path:** Sermons Tab ? "Pastor's Corner"
+   - **Shows:** Pastor's messages, insights
+
+8. **recommendationsview** - Recommendations
+   - **Path:** Home Tab ? "Recommended for You"
+   - **Shows:** Personalized content suggestions
+
+---
+
+## ?? **NAVIGATION SUMMARY**
+
+### **By Main Tab:**
+
+#### **?? HOME TAB** (Access to 25+ features)
+- Live Stream
+- Events
+- Announcements
+- Marketplace
+- Bookshop
+- Kids Zone
+- Ministry Schedule
+- News
+- Recommendations
+- Admin Widget (if admin)
+- Visitor Check-in
+
+#### **?? SERMONS TAB** (Access to 15+ features)
+- Sermon Library
+- Sermon Player
+- Bible Reader
+- Devotions
+- Study Plans
+- Notes
+- Worship Lyrics
+- Pastor's Corner
+
+#### **?? CARPSO RIDE TAB** (Access to 10+ features)
+- Ride Booking
+- Driver Tracking
+- Wallet
+- Payments
+- Transaction History
+- Receipts
+
+#### **?? CONNECT TAB** (Access to 30+ features)
+- Social Feed
+- Prayer Wall
+- Small Groups
+- Games
+- Church Network
+- Jobs
+- News
+- Testimonies
+- Community Chat
+- Member Directory
+- Polls
+
+#### **?? PROFILE TAB** (Access to 20+ features)
+- User Profile
+- Settings
+- Admin Dashboards (role-based)
+- Vendor Dashboard
+- Bookshop Dashboard
+- Giving History
+- Wallet
+- Fasting Tracker
+- Baptism Registry
+- Emergency Contacts
+- Help/FAQ
+- Terms & Privacy
+
+---
+
+## ?? **ACCESS CONTROL SUMMARY**
+
+### **Public (No Login Required):**
+- Home/Events
+- Sermons (view only)
+- Live Stream (view only)
+- News
+- FAQ
+- Terms & Privacy
+
+### **Authenticated Users:**
+- All public features +
+- Submit prayers
+- Join groups
+- Marketplace shopping
+- Ride booking
+- Profile management
+- Giving
+
+### **Church Leaders:**
+- All member features +
+- Role-specific dashboards
+- Reports
+- Management tools
+- Stream controls
+
+### **Vendors:**
+- All member features +
+- Vendor dashboard
+- Product management
+
+### **Super Admins:**
+- ALL features
+- System configuration
+- Database setup
+
+---
+
+## ? **CONCLUSION**
+
+**All 81+ features are accessible through:**
+- ? 5 main navigation tabs
+- ? Role-based menus
+- ? Contextual buttons
+- ? Search functionality
+- ? Deep linking
+
+**Every feature has a clear access path and is available to the appropriate user type!**
+
+---
+
+## **Advanced Features**
+
+### **Loyalty Program**
+- **Tiered Rewards System**: Bronze, Silver, Gold, Platinum levels
+- **Loyalty Points**: Earn and redeem points for discounts
+- **Automatic Discounts**: Applied based on ride history and loyalty tier
+
+### **Subscription Models**
+- **Monthly Pass**: Unlimited rides for one month
+- **Weekly Pass**: Unlimited rides for one week
+- **Corporate Packages**: Business-focused transportation solutions
+
+### **Voice Interface for Drivers**
+- **Hands-Free Operation**: Voice commands for trip management
+- **Real-Time Updates**: Check-ins and emergency notifications
+- **Multilingual Support**: Capability for Zambian language integration
+
+### **Dynamic Pricing Intelligence**
+- **Demand-Based Adjustments**: Pricing based on current demand levels
+- **Time-Based Factors**: Peak hour and special event pricing
+- **Weather Impact**: Adjustments based on weather conditions
+- **Loyalty Discounts**: Automatic discounts for loyal customers
+
+### **Micro-Mobility Integration**
+- **Bicycle Services**: Eco-friendly last-mile connectivity
+- **Tuk-Tuk Services**: Motorized transport for small groups
+- **Real-Time Booking**: Instant booking and location tracking
+- **Zone-Based Availability**: Strategic placement in high-demand areas
+- **Integrated Pricing**: Seamless pricing with main transportation services
+
+### **Asset Financing Module**
+- **Bank Partnerships**: Integration with local banks (Standard Chartered, Zambia Commercial Bank, First National Bank)
+- **Vehicle Loans**: Specialized financing for church transportation assets
+- **Equipment Financing**: Funding for church buses and related equipment
+- **Application Process**: Digital application and approval workflow
+- **Loan Management**: Repayment tracking and loan management tools
+
+### **IoT Integration**
+- **Connected Sensors**: GPS, engine status, fuel level, temperature, speed monitoring
+- **Real-Time Tracking**: Live vehicle location and status updates
+- **Predictive Maintenance**: Sensor-based maintenance scheduling
+- **Security Features**: Remote lock/unlock, alarm systems, anti-theft measures
+- **Diagnostics**: Automated vehicle health monitoring and reporting
+
+### **Advanced Security Features**
+- **Biometric Authentication**: Fingerprint, face recognition, voice recognition
+- **Advanced Threat Detection**: AI-powered anomaly detection and risk assessment
+- **Behavioral Analysis**: Pattern recognition for suspicious activities
+- **Multi-Factor Authentication**: Enhanced security layers
+- **Device Fingerprinting**: Secure device identification and verification
+
+### **Blockchain Integration**
+- **Secure Transactions**: Transparent and immutable financial records
+- **Smart Contracts**: Automated payment and loyalty programs
+- **Cryptocurrency Support**: ChurchCoin and other digital currencies
+- **Transaction Verification**: Blockchain-based transaction validation
+- **Decentralized Identity**: Secure user identity management
+
+### **Advanced AI Features**
+- **Natural Language Processing**: Conversational AI for better user interactions
+- **Predictive Analytics**: Demand forecasting and route optimization
+- **Personalization Engine**: AI-driven personalized experiences
+- **Chatbot Assistance**: 24/7 automated customer support
+- **Sentiment Analysis**: Customer feedback analysis and insights
+
+## **Security & Compliance**
+
+### **Payment Security**
+- **Lenco API Integration**: Secure mobile money and card payment processing
+- **PCI DSS Compliance**: Card data never stored locally, processed through secure channels
+- **Encrypted Credentials**: AES-256 encryption for all API keys
+- **Transaction Monitoring**: Real-time monitoring and logging of all payment activities
+
+### **Data Protection**
+- **Security Rules**: Comprehensive rules preventing unauthorized access
+- **Input Validation**: All user inputs validated and sanitized
+- **Rate Limiting**: Protection against abuse and DDoS attacks
+- **Audit Trails**: Complete logging of security events and user activities
+
+### **Zambian Regulatory Compliance**
+- **RTSA Compliance**: All vehicles meet Road Transport and Safety Agency requirements
+- **PSV Licensing**: Proper Public Service Vehicle licensing for transportation services
+- **Insurance Requirements**: Valid insurance for all operational vehicles
+- **Driver Certification**: Proper driver certifications and clearances
+
+# Frequently Asked Questions (FAQ)
+
+## General
+
+### What is Church On App?
+Church On App is a comprehensive digital ecosystem designed to connect church members, pastors, and bishops. It provides tools for spiritual growth, community engagement, and church management.
+
+### Is the app free to use?
+Yes, the core features for members are free. However, certain premium features or specific church customizations may require a subscription.
+
+### Does the app work offline?
+Yes! We have implemented robust offline support. You can view previously loaded content, read the Bible, and even draft notes while offline. Changes will sync automatically once you are back online.
+
+## Account & Security
+
+### How do I reset my password?
+If you've forgotten your password, click on the "Forgot Password" link on the login screen. You will receive an email to reset it.
+
+### Is my data secure?
+Absolutely. We use industry-standard encryption and Firebase's secure infrastructure. Your personal data and financial information (tithes/offerings) are protected with strict security rules.
+
+## Marketplace & Vendors
+
+### How do I become a vendor?
+To become a vendor, navigate to your Profile and select "Start Selling" or "Vendor Dashboard". You will need to complete a brief onboarding process to set up your store.
+
+### What can I sell?
+You can sell goods and services that align with our community guidelines. This includes handmade crafts, church merchandise, books, and more.
+
+### How do I get paid?
+Payments are processed securely through our integrated payment system (`In-App Wallet` or `Mobile Money`). You can withdraw your earnings from your Vendor Dashboard.
+
+## For Pastors & Leaders
+
+### How can I manage my church?
+Pastors have access to a dedicated dashboard for managing members, events, and sermons. If you are a pastor and don't see this option, please contact support to verify your role.
+
+### Can I broadcast messages?
+Yes, you can use the Announcement feature to send push notifications and messages to your congregation.
+
+# Payment Architecture: Platform-First Model
+
+## Overview
+This document explains how the payment and payout system works in Church On App.
+
+---
+
+## ?? How Money Flows
+
+### 1. Customer Pays (Collection)
+```
+Customer ? Mobile Money/Card ? Platform Lenco Account (1148576)
+```
+- **All payments** go to the platform's Lenco account first
+- This includes: Church offerings, Marketplace purchases, Ride payments, etc.
+- Platform fee (5%) is automatically deducted
+
+### 2. Church/Vendor Gets Paid (Disbursement)
+```
+Platform Lenco Account ? Auto-Disbursement ? Partner's Mobile Money
+```
+- When a church/seller requests a payout, it's sent to their registered Mobile Money number
+- **NO Lenco sub-account needed** by partners
+- Disbursement is automatic (no manual approval required)
+
+---
+
+## ?? What Partners Need to Provide
+
+Churches, Sellers, Vendors, Drivers/Riders and Writers only need:
+
+| Field | Example | Required |
+|-------|---------|----------|
+| Mobile Money Phone | 0977123456 | ? Yes |
+| Mobile Network | MTN/Airtel/Zamtel | ? Yes |
+| Account Holder Name | "Grace Tabernacle" | ? Yes |
+
+**NO need for:**
+- ? Bank Account
+- ? Lenco Sub-Account ID
+- ? SWIFT/Branch Codes
+
+---
+
+## ? Auto-Disbursement Flow
+
+1. Partner (Church/Seller) clicks "Request Payout" in their dashboard
+2. System validates:
+   - Mobile Money details are set up
+   - Amount doesn't exceed available balance
+3. Payout request is created with status: `Processing`
+4. Cloud Function `processPayoutRequest` triggers automatically
+5. Lenco Disbursements API sends funds to Mobile Money
+6. Status updates to `Completed`
+7. Partner receives SMS notification from their network
+
+**Time to receive funds:** Usually 30 seconds - 2 minutes
+
+---
+
+## ?? Revenue Split
+
+| Party | Percentage | Description |
+|-------|------------|-------------|
+| Church/Partner | 93% - 98% | Net amount (varies by tier) |
+| Platform | 2% - 7% | Tiered Commission (Donations vs Marketplace) |
+
+*Standard Tier (Donations): 5%*
+*Example: K100 donation*
+- Church receives: K95
+- Platform keeps: K5
+
+---
+
+## ?? Security
+
+- All Mobile Money numbers are validated
+- Phone numbers are formatted to Zambian standard (260XXXXXXXXX)
+- Disbursement records are audited
+- Partners can only withdraw their own funds
+
+---
+
+## ?? Configuration
+### Lenco Requirements
+- Disbursements API must be enabled on your Lenco account
+- You need sufficient balance in your Lenco account for disbursements
+- Mobile Money disbursements supported for: MTN, Airtel, Zamtel, ZedMobile(Zambia)
+
+---
+
+## 1. Carpso Ride: Negotiated Pricing (New Feature)
+**Requirement:** Allow Users and Drivers (Bus/Taxi) to negotiate price instead of fixed metering.
+
+### A. Data Model Changes (`rides` collection)
+- **New Field:** `pricingMode` -> `'metered'` (Default) | `'negotiated'`.
+- **New Field:** `customerOffer` -> `number` (The price user wants to pay).
+- **New Field:** `driverCounterOffer` -> `number` (Optional counter from driver).
+- **New Field:** `paymentMethod` -> `'cash'` | `'wallet'` | `'mobile_money'`.
+
+### B. User Flow (Request Side)
+1.  **Toggle:** User selects "Negotiate Price" on the Request Screen.
+2.  **Input:** User enters amount (e.g., K50).
+3.  **Logic:** System broadcasts request to drivers with `customerOffer`.
+4.  **Cancellation:** If no driver accepts within 60s, request expires/cancels but reapear on the ride available pool queue.
+
+### C. Driver Flow (Response Side)
+1.  **View:** Driver sees "Offer: K50" instead of "Est: K45".
+2.  **Actions:**
+    -   **Accept:** Ride starts at K50.
+    -   **Decline:** Removes from list then reappear when condition changes oeg price.
+    -   **Counter:** Driver sends back "K60". User gets a prompt to Accept/Decline.
+
+### D. Quality & Safety Audit
+-   **SOS:** `EmergencyContacts` component is linked. Ensure it pulls local police numbers based on GPS.
+-   **Completion:** Ensure `ride_complete` trigger updates `driver_stats` (earnings) and `user_stats` (rides taken).
+-   **Reviews:** Rating modal must appear immediately after `status` changes to `COMPLETED`.
+
+---
+
+# Google Play Store Listing
+
+## App Name
+Church On App (13/30)
+
+## Short Description
+Connecting Churches and Believers Through Technology. (53/80)
+
+## Full Description
+Welcome to Church On App, the Premium all-in-one digital platform designed specifically for modern ministries and their congregations. Whether you are a Pastor managing a growing church or a Member seeking spiritual growth, Church On App brings your community together.
+
+**FOR CHURCH LEADERS:**
+� **Effortless Management**: Keep track of memberships, church departments, and event calendars from a single dashboard.
+� **Kingdom Klips**: Share short, inspiring video highlights and announcements to keep your members engaged throughout the week.
+� **Sermon Library**: Upload and organize text/audio/video sermons so your message is accessible 24/7.
+� **Secure Giving**: Facilitate tithes, offerings, and donations through secure, integrated payment gateways.
+� **Manage Events ,Conferences all types**:
+
+**FOR MEMBERS:**
+� **Stay Connected**: Access your church�s latest news, events, and prayer walls instantly.
+� **Grow Spiritually**: Re-listen and Re-watch Sunday�s message or discover new teachings on the go.
+� **Interactive Community**: Submit prayer requests, testimonies and stay in touch with your church family.
+
+**LAUNCH PROMO**: We are on a mission to digitize 1,000 Churches!
+Be among the first to sign up and take advantage of our exclusive setup offers for new ministries.
+
+Join the digital revolution of faith. Download Church On App today and take your ministry to the next level!
+(1313/4000)
+
+## Graphics Requirements
+- **App Icon**: 512x512 px, PNG/JPEG (Generated as `app_icon.png`)
+- **Feature Graphic**: 1024x500 px, PNG/JPEG (Generated as `feature_graphic.png`)
+- **Phone Screenshots**: 16:9 or 9:16 (Generated in `screenshots/`)
+- **Tablet Screenshots**: 16:9 or 9:16 (Generated in `screenshots/`)
+
+
+## 1. Authentication & Onboarding
+- [ ] **Sign Up**: Create a new account using Email/Password. Verify email validation.
+- [ ] **Login**: Login with existing credentials. 
+- [ ] **Persistence**: Close app/browser and reopen. User should remain logged in.
+- [ ] **Profile Setup**: 
+    - [ ] Update display name and avatar.
+    - [ ] Select a "Home Church" during onboarding or from profile.
+    - [ ] Verify "Church On App" branding appears in welcome emails or messages (if applicable).
+
+## 2. Home & Navigation
+- [ ] **Dashboard**: Verify "Church On App" logo and "Main Campus" (if visible) or selected church name appears correctly.
+- [ ] **Floating Tabs**: 
+    - [ ] Switch between **Home**, **Sermons**, **Carpso Ride**, **Connect**, **Profile**.
+    - [ ] Verify the floating animation is smooth and tabs highlight correctly.
+- [ ] **Quick Actions**: Test all quick action buttons (e.g., Give, Bible, Prayer) navigate to the correct screens.
+
+## 3. Church Connection (Phygital Campus)
+- [ ] **Lobby**: Enter Phygital Church. Verify the Grid Layout loads without flickering.
+- [ ] **Sanctuary (Live)**:
+    - [ ] Enter Sanctuary.
+    - [ ] **Seat Selection**: Tap a seat to occupy it. Verify avatar appears.
+    - [ ] **Chat**: Send a message from the seat. Verify bubble appears.
+    - [ ] **Reactions**: tap "Amen", "Fire". Verify floating animations.
+    - [ ] **Streaming**: If live, click "Watch Stream". Verify player opens.
+- [ ] **Prayer Garden**: Post a prayer request on the wall.
+- [ ] **Fellowship Hall**: Verify navigation to Chat Rooms.
+
+## 4. Sermons & Streaming
+- [ ] **Sermons List**: Scroll through recent sermons. Images should load lazily.
+- [ ] **Player Experience**:
+    - [ ] Open a sermon. 
+    - [ ] **Mobile**: Drag/Swipe gestures (if implemented) or check vertical layout (TikTok style).
+    - [ ] **Desktop**: Check split-screen (YouTube style) with chat on right.
+    - [ ] **Playback**: Play/Pause, Seek, Volume.
+- [ ] **Live Stream**: 
+    - [ ] Test "Go Live" (Admin) and "Watch" (User).
+    - [ ] Verify Chat Overlay on mobile.
+
+## 5. Community & Chat
+- [ ] **Inbox Tab**: 
+    - [ ] Switch between **Rooms**, **Inbox**, **Calls**.
+    - [ ] Open a Chat Room (e.g., General). Send a message.
+    - [ ] Open a Direct Message. Send a test message.
+- [ ] **Calls**: Check Call History tab (should show log).
+
+## 6. Giving & Payments
+- [ ] **Giving Hub**: Navigate to Giving.
+- [ ] **Payment Flow**: 
+    - [ ] Select "Offering" or "Tithe".
+    - [ ] Enter amount.
+    - [ ] **Mobile Money**: Select Network (MTN/Airtel/Zamtel/ZedMobile). Enter number. Note: Use test credentials if in dev mode.
+    - [ ] **Card**: Check Card input fields.
+- [ ] **Confirmation**: Verify "Thank you" toast/modal appears after success.
+
+## 7. Admin & Church Management (Pastors/Admins)
+- [ ] **Super Admin Access**: Open Super Admin Dashboard (restricted users only).
+- [ ] **Add Church**:
+    - [ ] Go to "Onboard Church".
+    - [ ] **Step 2**: Verify "Church Name", "Email", and **"Onboarding Fee"** input field exists.
+    - [ ] **Step 3**: Verify Summary shows the correct Fee (default 1,500).
+    - [ ] Create Church. Verify it appears in the Church Selector.
+- [ ] **Employee Dashboard**: Verify similar access for "COA Employee" role.
+
+The Instant Split Blueprint
+
+Since Lipila doesn't natively support automated multi-party marketplace splits in a single collection call, your backend logic will orchestrate this transactionally in two distinct phases: Instant Collection ? Conditional Trigger ? Instant Disbursement.
+Scenario A: The Church Offering / Event Ticket
+
+    The Condition: The moment the payment clears.
+
+    The Logic Flow:
+
+        A church member pays K100 for an event ticket or offering via the app.
+
+        Lipila fires a successful collection webhook to your backend.
+
+        Your backend instantly processes the payload:
+
+            K5 (5%) stays in your main platform wallet as your commission.
+
+            Your system immediately calls Lipila�s Disbursements API to push K95 (95%) directly to that specific church's mobile money account.
+
+Scenario B: Carpso Ride (The Transport Feature)
+
+    The Condition: When a ride status updates to COMPLETED.
+
+    The Logic Flow:
+
+        The rider books a trip for K60. The app requests payment up front via Lipila to ensure funds are secured.
+
+        The webhook hits your server confirming the payment is successful. The ride begins. (The money is currently in your main merchant wallet).
+
+        The moment the driver updates the ride status to COMPLETED in the app:
+
+            Your backend calculates the split: K3 (5% commission) stays put.
+
+            Your system instantly triggers Lipila�s Disbursements API to push K57 (95%) directly to the driver�s MTN, Airtel, or Zamtel wallet.
+
+Architecture Requirements for Your Backend
+
+To make sure this works without delays or transaction failures, keep these engineering principles in mind:
+1. Database Transaction Isolation (Atomicity)
+
+When a condition is met (like a ride completion), the calculation and the API call must happen inside a safe transaction block. If Lipila�s disbursement fails due to a network glitch, your system needs to mark that specific payout as FAILED_RETRIEVABLE so it can auto-retry, ensuring the driver or church doesn't lose their money.
+2. Factoring in Lipila�s Transaction Fees
+
+Lipila charges a small fee per transaction for both collections and disbursements. You�ll need to decide how to handle these network costs so they don't eat into your 5% margin:  
+
+    Option A: Your 5% commission is inclusive of the Lipila fee (meaning your net profit is slightly lower than 5%).
+
+    Option B: Pass the transaction fee onto the user during checkout (e.g., if a ticket is K100, the user pays K103 to cover network costs, keeping your K5 commission intact).i choose option B
+
+3. Asynchronous Webhook Workers
+
+Because you are triggering payouts instantly based on conditions, your webhook handlers shouldn't block the main thread. Use a lightweight queue/background worker pattern to process the disbursement API calls immediately after a condition changes. This keeps the application highly responsive.
+
+This instant-payout structure completely eliminates the administrative burden of managing driver/tenant balances and builds massive trust, because people see their money hitting their mobile wallets the second their work is done.
+
+
+
+Choosing Option B (passing network fees to the customer) is the smartest move for a bootstrapped marketplace platform. It ensures your 5% commission remains pure revenue, untouched by fluctuating telecom or aggregator tariffs.
+
+Since you are hosting this on your own Vultr VPS, you have total control over the environment. You can build a lightweight, highly performant, and cost-efficient reactive backend without worrying about serverless timeouts or high execution costs.
+The Fee Calculation Formula
+
+To protect your 5% margin, your backend must calculate the total checkout price before hitting Lipila�s collection endpoint. Let's assume Lipila charges a standard percentage fee for collections (C%) and a flat or percentage fee for disbursements (D).
+
+When a user initiates a payment for a base amount (A, e.g., a K100 ride or offering), the formula to ensure the final recipient gets exactly 95% of A and you get exactly 5% of A looks like this:
+Total Customer Cost=1-C%A+Disbursement Fee(D)?
+Concrete Example (Using hypothetical fees: 2% Collection, K2 Disbursement)
+
+If a user wants to buy a K100 church event ticket:
+
+    Base Amount (A): K100
+
+    Platform Commission (5%): K5 (Your net profit)
+
+    Recipient Share (95%): K95 (What the church must receive)
+
+    Calculated Total Checkout Cost: Your system prompts the user's mobile money wallet for roughly K104.08.
+
+        Lipila takes its collection & disbursement cuts from the K104.08, leaving exactly K5 in your wallet and instantly sending K95 to the church.
+
+Vultr Architecture Overview
+
+Since you are running this on a self-hosted Vultr instance, you want an architecture that handles incoming webhooks instantly without dropped requests or race conditions.
+1. The Webhook Receiver (The Gateway)
+
+    Keep this endpoint incredibly lightweight.
+
+    When Lipila hits your Vultr server to tell you a ride condition is met or a payment is successful, the receiver should immediately acknowledge the request with a 200 OK.
+
+    Do not make the next API call to Lipila while holding the connection open. If Lipila's server slows down, your server's connections will pool up and crash.
+
+2. The Background Worker/Queue System
+
+    As soon as the webhook receiver accepts the payload, it pushes a job into a local, lightweight queue running on your Vultr server (like BullMQ with Redis, or an internal memory queue if you are keeping it minimal).
+
+    A background worker monitors this queue. It grabs the job, calculates the 95% split, and hits Lipila�s Disbursements API asynchronously.
+
+3. Database Ledger (The Safety Net)
+
+    Before firing the disbursement API, log the transaction state in your database as PENDING_DISBURSEMENT.
+
+    Once Lipila responds with success, update it to DISBURSED.
+
+    If the Vultr server loses connection to the internet mid-transaction, a simple cron job can look for any PENDING_DISBURSEMENT logs older than 5 minutes and automatically retry them. This guarantees no driver or church is left unpaid.
+
+Recommended Tech Stack for your Vultr VPS
+
+To keep resource consumption low while remaining fully reactive, a great setup on a Vultr Linux instance is:
+
+    Runtime: Node.js (Express or Fastify for high-throughput webhook handling).
+
+    Process Manager: PM2 to keep your application running 24/7, auto-restart on crashes, and utilize all CPU cores.
+
+    Reverse Proxy: Nginx or Caddy handling SSL certificates (via Let's Encrypt) and routing traffic to your Node.js app.
+
+[ Rider Initiates ] ? State: PENDING_COLLECTION ? Trigger Lipila Proximity API
+                                   ?
+[ User enters PIN ] ? Lipila fires Webhook ? State: COLLECTION_SUCCESS
+                                   ?
+[ Condition Met ]   ? State: PENDING_PAYOUT    ? Trigger Lipila Disbursement API
+                                   ?
+[ Payout Clears ]   ? Lipila Webhook / Res  ? State: PAID_OUT
