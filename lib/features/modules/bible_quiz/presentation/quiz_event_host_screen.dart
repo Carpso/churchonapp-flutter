@@ -588,7 +588,7 @@ class _CreateEventDialogState extends ConsumerState<_CreateEventDialog> {
                   Switch(
                     value: _isFeatured,
                     onChanged: (v) => setState(() => _isFeatured = v),
-                    activeColor: Colors.amberAccent,
+                    activeThumbColor: Colors.amberAccent,
                   ),
                 ],
               ),
@@ -658,7 +658,7 @@ class _CreateEventDialogState extends ConsumerState<_CreateEventDialog> {
         const Text('Category', style: TextStyle(color: Colors.white54, fontSize: 12)),
         const SizedBox(height: 4),
         DropdownButtonFormField<String>(
-          value: _category,
+          initialValue: _category,
           dropdownColor: const Color(0xFF151A2E),
           style: const TextStyle(color: Colors.white),
           items: cats.map((c) => DropdownMenuItem(
@@ -687,7 +687,7 @@ class _CreateEventDialogState extends ConsumerState<_CreateEventDialog> {
         const Text('Difficulty', style: TextStyle(color: Colors.white54, fontSize: 12)),
         const SizedBox(height: 4),
         DropdownButtonFormField<String>(
-          value: _difficulty,
+          initialValue: _difficulty,
           dropdownColor: const Color(0xFF151A2E),
           style: const TextStyle(color: Colors.white),
           items: diffs.map((d) => DropdownMenuItem(

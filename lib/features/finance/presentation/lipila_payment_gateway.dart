@@ -4,9 +4,10 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/services/supabase_service.dart';
+import 'package:church_on_app/core/config/env.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../../../core/config/env.dart';
 import 'package:uuid/uuid.dart';
 
 class LipilaPaymentGateway extends ConsumerStatefulWidget {
@@ -78,56 +79,50 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
     });
 
     try {
-      final String apiKey = Env.lipilaApiKey;
-      
-      // Auto-detect URL base based on API Key prefix
-      final String baseUrl = apiKey.startsWith('lsk_') 
-          ? "https://blz.lipila.io/api" 
-          : "https://api.lipila.dev/api";
+      final supabase = ref.read(supabaseServiceProvider);
+      final session = supabase.client.auth.currentSession;
+      final token = session?.accessToken;
+      if (token == null) {
+        throw Exception("Not authenticated. Please sign in.");
+      }
 
-      final _ = ref.read(currentTenantProvider);
-      
+      final functionUrl = "${Env.supabaseUrl}/functions/v1/lipila-collect";
+
       // Format phone: ensure 260 prefix
       String phone = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
       if (phone.startsWith('0')) phone = '260${phone.substring(1)}';
       if (phone.startsWith('9')) phone = '260$phone';
       if (phone.length == 9) phone = '260$phone';
 
-      // Lipila requires a UUID for referenceId
       final String referenceId = const Uuid().v4();
 
-      // Step 1: Initiate Collection
-      final response = await http.post(
-        Uri.parse("$baseUrl/v1/collections/mobile-money"),
+      // Step 1: Initiate Collection via server-side edge function
+      final initResponse = await http.post(
+        Uri.parse(functionUrl),
         headers: {
-          "x-api-key": apiKey,
+          "Authorization": "Bearer $token",
           "Content-Type": "application/json",
-          "accept": "application/json",
         },
         body: jsonEncode({
-          "callbackUrl": Env.lipilaWebhookUrl,
-          "referenceId": referenceId,
+          "action": "initiate",
+          "accountNumber": phone,
           "amount": widget.amount,
           "narration": widget.description,
-          "accountNumber": phone,
-          "currency": "ZMW",
-          "backUrl": "https://churchonapp.com",
-          "redirectUrl": "https://churchonapp.com",
-          "email": "info@churchonapp.com"
+          "reference": referenceId,
         }),
       );
 
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['message'] ?? errorData['error'] ?? "Lipila Collection Request Failed");
+      if (initResponse.statusCode != 200) {
+        final errorData = jsonDecode(initResponse.body);
+        throw Exception(errorData['error'] ?? "Collection failed");
       }
 
       setState(() => _statusMessage = "Pushing PIN prompt to $_phoneCtrl.text...");
 
-      // Step 2: Polling for Status
+      // Step 2: Poll for Status via server-side edge function
       bool confirmed = false;
       int attempts = 0;
-      const int maxAttempts = 30; // 2 minutes
+      const int maxAttempts = 30;
 
       while (!confirmed && attempts < maxAttempts) {
         if (_isCancelled) break;
@@ -139,25 +134,22 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
         attempts++;
         setState(() => _statusMessage = "Waiting for your PIN confirmation... (Attempt $attempts)");
 
-        // Poll checking endpoint. Resiliently support standard status routes.
-        var statusUrl = "$baseUrl/v1/collections/mobile-money/status/$referenceId";
-        var statusResp = await http.get(
-          Uri.parse(statusUrl),
-          headers: {"x-api-key": apiKey},
+        final statusResponse = await http.post(
+          Uri.parse(functionUrl),
+          headers: {
+            "Authorization": "Bearer $token",
+            "Content-Type": "application/json",
+          },
+          body: jsonEncode({
+            "action": "status",
+            "reference": referenceId,
+          }),
         );
 
-        if (statusResp.statusCode == 404) {
-          statusUrl = "$baseUrl/v1/collections/mobile-money/$referenceId";
-          statusResp = await http.get(
-            Uri.parse(statusUrl),
-            headers: {"x-api-key": apiKey},
-          );
-        }
+        if (statusResponse.statusCode == 200) {
+          final statusData = jsonDecode(statusResponse.body);
+          final String status = (statusData['data']?['status'] ?? statusData['data']?['data']?['status'] ?? '').toString().toLowerCase();
 
-        if (statusResp.statusCode == 200) {
-          final statusData = jsonDecode(statusResp.body);
-          final String status = (statusData['status'] ?? statusData['data']?['status'] ?? '').toString().toLowerCase();
-          
           if (status == 'successful' || status == 'paid' || status == 'completed' || status == 'settled' || status == 'success') {
             confirmed = true;
           } else if (status == 'failed' || status == 'cancelled' || status == 'rejected') {

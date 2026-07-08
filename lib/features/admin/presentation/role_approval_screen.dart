@@ -80,7 +80,7 @@ class RoleApprovalScreen extends ConsumerWidget {
             TextField(controller: emailC, decoration: const InputDecoration(labelText: 'User Email', hintText: 'user@email.com')),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: null,
+              initialValue: null,
               items: 'superadmin,employee,admin,pastor,bishop,prophet,apostle,bookshop_owner,driver,writer,leader,vendor,usher,merchant'
                   .split(',').map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
               onChanged: (v) => roleC.text = v ?? '',

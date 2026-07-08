@@ -73,8 +73,8 @@ serve(async (req) => {
           }
         }
       }
-    } catch {
-      // Auth check failed, continue without user context
+    } catch (e) {
+      console.error("Auth check failed:", e);
     }
   }
 

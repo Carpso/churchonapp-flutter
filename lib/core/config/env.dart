@@ -12,8 +12,6 @@ class Env {
   static String get r2PublicDomain => dotenv.env['R2_PUBLIC_DOMAIN'] ?? 'media.churchonapp.com';
   
   static String get geminiApiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
-  static String get lipilaShortCode => dotenv.env['LIPILA_SHORT_CODE'] ?? '68907';
-  static String get lipilaApiKey => (dotenv.env['LIPILA_API_KEY'] ?? '').trim();
   static String get googleWebClientId => dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '';
   static String get huggingFaceToken => dotenv.env['HUGGINGFACE_TOKEN'] ?? '';
 

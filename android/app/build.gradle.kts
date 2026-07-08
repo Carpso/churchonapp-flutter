@@ -1,13 +1,21 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
 }
 
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+
 android {
-    namespace = "com.churchonapp.app"
+    namespace = "com.churchonapp.churchonapp"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "28.1.13356709"
 
@@ -23,16 +31,27 @@ android {
 
     signingConfigs {
         create("release") {
-            val keystorePath = System.getenv("STORE_FILE") ?: System.getenv("storeFile") ?: "churchonapp_release.keystore"
-            storeFile = file(keystorePath)
-            storePassword = System.getenv("STORE_PASSWORD") ?: System.getenv("storePassword") ?: "123456"
-            keyAlias = System.getenv("KEY_ALIAS") ?: System.getenv("keyAlias") ?: "my-key-alias"
-            keyPassword = System.getenv("KEY_PASSWORD") ?: System.getenv("keyPassword") ?: "123456"
+            val storeFileProp = keystoreProperties.getProperty("storeFile")
+            val storePasswordProp = keystoreProperties.getProperty("storePassword")
+            val keyAliasProp = keystoreProperties.getProperty("keyAlias")
+            val keyPasswordProp = keystoreProperties.getProperty("keyPassword")
+            val storeFileEnv = System.getenv("STORE_FILE") ?: System.getenv("storeFile") ?: storeFileProp
+            val storePasswordEnv = System.getenv("STORE_PASSWORD") ?: System.getenv("storePassword") ?: storePasswordProp
+            val keyAliasEnv = System.getenv("KEY_ALIAS") ?: System.getenv("keyAlias") ?: keyAliasProp
+            val keyPasswordEnv = System.getenv("KEY_PASSWORD") ?: System.getenv("keyPassword") ?: keyPasswordProp
+            require(storeFileEnv != null) { "STORE_FILE env var or key.properties required for release signing" }
+            require(storePasswordEnv != null) { "STORE_PASSWORD env var or key.properties required for release signing" }
+            require(keyAliasEnv != null) { "KEY_ALIAS env var or key.properties required for release signing" }
+            require(keyPasswordEnv != null) { "KEY_PASSWORD env var or key.properties required for release signing" }
+            storeFile = file(storeFileEnv)
+            storePassword = storePasswordEnv
+            keyAlias = keyAliasEnv
+            keyPassword = keyPasswordEnv
         }
     }
 
     defaultConfig {
-        applicationId = "com.churchonapp.app"
+        applicationId = "com.churchonapp.churchonapp"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

@@ -1141,9 +1141,13 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
               final answer = _answers[i];
               final isCorrect = answer == q.correctAnswer;
               Color borderColor;
-              if (answer == null || answer < 0) borderColor = Colors.orangeAccent;
-              else if (isCorrect) borderColor = Colors.greenAccent;
-              else borderColor = Colors.redAccent;
+              if (answer == null || answer < 0) {
+                borderColor = Colors.orangeAccent;
+              } else if (isCorrect) {
+                borderColor = Colors.greenAccent;
+              } else {
+                borderColor = Colors.redAccent;
+              }
 
               return Container(
                 padding: const EdgeInsets.all(14),

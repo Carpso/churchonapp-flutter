@@ -66,8 +66,11 @@ class AdminService {
       
       if (type.contains('ride')) {
         rides += amt;
-      } else if (type.contains('delivery')) deliveries += amt;
-      else if (type == 'tithe' || type == 'giving') tithes += amt;
+      } else if (type.contains('delivery')) {
+        deliveries += amt;
+      } else if (type == 'tithe' || type == 'giving') {
+        tithes += amt;
+      }
     }
     
     return {

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -58,7 +57,7 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
         actions: [
           IconButton(icon: const Icon(LucideIcons.share2), onPressed: () {
             if (localPath != null) {
-              Share.shareXFiles([XFile(localPath!)], text: widget.title);
+              SharePlus.instance.share(ShareParams(files: [XFile(localPath!)], text: widget.title));
             }
           }),
         ],

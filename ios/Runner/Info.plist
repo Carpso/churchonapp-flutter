@@ -51,7 +51,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.churchonapp.churchOnApp</string>
+			<string>com.churchonapp.churchonapp</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>churchonapp</string>

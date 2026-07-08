@@ -74,6 +74,12 @@ import 'package:church_on_app/features/admin/presentation/system_docs_screen.dar
 import 'package:church_on_app/features/admin/presentation/database_setup_screen.dart';
 import 'package:church_on_app/features/profile/presentation/feature_request_screen.dart';
 import 'package:church_on_app/features/auth/presentation/demo_church_screen.dart';
+import 'package:church_on_app/features/auth/presentation/two_factor_setup_screen.dart';
+import 'package:church_on_app/features/disciple/presentation/discipleship_screen.dart';
+import 'package:church_on_app/features/notebook/presentation/notebook_screen.dart';
+import 'package:church_on_app/features/transport/presentation/rider_onboarding_screen.dart';
+import 'package:church_on_app/features/transport/presentation/driver_portal_screen.dart';
+import 'package:church_on_app/features/logistics/presentation/church_commute_screen.dart';
 
 class SplashCompletedNotifier extends Notifier<bool> {
   @override
@@ -126,7 +132,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isForgotPassword = state.uri.path == '/forgot-password';
 
       // Always require selected tenant/church unless onboarding or registering
-      if (tenant == null && !isSelectingChurch && !isRegisteringChurch && state.uri.path != '/onboarding') {
+      if (tenant == null && !isSelectingChurch && !isRegisteringChurch && state.uri.path != '/onboarding' && !isLoggingIn && !isSignUp && !isForgotPassword && state.uri.path != '/join') {
         return '/select-church';
       }
 
@@ -468,6 +474,30 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/camera-settings',
         builder: (context, state) => const CameraSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/two-factor-setup',
+        builder: (context, state) => const TwoFactorSetupScreen(),
+      ),
+      GoRoute(
+        path: '/discipleship',
+        builder: (context, state) => const DiscipleshipScreen(),
+      ),
+      GoRoute(
+        path: '/notebook',
+        builder: (context, state) => const NotebookScreen(),
+      ),
+      GoRoute(
+        path: '/rider-onboarding',
+        builder: (context, state) => const RiderOnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/driver-portal',
+        builder: (context, state) => const DriverPortalScreen(),
+      ),
+      GoRoute(
+        path: '/church-commute',
+        builder: (context, state) => const ChurchCommuteScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

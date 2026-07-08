@@ -129,7 +129,7 @@ Configured via `.env` file (see `.env.example`):
 | iOS | `flutter build ios --release` | Requires Apple developer account |
 | Web | `flutter build web` | Hosted via Cloudflare Pages |
 
-- **Package**: com.churchonapp.app
+- **Package**: com.churchonapp.churchonapp
 - **Supabase**: Self-hosted or managed project
 - **Edge Functions**: Push notifications, webhook handlers
 - **Storage**: Cloudflare R2 for media uploads

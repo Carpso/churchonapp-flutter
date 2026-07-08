@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 const MAX_WEBHOOK_AGE_SEC = 300;
-const LEADER_ROLES = ["admin", "pastor", "bishop", "leader", "general_treasurer", "general_secretary", "superadmin"];
+const LEADER_ROLES = ["admin", "pastor", "bishop", "leader", "general_treasurer", "general_secretary", "superadmin", "employee", "treasurer", "secretary", "assistant_pastor"];
 
 interface LipilaCallback {
   referenceId: string;

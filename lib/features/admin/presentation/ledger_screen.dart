@@ -128,8 +128,11 @@ class LedgerScreen extends ConsumerWidget {
       final cat = tx.category.toLowerCase();
       if (cat.contains('tithe')) {
         tithes += tx.amount;
-      } else if (cat.contains('offering') || cat.contains('giving')) offerings += tx.amount;
-      else others += tx.amount;
+      } else if (cat.contains('offering') || cat.contains('giving')) {
+        offerings += tx.amount;
+      } else {
+        others += tx.amount;
+      }
     }
 
     final total = tithes + offerings + others;

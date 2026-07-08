@@ -210,7 +210,7 @@ class _EventHostDashboardScreenState extends State<EventHostDashboardScreen> {
             ),
             const SizedBox(height: 15),
             DropdownButtonFormField<String>(
-              value: _resourceType,
+              initialValue: _resourceType,
               items: ["document", "media", "link"].map((type) {
                 return DropdownMenuItem(value: type, child: Text(type.toUpperCase()));
               }).toList(),

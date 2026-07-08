@@ -41,10 +41,10 @@ class EventDetailsScreen extends ConsumerWidget {
               IconButton(
                 icon: const Icon(LucideIcons.share2), 
                 onPressed: () {
-                  Share.share(
-                    "Join us at ${event['title']}! Location: ${event['location']}, Date: ${event['date']}. Details: https://churchonapp.com/events/${event['id']}",
+                  SharePlus.instance.share(ShareParams(
+                    text: "Join us at ${event['title']}! Location: ${event['location']}, Date: ${event['date']}. Details: https://churchonapp.com/events/${event['id']}",
                     subject: event['title'],
-                  );
+                  ));
                 }
               ),
               _buildReminderButton(context),
@@ -65,7 +65,7 @@ class EventDetailsScreen extends ConsumerWidget {
                     const SizedBox(height: 15),
                     Text(event['title'], style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w900, height: 1.2)),
                     const SizedBox(height: 25),
-                    _buildInfoTile(LucideIcons.calendar, "Date & Time", "${event['date']}${event['time'] != null ? ' • ' + event['time'] : ''}${event['end_date'] != null && (event['end_date'] as String).isNotEmpty ? ' to ' + event['end_date'] : ''}"),
+                    _buildInfoTile(LucideIcons.calendar, "Date & Time", "${event['date']}${event['time'] != null ? ' • ${event['time']}' : ''}${event['end_date'] != null && (event['end_date'] as String).isNotEmpty ? ' to ${event['end_date']}' : ''}"),
                     _buildInfoTile(LucideIcons.mapPin, "Location", event['location']),
                     _buildInfoTile(LucideIcons.banknote, "Admission", isFree ? "Free Entry" : "K${event['price']} per person"),
                     if (event['speakers'] != null && (event['speakers'] as String).isNotEmpty)

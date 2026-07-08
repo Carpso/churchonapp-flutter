@@ -413,7 +413,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/receipt_${receipt.reference.substring(0, 8)}.pdf');
       await file.writeAsBytes(pdfBytes);
-      await Share.shareXFiles([XFile(file.path)], text: "Church On App Payment Receipt");
+      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: "Church On App Payment Receipt"));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

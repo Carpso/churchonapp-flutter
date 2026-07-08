@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../finance/presentation/lipila_payment_gateway.dart';
-import '../../../../core/config/env.dart';
 import '../data/quiz_event_service.dart';
 import 'bible_quiz_arena_screen.dart';
 
@@ -296,7 +295,7 @@ class _EventDetailSheetState extends ConsumerState<_EventDetailSheet> {
         description: 'Premium Quiz Pass: ${widget.event.title}',
         category: 'game_pass',
         recipientName: 'Church On App',
-        recipientAccount: Env.lipilaShortCode,
+        recipientAccount: null,
         paymentReason: 'Quiz Event Pass',
         onComplete: (success, refId) async {
           if (success && refId != null) {

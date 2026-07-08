@@ -238,7 +238,7 @@ class _FastingTrackerScreenState extends ConsumerState<FastingTrackerScreen> wit
           const Text("Fast Type", style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
-            value: _selectedFastType,
+            initialValue: _selectedFastType,
             decoration: InputDecoration(
               fillColor: const Color(0xFFF8FAFC),
               filled: true,
@@ -333,7 +333,7 @@ class _FastingTrackerScreenState extends ConsumerState<FastingTrackerScreen> wit
               Switch(
                 value: _dndEnabled,
                 onChanged: _toggleDnd,
-                activeColor: Colors.indigo,
+                activeThumbColor: Colors.indigo,
               ),
             ],
           ),

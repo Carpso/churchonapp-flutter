@@ -45,6 +45,13 @@ serve(async (req) => {
 
     const { userId, title, body, data } = await req.json();
 
+    if (!userId || !title || !body) {
+      return new Response(JSON.stringify({ error: "Missing required fields: userId, title, body" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("fcm_token")

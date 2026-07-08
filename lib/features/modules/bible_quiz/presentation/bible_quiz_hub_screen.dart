@@ -265,8 +265,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   }
 
   void _showTournamentAccess(BuildContext context) {
-    // TODO: Check if the church has paid for the season
-    bool hasPaid = false; 
+    // TODO: Check if the church has paid for the season (query subscriptions table via edge function)
+    const bool hasPaid = false;
 
     if (!hasPaid) {
       showModalBottomSheet(

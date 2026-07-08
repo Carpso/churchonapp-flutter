@@ -63,6 +63,10 @@ opencode.json
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
 
+# Node.js / Wrangler
+node_modules/
+package-lock.json
+
 # Stale build artifacts
 site_release.zip
 FINAL_MASTER_BACKEND_SYNC.sql

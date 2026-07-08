@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/features/marketplace/data/marketplace_service.dart';
 import 'package:church_on_app/features/admin/data/order_service.dart';
 import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/config/env.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -107,39 +109,30 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         if (phone.startsWith('9')) phone = '260$phone';
         if (phone.length == 9) phone = '260$phone';
 
-        final String apiKey = const String.fromEnvironment('LIPILA_API_KEY', defaultValue: '');
-        final String baseUrl = apiKey.startsWith('lsk_')
-            ? "https://blz.lipila.io/api"
-            : "https://api.lipila.dev/api";
+        final supabase = Supabase.instance.client;
+        final session = supabase.auth.currentSession;
+        if (session == null) throw Exception("Not authenticated");
 
-        final referenceId = DateTime.now().millisecondsSinceEpoch.toString();
-
-        final httpResponse = await http.post(
-          Uri.parse("$baseUrl/v1/collections/mobile-money"),
+        final lipilaResponse = await http.post(
+          Uri.parse("${Env.supabaseUrl}/functions/v1/lipila-collect"),
           headers: {
-            "x-api-key": apiKey,
+            "Authorization": "Bearer ${session.accessToken}",
             "Content-Type": "application/json",
-            "accept": "application/json",
           },
           body: jsonEncode({
-            "callbackUrl": "https://churchonapp.com/api/lipila-webhook",
-            "referenceId": referenceId,
+            "accountNumber": phone,
             "amount": total,
             "narration": "Marketplace Order",
-            "accountNumber": phone,
-            "currency": "ZMW",
-            "backUrl": "https://churchonapp.com",
-            "redirectUrl": "https://churchonapp.com",
-            "email": "orders@churchonapp.com",
           }),
         );
 
-        if (httpResponse.statusCode != 200 && httpResponse.statusCode != 201) {
-          final errorBody = jsonDecode(httpResponse.body);
-          throw Exception(errorBody['message'] ?? errorBody['error'] ?? "Payment initiation failed");
+        if (lipilaResponse.statusCode != 200) {
+          final errorBody = jsonDecode(lipilaResponse.body);
+          throw Exception(errorBody['error'] ?? errorBody['message'] ?? "Payment initiation failed");
         }
 
-        paymentReference = referenceId;
+        final result = jsonDecode(lipilaResponse.body);
+        paymentReference = result['reference'] as String?;
       }
 
       final orderId = await orderService.createOrder(

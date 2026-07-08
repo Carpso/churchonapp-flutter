@@ -79,13 +79,13 @@ class AdManagementScreen extends ConsumerWidget {
                 TextField(controller: imgC, decoration: const InputDecoration(labelText: 'Image URL'), keyboardType: TextInputType.url),
                 TextField(controller: urlC, decoration: const InputDecoration(labelText: 'Target URL'), keyboardType: TextInputType.url),
                 DropdownButtonFormField(
-                  value: type,
+                  initialValue: type,
                   items: const ['banner', 'sponsored', 'promoted'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                   onChanged: (v) => setState(() => type = v!),
                   decoration: const InputDecoration(labelText: 'Type'),
                 ),
                 DropdownButtonFormField(
-                  value: placement,
+                  initialValue: placement,
                   items: const ['home', 'events', 'marketplace', 'connect', 'all'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                   onChanged: (v) => setState(() => placement = v!),
                   decoration: const InputDecoration(labelText: 'Placement'),

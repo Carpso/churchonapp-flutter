@@ -65,8 +65,10 @@ class LandingScreen extends ConsumerWidget {
           ),
           Row(
             children: [
+              _buildSmallButton("Sign Up", () => context.go('/signup')),
+              const SizedBox(width: 10),
               _buildSmallButton("Member Login", () => context.go('/login')),
-              const SizedBox(width: 15),
+              const SizedBox(width: 10),
               _buildSmallButton("Join Ecosystem", () => context.go('/select-church'), isPrimary: true),
             ],
           ),

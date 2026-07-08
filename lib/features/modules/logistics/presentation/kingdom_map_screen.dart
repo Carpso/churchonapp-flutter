@@ -74,13 +74,13 @@ class _KingdomMapScreenState extends ConsumerState<KingdomMapScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                   _MapFilterBadge("All Branches", LucideIcons.church, Colors.amber, true),
+                    mapFilterBadge("All Branches", LucideIcons.church, Colors.amber, true),
                    const SizedBox(width: 10),
-                   _MapFilterBadge("Medical", LucideIcons.heartPulse, Colors.red, false),
+                    mapFilterBadge("Medical", LucideIcons.heartPulse, Colors.red, false),
                    const SizedBox(width: 10),
-                   _MapFilterBadge("Food Aid", LucideIcons.utensils, Colors.green, false),
+                    mapFilterBadge("Food Aid", LucideIcons.utensils, Colors.green, false),
                    const SizedBox(width: 10),
-                   _MapFilterBadge("Evangelism", LucideIcons.megaphone, Colors.blue, false),
+                    mapFilterBadge("Evangelism", LucideIcons.megaphone, Colors.blue, false),
                 ],
               ),
             ),
@@ -92,9 +92,9 @@ class _KingdomMapScreenState extends ConsumerState<KingdomMapScreen> {
             left: 20,
             child: Column(
               children: [
-                _RegionButton("ZAMBIA", _lusaka, true),
+                 regionButton("ZAMBIA", _lusaka, true),
                 const SizedBox(height: 10),
-                _RegionButton("ZIMBABWE", _harare, false),
+                 regionButton("ZIMBABWE", _harare, false),
               ],
             ),
           ),
@@ -143,7 +143,7 @@ class _KingdomMapScreenState extends ConsumerState<KingdomMapScreen> {
     }
   }
 
-  Widget _MapFilterBadge(String label, IconData icon, Color color, bool isActive) {
+  Widget mapFilterBadge(String label, IconData icon, Color color, bool isActive) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
       decoration: BoxDecoration(
@@ -161,7 +161,7 @@ class _KingdomMapScreenState extends ConsumerState<KingdomMapScreen> {
     );
   }
 
-  Widget _RegionButton(String label, LatLng center, bool isSelected) {
+  Widget regionButton(String label, LatLng center, bool isSelected) {
     return GestureDetector(
       onTap: () {},
       child: Container(

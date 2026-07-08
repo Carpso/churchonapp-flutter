@@ -78,7 +78,7 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.churchonapp.app',
+                userAgentPackageName: 'com.churchonapp.churchonapp',
                 // TO USE R2 HOSTED TILES:
                 // urlTemplate: 'https://your-r2-worker-url.cloudflare.com/tiles/{z}/{x}/{y}.mvt',
               ),
