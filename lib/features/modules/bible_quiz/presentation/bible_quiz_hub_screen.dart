@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/providers/profile_provider.dart';
-import '../../../../core/services/tenant_service.dart';
 import '../data/bible_quiz_service.dart';
 import 'bible_quiz_arena_screen.dart';
 import 'quiz_event_lobby_screen.dart';
@@ -15,7 +15,37 @@ class BibleQuizHubScreen extends ConsumerStatefulWidget {
 }
 
 class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
-  // No longer hardcoded
+  String _trophyTitle = 'THE CHURCH ON APP TROPHY';
+  String _trophySubtitle = 'Weekly Global Bible Contest — Win Glory & Rewards';
+  String _currentSeason = 'SEASON 2026: THE GOSPELS';
+  int _weekNumber = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTrophyConfig();
+  }
+
+  Future<void> _loadTrophyConfig() async {
+    try {
+      final res = await Supabase.instance.client
+          .from('app_config')
+          .select('value')
+          .eq('key', 'trophy_config')
+          .maybeSingle();
+      if (res != null && mounted) {
+        final config = res['value'] as Map<String, dynamic>?;
+        if (config != null) {
+          setState(() {
+            _trophyTitle = config['title'] ?? _trophyTitle;
+            _trophySubtitle = config['subtitle'] ?? _trophySubtitle;
+            _currentSeason = config['season'] ?? _currentSeason;
+            _weekNumber = config['week'] ?? _weekNumber;
+          });
+        }
+      }
+    } catch (_) {}
+  }
 
   void _startP2P(String mode) {
     Navigator.push(context, MaterialPageRoute(builder: (context) => BibleQuizArenaScreen(mode: mode)));
@@ -228,9 +258,9 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF6A11CB), Color(0xFF2575FC)]),
+        gradient: const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFF8C00)]),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.blue.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.amber.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,27 +268,115 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(LucideIcons.trophy, color: Colors.amber, size: 40),
+              const Icon(LucideIcons.crown, color: Colors.white, size: 40),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(10)),
-                child: const Text("SEASON 1: GOSPELS", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                child: Text(_currentSeason, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          const Text("THE BISHOP'S TROPHY", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 1)),
-          const Text("Live Inter-Church Bible Contest. Win glory and activity tokens for your branch.", style: TextStyle(color: Colors.white70, fontSize: 13)),
+          Text(_trophyTitle, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+            child: Text("Week $_weekNumber — 12 weeks remaining", style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: 8),
+          Text(_trophySubtitle, style: const TextStyle(color: Colors.white70, fontSize: 13)),
           const SizedBox(height: 25),
-          ElevatedButton(
-            onPressed: () => _showTournamentAccess(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.blue,
-              minimumSize: const Size(double.infinity, 55),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => _showTournamentAccess(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.deepOrange,
+                    minimumSize: const Size(double.infinity, 55),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                  child: const Text("ENTER THE ARENA", style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _showLeaderboard,
+                  icon: const Icon(LucideIcons.barChart3, size: 16, color: Colors.white),
+                  label: const Text("LEADERBOARD", style: TextStyle(color: Colors.white)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.white38),
+                    minimumSize: const Size(double.infinity, 55),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // Superadmin edit button
+          if (ref.watch(profileProvider).value?.isEmployee == true) ...[
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: _showEditTrophyDialog,
+              icon: const Icon(LucideIcons.settings, color: Colors.white54, size: 16),
+              label: const Text("Edit Trophy Settings", style: TextStyle(color: Colors.white54, fontSize: 12)),
             ),
-            child: const Text("ACCESS TOURNAMENT ARENA", style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showEditTrophyDialog() {
+    final titleCtrl = TextEditingController(text: _trophyTitle);
+    final subtitleCtrl = TextEditingController(text: _trophySubtitle);
+    final seasonCtrl = TextEditingController(text: _currentSeason);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Trophy Settings"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: "Trophy Title", border: OutlineInputBorder()), style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            TextField(controller: subtitleCtrl, decoration: const InputDecoration(labelText: "Subtitle", border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            TextField(controller: seasonCtrl, decoration: const InputDecoration(labelText: "Season Label", border: OutlineInputBorder())),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final newTitle = titleCtrl.text.trim();
+              final newSub = subtitleCtrl.text.trim();
+              final newSeason = seasonCtrl.text.trim();
+              if (newTitle.isEmpty) return;
+              await Supabase.instance.client.from('app_config').upsert({
+                'key': 'trophy_config',
+                'value': {
+                  'title': newTitle,
+                  'subtitle': newSub,
+                  'season': newSeason,
+                  'week': _weekNumber,
+                },
+              });
+              if (mounted) {
+                setState(() {
+                  _trophyTitle = newTitle;
+                  _trophySubtitle = newSub;
+                  _currentSeason = newSeason;
+                });
+              }
+            },
+            child: const Text("SAVE"),
           ),
         ],
       ),
@@ -266,42 +384,59 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   }
 
   void _showTournamentAccess(BuildContext context) {
-    final tenant = ref.read(currentTenantProvider);
-    final hasPaid = tenant?.subscriptionEndsAt != null && !tenant!.isSubscriptionExpired;
-
-    if (!hasPaid) {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) => Container(
-          padding: const EdgeInsets.all(30),
-          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(LucideIcons.lock, color: Colors.amber, size: 50),
-              const SizedBox(height: 20),
-              const Text("Arena Locked", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-              const Text("Your church branch needs a Season Pass to enter the Bishop's Trophy contest.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-              const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _showLeaseModal();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6A11CB),
-                  minimumSize: const Size(double.infinity, 60),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                ),
-                child: const Text("GET SEASON PASS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(30),
+        decoration: const BoxDecoration(
+          color: Color(0xFF1A1A2E),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
         ),
-      );
-    }
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Welcome to the Tournament! Arena Opening...")));
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(LucideIcons.trophy, color: Colors.amber, size: 60),
+            const SizedBox(height: 20),
+            const Text("Church On App Trophy", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white)),
+            const SizedBox(height: 8),
+            const Text("Weekly prizes await the top contenders!\nAnswer fast, answer right, climb the ranks.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15)),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Column(children: [Text("🥇", style: TextStyle(fontSize: 28)), Text("K500", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))]),
+                  Column(children: [Text("🥈", style: TextStyle(fontSize: 28)), Text("K300", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))]),
+                  Column(children: [Text("🥉", style: TextStyle(fontSize: 28)), Text("K150", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))]),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => BibleQuizArenaScreen(mode: 'Solo', questionCount: 20)));
+              },
+              icon: const Icon(LucideIcons.zap, color: Colors.white),
+              label: const Text("START PLAYING — IT'S FREE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber.shade700,
+                minimumSize: const Size(double.infinity, 60),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("MAYBE LATER", style: TextStyle(color: Colors.grey)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildP2PCard(String title, String subtitle, IconData icon, Color iconColor, VoidCallback onTap) {
@@ -600,41 +735,89 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   void _showLeaderboard() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Consumer(
         builder: (context, ref, child) {
           final leaderboardAsync = ref.watch(quizLeaderboardProvider);
+          final top3 = ['K500', 'K300', 'K150'];
           return Container(
+            height: MediaQuery.of(context).size.height * 0.75,
             padding: const EdgeInsets.all(25),
             decoration: const BoxDecoration(
-              color: Color(0xFF1E1E2C),
+              color: Color(0xFF1A1A2E),
               borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
             ),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                const Text("Global Leaderboard", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 20),
-                leaderboardAsync.when(
-                  data: (users) => Flexible(
-                    child: ListView.builder(
-                      shrinkWrap: true,
+                const Icon(LucideIcons.trophy, color: Colors.amber, size: 36),
+                const SizedBox(height: 6),
+                Text("$_trophyTitle — Week $_weekNumber", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text("Weekly rewards: K500 | K300 | K150", style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
+                  child: const Text("Lasts 12 weeks — New winners every Monday!", style: TextStyle(color: Colors.amber, fontSize: 10)),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: leaderboardAsync.when(
+                    data: (users) => ListView.builder(
                       itemCount: users.length,
                       itemBuilder: (context, index) {
                         final user = users[index];
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.white10,
-                            child: Text("${index + 1}", style: const TextStyle(color: Colors.amber)),
+                        final rank = index + 1;
+                        final isTop3 = rank <= 3;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isTop3 ? Colors.amber.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(16),
+                            border: isTop3 ? Border.all(color: Colors.amber.withValues(alpha: 0.3)) : null,
                           ),
-                          title: Text(user['full_name'] ?? 'Anonymous', style: const TextStyle(color: Colors.white)),
-                          trailing: Text("${user['coins']} CC", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36, height: 36,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isTop3 ? Colors.amber : Colors.white10,
+                                ),
+                                child: Center(
+                                  child: isTop3
+                                      ? Text(['🥇', '🥈', '🥉'][index], style: const TextStyle(fontSize: 18))
+                                      : Text("$rank", style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(user['full_name'] ?? 'Anonymous', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                                    if (isTop3)
+                                      Text("Reward: ${top3[index]}", style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.greenAccent.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text("${user['coins']} CC", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+                              ),
+                            ],
+                          ),
                         );
                       },
                     ),
+                    loading: () => const Center(child: CircularProgressIndicator(color: Colors.amber)),
+                    error: (_, __) => const Center(child: Text("Error loading leaderboard", style: TextStyle(color: Colors.red))),
                   ),
-                  loading: () => const Center(child: CircularProgressIndicator(color: Colors.amber)),
-                  error: (e, s) => const Center(child: Text("Error loading leaderboard", style: TextStyle(color: Colors.red))),
                 ),
               ],
             ),

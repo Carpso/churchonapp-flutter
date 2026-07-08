@@ -76,6 +76,9 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   );
   int _currentAvatarIndex = 0;
 
+  bool _loadingTimedOut = false;
+  bool _loadingError = false;
+
   @override
   void initState() {
     super.initState();
@@ -118,25 +121,48 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   }
 
   Future<void> _loadQuestions() async {
-    final questions = await _service.getRandomQuestions(
+    setState(() {
+      _loadingTimedOut = false;
+      _loadingError = false;
+    });
+
+    final result = await _service.getRandomQuestions(
       widget.questionCount,
       category: widget.categoryFilter,
       difficulty: widget.difficultyFilter,
-    );
+    ).timeout(const Duration(seconds: 15), onTimeout: () {
+      if (mounted) setState(() => _loadingTimedOut = true);
+      return <QuizQuestion>[];
+    });
+
     if (!mounted) return;
+    if (result.isEmpty && _loadingTimedOut) {
+      setState(() => _loadingError = true);
+      _stopAvatarCycling();
+      return;
+    }
+    if (result.isEmpty) {
+      setState(() => _loadingError = true);
+      _stopAvatarCycling();
+      return;
+    }
 
     _stopAvatarCycling();
     setState(() {
-      _questions = questions;
+      _questions = result;
       _answers.clear();
       _responseTimesMs.clear();
-      for (int i = 0; i < questions.length; i++) {
+      for (int i = 0; i < result.length; i++) {
         _answers.add(null);
         _responseTimesMs.add(0);
       }
       _phase = GamePhase.countdown;
     });
     _startCountdown();
+  }
+
+  void _retryLoadQuestions() {
+    _loadQuestions();
   }
 
   void _startCountdown() {
@@ -413,6 +439,40 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   Widget _buildMatchmaking(ThemeData theme) {
     final quizType = widget.categoryFilter ?? 'General';
 
+    if (_loadingError) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(LucideIcons.alertTriangle, color: Colors.orangeAccent, size: 60),
+            const SizedBox(height: 20),
+            const Text('Failed to load questions', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(
+              _loadingTimedOut ? 'Connection timed out. Check your network.' : 'No questions available. Try again.',
+              style: const TextStyle(color: Colors.white54, fontSize: 14),
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
+              onPressed: _retryLoadQuestions,
+              icon: const Icon(LucideIcons.refreshCw, size: 18),
+              label: const Text('RETRY'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor,
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -468,6 +528,16 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
               ],
             ),
           ],
+          const SizedBox(height: 30),
+          TextButton(
+            onPressed: () {
+              _timer?.cancel();
+              _countdownTimer?.cancel();
+              _avatarCycleTimer?.cancel();
+              Navigator.pop(context);
+            },
+            child: const Text('CANCEL', style: TextStyle(color: Colors.white38)),
+          ),
         ],
       ),
     );
