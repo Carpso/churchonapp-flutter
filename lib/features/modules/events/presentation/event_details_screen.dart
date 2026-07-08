@@ -191,8 +191,16 @@ class EventDetailsScreen extends ConsumerWidget {
 
                     const Text("Special Guests", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 15),
-                    _buildGuestTile("Min. Moses Bliss", "Worship Leader"),
-                    _buildGuestTile("Pastor Jerry Eze", "Guest Speaker"),
+                    ..._buildSpecialGuests(context),
+                    if (currentUser != null && currentUser.id == event['created_by'])
+                      Padding(
+                        padding: const EdgeInsets.only(top: 5),
+                        child: TextButton.icon(
+                          onPressed: () => _addSpecialGuest(context),
+                          icon: const Icon(LucideIcons.plus, size: 16),
+                          label: const Text("Add Special Guest (Promoter)"),
+                        ),
+                      ),
                     const SizedBox(height: 100),
                   ],
                 ),
@@ -364,23 +372,117 @@ class EventDetailsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildGuestTile(String name, String role) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(15)),
-      child: Row(
-        children: [
-          const CircleAvatar(backgroundColor: Colors.blueGrey, child: Icon(LucideIcons.user, color: Colors.white, size: 16)),
-          const SizedBox(width: 15),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              Text(role, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            ],
+  List<Widget> _buildSpecialGuests(BuildContext context) {
+    final raw = event['special_guests'] ?? [];
+    final guests = raw is List ? raw.cast<Map<String, dynamic>>() : <Map<String, dynamic>>[];
+    if (guests.isEmpty) {
+      return [
+        Text("No special guests added yet.", style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+        const SizedBox(height: 10),
+      ];
+    }
+    return guests.map((g) => _buildGuestTile(context, g['name'] ?? 'Guest', g['role'] ?? 'Special Guest', g['image_url'])).toList();
+  }
+
+  void _addSpecialGuest(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final roleCtrl = TextEditingController();
+    final imageCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Add Special Guest"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "Full Name", border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            TextField(controller: roleCtrl, decoration: const InputDecoration(labelText: "Role (e.g. Guest Speaker)", border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            TextField(controller: imageCtrl, decoration: const InputDecoration(labelText: "Photo URL (optional)", border: OutlineInputBorder())),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameCtrl.text.trim().isEmpty) return;
+              Navigator.pop(ctx);
+              final guests = List<Map<String, dynamic>>.from(event['special_guests'] ?? []);
+              guests.add({
+                'name': nameCtrl.text.trim(),
+                'role': roleCtrl.text.trim().isNotEmpty ? roleCtrl.text.trim() : 'Special Guest',
+                'image_url': imageCtrl.text.trim().isNotEmpty ? imageCtrl.text.trim() : null,
+              });
+              await Supabase.instance.client
+                  .from('events')
+                  .update({'special_guests': guests})
+                  .eq('id', event['id']);
+              if (context.mounted) {
+                PremiumToast.showSuccess(context, "Special guest added!");
+              }
+            },
+            child: const Text("SAVE"),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildGuestTile(BuildContext context, String name, String role, [String? imageUrl]) {
+    return GestureDetector(
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 40,
+                  backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+                  backgroundColor: Colors.blueGrey,
+                  child: imageUrl == null ? const Icon(LucideIcons.user, color: Colors.white, size: 32) : null,
+                ),
+                const SizedBox(height: 15),
+                Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 5),
+                Text(role, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CLOSE")),
+            ],
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(15)),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: Colors.blueGrey,
+              backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+              child: imageUrl == null ? const Icon(LucideIcons.user, color: Colors.white, size: 16) : null,
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(role, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            ),
+            const Icon(LucideIcons.chevronRight, size: 16, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }

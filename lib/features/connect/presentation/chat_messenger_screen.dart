@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/chat_service.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/services/r2_service.dart';
@@ -190,32 +191,39 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<List<ChatMessage>>(
-              stream: messagesStream,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: Color(0xFF075E54)));
-                }
-                final messages = snapshot.data ?? [];
+            child: Container(
+              decoration: const BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('assets/app_icon_512.png'),
+                  opacity: 0.06,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.center,
+                ),
+              ),
+              child: StreamBuilder<List<ChatMessage>>(
+                stream: messagesStream,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: Color(0xFF075E54)));
+                  }
+                  final messages = snapshot.data ?? [];
 
-                if (messages.isEmpty) {
-                  return _buildEmptyState();
-                }
+                  if (messages.isEmpty) {
+                    return _buildEmptyState();
+                  }
 
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: true,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final msg = messages[index];
-                    final showSenderInfo = widget.isGroup && !msg.isMe &&
-                        (index == messages.length - 1 ||
-                            messages[index + 1].senderId != msg.senderId);
-                    return _buildChatBubble(msg, showSenderInfo: showSenderInfo);
-                  },
-                );
-              },
+                  return ListView.builder(
+                    controller: _scrollController,
+                    reverse: true,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final msg = messages[index];
+                      return _buildChatBubble(msg);
+                    },
+                  );
+                },
+              ),
             ),
           ),
           if (_showStickers) _buildStickerPanel(),
@@ -345,141 +353,282 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
     );
   }
 
-  Widget _buildChatBubble(ChatMessage msg, {bool showSenderInfo = false}) {
+  Widget _buildChatBubble(ChatMessage msg) {
     final isMe = msg.isMe;
     final time = _formatTime(msg.createdAt);
+    final showAvatar = widget.isGroup && !isMe;
 
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: 4,
-          left: isMe ? 60 : 0,
-          right: isMe ? 0 : 60,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            if (!isMe && widget.isGroup)
-              Padding(
-                padding: const EdgeInsets.only(right: 6, bottom: 2),
-                child: showSenderInfo
-                    ? CircleAvatar(
-                        radius: 14,
-                        backgroundImage: msg.senderAvatar != null
-                            ? NetworkImage(msg.senderAvatar!)
-                            : null,
-                        backgroundColor: const Color(0xFF075E54),
-                        child: msg.senderAvatar == null
-                            ? Text(
-                                (msg.senderName.isNotEmpty ? msg.senderName[0] : 'M').toUpperCase(),
-                                style: const TextStyle(color: Colors.white, fontSize: 11),
-                              )
-                            : null,
-                      )
-                    : const SizedBox(width: 28),
-              ),
-            Flexible(
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 2),
-                decoration: BoxDecoration(
-                  color: isMe ? _myBubble : _theirBubble,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(16),
-                    topRight: const Radius.circular(16),
-                    bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
-                    bottomRight: isMe ? Radius.zero : const Radius.circular(16),
+    return GestureDetector(
+      onLongPress: () => _showMessageActions(msg),
+      child: Align(
+        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: 6,
+            left: isMe ? 60 : 0,
+            right: isMe ? 0 : 60,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (showAvatar)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6, bottom: 2),
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundImage: msg.senderAvatar != null
+                        ? NetworkImage(msg.senderAvatar!)
+                        : null,
+                    backgroundColor: const Color(0xFF075E54),
+                    child: msg.senderAvatar == null
+                        ? Text(
+                            (msg.senderName.isNotEmpty ? msg.senderName[0] : 'M').toUpperCase(),
+                            style: const TextStyle(color: Colors.white, fontSize: 11),
+                          )
+                        : null,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (!isMe && widget.isGroup && showSenderInfo)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 3),
-                          child: Text(
-                            msg.senderName,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: _senderColor(msg.senderId),
-                            ),
-                          ),
-                        ),
-                      if (msg.mediaType == 'image' && msg.mediaUrl != null)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
-                            msg.mediaUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                const Icon(LucideIcons.imageOff, color: Colors.grey),
-                          ),
-                        ),
-                      if (msg.mediaType == 'sticker' && msg.mediaUrl != null)
-                        Image.network(msg.mediaUrl!, width: 120, height: 120),
-                      if (msg.mediaType == 'file')
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(LucideIcons.fileText, color: Colors.indigo, size: 20),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                msg.fileName ?? 'Document',
-                                style: const TextStyle(
-                                    fontSize: 13, fontWeight: FontWeight.bold, color: Colors.indigo),
-                              ),
-                            ),
-                          ],
-                        ),
-                      if (msg.text.isNotEmpty && msg.mediaType != 'sticker')
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            msg.text,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              color: Colors.black87,
-                              height: 1.35,
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 2),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          const Spacer(),
-                          Text(
-                            time,
-                            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                          ),
-                          if (isMe) ...[
-                            const SizedBox(width: 4),
-                            const Icon(LucideIcons.checkCheck, size: 14, color: Color(0xFF34B7F1)),
-                          ],
-                        ],
+              Flexible(
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 2),
+                  decoration: BoxDecoration(
+                    color: isMe ? _myBubble : _theirBubble,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
+                      bottomRight: isMe ? Radius.zero : const Radius.circular(16),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Sender name on every message (group & DM)
+                        if (!isMe)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 3),
+                            child: Text(
+                              msg.senderName,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: _senderColor(msg.senderId),
+                              ),
+                            ),
+                          ),
+                        // Reply preview
+                        if (msg.replyToText != null && msg.replyToText!.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            margin: const EdgeInsets.only(bottom: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border(
+                                left: BorderSide(
+                                  color: isMe ? const Color(0xFF075E54) : Colors.amber,
+                                  width: 3,
+                                ),
+                              ),
+                            ),
+                            child: Text(
+                              msg.replyToText!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ),
+                        if (msg.mediaType == 'image' && msg.mediaUrl != null)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.network(
+                              msg.mediaUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  const Icon(LucideIcons.imageOff, color: Colors.grey),
+                            ),
+                          ),
+                        if (msg.mediaType == 'sticker' && msg.mediaUrl != null)
+                          Image.network(msg.mediaUrl!, width: 120, height: 120),
+                        if (msg.mediaType == 'file')
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(LucideIcons.fileText, color: Colors.indigo, size: 20),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  msg.fileName ?? 'Document',
+                                  style: const TextStyle(
+                                      fontSize: 13, fontWeight: FontWeight.bold, color: Colors.indigo),
+                                ),
+                              ),
+                            ],
+                          ),
+                        if (msg.text.isNotEmpty && msg.mediaType != 'sticker')
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              msg.text,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                color: Colors.black87,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        // Reaction badge
+                        if (msg.reaction != null && msg.reaction!.isNotEmpty)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Container(
+                              margin: const EdgeInsets.only(top: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 3)],
+                              ),
+                              child: Text(msg.reaction!, style: const TextStyle(fontSize: 16)),
+                            ),
+                          ),
+                        const SizedBox(height: 2),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            const Spacer(),
+                            Text(
+                              time,
+                              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                            ),
+                            if (isMe) ...[
+                              const SizedBox(width: 4),
+                              Icon(
+                                msg.mediaType == 'image' || msg.reaction != null
+                                    ? LucideIcons.checkCheck
+                                    : LucideIcons.check,
+                                size: 14,
+                                color: msg.reaction != null
+                                    ? const Color(0xFF34B7F1)
+                                    : Colors.grey,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMessageActions(ChatMessage msg) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("React", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildReactionButton(ctx, msg, '👍'),
+                _buildReactionButton(ctx, msg, '❤️'),
+                _buildReactionButton(ctx, msg, '🙏'),
+                _buildReactionButton(ctx, msg, '😂'),
+                _buildReactionButton(ctx, msg, '🔥'),
+                _buildReactionButton(ctx, msg, '😢'),
+              ],
             ),
+            const Divider(height: 30),
+            ListTile(
+              leading: const Icon(LucideIcons.reply, color: Color(0xFF075E54)),
+              title: const Text("Reply"),
+              onTap: () {
+                Navigator.pop(ctx);
+                _replyToMessage(msg);
+              },
+            ),
+            if (msg.isMe)
+              ListTile(
+                leading: const Icon(LucideIcons.trash2, color: Colors.red),
+                title: const Text("Delete", style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _deleteMessage(msg.id);
+                },
+              ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildReactionButton(BuildContext ctx, ChatMessage msg, String emoji) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(ctx);
+        _sendReaction(msg, emoji);
+      },
+      child: CircleAvatar(
+        radius: 22,
+        backgroundColor: msg.reaction == emoji
+            ? const Color(0xFF075E54).withValues(alpha: 0.15)
+            : Colors.grey.shade100,
+        child: Text(emoji, style: const TextStyle(fontSize: 22)),
+      ),
+    );
+  }
+
+  void _sendReaction(ChatMessage msg, String emoji) async {
+    final newReaction = msg.reaction == emoji ? null : emoji;
+    await Supabase.instance.client
+        .from('messages')
+        .update({'reaction': newReaction})
+        .eq('id', msg.id);
+  }
+
+  void _replyToMessage(ChatMessage msg) {
+    _messageController.text = '@${msg.senderName} ';
+    _messageController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _messageController.text.length),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Replying to ${msg.senderName}", style: const TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFF075E54),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _deleteMessage(String messageId) async {
+    await Supabase.instance.client
+        .from('messages')
+        .update({'content': '[This message was deleted]', 'media_type': 'text', 'media_url': null})
+        .eq('id', messageId);
   }
 
   Color _senderColor(String senderId) {

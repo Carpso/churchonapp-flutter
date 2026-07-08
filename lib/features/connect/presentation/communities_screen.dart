@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../data/chat_service.dart';
 import 'chat_messenger_screen.dart';
+import 'group_details_screen.dart';
 import '../../modules/media/presentation/kingdom_events_screen.dart';
 
 class CommunitiesScreen extends ConsumerStatefulWidget {
@@ -263,12 +264,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => ChatMessengerScreen(
-            userName: group['title']!,
-            userAvatar: group['image']!,
-            groupId: group['groupId']!,
-            isGroup: true,
-          ),
+          builder: (_) => GroupDetailsScreen(group: group),
         ),
       ),
       child: Container(

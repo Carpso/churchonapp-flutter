@@ -15,6 +15,10 @@ class ChatMessage {
   final String? mediaType;
   final String? stickerId;
   final String? fileName;
+  final String? reaction;
+  final String? replyToId;
+  final String? replyToText;
+  final int readCount;
 
   ChatMessage({
     required this.id,
@@ -28,6 +32,10 @@ class ChatMessage {
     this.mediaType = 'text',
     this.stickerId,
     this.fileName,
+    this.reaction,
+    this.replyToId,
+    this.replyToText,
+    this.readCount = 0,
   });
 
   factory ChatMessage.fromMap(Map<String, dynamic> map, String currentUserId) {
@@ -44,6 +52,10 @@ class ChatMessage {
       mediaType: map['media_type'] ?? 'text',
       stickerId: map['sticker_id'],
       fileName: map['file_name'],
+      reaction: map['reaction'],
+      replyToId: map['reply_to_id'],
+      replyToText: map['reply_to_text'],
+      readCount: (map['read_count'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -62,14 +74,18 @@ class ChatService {
         .from('messages')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
-        .map((data) => data
-            .where((map) =>
-                (map['sender_id'] == currentUserId &&
-                    map['receiver_id'] == otherUserId) ||
-                (map['sender_id'] == otherUserId &&
-                    map['receiver_id'] == currentUserId))
-            .map((map) => ChatMessage.fromMap(map, currentUserId))
-            .toList());
+        .map((data) {
+          final seenIds = <String>{};
+          return data
+              .where((map) =>
+                  (map['sender_id'] == currentUserId &&
+                      map['receiver_id'] == otherUserId) ||
+                  (map['sender_id'] == otherUserId &&
+                      map['receiver_id'] == currentUserId))
+              .where((map) => seenIds.add(map['id'] as String))
+              .map((map) => ChatMessage.fromMap(map, currentUserId))
+              .toList();
+        });
   }
 
   // ── Group message stream (with sender name join) ──────────────────────────

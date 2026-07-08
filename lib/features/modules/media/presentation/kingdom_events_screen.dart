@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../data/event_service.dart';
 import 'package:church_on_app/features/finance/presentation/qr_payment_screen.dart' as qps;
+import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
 
 class KingdomEventsScreen extends ConsumerWidget {
   const KingdomEventsScreen({super.key});
@@ -121,16 +122,16 @@ class KingdomEventsScreen extends ConsumerWidget {
   }
 
   void _purchaseTicket(BuildContext context, WidgetRef ref, KingdomEvent event) async {
-    final confirmed = await showDialog<bool>(
+    final action = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Confirm Ticket?"),
         content: Text("Would you like to reserve your spot for ${event.title}?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("BACK")),
+          TextButton(onPressed: () => Navigator.pop(context, 'back'), child: const Text("BACK")),
           TextButton(
             onPressed: () {
-              Navigator.pop(context, false);
+              Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (context) => qps.QrPaymentScreen(
                 amount: event.price,
                 description: "Event Ticket: ${event.title}",
@@ -139,12 +140,28 @@ class KingdomEventsScreen extends ConsumerWidget {
             },
             child: const Text("PAY VIA QR", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
           ),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text("YES, RESERVE")),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => LipilaPaymentGateway(
+                amount: event.price,
+                description: "Ticket: ${event.title}",
+                onComplete: (success, txId) {
+                  Navigator.pop(context);
+                  if (success && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment successful! Ticket reserved.")));
+                  }
+                },
+              )));
+            },
+            child: const Text("PAY VIA MOBILE MONEY", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(onPressed: () => Navigator.pop(context, 'reserve'), child: const Text("YES, RESERVE")),
         ],
       ),
     );
 
-    if (confirmed == true) {
+    if (action == 'reserve') {
       await ref.read(kingdomEventServiceProvider).purchaseTicket(event.id);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Apostolic Ticket successfully registered on VPS!")));
