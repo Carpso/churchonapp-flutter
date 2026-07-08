@@ -56,6 +56,9 @@ scripts/
 .wrangler/
 sql/archive/
 
+# Local AI/editor config
+opencode.json
+
 # Firebase config (contains project-specific keys)
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
