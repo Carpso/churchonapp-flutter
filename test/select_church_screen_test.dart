@@ -281,11 +281,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 4));
     
-    // Check if some fallback church appears
-    expect(find.textContaining('St. Peters Anglican', skipOffstage: false), findsOneWidget);
+    // Check if some fallback church appears (in both map marker and list = 2)
+    expect(find.textContaining('St. Peters Anglican', skipOffstage: false), findsWidgets);
     
     // Check if Zimbabwe churches are also there
-    expect(find.textContaining('Celebration Church', skipOffstage: false), findsOneWidget);
+    expect(find.textContaining('Celebration Church', skipOffstage: false), findsWidgets);
     expect(find.textContaining('Zimbabwe', skipOffstage: false), findsWidgets);
   });
 }

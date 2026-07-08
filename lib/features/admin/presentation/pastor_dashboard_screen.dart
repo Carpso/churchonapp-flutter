@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'global_broadcast_screen.dart';
 

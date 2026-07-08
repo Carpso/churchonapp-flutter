@@ -29,7 +29,7 @@ CREATE POLICY "Church admins can update own church"
     ON public.churches FOR UPDATE
     USING (
         EXISTS (SELECT 1 FROM public.profiles p
-            WHERE p.id = auth.uid() AND p.tenant_id = churches.id
+            WHERE p.id = auth.uid() AND p.tenant_id::uuid = churches.id
             AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
     );
 
@@ -129,7 +129,7 @@ CREATE POLICY "Church admins can manage sermons"
     ON public.sermons FOR ALL
     USING (
         EXISTS (SELECT 1 FROM public.profiles p
-            WHERE p.id = auth.uid() AND (p.tenant_id = sermons.church_id OR p.role IN ('superadmin', 'employee')))
+            WHERE p.id = auth.uid() AND (p.tenant_id::uuid = sermons.church_id OR p.role IN ('superadmin', 'employee')))
     );
 
 -- 8. EVENTS — enable RLS
@@ -153,6 +153,8 @@ CREATE POLICY "Event hosts can manage own events"
     );
 
 -- 9. TICKETS — enable RLS
+ALTER TABLE public.tickets ADD COLUMN IF NOT EXISTS event_id UUID REFERENCES public.events(id);
+ALTER TABLE public.tickets ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id);
 ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view own tickets" ON public.tickets;
@@ -173,6 +175,7 @@ CREATE POLICY "Event hosts can view tickets"
     );
 
 -- 10. CHANNELS — enable RLS
+ALTER TABLE public.channels ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id);
 ALTER TABLE public.channels ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view channels" ON public.channels;
@@ -193,6 +196,9 @@ CREATE POLICY "Channel creators can manage channels"
     );
 
 -- 11. MESSAGES — enable RLS with proper policies
+ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id);
+ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS channel_id UUID REFERENCES public.channels(id);
+ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS content TEXT;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can read messages" ON public.messages;
@@ -211,6 +217,8 @@ CREATE POLICY "Users can delete own messages"
     USING (auth.uid() = user_id);
 
 -- 12. GROUPS — enable RLS
+ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS church_id UUID REFERENCES public.churches(id);
+ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id);
 ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view groups" ON public.groups;
@@ -223,10 +231,12 @@ CREATE POLICY "Church admins can manage groups"
     ON public.groups FOR ALL
     USING (
         EXISTS (SELECT 1 FROM public.profiles p
-            WHERE p.id = auth.uid() AND (p.tenant_id = groups.church_id OR p.role IN ('superadmin', 'employee')))
+            WHERE p.id = auth.uid() AND (p.tenant_id::uuid = groups.church_id OR p.role IN ('superadmin', 'employee')))
     );
 
 -- 13. GROUP MEMBERS — enable RLS
+ALTER TABLE public.group_members ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id);
+ALTER TABLE public.group_members ADD COLUMN IF NOT EXISTS group_id UUID REFERENCES public.groups(id);
 ALTER TABLE public.group_members ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view group members" ON public.group_members;
@@ -247,6 +257,7 @@ CREATE POLICY "Group admins can manage members"
     );
 
 -- 14. SMS LOGS — enable RLS
+ALTER TABLE public.sms_logs ADD COLUMN IF NOT EXISTS recipient TEXT;
 ALTER TABLE public.sms_logs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Superadmins can view sms logs" ON public.sms_logs;
@@ -264,6 +275,8 @@ CREATE POLICY "Service can insert sms logs"
     );
 
 -- 15. SOCIAL POSTS — enable RLS with proper moderation
+ALTER TABLE public.social_posts ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id);
+ALTER TABLE public.social_posts ADD COLUMN IF NOT EXISTS is_moderated BOOLEAN DEFAULT false;
 ALTER TABLE public.social_posts ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view social posts" ON public.social_posts;
@@ -294,6 +307,7 @@ CREATE POLICY "Superadmins can moderate all posts"
     );
 
 -- 16. SOCIAL LIKES — enable RLS
+ALTER TABLE public.social_likes ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id);
 ALTER TABLE public.social_likes ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view likes" ON public.social_likes;
@@ -312,6 +326,7 @@ CREATE POLICY "Users can unlike"
     USING (auth.uid() = user_id);
 
 -- 17. SOCIAL COMMENTS — enable RLS
+ALTER TABLE public.social_comments ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id);
 ALTER TABLE public.social_comments ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view comments" ON public.social_comments;
@@ -337,6 +352,7 @@ CREATE POLICY "Superadmins can moderate comments"
     );
 
 -- 18. GROWTH HEATMAP DATA — enable RLS (public read, admin write)
+ALTER TABLE public.growth_heatmap_data ADD COLUMN IF NOT EXISTS data JSONB DEFAULT '{}';
 ALTER TABLE public.growth_heatmap_data ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view heatmap data" ON public.growth_heatmap_data;
@@ -362,6 +378,7 @@ CREATE POLICY "Superadmins can manage route optimizations"
     );
 
 -- 20. RESOURCE ALLOCATIONS — enable RLS
+ALTER TABLE public.resource_allocations ADD COLUMN IF NOT EXISTS resource_type TEXT;
 ALTER TABLE public.resource_allocations ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Superadmins can manage resource allocations" ON public.resource_allocations;
@@ -372,6 +389,7 @@ CREATE POLICY "Superadmins can manage resource allocations"
     );
 
 -- 21. LENCO PAYOUTS — enable RLS
+ALTER TABLE public.lenco_payouts ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id);
 ALTER TABLE public.lenco_payouts ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view own payouts" ON public.lenco_payouts;
@@ -387,6 +405,8 @@ CREATE POLICY "Superadmins can manage payouts"
     );
 
 -- 22. WALLET TRANSACTIONS — add UPDATE/DELETE policies
+ALTER TABLE public.wallet_transactions ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id);
+ALTER TABLE public.wallet_transactions ADD COLUMN IF NOT EXISTS category TEXT;
 DROP POLICY IF EXISTS "Users can view own wallet transactions" ON public.wallet_transactions;
 CREATE POLICY "Users can view own wallet transactions"
     ON public.wallet_transactions FOR SELECT
@@ -404,13 +424,10 @@ CREATE POLICY "Leaders can view church transactions"
     USING (
         tenant_id IS NOT NULL AND EXISTS (
             SELECT 1 FROM public.profiles p
-            WHERE p.id = auth.uid() AND p.tenant_id = transactions.tenant_id
+            WHERE p.id = auth.uid() AND p.tenant_id::uuid = transactions.tenant_id
             AND p.role IN ('admin', 'pastor', 'bishop', 'general_treasurer', 'general_secretary', 'superadmin', 'employee')
         )
     );
-
--- 24. Ensure profiles has tenant_id for church association
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES public.churches(id) ON DELETE SET NULL;
 
 -- 25. Add missing columns to notifications (if not already added by 20260704)
 ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS type TEXT;

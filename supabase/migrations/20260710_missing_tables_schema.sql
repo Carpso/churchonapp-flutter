@@ -4,6 +4,221 @@
 -- Uses CREATE TABLE IF NOT EXISTS for safe re-runs
 -- ═══════════════════════════════════════════════════════════════════════════════
 
+-- 0. Backfill columns on pre-existing tables before any policies reference them
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'jobs') THEN
+    EXECUTE 'ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS status TEXT DEFAULT ''active''';
+    EXECUTE 'ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS type TEXT DEFAULT ''Full-time''';
+    EXECUTE 'ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id)';
+    EXECUTE 'ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS employer_id UUID REFERENCES auth.users(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'marketplace_items') THEN
+    EXECUTE 'ALTER TABLE public.marketplace_items ADD COLUMN IF NOT EXISTS status TEXT DEFAULT ''active''';
+    EXECUTE 'ALTER TABLE public.marketplace_items ADD COLUMN IF NOT EXISTS market_type TEXT DEFAULT ''general''';
+    EXECUTE 'ALTER TABLE public.marketplace_items ADD COLUMN IF NOT EXISTS is_curated BOOLEAN DEFAULT false';
+    EXECUTE 'ALTER TABLE public.marketplace_items ADD COLUMN IF NOT EXISTS condition TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'news') THEN
+    EXECUTE 'ALTER TABLE public.news ADD COLUMN IF NOT EXISTS excerpt TEXT';
+    EXECUTE 'ALTER TABLE public.news ADD COLUMN IF NOT EXISTS category TEXT DEFAULT ''General''';
+    EXECUTE 'ALTER TABLE public.news ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'devotions') THEN
+    EXECUTE 'ALTER TABLE public.devotions ADD COLUMN IF NOT EXISTS reference TEXT';
+    EXECUTE 'ALTER TABLE public.devotions ADD COLUMN IF NOT EXISTS scripture_text TEXT';
+    EXECUTE 'ALTER TABLE public.devotions ADD COLUMN IF NOT EXISTS reflection TEXT';
+    EXECUTE 'ALTER TABLE public.devotions ADD COLUMN IF NOT EXISTS prayer TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'klips') THEN
+    EXECUTE 'ALTER TABLE public.klips ADD COLUMN IF NOT EXISTS amen_count INTEGER DEFAULT 0';
+    EXECUTE 'ALTER TABLE public.klips ADD COLUMN IF NOT EXISTS comments_count INTEGER DEFAULT 0';
+    EXECUTE 'ALTER TABLE public.klips ADD COLUMN IF NOT EXISTS share_count INTEGER DEFAULT 0';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'kingdom_news') THEN
+    EXECUTE 'ALTER TABLE public.kingdom_news ADD COLUMN IF NOT EXISTS status TEXT DEFAULT ''published''';
+    EXECUTE 'ALTER TABLE public.kingdom_news ADD COLUMN IF NOT EXISTS author_id UUID REFERENCES auth.users(id)';
+    EXECUTE 'ALTER TABLE public.kingdom_news ADD COLUMN IF NOT EXISTS excerpt TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') THEN
+    EXECUTE 'ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now()';
+    EXECUTE 'ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES public.churches(id) ON DELETE SET NULL';
+    EXECUTE 'ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS totp_secret TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'events') THEN
+    EXECUTE 'ALTER TABLE public.events ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id)';
+    EXECUTE 'ALTER TABLE public.events ADD COLUMN IF NOT EXISTS hosted_by UUID REFERENCES auth.users(id)';
+    EXECUTE 'ALTER TABLE public.events ADD COLUMN IF NOT EXISTS host_type TEXT DEFAULT ''church''';
+    EXECUTE 'ALTER TABLE public.events ADD COLUMN IF NOT EXISTS is_paid_event BOOLEAN DEFAULT false';
+    EXECUTE 'ALTER TABLE public.events ADD COLUMN IF NOT EXISTS ticket_price DOUBLE PRECISION';
+    EXECUTE 'ALTER TABLE public.events ADD COLUMN IF NOT EXISTS ticket_limit INTEGER';
+    EXECUTE 'ALTER TABLE public.events ADD COLUMN IF NOT EXISTS tickets_sold INTEGER DEFAULT 0';
+    EXECUTE 'ALTER TABLE public.events ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES public.churches(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'sermons') THEN
+    EXECUTE 'ALTER TABLE public.sermons ADD COLUMN IF NOT EXISTS church_id UUID REFERENCES public.churches(id)';
+    EXECUTE 'ALTER TABLE public.sermons ADD COLUMN IF NOT EXISTS transcript TEXT';
+    EXECUTE 'ALTER TABLE public.sermons ADD COLUMN IF NOT EXISTS ai_summary TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'notifications') THEN
+    EXECUTE 'ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS type TEXT';
+    EXECUTE 'ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS reference_id TEXT';
+    EXECUTE 'ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES public.churches(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'wallet_transactions') THEN
+    EXECUTE 'ALTER TABLE public.wallet_transactions ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id)';
+    EXECUTE 'ALTER TABLE public.wallet_transactions ADD COLUMN IF NOT EXISTS category TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'tickets') THEN
+    EXECUTE 'ALTER TABLE public.tickets ADD COLUMN IF NOT EXISTS event_id UUID REFERENCES public.events(id)';
+    EXECUTE 'ALTER TABLE public.tickets ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'channels') THEN
+    EXECUTE 'ALTER TABLE public.channels ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'messages') THEN
+    EXECUTE 'ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id)';
+    EXECUTE 'ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS channel_id UUID REFERENCES public.channels(id)';
+    EXECUTE 'ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS content TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'groups') THEN
+    EXECUTE 'ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS church_id UUID REFERENCES public.churches(id)';
+    EXECUTE 'ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'group_members') THEN
+    EXECUTE 'ALTER TABLE public.group_members ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id)';
+    EXECUTE 'ALTER TABLE public.group_members ADD COLUMN IF NOT EXISTS group_id UUID REFERENCES public.groups(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'payout_requests') THEN
+    EXECUTE 'ALTER TABLE public.payout_requests ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'tithe_records') THEN
+    EXECUTE 'ALTER TABLE public.tithe_records ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'ride_requests') THEN
+    EXECUTE 'ALTER TABLE public.ride_requests ADD COLUMN IF NOT EXISTS rider_id UUID REFERENCES auth.users(id)';
+    EXECUTE 'ALTER TABLE public.ride_requests ADD COLUMN IF NOT EXISTS driver_id UUID REFERENCES auth.users(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'delivery_requests') THEN
+    EXECUTE 'ALTER TABLE public.delivery_requests ADD COLUMN IF NOT EXISTS sender_id UUID REFERENCES auth.users(id)';
+    EXECUTE 'ALTER TABLE public.delivery_requests ADD COLUMN IF NOT EXISTS driver_id UUID REFERENCES auth.users(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'churches') THEN
+    EXECUTE 'ALTER TABLE public.churches ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ';
+    EXECUTE 'ALTER TABLE public.churches ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ';
+    EXECUTE 'ALTER TABLE public.churches ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT ''trial''';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'social_posts') THEN
+    EXECUTE 'ALTER TABLE public.social_posts ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id)';
+    EXECUTE 'ALTER TABLE public.social_posts ADD COLUMN IF NOT EXISTS is_moderated BOOLEAN DEFAULT false';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'social_likes') THEN
+    EXECUTE 'ALTER TABLE public.social_likes ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'social_comments') THEN
+    EXECUTE 'ALTER TABLE public.social_comments ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'sms_logs') THEN
+    EXECUTE 'ALTER TABLE public.sms_logs ADD COLUMN IF NOT EXISTS recipient TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'growth_heatmap_data') THEN
+    EXECUTE 'ALTER TABLE public.growth_heatmap_data ADD COLUMN IF NOT EXISTS data JSONB DEFAULT ''{}''';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'resource_allocations') THEN
+    EXECUTE 'ALTER TABLE public.resource_allocations ADD COLUMN IF NOT EXISTS resource_type TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'lenco_payouts') THEN
+    EXECUTE 'ALTER TABLE public.lenco_payouts ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'expansion_leads') THEN
+    EXECUTE 'ALTER TABLE public.expansion_leads ADD COLUMN IF NOT EXISTS status TEXT DEFAULT ''new''';
+    EXECUTE 'ALTER TABLE public.expansion_leads ADD COLUMN IF NOT EXISTS interest_type TEXT DEFAULT ''notify_on_registration''';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'feature_requests') THEN
+    EXECUTE 'ALTER TABLE public.feature_requests ADD COLUMN IF NOT EXISTS status TEXT DEFAULT ''pending''';
+    EXECUTE 'ALTER TABLE public.feature_requests ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT ''Medium''';
+    EXECUTE 'ALTER TABLE public.feature_requests ADD COLUMN IF NOT EXISTS category TEXT DEFAULT ''Other''';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'flyers') THEN
+    EXECUTE 'ALTER TABLE public.flyers ADD COLUMN IF NOT EXISTS created_by TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'job_applications') THEN
+    EXECUTE 'ALTER TABLE public.job_applications ADD COLUMN IF NOT EXISTS status TEXT DEFAULT ''pending''';
+    EXECUTE 'ALTER TABLE public.job_applications ADD COLUMN IF NOT EXISTS applicant_name TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'klip_comments') THEN
+    EXECUTE 'ALTER TABLE public.klip_comments ADD COLUMN IF NOT EXISTS content TEXT';  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'live_chat_messages') THEN
+    EXECUTE 'ALTER TABLE public.live_chat_messages ADD COLUMN IF NOT EXISTS content TEXT';
+    EXECUTE 'ALTER TABLE public.live_chat_messages ADD COLUMN IF NOT EXISTS user_name TEXT';
+    EXECUTE 'ALTER TABLE public.live_chat_messages ADD COLUMN IF NOT EXISTS user_photo TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'meeting_notes') THEN
+    EXECUTE 'ALTER TABLE public.meeting_notes ADD COLUMN IF NOT EXISTS content TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'meeting_votes') THEN
+    EXECUTE 'ALTER TABLE public.meeting_votes ADD COLUMN IF NOT EXISTS option_selected TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'ministries') THEN
+    EXECUTE 'ALTER TABLE public.ministries ADD COLUMN IF NOT EXISTS description TEXT';
+    EXECUTE 'ALTER TABLE public.ministries ADD COLUMN IF NOT EXISTS meeting_day TEXT';
+    EXECUTE 'ALTER TABLE public.ministries ADD COLUMN IF NOT EXISTS meeting_time TEXT';
+    EXECUTE 'ALTER TABLE public.ministries ADD COLUMN IF NOT EXISTS meeting_location TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'network_activity') THEN
+    EXECUTE 'ALTER TABLE public.network_activity ADD COLUMN IF NOT EXISTS description TEXT';
+    EXECUTE 'ALTER TABLE public.network_activity ADD COLUMN IF NOT EXISTS reference_id TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'organizations') THEN
+    EXECUTE 'ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS bishop_id UUID REFERENCES auth.users(id)';
+    EXECUTE 'ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS secretary_id UUID REFERENCES auth.users(id)';
+    EXECUTE 'ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS treasurer_id UUID REFERENCES auth.users(id)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'parking_zones') THEN
+    EXECUTE 'ALTER TABLE public.parking_zones ADD COLUMN IF NOT EXISTS available INTEGER DEFAULT 0';
+    EXECUTE 'ALTER TABLE public.parking_zones ADD COLUMN IF NOT EXISTS total INTEGER DEFAULT 0';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'pastors_corner') THEN
+    EXECUTE 'ALTER TABLE public.pastors_corner ADD COLUMN IF NOT EXISTS excerpt TEXT';
+    EXECUTE 'ALTER TABLE public.pastors_corner ADD COLUMN IF NOT EXISTS content TEXT';
+    EXECUTE 'ALTER TABLE public.pastors_corner ADD COLUMN IF NOT EXISTS pastor_name TEXT';
+    EXECUTE 'ALTER TABLE public.pastors_corner ADD COLUMN IF NOT EXISTS pastor_photo TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'quick_routes') THEN
+    EXECUTE 'ALTER TABLE public.quick_routes ADD COLUMN IF NOT EXISTS time TEXT';
+    EXECUTE 'ALTER TABLE public.quick_routes ADD COLUMN IF NOT EXISTS via TEXT';
+    EXECUTE 'ALTER TABLE public.quick_routes ADD COLUMN IF NOT EXISTS icon TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'reading_plans') THEN
+    EXECUTE 'ALTER TABLE public.reading_plans ADD COLUMN IF NOT EXISTS description TEXT';
+    EXECUTE 'ALTER TABLE public.reading_plans ADD COLUMN IF NOT EXISTS daily_verses JSONB DEFAULT ''[]''';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'ride_registrations') THEN
+    EXECUTE 'ALTER TABLE public.ride_registrations ADD COLUMN IF NOT EXISTS vehicle_info TEXT';
+    EXECUTE 'ALTER TABLE public.ride_registrations ADD COLUMN IF NOT EXISTS pre_registered_name TEXT';
+    EXECUTE 'ALTER TABLE public.ride_registrations ADD COLUMN IF NOT EXISTS pre_registered_phone TEXT';
+    EXECUTE 'ALTER TABLE public.ride_registrations ADD COLUMN IF NOT EXISTS pre_registered_role TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'sermon_reactions') THEN
+    EXECUTE 'ALTER TABLE public.sermon_reactions ADD COLUMN IF NOT EXISTS content TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'traffic_alerts') THEN
+    EXECUTE 'ALTER TABLE public.traffic_alerts ADD COLUMN IF NOT EXISTS description TEXT';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_fasts') THEN
+    EXECUTE 'ALTER TABLE public.user_fasts ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_notes') THEN
+    EXECUTE 'ALTER TABLE public.user_notes ADD COLUMN IF NOT EXISTS topic TEXT';
+    EXECUTE 'ALTER TABLE public.user_notes ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN DEFAULT false';
+    EXECUTE 'ALTER TABLE public.user_notes ADD COLUMN IF NOT EXISTS category TEXT DEFAULT ''general''';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'year_planner') THEN
+    EXECUTE 'ALTER TABLE public.year_planner ADD COLUMN IF NOT EXISTS description TEXT';
+    EXECUTE 'ALTER TABLE public.year_planner ADD COLUMN IF NOT EXISTS is_central BOOLEAN DEFAULT false';
+  END IF;
+END $$;
+
 -- 1. PROFILES (commonly created by auth trigger, but needs explicit definition)
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -29,15 +244,19 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can read own profile" ON public.profiles;
 CREATE POLICY "Users can read own profile" ON public.profiles
     FOR SELECT TO authenticated USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile" ON public.profiles
     FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Anyone can view basic profile info" ON public.profiles;
 CREATE POLICY "Anyone can view basic profile info" ON public.profiles
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Superadmins and employees can manage all profiles" ON public.profiles;
 CREATE POLICY "Superadmins and employees can manage all profiles" ON public.profiles
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('superadmin', 'employee'))
@@ -63,21 +282,25 @@ CREATE TABLE IF NOT EXISTS public.transactions (
 
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own transactions" ON public.transactions;
 CREATE POLICY "Users can view own transactions" ON public.transactions
     FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can create own transactions" ON public.transactions;
 CREATE POLICY "Users can create own transactions" ON public.transactions
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Leaders can view church transactions" ON public.transactions;
 CREATE POLICY "Leaders can view church transactions" ON public.transactions
     FOR SELECT TO authenticated USING (
         tenant_id IS NOT NULL AND EXISTS (
             SELECT 1 FROM public.profiles p
-            WHERE p.id = auth.uid() AND p.tenant_id = transactions.tenant_id
+            WHERE p.id = auth.uid() AND p.tenant_id::uuid = transactions.tenant_id
             AND p.role IN ('admin', 'pastor', 'bishop', 'general_treasurer', 'general_secretary', 'superadmin', 'employee')
         )
     );
 
+DROP POLICY IF EXISTS "Superadmins can manage all transactions" ON public.transactions;
 CREATE POLICY "Superadmins can manage all transactions" ON public.transactions
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('superadmin', 'employee'))
@@ -106,18 +329,23 @@ CREATE TABLE IF NOT EXISTS public.prayers (
 
 ALTER TABLE public.prayers ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read prayers" ON public.prayers;
 CREATE POLICY "Anyone can read prayers" ON public.prayers
     FOR SELECT TO authenticated USING (visibility = 'public' OR auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can create prayers" ON public.prayers;
 CREATE POLICY "Users can create prayers" ON public.prayers
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own prayers" ON public.prayers;
 CREATE POLICY "Users can update own prayers" ON public.prayers
     FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own prayers" ON public.prayers;
 CREATE POLICY "Users can delete own prayers" ON public.prayers
     FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Superadmins can moderate prayers" ON public.prayers;
 CREATE POLICY "Superadmins can moderate prayers" ON public.prayers
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('superadmin', 'employee'))
@@ -144,18 +372,23 @@ CREATE TABLE IF NOT EXISTS public.testimonies (
 
 ALTER TABLE public.testimonies ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read testimonies" ON public.testimonies;
 CREATE POLICY "Anyone can read testimonies" ON public.testimonies
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Users can create testimonies" ON public.testimonies;
 CREATE POLICY "Users can create testimonies" ON public.testimonies
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own testimonies" ON public.testimonies;
 CREATE POLICY "Users can update own testimonies" ON public.testimonies
     FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own testimonies" ON public.testimonies;
 CREATE POLICY "Users can delete own testimonies" ON public.testimonies
     FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Superadmins can moderate testimonies" ON public.testimonies;
 CREATE POLICY "Superadmins can moderate testimonies" ON public.testimonies
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('superadmin', 'employee'))
@@ -187,18 +420,23 @@ CREATE TABLE IF NOT EXISTS public.klips (
 
 ALTER TABLE public.klips ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read klips" ON public.klips;
 CREATE POLICY "Anyone can read klips" ON public.klips
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can create klips" ON public.klips;
 CREATE POLICY "Authenticated users can create klips" ON public.klips
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own klips" ON public.klips;
 CREATE POLICY "Users can update own klips" ON public.klips
     FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own klips" ON public.klips;
 CREATE POLICY "Users can delete own klips" ON public.klips
     FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Superadmins can moderate klips" ON public.klips;
 CREATE POLICY "Superadmins can moderate klips" ON public.klips
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('superadmin', 'employee'))
@@ -226,15 +464,19 @@ CREATE TABLE IF NOT EXISTS public.marketplace_items (
 
 ALTER TABLE public.marketplace_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view marketplace items" ON public.marketplace_items;
 CREATE POLICY "Anyone can view marketplace items" ON public.marketplace_items
     FOR SELECT TO authenticated USING (status = 'active');
 
+DROP POLICY IF EXISTS "Vendors can create items" ON public.marketplace_items;
 CREATE POLICY "Vendors can create items" ON public.marketplace_items
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = vendor_id);
 
+DROP POLICY IF EXISTS "Vendors can update own items" ON public.marketplace_items;
 CREATE POLICY "Vendors can update own items" ON public.marketplace_items
     FOR UPDATE TO authenticated USING (auth.uid() = vendor_id);
 
+DROP POLICY IF EXISTS "Superadmins can manage all items" ON public.marketplace_items;
 CREATE POLICY "Superadmins can manage all items" ON public.marketplace_items
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('superadmin', 'employee'))
@@ -260,17 +502,20 @@ CREATE TABLE IF NOT EXISTS public.news (
 
 ALTER TABLE public.news ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read news" ON public.news;
 CREATE POLICY "Anyone can read news" ON public.news
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Tenant admins can create news" ON public.news;
 CREATE POLICY "Tenant admins can create news" ON public.news
     FOR INSERT TO authenticated WITH CHECK (
-        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id = news.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
+        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id::uuid = news.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
     );
 
+DROP POLICY IF EXISTS "Tenant admins can manage own news" ON public.news;
 CREATE POLICY "Tenant admins can manage own news" ON public.news
     FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id = news.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
+        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id::uuid = news.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
     );
 
 CREATE INDEX IF NOT EXISTS idx_news_tenant ON public.news(tenant_id);
@@ -289,18 +534,22 @@ CREATE TABLE IF NOT EXISTS public.devotions (
 
 ALTER TABLE public.devotions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read devotions" ON public.devotions;
 CREATE POLICY "Anyone can read devotions" ON public.devotions
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Writers and admins can create devotions" ON public.devotions;
 CREATE POLICY "Writers and admins can create devotions" ON public.devotions
     FOR INSERT TO authenticated WITH CHECK (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('writer', 'admin', 'superadmin', 'employee'))
     );
 
+DROP POLICY IF EXISTS "Writers and admins can update devotions" ON public.devotions;
 CREATE POLICY "Writers and admins can update devotions" ON public.devotions
     FOR UPDATE TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('writer', 'admin', 'superadmin', 'employee'))
     );
+
 
 -- 9. JOBS
 CREATE TABLE IF NOT EXISTS public.jobs (
@@ -320,15 +569,19 @@ CREATE TABLE IF NOT EXISTS public.jobs (
 
 ALTER TABLE public.jobs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read jobs" ON public.jobs;
 CREATE POLICY "Anyone can read jobs" ON public.jobs
     FOR SELECT TO authenticated USING (status = 'active');
 
+DROP POLICY IF EXISTS "Authenticated users can create jobs" ON public.jobs;
 CREATE POLICY "Authenticated users can create jobs" ON public.jobs
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can manage own jobs" ON public.jobs;
 CREATE POLICY "Users can manage own jobs" ON public.jobs
     FOR ALL TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Superadmins can manage all jobs" ON public.jobs;
 CREATE POLICY "Superadmins can manage all jobs" ON public.jobs
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('superadmin', 'employee'))
@@ -352,17 +605,21 @@ CREATE TABLE IF NOT EXISTS public.kingdom_news (
 
 ALTER TABLE public.kingdom_news ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read kingdom news" ON public.kingdom_news;
 CREATE POLICY "Anyone can read kingdom news" ON public.kingdom_news
     FOR SELECT TO authenticated USING (status = 'published' OR auth.uid() = author_id);
 
+DROP POLICY IF EXISTS "Writers and admins can create news" ON public.kingdom_news;
 CREATE POLICY "Writers and admins can create news" ON public.kingdom_news
     FOR INSERT TO authenticated WITH CHECK (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('writer', 'admin', 'superadmin', 'employee'))
     );
 
+DROP POLICY IF EXISTS "Authors can update own news" ON public.kingdom_news;
 CREATE POLICY "Authors can update own news" ON public.kingdom_news
     FOR UPDATE TO authenticated USING (auth.uid() = author_id);
 
+DROP POLICY IF EXISTS "Superadmins can manage all news" ON public.kingdom_news;
 CREATE POLICY "Superadmins can manage all news" ON public.kingdom_news
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('superadmin', 'employee'))
@@ -381,12 +638,15 @@ CREATE TABLE IF NOT EXISTS public.ai_chat_sessions (
 
 ALTER TABLE public.ai_chat_sessions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own sessions" ON public.ai_chat_sessions;
 CREATE POLICY "Users can view own sessions" ON public.ai_chat_sessions
     FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can create own sessions" ON public.ai_chat_sessions;
 CREATE POLICY "Users can create own sessions" ON public.ai_chat_sessions
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own sessions" ON public.ai_chat_sessions;
 CREATE POLICY "Users can delete own sessions" ON public.ai_chat_sessions
     FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
@@ -403,11 +663,13 @@ CREATE TABLE IF NOT EXISTS public.ai_chat_messages (
 
 ALTER TABLE public.ai_chat_messages ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own messages" ON public.ai_chat_messages;
 CREATE POLICY "Users can view own messages" ON public.ai_chat_messages
     FOR SELECT TO authenticated USING (
         EXISTS (SELECT 1 FROM public.ai_chat_sessions s WHERE s.id = ai_chat_messages.session_id AND s.user_id = auth.uid())
     );
 
+DROP POLICY IF EXISTS "Users can create messages in own sessions" ON public.ai_chat_messages;
 CREATE POLICY "Users can create messages in own sessions" ON public.ai_chat_messages
     FOR INSERT TO authenticated WITH CHECK (
         EXISTS (SELECT 1 FROM public.ai_chat_sessions s WHERE s.id = ai_chat_messages.session_id AND s.user_id = auth.uid())
@@ -428,14 +690,17 @@ CREATE TABLE IF NOT EXISTS public.attendance_logs (
 
 ALTER TABLE public.attendance_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own attendance" ON public.attendance_logs;
 CREATE POLICY "Users can view own attendance" ON public.attendance_logs
     FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Tenant admins can view attendance logs" ON public.attendance_logs;
 CREATE POLICY "Tenant admins can view attendance logs" ON public.attendance_logs
     FOR SELECT TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id = attendance_logs.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
+        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id::uuid = attendance_logs.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
     );
 
+DROP POLICY IF EXISTS "Users can check in" ON public.attendance_logs;
 CREATE POLICY "Users can check in" ON public.attendance_logs
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
@@ -458,12 +723,15 @@ CREATE TABLE IF NOT EXISTS public.calls (
 
 ALTER TABLE public.calls ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own calls" ON public.calls;
 CREATE POLICY "Users can view own calls" ON public.calls
     FOR SELECT TO authenticated USING (auth.uid() = caller_id OR auth.uid() = recipient_id);
 
+DROP POLICY IF EXISTS "Users can create calls" ON public.calls;
 CREATE POLICY "Users can create calls" ON public.calls
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = caller_id);
 
+DROP POLICY IF EXISTS "Users can update calls they're part of" ON public.calls;
 CREATE POLICY "Users can update calls they're part of" ON public.calls
     FOR UPDATE TO authenticated USING (auth.uid() = caller_id OR auth.uid() = recipient_id);
 
@@ -482,11 +750,13 @@ CREATE TABLE IF NOT EXISTS public.call_candidates (
 
 ALTER TABLE public.call_candidates ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view candidates for their calls" ON public.call_candidates;
 CREATE POLICY "Users can view candidates for their calls" ON public.call_candidates
     FOR SELECT TO authenticated USING (
         EXISTS (SELECT 1 FROM public.calls c WHERE c.id = call_candidates.call_id AND (c.caller_id = auth.uid() OR c.recipient_id = auth.uid()))
     );
 
+DROP POLICY IF EXISTS "Users can add candidates to their calls" ON public.call_candidates;
 CREATE POLICY "Users can add candidates to their calls" ON public.call_candidates
     FOR INSERT TO authenticated WITH CHECK (
         EXISTS (SELECT 1 FROM public.calls c WHERE c.id = call_candidates.call_id AND (c.caller_id = auth.uid() OR c.recipient_id = auth.uid()))
@@ -510,12 +780,14 @@ CREATE TABLE IF NOT EXISTS public.church_buses (
 
 ALTER TABLE public.church_buses ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view church buses" ON public.church_buses;
 CREATE POLICY "Anyone can view church buses" ON public.church_buses
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Tenant admins can manage buses" ON public.church_buses;
 CREATE POLICY "Tenant admins can manage buses" ON public.church_buses
     FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id = church_buses.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
+        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id::uuid = church_buses.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
     );
 
 CREATE INDEX IF NOT EXISTS idx_church_buses_tenant ON public.church_buses(tenant_id);
@@ -532,9 +804,11 @@ CREATE TABLE IF NOT EXISTS public.church_connections (
 
 ALTER TABLE public.church_connections ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own connections" ON public.church_connections;
 CREATE POLICY "Users can view own connections" ON public.church_connections
     FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can create connections" ON public.church_connections;
 CREATE POLICY "Users can create connections" ON public.church_connections
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
@@ -555,12 +829,14 @@ CREATE TABLE IF NOT EXISTS public.church_live_status (
 
 ALTER TABLE public.church_live_status ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view live status" ON public.church_live_status;
 CREATE POLICY "Anyone can view live status" ON public.church_live_status
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Church admins can update live status" ON public.church_live_status;
 CREATE POLICY "Church admins can update live status" ON public.church_live_status
     FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id = church_live_status.church_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
+        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id::uuid = church_live_status.church_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
     );
 
 -- 19. DISCIPLESHIP MILESTONES
@@ -576,9 +852,11 @@ CREATE TABLE IF NOT EXISTS public.discipleship_milestones (
 
 ALTER TABLE public.discipleship_milestones ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own milestones" ON public.discipleship_milestones;
 CREATE POLICY "Users can view own milestones" ON public.discipleship_milestones
     FOR SELECT TO authenticated USING (auth.uid() = disciple_id OR auth.uid() = mentor_id);
 
+DROP POLICY IF EXISTS "Mentors can create milestones" ON public.discipleship_milestones;
 CREATE POLICY "Mentors can create milestones" ON public.discipleship_milestones
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = mentor_id);
 
@@ -597,12 +875,15 @@ CREATE TABLE IF NOT EXISTS public.discipleship_relationships (
 
 ALTER TABLE public.discipleship_relationships ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own relationships" ON public.discipleship_relationships;
 CREATE POLICY "Users can view own relationships" ON public.discipleship_relationships
     FOR SELECT TO authenticated USING (auth.uid() = mentor_id OR auth.uid() = mentee_id);
 
+DROP POLICY IF EXISTS "Users can create relationships" ON public.discipleship_relationships;
 CREATE POLICY "Users can create relationships" ON public.discipleship_relationships
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = mentor_id);
 
+DROP POLICY IF EXISTS "Users can update own relationships" ON public.discipleship_relationships;
 CREATE POLICY "Users can update own relationships" ON public.discipleship_relationships
     FOR UPDATE TO authenticated USING (auth.uid() = mentor_id OR auth.uid() = mentee_id);
 
@@ -619,9 +900,11 @@ CREATE TABLE IF NOT EXISTS public.event_participating_churches (
 
 ALTER TABLE public.event_participating_churches ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view event participants" ON public.event_participating_churches;
 CREATE POLICY "Anyone can view event participants" ON public.event_participating_churches
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Event hosts can manage participants" ON public.event_participating_churches;
 CREATE POLICY "Event hosts can manage participants" ON public.event_participating_churches
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.events e WHERE e.id = event_participating_churches.event_id AND e.user_id = auth.uid())
@@ -641,12 +924,15 @@ CREATE TABLE IF NOT EXISTS public.event_registrations (
 
 ALTER TABLE public.event_registrations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own registrations" ON public.event_registrations;
 CREATE POLICY "Users can view own registrations" ON public.event_registrations
     FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can register for events" ON public.event_registrations;
 CREATE POLICY "Users can register for events" ON public.event_registrations
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Event hosts can manage registrations" ON public.event_registrations;
 CREATE POLICY "Event hosts can manage registrations" ON public.event_registrations
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.events e WHERE e.id = event_registrations.event_id AND e.user_id = auth.uid())
@@ -667,9 +953,11 @@ CREATE TABLE IF NOT EXISTS public.event_resources (
 
 ALTER TABLE public.event_resources ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view event resources" ON public.event_resources;
 CREATE POLICY "Anyone can view event resources" ON public.event_resources
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Event hosts can manage resources" ON public.event_resources;
 CREATE POLICY "Event hosts can manage resources" ON public.event_resources
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.events e WHERE e.id = event_resources.event_id AND e.user_id = auth.uid())
@@ -690,12 +978,15 @@ CREATE TABLE IF NOT EXISTS public.expansion_leads (
 
 ALTER TABLE public.expansion_leads ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own leads" ON public.expansion_leads;
 CREATE POLICY "Users can view own leads" ON public.expansion_leads
     FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can create leads" ON public.expansion_leads;
 CREATE POLICY "Users can create leads" ON public.expansion_leads
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Superadmins can manage all leads" ON public.expansion_leads;
 CREATE POLICY "Superadmins can manage all leads" ON public.expansion_leads
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('superadmin', 'employee'))
@@ -717,12 +1008,15 @@ CREATE TABLE IF NOT EXISTS public.feature_requests (
 
 ALTER TABLE public.feature_requests ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own requests" ON public.feature_requests;
 CREATE POLICY "Users can view own requests" ON public.feature_requests
     FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can create requests" ON public.feature_requests;
 CREATE POLICY "Users can create requests" ON public.feature_requests
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Superadmins can manage all requests" ON public.feature_requests;
 CREATE POLICY "Superadmins can manage all requests" ON public.feature_requests
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('superadmin', 'employee'))
@@ -740,12 +1034,14 @@ CREATE TABLE IF NOT EXISTS public.flyers (
 
 ALTER TABLE public.flyers ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view flyers" ON public.flyers;
 CREATE POLICY "Anyone can view flyers" ON public.flyers
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Tenant admins can manage flyers" ON public.flyers;
 CREATE POLICY "Tenant admins can manage flyers" ON public.flyers
     FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id = flyers.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
+        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id::uuid = flyers.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
     );
 
 CREATE INDEX IF NOT EXISTS idx_flyers_tenant ON public.flyers(tenant_id);
@@ -762,12 +1058,15 @@ CREATE TABLE IF NOT EXISTS public.job_applications (
 
 ALTER TABLE public.job_applications ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own applications" ON public.job_applications;
 CREATE POLICY "Users can view own applications" ON public.job_applications
     FOR SELECT TO authenticated USING (auth.uid() = applicant_id);
 
+DROP POLICY IF EXISTS "Users can apply for jobs" ON public.job_applications;
 CREATE POLICY "Users can apply for jobs" ON public.job_applications
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = applicant_id);
 
+DROP POLICY IF EXISTS "Job employers can view applications" ON public.job_applications;
 CREATE POLICY "Job employers can view applications" ON public.job_applications
     FOR SELECT TO authenticated USING (
         EXISTS (SELECT 1 FROM public.jobs j WHERE j.id = job_applications.job_id AND j.employer_id = auth.uid())
@@ -787,12 +1086,15 @@ CREATE TABLE IF NOT EXISTS public.klip_comments (
 
 ALTER TABLE public.klip_comments ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read comments" ON public.klip_comments;
 CREATE POLICY "Anyone can read comments" ON public.klip_comments
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can comment" ON public.klip_comments;
 CREATE POLICY "Authenticated users can comment" ON public.klip_comments
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own comments" ON public.klip_comments;
 CREATE POLICY "Users can delete own comments" ON public.klip_comments
     FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
@@ -811,12 +1113,15 @@ CREATE TABLE IF NOT EXISTS public.live_chat_messages (
 
 ALTER TABLE public.live_chat_messages ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read live chat" ON public.live_chat_messages;
 CREATE POLICY "Anyone can read live chat" ON public.live_chat_messages
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can send messages" ON public.live_chat_messages;
 CREATE POLICY "Authenticated users can send messages" ON public.live_chat_messages
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Superadmins can moderate" ON public.live_chat_messages;
 CREATE POLICY "Superadmins can moderate" ON public.live_chat_messages
     FOR DELETE TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('superadmin', 'employee'))
@@ -836,12 +1141,15 @@ CREATE TABLE IF NOT EXISTS public.meeting_notes (
 
 ALTER TABLE public.meeting_notes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view meeting notes" ON public.meeting_notes;
 CREATE POLICY "Users can view meeting notes" ON public.meeting_notes
     FOR SELECT TO authenticated USING (NOT is_private OR auth.uid() = author_id);
 
+DROP POLICY IF EXISTS "Users can create notes" ON public.meeting_notes;
 CREATE POLICY "Users can create notes" ON public.meeting_notes
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = author_id);
 
+DROP POLICY IF EXISTS "Users can manage own notes" ON public.meeting_notes;
 CREATE POLICY "Users can manage own notes" ON public.meeting_notes
     FOR ALL TO authenticated USING (auth.uid() = author_id);
 
@@ -858,9 +1166,11 @@ CREATE TABLE IF NOT EXISTS public.meeting_votes (
 
 ALTER TABLE public.meeting_votes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view vote results" ON public.meeting_votes;
 CREATE POLICY "Anyone can view vote results" ON public.meeting_votes
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Users can vote once" ON public.meeting_votes;
 CREATE POLICY "Users can vote once" ON public.meeting_votes
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = voter_id);
 
@@ -880,12 +1190,14 @@ CREATE TABLE IF NOT EXISTS public.ministries (
 
 ALTER TABLE public.ministries ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view ministries" ON public.ministries;
 CREATE POLICY "Anyone can view ministries" ON public.ministries
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Tenant admins can manage ministries" ON public.ministries;
 CREATE POLICY "Tenant admins can manage ministries" ON public.ministries
     FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id = ministries.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
+        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id::uuid = ministries.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
     );
 
 CREATE INDEX IF NOT EXISTS idx_ministries_tenant ON public.ministries(tenant_id);
@@ -902,12 +1214,15 @@ CREATE TABLE IF NOT EXISTS public.ministry_members (
 
 ALTER TABLE public.ministry_members ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view ministry members" ON public.ministry_members;
 CREATE POLICY "Anyone can view ministry members" ON public.ministry_members
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Users can join ministries" ON public.ministry_members;
 CREATE POLICY "Users can join ministries" ON public.ministry_members
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = profile_id);
 
+DROP POLICY IF EXISTS "Ministry leaders can manage members" ON public.ministry_members;
 CREATE POLICY "Ministry leaders can manage members" ON public.ministry_members
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.ministries m WHERE m.id = ministry_members.ministry_id AND m.leader_id = auth.uid())
@@ -929,12 +1244,14 @@ CREATE TABLE IF NOT EXISTS public.network_activity (
 
 ALTER TABLE public.network_activity ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view network activity" ON public.network_activity;
 CREATE POLICY "Anyone can view network activity" ON public.network_activity
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Churches can create activity" ON public.network_activity;
 CREATE POLICY "Churches can create activity" ON public.network_activity
     FOR INSERT TO authenticated WITH CHECK (
-        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id = network_activity.church_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
+        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id::uuid = network_activity.church_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
     );
 
 CREATE INDEX IF NOT EXISTS idx_network_activity_church ON public.network_activity(church_id);
@@ -953,9 +1270,11 @@ CREATE TABLE IF NOT EXISTS public.organizations (
 
 ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view organizations" ON public.organizations;
 CREATE POLICY "Anyone can view organizations" ON public.organizations
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Superadmins can manage organizations" ON public.organizations;
 CREATE POLICY "Superadmins can manage organizations" ON public.organizations
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('superadmin', 'employee'))
@@ -973,12 +1292,14 @@ CREATE TABLE IF NOT EXISTS public.parking_zones (
 
 ALTER TABLE public.parking_zones ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view parking zones" ON public.parking_zones;
 CREATE POLICY "Anyone can view parking zones" ON public.parking_zones
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Tenant admins can manage zones" ON public.parking_zones;
 CREATE POLICY "Tenant admins can manage zones" ON public.parking_zones
     FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id = parking_zones.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
+        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id::uuid = parking_zones.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
     );
 
 CREATE INDEX IF NOT EXISTS idx_parking_zones_tenant ON public.parking_zones(tenant_id);
@@ -997,17 +1318,20 @@ CREATE TABLE IF NOT EXISTS public.pastors_corner (
 
 ALTER TABLE public.pastors_corner ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read pastors corner" ON public.pastors_corner;
 CREATE POLICY "Anyone can read pastors corner" ON public.pastors_corner
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Pastors can create posts" ON public.pastors_corner;
 CREATE POLICY "Pastors can create posts" ON public.pastors_corner
     FOR INSERT TO authenticated WITH CHECK (
-        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id = pastors_corner.church_id AND p.role IN ('pastor', 'bishop', 'admin', 'superadmin'))
+        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id::uuid = pastors_corner.church_id AND p.role IN ('pastor', 'bishop', 'admin', 'superadmin'))
     );
 
+DROP POLICY IF EXISTS "Pastors can manage own posts" ON public.pastors_corner;
 CREATE POLICY "Pastors can manage own posts" ON public.pastors_corner
     FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id = pastors_corner.church_id AND p.role IN ('pastor', 'bishop', 'admin', 'superadmin'))
+        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id::uuid = pastors_corner.church_id AND p.role IN ('pastor', 'bishop', 'admin', 'superadmin'))
     );
 
 CREATE INDEX IF NOT EXISTS idx_pastors_corner_church ON public.pastors_corner(church_id);
@@ -1025,12 +1349,14 @@ CREATE TABLE IF NOT EXISTS public.quick_routes (
 
 ALTER TABLE public.quick_routes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view quick routes" ON public.quick_routes;
 CREATE POLICY "Anyone can view quick routes" ON public.quick_routes
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Tenant admins can manage routes" ON public.quick_routes;
 CREATE POLICY "Tenant admins can manage routes" ON public.quick_routes
     FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id = quick_routes.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
+        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id::uuid = quick_routes.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
     );
 
 CREATE INDEX IF NOT EXISTS idx_quick_routes_tenant ON public.quick_routes(tenant_id);
@@ -1047,9 +1373,11 @@ CREATE TABLE IF NOT EXISTS public.reading_plans (
 
 ALTER TABLE public.reading_plans ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view reading plans" ON public.reading_plans;
 CREATE POLICY "Anyone can view reading plans" ON public.reading_plans
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Admins can manage plans" ON public.reading_plans;
 CREATE POLICY "Admins can manage plans" ON public.reading_plans
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('admin', 'superadmin', 'employee'))
@@ -1073,12 +1401,15 @@ CREATE TABLE IF NOT EXISTS public.ride_registrations (
 
 ALTER TABLE public.ride_registrations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view ride registrations" ON public.ride_registrations;
 CREATE POLICY "Anyone can view ride registrations" ON public.ride_registrations
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Users can register themselves" ON public.ride_registrations;
 CREATE POLICY "Users can register themselves" ON public.ride_registrations
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own registration" ON public.ride_registrations;
 CREATE POLICY "Users can update own registration" ON public.ride_registrations
     FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 
@@ -1098,12 +1429,15 @@ CREATE TABLE IF NOT EXISTS public.sermon_reactions (
 
 ALTER TABLE public.sermon_reactions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view reactions" ON public.sermon_reactions;
 CREATE POLICY "Anyone can view reactions" ON public.sermon_reactions
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Users can react" ON public.sermon_reactions;
 CREATE POLICY "Users can react" ON public.sermon_reactions
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own reactions" ON public.sermon_reactions;
 CREATE POLICY "Users can delete own reactions" ON public.sermon_reactions
     FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
@@ -1123,12 +1457,14 @@ CREATE TABLE IF NOT EXISTS public.traffic_alerts (
 
 ALTER TABLE public.traffic_alerts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view traffic alerts" ON public.traffic_alerts;
 CREATE POLICY "Anyone can view traffic alerts" ON public.traffic_alerts
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Tenant admins can manage alerts" ON public.traffic_alerts;
 CREATE POLICY "Tenant admins can manage alerts" ON public.traffic_alerts
     FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id = traffic_alerts.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
+        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id::uuid = traffic_alerts.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
     );
 
 CREATE INDEX IF NOT EXISTS idx_traffic_alerts_tenant ON public.traffic_alerts(tenant_id);
@@ -1147,12 +1483,15 @@ CREATE TABLE IF NOT EXISTS public.user_fasts (
 
 ALTER TABLE public.user_fasts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own fasts" ON public.user_fasts;
 CREATE POLICY "Users can view own fasts" ON public.user_fasts
     FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can create fasts" ON public.user_fasts;
 CREATE POLICY "Users can create fasts" ON public.user_fasts
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own fasts" ON public.user_fasts;
 CREATE POLICY "Users can update own fasts" ON public.user_fasts
     FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 
@@ -1173,6 +1512,7 @@ CREATE TABLE IF NOT EXISTS public.user_notes (
 
 ALTER TABLE public.user_notes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage own notes" ON public.user_notes;
 CREATE POLICY "Users can manage own notes" ON public.user_notes
     FOR ALL TO authenticated USING (auth.uid() = user_id);
 
@@ -1190,12 +1530,15 @@ CREATE TABLE IF NOT EXISTS public.user_reading_progress (
 
 ALTER TABLE public.user_reading_progress ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own progress" ON public.user_reading_progress;
 CREATE POLICY "Users can view own progress" ON public.user_reading_progress
     FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own progress" ON public.user_reading_progress;
 CREATE POLICY "Users can update own progress" ON public.user_reading_progress
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can upsert own progress" ON public.user_reading_progress;
 CREATE POLICY "Users can upsert own progress" ON public.user_reading_progress
     FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 
@@ -1212,12 +1555,14 @@ CREATE TABLE IF NOT EXISTS public.year_planner (
 
 ALTER TABLE public.year_planner ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view year planner" ON public.year_planner;
 CREATE POLICY "Anyone can view year planner" ON public.year_planner
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Tenant admins can manage events" ON public.year_planner;
 CREATE POLICY "Tenant admins can manage events" ON public.year_planner
     FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id = year_planner.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
+        EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.tenant_id::uuid = year_planner.tenant_id AND p.role IN ('admin', 'pastor', 'bishop', 'superadmin', 'employee'))
     );
 
 CREATE INDEX IF NOT EXISTS idx_year_planner_tenant ON public.year_planner(tenant_id);
@@ -1248,3 +1593,6 @@ BEGIN
         END IF;
     END LOOP;
 END $$;
+
+
+

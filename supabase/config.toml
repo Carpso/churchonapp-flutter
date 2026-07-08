@@ -20,7 +20,6 @@ enable_signup = true
 
 [auth.email]
 enable_confirmations = false
-enable_autoconfirm = true
 
 [storage]
 enabled = true
@@ -28,10 +27,6 @@ enabled = true
 [edge_runtime]
 enabled = true
 policy = "per_worker"
-
-[functions]
-enabled = true
-verify_jwt = true
 
 [analytics]
 enabled = false
