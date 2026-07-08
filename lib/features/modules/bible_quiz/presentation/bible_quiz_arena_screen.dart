@@ -68,11 +68,20 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   // Opponent score simulation (P2P)
   int _opponentScore = 0;
 
+  // Matchmaking avatar cycling
+  Timer? _avatarCycleTimer;
+  final List<String> _matchmakingAvatars = List.generate(
+    20,
+    (i) => 'https://i.pravatar.cc/150?img=${i + 1}',
+  );
+  int _currentAvatarIndex = 0;
+
   @override
   void initState() {
     super.initState();
     _timerMs = widget.timePerQuestionSec * 1000;
     _service = BibleQuizService();
+    _startAvatarCycling();
     _slideController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 350),
@@ -89,8 +98,23 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   void dispose() {
     _timer?.cancel();
     _countdownTimer?.cancel();
+    _avatarCycleTimer?.cancel();
     _slideController.dispose();
     super.dispose();
+  }
+
+  void _startAvatarCycling() {
+    _avatarCycleTimer = Timer.periodic(const Duration(milliseconds: 400), (t) {
+      if (!mounted) { t.cancel(); return; }
+      setState(() {
+        _currentAvatarIndex = (_currentAvatarIndex + 1) % _matchmakingAvatars.length;
+      });
+    });
+  }
+
+  void _stopAvatarCycling() {
+    _avatarCycleTimer?.cancel();
+    _avatarCycleTimer = null;
   }
 
   Future<void> _loadQuestions() async {
@@ -101,6 +125,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     );
     if (!mounted) return;
 
+    _stopAvatarCycling();
     setState(() {
       _questions = questions;
       _answers.clear();
@@ -387,19 +412,6 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
 
   Widget _buildMatchmaking(ThemeData theme) {
     final quizType = widget.categoryFilter ?? 'General';
-    final typeAvatars = {
-      'People': ['🧑‍🦰', '👩‍🦱', '🧑‍🦳', '👨‍🦲', '👩‍🦰'],
-      'History': ['🧙', '🧝', '🧛', '🦸', '🧑‍🎓'],
-      'Miracles': ['🕊️', '🌟', '🔥', '💧', '🌿'],
-      'Prophecy': ['🔮', '👁️', '📜', '⭐', '🌙'],
-      'Scripture': ['📖', '✝️', '☦️', '📜', '🕯️'],
-      'Law': ['⚖️', '📜', '🏛️', '📋', '🔨'],
-      'NT': ['✝️', '🐟', '🍞', '🕊️', '🍷'],
-      'OT': ['📜', '🔥', '🌈', '⚓', '🐑'],
-      'Angels': ['👼', '🪽', '✨', '🌌', '🔔'],
-      'Language': ['📝', '✍️', '📖', '🗣️', '🔤'],
-    };
-    final avatars = typeAvatars[quizType] ?? ['🧑', '👩', '🧔', '👸', '🤴'];
 
     return Center(
       child: Column(
@@ -440,16 +452,20 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
             const SizedBox(height: 24),
             Row(
               mainAxisSize: MainAxisSize.min,
-              children: List.generate(5, (i) {
-                return Padding(
-                  padding: EdgeInsets.only(left: i > 0 ? 4 : 0),
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundColor: Colors.white.withValues(alpha: 0.15),
-                    child: Text(avatars[i], style: const TextStyle(fontSize: 18)),
-                  ),
-                );
-              }),
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundImage: NetworkImage(_matchmakingAvatars[_currentAvatarIndex]),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Text('VS', style: TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.w900)),
+                ),
+                CircleAvatar(
+                  radius: 28,
+                  backgroundImage: NetworkImage(_matchmakingAvatars[(_currentAvatarIndex + 5) % _matchmakingAvatars.length]),
+                ),
+              ],
             ),
           ],
         ],

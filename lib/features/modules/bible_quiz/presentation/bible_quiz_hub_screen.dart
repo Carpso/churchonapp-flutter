@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/profile_provider.dart';
+import '../../../../core/services/tenant_service.dart';
 import '../data/bible_quiz_service.dart';
 import 'bible_quiz_arena_screen.dart';
 import 'quiz_event_lobby_screen.dart';
@@ -265,8 +266,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   }
 
   void _showTournamentAccess(BuildContext context) {
-    // TODO: Check if the church has paid for the season (query subscriptions table via edge function)
-    const bool hasPaid = false;
+    final tenant = ref.read(currentTenantProvider);
+    final hasPaid = tenant?.subscriptionEndsAt != null && !tenant!.isSubscriptionExpired;
 
     if (!hasPaid) {
       showModalBottomSheet(

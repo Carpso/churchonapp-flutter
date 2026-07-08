@@ -314,7 +314,8 @@ final myQuizRankProvider = FutureProvider<String>((ref) async {
         .select('id, coins')
         .order('coins', ascending: false);
 
-    final profiles = List<Map<String, dynamic>>.from(res);
+    final list = res as List? ?? [];
+    final profiles = List<Map<String, dynamic>>.from(list);
     int rank = profiles.indexWhere((p) => p['id'] == user.id) + 1;
     return rank > 0 ? "#$rank" : "N/A";
   } catch (_) {

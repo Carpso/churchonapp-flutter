@@ -179,7 +179,11 @@ class _PayoutRequestScreenState extends ConsumerState<PayoutRequestScreen> {
   }
 
   Widget _buildNetworkSelector() {
-    final networks = ["MTN", "Airtel", "Zamtel"];
+    final networks = [
+      {"name": "MTN", "logo": "assets/logo_mtn.png"},
+      {"name": "Airtel", "logo": "assets/logo_airtel.png"},
+      {"name": "Zamtel", "logo": "assets/logo_zamtel.png"},
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -187,26 +191,32 @@ class _PayoutRequestScreenState extends ConsumerState<PayoutRequestScreen> {
         const SizedBox(height: 10),
         Row(
           children: networks.map((net) {
-            final isSelected = _selectedNetwork == net;
+            final isSelected = _selectedNetwork == net['name'];
             return Expanded(
               child: GestureDetector(
-                onTap: () => setState(() => _selectedNetwork = net),
+                onTap: () => setState(() => _selectedNetwork = net['name']!),
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 5),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
                     color: isSelected ? Colors.amber : Colors.white,
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: isSelected ? Colors.amber : Colors.grey.shade200),
                   ),
-                  child: Center(
-                    child: Text(
-                      net,
-                      style: TextStyle(
-                        color: isSelected ? Colors.black : Colors.grey,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.asset(net['logo']!, height: 16, width: 16, fit: BoxFit.contain),
+                      const SizedBox(width: 6),
+                      Text(
+                        net['name']!,
+                        style: TextStyle(
+                          color: isSelected ? Colors.black : Colors.grey.shade700,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),

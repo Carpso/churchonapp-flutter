@@ -98,7 +98,7 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
 
       final selectedTenant = ref.read(currentTenantProvider);
       if (res == null) {
-        // Create new profile if not found
+        // Fallback: Create new profile client-side if database trigger didn't run or failed
         final user = ref.read(authProvider).user;
         final metadata = user?.userMetadata;
         profileData = {
@@ -207,4 +207,4 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
   }
 }
 
-final profileProvider = NotifierProvider.autoDispose<ProfileNotifier, AsyncValue<UserProfile?>>(ProfileNotifier.new);
+final profileProvider = NotifierProvider<ProfileNotifier, AsyncValue<UserProfile?>>(ProfileNotifier.new);

@@ -252,35 +252,52 @@ class _ConnectScreenState extends State<ConnectScreen> {
           ),
           if (post.images.isNotEmpty)
             SizedBox(
-              height: 250,
+              height: 300,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: post.images.length,
                 itemBuilder: (context, index) => Container(
-                  width: MediaQuery.of(context).size.width - 30,
-                  margin: const EdgeInsets.only(right: 4),
-                  child: Image.network(
-                    post.images[index], 
-                    width: double.infinity, 
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey[200],
-                      child: const Center(child: Icon(LucideIcons.imageOff, size: 40, color: Colors.grey)),
+                  width: MediaQuery.of(context).size.width - 60,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    color: Colors.grey[100],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      post.images[index], 
+                      width: double.infinity,
+                      height: 300,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: Colors.grey[200],
+                        child: const Center(child: Icon(LucideIcons.imageOff, size: 40, color: Colors.grey)),
+                      ),
                     ),
                   ),
                 ),
               ),
             )
           else if (post.mediaUrl != null && post.mediaType == 'image')
-            SizedBox(
-              height: 250,
-              child: Image.network(
-                post.mediaUrl!, 
-                width: double.infinity, 
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: Colors.grey[200],
-                  child: const Center(child: Icon(LucideIcons.imageOff, size: 40, color: Colors.grey)),
+            Container(
+              height: 300,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: Colors.grey[100],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.network(
+                  post.mediaUrl!, 
+                  width: double.infinity,
+                  height: 300,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: Colors.grey[200],
+                    child: const Center(child: Icon(LucideIcons.imageOff, size: 40, color: Colors.grey)),
+                  ),
                 ),
               ),
             ),
@@ -289,10 +306,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SocialPostActions(post: post),
-                const SizedBox(height: 10),
                 if (post.content != null && post.content!.isNotEmpty)
-                  Text(post.content!, style: const TextStyle(fontSize: 14)),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(post.content!, style: const TextStyle(fontSize: 14)),
+                  ),
+                _SocialPostActions(post: post),
               ],
             ),
           ),

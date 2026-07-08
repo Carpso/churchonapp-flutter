@@ -173,7 +173,19 @@ class EventService {
     if (user == null) throw Exception("Please login to register");
 
     try {
-      await _client.from('event_registrations').upsert({
+      // Check if already registered
+      final existing = await _client
+          .from('event_registrations')
+          .select('id')
+          .eq('event_id', eventId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      if (existing != null) {
+        throw Exception("You are already registered for this event.");
+      }
+
+      await _client.from('event_registrations').insert({
         'event_id': eventId,
         'user_id': user.id,
       });

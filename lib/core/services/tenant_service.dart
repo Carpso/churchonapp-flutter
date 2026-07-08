@@ -7,6 +7,7 @@ class Tenant {
   final String id;
   final String slug;
   final String name;
+  final String? shortName;
   final String? logoUrl;
   final Color primaryColor;
   final Color accentColor;
@@ -25,6 +26,7 @@ class Tenant {
     required this.id,
     required this.slug,
     required this.name,
+    this.shortName,
     this.logoUrl,
     required this.primaryColor,
     required this.accentColor,
@@ -56,6 +58,7 @@ class Tenant {
       id: map['id'] ?? '',
       slug: map['slug'] ?? '',
       name: map['name'] ?? 'Church On App',
+      shortName: map['short_name'] as String?,
       logoUrl: map['logo_url'] ?? map['logo'],
       primaryColor: _parseColor(map['primary_color'], const Color(0xFFFFD700)),
       accentColor: _parseColor(map['accent_color'], const Color(0xFF1A1A1A)),

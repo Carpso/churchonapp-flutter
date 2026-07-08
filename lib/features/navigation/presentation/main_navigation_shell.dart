@@ -61,45 +61,15 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
     return LockdownOverlay(
       child: Scaffold(
         body: widget.navigationShell,
-        floatingActionButton: FloatingActionButton(
-          heroTag: null,
-          onPressed: () => _onTap(2),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          tooltip: "Carpso Ride",
-          child: Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: widget.navigationShell.currentIndex == 2 ? const Color(0xFFFFD700) : const Color(0xFF1A1A1A),
-              boxShadow: [
-                BoxShadow(
-                  color: (widget.navigationShell.currentIndex == 2 ? const Color(0xFFFFD700) : Colors.black).withValues(alpha: 0.3),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Icon(
-              LucideIcons.car, 
-              color: widget.navigationShell.currentIndex == 2 ? const Color(0xFF1A1A1A) : const Color(0xFFFFD700), 
-              size: 30
-            ),
-          ),
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
         bottomNavigationBar: BottomAppBar(
           padding: EdgeInsets.zero,
-          shape: const CircularNotchedRectangle(),
-          notchMargin: 8,
           color: const Color(0xFFFFFAEB),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildNavItem(0, LucideIcons.home, "Home"),
               _buildNavItem(1, LucideIcons.headphones, "Sermons"),
-              const SizedBox(width: 48),
+              _buildNavItem(2, LucideIcons.car, "Carpso"),
               _buildNavItem(3, LucideIcons.users, "Connect"),
               _buildNavItem(4, LucideIcons.user, "Profile"),
             ],

@@ -48,9 +48,9 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
   String _statusMessage = "Initializing payload...";
 
   final List<Map<String, dynamic>> _networks = [
-    {"name": "MTN", "color": Colors.yellow, "id": "mtn"},
-    {"name": "Airtel", "color": Colors.red, "id": "airtel"},
-    {"name": "Zamtel", "color": Colors.green, "id": "zamtel"},
+    {"name": "MTN", "color": Colors.yellow, "id": "mtn", "logo": "assets/logo_mtn.png"},
+    {"name": "Airtel", "color": Colors.red, "id": "airtel", "logo": "assets/logo_airtel.png"},
+    {"name": "Zamtel", "color": Colors.green, "id": "zamtel", "logo": "assets/logo_zamtel.png"},
   ];
 
   @override
@@ -244,13 +244,20 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
                 return GestureDetector(
                   onTap: () => setState(() => _selectedNetwork = n['name']),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: isSelected ? n['color'].withValues(alpha: 0.1) : Colors.white,
                       borderRadius: BorderRadius.circular(15),
                       border: Border.all(color: isSelected ? n['color'] : const Color(0xFFF1F5F9), width: 2),
                     ),
-                    child: Text(n['name'], style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? (n['color'] == Colors.yellow ? Colors.black : n['color']) : const Color(0xFF94A3B8))),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(n['logo'], height: 20, width: 20, fit: BoxFit.contain),
+                        const SizedBox(width: 8),
+                        Text(n['name'], style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? (n['color'] == Colors.yellow ? Colors.black : n['color']) : const Color(0xFF94A3B8), fontSize: 13)),
+                      ],
+                    ),
                   ),
                 );
               }).toList(),

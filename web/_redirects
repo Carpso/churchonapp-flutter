@@ -1,5 +1,6 @@
-# Privacy policy — serve static HTML (outside Flutter SPA)
+# Static pages (outside Flutter SPA)
 /privacy  /privacy/  301
+/delete-account  /delete-account/  301
 
 # SPA fallback — serve Flutter app for all other routes
 /*  /index.html  200

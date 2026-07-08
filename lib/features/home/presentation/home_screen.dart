@@ -39,7 +39,6 @@ import '../data/live_streaming_service.dart';
 import '../data/news_service.dart';
 import '../data/sermon_service.dart';
 import '../widgets/announcement_ticker.dart';
-import 'branch_locator_screen.dart';
 import 'fasting_tracker_screen.dart';
 import 'live_stream_screen.dart';
 import 'news_detail_screen.dart';
@@ -48,6 +47,7 @@ import 'sermon_notes_screen.dart';
 import 'sermon_player_screen.dart';
 import 'universal_search_screen.dart';
 import 'worship_lyrics_screen.dart';
+import '../../bible/presentation/deep_study_suite_screen.dart';
 
 final unreadCountProvider = StreamProvider.autoDispose<int>((ref) {
   return Stream.periodic(const Duration(seconds: 30), (_) => null)
@@ -126,6 +126,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           const SizedBox(height: 20),
                           _buildGreetingHeader(context),
                           const SizedBox(height: 20),
+                          _buildStreakPreview(context),
+                          const SizedBox(height: 20),
                           const OnboardingQuickStart(),
                           const SizedBox(height: 20),
                           _buildDailyBibleVerseCard(context),
@@ -175,10 +177,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  String _abbreviateChurchName(String name) {
-    final words = name.split(' ');
-    if (words.length <= 2) return name;
-    return '${words[0]} ${words[1]}';
+  String _abbreviateChurchName(Tenant tenant) {
+    if (tenant.shortName != null && tenant.shortName!.isNotEmpty) return tenant.shortName!;
+    if (tenant.name.length <= 12) return tenant.name;
+    return '${tenant.name.substring(0, 10)}...';
   }
 
   Widget _buildTopBar(BuildContext context, Tenant? tenant) {
@@ -197,7 +199,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 120),
                     child: Text(
-                      _abbreviateChurchName(tenant.name),
+                      _abbreviateChurchName(tenant),
                       style: GoogleFonts.plusJakartaSans(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -280,6 +282,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  Widget _buildStreakPreview(BuildContext context) {
+    final profile = ref.watch(profileProvider).value;
+    final streak = profile?.streakCount ?? 0;
+
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DeepStudySuiteScreen())),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: streak >= 30 ? Colors.amber.shade50 : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: streak >= 7 ? Colors.amber.withValues(alpha: 0.3) : Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: streak > 0 ? Colors.orange.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(streak > 0 ? LucideIcons.flame : LucideIcons.bookOpen, color: streak > 0 ? Colors.orange : Colors.grey, size: 22),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Study Streak", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 14, color: Theme.of(context).colorScheme.secondary)),
+                  Text(streak > 0 ? "You're on a $streak-day streak! 🔥" : "Start your study streak today", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                ],
+              ),
+            ),
+            Icon(LucideIcons.chevronRight, color: Colors.grey.shade400, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildGreetingHeader(BuildContext context) {
     final profileAsync = ref.watch(profileProvider);
     
@@ -332,15 +374,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       const Text("CHURCH COINS", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey)),
-                      Text("$coins CC", style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.secondary)),
+                      Text("$coins CC", style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.secondary)),
                     ],
                   ),
-                  const SizedBox(width: 10),
-                  CircleAvatar(
-                    radius: 15,
-                    backgroundColor: const Color(0xFFFFFAEB),
-                    child: Text("CC", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w900, fontSize: 10, fontStyle: FontStyle.italic)),
-                  )
                 ],
               ),
             ),
@@ -686,15 +722,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildQuickActions(BuildContext context, Tenant? tenant) {
     final actions = [
-      {"icon": LucideIcons.flame, "label": "Fasting", "color": Colors.orange},
-      {"icon": LucideIcons.qrCode, "label": "Check-in", "color": Colors.purple},
+      {"icon": LucideIcons.book, "label": "Bible", "color": Colors.green},
       {"icon": LucideIcons.bookOpen, "label": "Sermons", "color": Colors.blue},
+      {"icon": LucideIcons.calendar, "label": "Events", "color": Colors.orange},
+      {"icon": LucideIcons.qrCode, "label": "Check-in", "color": Colors.purple},
+      {"icon": LucideIcons.flame, "label": "Fasting", "color": Colors.orange},
       {"icon": LucideIcons.flame, "label": "Kingdom Life", "color": Colors.red},
       {"icon": LucideIcons.helpCircle, "label": "Bible Quiz", "color": Colors.indigo},
-      {"icon": LucideIcons.book, "label": "Bible", "color": Colors.green},
-      {"icon": LucideIcons.calendar, "label": "Events", "color": Colors.orange},
-      {"icon": LucideIcons.penTool, "label": "Notebook", "color": Colors.teal},
-      {"icon": LucideIcons.mapPin, "label": "Branches", "color": Colors.brown},
+      {"icon": LucideIcons.shoppingBag, "label": "Marketplace", "color": Colors.teal},
+      {"icon": LucideIcons.penTool, "label": "Notebook", "color": Colors.brown},
     ];
 
     return Column(
@@ -730,8 +766,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("'Events' module has been disabled by the Superadmin. 🔒"), backgroundColor: Colors.amber));
                       return;
                     }
-                  } else if (actions[index]['label'] == "Branches") {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const BranchLocatorScreen()));
+                  } else if (actions[index]['label'] == "Marketplace") {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const MarketplaceScreen()));
                   } else if (actions[index]['label'] == "Notebook") {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const NotebookScreen()));
                   } else if (actions[index]['label'] == "Radio") {

@@ -162,31 +162,18 @@ class SocialService {
           .eq('user_id', user.id)
           .maybeSingle();
 
-      final post = await _client
-          .from('social_posts')
-          .select('likes_count')
-          .eq('id', postId)
-          .single();
-      final currentCount = (post['likes_count'] as int?) ?? 0;
-
       if (existing != null) {
-        // Already liked — remove like
+        // Already liked — remove like (trigger will decrement likes_count)
         await _client.from('social_likes').delete()
             .eq('post_id', postId)
             .eq('user_id', user.id);
-        await _client.from('social_posts')
-            .update({'likes_count': (currentCount - 1).clamp(0, 999999)})
-            .eq('id', postId);
         return false;
       } else {
-        // Not liked — add like
+        // Not liked — add like (trigger will increment likes_count)
         await _client.from('social_likes').insert({
           'post_id': postId,
           'user_id': user.id,
         });
-        await _client.from('social_posts')
-            .update({'likes_count': (currentCount + 1).clamp(0, 999999)})
-            .eq('id', postId);
         return true;
       }
     } catch (_) {
@@ -213,15 +200,12 @@ class SocialService {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
+    // Insert comment (trigger will automatically increment comments_count)
     await _client.from('social_comments').insert({
       'post_id': postId,
       'user_id': user.id,
       'content': content,
     });
-    
-    final post = await _client.from('social_posts').select('comments_count').eq('id', postId).single();
-    final currentComments = (post['comments_count'] as int?) ?? 0;
-    await _client.from('social_posts').update({'comments_count': (currentComments + 1).clamp(0, 999999)}).eq('id', postId);
   }
 
   Future<void> praiseTestimony(String id, List? praisedBy) async {

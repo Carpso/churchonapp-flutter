@@ -31,9 +31,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String? _orderReference;
 
   final List<Map<String, dynamic>> _networks = [
-    {"name": "MTN", "color": Colors.yellow, "id": "mtn"},
-    {"name": "Airtel", "color": Colors.red, "id": "airtel"},
-    {"name": "Zamtel", "color": Colors.green, "id": "zamtel"},
+    {"name": "MTN", "color": Colors.yellow, "id": "mtn", "logo": "assets/logo_mtn.png"},
+    {"name": "Airtel", "color": Colors.red, "id": "airtel", "logo": "assets/logo_airtel.png"},
+    {"name": "Zamtel", "color": Colors.green, "id": "zamtel", "logo": "assets/logo_zamtel.png"},
   ];
 
   @override
@@ -335,7 +335,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 return GestureDetector(
                   onTap: () => setState(() => _selectedNetwork = n['name']),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: isSelected ? (n['color'] as Color).withValues(alpha: 0.1) : Colors.white,
                       borderRadius: BorderRadius.circular(12),
@@ -344,15 +344,22 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         width: 2,
                       ),
                     ),
-                    child: Text(
-                      n['name'] as String,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: isSelected
-                            ? (n['color'] == Colors.yellow ? Colors.black : n['color'] as Color)
-                            : const Color(0xFF94A3B8),
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(n['logo'] as String, height: 18, width: 18, fit: BoxFit.contain),
+                        const SizedBox(width: 6),
+                        Text(
+                          n['name'] as String,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: isSelected
+                                ? (n['color'] == Colors.yellow ? Colors.black : n['color'] as Color)
+                                : const Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );

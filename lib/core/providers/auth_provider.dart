@@ -55,8 +55,8 @@ class AuthNotifier extends Notifier<AuthState> {
     state = AuthState(user: state.user, isLoading: true, errorMessage: null);
     try {
       // 1. Initialize Google Sign In
-      // serverClientId is required to get the idToken for Supabase
       final GoogleSignIn googleSignIn = GoogleSignIn(
+        clientId: kIsWeb ? Env.googleWebClientId : null,
         serverClientId: Env.googleWebClientId,
       );
 
@@ -95,8 +95,8 @@ class AuthNotifier extends Notifier<AuthState> {
         password: password,
         data: {'full_name': name},
       );
-      // Profile creation is now handled by ProfileNotifier._init on first login
-      // to avoid RLS/Session timing issues during signup.
+      // Profile creation is now handled primarily by a database trigger (on_auth_user_created).
+      // ProfileNotifier._fetchProfile acts as a client-side fallback if needed.
     } catch (e) {
       state = AuthState(user: state.user, isLoading: false, errorMessage: e.toString());
       rethrow;

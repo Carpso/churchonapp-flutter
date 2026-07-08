@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/providers/auth_provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -19,12 +20,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isGoogleLoading = false;
   final _formKey = GlobalKey<FormState>();
 
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedEmail();
+  }
+
+  Future<void> _loadRememberedEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final email = prefs.getString('remembered_email') ?? '';
+      if (email.isNotEmpty && mounted) {
+        setState(() {
+          _emailController.text = email;
+          _rememberMe = true;
+        });
+      }
+    } catch (_) {}
+  }
+
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     try {
+      final email = _emailController.text.trim();
+      final prefs = await SharedPreferences.getInstance();
+      if (_rememberMe) {
+        await prefs.setString('remembered_email', email);
+      } else {
+        await prefs.remove('remembered_email');
+      }
+
       await ref.read(authProvider.notifier).signIn(
-        _emailController.text.trim(),
+        email,
         _passwordController.text.trim(),
       );
       
@@ -217,20 +245,57 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildSocialButton(String label, IconData icon, bool isLoading, VoidCallback onTap) {
-    return OutlinedButton(
+    return ElevatedButton(
       onPressed: isLoading ? null : onTap,
-      style: OutlinedButton.styleFrom(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.grey.shade800,
         minimumSize: const Size(double.infinity, 60),
-        side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: Colors.grey.shade300, width: 1),
+        ),
+        elevation: 0.5,
       ),
-      child: isLoading 
-        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-        : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, size: 20, color: Theme.of(context).colorScheme.secondary),
-            const SizedBox(width: 15),
-            Text(label, style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold)),
-          ]),
+      child: isLoading
+        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey))
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                decoration: const BoxDecoration(shape: BoxShape.circle),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Text(
+                      "G",
+                      style: TextStyle(
+                        fontFamily: 'GoogleSans',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        foreground: Paint()
+                          ..shader = const LinearGradient(
+                            colors: [Colors.blue, Colors.red, Colors.yellow, Colors.green],
+                          ).createShader(const Rect.fromLTWH(0.0, 0.0, 20.0, 20.0)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 15),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  letterSpacing: 0.2,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
     );
   }
 }

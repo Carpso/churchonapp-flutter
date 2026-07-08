@@ -21,6 +21,8 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
   // ignore: unused_field
   String _email = '';
   String _payoutOperator = 'mtn';
+  // ignore: unused_field
+  String _payoutNumber = '';
   String _vehicleType = 'motorbike';
   // ignore: unused_field
   String _makeModel = '';
@@ -175,7 +177,7 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
                     Text("💰 Payout Settings", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800)),
                     Text("Where we send your earnings", style: TextStyle(color: Colors.green.shade600, fontSize: 12)),
                     const SizedBox(height: 15),
-                    _buildTextField("Mobile Money Number", "097XXXXXXX", (val) {}, isNumber: true),
+                    _buildTextField("Mobile Money Number", "097XXXXXXX", (val) => _payoutNumber = val, isNumber: true),
                     const SizedBox(height: 15),
                     const Text("Mobile Network", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                     const SizedBox(height: 10),
@@ -200,18 +202,31 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
 
   Widget _buildNetworkBtn(String label, String id, Color activeColor) {
     bool isSelected = _payoutOperator == id;
+    final String logo = 'assets/logo_$id.png';
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _payoutOperator = id),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
             color: isSelected ? activeColor : Colors.white,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: isSelected ? activeColor : Colors.grey.shade200),
           ),
-          child: Center(
-            child: Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.white : Colors.grey.shade700, fontSize: 12)),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(logo, height: 16, width: 16, fit: BoxFit.contain),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.white : Colors.grey.shade700,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ),
         ),
       ),

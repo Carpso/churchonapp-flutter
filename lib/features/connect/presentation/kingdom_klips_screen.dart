@@ -258,11 +258,13 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
   void _triggerAmen() async {
     HapticFeedback.mediumImpact();
     setState(() {
-      _isLiked = true;
-      _amenCount++;
-      _showAmenBurst = true;
+      _isLiked = !_isLiked;
+      _amenCount += _isLiked ? 1 : -1;
+      _showAmenBurst = _isLiked;
     });
-    _amenBurstAnim.forward(from: 0);
+    if (_isLiked) {
+      _amenBurstAnim.forward(from: 0);
+    }
     await Future.delayed(const Duration(milliseconds: 700));
     if (mounted) setState(() => _showAmenBurst = false);
 
@@ -520,12 +522,19 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
                 ),
                 const SizedBox(height: 22),
                 // Avatar disc
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFFFD700), width: 2),
+                GestureDetector(
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Viewing profile activities...'), backgroundColor: Colors.amber, duration: Duration(seconds: 2)),
+                    );
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFFFD700), width: 2),
+                    ),
+                    child: CircleAvatar(radius: 20, backgroundImage: NetworkImage(widget.avatarUrl)),
                   ),
-                  child: CircleAvatar(radius: 20, backgroundImage: NetworkImage(widget.avatarUrl)),
                 ),
               ],
             ),

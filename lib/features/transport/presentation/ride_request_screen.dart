@@ -52,8 +52,98 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
         children: [
           _buildMap(),
           _buildTopOverlay(),
-          _buildBottomSheet(),
+          if (_pinModeFor != null)
+            _buildConfirmLocationOverlay()
+          else
+            _buildBottomSheet(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildConfirmLocationOverlay() {
+    final theme = Theme.of(context);
+    final isPickup = _pinModeFor == 'pickup';
+    final targetText = isPickup ? "Pickup Location" : "Destination";
+    final point = isPickup ? _pickupLatLng : _destLatLng;
+    final String coordText = point != null 
+        ? '${point.latitude.toStringAsFixed(5)}, ${point.longitude.toStringAsFixed(5)}' 
+        : 'Tap map to place pin...';
+
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Container(
+        margin: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isPickup ? LucideIcons.mapPin : LucideIcons.flagTriangleRight,
+                  color: isPickup ? Colors.green : Colors.red,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Set $targetText",
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        coordText,
+                        style: const TextStyle(color: Colors.grey, fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: point == null 
+                  ? null 
+                  : () {
+                      setState(() {
+                        _pinModeFor = null;
+                        if (_pickupLatLng != null && _destLatLng != null) {
+                          _simulateCalculation();
+                        }
+                      });
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor,
+                foregroundColor: theme.colorScheme.secondary,
+                minimumSize: const Size(double.infinity, 56),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                elevation: 0,
+              ),
+              child: Text(
+                "Confirm $targetText",
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -125,8 +215,6 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
             _destLatLng = point;
             _dropoffController.text = '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
           }
-          _pinModeFor = null;
-          _simulateCalculation();
         });
       },
       showAddressSearch: _pinModeFor != null,
@@ -141,7 +229,6 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
             _pinModeFor = 'pickup';
             _pickupLatLng = point;
             _pickupController.text = '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
-            _simulateCalculation();
           });
         }
       },
@@ -348,32 +435,502 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                 const SizedBox(height: 20),
                 Divider(color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
                 ListTile(
+                  leading: Icon(LucideIcons.sliders, color: theme.primaryColor),
+                  title: Text("Ride Preferences", style: TextStyle(color: theme.colorScheme.onSurface)),
+                  trailing: Icon(LucideIcons.chevronRight, size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showPreferencesSheet();
+                  },
+                ),
+                ListTile(
                   leading: Icon(LucideIcons.shield, color: theme.primaryColor),
                   title: Text("Safety Settings", style: TextStyle(color: theme.colorScheme.onSurface)),
                   trailing: Icon(LucideIcons.chevronRight, size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Safety settings coming soon"))),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showSafetySettingsSheet();
+                  },
                 ),
                 ListTile(
                   leading: Icon(LucideIcons.creditCard, color: theme.primaryColor),
                   title: Text("Payment Methods", style: TextStyle(color: theme.colorScheme.onSurface)),
                   trailing: Icon(LucideIcons.chevronRight, size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment methods coming soon"))),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showPaymentMethodsSheet();
+                  },
                 ),
                 ListTile(
                   leading: Icon(LucideIcons.history, color: theme.primaryColor),
                   title: Text("Carpso Ride History", style: TextStyle(color: theme.colorScheme.onSurface)),
                   trailing: Icon(LucideIcons.chevronRight, size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Ride history coming soon"))),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showRideHistorySheet();
+                  },
                 ),
                 ListTile(
                   leading: Icon(LucideIcons.helpCircle, color: theme.primaryColor),
                   title: Text("Help & Support", style: TextStyle(color: theme.colorScheme.onSurface)),
                   trailing: Icon(LucideIcons.chevronRight, size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Help & support coming soon"))),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showHelpSupportSheet();
+                  },
                 ),
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+
+  // Sub-State variables for preferences
+  bool _prefGospelMusic = true;
+  bool _prefQuietRide = false;
+  bool _prefAcOn = false;
+
+  // Sub-State variables for safety settings
+  final _emergencyNameCtrl = TextEditingController(text: "Brother Emmanuel");
+  final _emergencyPhoneCtrl = TextEditingController(text: "+260 977 123456");
+
+  // Sub-State variables for payment methods
+  final List<Map<String, String>> _linkedMomoWallets = [
+    {"operator": "MTN", "phone": "+260 966 789123", "logo": "assets/logo_mtn.png"},
+    {"operator": "Airtel", "phone": "+260 978 456123", "logo": "assets/logo_airtel.png"},
+  ];
+
+  void _showPreferencesSheet() {
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => Container(
+          padding: const EdgeInsets.all(25),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 50, height: 5,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(color: theme.colorScheme.onSurface.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              Text("Carpso Ride Preferences", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+              const SizedBox(height: 10),
+              Text("Customize your travel settings with drivers.", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+              const SizedBox(height: 20),
+              SwitchListTile(
+                activeThumbColor: theme.primaryColor,
+                title: const Text("Prefer Gospel Music / Sermons"),
+                subtitle: const Text("Drivers will try to play uplifting audio"),
+                value: _prefGospelMusic,
+                onChanged: (v) {
+                  setState(() => _prefGospelMusic = v);
+                  setSheetState(() => _prefGospelMusic = v);
+                },
+              ),
+              SwitchListTile(
+                activeThumbColor: theme.primaryColor,
+                title: const Text("Quiet / Silent Ride"),
+                subtitle: const Text("Drivers will minimize conversation"),
+                value: _prefQuietRide,
+                onChanged: (v) {
+                  setState(() => _prefQuietRide = v);
+                  setSheetState(() => _prefQuietRide = v);
+                },
+              ),
+              SwitchListTile(
+                activeThumbColor: theme.primaryColor,
+                title: const Text("Air Conditioning (AC)"),
+                subtitle: const Text("Request temperature control"),
+                value: _prefAcOn,
+                onChanged: (v) {
+                  setState(() => _prefAcOn = v);
+                  setSheetState(() => _prefAcOn = v);
+                },
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: theme.colorScheme.secondary,
+                  minimumSize: const Size(double.infinity, 56),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                ),
+                child: const Text("SAVE PREFERENCES", style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSafetySettingsSheet() {
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          padding: const EdgeInsets.all(25),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 50, height: 5,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(color: theme.colorScheme.onSurface.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              Text("Safety Settings & SOS", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+              const SizedBox(height: 10),
+              Text("Add a trusted contact to share ride tracking details automatically.", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _emergencyNameCtrl,
+                decoration: InputDecoration(
+                  labelText: "Contact Name",
+                  prefixIcon: const Icon(LucideIcons.user),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                ),
+              ),
+              const SizedBox(height: 15),
+              TextField(
+                controller: _emergencyPhoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  labelText: "Phone Number",
+                  prefixIcon: const Icon(LucideIcons.phone),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                ),
+              ),
+              const SizedBox(height: 25),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Emergency Contact saved successfully!"), backgroundColor: Colors.green),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: theme.colorScheme.secondary,
+                  minimumSize: const Size(double.infinity, 56),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                ),
+                child: const Text("CONFIRM EMERGENCY CONTACT", style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPaymentMethodsSheet() {
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => Container(
+          padding: const EdgeInsets.all(25),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 50, height: 5,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(color: theme.colorScheme.onSurface.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Payment Methods", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                  TextButton(
+                    onPressed: () => _addMomoWalletDialog(setSheetState),
+                    child: Text("+ Add", style: TextStyle(color: theme.primaryColor, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text("Select or link mobile wallets for rides.", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+              const SizedBox(height: 15),
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _linkedMomoWallets.length,
+                  itemBuilder: (context, idx) {
+                    final wallet = _linkedMomoWallets[idx];
+                    return Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.grey.shade100)),
+                      child: ListTile(
+                        leading: Image.asset(wallet['logo']!, height: 28, width: 28, fit: BoxFit.contain),
+                        title: Text(wallet['operator']!, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text(wallet['phone']!),
+                        trailing: IconButton(
+                          icon: const Icon(LucideIcons.trash2, color: Colors.red, size: 18),
+                          onPressed: () {
+                            setSheetState(() {
+                              _linkedMomoWallets.removeAt(idx);
+                            });
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _addMomoWalletDialog(StateSetter setSheetState) {
+    String selectedNet = 'MTN';
+    final phoneCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text("Link Mobile Wallet"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _dialogNetBtn("MTN", "assets/logo_mtn.png", selectedNet == 'MTN', () => setDlgState(() => selectedNet = 'MTN')),
+                  _dialogNetBtn("Airtel", "assets/logo_airtel.png", selectedNet == 'Airtel', () => setDlgState(() => selectedNet = 'Airtel')),
+                  _dialogNetBtn("Zamtel", "assets/logo_zamtel.png", selectedNet == 'Zamtel', () => setDlgState(() => selectedNet = 'Zamtel')),
+                ],
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: phoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: "Wallet Phone Number",
+                  hintText: "096XXXXXXX",
+                  prefixIcon: Icon(LucideIcons.phone),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+            TextButton(
+              onPressed: () {
+                final phone = phoneCtrl.text.trim();
+                if (phone.isNotEmpty) {
+                  setSheetState(() {
+                    _linkedMomoWallets.add({
+                      "operator": selectedNet,
+                      "phone": phone,
+                      "logo": "assets/logo_${selectedNet.toLowerCase()}.png",
+                    });
+                  });
+                  Navigator.pop(ctx);
+                }
+              },
+              child: const Text("Link", style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dialogNetBtn(String label, String logo, bool isSelected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.amber.withValues(alpha: 0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isSelected ? Colors.amber : Colors.grey.shade300),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(logo, height: 16, width: 16, fit: BoxFit.contain),
+            const SizedBox(width: 4),
+            Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRideHistorySheet() {
+    final theme = Theme.of(context);
+    final mockHistory = [
+      {"route": "Home → Church Cathedral", "date": "July 7, 2026", "fare": "K45.00", "status": "Completed", "color": Colors.green},
+      {"route": "Central Mall → Office Park", "date": "July 5, 2026", "fare": "K60.00", "status": "Completed", "color": Colors.green},
+      {"route": "Church Cathedral → Home", "date": "June 30, 2026", "fare": "K45.00", "status": "Cancelled", "color": Colors.red},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(25),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 50, height: 5,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(color: theme.colorScheme.onSurface.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            Text("Carpso Ride History", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+            const SizedBox(height: 15),
+            Expanded(
+              child: ListView.builder(
+                itemCount: mockHistory.length,
+                itemBuilder: (context, idx) {
+                  final ride = mockHistory[idx];
+                  return Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.grey.shade100)),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.orange.withValues(alpha: 0.1),
+                        child: const Icon(LucideIcons.car, color: Colors.orange),
+                      ),
+                      title: Text(ride['route'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: Text(ride['date'] as String, style: const TextStyle(fontSize: 12)),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(ride['fare'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          Text(
+                            ride['status'] as String,
+                            style: TextStyle(color: ride['color'] as Color, fontWeight: FontWeight.bold, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showHelpSupportSheet() {
+    final theme = Theme.of(context);
+    final faqs = [
+      {"q": "What is Carpso?", "a": "Carpso is our secure, church-only ride-sharing network connecting verified drivers and riders from the parish."},
+      {"q": "How does pricing work?", "a": "Pricing is based on distance with a recommended fair value. Drivers and riders can negotiate final coin amounts."},
+      {"q": "Is it safe?", "a": "Yes! All drivers are verified church members vetted by the Bishop and leadership team."},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(25),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 50, height: 5,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(color: theme.colorScheme.onSurface.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            Text("Help & Support", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+            const SizedBox(height: 15),
+            Expanded(
+              child: ListView(
+                children: [
+                  ...faqs.map((faq) => Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.grey.shade100)),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: ExpansionTile(
+                      shape: const Border(),
+                      title: Text(faq['q']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(faq['a']!, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                        )
+                      ],
+                    ),
+                  )),
+                  const SizedBox(height: 15),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Calling Support Bishop...+260 97000000"), backgroundColor: Colors.amber),
+                      );
+                    },
+                    icon: const Icon(LucideIcons.phone),
+                    label: const Text("CALL SUPPORT BISHOP"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.primaryColor,
+                      foregroundColor: theme.colorScheme.secondary,
+                      minimumSize: const Size(double.infinity, 56),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -4,6 +4,9 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'bible_podcast_screen.dart';
+import 'daily_devotions_screen.dart';
+import 'scripture_memory_screen.dart';
+import 'study_plans_screen.dart';
 import '../../modules/bible_quiz/presentation/bible_quiz_hub_screen.dart';
 
 class DeepStudySuiteScreen extends ConsumerStatefulWidget {
@@ -157,12 +160,15 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
       {"icon": LucideIcons.map, "title": "Atlas", "sub": "Historic Maps", "color": const Color(0xFF10B981), "action": "atlas"},
       {"icon": LucideIcons.target, "title": "Memory", "sub": "Master Verses", "color": Colors.purple, "action": "memory"},
       {"icon": LucideIcons.calendar, "title": "Plans", "sub": "Reading Paths", "color": Colors.pink, "action": "plans"},
+      {"icon": LucideIcons.sunrise, "title": "Devotions", "sub": "Daily Devotionals", "color": Colors.amber, "screen": const DailyDevotionsScreen()},
+      {"icon": LucideIcons.brainCircuit, "title": "Scripture", "sub": "Verse Memorizer", "color": Colors.indigo, "screen": const ScriptureMemoryScreen()},
+      {"icon": LucideIcons.layers, "title": "Study Plans", "sub": "Track Progress", "color": Colors.teal, "screen": const StudyPlansScreen()},
     ];
 
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 1.3),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1.1),
       itemCount: tools.length,
       itemBuilder: (context, index) {
         return GestureDetector(
@@ -195,10 +201,10 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
 
   Widget _buildToolCard(IconData icon, String title, String sub, Color color) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
       child: Column(
@@ -206,13 +212,14 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: color, size: 20),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: color, size: 18),
           ),
-          const SizedBox(height: 12),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          const SizedBox(height: 2),
+          Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 8, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -222,27 +229,81 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
     final profile = ref.watch(profileProvider).value;
     final streak = profile?.streakCount ?? 0;
 
+    String tier;
+    Color tierColor;
+    IconData tierIcon;
+    if (streak >= 365) { tier = "DIAMOND"; tierColor = const Color(0xFF00BFFF); tierIcon = LucideIcons.gem; }
+    else if (streak >= 100) { tier = "GOLD"; tierColor = const Color(0xFFFFD700); tierIcon = LucideIcons.trophy; }
+    else if (streak >= 30) { tier = "SILVER"; tierColor = const Color(0xFFC0C0C0); tierIcon = LucideIcons.medal; }
+    else if (streak >= 7) { tier = "BRONZE"; tierColor = const Color(0xFFCD7F32); tierIcon = LucideIcons.award; }
+    else { tier = "BEGINNER"; tierColor = Colors.white54; tierIcon = LucideIcons.sprout; }
+
+    final weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    final today = DateTime.now().weekday - 1;
+    final dayStatuses = List.generate(7, (i) => i <= today && streak > (today - i) ? true : false);
+
     return Container(
       padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(30)),
-      child: Row(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: streak >= 30 ? [Colors.amber.shade900, Colors.black] : [Colors.grey.shade900, Colors.black],
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [BoxShadow(color: Colors.amber.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, 10))],
+      ),
+      child: Column(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              const Text("Study Streak", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 5),
-              Row(
-                children: [
-                  const Icon(LucideIcons.trendingUp, color: Color(0xFF10B981), size: 14),
-                  const SizedBox(width: 5),
-                  Text("GLOBAL RANK: #${streak > 0 ? 100 - streak : '99+'}", style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
-                ],
+              const Icon(LucideIcons.flame, color: Colors.orange, size: 28),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("Study Streak", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    Row(
+                      children: [
+                        Icon(tierIcon, color: tierColor, size: 12),
+                        const SizedBox(width: 4),
+                        Text(tier, style: TextStyle(color: tierColor, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                        const SizedBox(width: 8),
+                        Text("• ${streak}d streak", style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                      ],
+                    ),
+                  ],
+                ),
               ),
+              Text(streak.toString(), style: GoogleFonts.plusJakartaSans(fontSize: 42, fontWeight: FontWeight.w900, color: const Color(0xFFFFD700))),
             ],
           ),
-          const Spacer(),
-          Text(streak.toString(), style: GoogleFonts.plusJakartaSans(fontSize: 42, fontWeight: FontWeight.w900, color: const Color(0xFFFFD700))),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(7, (i) {
+              final isActive = dayStatuses[i];
+              final dayName = weekDays[i];
+              final isToday = i == today;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isActive ? (isToday ? Colors.amber : Colors.amber.withValues(alpha: 0.4)) : Colors.white12,
+                    ),
+                    child: isActive
+                      ? Icon(LucideIcons.check, size: 16, color: isToday ? Colors.black : Colors.amber)
+                      : Icon(LucideIcons.circle, size: 12, color: Colors.white24),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(dayName, style: TextStyle(fontSize: 8, color: isToday ? Colors.amber : Colors.white38, fontWeight: isToday ? FontWeight.bold : FontWeight.normal)),
+                ],
+              );
+            }),
+          ),
         ],
       ),
     );
