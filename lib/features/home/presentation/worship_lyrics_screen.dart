@@ -1,12 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class WorshipSong {
   final String title;
   final String artist;
   final String lyrics;
+  final String category;
 
-  WorshipSong({required this.title, required this.artist, required this.lyrics});
+  WorshipSong({required this.title, required this.artist, required this.lyrics, this.category = 'Contemporary'});
 }
 
 class WorshipLyricsScreen extends StatefulWidget {
@@ -17,97 +20,68 @@ class WorshipLyricsScreen extends StatefulWidget {
 }
 
 class _WorshipLyricsScreenState extends State<WorshipLyricsScreen> {
-  final List<WorshipSong> _songs = [
-    WorshipSong(
-      title: "How Great Is Our God",
-      artist: "Chris Tomlin",
-      lyrics: """[Verse 1]
-The splendor of the King
-Clothed in majesty
-Let all the earth rejoice
-All the earth rejoice
-
-He wraps Himself in light
-And darkness tries to hide
-And trembles at His voice
-And trembles at His voice
-
-[Chorus]
-How great is our God
-Sing with me
-How great is our God
-And all will see how great
-How great is our God
-
-[Verse 2]
-And age to age He stands
-And time is in His hands
-Beginning and the End
-Beginning and the End
-
-The Godhead, three in one
-Father, Spirit, Son
-The Lion and the Lamb
-The Lion and the Lamb""",
-    ),
-    WorshipSong(
-      title: "Mutsinde (Zambian Worship)",
-      artist: "Zambian Hymnal",
-      lyrics: """[Verse 1]
-Mutsinde, mutsinde
-Mwa Mulimu wa luna
-Yena u na ni maata
-U lu fa tulo kamita
-
-[Chorus]
-Mutsinde kapili
-Haleluyah kaufela
-Yena ya lu file bupilo
-Lu to mu lumbeka kamita
-
-[Verse 2]
-Mwa lifasi kaufela
-Lu lumbeke Libizo la Yena
-Kakuli u na ni lilato
-Le lituna hahulu""",
-    ),
-    WorshipSong(
-      title: "Amazing Grace",
-      artist: "John Newton",
-      lyrics: """[Verse 1]
-Amazing grace! How sweet the sound
-That saved a wretch like me!
-I once was lost, but now am found;
-Was blind, but now I see.
-
-[Verse 2]
-'Twas grace that taught my heart to fear,
-And grace my fears relieved;
-How precious did that grace appear
-The hour I first believed!
-
-[Verse 3]
-Through many dangers, toils and snares,
-I have already come;
-'Tis grace hath brought me safe thus far,
-And grace will lead me home.""",
-    ),
-  ];
-
+  List<WorshipSong> _allSongs = [];
   List<WorshipSong> _filteredSongs = [];
   final _searchCtrl = TextEditingController();
+  Timer? _debounce;
+  String _selectedCategory = 'All';
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _filteredSongs = _songs;
+    _loadSongs();
   }
 
-  void _searchSong(String val) {
+  Future<void> _loadSongs() async {
+    try {
+      final data = await Supabase.instance.client
+          .from('lyrics')
+          .select('title, artist, lyrics, category')
+          .order('title', ascending: true);
+      final songs = (data as List).map((e) => WorshipSong(
+        title: e['title'] as String? ?? '',
+        artist: e['artist'] as String? ?? 'Unknown',
+        lyrics: e['lyrics'] as String? ?? '',
+        category: e['category'] as String? ?? 'Contemporary',
+      )).toList();
+      if (mounted) {
+        setState(() {
+          _allSongs = songs;
+          _filteredSongs = songs;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Failed to load worship songs: $e");
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String val) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      _filterSongs();
+    });
+  }
+
+  void _filterSongs() {
+    final query = _searchCtrl.text.toLowerCase();
     setState(() {
-      _filteredSongs = _songs
-          .where((s) => s.title.toLowerCase().contains(val.toLowerCase()) || s.artist.toLowerCase().contains(val.toLowerCase()))
-          .toList();
+      _filteredSongs = _allSongs.where((s) {
+        final matchesCategory = _selectedCategory == 'All' || s.category == _selectedCategory;
+        final matchesSearch = query.isEmpty ||
+            s.title.toLowerCase().contains(query) ||
+            s.artist.toLowerCase().contains(query);
+        return matchesCategory && matchesSearch;
+      }).toList();
     });
   }
 
@@ -120,28 +94,96 @@ And grace will lead me home.""",
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          await _showAddLyricsSheet(context);
+          _loadSongs();
+        },
+        backgroundColor: Colors.teal,
+        child: const Icon(LucideIcons.plus, color: Colors.white),
+      ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            color: Colors.teal,
             child: TextField(
               controller: _searchCtrl,
-              onChanged: _searchSong,
+              onChanged: _onSearchChanged,
               decoration: InputDecoration(
                 hintText: "Search song or artist...",
-                prefixIcon: const Icon(LucideIcons.search, color: Colors.teal),
+                hintStyle: const TextStyle(color: Colors.white54),
+                prefixIcon: const Icon(LucideIcons.search, color: Colors.white70),
                 filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                fillColor: Colors.white.withValues(alpha: 0.2),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              ),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            color: Colors.teal,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: ['All', 'Hymns', 'Contemporary', 'Traditional'].map((cat) {
+                  final isSelected = _selectedCategory == cat;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(cat, style: TextStyle(
+                        color: isSelected ? Colors.teal : Colors.teal.shade700,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      )),
+                      selected: isSelected,
+                      onSelected: (_) {
+                        setState(() => _selectedCategory = cat);
+                        _filterSongs();
+                      },
+                      backgroundColor: Colors.white.withValues(alpha: 0.3),
+                      selectedColor: Colors.white,
+                      checkmarkColor: Colors.teal,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    ),
+                  );
+                }).toList(),
               ),
             ),
           ),
+          const SizedBox(height: 12),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: _filteredSongs.length,
-              itemBuilder: (context, index) => _buildSongTile(_filteredSongs[index]),
-            ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Colors.teal))
+                : _filteredSongs.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(LucideIcons.music, size: 48, color: Colors.grey.shade300),
+                        const SizedBox(height: 16),
+                        Text(
+                          "No songs found",
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "Try a different search or category",
+                          style: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: _filteredSongs.length,
+                    itemBuilder: (context, index) => _buildSongTile(_filteredSongs[index]),
+                  ),
           ),
         ],
       ),
@@ -164,7 +206,7 @@ And grace will lead me home.""",
           child: const Icon(LucideIcons.music, color: Colors.teal),
         ),
         title: Text(song.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(song.artist, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+        subtitle: Text("${song.artist}  •  ${song.category}", style: const TextStyle(color: Colors.grey, fontSize: 13)),
         trailing: const Icon(LucideIcons.chevronRight, color: Colors.grey),
         onTap: () => _openLyrics(song),
       ),
@@ -193,12 +235,173 @@ And grace will lead me home.""",
               const SizedBox(height: 25),
               Text(song.title, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
               Text(song.artist, style: const TextStyle(color: Colors.tealAccent, fontSize: 14)),
-              const SizedBox(height: 30),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.tealAccent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(song.category, style: const TextStyle(color: Colors.tealAccent, fontSize: 11, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(height: 24),
               Text(
                 song.lyrics,
                 style: const TextStyle(color: Colors.white70, fontSize: 16, height: 1.8, letterSpacing: 0.5),
               ),
               const SizedBox(height: 40),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showAddLyricsSheet(BuildContext context) async {
+    final titleCtrl = TextEditingController();
+    final artistCtrl = TextEditingController();
+    final lyricsCtrl = TextEditingController();
+    String category = 'Contemporary';
+    bool isSaving = false;
+    String? titleError;
+    String? artistError;
+    String? lyricsError;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Container(
+          height: MediaQuery.of(context).size.height * 0.85,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+          ),
+          padding: EdgeInsets.fromLTRB(25, 20, 25, MediaQuery.of(ctx).viewInsets.bottom + 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)))),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                    child: const Icon(LucideIcons.music, color: Colors.teal, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("Add Worship Song", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      Text("Add a new song to the worship lyrics catalog", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: titleCtrl,
+                        decoration: InputDecoration(
+                          labelText: "Song Title",
+                          hintText: "e.g. How Great Is Our God",
+                          prefixIcon: const Icon(LucideIcons.heading, size: 18),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                          errorText: titleError,
+                        ),
+                        textCapitalization: TextCapitalization.words,
+                        onChanged: (_) { if (titleError != null) setSheetState(() => titleError = null); },
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: artistCtrl,
+                        decoration: InputDecoration(
+                          labelText: "Artist / Writer",
+                          hintText: "e.g. Chris Tomlin",
+                          prefixIcon: const Icon(LucideIcons.user, size: 18),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                          errorText: artistError,
+                        ),
+                        textCapitalization: TextCapitalization.words,
+                        onChanged: (_) { if (artistError != null) setSheetState(() => artistError = null); },
+                      ),
+                      const SizedBox(height: 14),
+                      DropdownButtonFormField<String>(
+                        initialValue: category,
+                        items: ['Contemporary', 'Traditional', 'Hymns', 'Gospel', 'Praise'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                        onChanged: (v) => setSheetState(() => category = v ?? category),
+                        decoration: InputDecoration(
+                          labelText: "Category",
+                          prefixIcon: const Icon(LucideIcons.tag, size: 18),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: lyricsCtrl,
+                        maxLines: 8,
+                        decoration: InputDecoration(
+                          labelText: "Lyrics",
+                          hintText: "Paste or type the lyrics here...",
+                          alignLabelWithHint: true,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                          errorText: lyricsError,
+                        ),
+                        textCapitalization: TextCapitalization.sentences,
+                        onChanged: (_) { if (lyricsError != null) setSheetState(() => lyricsError = null); },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity, height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: isSaving ? null : () async {
+                    String? err;
+                    if (titleCtrl.text.trim().isEmpty) { err = "Song title is required"; setSheetState(() => titleError = err); }
+                    if (artistCtrl.text.trim().isEmpty) { err ??= "Artist is required"; setSheetState(() => artistError = "Artist is required"); }
+                    if (lyricsCtrl.text.trim().isEmpty) { err ??= "Lyrics are required"; setSheetState(() => lyricsError = "Lyrics are required"); }
+                    if (err != null) return;
+                    setSheetState(() => isSaving = true);
+                    try {
+                      await Supabase.instance.client.from('lyrics').insert({
+                        'title': titleCtrl.text.trim(),
+                        'artist': artistCtrl.text.trim(),
+                        'lyrics': lyricsCtrl.text.trim(),
+                        'category': category,
+                        'created_at': DateTime.now().toIso8601String(),
+                      });
+                      if (ctx.mounted) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text("Song added successfully!"), backgroundColor: Colors.green));
+                        Navigator.pop(ctx);
+                      }
+                    } catch (e) {
+                      setSheetState(() => isSaving = false);
+                      if (ctx.mounted) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+                      }
+                    }
+                  },
+                  icon: isSaving
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(LucideIcons.checkCircle, size: 20),
+                  label: Text(isSaving ? "Saving..." : "Save Song", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.teal.shade300,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
             ],
           ),
         ),

@@ -1,12 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/features/admin/data/ad_service.dart';
+import '../../../core/widgets/app_image.dart';
+import '../../../core/providers/profile_provider.dart';
 
-class AdManagementScreen extends ConsumerWidget {
+class AdManagementScreen extends ConsumerStatefulWidget {
   const AdManagementScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdManagementScreen> createState() => _AdManagementScreenState();
+}
+
+class _AdManagementScreenState extends ConsumerState<AdManagementScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final profileAsync = ref.watch(profileProvider);
+    return profileAsync.when(
+      data: (profile) {
+        if (profile == null || !(profile.isSuperadmin || profile.isEmployee)) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Sponsored Content')),
+            body: const Center(child: Text('Access denied. Superadmin or COA employee access required.')),
+          );
+        }
+        return _buildContent(context);
+      },
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(title: const Text('Sponsored Content')),
+        body: Center(child: Text('Error: $e')),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final adsAsync = ref.watch(activeAdsProvider(null));
 
     return Scaffold(
@@ -32,7 +59,7 @@ class AdManagementScreen extends ConsumerWidget {
                       leading: ad.imageUrl != null
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.network(ad.imageUrl!, width: 56, height: 56, fit: BoxFit.cover),
+                              child: AppImage(ad.imageUrl!, width: 56, height: 56, fit: BoxFit.cover),
                             )
                           : const Icon(Icons.ad_units, size: 40),
                       title: Text(ad.title),
