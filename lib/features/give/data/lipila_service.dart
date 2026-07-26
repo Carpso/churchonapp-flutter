@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:church_on_app/features/give/presentation/widgets/payment_status_overlay.dart';
 import 'package:church_on_app/features/give/presentation/widgets/momo_phone_input_widget.dart';
+import 'package:church_on_app/core/services/payment_reliability_service.dart';
 
 class LipilaPaymentState {
   final PaymentStatus status;
@@ -340,10 +341,18 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
 
       if (attempts >= maxAttempts) {
         timer.cancel();
+        final reliability = PaymentReliabilityService(client);
+        unawaited(reliability.queuePaymentForRetry(
+          referenceId: referenceId,
+          amount: 0,
+          recipientPhone: '',
+          method: 'coa_payment',
+          metadata: {'type': 'coa_payment_timeout', 'reference': referenceId},
+        ));
         state = AsyncData(
           (state.value ?? const LipilaPaymentState()).copyWith(
             status: PaymentStatus.failed,
-            errorMessage: "Payment verification timed out. Your money has been deducted. Please contact support with reference: $referenceId",
+            errorMessage: "Payment verification timed out. Your money has been deducted. Reference: $referenceId",
             statusMessage: "Still verifying payment. Reference: ${referenceId.substring(0, referenceId.length.clamp(0, 8))}",
           ),
         );
