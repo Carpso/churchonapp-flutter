@@ -81,7 +81,7 @@ class UserProfile {
   bool get isBookshopOwner => role == 'bookshop_owner' || role == 'store_manager' || role == 'vendor';
   bool get isStoreManager => role == 'store_manager' || role == 'bookshop_owner';
   bool get isBookshopStaff => ['bookshop_owner', 'store_manager', 'assistant', 'cashier'].contains(role);
-  bool get isLeadershipTeam => isAdminOrHigher || role == 'leader';
+  bool get isLeadershipTeam => isAdminOrHigher || role == 'leader' || role == 'department_leader';
   bool get isPraiseTeam => role == 'praise_team_leader' || role == 'worship_leader' || role == 'praise_team_member';
   bool get isWorshipLeader => role == 'worship_leader' || role == 'praise_team_leader';
   bool get isExecutiveOffice => isBishop || role == 'general_secretary' || role == 'general_treasurer' || isSuperadmin;
