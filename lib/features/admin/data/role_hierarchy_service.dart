@@ -129,19 +129,24 @@ class RoleHierarchyService {
       'assigned_by': currentUser.id,
       'status': 'pending',
     });
+    // Notify superadmins and employees about new role request
     final admins = await _supabase
         .client
         .from('profiles')
         .select('id')
         .inFilter('role', ['superadmin', 'employee']);
-    for (final admin in admins as List) {
-      await _supabase.client.from('notifications').insert({
-        'user_id': admin['id'],
-        'title': 'New Role Request',
-        'body': '$roleName assignment pending approval for user $userId${tenantId != null ? ' in tenant $tenantId' : ''}',
-        'type': 'role_approval',
-        'reference_id': userId,
-      });
+    if (admins != null) {
+      for (final admin in admins as List) {
+        if (admin is Map && admin['id'] != null) {
+          await _supabase.client.from('notifications').insert({
+            'user_id': admin['id'],
+            'title': 'New Role Request',
+            'body': '$roleName assignment pending approval for user $userId${tenantId != null ? ' in tenant $tenantId' : ''}',
+            'type': 'role_approval',
+            'reference_id': userId,
+          });
+        }
+      }
     }
   }
 
