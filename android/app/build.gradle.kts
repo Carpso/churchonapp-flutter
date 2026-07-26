@@ -57,6 +57,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
+        vectorDrawables.useSupportLibrary = true
     }
 
     buildTypes {
@@ -71,6 +72,10 @@ android {
     packaging {
         jniLibs {
             keepDebugSymbols.add("/**/*.so")
+        }
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            merges += "/META-INF/NOTICE"
         }
     }
 }
