@@ -161,11 +161,35 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
     String referenceId,
     SupabaseClient client,
   ) async {
-    const maxAttempts = 60;
+    const maxAttempts = 20;
     int attempts = 0;
 
     _cancelPolling();
-    _pollTimer = Timer.periodic(const Duration(seconds: 4), (timer) async {
+
+    // Check DB immediately first (fastest path)
+    try {
+      final localPayment = await client
+          .from('coa_payments')
+          .select('status, payment_ref')
+          .eq('payment_ref', referenceId)
+          .maybeSingle();
+
+      if (localPayment != null) {
+        final dbStatus = (localPayment['status'] ?? '').toString().toLowerCase();
+        if (dbStatus == 'approved' || dbStatus == 'completed' || dbStatus == 'confirmed' || dbStatus == 'settled') {
+          state = AsyncData(
+            (state.value ?? const LipilaPaymentState()).copyWith(
+              status: PaymentStatus.succeeded,
+              statusMessage: "Payment verified.",
+              referenceId: referenceId,
+            ),
+          );
+          return;
+        }
+      }
+    } catch (_) {}
+
+    _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
       attempts++;
 
       if (state.value?.isCancelled == true) {
@@ -176,10 +200,44 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
       final current = state.value;
       state = AsyncData(
         (current ?? const LipilaPaymentState()).copyWith(
-          statusMessage: "Waiting for your PIN confirmation... ($attempts/$maxAttempts)",
+          statusMessage: "Verifying payment... ($attempts/$maxAttempts)",
           pollAttempt: attempts,
         ),
       );
+
+      // Check DB first on each poll (faster than Edge Function round-trip)
+      try {
+        final localPayment = await client
+            .from('coa_payments')
+            .select('status, payment_ref')
+            .eq('payment_ref', referenceId)
+            .maybeSingle();
+
+        if (localPayment != null) {
+          final dbStatus = (localPayment['status'] ?? '').toString().toLowerCase();
+          if (dbStatus == 'approved' || dbStatus == 'completed' || dbStatus == 'confirmed' || dbStatus == 'settled') {
+            timer.cancel();
+            state = AsyncData(
+              (state.value ?? const LipilaPaymentState()).copyWith(
+                status: PaymentStatus.succeeded,
+                statusMessage: "Payment verified.",
+                referenceId: referenceId,
+              ),
+            );
+            return;
+          } else if (dbStatus == 'rejected' || dbStatus == 'failed' || dbStatus == 'cancelled') {
+            timer.cancel();
+            state = AsyncData(
+              (state.value ?? const LipilaPaymentState()).copyWith(
+                status: PaymentStatus.failed,
+                errorMessage: "Payment was $dbStatus by administrator.",
+                statusMessage: "Payment $dbStatus.",
+              ),
+            );
+            return;
+          }
+        }
+      } catch (_) {}
 
       try {
         final statusResponse = await client.functions.invoke('lipila-collect', body: {

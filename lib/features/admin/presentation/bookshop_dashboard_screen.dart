@@ -1,144 +1,278 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/features/admin/data/role_hierarchy_service.dart';
 import '../../marketplace/presentation/post_product_screen.dart';
 
-class BookshopDashboardScreen extends StatefulWidget {
+class BookshopDashboardScreen extends ConsumerStatefulWidget {
   const BookshopDashboardScreen({super.key});
 
   @override
-  State<BookshopDashboardScreen> createState() => _BookshopDashboardScreenState();
+  ConsumerState<BookshopDashboardScreen> createState() => _BookshopDashboardScreenState();
 }
 
-class _BookshopDashboardScreenState extends State<BookshopDashboardScreen> {
-  final List<Map<String, dynamic>> _inventory = [
-    {"title": "Dake Annotated Reference Bible", "stock": 45, "price": 450, "status": "In Stock"},
-    {"title": "Purpose Driven Life Book", "stock": 12, "price": 200, "status": "Low Stock"},
-    {"title": "Faith Over Fear Hoodie", "stock": 0, "price": 250, "status": "Out of Stock"},
-    {"title": "Anointing Oil (Frankincense)", "stock": 120, "price": 65, "status": "In Stock"},
-  ];
+class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScreen> {
+  bool _isLoading = true;
+  String? _error;
+  int _totalProducts = 0;
+  int _lowStockCount = 0;
+  int _totalSales = 0;
+  double _monthRevenue = 0;
+  List<Map<String, dynamic>> _products = [];
+  List<Map<String, dynamic>> _recentOrders = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboard();
+  }
+
+  Future<void> _loadDashboard() async {
+    setState(() => _isLoading = true);
+    final tenantId = ref.read(profileProvider).value?.tenantId;
+    if (tenantId == null) { setState(() { _isLoading = false; _error = "No shop assigned"; }); return; }
+
+    final now = DateTime.now();
+    final firstOfMonth = DateTime(now.year, now.month, 1);
+
+    try {
+      final productsRes = await Supabase.instance.client
+          .from('marketplace_products')
+          .select('id, title, price, stock, sale_count, status, created_at')
+          .eq('tenant_id', tenantId)
+          .order('created_at', ascending: false);
+
+      final products = List<Map<String, dynamic>>.from(productsRes);
+      int lowStock = 0, sales = 0;
+      for (final p in products) {
+        final stock = (p['stock'] as num?)?.toInt() ?? 0;
+        if (stock < 10) lowStock++;
+        sales += (p['sale_count'] as num?)?.toInt() ?? 0;
+      }
+
+      final ordersRes = await Supabase.instance.client
+          .from('marketplace_orders')
+          .select('id, total_amount, status, created_at')
+          .eq('tenant_id', tenantId)
+          .order('created_at', ascending: false)
+          .limit(20);
+
+      double monthRev = 0;
+      for (final o in ordersRes) {
+        final amount = (o['total_amount'] as num?)?.toDouble() ?? 0;
+        final created = o['created_at']?.toString() ?? '';
+        final dt = DateTime.tryParse(created);
+        if (dt != null && dt.isAfter(firstOfMonth)) monthRev += amount;
+      }
+
+      if (mounted) setState(() {
+        _totalProducts = products.length;
+        _lowStockCount = lowStock;
+        _totalSales = sales;
+        _monthRevenue = monthRev;
+        _products = products;
+        _recentOrders = List<Map<String, dynamic>>.from(ordersRes);
+        _isLoading = false; _error = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() { _isLoading = false; _error = e.toString(); });
+    }
+  }
+
+  Future<void> _addStaffMember() async {
+    final nameCtrl = TextEditingController();
+    final roleCtrl = TextEditingController(text: 'assistant');
+    String staffRole = 'assistant';
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text("Add Shop Staff"),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "User ID (UUID)", hintText: "Paste the user's ID")),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: staffRole,
+                items: ['store_manager', 'assistant', 'cashier'].map((r) => DropdownMenuItem(value: r, child: Text(r.replaceAll('_', ' ')))).toList(),
+                onChanged: (v) {
+                  setDialogState(() => staffRole = v ?? 'assistant');
+                  roleCtrl.text = v ?? 'assistant';
+                },
+                decoration: const InputDecoration(labelText: "Staff Role", hintText: "Select role"),
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, {'userId': nameCtrl.text.trim(), 'role': staffRole}), child: const Text("Add Staff")),
+          ],
+        ),
+      ),
+    );
+
+    if (result != null && result['userId']!.isNotEmpty && result['role']!.isNotEmpty) {
+      final svc = ref.read(roleHierarchyServiceProvider);
+      try {
+        await svc.elevateRole(userId: result['userId']!, roleName: result['role']!);
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("${result['role']} added to shop!"), backgroundColor: Colors.green));
+        _loadDashboard();
+      } catch (e) {
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
-        title: Text("Bookshop Management", style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
-        backgroundColor: theme.colorScheme.surface,
-        foregroundColor: theme.colorScheme.onSurface,
+        title: const Text("Bookshop Dashboard", style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFFFFFAEB),
+        foregroundColor: Colors.black87,
+        elevation: 0,
         actions: [
-          IconButton(
-            icon: Icon(LucideIcons.plus, color: theme.colorScheme.onSurface),
-            onPressed: () {
-              Navigator.push(
-                context, 
-                MaterialPageRoute(
-                  builder: (context) => const PostProductScreen(initialCategory: "bookshop"),
-                ),
-              );
-            },
-          )
+          IconButton(icon: const Icon(LucideIcons.plus), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PostProductScreen(initialCategory: "bookshop"))).then((_) => _loadDashboard())),
+          IconButton(icon: const Icon(LucideIcons.users), onPressed: _addStaffMember, tooltip: "Add Staff"),
+          IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _isLoading ? null : _loadDashboard),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await Future.delayed(const Duration(seconds: 1));
-        },
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-            Row(
-              children: [
-                Expanded(child: _buildMetricCard("Total Sales (MTD)", "K 12,450", LucideIcons.trendingUp, Colors.green)),
-                const SizedBox(width: 15),
-                Expanded(child: _buildMetricCard("Low Stock Items", "2", LucideIcons.alertTriangle, Colors.orange)),
-              ],
+      body: _isLoading ? _buildShimmer() : _error != null ? _buildError()
+          : RefreshIndicator(
+              onRefresh: _loadDashboard,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(20),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _buildHeader(theme),
+                  const SizedBox(height: 25), _buildStatsGrid(theme),
+                  const SizedBox(height: 30),
+                  Text("Inventory", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                  const SizedBox(height: 15),
+                  ..._products.isNotEmpty ? _products.take(10).map((p) => _productTile(theme, p)) : [_emptyCard(theme, "No products yet. Tap + to add one.")],
+                  const SizedBox(height: 30),
+                  Text("Recent Orders", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                  const SizedBox(height: 15),
+                  ..._recentOrders.isNotEmpty ? _recentOrders.take(5).map((o) => _orderRow(theme, o)) : [_emptyCard(theme, "No orders yet")],
+                ]),
+              ),
             ),
-            const SizedBox(height: 30),
-            Text("Inventory Management", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
-            const SizedBox(height: 15),
-            ..._inventory.map((item) => _buildInventoryTile(item)),
-            ],
-          ),
+    );
+  }
+
+  Widget _buildShimmer() => SingleChildScrollView(
+    padding: const EdgeInsets.all(20),
+    child: Column(children: [
+      ShimmerLoader.rectangular(height: 120, width: double.infinity),
+      const SizedBox(height: 20), Row(children: [Expanded(child: ShimmerLoader.rectangular(height: 90)), const SizedBox(width: 12), Expanded(child: ShimmerLoader.rectangular(height: 90))]),
+      const SizedBox(height: 25), ShimmerLoader.rectangular(height: 18, width: 100),
+      const SizedBox(height: 15), ...List.generate(3, (_) => Padding(padding: const EdgeInsets.only(bottom: 10), child: ShimmerLoader.rectangular(height: 65))),
+    ]),
+  );
+
+  Widget _buildError() => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+    Icon(LucideIcons.wifiOff, size: 48, color: Colors.grey.shade300),
+    const SizedBox(height: 12), Text("Could not load bookshop", style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
+    const SizedBox(height: 20), ElevatedButton.icon(onPressed: _loadDashboard, icon: const Icon(LucideIcons.refreshCw, size: 16), label: const Text("Retry")),
+  ]));
+
+  Widget _buildHeader(ThemeData theme) {
+    final currency = NumberFormat.currency(symbol: 'K ', decimalDigits: 0);
+    return Container(
+      width: double.infinity, padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [Colors.orange.shade800, Colors.orange.shade500], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.orange.shade200.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
+      ),
+      child: Row(children: [
+        Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
+          child: const Icon(LucideIcons.bookOpen, color: Colors.white, size: 28)),
+        const SizedBox(width: 14),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text("Bookshop Management", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
+          Text("$_totalProducts products • ${currency.format(_monthRevenue)} MTD", style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+        ])),
+      ]),
+    );
+  }
+
+  Widget _buildStatsGrid(ThemeData theme) {
+    final currency = NumberFormat.currency(symbol: 'K ', decimalDigits: 0);
+    return GridView.count(
+      shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 1.2,
+      children: [
+        _statCard("Products", "$_totalProducts", LucideIcons.package, Colors.orange),
+        _statCard("Total Sales", "$_totalSales", LucideIcons.shoppingCart, Colors.green),
+        _statCard("Low Stock", "$_lowStockCount", LucideIcons.alertTriangle, Colors.amber),
+        _statCard("Revenue (MTD)", currency.format(_monthRevenue), LucideIcons.trendingUp, Colors.blue),
+      ],
+    );
+  }
+
+  Widget _statCard(String label, String value, IconData icon, Color color) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12)]),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+      Icon(icon, color: color, size: 20), const Spacer(),
+      Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+      Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+    ]),
+  );
+
+  Widget _productTile(ThemeData theme, Map<String, dynamic> product) {
+    final title = product['title'] as String? ?? 'Untitled';
+    final price = (product['price'] as num?)?.toDouble() ?? 0;
+    final stock = (product['stock'] as num?)?.toInt() ?? 0;
+    final status = stock == 0 ? 'Out of Stock' : stock < 10 ? 'Low Stock' : 'In Stock';
+    final statusColor = stock == 0 ? Colors.red : stock < 10 ? Colors.orange : Colors.green;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+      child: Row(children: [
+        Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+          child: const Icon(LucideIcons.book, color: Colors.orange, size: 18)),
+        const SizedBox(width: 14),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text("K ${NumberFormat.decimalPattern().format(price)} • Stock: $stock", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+        ])),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+          child: Text(status, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: statusColor)),
         ),
-      ),
+      ]),
     );
   }
 
-  Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
-    final theme = Theme.of(context);
+  Widget _orderRow(ThemeData theme, Map<String, dynamic> order) {
+    final amount = (order['total_amount'] as num?)?.toDouble() ?? 0;
+    final status = order['status'] as String? ?? 'pending';
+    final currency = NumberFormat.currency(symbol: 'K ', decimalDigits: 0);
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 10),
-          Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
-          Text(title, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
-        ],
-      ),
+      margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+      child: Row(children: [
+        Icon(LucideIcons.shoppingBag, size: 14, color: Colors.grey.shade600),
+        const SizedBox(width: 10),
+        Expanded(child: Text(currency.format(amount), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+        Text(status, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+      ]),
     );
   }
 
-  Widget _buildInventoryTile(Map<String, dynamic> item) {
-    final theme = Theme.of(context);
-    final statusColor = item['status'] == 'In Stock'
-        ? Colors.green
-        : item['status'] == 'Low Stock' ? Colors.orange : Colors.red;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(LucideIcons.book, color: Theme.of(context).colorScheme.secondary),
-          ),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item['title'], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: theme.colorScheme.onSurface)),
-                const SizedBox(height: 5),
-                Row(
-                  children: [
-                    Text("Stock: ${item['stock']}", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
-                    const SizedBox(width: 15),
-                    Text("Price: K${item['price']}", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold, fontSize: 12)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(item['status'], style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
-          )
-        ],
-      ),
-    );
-  }
+  Widget _emptyCard(ThemeData theme, String msg) => Container(
+    width: double.infinity, padding: const EdgeInsets.all(25),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+    child: Center(child: Text(msg, style: TextStyle(color: Colors.grey.shade400))),
+  );
 }

@@ -5,10 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/tenant_service.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/utils/db_seeder.dart';
 import '../../../core/services/platform_settings_service.dart';
+import '../data/admin_service.dart';
+import '../../events/data/event_service.dart';
 import '../data/audit_service.dart';
 import 'emergency_shutdown_screen.dart';
 import 'ad_management_screen.dart';
@@ -16,6 +19,8 @@ import 'role_approval_screen.dart';
 import 'writer_approval_screen.dart';
 import 'custom_role_management_screen.dart';
 import 'order_tracking_screen.dart';
+import 'manage_partners_screen.dart';
+import 'whatsapp_config_screen.dart';
 import '../../../features/profile/presentation/church_referral_screen.dart';
 
 class SuperadminHubScreen extends ConsumerStatefulWidget {
@@ -65,11 +70,11 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       final tenantsCount = activeChurchesRes.length;
 
       // Pending registrations list
-      final pendingRes = await client.from('churches').select('*').eq('is_verified', false);
+      final pendingRes = await client.from('churches').select('id, name, email, phone, location, is_verified, subscription_ends_at, logo_url').eq('is_verified', false);
       final pendingList = List<Map<String, dynamic>>.from(pendingRes);
 
       // Pending subscription payments
-      final paymentsRes = await client.from('churches').select('*').not('payment_reference', 'is', null);
+      final paymentsRes = await client.from('churches').select('id, name, email, phone, location, payment_reference, payment_amount, is_verified').not('payment_reference', 'is', null);
       final paymentsList = List<Map<String, dynamic>>.from(paymentsRes)
           .where((c) => (c['payment_reference'] as String?)?.isNotEmpty == true)
           .toList();
@@ -573,11 +578,32 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             const SizedBox(height: 40),
             const Text("Global Overrides", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
-            _buildGlobalAction(LucideIcons.refreshCw, "Force Data Sync", "Triggers re-fetch for all CDN assets", Colors.blue, () {}),
+            _buildGlobalAction(LucideIcons.refreshCw, "Force Data Sync", "Triggers re-fetch for all data", Colors.blue, () async {
+              try {
+                ref.invalidate(currentTenantProvider);
+                ref.invalidate(membersProvider);
+                ref.invalidate(eventsStreamProvider);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data sync triggered!")));
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Sync failed: $e"), backgroundColor: Colors.red));
+              }
+            }),
             _buildGlobalAction(LucideIcons.shieldAlert, "Emergency Lockdown", "Instantly disable app for maintenance", Colors.red, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const EmergencyShutdownScreen()));
             }),
-            _buildGlobalAction(LucideIcons.database, "Clear Tenant Cache", "Wipe local storage for current church", Colors.amber, () {}),
+            _buildGlobalAction(LucideIcons.database, "Clear Tenant Cache", "Wipe local storage for current church", Colors.amber, () async {
+              try {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.clear();
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Local cache cleared!")));
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Clear failed: $e"), backgroundColor: Colors.red));
+              }
+            }),
             _buildGlobalAction(LucideIcons.sparkles, "Seed Mock Data", "Populate all tables with demo data", Colors.green, () async {
               try {
                 await DbSeeder.seedAll();
@@ -602,11 +628,78 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             _buildGlobalAction(LucideIcons.users, "Custom Roles", "Manage custom tenant roles", Colors.pink, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomRoleManagementScreen()));
             }),
+            _buildGlobalAction(LucideIcons.userPlus, "Quick Add Tenant Staff", "Create staff with department roles for any tenant", Colors.green, () async {
+              final tenantCtrl = TextEditingController();
+              final userCtrl = TextEditingController();
+              final roleCtrl = TextEditingController(text: 'assistant');
+              String staffRole = 'assistant';
+              String selectedTenantId = '';
+
+              // Load tenants
+              final tenants = await Supabase.instance.client.from('tenants').select('id, name').order('name').execute();
+              final tenantList = tenants.data as List<dynamic>? ?? [];
+
+              final result = await showDialog<Map<String, String>>(
+                context: context,
+                builder: (ctx) => StatefulBuilder(
+                  builder: (ctx, setDialogState) => AlertDialog(
+                    title: const Text("Quick Add Tenant Staff"),
+                    content: SingleChildScrollView(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        DropdownButtonFormField<String>(
+                          value: selectedTenantId.isNotEmpty ? selectedTenantId : null,
+                          items: tenantList.map((t) => DropdownMenuItem(value: t['id'] as String, child: Text(t['name'] as String ?? 'Unknown'))).toList(),
+                          onChanged: (v) => setDialogState(() => selectedTenantId = v ?? ''),
+                          decoration: const InputDecoration(labelText: "Tenant", hintText: "Select tenant"),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(controller: userCtrl, decoration: const InputDecoration(labelText: "User ID (UUID)", hintText: "Paste the user's ID")),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          initialValue: staffRole,
+                          items: ['store_manager', 'assistant', 'cashier', 'department_leader', 'usher', 'treasurer', 'worship_leader'].map((r) => DropdownMenuItem(value: r, child: Text(r.replaceAll('_', ' ')))).toList(),
+                          onChanged: (v) {
+                            setDialogState(() => staffRole = v ?? 'assistant');
+                            roleCtrl.text = v ?? 'assistant';
+                          },
+                          decoration: const InputDecoration(labelText: "Staff Role", hintText: "Select role"),
+                        ),
+                      ]),
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+                      ElevatedButton(onPressed: () {
+                        if (selectedTenantId.isEmpty) {
+                          Navigator.pop(ctx);
+                          return;
+                        }
+                        Navigator.pop(ctx, {'tenantId': selectedTenantId, 'userId': userCtrl.text.trim(), 'role': staffRole});
+                      }, child: const Text("Add Staff")),
+                    ],
+                  ),
+                ),
+              );
+              if (result != null && result['userId']!.isNotEmpty && result['role']!.isNotEmpty) {
+                final svc = ref.read(roleHierarchyServiceProvider);
+                try {
+                  await svc.assignRole(userId: result['userId']!, roleName: result['role']!, tenantId: result['tenantId']);
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: "Staff role requested: ${result['role']} for tenant ${result['tenantId']}", backgroundColor: Colors.green));
+                } catch (e) {
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+                }
+              }
+            }),
             _buildGlobalAction(LucideIcons.package, "Orders & Deliveries", "Track marketplace orders", Colors.brown, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderTrackingScreen()));
             }),
             _buildGlobalAction(LucideIcons.phoneCall, "Church Leads", "Manage pastor referrals", Colors.deepOrange, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchReferralScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.store, "Partner Tenants", "Manage coin redemption partners", Colors.teal, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ManagePartnersScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.messageCircle, "WhatsApp Config", "Configure WhatsApp Business API", const Color(0xFF075E54), () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const WhatsAppConfigScreen()));
             }),
           ],
         ),
