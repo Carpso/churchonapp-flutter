@@ -129,6 +129,20 @@ class RoleHierarchyService {
       'assigned_by': currentUser.id,
       'status': 'pending',
     });
+    final admins = await _supabase
+        .client
+        .from('profiles')
+        .select('id')
+        .inFilter('role', ['superadmin', 'employee']);
+    for (final admin in admins as List) {
+      await _supabase.client.from('notifications').insert({
+        'user_id': admin['id'],
+        'title': 'New Role Request',
+        'body': '$roleName assignment pending approval for user $userId${tenantId != null ? ' in tenant $tenantId' : ''}',
+        'type': 'role_approval',
+        'reference_id': userId,
+      });
+    }
   }
 
   Future<void> approveRole(String assignmentId) async {
@@ -159,7 +173,7 @@ class RoleHierarchyService {
     if (tenantId == null) return [];
     final result = await _supabase.client
         .from('tenant_roles')
-        .select('*')
+        .select('id, tenant_id, role_name, display_name, description, is_system_role, created_by')
         .eq('tenant_id', tenantId)
         .order('created_at', ascending: false);
     return (result as List).map((e) => TenantRole.fromMap(e)).toList();
@@ -168,7 +182,7 @@ class RoleHierarchyService {
   Future<List<TenantRole>> getSystemRoles() async {
     final result = await _supabase.client
         .from('tenant_roles')
-        .select('*')
+        .select('id, tenant_id, role_name, display_name, description, is_system_role, created_by')
         .eq('is_system_role', true)
         .order('role_name', ascending: true);
     return (result as List).map((e) => TenantRole.fromMap(e)).toList();
