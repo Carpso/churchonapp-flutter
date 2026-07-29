@@ -71,8 +71,8 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
   }
 
   Widget _buildScreen(BuildContext context, UserProfile? profile) {
-    final userName = profile?.name ?? "Kingdom Believer";
-    final avatar = profile?.avatarUrl ?? "https://i.pravatar.cc/300?u=${profile?.id ?? '1'}";
+    final userName = profile?.name ?? "Believer";
+    final avatar = profile?.avatarUrl ?? '';
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
@@ -114,7 +114,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
             const SizedBox(height: 15),
             _buildSettingsInput("ROLE", profile?.role.toUpperCase() ?? "MEMBER"),
             const SizedBox(height: 15),
-            _buildSettingsInput("KINGDOM ID", profile?.id ?? "N/A"),
+            _buildSettingsInput("ID", profile?.id ?? "N/A"),
             const SizedBox(height: 40),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),

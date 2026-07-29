@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:church_on_app/features/auth/presentation/select_church_screen.dart';
+import 'package:church_on_app/features/auth/presentation/select_church_screen.dart'
+    show SelectTenantScreen;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,49 +30,87 @@ class _MockHttpClient implements HttpClient {
   @override
   String? userAgent;
   @override
-  void addCredentials(Uri url, String realm, HttpClientCredentials credentials) {}
+  void addCredentials(
+    Uri url,
+    String realm,
+    HttpClientCredentials credentials,
+  ) {}
   @override
-  void addProxyCredentials(String host, int port, String realm, HttpClientCredentials credentials) {}
+  void addProxyCredentials(
+    String host,
+    int port,
+    String realm,
+    HttpClientCredentials credentials,
+  ) {}
   @override
-  set authenticate(Future<bool> Function(Uri url, String scheme, String realm)? f) {}
+  set authenticate(
+    Future<bool> Function(Uri url, String scheme, String realm)? f,
+  ) {}
   @override
-  set authenticateProxy(Future<bool> Function(String host, int port, String scheme, String realm)? f) {}
+  set authenticateProxy(
+    Future<bool> Function(String host, int port, String scheme, String realm)?
+    f,
+  ) {}
   @override
   void close({bool force = false}) {}
   @override
-  Future<HttpClientRequest> delete(String host, int port, String path) async => throw UnimplementedError();
+  Future<HttpClientRequest> delete(String host, int port, String path) async =>
+      throw UnimplementedError();
   @override
-  Future<HttpClientRequest> deleteUrl(Uri url) async => throw UnimplementedError();
+  Future<HttpClientRequest> deleteUrl(Uri url) async =>
+      throw UnimplementedError();
   @override
   set findProxy(String Function(Uri url)? f) {}
   @override
-  Future<HttpClientRequest> get(String host, int port, String path) async => _MockHttpClientRequest();
+  Future<HttpClientRequest> get(String host, int port, String path) async =>
+      _MockHttpClientRequest();
   @override
   Future<HttpClientRequest> getUrl(Uri url) async => _MockHttpClientRequest();
   @override
-  Future<HttpClientRequest> head(String host, int port, String path) async => throw UnimplementedError();
+  Future<HttpClientRequest> head(String host, int port, String path) async =>
+      throw UnimplementedError();
   @override
-  Future<HttpClientRequest> headUrl(Uri url) async => throw UnimplementedError();
+  Future<HttpClientRequest> headUrl(Uri url) async =>
+      throw UnimplementedError();
   @override
-  Future<HttpClientRequest> open(String method, String host, int port, String path) async => throw UnimplementedError();
+  Future<HttpClientRequest> open(
+    String method,
+    String host,
+    int port,
+    String path,
+  ) async => throw UnimplementedError();
   @override
-  Future<HttpClientRequest> openUrl(String method, Uri url) async => _MockHttpClientRequest();
+  Future<HttpClientRequest> openUrl(String method, Uri url) async =>
+      _MockHttpClientRequest();
   @override
-  Future<HttpClientRequest> patch(String host, int port, String path) async => throw UnimplementedError();
+  Future<HttpClientRequest> patch(String host, int port, String path) async =>
+      throw UnimplementedError();
   @override
-  Future<HttpClientRequest> patchUrl(Uri url) async => throw UnimplementedError();
+  Future<HttpClientRequest> patchUrl(Uri url) async =>
+      throw UnimplementedError();
   @override
-  Future<HttpClientRequest> post(String host, int port, String path) async => _MockHttpClientRequest();
+  Future<HttpClientRequest> post(String host, int port, String path) async =>
+      _MockHttpClientRequest();
   @override
   Future<HttpClientRequest> postUrl(Uri url) async => _MockHttpClientRequest();
   @override
-  Future<HttpClientRequest> put(String host, int port, String path) async => _MockHttpClientRequest();
+  Future<HttpClientRequest> put(String host, int port, String path) async =>
+      _MockHttpClientRequest();
   @override
   Future<HttpClientRequest> putUrl(Uri url) async => _MockHttpClientRequest();
   @override
-  set badCertificateCallback(bool Function(X509Certificate cert, String host, int port)? callback) {}
+  set badCertificateCallback(
+    bool Function(X509Certificate cert, String host, int port)? callback,
+  ) {}
   @override
-  set connectionFactory(Future<ConnectionTask<Socket>> Function(Uri url, String? proxyHost, int? proxyPort)? f) {}
+  set connectionFactory(
+    Future<ConnectionTask<Socket>> Function(
+      Uri url,
+      String? proxyHost,
+      int? proxyPort,
+    )?
+    f,
+  ) {}
   @override
   set keyLog(void Function(String line)? callback) {}
 }
@@ -131,16 +170,20 @@ class _MockHttpHeaders implements HttpHeaders {
   void add(String name, Object value, {bool preserveHeaderCase = false}) {
     _headers.putIfAbsent(name, () => []).add(value.toString());
   }
+
   @override
   void set(String name, Object value, {bool preserveHeaderCase = false}) {
     _headers[name] = [value.toString()];
   }
+
   @override
-  void remove(String name, Object value) => _headers[name]?.remove(value.toString());
+  void remove(String name, Object value) =>
+      _headers[name]?.remove(value.toString());
   @override
   void removeAll(String name) => _headers.remove(name);
   @override
-  void forEach(void Function(String name, List<String> values) f) => _headers.forEach(f);
+  void forEach(void Function(String name, List<String> values) f) =>
+      _headers.forEach(f);
   @override
   bool get chunkedTransferEncoding => false;
   @override
@@ -179,17 +222,33 @@ class _MockHttpHeaders implements HttpHeaders {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _MockHttpClientResponse extends Stream<List<int>> implements HttpClientResponse {
+class _MockHttpClientResponse extends Stream<List<int>>
+    implements HttpClientResponse {
   @override
   int get statusCode => 200;
   @override
   int get contentLength => 0;
   @override
-  HttpClientResponseCompressionState get compressionState => HttpClientResponseCompressionState.notCompressed;
+  HttpClientResponseCompressionState get compressionState =>
+      HttpClientResponseCompressionState.notCompressed;
   @override
-  StreamSubscription<List<int>> listen(void Function(List<int> event)? onData, {Function? onError, void Function()? onDone, bool? cancelOnError}) {
-    return Stream<List<int>>.fromIterable([utf8.encode('[]')]).listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+  StreamSubscription<List<int>> listen(
+    void Function(List<int> event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
+    final transparentPng = <int>[
+      137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 213, 196, 205, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 96, 248, 15, 0, 1, 5, 1, 2, 210, 221, 142, 206, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130
+    ];
+    return Stream<List<int>>.fromIterable([transparentPng]).listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
   }
+
   @override
   Future<Socket> detachSocket() async => throw UnimplementedError();
   @override
@@ -203,7 +262,11 @@ class _MockHttpClientResponse extends Stream<List<int>> implements HttpClientRes
   @override
   List<RedirectInfo> get redirects => [];
   @override
-  Future<HttpClientResponse> redirect([String? method, Uri? url, bool? followRedirects]) async => throw UnimplementedError();
+  Future<HttpClientResponse> redirect([
+    String? method,
+    Uri? url,
+    bool? followRedirects,
+  ]) async => throw UnimplementedError();
   @override
   bool get persistentConnection => true;
   @override
@@ -213,79 +276,80 @@ class _MockHttpClientResponse extends Stream<List<int>> implements HttpClientRes
 }
 
 // Mocking Geolocator Platform Channel
-const MethodChannel geolocatorChannel = MethodChannel('flutter.baseflow.com/geolocator');
+const MethodChannel geolocatorChannel = MethodChannel(
+  'flutter.baseflow.com/geolocator',
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  
+
   setUpAll(() async {
     HttpOverrides.global = MyHttpOverrides();
     // Initialize mock shared preferences
     SharedPreferences.setMockInitialValues({});
-    
+
     // Initialize dotenv for tests
-    dotenv.testLoad(fileInput: '''
+    dotenv.testLoad(
+      fileInput: '''
       MAPS_ZAMBIA_URL=https://example.com/zambia
       MAPS_ZIMBABWE_URL=https://example.com/zimbabwe
-    ''');
+    ''',
+    );
 
     // Initialize Supabase with dummy values for testing
     await Supabase.initialize(
       url: 'https://dummy.supabase.co',
       publishableKey: 'dummy-key',
     );
-    
+
     // Mock Geolocator responses
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      geolocatorChannel,
-      (MethodCall methodCall) async {
-        if (methodCall.method == 'checkPermission') {
-          return 3; // LocationPermission.always
-        }
-        if (methodCall.method == 'isLocationServiceEnabled') {
-          return true;
-        }
-        if (methodCall.method == 'getCurrentPosition') {
-          return {
-            'latitude': -15.42,
-            'longitude': 28.32,
-            'timestamp': 0,
-            'accuracy': 0.0,
-            'altitude': 0.0,
-            'heading': 0.0,
-            'speed': 0.0,
-            'speed_accuracy': 0.0,
-          };
-        }
-        return null;
-      },
-    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(geolocatorChannel, (
+          MethodCall methodCall,
+        ) async {
+          if (methodCall.method == 'checkPermission') {
+            return 3; // LocationPermission.always
+          }
+          if (methodCall.method == 'isLocationServiceEnabled') {
+            return true;
+          }
+          if (methodCall.method == 'getCurrentPosition') {
+            return {
+              'latitude': -15.42,
+              'longitude': 28.32,
+              'timestamp': 0,
+              'accuracy': 0.0,
+              'altitude': 0.0,
+              'heading': 0.0,
+              'speed': 0.0,
+              'speed_accuracy': 0.0,
+            };
+          }
+          return null;
+        });
   });
 
-  testWidgets('SelectChurchScreen renders fallback churches', (WidgetTester tester) async {
+  testWidgets('SelectChurchScreen renders fallback churches', (
+    WidgetTester tester,
+  ) async {
     // We need to provide a mock of Supabase if it's used directly
     // SelectChurchScreen uses Supabase.instance.client.from('churches')...
 
     // Set larger surface to contain more items in list
     await tester.binding.setSurfaceSize(const Size(800, 1200));
-    
+
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
-          home: SelectChurchScreen(),
-        ),
-      ),
+      const ProviderScope(child: MaterialApp(home: SelectTenantScreen())),
     );
 
     // Initial pump
     await tester.pump();
     await tester.pump(const Duration(seconds: 4));
-    
-    // Check if some fallback church appears (in both map marker and list = 2)
-    expect(find.textContaining('St. Peters Anglican', skipOffstage: false), findsWidgets);
-    
-    // Check if Zimbabwe churches are also there
-    expect(find.textContaining('Celebration Church', skipOffstage: false), findsWidgets);
-    expect(find.textContaining('Zimbabwe', skipOffstage: false), findsWidgets);
+
+    // Check if fallback church appears
+    expect(
+      find.textContaining('Rock Of Ages', skipOffstage: false),
+      findsWidgets,
+    );
   });
 }

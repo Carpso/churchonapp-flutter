@@ -2,21 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/widgets/shimmer_loader.dart';
 import '../data/social_service.dart';
+import 'widgets/social_post_card.dart';
 import 'kingdom_klips_screen.dart';
 import 'communities_screen.dart';
 import 'create_social_post_screen.dart';
 import '../../modules/games/presentation/game_hub_screen.dart';
 import '../../../core/utils/connectivity_util.dart';
+import 'package:church_on_app/features/navigation/presentation/main_navigation_shell.dart';
+import 'package:church_on_app/features/navigation/presentation/carpso_suggestion_card.dart';
 
-class ConnectScreen extends StatefulWidget {
+class ConnectScreen extends ConsumerStatefulWidget {
   const ConnectScreen({super.key});
 
   @override
-  State<ConnectScreen> createState() => _ConnectScreenState();
+  ConsumerState<ConnectScreen> createState() => _ConnectScreenState();
 }
 
-class _ConnectScreenState extends State<ConnectScreen> {
+class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -33,35 +38,43 @@ class _ConnectScreenState extends State<ConnectScreen> {
             ),
             child: TabBar(
               isScrollable: true,
+              tabAlignment: TabAlignment.start,
               indicatorColor: Colors.amber,
               dividerColor: Colors.transparent,
               labelColor: Colors.black,
               unselectedLabelColor: Colors.grey,
               labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1),
               tabs: const [
-                Tab(text: "KINGDOM KLIPS"),
+                Tab(text: "KLIPS"),
                 Tab(text: "COMMUNITIES"),
                 Tab(text: "CHURCH SOCIAL"),
-                Tab(text: "KINGDOM GAMES"),
+                Tab(text: "GAMES"),
               ],
             ),
           ),
         ),
-        body: Stack(
+        body: Column(
           children: [
-            TabBarView(
-              children: [
-                const KingdomKlipsScreen(),
-                const CommunitiesScreen(),
-                _buildChurchSocial(),
-                const KingdomGamesHubScreen(),
-              ],
-            ),
-            const Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: OfflineBanner(),
+            const CarpsoSuggestionCard(contextType: 'connect'),
+            Expanded(
+              child: Stack(
+                children: [
+                  TabBarView(
+                    children: [
+                      const KingdomKlipsScreen(),
+                      const CommunitiesScreen(),
+                      _buildChurchSocial(),
+                      const KingdomGamesHubScreen(),
+                    ],
+                  ),
+                  const Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: OfflineBanner(),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -80,7 +93,6 @@ class _ConnectScreenState extends State<ConnectScreen> {
       color: const Color(0xFFFFFAEB),
       child: Column(
         children: [
-          _buildStoryBar(),
           Expanded(
             child: Consumer(
               builder: (context, ref, child) {
@@ -90,24 +102,42 @@ class _ConnectScreenState extends State<ConnectScreen> {
                   onRefresh: () async {
                     ref.invalidate(socialPostsProvider);
                   },
-                  child: ListView(
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (notification is ScrollUpdateNotification && notification.dragDetails != null) {
+                        final delta = notification.scrollDelta ?? 0;
+                        if (delta > 0) {
+                          ref.read(navBarVisibleProvider.notifier).hide();
+                        } else if (delta < 0) {
+                          ref.read(navBarVisibleProvider.notifier).show();
+                        }
+                      }
+                      return false;
+                    },
+                    child: ListView(
                     padding: const EdgeInsets.all(20),
                     children: [
                       _buildChurchSocialHeader(ref),
                       const SizedBox(height: 20),
                       postsAsync.when(
-                        data: (posts) => posts.isEmpty 
+                          data: (posts) => posts.isEmpty 
                           ? _buildEmptySocialState()
-                          : Column(children: posts.map((p) => _buildRealSocialPost(p)).toList()),
-                        loading: () => const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(40),
-                            child: CircularProgressIndicator(color: Colors.amber),
-                          ),
+                          : Column(children: posts.map((p) => SocialPostCard(
+                            post: p,
+                            formatTimeAgo: _formatTimeAgo,
+                            onCommentTap: () => _showCommentsSheet(context, p.id, ref),
+                            onShareTap: () => _sharePost(p.id),
+                          )).toList()),
+                        loading: () => Column(
+                          children: List.generate(3, (_) => Padding(
+                            padding: const EdgeInsets.only(bottom: 20),
+                            child: _buildPostShimmer(),
+                          )),
                         ),
                         error: (e, s) => _buildSocialErrorState(e.toString()),
                       ),
                     ],
+                  ),
                   ),
                 );
               }
@@ -118,52 +148,43 @@ class _ConnectScreenState extends State<ConnectScreen> {
     );
   }
 
-  Widget _buildStoryBar() {
+  Widget _buildPostShimmer() {
     return Container(
-      height: 110,
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.1))),
+        borderRadius: BorderRadius.circular(25),
       ),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 15),
-        itemCount: 8, // Mock count
-        itemBuilder: (context, index) {
-          final isMe = index == 0;
-          return Padding(
-            padding: const EdgeInsets.only(right: 15),
-            child: GestureDetector(
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const KingdomKlipsScreen()));
-              },
-              child: Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const ShimmerLoader.rectangular(width: 40, height: 40),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFFFFD700), // Sunflower Yellow
-                        width: 2.5,
-                      ),
-                    ),
-                    child: CircleAvatar(
-                      radius: 30,
-                      backgroundImage: NetworkImage("https://i.pravatar.cc/150?img=${index + 10}"),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    isMe ? "Your Klip" : "Member ${index + 1}",
-                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
+                  ShimmerLoader.rectangular(width: 100, height: 14),
+                  const SizedBox(height: 4),
+                  ShimmerLoader.rectangular(width: 60, height: 10),
                 ],
               ),
-            ),
-          );
-        },
+            ],
+          ),
+          const SizedBox(height: 12),
+          const ShimmerLoader.rectangular(height: 200),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              ShimmerLoader.rectangular(width: 24, height: 24),
+              const SizedBox(width: 20),
+              ShimmerLoader.rectangular(width: 24, height: 24),
+              const SizedBox(width: 20),
+              ShimmerLoader.rectangular(width: 24, height: 24),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -201,120 +222,6 @@ class _ConnectScreenState extends State<ConnectScreen> {
           const SizedBox(height: 10),
           const Text("Be the first to share!", style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRealSocialPost(SocialPost post) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 25),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(15),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 20, 
-                  backgroundImage: post.userAvatar != null 
-                    ? NetworkImage(post.userAvatar!) 
-                    : null,
-                  child: post.userAvatar == null
-                    ? Text(
-                        (post.userName ?? 'M')[0].toUpperCase(),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      )
-                    : null,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(post.userName ?? "Member", style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Text(
-                        _formatTimeAgo(post.createdAt),
-                        style: const TextStyle(color: Colors.grey, fontSize: 10),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(LucideIcons.moreHorizontal),
-              ],
-            ),
-          ),
-          if (post.images.isNotEmpty)
-            SizedBox(
-              height: 300,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: post.images.length,
-                itemBuilder: (context, index) => Container(
-                  width: MediaQuery.of(context).size.width - 60,
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: Colors.grey[100],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      post.images[index], 
-                      width: double.infinity,
-                      height: 300,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: Colors.grey[200],
-                        child: const Center(child: Icon(LucideIcons.imageOff, size: 40, color: Colors.grey)),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            )
-          else if (post.mediaUrl != null && post.mediaType == 'image')
-            Container(
-              height: 300,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: Colors.grey[100],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.network(
-                  post.mediaUrl!, 
-                  width: double.infinity,
-                  height: 300,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: Colors.grey[200],
-                    child: const Center(child: Icon(LucideIcons.imageOff, size: 40, color: Colors.grey)),
-                  ),
-                ),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(15),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (post.content != null && post.content!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(post.content!, style: const TextStyle(fontSize: 14)),
-                  ),
-                _SocialPostActions(post: post),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -384,139 +291,27 @@ class _ConnectScreenState extends State<ConnectScreen> {
       ),
     );
   }
-}
 
-/// Stateful widget per post for independent like/comment state management
-class _SocialPostActions extends ConsumerStatefulWidget {
-  final SocialPost post;
-  const _SocialPostActions({required this.post});
-
-  @override
-  ConsumerState<_SocialPostActions> createState() => _SocialPostActionsState();
-}
-
-class _SocialPostActionsState extends ConsumerState<_SocialPostActions> {
-  late int _likeCount;
-  bool _liked = false;
-  bool _likeLoading = false;
-  bool _saved = false;
-  late int _commentsCount;
-
-  @override
-  void initState() {
-    super.initState();
-    _likeCount = widget.post.likesCount;
-    _commentsCount = widget.post.commentsCount;
-    _loadLikeState();
-  }
-
-  Future<void> _loadLikeState() async {
-    final service = ref.read(socialServiceProvider);
-    final liked = await service.hasLiked(widget.post.id);
-    if (mounted) setState(() => _liked = liked);
-  }
-
-  Future<void> _handleLike() async {
-    if (_likeLoading) return;
-    setState(() => _likeLoading = true);
-    try {
-      final service = ref.read(socialServiceProvider);
-      final nowLiked = await service.toggleLike(widget.post.id);
-      if (mounted) {
-        setState(() {
-          _liked = nowLiked;
-          _likeCount = (_likeCount + (nowLiked ? 1 : -1)).clamp(0, 999999);
-        });
-      }
-    } finally {
-      if (mounted) setState(() => _likeLoading = false);
-    }
-  }
-
-  void _showCommentsSheet() {
+  void _showCommentsSheet(BuildContext context, String postId, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _CommentsSheet(
-        postId: widget.post.id,
-        onCommentAdded: () {
-          setState(() {
-            _commentsCount = (_commentsCount + 1).clamp(0, 999999);
-          });
-        },
-      ),
+      builder: (_) => _CommentsSheet(postId: postId),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: _handleLike,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: Icon(
-              _liked ? LucideIcons.heart : LucideIcons.heart,
-              key: ValueKey(_liked),
-              size: 24,
-              color: _liked ? Colors.red : Colors.grey,
-            ),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text("$_likeCount", style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        const SizedBox(width: 20),
-        GestureDetector(
-          onTap: _showCommentsSheet,
-          child: Row(
-            children: [
-              const Icon(LucideIcons.messageCircle, size: 24, color: Colors.grey),
-              const SizedBox(width: 6),
-              Text("$_commentsCount", style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
-          ),
-        ),
-        const SizedBox(width: 20),
-        GestureDetector(
-          onTap: () {
-            Clipboard.setData(ClipboardData(text: "https://churchonapp.com/posts/${widget.post.id}"));
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Post link copied to clipboard!"), backgroundColor: Colors.green),
-            );
-          },
-          child: const Icon(LucideIcons.send, size: 24, color: Colors.grey),
-        ),
-        const Spacer(),
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _saved = !_saved;
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(_saved ? "Post saved to bookmarks!" : "Post removed from bookmarks!"),
-                backgroundColor: _saved ? Colors.indigo : Colors.grey,
-              ),
-            );
-          },
-          child: Icon(
-            _saved ? LucideIcons.bookmark : LucideIcons.bookmark,
-            size: 24,
-            color: _saved ? Colors.amber : Colors.grey,
-          ),
-        ),
-      ],
+  void _sharePost(String postId) {
+    Clipboard.setData(ClipboardData(text: "https://churchonapp.com/posts/$postId"));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Post link copied to clipboard!"), backgroundColor: Colors.green),
     );
   }
 }
 
-/// Comments bottom sheet with live loading and add-comment input
 class _CommentsSheet extends ConsumerStatefulWidget {
   final String postId;
-  final VoidCallback? onCommentAdded;
-  const _CommentsSheet({required this.postId, this.onCommentAdded});
+  const _CommentsSheet({required this.postId});
 
   @override
   ConsumerState<_CommentsSheet> createState() => _CommentsSheetState();
@@ -555,9 +350,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
       await service.addComment(widget.postId, text);
       _commentCtrl.clear();
       await _loadComments();
-      if (widget.onCommentAdded != null) {
-        widget.onCommentAdded!();
-      }
+
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -581,7 +374,34 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
           const Divider(height: 20),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: Colors.amber))
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: List.generate(3, (i) => Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const ShimmerLoader.circular(width: 36, height: 36),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    ShimmerLoader.rectangular(width: 60.0 + i * 20, height: 12),
+                                    const SizedBox(height: 8),
+                                    const ShimmerLoader.rectangular(height: 12),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+                      ),
+                    ),
+                  )
                 : _comments.isEmpty
                     ? Center(
                         child: Column(
@@ -603,11 +423,12 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                CircleAvatar(
-                                  radius: 18,
-                                  backgroundImage: c.userAvatar != null ? NetworkImage(c.userAvatar!) : null,
-                                  child: c.userAvatar == null ? Text((c.userName ?? 'M')[0]) : null,
-                                ),
+                                c.userAvatar != null && c.userAvatar!.isNotEmpty
+                                    ? ClipOval(child: CachedNetworkImage(imageUrl: c.userAvatar!, width: 36, height: 36, memCacheWidth: 72, memCacheHeight: 72, fit: BoxFit.cover, placeholder: (_, __) => CircleAvatar(radius: 18, backgroundColor: Colors.grey[200]), errorWidget: (_, __, ___) => CircleAvatar(radius: 18, backgroundColor: Colors.grey[300], child: Text((c.userName ?? 'M')[0]))))
+                                    : CircleAvatar(
+                                        radius: 18,
+                                        child: Text((c.userName ?? 'M')[0]),
+                                      ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Container(
@@ -669,4 +490,3 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     );
   }
 }
-

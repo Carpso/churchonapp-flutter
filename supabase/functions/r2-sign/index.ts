@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   S3Client,
   PutObjectCommand,
+  GetObjectCommand,
 } from "npm:@aws-sdk/client-s3@3.600.0";
 import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner@3.600.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -47,38 +48,39 @@ serve(async (req) => {
   }
 
   const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: "Missing authorization header" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 401,
+    });
+  }
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  let userId: string | null = null;
-  if (authHeader) {
-    try {
-      const token = authHeader.replace("Bearer ", "");
-      const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-        headers: { Authorization: `Bearer ${token}`, apikey: supabaseAnonKey },
-      });
-      if (response.ok) {
-        const userData = await response.json();
-        userId = userData.id;
-
-        if (userId) {
-          const supabase = createClient(supabaseUrl, supabaseServiceKey);
-          const { allowed } = await checkRateLimit(supabase, userId, "r2_upload", 20, 1);
-          if (!allowed) {
-            return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again later." }), {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 429,
-            });
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Auth check failed:", e);
-    }
+  const token = authHeader.replace("Bearer ", "");
+  const supabaseAuth = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+  if (authError || !user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 401,
+    });
   }
 
-  let body: { filename?: string; contentType?: string; folder?: string };
+  const userId = user.id;
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { allowed } = await checkRateLimit(supabase, userId, "r2_upload", 20, 1);
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again later." }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 429,
+    });
+  }
+
+  let body: { action?: string; filename?: string; contentType?: string; folder?: string; key?: string };
   try {
     body = await req.json();
   } catch {
@@ -88,17 +90,7 @@ serve(async (req) => {
     });
   }
 
-  if (!body.filename || !body.contentType || !body.folder) {
-    return new Response(
-      JSON.stringify({
-        error: "Missing required fields: filename, contentType, folder",
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      }
-    );
-  }
+  body.action ??= "upload";
 
   const allowedTypes = [
     "image/jpeg", "image/png", "image/gif", "image/webp",
@@ -135,8 +127,34 @@ serve(async (req) => {
     );
   }
 
-  const key = body.folder + "/" + body.filename;
-  const expiresIn = 3600;
+  if (body.action === "read" || body.action === "download") {
+    if (!body.key) {
+      return new Response(
+        JSON.stringify({ error: "Missing required field: key" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
+    }
+  } else {
+    if (!body.filename || !body.contentType || !body.folder) {
+      return new Response(
+        JSON.stringify({
+          error: "Missing required fields: filename, contentType, folder",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
+    }
+  }
+
+  const key = body.action === "read" || body.action === "download"
+    ? body.key!
+    : body.folder + "/" + body.filename;
+  const expiresIn = body.action === "download" ? 86400 : 3600;
 
   try {
     const s3Client = new S3Client({
@@ -149,11 +167,9 @@ serve(async (req) => {
       forcePathStyle: true,
     });
 
-    const command = new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      ContentType: body.contentType,
-    });
+    const command = body.action === "read" || body.action === "download"
+      ? new GetObjectCommand({ Bucket: bucket, Key: key })
+      : new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: body.contentType! });
 
     const signedUrl = await getSignedUrl(s3Client, command, {
       expiresIn,

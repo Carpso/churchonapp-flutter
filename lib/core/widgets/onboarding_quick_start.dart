@@ -28,8 +28,8 @@ class _OnboardingQuickStartState extends ConsumerState<OnboardingQuickStart> {
     final profileAsync = ref.watch(profileProvider);
     final dismissedAsync = ref.watch(onboardingDismissedProvider);
 
-    final profile = profileAsync.asData?.value;
-    final dismissed = dismissedAsync.asData?.value ?? false;
+    final profile = profileAsync.value;
+    final dismissed = dismissedAsync.value ?? false;
 
     if (dismissed) return const SizedBox.shrink();
     if (profile != null && profile.tenantId != null) return const SizedBox.shrink();

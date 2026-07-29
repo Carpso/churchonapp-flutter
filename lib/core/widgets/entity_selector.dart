@@ -72,9 +72,9 @@ class _EntitySelectorSheetState extends State<_EntitySelectorSheet> {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
-      decoration: const BoxDecoration(
-        color: Color(0xFFFFFAEB),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
         children: [
@@ -83,7 +83,7 @@ class _EntitySelectorSheetState extends State<_EntitySelectorSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.15),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -93,7 +93,7 @@ class _EntitySelectorSheetState extends State<_EntitySelectorSheet> {
             style: GoogleFonts.plusJakartaSans(
               fontSize: 18,
               fontWeight: FontWeight.w900,
-              color: Colors.black87,
+                                      color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 16),
@@ -102,16 +102,16 @@ class _EntitySelectorSheetState extends State<_EntitySelectorSheet> {
             child: TextField(
               controller: _searchController,
               onChanged: (v) => setState(() => _query = v),
-              style: GoogleFonts.inter(fontSize: 14, color: Colors.black87),
+              style: GoogleFonts.inter(fontSize: 14, color: Theme.of(context).colorScheme.onSurface),
               decoration: InputDecoration(
                 hintText: 'Search...',
                 hintStyle: TextStyle(color: Colors.grey.shade400),
                 prefixIcon: const Icon(LucideIcons.search, size: 20),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: Theme.of(context).colorScheme.surface,
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.05)),
+                  borderSide: BorderSide(color: Theme.of(context).dividerColor),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -151,9 +151,9 @@ class _EntitySelectorSheetState extends State<_EntitySelectorSheet> {
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.surface,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
+                          border: Border.all(color: Theme.of(context).dividerColor),
                         ),
                         child: Row(
                           children: [
@@ -163,7 +163,7 @@ class _EntitySelectorSheetState extends State<_EntitySelectorSheet> {
                                 color: const Color(0xFFFFFAEB),
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              child: Icon(option.icon, color: Colors.black87, size: 22),
+                              child: Icon(option.icon, color: Theme.of(context).colorScheme.onSurface, size: 22),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
@@ -175,7 +175,7 @@ class _EntitySelectorSheetState extends State<_EntitySelectorSheet> {
                                     style: GoogleFonts.plusJakartaSans(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
-                                      color: Colors.black87,
+              color: Theme.of(context).colorScheme.onSurface,
                                     ),
                                   ),
                                   const SizedBox(height: 2),

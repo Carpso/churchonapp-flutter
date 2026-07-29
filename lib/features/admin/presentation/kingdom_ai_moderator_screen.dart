@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/admin_service.dart';
 import '../../connect/data/social_service.dart';
+import '../../../core/widgets/app_image.dart';
 
 class KingdomAIModeratorScreen extends ConsumerStatefulWidget {
   const KingdomAIModeratorScreen({super.key});
@@ -21,7 +22,7 @@ class _KingdomAIModeratorScreenState extends ConsumerState<KingdomAIModeratorScr
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
-        title: const Text("Kingdom AI Moderator", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("AI Moderator", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: Colors.black,
@@ -89,7 +90,7 @@ class _KingdomAIModeratorScreenState extends ConsumerState<KingdomAIModeratorScr
       final count = await ref.read(adminServiceProvider).runApostolicModeration(ref);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Successfully moderated $count Kingdom posts via Gemini.")),
+          SnackBar(content: Text("Successfully moderated $count posts via Gemini.")),
         );
       }
     } finally {
@@ -116,10 +117,14 @@ class _KingdomAIModeratorScreenState extends ConsumerState<KingdomAIModeratorScr
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundImage: post.userAvatar != null ? NetworkImage(post.userAvatar!) : null,
-                child: post.userAvatar == null ? const Icon(LucideIcons.user, size: 18) : null,
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: ClipOval(
+                  child: post.userAvatar != null
+                      ? AppImage(post.userAvatar!, width: 36, height: 36, fit: BoxFit.cover)
+                      : Container(color: Colors.grey[300], child: const Icon(LucideIcons.user, size: 18)),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

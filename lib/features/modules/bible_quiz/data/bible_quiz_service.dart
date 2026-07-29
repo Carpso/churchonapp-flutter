@@ -1,6 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../../core/config/env.dart';
 
 class QuizQuestion {
   final String id;
@@ -107,6 +112,84 @@ class QuizSessionResult {
 class BibleQuizService {
   final SupabaseClient _client = Supabase.instance.client;
 
+  /// Fetches unseen questions for the current user via RPC.
+  /// Falls back to random questions if the RPC fails or returns insufficient results.
+  Future<List<QuizQuestion>> getUnseenQuestions(
+    int count, {
+    String? category,
+    String? difficulty,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      return getRandomQuestions(count, category: category, difficulty: difficulty);
+    }
+
+    try {
+      final res = await _client.rpc('get_unseen_questions', params: {
+        'p_user_id': userId,
+        'p_count': count,
+        'p_category': category,
+        'p_difficulty': difficulty,
+        'p_exclude_superadmin': true,
+      });
+
+      if (res is List && res.isNotEmpty) {
+        return res.map((e) => QuizQuestion.fromMap(e as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      debugPrint("Error fetching unseen questions: $e");
+    }
+
+    // If unseen pool exhausted, try random (still fresh for this context)
+    final randomResult = await getRandomQuestions(count, category: category, difficulty: difficulty);
+
+    // If random also returns very few, trigger auto-generation in background
+    if (randomResult.length < count) {
+      _triggerAutoGenerateIfNeeded(category: category, difficulty: difficulty);
+    }
+
+    return randomResult;
+  }
+
+  /// Triggers question auto-generation in the background (fire-and-forget).
+  void _triggerAutoGenerateIfNeeded({String? category, String? difficulty}) async {
+    try {
+      final session = _client.auth.currentSession;
+      if (session == null) return;
+
+      final totalRes = await _client.rpc('get_question_bank_stats');
+      final total = (totalRes is Map<String, dynamic>) ? (totalRes['total'] as int? ?? 0) : 0;
+
+      // Only auto-generate if total pool is under 200 questions
+      if (total >= 200) return;
+
+      debugPrint('[BibleQuiz] Auto-generating questions (pool: $total)');
+      // Fire and forget — don't await
+      http.post(
+        Uri.parse('${Env.supabaseUrl}/functions/v1/generate-quiz-batch'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${session.accessToken}',
+          'apikey': Env.supabaseAnonKey,
+        },
+        body: jsonEncode({
+          'count': 100,
+          'category': category,
+          'difficulty': difficulty,
+        }),
+      ).then((res) {
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body) as Map<String, dynamic>;
+          debugPrint('[BibleQuiz] Auto-generated ${data['inserted'] ?? 0} questions');
+        }
+      }).catchError((e) {
+        debugPrint('[BibleQuiz] Auto-generate failed: $e');
+      });
+    } catch (_) {
+      // Ignore — auto-generation is best-effort
+    }
+  }
+
   Future<List<QuizQuestion>> getRandomQuestions(
     int count, {
     String? category,
@@ -149,6 +232,44 @@ class BibleQuizService {
       debugPrint("Error fetching questions: $e");
     }
     return _getFallbackQuestions(count, category: category, difficulty: difficulty);
+  }
+
+  /// Returns the total number of questions in the bank.
+  Future<int> getQuestionBankTotal() async {
+    try {
+      final res = await _client
+          .from('quiz_questions')
+          .select('id')
+          .eq('is_superadmin_only', false);
+      return (res as List).length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Records answered questions for per-user deduplication.
+  Future<void> recordAnsweredQuestions({
+    required List<String> questionIds,
+    String? matchId,
+    String? eventId,
+    List<bool>? isCorrect,
+    List<int>? responseTimesMs,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      await _client.rpc('record_answered_questions', params: {
+        'p_user_id': userId,
+        'p_question_ids': questionIds,
+        'p_match_id': matchId,
+        'p_event_id': eventId,
+        'p_is_correct': isCorrect,
+        'p_response_times_ms': responseTimesMs,
+      });
+    } catch (e) {
+      debugPrint('Failed to record answered questions: $e');
+    }
   }
 
   List<QuizQuestion> _getFallbackQuestions(
@@ -209,7 +330,7 @@ class BibleQuizService {
         return {
           "name": list.first['full_name'],
           "id": list.first['id'],
-          "avatar": "https://i.pravatar.cc/150?u=${list.first['id']}",
+          "avatar": '',
         };
       }
     } catch (e) {
@@ -218,7 +339,7 @@ class BibleQuizService {
     return {
       "name": "Brother Samuel",
       "id": "mock_opp",
-      "avatar": "https://i.pravatar.cc/150?u=mock",
+      "avatar": '',
     };
   }
 
@@ -347,6 +468,97 @@ class BibleQuizService {
             isSuperadminOnly: q['is_superadmin_only'] == true,
           ))
       .toList();
+
+  Future<ChurchQuizCompetition?> getCompetitionById(String id) async {
+    try {
+      final res = await _client.from('church_competitions').select().eq('id', id).maybeSingle();
+      if (res == null) return null;
+      return ChurchQuizCompetition.fromMap(res);
+    } catch (e) {
+      debugPrint("Error fetching competition by id: $e");
+      return null;
+    }
+  }
+
+  Future<String?> verifyCompetitionPin(String pin) async {
+    try {
+      final res = await _client.from('church_competitions').select('id').eq('pin_code', pin).maybeSingle();
+      return res?['id']?.toString();
+    } catch (e) {
+      debugPrint("Error verifying competition PIN: $e");
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> createChurchCompetition({
+    required String tenantId,
+    required String title,
+    required DateTime date,
+    required int questionCount,
+    String? difficulty,
+    required double entryFee,
+  }) async {
+    try {
+      final pinCode = (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString();
+      final data = await _client.from('church_competitions').insert({
+        'tenant_id': tenantId,
+        'title': title,
+        'scheduled_for': date.toIso8601String(),
+        'question_count': questionCount,
+        'difficulty': difficulty,
+        'entry_fee': entryFee,
+        'pin_code': pinCode,
+        'status': 'scheduled',
+      }).select().single();
+      return data;
+    } catch (e) {
+      debugPrint("Error creating church competition: $e");
+      return null;
+    }
+  }
+}
+
+class ChurchQuizCompetition {
+  final String id;
+  final String title;
+  final String pinCode;
+  final DateTime scheduledFor;
+  final int questionCount;
+  final String? difficulty;
+  final double entryFee;
+  final String tenantId;
+  final String status;
+
+  ChurchQuizCompetition({
+    required this.id,
+    required this.title,
+    required this.pinCode,
+    required this.scheduledFor,
+    required this.questionCount,
+    this.difficulty,
+    this.entryFee = 0.0,
+    required this.tenantId,
+    this.status = 'scheduled',
+  });
+
+  bool get isFree => entryFee == 0;
+  DateTime get date => scheduledFor;
+
+  factory ChurchQuizCompetition.fromMap(Map<String, dynamic> map) {
+    return ChurchQuizCompetition(
+      id: map['id']?.toString() ?? '',
+      title: map['title']?.toString() ?? '',
+      pinCode: map['pin_code']?.toString() ?? '',
+      scheduledFor: map['scheduled_for'] != null
+          ? DateTime.parse(map['scheduled_for'].toString())
+          : DateTime.now(),
+      questionCount: map['question_count'] ?? 10,
+      difficulty: map['difficulty'],
+      entryFee: (map['entry_fee'] as num?)?.toDouble() ?? 0.0,
+      tenantId: map['tenant_id']?.toString() ?? '',
+      status: map['status']?.toString() ?? 'scheduled',
+    );
+  }
 }
 
 final bibleQuizServiceProvider = Provider((ref) => BibleQuizService());

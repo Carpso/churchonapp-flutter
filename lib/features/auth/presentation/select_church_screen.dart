@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/services/expansion_service.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
@@ -10,22 +10,22 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/features/navigation/presentation/main_navigation_shell.dart';
 
-class SelectChurchScreen extends ConsumerStatefulWidget {
-  const SelectChurchScreen({super.key});
+class SelectTenantScreen extends ConsumerStatefulWidget {
+  const SelectTenantScreen({super.key});
 
   @override
-  ConsumerState<SelectChurchScreen> createState() => _SelectChurchScreenState();
+  ConsumerState<SelectTenantScreen> createState() => _SelectTenantScreenState();
 }
 
-class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
-  List<Map<String, dynamic>> _churches = [];
-  List<Map<String, dynamic>> _filteredChurches = [];
-  // ignore: unused_field
-  final Set<String> _registeredIds = {};
+class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
+  List<Map<String, dynamic>> _tenants = [];
+  List<Map<String, dynamic>> _filteredTenants = [];
   bool _loading = true;
   Position? _currentPosition;
   String _currentCountry = "Zambia";
+  final List<String> _supportedCountries = ["Zambia", "Zimbabwe"];
   bool _showOnlyRegistered = false;
   final _searchController = TextEditingController();
   LatLng? _pinPosition;
@@ -33,21 +33,18 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
   @override
   void initState() {
     super.initState();
-    _initChurches();
+    _initTenants();
   }
 
-  Future<void> _initChurches() async {
-    // Fetch immediately so the list displays fallback offline churches right away
-    await _fetchChurches();
-    
-    // Attempt to resolve user location in background to calculate distances
-    _getUserLocation().then((_) {
-      if (mounted) {
-        _fetchChurches();
-      }
-    }).catchError((e) {
-      debugPrint('Error loading user location: $e');
-    });
+  Future<void> _initTenants() async {
+    await _fetchTenants();
+    _getUserLocation()
+        .then((_) {
+          if (mounted) _fetchTenants();
+        })
+        .catchError((e) {
+          debugPrint('Error loading user location: $e');
+        });
   }
 
   Future<void> _getUserLocation() async {
@@ -56,14 +53,14 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      
-      if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+      if (permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always) {
         final position = await Geolocator.getCurrentPosition();
         if (mounted) {
           setState(() {
             _currentPosition = position;
-            // Simple bound check for Zimbabwe vs Zambia
-            if (position.latitude < -17.5 && position.longitude > 25.0 && position.longitude < 33.0) {
+            // Detect country from coordinates
+            if (position.latitude < -17.5 && position.longitude > 25.0) {
               _currentCountry = "Zimbabwe";
             } else {
               _currentCountry = "Zambia";
@@ -76,55 +73,45 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
     }
   }
 
-  Future<void> _fetchChurches() async {
+  static double? _parseDouble(dynamic val) {
+    if (val == null) return null;
+    if (val is num) return val.toDouble();
+    if (val is String) return double.tryParse(val.trim());
+    return null;
+  }
+
+  Future<void> _fetchTenants() async {
     try {
-      final data = await Supabase.instance.client.from('churches').select('*');
-      final registered = List<Map<String, dynamic>>.from(data);
-      final regIds = registered.map((c) => c['id'].toString()).toSet();
-
-      // Merge DB churches with all Zambia & Zimbabwe churches
-      final allChurches = [
-        ..._getAllZambianChurches(),
-        ..._getAllZimbabweanChurches(),
-      ].map((c) {
-        // Only Rock of Ages Kabulonga is registered/approved by default
-        final isROA = c['slug'] == 'rock-of-ages-kabulonga';
-        return {...c, '_registered': isROA};
-      }).toList();
-
-      for (final dbChurch in registered) {
-        // Update any matching hardcoded church with DB data
-        final idx = allChurches.indexWhere((c) => c['slug'] == dbChurch['slug']);
-        final isVerified = dbChurch['is_verified'] == true;
-        if (idx >= 0) {
-          allChurches[idx] = {...allChurches[idx], ...dbChurch, '_registered': isVerified};
-        } else {
-          allChurches.add({...dbChurch, '_registered': isVerified});
-        }
-      }
+      final tenantService = ref.read(tenantServiceProvider);
+      final allTenants = await tenantService.getAllTenants();
 
       // Add distance if position available
-      if (_currentPosition != null) {
-        for (var church in allChurches) {
-          final lat = (church['latitude'] ?? 0.0) as num;
-          final lng = (church['longitude'] ?? 0.0) as num;
-          if (lat != 0.0) {
-            final distance = Geolocator.distanceBetween(
-              _currentPosition!.latitude, 
-              _currentPosition!.longitude, 
-              lat.toDouble(), 
-              lng.toDouble()
-            );
-            church['_distance'] = distance;
+      final pos = _currentPosition;
+      if (pos != null) {
+        for (var tenant in allTenants) {
+          final lat = _parseDouble(tenant['latitude']);
+          final lng = _parseDouble(tenant['longitude']);
+          if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+            try {
+              final distance = Geolocator.distanceBetween(
+                pos.latitude,
+                pos.longitude,
+                lat,
+                lng,
+              );
+              tenant['_distance'] = distance;
+            } catch (e) {
+              debugPrint('Distance calculation error: $e');
+            }
           }
         }
       }
 
       // Sort: Proximity First (if location available), otherwise Registered First
-      allChurches.sort((a, b) {
+      allTenants.sort((a, b) {
         if (_currentPosition != null) {
-          final distA = (a['_distance'] ?? 9999999.0) as double;
-          final distB = (b['_distance'] ?? 9999999.0) as double;
+          final distA = (a['_distance'] as num?)?.toDouble() ?? 999999999.0;
+          final distB = (b['_distance'] as num?)?.toDouble() ?? 999999999.0;
           if (distA != distB) return distA.compareTo(distB);
         }
         final regA = a['_registered'] == true ? 0 : 1;
@@ -132,62 +119,53 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
         return regA.compareTo(regB);
       });
 
-      debugPrint('DB churches: ${registered.length}');
-      debugPrint('Total churches (merged): ${allChurches.length}');
       if (mounted) {
         setState(() {
-          _churches = allChurches;
-          _filteredChurches = allChurches;
-          _registeredIds.clear();
-          _registeredIds.addAll(regIds);
+          _tenants = allTenants;
+          _filteredTenants = allTenants;
           _loading = false;
         });
       }
-    } catch (e, stackTrace) {
-      debugPrint('Error fetching churches: $e');
-      debugPrint('Stack trace: $stackTrace');
+    } catch (e) {
+      debugPrint('Error fetching tenants: $e');
       if (mounted) {
         setState(() {
-          final offlineChurches = [
-            ..._getAllZambianChurches(),
-            ..._getAllZimbabweanChurches(),
-          ].map((c) {
-            final isROA = c['slug'] == 'rock-of-ages-kabulonga';
-            return {...c, '_registered': isROA};
-          }).toList();
-          _churches = offlineChurches;
-          _filteredChurches = offlineChurches;
+          _tenants = TenantService.fallbackChurches
+              .map(
+                (c) => ({
+                  ...c,
+                  '_registered': c['slug'] == 'rock-of-ages-kabulonga',
+                }),
+              )
+              .toList();
+          _filteredTenants = _tenants;
           _loading = false;
         });
       }
     }
   }
 
-  List<Map<String, dynamic>> _getAllZambianChurches() {
-    return TenantService.fallbackChurches.where((c) => c['country'] == 'Zambia').toList();
-  }
-
-  List<Map<String, dynamic>> _getAllZimbabweanChurches() {
-    return TenantService.fallbackChurches.where((c) => c['country'] == 'Zimbabwe').toList();
-  }
-
-  void _filterChurches(String query) {
+  void _filterTenants(String query) {
     setState(() {
       if (query.isEmpty) {
         if (_showOnlyRegistered) {
-          _filteredChurches = _churches.where((c) => c['_registered'] == true).toList();
+          _filteredTenants = _tenants
+              .where((c) => c['_registered'] == true)
+              .toList();
         } else {
-          _filteredChurches = _churches;
+          _filteredTenants = _tenants;
         }
       } else {
-        _filteredChurches = _churches.where((c) {
+        _filteredTenants = _tenants.where((c) {
           final name = (c['name'] ?? '').toString().toLowerCase();
           final address = (c['address'] ?? '').toString().toLowerCase();
           final country = (c['country'] ?? '').toString().toLowerCase();
-          final matchesQuery = name.contains(query.toLowerCase()) || 
-                               address.contains(query.toLowerCase()) ||
-                               country.contains(query.toLowerCase());
-          
+          final type = (c['type'] ?? '').toString().toLowerCase();
+          final matchesQuery =
+              name.contains(query.toLowerCase()) ||
+              address.contains(query.toLowerCase()) ||
+              country.contains(query.toLowerCase()) ||
+              type.contains(query.toLowerCase());
           if (_showOnlyRegistered) {
             return matchesQuery && c['_registered'] == true;
           }
@@ -202,53 +180,53 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
     final profileAsync = ref.watch(profileProvider);
     final isSuperadmin = profileAsync.value?.isSuperadmin == true;
 
-    final center = _currentPosition != null 
-        ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
-        : (_currentCountry == "Zimbabwe" ? const LatLng(-17.825, 31.053) : const LatLng(-15.3875, 28.3228));
+    final pos = _currentPosition;
+    final center = pos != null
+        ? LatLng(pos.latitude, pos.longitude)
+        : const LatLng(-15.3875, 28.3228);
 
     return Scaffold(
       body: Stack(
         children: [
           ChurchMap(
             center: center,
-            pmtilesUrl: _currentCountry == "Zimbabwe" 
-                ? dotenv.get('MAPS_ZIMBABWE_URL') 
-                : dotenv.get('MAPS_ZAMBIA_URL'),
-            zoom: _currentPosition != null ? 13 : 6,
+            pmtilesUrl: dotenv.get('MAPS_ZAMBIA_URL'),
+            zoom: pos != null ? 13 : 6,
             showPin: true,
             initialPinPosition: _pinPosition,
             onPinChanged: (point) {
               setState(() => _pinPosition = point);
             },
-            showAddressSearch: true,
-            addressSearchHint: "Search address in $_currentCountry...",
-            onAddressSelected: (address) {
-              _searchController.text = address;
-            },
-            markers: _filteredChurches.map((church) {
-              final lat = (church['latitude'] ?? -15.3875) as num;
-              final lng = (church['longitude'] ?? 28.3228) as num;
-              final isRegistered = church['_registered'] == true;
-              return buildChurchMarker(
-                point: LatLng(lat.toDouble(), lng.toDouble()),
-                name: church['name'] ?? 'Church',
-                color: isRegistered ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                logoUrl: church['logo_url'],
-                onTap: () {
-                  if (isRegistered) {
-                    _selectChurch(church);
-                  } else {
-                    _showNotRegisteredDialog(church);
-                  }
-                },
-              );
-            }).toList() + [
-
-              if (_currentPosition != null) buildUserMarker(point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude)),
-            ],
+            markers:
+                _filteredTenants.map((tenant) {
+                  final lat = _parseDouble(tenant['latitude']) ?? -15.3875;
+                  final lng = _parseDouble(tenant['longitude']) ?? 28.3228;
+                  final isRegistered = tenant['_registered'] == true;
+                  return buildChurchMarker(
+                    point: LatLng(lat, lng),
+                    name: tenant['name'] ?? 'Tenant',
+                    color: isRegistered
+                        ? Theme.of(context).primaryColor
+                        : Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.5),
+                    logoUrl: tenant['logo_url'],
+                    onTap: () {
+                      if (isRegistered) {
+                        _selectTenant(tenant);
+                      } else {
+                        _showNotRegisteredDialog(tenant);
+                      }
+                    },
+                  );
+                }).toList() +
+                [
+                  if (pos != null)
+                    buildUserMarker(point: LatLng(pos.latitude, pos.longitude)),
+                ],
           ),
           _buildSearchOverlay(),
-          _buildChurchList(isSuperadmin),
+          _buildTenantList(isSuperadmin),
         ],
       ),
     );
@@ -265,22 +243,31 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 10,
+            ),
+          ],
         ),
         child: TextField(
           controller: _searchController,
-          onChanged: _filterChurches,
+          onChanged: _filterTenants,
           decoration: InputDecoration(
-            hintText: "Search churches in $_currentCountry...",
+            hintText: "Search churches & bookshops in $_currentCountry...",
             border: InputBorder.none,
-            icon: Icon(Icons.search, size: 20, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+            icon: Icon(
+              Icons.search,
+              size: 20,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildChurchList(bool isSuperadmin) {
+  Widget _buildTenantList(bool isSuperadmin) {
     final theme = Theme.of(context);
     return Align(
       alignment: Alignment.bottomCenter,
@@ -289,14 +276,23 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20)],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 20,
+            ),
+          ],
         ),
         child: Column(
           children: [
             Container(
               margin: const EdgeInsets.symmetric(vertical: 15),
-              width: 50, height: 5,
-              decoration: BoxDecoration(color: theme.colorScheme.onSurface.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
+              width: 50,
+              height: 5,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
@@ -305,82 +301,238 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text("Available Churches", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
-                      Row(
-                        children: [
-                          Icon(Icons.location_on, size: 14, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-                          const SizedBox(width: 4),
-                          Text(_currentCountry, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12, fontWeight: FontWeight.bold)),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Select Church or Tenant",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              "Churches & Bookshops in $_currentCountry",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.primaryColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: theme.primaryColor.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _currentCountry,
+                            isDense: true,
+                            icon: Icon(
+                              Icons.keyboard_arrow_down,
+                              size: 16,
+                              color: theme.primaryColor,
+                            ),
+                            style: TextStyle(
+                              color: theme.primaryColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            items: _supportedCountries
+                                .map(
+                                  (c) => DropdownMenuItem(
+                                    value: c,
+                                    child: Text(c),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              if (value == null || value == _currentCountry) {
+                                return;
+                              }
+                              setState(() {
+                                _currentCountry = value;
+                                _filterTenants(_searchController.text);
+                              });
+                            },
+                          ),
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _showOnlyRegistered = !_showOnlyRegistered;
-                        _filterChurches(_searchController.text);
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _showOnlyRegistered ? theme.primaryColor.withValues(alpha: 0.15) : theme.colorScheme.onSurface.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _showOnlyRegistered ? theme.primaryColor : theme.colorScheme.onSurface.withValues(alpha: 0.15),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _showOnlyRegistered = !_showOnlyRegistered;
+                            _filterTenants(_searchController.text);
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _showOnlyRegistered
+                                ? theme.primaryColor.withValues(alpha: 0.15)
+                                : theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.05,
+                                  ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _showOnlyRegistered
+                                  ? theme.primaryColor
+                                  : theme.colorScheme.onSurface.withValues(
+                                      alpha: 0.15,
+                                    ),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _showOnlyRegistered
+                                    ? Icons.check_circle
+                                    : Icons.circle_outlined,
+                                size: 14,
+                                color: _showOnlyRegistered
+                                    ? theme.primaryColor
+                                    : theme.colorScheme.onSurface.withValues(
+                                        alpha: 0.5,
+                                      ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                "Registered Only",
+                                style: TextStyle(
+                                  color: _showOnlyRegistered
+                                      ? theme.primaryColor
+                                      : theme.colorScheme.onSurface.withValues(
+                                          alpha: 0.7,
+                                        ),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _showOnlyRegistered ? Icons.check_circle : Icons.circle_outlined,
-                            size: 14,
-                            color: _showOnlyRegistered ? theme.primaryColor : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      const SizedBox(width: 10),
+                      GestureDetector(
+                        onTap: _fetchTenants,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            "Registered Only", 
-                            style: TextStyle(
-                              color: _showOnlyRegistered ? theme.primaryColor : theme.colorScheme.onSurface.withValues(alpha: 0.7), 
-                              fontSize: 11, 
-                              fontWeight: FontWeight.bold
-                            )
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.05,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                        ],
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.refresh,
+                                size: 14,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                "Refresh",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
             ),
             Expanded(
               child: _loading
-                ? Center(child: CircularProgressIndicator(color: theme.primaryColor))
-                : _filteredChurches.isEmpty
+                  ? Center(
+                      child: CircularProgressIndicator(
+                        color: theme.primaryColor,
+                      ),
+                    )
+                  : _filteredTenants.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                           Icon(Icons.church, size: 50, color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
+                          Icon(
+                            Icons.church,
+                            size: 50,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.2,
+                            ),
+                          ),
                           const SizedBox(height: 10),
-                          Text("No churches found", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
+                          Text(
+                            "No tenants found",
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.4,
+                              ),
+                            ),
+                          ),
                           const SizedBox(height: 5),
-                          TextButton(onPressed: _fetchChurches, child: const Text("Tap to retry")),
+                          TextButton(
+                            onPressed: _fetchTenants,
+                            child: const Text("Tap to retry"),
+                          ),
                         ],
                       ),
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 25),
-                      itemCount: _filteredChurches.length + 1,
+                      itemCount: _filteredTenants.length + 1,
                       itemBuilder: (context, index) {
-                        if (index == _filteredChurches.length) {
+                        if (index == _filteredTenants.length) {
                           return _buildOnboardingTile();
                         }
-                        return _buildChurchTile(_filteredChurches[index], isSuperadmin);
+                        return _buildTenantTile(
+                          _filteredTenants[index],
+                          isSuperadmin,
+                        );
                       },
                     ),
             ),
@@ -390,16 +542,17 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
     );
   }
 
-  Widget _buildChurchTile(Map<String, dynamic> church, bool isSuperadmin) {
+  Widget _buildTenantTile(Map<String, dynamic> tenant, bool isSuperadmin) {
     final theme = Theme.of(context);
-    final isRegistered = church['_registered'] == true;
+    final isRegistered = tenant['_registered'] == true;
+    final isBookshop = tenant['type'] == 'bookshop';
 
     return GestureDetector(
       onTap: () {
-        if (isRegistered) {
-          _selectChurch(church);
+        if (isRegistered || isBookshop) {
+          _selectTenant(tenant);
         } else {
-          _showNotRegisteredDialog(church);
+          _showNotRegisteredDialog(tenant);
         }
       },
       child: Container(
@@ -408,25 +561,47 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isRegistered ? theme.primaryColor.withValues(alpha: 0.3) : theme.colorScheme.onSurface.withValues(alpha: 0.1)),
+          border: Border.all(
+            color: isRegistered
+                ? theme.primaryColor.withValues(alpha: 0.3)
+                : theme.colorScheme.onSurface.withValues(alpha: 0.1),
+          ),
         ),
         child: Row(
           children: [
             CircleAvatar(
               radius: 25,
-              backgroundColor: isRegistered ? theme.primaryColor.withValues(alpha: 0.1) : theme.colorScheme.onSurface.withValues(alpha: 0.1),
+              backgroundColor: isRegistered
+                  ? theme.primaryColor.withValues(alpha: 0.1)
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.1),
               child: ClipOval(
-                child: church['logo_url'] != null && (church['logo_url'] as String).isNotEmpty
+                child:
+                    tenant['logo_url'] != null &&
+                        (tenant['logo_url'] as String).isNotEmpty
                     ? Image.network(
-                        church['logo_url'],
+                        tenant['logo_url'],
                         width: 50,
                         height: 50,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
-                          return Icon(Icons.church, color: isRegistered ? theme.primaryColor : theme.colorScheme.onSurface.withValues(alpha: 0.5));
+                          return Icon(
+                            isBookshop ? Icons.store : Icons.church,
+                            color: isRegistered
+                                ? theme.primaryColor
+                                : theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  ),
+                          );
                         },
                       )
-                    : Icon(Icons.church, color: isRegistered ? theme.primaryColor : theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                    : Icon(
+                        isBookshop ? Icons.store : Icons.church,
+                        color: isRegistered
+                            ? theme.primaryColor
+                            : theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
+                      ),
               ),
             ),
             const SizedBox(width: 15),
@@ -434,50 +609,119 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    church['name'] ?? 'Church',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isRegistered ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          tenant['name'] ?? 'Unknown',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: isRegistered
+                                ? theme.colorScheme.onSurface
+                                : theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 3),
-                  Text(
-                    "${church['address'] ?? 'Zambia'}, ${church['country'] ?? 'Zambia'}",
-                    style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                  Row(
+                    children: [
+                      Text(
+                        isBookshop
+                            ? 'Bookshop'
+                            : (tenant['address'] ?? 'Zambia'),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isBookshop
+                              ? Colors.blue.shade50
+                              : Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          isBookshop ? 'Bookshop' : 'Church',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: isBookshop ? Colors.blue : Colors.green,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  if (church['_distance'] != null)
+                  if (tenant['_distance'] != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
-                        "${((church['_distance'] as double) / 1000).toStringAsFixed(1)} km away",
-                        style: TextStyle(fontSize: 10, color: theme.primaryColor, fontWeight: FontWeight.bold),
+                        "${(((tenant['_distance'] as num).toDouble()) / 1000).toStringAsFixed(1)} km away",
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: theme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                 ],
               ),
             ),
-            if (isRegistered)
+            if (isRegistered || isBookshop)
               Column(
                 children: [
-                   IconButton(
-                      icon: Icon(Icons.map, size: 20, color: theme.primaryColor),
+                  IconButton(
+                    icon: Icon(Icons.map, size: 20, color: theme.primaryColor),
                     onPressed: () {
-                      final lat = church['latitude'];
-                      final lng = church['longitude'];
+                      final lat = tenant['latitude'];
+                      final lng = tenant['longitude'];
                       if (lat != null && lng != null) {
-                         final uri = Uri.parse("https://www.google.com/maps/search/?api=1&query=$lat,$lng");
-                         launchUrl(uri, mode: LaunchMode.externalApplication);
+                        final uri = Uri.parse(
+                          "https://www.google.com/maps/search/?api=1&query=$lat,$lng",
+                        );
+                        launchUrl(uri, mode: LaunchMode.inAppWebView);
                       }
                     },
                   ),
-                   Icon(Icons.check_circle, size: 16, color: Colors.green),
+                  Icon(Icons.check_circle, size: 16, color: Colors.green),
                 ],
               )
             else
               GestureDetector(
-                onTap: () => _showNotRegisteredDialog(church),
+                onTap: () => _showNotRegisteredDialog(tenant),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: theme.colorScheme.onSurface.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                  child: Text("Pending", style: TextStyle(fontSize: 9, color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontWeight: FontWeight.bold)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    "Pending",
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             if (isSuperadmin) ...[
@@ -488,8 +732,10 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
                   color: isRegistered ? Colors.red : Colors.green,
                   size: 24,
                 ),
-                onPressed: () => _toggleChurchVerification(church),
-                tooltip: isRegistered ? "Remove Registered Status" : "Approve/Register Church",
+                onPressed: () => _toggleTenantVerification(tenant),
+                tooltip: isRegistered
+                    ? "Remove Registered Status"
+                    : "Approve/Register",
               ),
             ],
           ],
@@ -498,15 +744,20 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
     );
   }
 
-  Future<void> _toggleChurchVerification(Map<String, dynamic> church) async {
-    final slug = church['slug'] as String;
-    final currentlyRegistered = church['_registered'] == true;
-    
+  Future<void> _toggleTenantVerification(Map<String, dynamic> tenant) async {
+    final slug = (tenant['slug'] ?? tenant['id'] ?? 'unknown-tenant')
+        .toString();
+    final currentlyRegistered = tenant['_registered'] == true;
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(currentlyRegistered ? "Remove Registration" : "Approve Registration"),
-        content: Text("Are you sure you want to set ${church['name'] ?? 'this church'} to ${currentlyRegistered ? 'Pending' : 'Approved'}?"),
+        title: Text(
+          currentlyRegistered ? "Remove Registration" : "Approve Registration",
+        ),
+        content: Text(
+          "Are you sure you want to set ${tenant['name'] ?? 'this tenant'} to ${currentlyRegistered ? 'Pending' : 'Approved'}?",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -536,18 +787,18 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
           .select('id')
           .eq('slug', slug)
           .maybeSingle();
-      
+
       if (dbRes == null) {
         await Supabase.instance.client.from('churches').insert({
           'slug': slug,
-          'name': church['name'] ?? 'Church',
-          'logo_url': church['logo_url'],
-          'primary_color': church['primary_color'] ?? '#FFD700',
-          'accent_color': church['accent_color'] ?? '#1A1A1A',
-          'latitude': church['latitude'],
-          'longitude': church['longitude'],
-          'address': church['address'],
-          'country': church['country'] ?? 'Zambia',
+          'name': tenant['name'] ?? 'Unknown',
+          'logo_url': tenant['logo_url'],
+          'primary_color': tenant['primary_color'] ?? '#FFD700',
+          'accent_color': tenant['accent_color'] ?? '#1A1A1A',
+          'latitude': tenant['latitude'],
+          'longitude': tenant['longitude'],
+          'address': tenant['address'],
+          'country': tenant['country'] ?? 'Zambia',
           'is_verified': !currentlyRegistered,
         });
       } else {
@@ -556,25 +807,32 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
             .update({'is_verified': !currentlyRegistered})
             .eq('slug', slug);
       }
-      
-      await _fetchChurches();
-      
+
+      await _fetchTenants();
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("${church['name']} set to ${!currentlyRegistered ? 'Approved' : 'Pending'}"),
-            backgroundColor: !currentlyRegistered ? Colors.green : Colors.orange,
+            content: Text(
+              "${tenant['name']} set to ${!currentlyRegistered ? 'Approved' : 'Pending'}",
+            ),
+            backgroundColor: !currentlyRegistered
+                ? Colors.green
+                : Colors.orange,
           ),
         );
       }
     } catch (e) {
-      debugPrint("Error toggling church verification: $e");
+      debugPrint("Error toggling tenant verification: $e");
       if (mounted) {
         setState(() {
           _loading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to update status: $e"), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text("Failed to update status: $e"),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -582,40 +840,150 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
 
   Widget _buildOnboardingTile() {
     final theme = Theme.of(context);
-    return GestureDetector(
-      onTap: () => context.push('/register-church'),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 30, top: 10),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: theme.primaryColor.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(25),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: theme.primaryColor, shape: BoxShape.circle),
-               child: Icon(Icons.add, color: theme.colorScheme.onSecondary, size: 20),
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: () => context.push('/register-church'),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 25, vertical: 6),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: theme.primaryColor.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(25),
             ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Register a New Church", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: theme.colorScheme.onSurface)),
-                  Text("Join the Kingdom digital ecosystem today.", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11)),
-                ],
-              ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.primaryColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.add,
+                    color: theme.colorScheme.onSecondary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Register a New Church",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      Text(
+                        "Join the digital ecosystem today.",
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, size: 18, color: theme.primaryColor),
+              ],
             ),
-             Icon(Icons.chevron_right, size: 18, color: theme.primaryColor),
-          ],
+          ),
         ),
-      ),
+        GestureDetector(
+          onTap: () => _showInviteCodeDialog(context),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 25, vertical: 6),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: const BoxDecoration(
+                    color: Colors.amber,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(LucideIcons.key, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Enter Invite Code", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: theme.colorScheme.onSurface)),
+                      Text("Join a church using a pastor's invite code.", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, size: 18, color: Colors.amber),
+              ],
+            ),
+          ),
+        ),
+        GestureDetector(
+          onTap: () => context.push('/bookshop-onboarding'),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 25, vertical: 6),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.store, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Open a Bookshop",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      Text(
+                        "Start selling Christian literature & resources.",
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, size: 18, color: Colors.blue),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 30),
+      ],
     );
   }
 
-  void _showNotRegisteredDialog(Map<String, dynamic> church) {
+  void _showNotRegisteredDialog(Map<String, dynamic> tenant) {
     final theme = Theme.of(context);
     showDialog(
       context: context,
@@ -623,9 +991,17 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
         title: Row(
           children: [
-             Icon(Icons.info, color: theme.primaryColor),
+            Icon(Icons.info, color: theme.primaryColor),
             const SizedBox(width: 10),
-            Expanded(child: Text("Not Yet Available", style: TextStyle(fontSize: 18, color: theme.colorScheme.onSurface))),
+            Expanded(
+              child: Text(
+                "Not Yet Available",
+                style: TextStyle(
+                  fontSize: 18,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
           ],
         ),
         content: Column(
@@ -633,59 +1009,165 @@ class _SelectChurchScreenState extends ConsumerState<SelectChurchScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              church['name'] ?? 'This church',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: theme.colorScheme.onSurface),
+              tenant['name'] ?? 'This church',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
             const SizedBox(height: 10),
             Text(
               "This church has not yet registered on Church On App. Once they sign up and activate their profile, you'll be able to join their community.",
-              style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), height: 1.5),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 15),
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: theme.primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                color: theme.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Row(
                 children: [
-                   Icon(Icons.notifications_active, size: 16, color: theme.primaryColor),
+                  Icon(
+                    Icons.notifications_active,
+                    size: 16,
+                    color: theme.primaryColor,
+                  ),
                   SizedBox(width: 8),
-                  Expanded(child: Text("We'll notify you when they join!", style: TextStyle(fontSize: 12, color: theme.primaryColor, fontWeight: FontWeight.bold))),
+                  Expanded(
+                    child: Text(
+                      "We'll notify you when they join!",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text("OK", style: TextStyle(color: theme.primaryColor))),
-          ElevatedButton(
-            onPressed: () async {
-              final churchName = church['name'] ?? 'Unknown Church';
-              final location = church['address'] ?? 'Zambia';
-              
-              await ref.read(expansionServiceProvider).trackChurchInterest(
-                churchName: churchName,
-                location: location,
-                type: 'notify_on_registration',
-              );
-              
-              if (mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Expansion interest logged for $churchName!"), backgroundColor: Colors.green),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: theme.primaryColor, foregroundColor: theme.colorScheme.onSecondary),
-            child: const Text("NOTIFY ME"),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("OK", style: TextStyle(color: theme.primaryColor)),
           ),
         ],
       ),
     );
   }
 
-  void _selectChurch(Map<String, dynamic> church) {
-    ref.read(currentTenantProvider.notifier).setTenant(Tenant.fromMap(church));
-    context.go('/');
+  void _showInviteCodeDialog(BuildContext context) {
+    final codeController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Enter Invite Code"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Paste the invite code your pastor shared with you."),
+            const SizedBox(height: 16),
+            TextField(
+              controller: codeController,
+              decoration: InputDecoration(
+                hintText: "e.g. COA-ZM_CH_0001",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(LucideIcons.key),
+              ),
+              textCapitalization: TextCapitalization.characters,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () {
+              final code = codeController.text.trim();
+              Navigator.pop(ctx);
+              if (code.isNotEmpty) {
+                context.go('/join?code=$code');
+              }
+            },
+            child: const Text("Join"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _selectTenant(Map<String, dynamic> tenant) async {
+    try {
+      final rawId = tenant['id']?.toString() ?? '';
+      final rawSlug = tenant['slug']?.toString() ?? '';
+      final finalId = rawId.isNotEmpty ? rawId : (rawSlug.isNotEmpty ? rawSlug : 'zm_1');
+      final finalSlug = rawSlug.isNotEmpty ? rawSlug : finalId;
+
+      final tenantObj = Tenant.fromMap({
+        ...tenant,
+        'id': finalId,
+        'slug': finalSlug,
+        'name': tenant['name'] ?? 'Church On App',
+      });
+
+      await ref
+          .read(currentTenantProvider.notifier)
+          .setTenant(tenantObj);
+
+      ref.invalidate(profileProvider);
+
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        try {
+          String newUserName = 'A new member';
+          final meta = user.userMetadata;
+          if (meta is Map<String, dynamic>) {
+            final fullName = meta['full_name'];
+            if (fullName != null && fullName.toString().trim().isNotEmpty) {
+              newUserName = fullName.toString().trim();
+            } else if (user.email != null && user.email!.isNotEmpty) {
+              newUserName = user.email!;
+            }
+          } else if (user.email != null && user.email!.isNotEmpty) {
+            newUserName = user.email!;
+          }
+
+          final token = Supabase.instance.client.auth.currentSession?.accessToken;
+          if (token != null) {
+            await Supabase.instance.client.functions.invoke(
+              'new-member-notify',
+              body: {
+                'newUserId': user.id,
+                'newUserName': newUserName,
+                'churchId': tenantObj.id,
+                'churchName': tenantObj.name,
+              },
+              headers: {'Authorization': 'Bearer $token'},
+            );
+          }
+        } catch (e) {
+          debugPrint('notify join error: $e');
+        }
+      }
+
+      if (mounted) {
+        ref.read(navBarVisibleProvider.notifier).show();
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          context.go('/');
+        }
+      }
+    } catch (e, stack) {
+      debugPrint('TENANT SELECTION ERROR: $e');
+      debugPrint("TENANT ERROR: $e\n$stack");
+    }
   }
 }
-

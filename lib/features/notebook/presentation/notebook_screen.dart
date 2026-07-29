@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:church_on_app/features/notebook/data/note_model.dart';
 import 'package:church_on_app/features/notebook/data/notebook_service.dart';
 import 'package:church_on_app/core/providers/auth_provider.dart';
+import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 
 class NotebookScreen extends ConsumerStatefulWidget {
   const NotebookScreen({super.key});
@@ -16,6 +17,13 @@ class NotebookScreen extends ConsumerStatefulWidget {
 
 class _NotebookScreenState extends ConsumerState<NotebookScreen> {
   String _searchQuery = "";
+  Timer? _debounceTimer;
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +37,7 @@ class _NotebookScreenState extends ConsumerState<NotebookScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text("My Kingdom Journal", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        title: Text("My Journal", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: Colors.black,
@@ -57,7 +65,7 @@ class _NotebookScreenState extends ConsumerState<NotebookScreen> {
                   },
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const ListSkeleton(count: 4),
               error: (e, st) => Center(child: Text("Error: $e")),
             ),
           ),
@@ -77,7 +85,12 @@ class _NotebookScreenState extends ConsumerState<NotebookScreen> {
       padding: const EdgeInsets.all(20),
       color: Colors.white,
       child: TextField(
-        onChanged: (v) => setState(() => _searchQuery = v),
+        onChanged: (v) {
+          _debounceTimer?.cancel();
+          _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+            if (mounted) setState(() => _searchQuery = v);
+          });
+        },
         decoration: InputDecoration(
           hintText: "Search your revelations...",
           prefixIcon: const Icon(LucideIcons.search, size: 20),
@@ -269,7 +282,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
   Widget _buildEditorView() {
     return ListView(
-      padding: const EdgeInsets.all(25),
+      padding: EdgeInsets.fromLTRB(25, 25, 25, MediaQuery.of(context).viewInsets.bottom + 100),
       children: [
         TextField(
           controller: _titleCtrl,
@@ -301,7 +314,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     final fragments = _parseContent(content);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(25),
+      padding: EdgeInsets.fromLTRB(25, 25, 25, MediaQuery.of(context).viewInsets.bottom + 100),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

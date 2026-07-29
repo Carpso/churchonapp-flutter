@@ -12,6 +12,7 @@ class CoinsService {
   static const int _dailyCoins = 25;
   static const int _streakBonus = 50;
   static const int _attendanceCoins = 50;
+  static const int _referralCoins = 100;
   static const Duration _collectCooldown = Duration(hours: 20);
 
   Future<bool> canCollectDaily() async {
@@ -70,6 +71,77 @@ class CoinsService {
     });
 
     return bonus;
+  }
+
+  Future<int> addReferralCoins() async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+
+    await _client.rpc('add_coins', params: {
+      'user_id': user.id,
+      'amount': _referralCoins,
+    });
+
+    return _referralCoins;
+  }
+
+  Future<int> addAppOpenStreakCoins(int consecutiveDays) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+
+    if (consecutiveDays <= 0) return 0;
+
+    int coins = 0;
+    if (consecutiveDays == 1) {
+      coins = 5;
+    } else if (consecutiveDays <= 6) {
+      coins = 10;
+    } else if (consecutiveDays <= 13) {
+      coins = 20;
+    } else {
+      coins = 30;
+    }
+
+    await _client.rpc('add_coins', params: {
+      'user_id': user.id,
+      'amount': coins,
+    });
+
+    return coins;
+  }
+
+  Future<void> redeemAtBookshop({
+    required int coinAmount,
+    required String bookshopId,
+    required String description,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+
+    await _client.rpc('redeem_coins_atomic', params: {
+      'p_user_id': user.id,
+      'p_amount': coinAmount,
+      'p_redemption_type': 'bookshop',
+      'p_partner_id': bookshopId,
+      'p_description': description,
+    });
+  }
+
+  Future<void> redeemAtMerchStore({
+    required int coinAmount,
+    required String itemId,
+    required String description,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+
+    await _client.rpc('redeem_coins_atomic', params: {
+      'p_user_id': user.id,
+      'p_amount': coinAmount,
+      'p_redemption_type': 'merch_store',
+      'p_partner_id': itemId,
+      'p_description': description,
+    });
   }
 
   Future<int> getCoins() async {

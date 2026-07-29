@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:async';
 import 'dart:math';
@@ -476,7 +477,7 @@ class _DavidsSlingState extends KingdomGameEngineState<DavidsSlingGame> {
             Positioned.fill(
               child: Opacity(
                 opacity: 0.1,
-                child: Image.network("https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1000", fit: BoxFit.cover),
+                child: AppImage('', fit: BoxFit.cover),
               ),
             ),
             _buildUI(),

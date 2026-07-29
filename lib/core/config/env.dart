@@ -21,5 +21,10 @@ class Env {
   static String get lipilaPayoutWebhookUrl =>
       dotenv.env['LIPILA_PAYOUT_WEBHOOK_URL'] ??
       'https://supabase.churchonapp.com/functions/v1/lipila-webhook';
+
+  static String get coaTreasuryPhone => dotenv.env['COA_TREASURY_PHONE'] ?? '260977000000';
+  static String get coaMoMoNumber => dotenv.env['COA_MOMO_NUMBER'] ?? '0977000000';
+  static String get coaMoMoName => dotenv.env['COA_MOMO_NAME'] ?? 'Church On App Official';
+  static String get treasuryId => dotenv.env['TREASURY_ID'] ?? '';
 }
 

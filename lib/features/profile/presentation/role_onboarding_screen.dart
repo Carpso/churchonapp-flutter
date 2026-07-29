@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/features/admin/data/role_onboarding_service.dart';
+import 'package:church_on_app/features/marketplace/presentation/bookshop_onboarding_screen.dart';
+import 'package:church_on_app/features/marketplace/presentation/post_product_screen.dart';
 
 class RoleOnboardingScreen extends ConsumerStatefulWidget {
   final String role;
@@ -41,19 +43,31 @@ class _RoleOnboardingScreenState extends ConsumerState<RoleOnboardingScreen> {
             : null,
         onStepCancel: _currentStep > 0 ? () => setState(() => _currentStep--) : null,
         controlsBuilder: (context, details) {
+          final isLastStep = _currentStep >= steps.length - 1;
           return Padding(
             padding: const EdgeInsets.only(top: 12),
             child: Row(
               children: [
-                if (_currentStep < steps.length - 1)
+                if (!isLastStep)
                   ElevatedButton(
                     onPressed: details.onStepContinue,
                     child: const Text('Continue'),
+                  ),
+                if (isLastStep)
+                  ElevatedButton(
+                    onPressed: () => _nextStep(steps.length),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    child: const Text('Complete Onboarding'),
                   ),
                 if (_currentStep > 0) ...[
                   const SizedBox(width: 12),
                   TextButton(onPressed: details.onStepCancel, child: const Text('Back')),
                 ],
+                const SizedBox(width: 12),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Skip', style: TextStyle(color: Colors.grey)),
+                ),
               ],
             ),
           );
@@ -132,6 +146,7 @@ class _RoleOnboardingScreenState extends ConsumerState<RoleOnboardingScreen> {
             title: 'Create Your Bookshop',
             desc: 'Set up your bookshop name, description, logo, and contact info.',
             action: 'Set Up Shop',
+            onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BookshopOnboardingScreen())),
           ),
         },
         {
@@ -141,6 +156,7 @@ class _RoleOnboardingScreenState extends ConsumerState<RoleOnboardingScreen> {
             title: 'Add Books & Items',
             desc: 'Upload your catalog with images, prices, and descriptions.',
             action: 'Add Items',
+            onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PostProductScreen(initialCategory: 'bookshop'))),
           ),
         },
         {
@@ -255,7 +271,7 @@ class _RoleOnboardingScreenState extends ConsumerState<RoleOnboardingScreen> {
     ];
   }
 
-  Widget _stepCard({required IconData icon, required String title, required String desc, required String action}) {
+  Widget _stepCard({required IconData icon, required String title, required String desc, required String action, VoidCallback? onAction}) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -269,7 +285,7 @@ class _RoleOnboardingScreenState extends ConsumerState<RoleOnboardingScreen> {
             const SizedBox(height: 8),
             Text(desc, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600])),
             const SizedBox(height: 16),
-            OutlinedButton(onPressed: () {}, child: Text(action)),
+            OutlinedButton(onPressed: onAction ?? () {}, child: Text(action)),
           ],
         ),
       ),

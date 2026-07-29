@@ -1,71 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:church_on_app/features/admin/data/admin_service.dart';
 import '../../../core/providers/profile_provider.dart';
+import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/features/finance/presentation/buy_coins_screen.dart';
+import 'package:church_on_app/features/finance/presentation/partner_redemption_screen.dart';
 
-class PayoutRequestScreen extends ConsumerStatefulWidget {
+class PayoutRequestScreen extends ConsumerWidget {
   const PayoutRequestScreen({super.key});
 
   @override
-  ConsumerState<PayoutRequestScreen> createState() => _PayoutRequestScreenState();
-}
-
-class _PayoutRequestScreenState extends ConsumerState<PayoutRequestScreen> {
-  final TextEditingController _amountController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
-  String _selectedNetwork = "MTN";
-  bool _submitting = false;
-
-  void _submitRequest() async {
-    if (_amountController.text.isEmpty || _phoneController.text.isEmpty) return;
-    
-    final amount = double.tryParse(_amountController.text) ?? 0;
-    final profile = ref.read(profileProvider).value;
-    if (profile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profile not loaded yet. Please wait.")));
-      return;
-    }
-    
-    if (amount <= 0 || amount > profile.coins) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid amount or insufficient balance")));
-      return;
-    }
-
-    setState(() => _submitting = true);
-    try {
-      await ref.read(adminServiceProvider).requestPayout(
-        amount: amount,
-        mobileNumber: _phoneController.text,
-        network: _selectedNetwork,
-      );
-      
-      // Deduct coins locally/optimistically (real deduction usually happens on server)
-      await ref.read(profileProvider.notifier).addCoins(-amount.toInt());
-
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payout request sent! Processing usually takes 1-2 hours.")));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
-        setState(() => _submitting = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(profileProvider);
     return profileAsync.when(
       data: (profile) => _buildScreen(context, profile),
-      loading: () => const Scaffold(
-        backgroundColor: Color(0xFFFFFAEB),
-        body: Center(child: CircularProgressIndicator()),
+      loading: () => Scaffold(
+        backgroundColor: const Color(0xFFFFFAEB),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ShimmerLoader.rectangular(width: double.infinity, height: 100),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  ShimmerLoader.rectangular(width: 140, height: 100),
+                  SizedBox(width: 12),
+                  ShimmerLoader.rectangular(width: 140, height: 100),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
       error: (e, st) => Scaffold(
-        backgroundColor: Color(0xFFFFFAEB),
+        backgroundColor: const Color(0xFFFFFAEB),
         body: Center(child: Text('Error: $e')),
       ),
     );
@@ -77,173 +47,251 @@ class _PayoutRequestScreenState extends ConsumerState<PayoutRequestScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
-        title: const Text("Mobile Money Payout", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Church Coins", style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(25),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildBalanceCard(balance),
-            const SizedBox(height: 30),
-            const Text("Withdraw Funds", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            _buildInputField("Amount to Withdraw (K)", _amountController, LucideIcons.banknote, TextInputType.number),
-            const SizedBox(height: 15),
-            _buildInputField("Mobile Money Number", _phoneController, LucideIcons.phone, TextInputType.phone),
-            const SizedBox(height: 15),
-            _buildNetworkSelector(),
-            const SizedBox(height: 40),
-            _buildSubmitButton(),
-            const SizedBox(height: 20),
-            const Center(
-              child: Text(
-                "Secure Payout via Kingdom Settlement Engine",
-                style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold),
-              ),
+            _buildBalanceCard(context, balance),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildActionCard(
+                    context: context,
+                    icon: LucideIcons.shoppingCart,
+                    title: "Buy Coins",
+                    subtitle: "Purchase with\nMobile Money",
+                    color: Colors.green,
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BuyCoinsScreen())),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildActionCard(
+                    context: context,
+                    icon: LucideIcons.gift,
+                    title: "Redeem",
+                    subtitle: "Spend coins at\npartner locations",
+                    color: Colors.amber,
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PartnerRedemptionScreen())),
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 24),
+            const Text("How to Earn Coins", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            _buildEarningItem(LucideIcons.calendarCheck, "Daily App Opens", "Open the app every day to build your streak"),
+            const SizedBox(height: 10),
+            _buildEarningItem(LucideIcons.flame, "Reading Streaks", "Read your Bible daily for bonus coins"),
+            const SizedBox(height: 10),
+            _buildEarningItem(LucideIcons.userPlus, "Referrals", "Invite friends and earn 100 CC per referral"),
+            const SizedBox(height: 10),
+            _buildEarningItem(LucideIcons.scanLine, "Attendance", "Scan in at church services"),
+            const SizedBox(height: 10),
+            _buildEarningItem(LucideIcons.gamepad2, "Bible Quiz", "Participate in Bible quiz games"),
+            const SizedBox(height: 24),
+            const Text("What You Can Redeem", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            _buildRedemptionOption(
+              icon: LucideIcons.bookOpen,
+              title: "Partner Bookshops",
+              subtitle: "Redeem coins for free books and Bibles at partner bookshops.",
+              color: Colors.orange,
+            ),
+            const SizedBox(height: 10),
+            _buildRedemptionOption(
+              icon: LucideIcons.coffee,
+              title: "Partner Coffee Shops",
+              subtitle: "Get free coffee and snacks from partner coffee shops.",
+              color: Colors.brown,
+            ),
+            const SizedBox(height: 10),
+            _buildRedemptionOption(
+              icon: LucideIcons.trophy,
+              title: "Bible Quiz Merch",
+              subtitle: "Redeem coins for exclusive Bible Quiz merchandise.",
+              color: Colors.blue,
+            ),
+            const SizedBox(height: 24),
+            _buildLegalDisclaimer(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBalanceCard(int balance) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+  Widget _buildBalanceCard(BuildContext context, int balance) {
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BuyCoinsScreen())),
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(30),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("TOTAL EARNINGS", style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
-          const SizedBox(height: 5),
-          Text("K ${balance.toDouble()}", style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
-        ],
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(25),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFD97706), Color(0xFFF59E0B)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("CHURCH COINS BALANCE", style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(LucideIcons.coins, color: Colors.white, size: 32),
+                  const SizedBox(width: 12),
+                  Text("$balance CC", style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900)),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text("BUY MORE", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  String detectZambianNetwork(String phone) {
-    final clean = phone.replaceAll(RegExp(r'\D'), '');
-    String localNumber = clean;
-    if (clean.startsWith('260')) {
-      localNumber = '0${clean.substring(3)}';
-    } else if (!clean.startsWith('0') && clean.length == 9) {
-      localNumber = '0$clean';
-    }
-    
-    if (localNumber.startsWith('096') || localNumber.startsWith('076')) {
-      return "MTN";
-    } else if (localNumber.startsWith('097') || localNumber.startsWith('077')) {
-      return "Airtel";
-    } else if (localNumber.startsWith('095') || localNumber.startsWith('075')) {
-      return "Zamtel";
-    }
-    return "MTN";
+  Widget _buildActionCard({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 10),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const SizedBox(height: 4),
+            Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 11), textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
   }
 
-  Widget _buildInputField(String label, TextEditingController controller, IconData icon, TextInputType type) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildEarningItem(IconData icon, String title, String subtitle) {
+    return Row(
       children: [
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 15),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
-          child: TextField(
-            controller: controller,
-            keyboardType: type,
-            onChanged: (val) {
-              if (type == TextInputType.phone) {
-                final detected = detectZambianNetwork(val);
-                if (detected != _selectedNetwork) {
-                  setState(() => _selectedNetwork = detected);
-                }
-              }
-            },
-            decoration: InputDecoration(
-              icon: Icon(icon, color: Colors.amber, size: 20),
-              border: InputBorder.none,
-              hintText: "Enter $label",
-              hintStyle: TextStyle(color: Colors.grey[300], fontSize: 14),
-            ),
+        Icon(icon, color: Colors.amber.shade700, size: 18),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _buildNetworkSelector() {
-    final networks = [
-      {"name": "MTN", "logo": "assets/logo_mtn.png"},
-      {"name": "Airtel", "logo": "assets/logo_airtel.png"},
-      {"name": "Zamtel", "logo": "assets/logo_zamtel.png"},
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("Select Network", style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        Row(
-          children: networks.map((net) {
-            final isSelected = _selectedNetwork == net['name'];
-            return Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _selectedNetwork = net['name']!),
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 5),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.amber : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isSelected ? Colors.amber : Colors.grey.shade200),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Image.asset(net['logo']!, height: 16, width: 16, fit: BoxFit.contain),
-                      const SizedBox(width: 6),
-                      Text(
-                        net['name']!,
-                        style: TextStyle(
-                          color: isSelected ? Colors.black : Colors.grey.shade700,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
+  Widget _buildRedemptionOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildSubmitButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 60,
-      child: ElevatedButton(
-        onPressed: _submitting ? null : _submitRequest,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.amber,
-          foregroundColor: Colors.black,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          elevation: 0,
-        ),
-        child: _submitting 
-          ? const CircularProgressIndicator(color: Colors.black)
-          : const Text("REQUEST PAYOUT", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+  Widget _buildLegalDisclaimer() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.info, color: Colors.grey.shade400, size: 14),
+              const SizedBox(width: 6),
+              Text("About Church Coins", style: TextStyle(color: Colors.grey.shade600, fontSize: 11, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "Church Coins (CC) are loyalty reward tokens for in-app use only. They have no real-world monetary value and cannot be exchanged for cash, transferred to other users, or refunded. Coins can be earned for free or purchased with real money. Purchases are final and non-refundable.",
+            style: TextStyle(color: Colors.grey.shade400, fontSize: 10, height: 1.4),
+          ),
+        ],
       ),
     );
   }
 }
-

@@ -83,7 +83,7 @@ class LedgerScreen extends ConsumerWidget {
 
     final sortedKeys = dailyTotals.keys.toList()..sort();
     final spots = sortedKeys.asMap().entries.map((e) {
-      return FlSpot(e.key.toDouble(), dailyTotals[e.value]!);
+      return FlSpot(e.key.toDouble(), dailyTotals[e.value] ?? 0);
     }).toList();
 
     return Container(

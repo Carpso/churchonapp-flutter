@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:church_on_app/features/profile/data/emergency_contact_service.dart';
 
 class EmergencyContactsScreen extends ConsumerWidget {
   const EmergencyContactsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Wire EmergencyContactService into profile/emergency flow
+    ref.watch(emergencyContactServiceProvider);
     final theme = Theme.of(context);
 
     final generalContacts = [
@@ -105,7 +108,7 @@ class EmergencyContactsScreen extends ConsumerWidget {
         onTap: () async {
           final uri = Uri.parse('tel:${contact['phone']}');
           if (await canLaunchUrl(uri)) {
-            await launchUrl(uri);
+            await launchUrl(uri, mode: LaunchMode.inAppWebView);
           }
         },
       ),

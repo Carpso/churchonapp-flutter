@@ -56,7 +56,7 @@ serve(async (req) => {
         "apps": [],
         "details": [
           {
-            "appID": `${appleTeamId}.com.churchonapp.churchOnApp`,
+            "appID": `${appleTeamId}.com.churchonapp.churchonapp`,
             "paths": ["*"],
           },
         ],

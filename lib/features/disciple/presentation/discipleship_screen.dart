@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/utils/connectivity_util.dart';
+import 'package:church_on_app/features/disciple/data/discipleship_providers.dart';
 
 class DiscipleshipScreen extends ConsumerStatefulWidget {
   const DiscipleshipScreen({super.key});
@@ -96,6 +97,9 @@ class _DiscipleshipScreenState extends ConsumerState<DiscipleshipScreen> {
   }
 
   Widget _buildProgressCard() {
+    final milestonesAsync = ref.watch(milestonesProvider(ref.watch(profileProvider).value?.id ?? ''));
+    final completedCount = milestonesAsync.value?.where((m) => m.isCompleted).length ?? 2;
+    final totalCount = milestonesAsync.value?.length ?? 8;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -110,7 +114,7 @@ class _DiscipleshipScreenState extends ConsumerState<DiscipleshipScreen> {
               children: [
                 const Text("My Discipleship Journey", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                Text("2 of 8 milestones completed", style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
+                Text("$completedCount of $totalCount milestones completed", style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
                 const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
@@ -166,21 +170,26 @@ class _DiscipleshipScreenState extends ConsumerState<DiscipleshipScreen> {
   }
 
   Widget _buildDisciples() {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Row(
+    final disciplesAsync = ref.watch(myDisciplesProvider(ref.watch(profileProvider).value?.id ?? ''));
+    return disciplesAsync.when(
+      data: (disciples) {
+        return ListView(
+          padding: const EdgeInsets.all(20),
           children: [
-            const Text("My Disciples", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const Spacer(),
-            Text("3 active", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                const Text("My Disciples", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Spacer(),
+                Text("${disciples.length} active", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...disciples.map((d) => _discipleCard(d.name, d.status, d.completedMilestones)),
           ],
-        ),
-        const SizedBox(height: 16),
-        _discipleCard("Sarah Banda", "Baptism", 3),
-        _discipleCard("John Phiri", "Bible Study", 5),
-        _discipleCard("Mary Zulu", "Small Group", 2),
-      ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
     );
   }
 
@@ -212,26 +221,30 @@ class _DiscipleshipScreenState extends ConsumerState<DiscipleshipScreen> {
   }
 
   Widget _buildMilestones() {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Row(
+    final milestonesAsync = ref.watch(milestonesProvider(ref.watch(profileProvider).value?.id ?? ''));
+    return milestonesAsync.when(
+      data: (milestones) {
+        return ListView(
+          padding: const EdgeInsets.all(20),
           children: [
-            const Text("Completed Milestones", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const Spacer(),
-            IconButton(
-              icon: const Icon(LucideIcons.plus, size: 20),
-              onPressed: () { /* Add milestone dialog */ },
-              style: IconButton.styleFrom(backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1)),
+            Row(
+              children: [
+                const Text("Completed Milestones", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(LucideIcons.plus, size: 20),
+                  onPressed: () { /* Add milestone dialog */ },
+                  style: IconButton.styleFrom(backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1)),
+                ),
+              ],
             ),
+            const SizedBox(height: 16),
+            ...milestones.map((m) => _milestoneCard(m.title, m.completedAt, m.isCompleted)),
           ],
-        ),
-        const SizedBox(height: 16),
-        _milestoneCard("Water Baptism", DateTime.now().subtract(const Duration(days: 30)), true),
-        _milestoneCard("Salvation Prayer", DateTime.now().subtract(const Duration(days: 45)), true),
-        _milestoneCard("Bible Reading: Genesis", null, false),
-        _milestoneCard("Church Membership Class", null, false),
-      ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
     );
   }
 

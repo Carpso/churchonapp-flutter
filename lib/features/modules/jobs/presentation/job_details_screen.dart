@@ -26,7 +26,7 @@ class JobDetailsScreen extends ConsumerWidget {
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       jobId: job.id,
       applicantId: user.id,
-      applicantName: profile?.name ?? "Kingdom Citizen",
+      applicantName: profile?.name ?? "Citizen",
       status: 'pending',
       createdAt: DateTime.now(),
     );
@@ -95,7 +95,7 @@ class JobDetailsScreen extends ConsumerWidget {
             _buildInfoRow(context, LucideIcons.mail, "Contact", job.contact, onTap: () async {
               final uri = Uri.tryParse(job.contact);
               if (uri != null && await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                await launchUrl(uri, mode: LaunchMode.inAppWebView);
               } else {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(

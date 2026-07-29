@@ -47,10 +47,10 @@ class KingdomGameService {
     // Shared matchmaking simulator
     await Future.delayed(const Duration(seconds: 2));
     final users = [
-      {'name': 'Brother Isaac', 'avatar': 'https://i.pravatar.cc/150?u=isaac'},
-      {'name': 'Sister Mercy', 'avatar': 'https://i.pravatar.cc/150?u=mercy'},
-      {'name': 'Elder Paul', 'avatar': 'https://i.pravatar.cc/150?u=paul'},
-      {'name': 'Ruth the Believer', 'avatar': 'https://i.pravatar.cc/150?u=ruth'},
+      {'name': 'Brother Isaac', 'avatar': ''},
+      {'name': 'Sister Mercy', 'avatar': ''},
+      {'name': 'Elder Paul', 'avatar': ''},
+      {'name': 'Ruth the Believer', 'avatar': ''},
     ];
     return users[DateTime.now().millisecond % users.length];
   }

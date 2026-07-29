@@ -29,42 +29,7 @@ class JobsService {
         .from('jobs')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
-        .map((data) {
-          final dbJobs = data.map((e) => Job.fromMap(e)).toList();
-          if (dbJobs.isEmpty) {
-            return _getMockJobs();
-          }
-          return dbJobs;
-        });
-  }
-
-  List<Job> _getMockJobs() {
-    return [
-      Job(
-        id: 'mock-j1',
-        title: 'Media Production Lead',
-        company: 'Grace Assemblies',
-        location: 'Lusaka',
-        salary: 'K15,000 - K20,000',
-        type: 'Full-time',
-        description: 'Lead the audio-visual team for international broadcasts.',
-        contact: 'media@grace.org',
-        employerId: 'system',
-        createdAt: DateTime.now(),
-      ),
-      Job(
-        id: 'mock-j2',
-        title: 'Children’s Pastor',
-        company: 'Zion Gates',
-        location: 'Bulawayo',
-        salary: 'Competitive',
-        type: 'Part-time',
-        description: 'Develop spiritual curriculum for ages 5-12.',
-        contact: 'hr@zion.org',
-        employerId: 'system',
-        createdAt: DateTime.now(),
-      ),
-    ];
+        .map((data) => data.map((e) => Job.fromMap(e)).toList());
   }
 
   Future<void> applyForJob(JobApplication application) async {
@@ -83,6 +48,29 @@ class JobsService {
   Future<void> updateApplicationStatus(String id, String status) async {
     await _client.from('job_applications').update({'status': status}).eq('id', id);
   }
+
+  Future<void> promoteJobWithMobileMoney({
+    required String jobId,
+    required double amount,
+    required String phone,
+  }) async {
+    await _client.from('jobs').update({'is_featured': true}).eq('id', jobId);
+  }
+
+  Future<void> editJob(Job job) async {
+    await _client.from('jobs').update(job.toMap()).eq('id', job.id);
+  }
+
+  Stream<List<Job>> streamMyJobPostings() {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return Stream.value([]);
+    return _client
+        .from('jobs')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .order('created_at', ascending: false)
+        .map((data) => data.map((e) => Job.fromMap(e)).toList());
+  }
 }
 
 final jobsServiceProvider = Provider((ref) {
@@ -94,7 +82,10 @@ final jobsPortalProvider = StreamProvider<List<Job>>((ref) {
   return ref.watch(jobsServiceProvider).streamJobs();
 });
 
+final myJobPostingsProvider = StreamProvider<List<Job>>((ref) {
+  return ref.watch(jobsServiceProvider).streamMyJobPostings();
+});
+
 final jobApplicationsProvider = StreamProvider.family<List<JobApplication>, String>((ref, jobId) {
   return ref.watch(jobsServiceProvider).streamApplicationsForJob(jobId);
 });
-

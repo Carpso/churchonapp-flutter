@@ -30,7 +30,7 @@ class Testimony {
       id: map['id']?.toString() ?? '',
       userId: map['user_id'] ?? '',
       userName: map['user_name'] ?? 'Believer',
-      userPhoto: map['user_photo'] ?? "https://i.pravatar.cc/100?u=${map['user_id']}",
+      userPhoto: map['user_photo'],
       content: map['content'] ?? '',
       imageUrl: map['image_url'],
       praiseCount: map['praise_count'] ?? map['likes'] ?? 0,

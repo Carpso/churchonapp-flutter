@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../data/call_service.dart';
 
 class AudioCallScreen extends ConsumerStatefulWidget {
@@ -330,7 +331,7 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
                               width: 3,
                             ),
                             image: DecorationImage(
-                              image: NetworkImage(widget.userAvatar),
+                              image: CachedNetworkImageProvider(widget.userAvatar),
                               fit: BoxFit.cover,
                             ),
                             boxShadow: [

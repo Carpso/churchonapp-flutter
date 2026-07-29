@@ -121,27 +121,63 @@ class RoleHierarchyService {
     required String roleName,
     String? tenantId,
   }) async {
-    final currentUser = _supabase.client.auth.currentUser!;
+    final currentUser = _supabase.client.auth.currentUser;
+    if (currentUser == null) throw Exception("Not authenticated");
+
+    final callerProfile = await _supabase.client
+        .from('profiles')
+        .select('role, tenant_id')
+        .eq('id', currentUser.id)
+        .maybeSingle();
+
+    final callerRole = callerProfile?['role'] as String? ?? 'member';
+    final callerTenantId = callerProfile?['tenant_id'] as String?;
+    final isSuper = callerRole == 'superadmin' || callerRole == 'employee';
+
+    final targetProfile = await _supabase.client
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (targetProfile == null) {
+      throw Exception("Target user profile not found");
+    }
+
+    final targetTenantId = targetProfile['tenant_id'] as String?;
+
+    if (!isSuper) {
+      if (callerTenantId == null || callerTenantId.isEmpty) {
+        throw Exception("Security Exception: You must belong to a church to delegate roles.");
+      }
+      if (targetTenantId != callerTenantId) {
+        throw Exception("Security Exception: Pastor/Leader of one tenant cannot access or delegate roles to members of another tenant.");
+      }
+    }
+
+    final effectiveTenantId = tenantId ?? callerTenantId;
+
     await _supabase.client.from('role_assignments').insert({
       'user_id': userId,
       'role_name': roleName,
-      'tenant_id': tenantId,
+      'tenant_id': effectiveTenantId,
       'assigned_by': currentUser.id,
       'status': 'pending',
     });
-    // Notify superadmins and employees about new role request
+
     final admins = await _supabase
         .client
         .from('profiles')
         .select('id')
         .inFilter('role', ['superadmin', 'employee']);
-    if (admins != null) {
+
+    if (admins.isNotEmpty) {
       for (final admin in admins as List) {
         if (admin is Map && admin['id'] != null) {
           await _supabase.client.from('notifications').insert({
             'user_id': admin['id'],
             'title': 'New Role Request',
-            'body': '$roleName assignment pending approval for user $userId${tenantId != null ? ' in tenant $tenantId' : ''}',
+            'body': '$roleName assignment pending approval for user $userId${effectiveTenantId != null ? ' in tenant $effectiveTenantId' : ''}',
             'type': 'role_approval',
             'reference_id': userId,
           });
@@ -206,7 +242,8 @@ class RoleHierarchyService {
     required String roleName,
     String? tenantId,
   }) async {
-    final currentUser = _supabase.client.auth.currentUser!;
+    final currentUser = _supabase.client.auth.currentUser;
+    if (currentUser == null) throw Exception("Not authenticated");
     await _supabase.client.from('role_assignments').insert({
       'user_id': userId,
       'role_name': roleName,

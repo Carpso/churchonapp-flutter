@@ -57,7 +57,7 @@ class _BranchLocatorScreenState extends ConsumerState<BranchLocatorScreen> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: Text("Kingdom Branches", style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+        title: Text("Branches", style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
         backgroundColor: theme.colorScheme.surface,
         elevation: 0,
         iconTheme: IconThemeData(color: theme.colorScheme.onSurface),

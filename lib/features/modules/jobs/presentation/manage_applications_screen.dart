@@ -49,7 +49,7 @@ class ManageApplicationsScreen extends ConsumerWidget {
           Icon(LucideIcons.users, size: 64, color: Colors.grey[300]),
           const SizedBox(height: 20),
           const Text("No applicants yet", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-          const Text("Share this job to find kingdom talent!", style: TextStyle(color: Colors.grey, fontSize: 12)),
+          const Text("Share this job to find talent!", style: TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),
     );

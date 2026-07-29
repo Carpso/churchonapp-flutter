@@ -1,12 +1,14 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../data/bible_quiz_service.dart';
+import '../data/pvp_service.dart';
 import '../data/quiz_event_service.dart';
+import '../../../../core/providers/profile_provider.dart';
 import 'bible_quiz_results_screen.dart';
 
 enum GamePhase { matchmaking, countdown, playing, answering, feedback, review, finished }
@@ -34,14 +36,15 @@ class BibleQuizArenaScreen extends ConsumerStatefulWidget {
 }
 
 class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final BibleQuizService _service;
+  PvPService? _pvpService;
 
   GamePhase _phase = GamePhase.matchmaking;
   List<QuizQuestion> _questions = [];
   int _currentIndex = 0;
   int? _selectedAnswer;
-  int? _fiftyFiftyIndex; // tracks which 50:50 was used (question index)
+  int? _fiftyFiftyIndex;
   final Set<int> _eliminatedOptions = {};
   int _score = 0;
   int _streak = 0;
@@ -65,26 +68,27 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
 
-  // Opponent score simulation (P2P)
   int _opponentScore = 0;
+  PvPMatch? _pvpMatch;
 
-  // Matchmaking avatar cycling
-  Timer? _avatarCycleTimer;
-  final List<String> _matchmakingAvatars = List.generate(
-    20,
-    (i) => 'https://i.pravatar.cc/150?img=${i + 1}',
-  );
-  int _currentAvatarIndex = 0;
+  // Anti-cheat: track if app was backgrounded during a question
+  bool _wasBackgroundedDuringQuestion = false;
 
   bool _loadingTimedOut = false;
   bool _loadingError = false;
 
+  // Rematch state
+  bool _rematchRequested = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _timerMs = widget.timePerQuestionSec * 1000;
     _service = BibleQuizService();
-    _startAvatarCycling();
+    if (widget.mode != 'Solo') {
+      _pvpService = PvPService();
+    }
     _slideController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 350),
@@ -99,25 +103,46 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _countdownTimer?.cancel();
-    _avatarCycleTimer?.cancel();
     _slideController.dispose();
+    try {
+      _pvpService?.disconnect();
+    } catch (e) {
+      debugPrint('Error disconnecting PvP service: $e');
+    }
     super.dispose();
   }
 
-  void _startAvatarCycling() {
-    _avatarCycleTimer = Timer.periodic(const Duration(milliseconds: 400), (t) {
-      if (!mounted) { t.cancel(); return; }
-      setState(() {
-        _currentAvatarIndex = (_currentAvatarIndex + 1) % _matchmakingAvatars.length;
-      });
-    });
+  // ── Anti-cheat: detect app backgrounding during active question ──
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (widget.mode == 'Solo') return;
+    if (_phase != GamePhase.playing) return;
+
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _wasBackgroundedDuringQuestion = true;
+      debugPrint('[PvP Anti-Cheat] App backgrounded during question $_currentIndex — flagging as zero points');
+    }
   }
 
-  void _stopAvatarCycling() {
-    _avatarCycleTimer?.cancel();
-    _avatarCycleTimer = null;
+  QuizQuestion _shuffleQuestionOptions(QuizQuestion q) {
+    final correctValue = q.options[q.correctAnswer];
+    final shuffled = List<String>.from(q.options)..shuffle();
+    final newIndex = shuffled.indexOf(correctValue);
+    return QuizQuestion(
+      id: q.id,
+      question: q.question,
+      options: shuffled,
+      correctAnswer: newIndex,
+      difficulty: q.difficulty,
+      category: q.category,
+      scriptureReference: q.scriptureReference,
+      style: q.style,
+      points: q.points,
+      isSuperadminOnly: q.isSuperadminOnly,
+    );
   }
 
   Future<void> _loadQuestions() async {
@@ -126,7 +151,50 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       _loadingError = false;
     });
 
-    final result = await _service.getRandomQuestions(
+    // For PvP mode, find or create a match first
+    if (widget.mode != 'Solo' && _pvpService != null) {
+      try {
+        final match = await _pvpService!.findOrCreateMatch(
+          questionCount: widget.questionCount,
+          timePerQuestion: widget.timePerQuestionSec,
+        );
+        if (!mounted) return;
+        if (match == null) {
+          setState(() => _loadingError = true);
+          return;
+        }
+        _pvpMatch = match;
+
+        // If match is still pending (we created it), wait for opponent
+        if (match.status == 'pending') {
+          final accepted = await _pvpService!.waitForMatch(match.id);
+          if (!mounted) return;
+          if (accepted == null) {
+            setState(() => _loadingError = true);
+            return;
+          }
+          _pvpMatch = accepted;
+        }
+
+        // Connect to Realtime broadcast channel
+        _pvpService!.connectToChannel(_pvpMatch!);
+
+        // Listen for opponent answers → update opponent score via callback
+        _pvpService!.onOpponentAnswered = (payload) {
+          if (!mounted) return;
+          final score = payload['score'] as int? ?? 0;
+          setState(() => _opponentScore = score);
+        };
+      } catch (e) {
+        debugPrint('[PvP] Match setup failed: $e');
+        if (mounted) {
+          setState(() => _loadingError = true);
+        }
+        return;
+      }
+    }
+
+    final result = await _service.getUnseenQuestions(
       widget.questionCount,
       category: widget.categoryFilter,
       difficulty: widget.difficultyFilter,
@@ -138,21 +206,22 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     if (!mounted) return;
     if (result.isEmpty && _loadingTimedOut) {
       setState(() => _loadingError = true);
-      _stopAvatarCycling();
       return;
     }
     if (result.isEmpty) {
       setState(() => _loadingError = true);
-      _stopAvatarCycling();
       return;
     }
 
-    _stopAvatarCycling();
     setState(() {
-      _questions = result;
+      final seenIds = <String>{};
+      _questions = result.where((q) => seenIds.add(q.id)).map(_shuffleQuestionOptions).toList();
+      if (_questions.isEmpty) {
+        _questions = _questions.map(_shuffleQuestionOptions).toList();
+      }
       _answers.clear();
       _responseTimesMs.clear();
-      for (int i = 0; i < result.length; i++) {
+      for (int i = 0; i < _questions.length; i++) {
         _answers.add(null);
         _responseTimesMs.add(0);
       }
@@ -216,13 +285,20 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       _phase = GamePhase.answering;
     });
 
-    final isCorrect = idx >= 0 && _questions[_currentIndex].correctAnswer == idx;
+    // Anti-cheat: if app was backgrounded, force zero points
+    int effectiveIdx = idx;
+    if (_wasBackgroundedDuringQuestion && widget.mode != 'Solo') {
+      effectiveIdx = -1; // Force skip/zero
+      debugPrint('[PvP Anti-Cheat] Question $_currentIndex flagged as zero points');
+    }
+    _wasBackgroundedDuringQuestion = false;
 
-    // Wait a moment to show feedback, then advance
+    final isCorrect = effectiveIdx >= 0 && _questions[_currentIndex].correctAnswer == effectiveIdx;
+
     Future.delayed(const Duration(milliseconds: 1200), () {
       if (!mounted) return;
       setState(() {
-        _answers[_currentIndex] = idx;
+        _answers[_currentIndex] = effectiveIdx;
         _responseTimesMs[_currentIndex] = elapsed;
 
         if (isCorrect) {
@@ -231,24 +307,34 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
           _score += pts;
           _streak++;
           if (_streak > _bestStreak) _bestStreak = _streak;
-          // streak bonus: every 3+ streak gives +5 extra
           if (_streak >= 3) _score += 5;
         } else {
           _streak = 0;
         }
 
-        // Reset per-question power-ups
         _eliminatedOptions.clear();
         _doubleUsed = false;
         if (_fiftyFiftyIndex == _currentIndex) _fiftyFiftyIndex = null;
 
-        // P2P: simulate opponent scoring
-        if (widget.mode != 'Solo') {
-          if (Random().nextInt(100) < 55) _opponentScore += 10;
-        }
-
         _phase = GamePhase.feedback;
       });
+
+      // Send answer via PvP broadcast
+      if (widget.mode != 'Solo' && _pvpMatch != null && _pvpService != null) {
+        int correctCount = 0;
+        for (int i = 0; i <= _currentIndex; i++) {
+          if (_answers[i] == _questions[i].correctAnswer) correctCount++;
+        }
+        _pvpService!.sendAnswer(
+          match: _pvpMatch!,
+          questionIndex: _currentIndex,
+          selectedAnswer: effectiveIdx,
+          responseTimeMs: elapsed,
+          isCorrect: isCorrect,
+          score: _score,
+          correctCount: correctCount,
+        );
+      }
 
       Future.delayed(const Duration(milliseconds: 600), () {
         if (!mounted) return;
@@ -361,13 +447,57 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       }
     }
 
+    try {
+      await _service.recordAnsweredQuestions(
+        questionIds: _questions.map((q) => q.id).toList(),
+        matchId: _pvpMatch?.id,
+        isCorrect: List.generate(_questions.length, (i) => _answers[i] == _questions[i].correctAnswer),
+        responseTimesMs: _responseTimesMs,
+      );
+    } catch (e) {
+      debugPrint('Failed to record answered questions: $e');
+    }
+
+    // Complete PvP match (triggers ELO calculation + wager settlement)
+    if (widget.mode != 'Solo' && _pvpMatch != null && _pvpService != null) {
+      _pvpMatch!.player1Score = _score;
+      _pvpMatch!.player2Score = _opponentScore;
+      try {
+        await _pvpService!.completeMatch(_pvpMatch!);
+      } catch (e) {
+        debugPrint('Failed to complete PvP match: $e');
+      }
+    }
+
+    if (widget.categoryFilter == 'Daily') {
+      try {
+        await ref.read(profileProvider.notifier).addCoins(10);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("+10 CC earned for Daily Challenge!"), backgroundColor: Colors.green),
+          );
+        }
+      } catch (e) {
+        debugPrint('Failed to award daily challenge coins: $e');
+      }
+    }
+
     if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BibleQuizResultsScreen(result: results),
-      ),
-    );
+    Future.microtask(() {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BibleQuizResultsScreen(result: results),
+        ),
+      );
+    });
+  }
+
+  void _sendRematch() {
+    if (_pvpMatch == null || _pvpService == null) return;
+    setState(() => _rematchRequested = true);
+    _pvpService!.sendRematchInvite(_pvpMatch!);
   }
 
   @override
@@ -382,7 +512,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF0A0E1A),
+        backgroundColor: const Color(0xFF0D1117),
         body: SafeArea(
           child: _buildBody(theme),
         ),
@@ -394,9 +524,9 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF151A2E),
+        backgroundColor: const Color(0xFF1A1D23),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Quit Quiz?', style: TextStyle(color: Colors.white)),
+        title: const Text('Quit Quiz?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: const Text(
           'Your progress will be lost.',
           style: TextStyle(color: Colors.white70),
@@ -404,13 +534,14 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Keep Playing'),
+            child: const Text('Keep Playing', style: TextStyle(color: Colors.white70)),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
               _timer?.cancel();
-              if (mounted) Navigator.of(context).pop();
+              _countdownTimer?.cancel();
+              if (mounted) Navigator.of(context, rootNavigator: true).pop();
             },
             child: const Text('Quit', style: TextStyle(color: Colors.redAccent)),
           ),
@@ -441,104 +572,125 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
 
     if (_loadingError) {
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(LucideIcons.alertTriangle, color: Colors.orangeAccent, size: 60),
-            const SizedBox(height: 20),
-            const Text('Failed to load questions', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(
-              _loadingTimedOut ? 'Connection timed out. Check your network.' : 'No questions available. Try again.',
-              style: const TextStyle(color: Colors.white54, fontSize: 14),
-            ),
-            const SizedBox(height: 30),
-            ElevatedButton.icon(
-              onPressed: _retryLoadQuestions,
-              icon: const Icon(LucideIcons.refreshCw, size: 18),
-              label: const Text('RETRY'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primaryColor,
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(LucideIcons.alertTriangle, color: Colors.orangeAccent, size: 60),
+              const SizedBox(height: 20),
+              const Text('Failed to load questions', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(
+                _loadingTimedOut ? 'Connection timed out. Check your network.' : 'No questions available. Try again.',
+                style: const TextStyle(color: Colors.white54, fontSize: 14),
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
-            ),
-          ],
+              const SizedBox(height: 30),
+              ElevatedButton.icon(
+                onPressed: _retryLoadQuestions,
+                icon: const Icon(LucideIcons.refreshCw, size: 18),
+                label: const Text('RETRY'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 100, height: 100,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 100, height: 100,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    color: theme.primaryColor,
-                    backgroundColor: theme.primaryColor.withAlpha(40),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Shimmer.fromColors(
+                baseColor: theme.primaryColor.withAlpha(40),
+                highlightColor: theme.primaryColor.withAlpha(120),
+                child: SizedBox(
+                  width: 100,
+                  height: 100,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: theme.primaryColor, width: 3),
+                        ),
+                      ),
+                      Text(_categoryEmoji(quizType), style: const TextStyle(fontSize: 40)),
+                    ],
                   ),
                 ),
-                Text(_categoryEmoji(quizType), style: const TextStyle(fontSize: 40)),
+              ),
+              const SizedBox(height: 28),
+              Text(
+                widget.mode == 'Solo' ? 'Preparing Questions…' : 'Finding Opponent…',
+                style: const TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                widget.mode == 'Solo'
+                    ? 'Curating $quizType questions for you'
+                    : 'Searching for a worthy challenger',
+                style: const TextStyle(color: Colors.white54, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              if (widget.mode != 'Solo') ...[
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: theme.primaryColor.withAlpha(80),
+                      child: Icon(LucideIcons.user, color: theme.primaryColor),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: Text('VS', style: TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.w900)),
+                    ),
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: Theme.of(context).colorScheme.surface.withAlpha(20),
+                      child: const SizedBox(
+                        width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
+                      ),
+                    ),
+                  ],
+                ),
               ],
-            ),
+              const SizedBox(height: 30),
+              TextButton(
+                onPressed: () {
+                  _timer?.cancel();
+                  _countdownTimer?.cancel();
+                  Navigator.pop(context);
+                },
+                child: const Text('CANCEL', style: TextStyle(color: Colors.white38)),
+              ),
+            ],
           ),
-          const SizedBox(height: 28),
-          Text(
-            widget.mode == 'Solo' ? 'Preparing Questions…' : 'Finding Opponent…',
-            style: TextStyle(
-              fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            widget.mode == 'Solo'
-                ? 'Curating $quizType questions for you'
-                : 'Searching for a worthy challenger',
-            style: const TextStyle(color: Colors.white54, fontSize: 14),
-          ),
-          if (widget.mode != 'Solo') ...[
-            const SizedBox(height: 24),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundImage: NetworkImage(_matchmakingAvatars[_currentAvatarIndex]),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Text('VS', style: TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.w900)),
-                ),
-                CircleAvatar(
-                  radius: 28,
-                  backgroundImage: NetworkImage(_matchmakingAvatars[(_currentAvatarIndex + 5) % _matchmakingAvatars.length]),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 30),
-          TextButton(
-            onPressed: () {
-              _timer?.cancel();
-              _countdownTimer?.cancel();
-              _avatarCycleTimer?.cancel();
-              Navigator.pop(context);
-            },
-            child: const Text('CANCEL', style: TextStyle(color: Colors.white38)),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -624,15 +776,19 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
                       ),
                     ),
                   // Question text
-                  Text(
-                    q.question,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 19,
-                      fontWeight: FontWeight.w600,
-                      height: 1.4,
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Text(
+                        q.question,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w600,
+                          height: 1.4,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
                   // Options grid
@@ -689,14 +845,18 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
               ),
               const Spacer(),
               // Question counter
-              Text(
-                '${_currentIndex + 1} / ${_questions.length}',
-                style: const TextStyle(color: Colors.white54, fontSize: 14),
+              Flexible(
+                child: Text(
+                  '${_currentIndex + 1} / ${_questions.length}',
+                  style: const TextStyle(color: Colors.white54, fontSize: 14),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               if (widget.mode != 'Solo') ...[
                 const SizedBox(width: 16),
                 // Opponent score
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(LucideIcons.user, size: 14, color: Colors.orangeAccent),
                     const SizedBox(width: 4),
@@ -714,6 +874,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
               const Spacer(),
               // Score
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(LucideIcons.star, size: 16, color: theme.primaryColor),
                   const SizedBox(width: 4),
@@ -861,39 +1022,47 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       borderColor = Colors.orangeAccent;
     }
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: bgColor,
           borderRadius: BorderRadius.circular(14),
-          onTap: isDisabled ? null : () => _selectAnswer(i),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (isCorrect)
-                    const Icon(LucideIcons.checkCircle, size: 16, color: Colors.greenAccent)
-                  else if (isWrong)
-                    const Icon(LucideIcons.xCircle, size: 16, color: Colors.redAccent),
-                  if (isCorrect || isWrong) const SizedBox(width: 6),
-                  Text(
-                    q.options[i],
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 14,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          border: Border.all(color: borderColor),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: isDisabled ? null : () => _selectAnswer(i),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isCorrect)
+                      const Icon(LucideIcons.checkCircle, size: 16, color: Colors.greenAccent)
+                    else if (isWrong)
+                      const Icon(LucideIcons.xCircle, size: 16, color: Colors.redAccent),
+                    if (isCorrect || isWrong) const SizedBox(width: 6),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          q.options[i],
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 14,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1085,6 +1254,25 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
                   ),
                 ),
                 const SizedBox(width: 12),
+                if (widget.mode != 'Solo')
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _rematchRequested ? null : _sendRematch,
+                      icon: Icon(
+                        _rematchRequested ? LucideIcons.check : LucideIcons.swords,
+                        size: 18,
+                      ),
+                      label: Text(_rematchRequested ? 'Invite Sent!' : 'Rematch'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _rematchRequested ? Colors.greenAccent : Colors.orangeAccent,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (widget.mode != 'Solo') const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton.icon(
                     onPressed: _goToResults,
@@ -1176,7 +1364,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
         const SizedBox(height: 4),
         Text(
           value,
-          style: TextStyle(
+          style: const TextStyle(
             color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -1184,7 +1372,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
         ),
         Text(
           label,
-          style: const TextStyle(color: Colors.white54, fontSize: 11),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
         ),
       ],
     );
@@ -1206,6 +1394,8 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
               const Expanded(
                 child: Text(
                   'Review Questions',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,

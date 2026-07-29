@@ -4,17 +4,18 @@ import 'member_management_screen.dart';
 import 'baptism_registry_screen.dart';
 import 'finance_dashboard_screen.dart';
 import 'media_upload_screen.dart';
-import 'live_stream_studio_screen.dart';
-import 'integrations_screen.dart';
+import 'package:church_on_app/features/modules/live_streaming/presentation/live_stream_studio_screen.dart';
 import 'global_broadcast_screen.dart';
 import 'superadmin_dashboard.dart';
-import 'bishop_dashboard.dart';
+import 'bishop_dashboard_screen.dart';
 import 'pastor_dashboard_screen.dart';
 import 'bookshop_dashboard_screen.dart';
+import 'writer_dashboard_screen.dart';
+import 'driver_dashboard_screen.dart';
+import 'rider_dashboard_screen.dart';
 import 'event_scheduler_screen.dart';
 import 'live_viewer_heatmap_screen.dart';
 import 'logistics_dashboard_screen.dart';
-import 'financial_report_screen.dart';
 import 'prophetic_heatmap_screen.dart';
 import 'withdrawal_approval_screen.dart';
 import 'driver_simulation_hub_screen.dart';
@@ -23,18 +24,20 @@ import 'prophetic_navigation_screen.dart';
 import 'apostolic_resource_planning_screen.dart';
 import 'global_payout_command_screen.dart';
 import 'kingdom_ai_moderator_screen.dart';
-import 'apostle_dashboard_screen.dart';
 import 'zambian_payroll_screen.dart';
 import 'flyer_studio_screen.dart';
 import 'ministry_management_screen.dart';
 import '../../finance/presentation/multi_currency_wallet_screen.dart';
 import 'package:church_on_app/features/finance/data/tithe_automation_service.dart';
-import '../../modules/media/presentation/kingdom_radio_screen.dart';
+import '../../modules/media/presentation/radio_screen.dart';
 import 'onboarding_manager_screen.dart';
 import '../../modules/games/presentation/game_management_screen.dart';
 
 import 'package:church_on_app/features/admin/data/admin_service.dart';
 import 'package:church_on_app/features/auth/presentation/church_onboarding_screen.dart';
+import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/features/admin/presentation/widgets/admin_navigation_registry.dart';
+import 'package:church_on_app/core/widgets/entity_selector.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/stats_provider.dart';
@@ -72,7 +75,7 @@ class AdminHubScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: Text("Kingdom Admin Hub", style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+        title: Text("Admin Hub", style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
         backgroundColor: theme.colorScheme.surface,
         elevation: 0,
         foregroundColor: theme.colorScheme.onSurface,
@@ -84,7 +87,15 @@ class AdminHubScreen extends ConsumerWidget {
           children: [
             statsAsync.when(
               data: (stats) => _buildStatGrid(context, stats),
-              loading: () => Center(child: CircularProgressIndicator(color: theme.primaryColor)),
+              loading: () => GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                mainAxisSpacing: 15,
+                crossAxisSpacing: 15,
+                childAspectRatio: 1.5,
+                children: List.generate(4, (_) => const ShimmerLoader.rectangular(height: 100)),
+              ),
               error: (e, s) => const Center(child: Text("Error loading stats")),
             ),
             const SizedBox(height: 40),
@@ -104,7 +115,7 @@ class AdminHubScreen extends ConsumerWidget {
                 context,
                 LucideIcons.home,
                 "Congregation Management",
-                "Onboard and audit Kingdom Church branches",
+                "Onboard and audit Church branches",
                 Colors.indigo,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ChurchOnboardingScreen())),
               ),
@@ -117,25 +128,40 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.teal,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const OnboardingManagerScreen())),
               ),
-            if (role == 'bishop' || role == 'superadmin')
+            if (isSuperOrEmployee)
               _buildAdminTile(
                 context,
-                LucideIcons.globe,
-                "Apostolic Oversight",
-                "Multi-branch analytics and performance",
+                LucideIcons.arrowLeftRight,
+                "Quick Entity Switch",
+                "Switch between churches, bookshops & entities",
+                Colors.amber,
+                () {
+                  showEntitySelector(
+                    context: context,
+                    title: "Select Entity",
+                    options: [
+                      EntityOption(id: 'church', name: 'Local Church', subtitle: 'Congregation management', icon: LucideIcons.church),
+                      EntityOption(id: 'bookshop', name: 'Bookshop', subtitle: 'Inventory & sales', icon: LucideIcons.bookOpen),
+                      EntityOption(id: 'school', name: 'Bible School', subtitle: 'Course & student management', icon: LucideIcons.graduationCap),
+                    ],
+                    onSelected: (option) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Switched to ${option.name}')),
+                      );
+                    },
+                  );
+                },
+              ),
+            if (isSuperOrEmployee || role == 'bishop' || role == 'apostle')
+              _buildAdminTile(
+                context,
+                LucideIcons.crown,
+                "Leadership Dashboard",
+                "Multi-branch oversight, tithes, attendance & missions",
                 Colors.purple,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BishopDashboard())),
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BishopDashboardScreen())),
               ),
-            if (role == 'apostle')
-              _buildAdminTile(
-                context,
-                LucideIcons.globe,
-                "Apostle Dashboard",
-                "Network churches, growth metrics and missions",
-                Colors.deepPurple,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ApostleDashboardScreen())),
-              ),
-            if (role == 'pastor')
+            if (isSuperOrEmployee || role == 'pastor' || role == 'admin')
               _buildAdminTile(
                 context,
                 LucideIcons.layoutDashboard,
@@ -176,10 +202,37 @@ class AdminHubScreen extends ConsumerWidget {
               _buildAdminTile(
                 context,
                 LucideIcons.bookOpen,
-                "Bookshop Management",
+                "Bookshop Dashboard",
                 "Manage inventory, digital products and sales",
                 Colors.orange,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BookshopDashboardScreen())),
+              ),
+            if (isSuperOrEmployee || role == 'admin' || role == 'writer' || role == 'author')
+              _buildAdminTile(
+                context,
+                LucideIcons.feather,
+                "Writer Dashboard",
+                "Manage articles, books, and publishing",
+                Colors.amber,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const WriterDashboardScreen())),
+              ),
+            if (isSuperOrEmployee || role == 'driver')
+              _buildAdminTile(
+                context,
+                LucideIcons.truck,
+                "Driver Dashboard",
+                "Ride history, earnings, and deliveries",
+                Colors.blue,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DriverDashboardScreen())),
+              ),
+            if (isSuperOrEmployee || role == 'rider')
+              _buildAdminTile(
+                context,
+                LucideIcons.map,
+                "Rider Dashboard",
+                "Trip history, stats and saved places",
+                Colors.teal,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RiderDashboardScreen())),
               ),
             if (isSuperOrEmployee)
               _buildAdminTile(
@@ -199,25 +252,25 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.blueGrey,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ZambianPayrollScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.video,
-                "Kingdom Live Studio",
+                "Live Studio",
                 "Connect to Prophetic Hub & start church-wide broadcast",
                 Colors.red,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LiveStreamStudioScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.uploadCloud,
                 "Media Hub (R2)",
-                "Upload sermons, trailers & Kingdom Klips",
+                "Upload sermons, trailers & Klips",
                 Colors.orange,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MediaUploadScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.paintbrush,
@@ -226,7 +279,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.amber,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FlyerStudioScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.megaphone,
@@ -235,7 +288,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.purple,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const GlobalBroadcastScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.calendarDays,
@@ -244,7 +297,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.red,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EventSchedulerScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.map,
@@ -253,14 +306,14 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.redAccent,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LiveViewerHeatmapScreen())),
               ),
-              _buildAdminTile(
-                context,
-                LucideIcons.box,
-                "Enterprise Integrations",
-                "Connect banking, accounting & parking systems",
-                Colors.indigo,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const IntegrationsScreen())),
-              ),
+            Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
+            ...AdminNavigationRegistry.buildAccessibleTiles(
+              context,
+              isSuperadmin: isSuperOrEmployee,
+              isPastor: role == 'pastor',
+              isBishop: role == 'bishop',
+              isTreasurer: role == 'treasurer',
+            ),
             Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
             Text("Logistics & Finance", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
             const SizedBox(height: 20),
@@ -285,14 +338,6 @@ class AdminHubScreen extends ConsumerWidget {
               "Strategic expansion and mission planning",
               Colors.redAccent,
               () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PropheticHeatmapScreen())),
-            ),
-            _buildAdminTile(
-              context,
-              LucideIcons.fileText,
-              "Monthly Stewardship",
-              "Generate financial reports & audit logs",
-              Colors.green,
-              () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FinancialReportScreen())),
             ),
             if (isSuperOrEmployee)
               _buildAdminTile(
@@ -351,7 +396,7 @@ class AdminHubScreen extends ConsumerWidget {
                     context: context,
                     builder: (context) => AlertDialog(
                       title: const Text("Run Payout Engine?"),
-                      content: const Text("This will automatically approve and settle all pending payouts for authorized Kingdom workers and employees."),
+                      content: const Text("This will automatically approve and settle all pending payouts for authorized workers and employees."),
                       actions: [
                         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("CANCEL")),
                         ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text("EXECUTE")),
@@ -361,87 +406,95 @@ class AdminHubScreen extends ConsumerWidget {
                   if (confirmed == true) {
                     final count = await ref.read(adminServiceProvider).automateWorkerPayouts();
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Successfully processed $count Kingdom settlements!")));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Successfully processed $count settlements!")));
                     }
                   }
                 },
               ),
-            _buildAdminTile(
-              context,
-              LucideIcons.radio,
-              "Radio Global Command",
-              "Oversee Kingdom broadcasts & metadata",
-              Colors.redAccent,
-              () => Navigator.push(context, MaterialPageRoute(builder: (context) => const KingdomRadioScreen())),
-            ),
-            _buildAdminTile(
-              context,
-              LucideIcons.brainCircuit,
-              "Apostolic AI Report",
-              "Prophetic financial stewardship analysis",
-              Colors.blueAccent,
-              () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const AIStewardshipReportScreen()));
-              },
-            ),
-            _buildAdminTile(
-              context,
-              LucideIcons.map,
-              "Prophetic Navigation",
-              "AI-Powered logistics route optimization",
-              Colors.teal,
-              () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const PropheticNavigationScreen()));
-              },
-            ),
-            _buildAdminTile(
-              context,
-              LucideIcons.globe,
-              "International Multi-Wallet",
-              "Global stewardship hub (ZMW & CC)",
-              Colors.green,
-              () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const MultiCurrencyWalletScreen()));
-              },
-            ),
-            _buildAdminTile(
-              context,
-              LucideIcons.layoutGrid,
-              "Apostolic Planning",
-              "AI material resource allocation hubs",
-              Colors.indigo,
-              () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const ApostolicResourcePlanningScreen()));
-              },
-            ),
-            _buildAdminTile(
-              context,
-              LucideIcons.send,
-              "Global Payout Command",
-              "Execute Lipila settlements (MTN/Airtel)",
-              Colors.greenAccent,
-              () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const GlobalPayoutCommandScreen()));
-              },
-            ),
-            _buildAdminTile(
-              context,
-              LucideIcons.shieldCheck,
-              "Kingdom AI Moderator",
-              "AI Gatekeeper for social testimonies",
-              Colors.blue,
-              () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const KingdomAIModeratorScreen()));
-              },
-            ),
-            _buildAdminTile(
-              context,
-              LucideIcons.checkSquare,
-              "Verify Driver Payouts",
-              "Global logistics settlement verification",
-              Colors.orangeAccent,
-              () => _showDriverVerificationDialog(context, ref),
-            ),
+            if (isSuperOrEmployee)
+              _buildAdminTile(
+                context,
+                LucideIcons.radio,
+                "Radio Global Command",
+                "Oversee broadcasts & metadata",
+                Colors.redAccent,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RadioScreen())),
+              ),
+            if (isSuperOrEmployee)
+              _buildAdminTile(
+                context,
+                LucideIcons.brainCircuit,
+                "Apostolic AI Report",
+                "Prophetic financial stewardship analysis",
+                Colors.blueAccent,
+                () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const AIStewardshipReportScreen()));
+                },
+              ),
+            if (isSuperOrEmployee)
+              _buildAdminTile(
+                context,
+                LucideIcons.map,
+                "Prophetic Navigation",
+                "AI-Powered logistics route optimization",
+                Colors.teal,
+                () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const PropheticNavigationScreen()));
+                },
+              ),
+            if (isSuperOrEmployee)
+              _buildAdminTile(
+                context,
+                LucideIcons.globe,
+                "International Multi-Wallet",
+                "Global stewardship hub (ZMW & CC)",
+                Colors.green,
+                () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const MultiCurrencyWalletScreen()));
+                },
+              ),
+            if (isSuperOrEmployee)
+              _buildAdminTile(
+                context,
+                LucideIcons.layoutGrid,
+                "Apostolic Planning",
+                "AI material resource allocation hubs",
+                Colors.indigo,
+                () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ApostolicResourcePlanningScreen()));
+                },
+              ),
+            if (isSuperOrEmployee)
+              _buildAdminTile(
+                context,
+                LucideIcons.send,
+                "Global Payout Command",
+                "Execute Lipila settlements (MTN/Airtel)",
+                Colors.greenAccent,
+                () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const GlobalPayoutCommandScreen()));
+                },
+              ),
+            if (isSuperOrEmployee)
+              _buildAdminTile(
+                context,
+                LucideIcons.shieldCheck,
+                "AI Moderator",
+                "AI Gatekeeper for social testimonies",
+                Colors.blue,
+                () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const KingdomAIModeratorScreen()));
+                },
+              ),
+            if (isSuperOrEmployee)
+              _buildAdminTile(
+                context,
+                LucideIcons.checkSquare,
+                "Verify Driver Payouts",
+                "Global logistics settlement verification",
+                Colors.orangeAccent,
+                () => _showDriverVerificationDialog(context, ref),
+              ),
             Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
             Text("Games & Entertainment", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
             const SizedBox(height: 20),
@@ -470,7 +523,6 @@ class AdminHubScreen extends ConsumerWidget {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
           ElevatedButton(
             onPressed: () async {
-              // In this prototype we trigger a mock verification across the fleet
               await ref.read(adminServiceProvider).triggerGlobalWorkerPayouts();
               if (context.mounted) {
                 Navigator.pop(context);
@@ -525,7 +577,10 @@ class AdminHubScreen extends ConsumerWidget {
 
   Widget _buildAdminTile(BuildContext context, IconData icon, String title, String subtitle, Color color, VoidCallback onTap) {
     final theme = Theme.of(context);
-    return GestureDetector(
+    return Semantics(
+      label: "$title, $subtitle",
+      button: true,
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 15),
@@ -556,6 +611,7 @@ class AdminHubScreen extends ConsumerWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }

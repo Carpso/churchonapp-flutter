@@ -65,42 +65,56 @@ class ChatService {
 
   ChatService(this._client);
 
-  // ── 1-to-1 DM stream ─────────────────────────────────────────────────────
   Stream<List<ChatMessage>> streamMessages(String otherUserId) {
     final currentUserId = _client.auth.currentUser?.id;
     if (currentUserId == null) return Stream.value([]);
 
+    final sortedIds = [currentUserId, otherUserId]..sort();
+    final conversationId = '${sortedIds[0]}_${sortedIds[1]}';
+
     return _client
         .from('messages')
         .stream(primaryKey: ['id'])
+        .eq('conversation_id', conversationId)
         .order('created_at', ascending: false)
-        .map((data) {
+        .asyncMap((data) async {
           final seenIds = <String>{};
-          return data
-              .where((map) =>
-                  (map['sender_id'] == currentUserId &&
-                      map['receiver_id'] == otherUserId) ||
-                  (map['sender_id'] == otherUserId &&
-                      map['receiver_id'] == currentUserId))
+          final filtered = data
               .where((map) => seenIds.add(map['id'] as String))
-              .map((map) => ChatMessage.fromMap(map, currentUserId))
               .toList();
+          final senderIds = filtered.map((m) => m['sender_id'] as String).toSet().toList();
+          Map<String, Map<String, dynamic>> profiles = {};
+          if (senderIds.isNotEmpty) {
+            try {
+              final res = await _client
+                  .from('profiles')
+                  .select('id, full_name, avatar_url')
+                  .inFilter('id', senderIds);
+              for (final p in res) {
+                profiles[p['id'] as String] = p;
+              }
+            } catch (e) {
+              debugPrint('Failed to load sender profiles: $e');
+            }
+          }
+          return filtered.map((map) {
+            final enriched = Map<String, dynamic>.from(map);
+            enriched['profiles'] = profiles[map['sender_id']];
+            return ChatMessage.fromMap(enriched, currentUserId);
+          }).toList();
         });
   }
 
-  // ── Group message stream (with sender name join) ──────────────────────────
   Stream<List<ChatMessage>> streamGroupMessages(String groupId) {
     final currentUserId = _client.auth.currentUser?.id;
     if (currentUserId == null) return Stream.value([]);
 
-    // Use postgres changes for real-time group messages with profile join
     return _client
         .from('messages')
         .stream(primaryKey: ['id'])
         .eq('group_id', groupId)
         .order('created_at', ascending: false)
         .asyncMap((data) async {
-          // Batch-fetch sender profiles to avoid N+1
           final senderIds = data.map((m) => m['sender_id'] as String).toSet().toList();
           Map<String, Map<String, dynamic>> profiles = {};
           if (senderIds.isNotEmpty) {
@@ -124,7 +138,6 @@ class ChatService {
         });
   }
 
-  // ── Send group message ────────────────────────────────────────────────────
   Future<void> sendGroupMessage(
     String groupId,
     String content, {
@@ -132,21 +145,44 @@ class ChatService {
     String? mediaType,
     String? stickerId,
     String? fileName,
+    String? replyToId,
+    String? replyToText,
   }) async {
     final user = _client.auth.currentUser;
-    if (user == null) return;
-    await _client.from('messages').insert({
-      'sender_id': user.id,
-      'group_id': groupId,
-      'content': content,
-      'media_url': mediaUrl,
-      'media_type': mediaType ?? 'text',
-      'sticker_id': stickerId,
-      'file_name': fileName,
-    });
+    if (user == null) throw Exception("Not authenticated");
+    try {
+      await _client.from('messages').insert({
+        'sender_id': user.id,
+        'user_id': user.id,
+        'group_id': groupId,
+        'conversation_id': 'group_$groupId',
+        'content': content,
+        'media_url': mediaUrl,
+        'media_type': mediaType ?? 'text',
+        'sticker_id': stickerId,
+        'file_name': fileName,
+        'reply_to_id': replyToId,
+        'reply_to_text': replyToText,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('sendGroupMessage error: $e. Retrying resilient insert...');
+      try {
+        await _client.from('messages').insert({
+          'sender_id': user.id,
+          'group_id': groupId,
+          'content': content,
+          'media_url': mediaUrl,
+          'media_type': mediaType ?? 'text',
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        });
+      } catch (err) {
+        debugPrint('Resilient sendGroupMessage fallback error: $err');
+        rethrow;
+      }
+    }
   }
 
-  // ── Send 1-to-1 message ───────────────────────────────────────────────────
   Future<void> sendMessage(
     String receiverId,
     String content, {
@@ -154,37 +190,83 @@ class ChatService {
     String? mediaType,
     String? stickerId,
     String? fileName,
+    String? replyToId,
+    String? replyToText,
   }) async {
     final user = _client.auth.currentUser;
-    if (user == null) return;
-    await _client.from('messages').insert({
-      'sender_id': user.id,
-      'receiver_id': receiverId,
-      'content': content,
-      'media_url': mediaUrl,
-      'media_type': mediaType ?? 'text',
-      'sticker_id': stickerId,
-      'file_name': fileName,
-    });
+    if (user == null) throw Exception("Not authenticated");
+    final sortedIds = [user.id, receiverId]..sort();
+    final conversationId = '${sortedIds[0]}_${sortedIds[1]}';
+    try {
+      await _client.from('messages').insert({
+        'sender_id': user.id,
+        'user_id': user.id,
+        'receiver_id': receiverId,
+        'content': content,
+        'media_url': mediaUrl,
+        'media_type': mediaType ?? 'text',
+        'sticker_id': stickerId,
+        'file_name': fileName,
+        'reply_to_id': replyToId,
+        'reply_to_text': replyToText,
+        'conversation_id': conversationId,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('sendMessage error: $e. Retrying resilient insert...');
+      try {
+        await _client.from('messages').insert({
+          'sender_id': user.id,
+          'receiver_id': receiverId,
+          'content': content,
+          'media_url': mediaUrl,
+          'media_type': mediaType ?? 'text',
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        });
+      } catch (err) {
+        debugPrint('Resilient sendMessage fallback error: $err');
+        rethrow;
+      }
+    }
   }
 
-  // ── Fetch church members for DM list ─────────────────────────────────────
-  Future<List<Map<String, dynamic>>> fetchChurchMembers({int limit = 20}) async {
+  /// Mark messages as read for the current user
+  Future<void> markAsRead(String senderId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+    try {
+      await _client
+          .from('messages')
+          .update({'is_read': true})
+          .eq('sender_id', senderId)
+          .eq('receiver_id', user.id)
+          .eq('is_read', false);
+    } catch (e) {
+      debugPrint('markAsRead error: $e');
+    }
+  }
+
+  /// Fetch church members for DM list, scoped to user's tenant
+  Future<List<Map<String, dynamic>>> fetchChurchMembers({int limit = 30, String? tenantId}) async {
     final currentUserId = _client.auth.currentUser?.id;
     if (currentUserId == null) return [];
     try {
-      final res = await _client
+      var query = _client
           .from('profiles')
-          .select('id, full_name, avatar_url, role')
-          .neq('id', currentUserId)
-          .limit(limit);
+          .select('id, full_name, avatar_url, role, tenant_id')
+          .neq('id', currentUserId);
+
+      if (tenantId != null && tenantId.isNotEmpty) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      final res = await query.limit(limit);
       return List<Map<String, dynamic>>.from(res);
     } catch (_) {
       return [];
     }
   }
 
-  // ── Fetch group members ───────────────────────────────────────────────────
   Future<List<Map<String, dynamic>>> fetchGroupMembers(String groupId, {int limit = 5}) async {
     try {
       final res = await _client

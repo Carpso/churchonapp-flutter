@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import '../data/discover_service.dart';
 import '../data/sermon_service.dart';
+import '../../../core/widgets/app_image.dart';
 
 class DiscoverScreen extends ConsumerWidget {
   const DiscoverScreen({super.key});
@@ -114,7 +115,7 @@ class DiscoverScreen extends ConsumerWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  Image.network(sermon.thumbnailUrl, height: 110, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(height: 110, color: Colors.grey.shade200, child: const Icon(LucideIcons.image, color: Colors.grey))),
+                  AppImage(sermon.thumbnailUrl, height: 110, width: double.infinity, fit: BoxFit.cover),
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.4), shape: BoxShape.circle),
@@ -144,7 +145,7 @@ class DiscoverScreen extends ConsumerWidget {
     final title = event['title'] ?? '';
     final location = event['location'] ?? '';
     final date = event['date'] != null ? DateTime.tryParse(event['date'].toString()) : null;
-    final imageUrl = event['image_url'] ?? 'https://images.unsplash.com/photo-1444464666168-49d633b867ad?w=800';
+    final imageUrl = event['image_url'] ?? '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -160,7 +161,7 @@ class DiscoverScreen extends ConsumerWidget {
           children: [
             ClipRRect(
               borderRadius: const BorderRadius.horizontal(left: Radius.circular(18)),
-              child: Image.network(imageUrl, width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(LucideIcons.calendar, color: Colors.grey))),
+              child: AppImage(imageUrl, width: 80, height: 80, fit: BoxFit.cover),
             ),
             Expanded(
               child: Padding(
@@ -206,7 +207,7 @@ class DiscoverScreen extends ConsumerWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.network(sermon.thumbnailUrl, width: 56, height: 56, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 56, height: 56, color: Colors.grey.shade200, child: const Icon(LucideIcons.image, color: Colors.grey, size: 20))),
+                child: AppImage(sermon.thumbnailUrl, width: 56, height: 56, fit: BoxFit.cover),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -243,7 +244,7 @@ class DiscoverScreen extends ConsumerWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: Image.network(sermon.thumbnailUrl, height: 160, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(height: 160, color: Colors.grey.shade200)),
+              child: AppImage(sermon.thumbnailUrl, height: 160, width: double.infinity, fit: BoxFit.cover),
             ),
             const SizedBox(height: 20),
             Text(sermon.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),

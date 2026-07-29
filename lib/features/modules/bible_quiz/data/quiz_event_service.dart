@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/config/env.dart';
 import '../../../../core/services/gemini_service.dart';
 import 'bible_quiz_service.dart';
 
@@ -389,10 +393,151 @@ class QuizEventService {
     }
   }
 
+  // ── Batch Tournament Submission ──
+
+  /// Submits all tournament answers in a single atomic RPC call.
+  /// Returns {score, correct, total, accuracy}.
+  Future<Map<String, dynamic>?> submitTournamentAnswersBatch({
+    required String eventId,
+    required List<String> questionIds,
+    required List<int> answers,
+    required List<int> responseTimesMs,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return null;
+
+    try {
+      final res = await _client.rpc('submit_tournament_answers_batch', params: {
+        'p_user_id': userId,
+        'p_event_id': eventId,
+        'p_question_ids': questionIds,
+        'p_answers': answers,
+        'p_response_times_ms': responseTimesMs,
+      });
+
+      if (res is Map<String, dynamic>) {
+        return res;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Failed to submit tournament batch: $e');
+      return null;
+    }
+  }
+
+  /// Records answered questions for per-user deduplication.
+  Future<void> recordAnsweredQuestions({
+    required List<String> questionIds,
+    String? matchId,
+    String? eventId,
+    List<bool>? isCorrect,
+    List<int>? responseTimesMs,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      await _client.rpc('record_answered_questions', params: {
+        'p_user_id': userId,
+        'p_question_ids': questionIds,
+        'p_match_id': matchId,
+        'p_event_id': eventId,
+        'p_is_correct': isCorrect,
+        'p_response_times_ms': responseTimesMs,
+      });
+    } catch (e) {
+      debugPrint('Failed to record answered questions: $e');
+    }
+  }
+
+  /// Returns the number of unseen questions for the current user.
+  Future<int> getUnseenQuestionCount({
+    String? category,
+    String? difficulty,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return 0;
+
+    try {
+      final res = await _client.rpc('count_unseen_questions', params: {
+        'p_user_id': userId,
+        'p_category': category,
+        'p_difficulty': difficulty,
+      });
+      return (res as num?)?.toInt() ?? 0;
+    } catch (e) {
+      debugPrint('Failed to count unseen questions: $e');
+      return 0;
+    }
+  }
+
+  /// Auto-generates questions if the unseen pool is low.
+  /// Returns the number of newly inserted questions, or 0 if no generation was needed.
+  Future<int> autoGenerateIfNeeded({
+    int threshold = 50,
+    int generateCount = 100,
+    String? category,
+    String? difficulty,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return 0;
+
+    try {
+      final unseenCount = await getUnseenQuestionCount(
+        category: category,
+        difficulty: difficulty,
+      );
+
+      if (unseenCount >= threshold) return 0;
+
+      // Fetch existing questions to exclude
+      final existingRes = await _client
+          .from('quiz_questions')
+          .select('question')
+          .limit(200);
+      final excludeQuestions = (existingRes as List)
+          .map((q) => q['question'] as String)
+          .toList();
+
+      // Call generate-quiz-batch Edge Function
+      final session = _client.auth.currentSession;
+      if (session == null) return 0;
+
+      final response = await http.post(
+        Uri.parse('${Env.supabaseUrl}/functions/v1/generate-quiz-batch'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${session.accessToken}',
+          'apikey': Env.supabaseAnonKey,
+        },
+        body: jsonEncode({
+          'count': generateCount,
+          'category': category,
+          'difficulty': difficulty,
+          'excludeQuestions': excludeQuestions,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final inserted = data['inserted'] as int? ?? 0;
+        debugPrint('[QuizEvent] Auto-generated $inserted questions');
+        return inserted;
+      } else {
+        debugPrint('[QuizEvent] Auto-generate failed: ${response.statusCode}');
+        return 0;
+      }
+    } catch (e) {
+      debugPrint('[QuizEvent] Auto-generate error: $e');
+      return 0;
+    }
+  }
+
   // ── AI Questions for Events ──
 
   Future<List<QuizQuestion>> getEventQuestions(QuizEvent event, {GeminiService? gemini, List<String>? exclude}) async {
-    final dbQuestions = await _bqService.getRandomQuestions(
+    // Try unseen questions first
+    final dbQuestions = await _bqService.getUnseenQuestions(
       event.questionCount,
       category: event.categoryFilter,
       difficulty: event.difficultyFilter,
@@ -402,8 +547,29 @@ class QuizEventService {
       return dbQuestions.take(event.questionCount).toList();
     }
 
-    // Top up with AI-generated questions
-    if (gemini != null) {
+    // If insufficient unseen, auto-generate and retry
+    if (dbQuestions.length < event.questionCount) {
+      await autoGenerateIfNeeded(
+        threshold: 0,
+        generateCount: event.questionCount * 2,
+        category: event.categoryFilter,
+        difficulty: event.difficultyFilter,
+      );
+
+      // Retry with unseen after generation
+      final retryQuestions = await _bqService.getUnseenQuestions(
+        event.questionCount,
+        category: event.categoryFilter,
+        difficulty: event.difficultyFilter,
+      );
+
+      if (retryQuestions.isNotEmpty) {
+        return retryQuestions.take(event.questionCount).toList();
+      }
+    }
+
+    // Top up with Gemini if still insufficient
+    if (gemini != null && dbQuestions.length < event.questionCount) {
       final aiRaw = await gemini.generateBibleQuizQuestions(
         count: event.questionCount - dbQuestions.length,
         category: event.categoryFilter,

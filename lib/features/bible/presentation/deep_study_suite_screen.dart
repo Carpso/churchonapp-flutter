@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/features/bible/data/study_settings_provider.dart';
+import 'package:church_on_app/core/services/notification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'bible_podcast_screen.dart';
 import 'daily_devotions_screen.dart';
 import 'scripture_memory_screen.dart';
@@ -20,9 +23,20 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
   @override
   void initState() {
     super.initState();
+    _cacheStudyDataOffline();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(profileProvider.notifier).updateReadingStreak();
     });
+  }
+
+  Future<void> _cacheStudyDataOffline() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('last_deep_study_access', DateTime.now().toIso8601String());
+      await prefs.setBool('offline_study_ready', true);
+    } catch (e) {
+      debugPrint('Error caching deep study offline data: $e');
+    }
   }
 
   @override
@@ -57,15 +71,15 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
     return SliverAppBar(
       expandedHeight: 180,
       pinned: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(LucideIcons.arrowLeft, color: Colors.black),
+        icon: Icon(LucideIcons.arrowLeft, color: Theme.of(context).colorScheme.onSurface),
         onPressed: () => Navigator.pop(context),
       ),
       actions: [
         IconButton(
-          icon: const Icon(LucideIcons.settings, color: Colors.black),
+          icon: Icon(LucideIcons.settings, color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => _openSettingsDialog(),
         ),
       ],
@@ -112,6 +126,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
   }
 
   Widget _buildHeroSection(BuildContext context) {
+    final settings = ref.watch(studySettingsProvider);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(30),
@@ -131,11 +146,11 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
                 child: const Icon(LucideIcons.bookOpen, color: Colors.white, size: 24),
               ),
               const SizedBox(width: 15),
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Bible Reader", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  Text("PREMIUM v2.0", style: TextStyle(color: Colors.white70, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                  const Text("Bible Reader", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(_translationLabel(settings.preferredTranslation), style: TextStyle(color: Colors.white70, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 2)),
                 ],
               ),
             ],
@@ -310,10 +325,12 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
   }
 
   void _openSettingsDialog() {
+    final settings = ref.read(studySettingsProvider);
+    final notifier = ref.read(studySettingsProvider.notifier);
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
@@ -323,35 +340,145 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Study Preferences", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black)),
+                  Text("Study Preferences", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
                   const SizedBox(height: 5),
                   const Text("Customize your Deep Study Theological Suite settings.", style: TextStyle(color: Colors.grey, fontSize: 12)),
                   const Divider(height: 30),
                   ListTile(
                     leading: const Icon(LucideIcons.globe, color: Colors.blue),
                     title: const Text("Study Translation", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    subtitle: const Text("World English Bible (WEB)", style: TextStyle(fontSize: 12)),
+                    subtitle: Text(_translationLabel(settings.preferredTranslation), style: const TextStyle(fontSize: 12)),
                     trailing: const Icon(LucideIcons.chevronRight, size: 16),
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Translation set to World English Bible (WEB)")));
+                      showModalBottomSheet(
+                        context: context,
+                        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                        builder: (_) => _translationPicker(settings, notifier, setModalState),
+                      );
                     },
                   ),
                   ListTile(
                     leading: const Icon(LucideIcons.target, color: Colors.red),
                     title: const Text("Daily Memory Goal", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    subtitle: const Text("15 Verses per day", style: TextStyle(fontSize: 12)),
+                    subtitle: Text("${settings.dailyMemoryVerseGoal} Verses per day", style: const TextStyle(fontSize: 12)),
                     trailing: const Icon(LucideIcons.chevronRight, size: 16),
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Daily memory goal updated!")));
+                      showModalBottomSheet(
+                        context: context,
+                        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                        builder: (_) => _goalPicker(settings, notifier, setModalState),
+                      );
                     },
                   ),
                   SwitchListTile(
                     secondary: const Icon(LucideIcons.bell, color: Colors.green),
                     activeThumbColor: Colors.amber,
                     title: const Text("Daily Reminders", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    subtitle: const Text("Get alert notifications to stay on streak", style: TextStyle(fontSize: 12)),
-                    value: true,
-                    onChanged: (bool value) {},
+                    subtitle: Text(
+                      settings.dailyReminders
+                          ? "Reminders at ${settings.reminderTime.formatted}"
+                          : "Get alert notifications to stay on streak",
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    value: settings.dailyReminders,
+                    onChanged: (bool value) async {
+                      await notifier.setDailyReminders(value);
+                      setModalState(() {});
+                      try {
+                        final notifService = ref.read(notificationServiceProvider);
+                        if (value) {
+                          final settings = ref.read(studySettingsProvider);
+                          await notifService.scheduleDailyReminder(
+                            hour: settings.reminderTime.hour,
+                            minute: settings.reminderTime.minute,
+                          );
+                        } else {
+                          await notifService.cancelDailyReminder();
+                        }
+                      } catch (e) {
+                        debugPrint('Failed to schedule reminder: $e');
+                      }
+                      if (!context.mounted) return;
+                      if (value) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text("Reminders set for ${settings.reminderTime.formatted}"),
+                          backgroundColor: Colors.green,
+                        ));
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text("Reminders disabled"),
+                          backgroundColor: Colors.grey,
+                        ));
+                      }
+                    },
+                  ),
+                  if (settings.dailyReminders)
+                    ListTile(
+                      leading: const Icon(LucideIcons.clock, color: Colors.purple),
+                      title: const Text("Reminder Time", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: Text(settings.reminderTime.formatted, style: const TextStyle(fontSize: 12)),
+                      trailing: const Icon(LucideIcons.chevronRight, size: 16),
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay(hour: settings.reminderTime.hour, minute: settings.reminderTime.minute),
+                        );
+                        if (picked != null) {
+                          final pref = TimeOfDayPreference(hour: picked.hour, minute: picked.minute);
+                          await notifier.setReminderTime(pref);
+                          setModalState(() {});
+                          try {
+                            final notifService = ref.read(notificationServiceProvider);
+                            await notifService.scheduleDailyReminder(hour: pref.hour, minute: pref.minute);
+                          } catch (e) {
+                            debugPrint('Failed to schedule reminder: $e');
+                          }
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text("Reminders set for ${pref.formatted}"),
+                            backgroundColor: Colors.green,
+                          ));
+                        }
+                      },
+                    ),
+                  const SizedBox(height: 8),
+                  ListTile(
+                    leading: const Icon(LucideIcons.calendarClock, color: Colors.indigo),
+                    title: const Text("Set Weekly Reminder", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    subtitle: const Text("Pick a day & time for weekly study alert", style: TextStyle(fontSize: 12)),
+                    trailing: const Icon(LucideIcons.chevronRight, size: 16),
+                    onTap: () async {
+                      final day = await showDialog<String>(
+                        context: context,
+                        builder: (ctx) => SimpleDialog(
+                          title: const Text("Select Day of the Week"),
+                          children: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((d) => 
+                            SimpleDialogOption(
+                              onPressed: () => Navigator.pop(ctx, d),
+                              child: Text(d, style: const TextStyle(fontWeight: FontWeight.w500)),
+                            ),
+                          ).toList(),
+                        ),
+                      );
+                      if (day == null || !context.mounted) return;
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay(hour: settings.reminderTime.hour, minute: settings.reminderTime.minute),
+                      );
+                      if (picked != null) {
+                        try {
+                          final notifService = ref.read(notificationServiceProvider);
+                          await notifService.scheduleWeeklyReminder(day: day, hour: picked.hour, minute: picked.minute);
+                        } catch (e) {
+                          debugPrint('Failed to schedule weekly reminder: $e');
+                        }
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text("Weekly reminder set for $day at ${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}"),
+                          backgroundColor: Colors.green,
+                        ));
+                      }
+                    },
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
@@ -371,6 +498,78 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
         );
       }
     );
+  }
+
+  String _translationLabel(String code) {
+    switch (code) {
+      case 'kjv': return 'King James Version (KJV)';
+      case 'web': return 'World English Bible (WEB)';
+      case 'niv': return 'New International Version (NIV)';
+      case 'nkjv': return 'New King James Version (NKJV)';
+      default: return code.toUpperCase();
+    }
+  }
+
+  Widget _translationPicker(StudySettings settings, StudySettingsNotifier notifier, StateSetter setModalState) {
+    final translations = [
+      {'code': 'kjv', 'label': 'King James Version (KJV)'},
+      {'code': 'web', 'label': 'World English Bible (WEB)'},
+      {'code': 'niv', 'label': 'New International Version (NIV)'},
+      {'code': 'nkjv', 'label': 'New King James Version (NKJV)'},
+    ];
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: translations.map((t) {
+          final isSelected = settings.preferredTranslation == t['code'];
+          return ListTile(
+            leading: Icon(isSelected ? LucideIcons.checkCircle : LucideIcons.circle, color: isSelected ? Colors.blue : Colors.grey),
+            title: Text(t['label']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            onTap: () async {
+              await notifier.setTranslation(t['code']!);
+              setModalState(() {});
+              if (!mounted) return;
+              Navigator.pop(context);
+            },
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _goalPicker(StudySettings settings, StudySettingsNotifier notifier, StateSetter setModalState) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(5, (i) {
+          final goal = i + 1;
+          final isSelected = settings.dailyMemoryVerseGoal == goal;
+          return ListTile(
+            leading: Icon(isSelected ? LucideIcons.checkCircle : LucideIcons.circle, color: isSelected ? Colors.blue : Colors.grey),
+            title: Text("$goal verse${goal > 1 ? 's' : ''} per day", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            onTap: () async {
+              await notifier.setDailyMemoryVerseGoal(goal);
+              setModalState(() {});
+              if (!mounted) return;
+              Navigator.pop(context);
+            },
+          );
+        }),
+      ),
+    );
+  }
+
+}
+
+String _translationLabelStatic(String code) {
+  switch (code) {
+    case 'kjv': return 'KJV';
+    case 'web': return 'WEB';
+    case 'niv': return 'NIV';
+    case 'nkjv': return 'NKJV';
+    default: return code.toUpperCase();
   }
 }
 
@@ -404,44 +603,60 @@ class _ExegesisScreenState extends State<_ExegesisScreen> {
         title: Text("Exegesis", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(25),
-        children: [
-          Text("WORD STUDY", style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.blue)),
-          const SizedBox(height: 15),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 15),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade200)),
-            child: TextField(
-              controller: _wordController,
-              onSubmitted: (val) => setState(() => _selectedWord = val.toLowerCase()),
-              decoration: const InputDecoration(hintText: "Enter a Greek or Hebrew word...", icon: Icon(LucideIcons.languages, size: 18), border: InputBorder.none),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text("POPULAR STUDIES", style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.grey)),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8, runSpacing: 8,
-            children: _wordStudies.keys.map((w) => GestureDetector(
-              onTap: () => setState(() => _selectedWord = w),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: _selectedWord == w ? Colors.blue : Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _selectedWord == w ? Colors.blue : Colors.grey.shade300),
-                ),
-                child: Text(w, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _selectedWord == w ? Colors.white : Colors.black)),
+      body: Consumer(
+        builder: (context, ref, _) {
+          final settings = ref.watch(studySettingsProvider);
+          final translationLabel = _translationLabelStatic(settings.preferredTranslation);
+          return ListView(
+            padding: const EdgeInsets.all(25),
+            children: [
+              Row(
+                children: [
+                  Text("WORD STUDY", style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.blue)),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                    child: Text(translationLabel, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blue)),
+                  ),
+                ],
               ),
-            )).toList(),
-          ),
-          const SizedBox(height: 25),
-          if (_selectedWord != null && _wordStudies.containsKey(_selectedWord))
-            _buildWordCard(_selectedWord!, _wordStudies[_selectedWord]!),
-          if (_selectedWord != null && !_wordStudies.containsKey(_selectedWord))
-            Center(child: Padding(padding: const EdgeInsets.all(30), child: Text("Word \"$_selectedWord\" not found in database.", style: const TextStyle(color: Colors.grey)))),
-        ],
+              const SizedBox(height: 15),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade200)),
+                child: TextField(
+                  controller: _wordController,
+                  onSubmitted: (val) => setState(() => _selectedWord = val.toLowerCase()),
+                  decoration: const InputDecoration(hintText: "Enter a Greek or Hebrew word...", icon: Icon(LucideIcons.languages, size: 18), border: InputBorder.none),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text("POPULAR STUDIES", style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.grey)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8, runSpacing: 8,
+                children: _wordStudies.keys.map((w) => GestureDetector(
+                  onTap: () => setState(() => _selectedWord = w),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _selectedWord == w ? Colors.blue : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _selectedWord == w ? Colors.blue : Colors.grey.shade300),
+                    ),
+                    child: Text(w, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _selectedWord == w ? Colors.white : Colors.black)),
+                  ),
+                )).toList(),
+              ),
+              const SizedBox(height: 25),
+              if (_selectedWord != null && _wordStudies.containsKey(_selectedWord))
+                _buildWordCard(_selectedWord!, _wordStudies[_selectedWord]!),
+              if (_selectedWord != null && !_wordStudies.containsKey(_selectedWord))
+                Center(child: Padding(padding: const EdgeInsets.all(30), child: Text("Word \"$_selectedWord\" not found in database.", style: const TextStyle(color: Colors.grey)))),
+            ],
+          );
+        },
       ),
     );
   }
@@ -573,13 +788,13 @@ class _BiblicalAtlasScreen extends StatelessWidget {
 // ═══════════════════════════════════════
 // VERSE MEMORY SCREEN
 // ═══════════════════════════════════════
-class _VerseMemoryScreen extends StatefulWidget {
+class _VerseMemoryScreen extends ConsumerStatefulWidget {
   const _VerseMemoryScreen();
   @override
-  State<_VerseMemoryScreen> createState() => _VerseMemoryScreenState();
+  ConsumerState<_VerseMemoryScreen> createState() => _VerseMemoryScreenState();
 }
 
-class _VerseMemoryScreenState extends State<_VerseMemoryScreen> {
+class _VerseMemoryScreenState extends ConsumerState<_VerseMemoryScreen> {
   int _currentIndex = 0;
   bool _showVerse = false;
   int _score = 0;
@@ -597,7 +812,11 @@ class _VerseMemoryScreenState extends State<_VerseMemoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final verse = _verses[_currentIndex];
+    final settings = ref.watch(studySettingsProvider);
+    final maxVerses = settings.dailyMemoryVerseGoal;
+    final displayVerses = _verses.take(maxVerses).toList();
+    if (displayVerses.isEmpty) return const SizedBox.shrink();
+    final verse = displayVerses[_currentIndex % displayVerses.length];
     return Scaffold(
       backgroundColor: const Color(0xFF1A1030),
       appBar: AppBar(
@@ -608,7 +827,6 @@ class _VerseMemoryScreenState extends State<_VerseMemoryScreen> {
         padding: const EdgeInsets.all(25),
         child: Column(
           children: [
-            // Score and progress
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -621,16 +839,14 @@ class _VerseMemoryScreenState extends State<_VerseMemoryScreen> {
                     Text("Score: $_score", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
                   ]),
                 ),
-                Text("${_currentIndex + 1} / ${_verses.length}", style: const TextStyle(color: Colors.white54)),
+                Text("${_currentIndex + 1} / ${displayVerses.length}", style: const TextStyle(color: Colors.white54)),
               ],
             ),
             const SizedBox(height: 40),
-            // Verse reference
             Text(verse['ref']!, style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white)),
             const SizedBox(height: 10),
             const Text("Can you recite this verse?", style: TextStyle(color: Colors.white54)),
             const SizedBox(height: 40),
-            // Verse card
             GestureDetector(
               onTap: () => setState(() => _showVerse = !_showVerse),
               child: AnimatedContainer(
@@ -652,7 +868,6 @@ class _VerseMemoryScreenState extends State<_VerseMemoryScreen> {
               ),
             ),
             const Spacer(),
-            // Action buttons
             Row(
               children: [
                 Expanded(
@@ -660,7 +875,7 @@ class _VerseMemoryScreenState extends State<_VerseMemoryScreen> {
                     onPressed: () {
                       setState(() {
                         _showVerse = false;
-                        _currentIndex = (_currentIndex + 1) % _verses.length;
+                        _currentIndex = (_currentIndex + 1) % displayVerses.length;
                       });
                     },
                     icon: const Icon(LucideIcons.skipForward, size: 18),
@@ -675,9 +890,9 @@ class _VerseMemoryScreenState extends State<_VerseMemoryScreen> {
                       setState(() {
                         _score++;
                         _showVerse = false;
-                        _currentIndex = (_currentIndex + 1) % _verses.length;
+                        _currentIndex = (_currentIndex + 1) % displayVerses.length;
                       });
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("🎉 Great Job! +1 Point"), backgroundColor: Colors.green, duration: Duration(seconds: 1)));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Great Job! +1 Point"), backgroundColor: Colors.green, duration: Duration(seconds: 1)));
                     },
                     icon: const Icon(LucideIcons.check, size: 18),
                     label: const Text("I KNOW IT"),

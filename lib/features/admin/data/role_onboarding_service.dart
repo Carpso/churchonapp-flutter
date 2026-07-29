@@ -24,14 +24,18 @@ class RoleOnboarding {
 
   factory RoleOnboarding.fromMap(Map<String, dynamic> map) {
     return RoleOnboarding(
-      id: map['id'] as String,
-      userId: map['user_id'] as String,
-      role: map['role'] as String,
-      step: map['step'] as int? ?? 1,
-      totalSteps: map['total_steps'] as int? ?? 3,
-      isCompleted: map['is_completed'] as bool? ?? false,
-      metadata: map['metadata'] as Map<String, dynamic>? ?? {},
-      createdAt: DateTime.parse(map['created_at'] as String),
+      id: map['id']?.toString() ?? '',
+      userId: map['user_id']?.toString() ?? '',
+      role: map['role']?.toString() ?? 'member',
+      step: (map['step'] as int?) ?? 1,
+      totalSteps: (map['total_steps'] as int?) ?? 3,
+      isCompleted: map['is_completed'] == true,
+      metadata: (map['metadata'] is Map<String, dynamic>)
+          ? Map<String, dynamic>.from(map['metadata'] as Map)
+          : {},
+      createdAt: map['created_at'] != null
+          ? DateTime.tryParse(map['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
     );
   }
 }
@@ -42,10 +46,14 @@ class RoleOnboardingService {
   RoleOnboardingService(this._supabase);
 
   Future<RoleOnboarding?> getOnboardingStatus(String role) async {
-    final userId = _supabase.client.auth.currentUser!.id;
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    final userId = user.id;
     final result = await _supabase.client
         .from('role_onboarding')
-        .select('*')
+        .select(
+          'id, user_id, role, step, total_steps, is_completed, metadata, created_at',
+        )
         .eq('user_id', userId)
         .eq('role', role)
         .maybeSingle();
@@ -60,7 +68,9 @@ class RoleOnboardingService {
     bool isCompleted = false,
     Map<String, dynamic>? metadata,
   }) async {
-    final userId = _supabase.client.auth.currentUser!.id;
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    final userId = user.id;
     await _supabase.client.from('role_onboarding').upsert({
       'user_id': userId,
       'role': role,

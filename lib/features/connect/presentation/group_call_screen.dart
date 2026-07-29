@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/services/supabase_service.dart';
 
 class _Participant {
@@ -101,7 +102,7 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
           _participants.add(_Participant(
             id: currentUserId ?? '',
             name: 'You',
-            avatar: 'https://i.pravatar.cc/150?img=1',
+            avatar: '',
             isMe: true,
             isMuted: _isMuted,
           ));
@@ -113,7 +114,7 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
               _participants.add(_Participant(
                 id: userId,
                 name: profile?['full_name'] ?? 'Member',
-                avatar: profile?['avatar_url'] ?? 'https://i.pravatar.cc/150?u=$userId',
+                avatar: profile?['avatar_url'] ?? '',
                 isMe: false,
               ));
             }
@@ -359,7 +360,7 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
                     children: [
                       CircleAvatar(
                         radius: 36,
-                        backgroundImage: NetworkImage(participant.avatar),
+                        backgroundImage: CachedNetworkImageProvider(participant.avatar),
                       ),
                       const SizedBox(height: 10),
                       Text(

@@ -5,6 +5,7 @@ import '../../../core/services/supabase_service.dart';
 import 'ride_request_model.dart';
 import 'delivery_model.dart';
 import '../../../core/services/sms_service.dart';
+import '../../../core/config/env.dart';
 import 'package:latlong2/latlong.dart';
 
 class RideRegistration {
@@ -47,6 +48,52 @@ class TransportService {
   final Ref _ref;
 
   TransportService(this._client, this._ref);
+
+  /// Match nearest available driver weighted by rating and distance score.
+  Future<Map<String, dynamic>?> findNearestWeightedDriver({
+    required LatLng pickupLocation,
+    double searchRadiusKm = 10.0,
+  }) async {
+    try {
+      final drivers = await _client
+          .from('driver_locations')
+          .select('*, profiles!driver_locations_driver_id_fkey(rating)')
+          .eq('is_online', true);
+
+      if (drivers.isEmpty) return null;
+
+      Map<String, dynamic>? bestDriver;
+      double maxScore = -999999.0;
+
+      for (var d in drivers) {
+        final lat = (d['lat'] as num?)?.toDouble() ?? 0.0;
+        final lng = (d['lng'] as num?)?.toDouble() ?? 0.0;
+        final distanceKm = const Distance().as(
+          LengthUnit.Kilometer,
+          pickupLocation,
+          LatLng(lat, lng),
+        );
+
+        if (distanceKm > searchRadiusKm) continue;
+
+        final profile = d['profiles'] as Map<String, dynamic>?;
+        final rating = (profile?['rating'] as num?)?.toDouble() ?? 4.5;
+
+        // Score formula: Rating weight (40%) vs Distance penalty (60%)
+        final score = (rating * 0.4) - (distanceKm * 0.6);
+
+        if (score > maxScore) {
+          maxScore = score;
+          bestDriver = {...d, 'distance_km': distanceKm, 'score': score};
+        }
+      }
+
+      return bestDriver;
+    } catch (e) {
+      debugPrint('Error matching weighted driver: $e');
+      return null;
+    }
+  }
 
   Stream<List<RideRegistration>> getActiveDriversStream() {
     return _client
@@ -127,7 +174,7 @@ class TransportService {
     // 3. Notify the rider via Push
     await _client.from('notifications').insert({
       'user_id': riderId,
-      'title': 'Kingdom Driver Found!',
+      'title': 'Driver Found!',
       'body': 'A driver has accepted your ride request and is on the way.',
       'is_read': false,
     });
@@ -139,8 +186,8 @@ class TransportService {
       if (riderPhone != null) {
         await _ref.read(smsServiceProvider).sendMissionMatchedAlert(
           riderPhone, 
-          "Kingdom Ride", 
-          user.userMetadata?['full_name'] ?? 'a Kingdom Driver'
+          "Ride", 
+          user.userMetadata?['full_name'] ?? 'a Driver'
         );
       }
     } catch (e) {
@@ -200,7 +247,7 @@ class TransportService {
     // Release from escrow: pay net earning to Driver
     await _updateUserBalance(driverId, netEarning);
     // Add cut to Central Treasury
-    await _updateUserBalance('00000000-0000-0000-0000-000000000000', platformCut);
+    await _updateUserBalance(Env.treasuryId, platformCut);
 
     // Update ride request with platform fee
     await _client.from('ride_requests').update({
@@ -213,7 +260,7 @@ class TransportService {
       'amount': -fare,
       'type': 'ride_payment',
       'reference_id': requestId,
-      'description': 'Payment for Kingdom Ride (10% platform cut applied)',
+      'description': 'Payment for Ride (10% platform cut applied)',
       'platform_fee': platformCut,
     });
 
@@ -222,12 +269,12 @@ class TransportService {
       'amount': netEarning,
       'type': 'ride_earning',
       'reference_id': requestId,
-      'description': 'Earning from Kingdom Ride (10% platform cut applied)',
+      'description': 'Earning from Ride (10% platform cut applied)',
       'platform_fee': platformCut,
     });
 
     await _client.from('wallet_transactions').insert({
-      'user_id': '00000000-0000-0000-0000-000000000000',
+      'user_id': Env.treasuryId,
       'amount': platformCut,
       'type': 'platform_cut_revenue',
       'reference_id': requestId,
@@ -347,7 +394,7 @@ class TransportService {
     await _client.from('notifications').insert({
       'user_id': senderId,
       'title': 'Courier Found!',
-      'body': 'A Kingdom Courier has accepted your cargo mission.',
+      'body': 'A Courier has accepted your cargo mission.',
       'is_read': false,
     });
 
@@ -359,7 +406,7 @@ class TransportService {
         await _ref.read(smsServiceProvider).sendMissionMatchedAlert(
           senderPhone, 
           "Cargo Mission", 
-          user.userMetadata?['full_name'] ?? 'a Kingdom Courier'
+          user.userMetadata?['full_name'] ?? 'a Courier'
         );
       }
     } catch (e) {
@@ -397,7 +444,7 @@ class TransportService {
     // Add net earning to Courier
     await _updateUserBalance(driverId, netEarning);
     // Add cut to Central Treasury
-    await _updateUserBalance('00000000-0000-0000-0000-000000000000', platformCut);
+    await _updateUserBalance(Env.treasuryId, platformCut);
 
     // Update delivery request with platform fee
     await _client.from('delivery_requests').update({
@@ -424,7 +471,7 @@ class TransportService {
     });
 
     await _client.from('wallet_transactions').insert({
-      'user_id': '00000000-0000-0000-0000-000000000000',
+      'user_id': Env.treasuryId,
       'amount': platformCut,
       'type': 'platform_cut_revenue',
       'reference_id': deliveryId,

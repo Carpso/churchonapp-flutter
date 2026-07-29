@@ -7,6 +7,8 @@ import '../data/marketplace_service.dart';
 import 'product_details_screen.dart';
 import 'post_product_screen.dart';
 import '../../../core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/features/navigation/presentation/carpso_suggestion_card.dart';
 
 class MarketplaceScreen extends ConsumerStatefulWidget {
   final String? initialCategory;
@@ -45,7 +47,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
-        title: const Text("Kingdom Marketplace", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Marketplace", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           Stack(
             alignment: Alignment.center,
@@ -75,6 +77,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         children: [
           _buildTabRibbon(),
           _buildCategoryRibbon(),
+          const CarpsoSuggestionCard(contextType: 'marketplace'),
           Expanded(
             child: productsAsync.when(
               data: (products) {
@@ -100,11 +103,15 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               loading: () => const ListSkeleton(),
               error: (err, stack) => RefreshIndicator(
                 onRefresh: () async {
-                  setState(() {});
-                  await Future.delayed(const Duration(seconds: 1));
+                  ref.invalidate(productsProvider(filters));
                 },
-                child: _buildMockGrid(),
-              ), // Fallback for prototype
+                child: ListView(
+                  children: [
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+                    _buildEmptyState(),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -216,10 +223,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
           Stack(
             children: [
               ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-                child: Image.network(
-                  product.image ?? "https://images.unsplash.com/photo-1543165796-5426273ea430?w=400&q=60",
-                  fit: BoxFit.cover,
+                borderRadius: BorderRadius.circular(12),
+                child: AspectRatio(
+                  aspectRatio: 1.0,
+                  child: AppImage(
+                    product.image ?? '',
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
               if (product.isCurated)
@@ -247,7 +257,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               children: [
                 Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 5),
-                Text(product.vendorName ?? "Verified Vendor", style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                Text(product.vendorName ?? "Verified Vendor", style: const TextStyle(color: Colors.grey, fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -282,65 +292,25 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(LucideIcons.shoppingBag, size: 50, color: Colors.grey),
+          const Icon(LucideIcons.shoppingBag, size: 64, color: Colors.grey),
           const SizedBox(height: 20),
-          const Text("No items found", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-          Text("Try changing categories or tabs", style: TextStyle(color: Colors.grey.withValues(alpha: 0.6))),
+          const Text("No items found", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 16)),
+          const SizedBox(height: 8),
+          Text("Try changing categories or tabs", style: TextStyle(color: Colors.grey.withValues(alpha: 0.6), fontSize: 12)),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => setState(() { _selectedCategory = "all"; _activeTab = "shop"; }),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Theme.of(context).colorScheme.secondary,
+              minimumSize: const Size(180, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            child: const Text("Browse All Items", style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
         ],
       ),
     );
   }
-
-  Widget _buildMockGrid() {
-    final mockProducts = [
-      // Books & Bibles
-      MarketProduct(id: '1', name: "Dake Annotated Reference Bible", price: 450, category: "bookshop", isCurated: true, vendorName: "Kingdom Bookshop"),
-      MarketProduct(id: '5', name: "Purpose Driven Life Book", price: 200, category: "bookshop", vendorName: "Kingdom Bookshop"),
-      MarketProduct(id: '7', name: "NKJV Study Bible, Leather Bound", price: 350, category: "bookshop", vendorName: "Bible Society"),
-      MarketProduct(id: '8', name: "Morning & Evening by Spurgeon", price: 120, category: "bookshop", vendorName: "Grace Publishers"),
-      MarketProduct(id: '9', name: "My Bible Storybook for Kids", price: 90, category: "bookshop", vendorName: "Kingdom Kids"),
-      
-      // Apparel & Fashion
-      MarketProduct(id: '2', name: "Faith Over Fear Hoodie", price: 250, category: "apparel", vendorName: "Ziba Fashion"),
-      MarketProduct(id: '10', name: "Yahweh Embroidered Cap", price: 80, category: "apparel", vendorName: "Ziba Fashion"),
-      MarketProduct(id: '11', name: "Proverbs 31 Woman T-Shirt", price: 120, category: "apparel", vendorName: "Daughters of Zion"),
-      MarketProduct(id: '12', name: "Jesus Saves Denom Jacket", price: 450, category: "apparel", vendorName: "Street Preachers Apparel"),
-      MarketProduct(id: '13', name: "Armor of God Youth T-Shirt", price: 65, category: "apparel", vendorName: "Kingdom Kids"),
-
-      // Spiritual Tools & Elements
-      MarketProduct(id: '6', name: "Anointing Oil (Frankincense & Myrrh)", price: 65, category: "merch", vendorName: "Church Store"),
-      MarketProduct(id: '14', name: "Communion Wafer & Juice Set (100pk)", price: 300, category: "merch", vendorName: "Church Supply Co."),
-      MarketProduct(id: '15', name: "Olive Wood Prayer Cross", price: 45, category: "merch", vendorName: "Holy Land Crafts"),
-      MarketProduct(id: '16', name: "Shofar Ram's Horn", price: 800, category: "merch", vendorName: "Prophetic Instruments"),
-      MarketProduct(id: '17', name: "Clergy Collar & Shirt Set", price: 400, category: "merch", vendorName: "Clerical Wear Intl."),
-
-      // Gifts & Stationary (Pens, Journals, etc)
-      MarketProduct(id: '18', name: "Philippians 4:13 Engraved Metal Pen", price: 45, category: "merch", vendorName: "Kingdom Stationers"),
-      MarketProduct(id: '19', name: "Leather Prayer Journal", price: 110, category: "bookshop", vendorName: "Kingdom Stationers"),
-      MarketProduct(id: '20', name: "Scripture Coffee Mug", price: 75, category: "merch", vendorName: "Daily Bread Mugs"),
-      MarketProduct(id: '21', name: "Faith Mustard Seed Keychain", price: 35, category: "merch", vendorName: "Gift Corner"),
-      MarketProduct(id: '22', name: "Bible Verse Bookmarks (Set of 10)", price: 25, category: "merch", vendorName: "Kingdom Stationers"),
-      MarketProduct(id: '23', name: "Christian Refrigerator Magnets", price: 30, category: "merch", vendorName: "Gift Corner"),
-
-      // Worship & Media
-      MarketProduct(id: '3', name: "Oceans (Live Worship Anthems)", price: 85, category: "worship", vendorName: "Kingdom Radio"),
-      MarketProduct(id: '24', name: "Instrumental Prayer Music Vol 1", price: 60, category: "worship", vendorName: "Kingdom Radio"),
-      MarketProduct(id: '25', name: "Sermon Series: Book of Romans (Audio)", price: 150, category: "media", vendorName: "Church Media"),
-
-      // Events & Tickets
-      MarketProduct(id: '4', name: "Men of Valor Conference Ticket", price: 150, category: "tickets", isCurated: true, vendorName: "Admin Hub"),
-      MarketProduct(id: '26', name: "Women's Retreat 2026 Registration", price: 500, category: "tickets", isCurated: true, vendorName: "Admin Hub"),
-      MarketProduct(id: '27', name: "Youth Summer Camp Early Bird", price: 350, category: "tickets", vendorName: "Youth Ministry"),
-    ];
-    return MasonryGridView.count(
-      padding: const EdgeInsets.all(20),
-      crossAxisCount: 2,
-      mainAxisSpacing: 15,
-      crossAxisSpacing: 15,
-      itemCount: mockProducts.length,
-      itemBuilder: (context, index) => _buildMarketItem(mockProducts[index]),
-    );
-  }
-
 }
 

@@ -2,18 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'business_meetings_screen.dart';
-import 'event_details_screen.dart';
 import 'package:church_on_app/features/events/data/event_service.dart';
-import 'package:intl/intl.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:church_on_app/core/widgets/shimmer_loader.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
-import 'package:flutter/services.dart';
+import 'package:church_on_app/core/services/r2_service.dart';
+import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
-// Represents a world-class premium events hub mimicking ticketing platforms like Eventbrite / Ticketmaster
+import 'widgets/discover_tab.dart';
+import 'widgets/my_tickets_tab.dart';
+import 'widgets/manage_tab.dart';
+
 class EventsScreen extends ConsumerStatefulWidget {
   const EventsScreen({super.key});
 
@@ -23,8 +21,6 @@ class EventsScreen extends ConsumerStatefulWidget {
 
 class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final int _ticketsSold = 142;
-  final double _revenue = 35500.00;
 
   @override
   void initState() {
@@ -44,9 +40,17 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => CreateEventBottomSheet(onCreated: (event) {
+      builder: (context) => CreateEventBottomSheet(onCreated: (event) async {
         final eventWithTenant = {...event, 'tenant_id': tenantId};
-        ref.read(eventServiceProvider).createEvent(eventWithTenant);
+        try {
+          await ref.read(eventServiceProvider).createEvent(eventWithTenant);
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Event creation failed: $e"), backgroundColor: Colors.red),
+            );
+          }
+        }
       }),
     );
   }
@@ -65,7 +69,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
-        title: const Text("Kingdom Events Hub", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Events Hub", style: TextStyle(fontWeight: FontWeight.bold)),
         bottom: TabBar(
           controller: _tabController,
           labelColor: Theme.of(context).primaryColor,
@@ -93,298 +97,10 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildDiscoverTab(),
-          _buildMyTicketsTab(),
-          _buildManageTab(),
+          const DiscoverTab(),
+          MyTicketsTab(onBrowseEvents: () => _tabController.animateTo(0)),
+          ManageTab(onCreateEvent: _showCreateEventModal),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDiscoverTab() {
-    final eventsAsync = ref.watch(eventsStreamProvider);
-
-    return eventsAsync.when(
-      data: (events) => events.isEmpty 
-        ? const Center(child: Text("No upcoming events found."))
-        : RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(eventsStreamProvider);
-            },
-            child: ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: events.length,
-              itemBuilder: (context, index) {
-              return _buildPremiumEventCard(events[index]);
-            },
-          ),
-          ),
-      loading: () => const ListSkeleton(),
-      error: (err, stack) => Center(child: Text("Error: $err")),
-    );
-  }
-
-  Widget _buildMyTicketsTab() {
-    final myTicketsAsync = ref.watch(myTicketsStreamProvider);
-
-    return myTicketsAsync.when(
-      data: (tickets) => tickets.isEmpty 
-        ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(LucideIcons.ticket, size: 80, color: Colors.grey.withValues(alpha: 0.3)),
-                const SizedBox(height: 20),
-                const Text("No active tickets", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
-                const SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: () => _tabController.animateTo(0),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  ),
-                  child: Text("Browse Events", style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold)),
-                )
-              ],
-            ),
-          )
-        : RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(myTicketsStreamProvider);
-            },
-            child: ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: tickets.length,
-              itemBuilder: (context, index) => _buildSimpleTicketCard(tickets[index]),
-            ),
-          ),
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Center(child: Text("Error: $err")),
-    );
-  }
-
-  Widget _buildSimpleTicketCard(ChurchEvent event) {
-    return Container(
-       margin: const EdgeInsets.only(bottom: 15),
-       padding: const EdgeInsets.all(15),
-       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withValues(alpha: 0.1))),
-       child: Row(
-         children: [
-           ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(event.imageUrl, width: 60, height: 60, fit: BoxFit.cover)),
-           const SizedBox(width: 15),
-           Expanded(
-             child: Column(
-               crossAxisAlignment: CrossAxisAlignment.start,
-               children: [
-                 Text(event.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                 Text(DateFormat.yMMMd().format(event.date), style: const TextStyle(color: Colors.grey, fontSize: 12)),
-               ],
-             ),
-           ),
-           const Icon(LucideIcons.qrCode, color: Colors.blueAccent),
-         ],
-       ),
-    );
-  }
-
-  Widget _buildManageTab() {
-    return RefreshIndicator(
-      onRefresh: () async {
-        setState(() {});
-        await Future.delayed(const Duration(seconds: 1));
-      },
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-        GestureDetector(
-          onTap: _showCreateEventModal,
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [Theme.of(context).primaryColor, Colors.orangeAccent]),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 5))]
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(backgroundColor: Colors.white.withValues(alpha: 0.2), child: const Icon(LucideIcons.plus, color: Colors.white)),
-                const SizedBox(width: 15),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Create New Event", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text("Host tickets, live streams & more", style: TextStyle(color: Colors.white70, fontSize: 12)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        const Text("Dashboard & Analytics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 15),
-        Row(
-          children: [
-            Expanded(child: _buildMetricCard("Tickets Sold", _ticketsSold.toString(), LucideIcons.ticket, Colors.blue)),
-            const SizedBox(width: 15),
-            Expanded(child: _buildMetricCard("Revenue (K)", _revenue.toStringAsFixed(2), LucideIcons.wallet, Colors.green)),
-          ],
-        )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withValues(alpha: 0.1))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 10),
-          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPremiumEventCard(ChurchEvent event) {
-    bool isFree = event.ticketPrice == 0;
-    return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => EventDetailsScreen(event: {
-        'id': event.id,
-        'title': event.title,
-        'description': event.description,
-        'date': DateFormat.yMMMd().format(event.date),
-        'location': event.location,
-        'cover': event.imageUrl,
-        'price': event.ticketPrice.toInt(),
-        'isLiveStream': false,
-        'interchurch': true,
-        'speakers': event.speakers,
-        'end_date': event.endDate != null ? DateFormat.yMMMd().format(event.endDate!) : '',
-        'organizer_momo_phone': event.organizerMomoPhone,
-        'organizer_momo_name': event.organizerMomoName,
-      }))),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 25),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 15, offset: const Offset(0, 5))],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Event Cover Image
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-                  child: CachedNetworkImage(
-                    imageUrl: event.imageUrl.isNotEmpty ? event.imageUrl : "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&q=80",
-                    height: 180,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(color: Colors.grey.shade200),
-                    errorWidget: (context, url, error) => const Icon(Icons.error),
-                  ),
-                ),
-                Positioned(
-                  top: 15,
-                  right: 15,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 5)]),
-                    child: Text(isFree ? "FREE" : "K${event.ticketPrice}", style: TextStyle(fontWeight: FontWeight.w900, color: Theme.of(context).primaryColor)),
-                  ),
-                ),
-              ],
-            ),
-            // Event Details
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(DateFormat.yMMMd().format(event.date), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold, fontSize: 12)),
-                      const Row(
-                        children: [
-                          Icon(LucideIcons.globe, size: 12, color: Colors.blue),
-                          SizedBox(width: 4),
-                          Text("Interchurch", style: TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold)),
-                        ],
-                      )
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(event.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Icon(LucideIcons.mapPin, size: 14, color: Colors.grey),
-                      const SizedBox(width: 5),
-                      Text(event.location, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                             if (isFree) {
-                               ref.read(eventServiceProvider).registerForEvent(event.id);
-                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Registration Successful!")));
-                             } else {
-                               Navigator.push(context, MaterialPageRoute(builder: (context) => EventDetailsScreen(event: {
-                                 'id': event.id,
-                                 'title': event.title,
-                                 'description': event.description,
-                                 'date': DateFormat.yMMMd().format(event.date),
-                                 'location': event.location,
-                                 'cover': event.imageUrl,
-                                 'price': event.ticketPrice.toInt(),
-                                 'isLiveStream': false,
-                                 'interchurch': true,
-                               })));
-                             }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.secondary,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                            padding: const EdgeInsets.symmetric(vertical: 15),
-                          ),
-                          child: Text(isFree ? "RSVP NOW" : "BUY TICKET", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Container(
-                        decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(15)),
-                        child: IconButton(
-                          icon: const Icon(LucideIcons.share2, color: Colors.black87),
-                          onPressed: () async {
-                            await Clipboard.setData(ClipboardData(text: "https://churchonapp.com/events/${event.id}"));
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Event link copied to clipboard!"), backgroundColor: Colors.green)
-                            );
-                          },
-                        ),
-                      )
-                    ],
-                  ),
-                ],
-              ),
-            )
-          ],
-        ),
       ),
     );
   }
@@ -666,7 +382,6 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
             ),
             const SizedBox(height: 20),
             
-            // Event Type
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 15),
               decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade200)),
@@ -687,7 +402,6 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
             _buildTextField("Settlement Account Phone (e.g. 097xxxxxxx)", _momoPhoneCtrl, LucideIcons.smartphone),
             const SizedBox(height: 20),
 
-            // Interchurch Option
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text("Interchurch Event", style: TextStyle(fontWeight: FontWeight.bold)),
@@ -702,7 +416,6 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
               },
             ),
 
-            // Live Stream Option
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text("Enable Live Stream", style: TextStyle(fontWeight: FontWeight.bold)),
@@ -714,7 +427,6 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
 
             const Divider(height: 30),
 
-            // Paid Event Option
             Row(
               children: [
                 const Text("Ticketing", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -762,7 +474,6 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
 
             const SizedBox(height: 30),
             
-            // Media Upload UI
             GestureDetector(
               onTap: _pickImage,
               child: Container(
@@ -835,7 +546,7 @@ class HostBusinessMeetingSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(color: Color(0xFF1E293B), borderRadius: BorderRadius.vertical(top: Radius.circular(30))), // Dark sleek pro theme
+      decoration: const BoxDecoration(color: Color(0xFF1E293B), borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
       padding: EdgeInsets.only(left: 25, right: 25, top: 30, bottom: MediaQuery.of(context).viewInsets.bottom + 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -916,4 +627,3 @@ class HostBusinessMeetingSheet extends StatelessWidget {
     );
   }
 }
-

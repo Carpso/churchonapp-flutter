@@ -69,7 +69,7 @@ class LiveStreamIndicator extends ConsumerWidget {
     final tenant = ref.watch(currentTenantProvider);
     if (tenant == null) return const SizedBox.shrink();
 
-    final liveStatus = ref.watch(liveStatusProvider(tenant.id)).asData?.value;
+    final liveStatus = ref.watch(liveStatusProvider(tenant.id)).value;
     final isLive = liveStatus?.isLive ?? false;
 
     if (!isLive) return const SizedBox.shrink();
@@ -126,8 +126,8 @@ class LiveStreamIndicator extends ConsumerWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => LiveStreamScreen(
-                    streamUrl: liveStatus!.streamUrl ?? '',
-                    title: liveStatus.title ?? "Live Stream",
+                    streamUrl: liveStatus?.streamUrl ?? '',
+                    title: liveStatus?.title ?? "Live Stream",
                   ),
                 ),
               );

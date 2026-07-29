@@ -67,7 +67,28 @@ ios/Runner/GoogleService-Info.plist
 node_modules/
 package-lock.json
 
+# Keystore credentials (contains signing passwords)
+key.properties
+SECRETS_BACKUP.md
+
+# AI / editor temp files
+.claude/
+tmpclaude-*
+
+# Generated reports & temp output
+*.pdf
+0
+all_dart_files.txt
+fix_navigation.ps1
+analyze_output.txt
+run_output.txt
+temp_end.txt
+test_share.dart
+media_playback.mp4
+screen_profile.png
+
 # Stale build artifacts
+android/build/
 site_release.zip
 FINAL_MASTER_BACKEND_SYNC.sql
 

@@ -9,8 +9,6 @@ import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/config/env.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
@@ -23,6 +21,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _phoneCtrl = TextEditingController();
   String _selectedNetwork = "MTN";
   String _paymentMethod = "mobile_money";
+  String _deliveryMethod = "delivery"; // 'delivery' or 'pickup'
 
   bool _isProcessing = false;
   bool _isSuccess = false;
@@ -58,9 +57,89 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return subtotal * 0.05 > 3.00 ? subtotal * 0.05 : 3.00;
   }
 
+  double get _deliveryFee => _deliveryMethod == 'delivery' ? 15.0 : 0.0;
+
   double get _total {
     final subtotal = ref.read(cartProvider.notifier).total;
-    return subtotal + _platformFee;
+    return subtotal + _platformFee + _deliveryFee;
+  }
+
+  /// Marketplace MoMo Routing: Pay seller via Lipila payout.
+  /// Priority: Seller's MoMo → Tenant's MoMo → COA Team MoMo (fallback).
+  Future<void> _disburseToSeller(List<CartItem> items, double subtotal, double fee, String? tenantId) async {
+    try {
+      final supabase = Supabase.instance.client;
+
+      // Collect unique vendor IDs from this order
+      final vendorIds = items
+          .where((item) => item.product.vendorId != null && item.product.vendorId!.isNotEmpty)
+          .map((item) => item.product.vendorId!)
+          .toSet()
+          .toList();
+
+      if (vendorIds.isEmpty) {
+        debugPrint('[Marketplace] No vendors to pay out');
+        return;
+      }
+
+      for (final vendorId in vendorIds) {
+        // Priority 1: Seller's MoMo phone from profiles
+        String? sellerPhone;
+        try {
+          final profile = await supabase
+              .from('profiles')
+              .select('phone_number')
+              .eq('id', vendorId)
+              .maybeSingle();
+          sellerPhone = profile?['phone_number'] as String?;
+        } catch (e) {
+          debugPrint('Error fetching seller phone from profile: $e');
+        }
+
+        // Priority 2: Tenant's treasurer MoMo
+        if (sellerPhone == null || sellerPhone.isEmpty) {
+          try {
+            final church = await supabase
+                .from('churches')
+                .select('treasurer_phone')
+                .eq('id', tenantId ?? '')
+                .maybeSingle();
+            sellerPhone = church?['treasurer_phone'] as String?;
+          } catch (e) {
+            debugPrint('Error fetching treasurer phone from church: $e');
+          }
+        }
+
+        // Priority 3: COA Team MoMo (fallback)
+        if (sellerPhone == null || sellerPhone.isEmpty) {
+          sellerPhone = Env.coaMoMoNumber;
+        }
+
+        // Calculate this vendor's share (proportional to their items' total_price)
+        final vendorItemTotal = items
+            .where((item) => item.product.vendorId == vendorId)
+            .fold(0.0, (sum, item) => sum + (item.product.price * item.quantity));
+        final vendorShare = vendorItemTotal - (vendorItemTotal * 0.05 > 3.00 ? vendorItemTotal * 0.05 : 3.00);
+        if (vendorShare <= 0) continue;
+
+        // Normalize phone to 260XXXXXXXXX format
+        String phone = sellerPhone.replaceAll(RegExp(r'\D'), '');
+        if (phone.startsWith('0')) phone = '260${phone.substring(1)}';
+        if (phone.startsWith('9') && phone.length == 9) phone = '260$phone';
+        if (phone.length == 9) phone = '260$phone';
+
+        final payoutRef = 'MKT-${DateTime.now().millisecondsSinceEpoch}-$vendorId';
+        await supabase.functions.invoke('lipila-payout', body: {
+          'accountNumber': phone,
+          'amount': vendorShare,
+          'narration': 'Marketplace seller payout',
+          'referenceId': payoutRef,
+        });
+        debugPrint('[Marketplace] Paid K${vendorShare.toStringAsFixed(2)} to seller $vendorId via $phone');
+      }
+    } catch (e) {
+      debugPrint('[Marketplace] Seller disbursement failed (non-blocking): $e');
+    }
   }
 
   Future<void> _placeOrder() async {
@@ -110,28 +189,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         if (phone.length == 9) phone = '260$phone';
 
         final supabase = Supabase.instance.client;
-        final session = supabase.auth.currentSession;
-        if (session == null) throw Exception("Not authenticated");
 
-        final lipilaResponse = await http.post(
-          Uri.parse("${Env.supabaseUrl}/functions/v1/lipila-collect"),
-          headers: {
-            "Authorization": "Bearer ${session.accessToken}",
-            "Content-Type": "application/json",
-          },
-          body: jsonEncode({
-            "accountNumber": phone,
-            "amount": total,
-            "narration": "Marketplace Order",
-          }),
-        );
+        final lipilaResponse = await supabase.functions.invoke('lipila-collect', body: {
+          "accountNumber": phone,
+          "amount": total,
+          "narration": "Marketplace Order",
+        });
 
-        if (lipilaResponse.statusCode != 200) {
-          final errorBody = jsonDecode(lipilaResponse.body);
-          throw Exception(errorBody['error'] ?? errorBody['message'] ?? "Payment initiation failed");
+        if (lipilaResponse.data == null) {
+          throw Exception("Payment initiation failed");
         }
-
-        final result = jsonDecode(lipilaResponse.body);
+        final result = lipilaResponse.data is Map
+            ? Map<String, dynamic>.from(lipilaResponse.data as Map)
+            : {};
         paymentReference = result['reference'] as String?;
       }
 
@@ -145,11 +215,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           'vendor_id': item.product.vendorId,
         }).toList(),
         totalAmount: subtotal,
-        deliveryFee: 0,
+        deliveryFee: _deliveryFee,
         platformFee: fee,
         paymentReference: paymentReference,
         tenantId: tenant?.id,
       );
+
+      // Marketplace MoMo Routing: Pay seller after order is placed
+      if (_paymentMethod == "mobile_money") {
+        await _disburseToSeller(items, subtotal, fee, tenant?.id);
+      }
 
       ref.read(cartProvider.notifier).clear();
 
@@ -202,6 +277,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               children: [
                 _buildOrderSummary(items),
                 const SizedBox(height: 24),
+                _buildDeliveryMethodSelector(),
+                const SizedBox(height: 24),
                 _buildPaymentMethodSection(walletBalance),
                 const SizedBox(height: 24),
                 _buildOrderTotal(subtotal),
@@ -243,7 +320,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
       ),
@@ -298,11 +375,82 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
+  Widget _buildDeliveryMethodSelector() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Delivery Method", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _deliveryMethod = 'delivery'),
+                  child: Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: _deliveryMethod == 'delivery' ? Theme.of(context).primaryColor.withValues(alpha: 0.1) : Colors.white,
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: _deliveryMethod == 'delivery' ? Theme.of(context).primaryColor : Colors.grey.withValues(alpha: 0.2),
+                        width: _deliveryMethod == 'delivery' ? 2 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(LucideIcons.truck, color: _deliveryMethod == 'delivery' ? Theme.of(context).primaryColor : Colors.grey),
+                        const SizedBox(height: 8),
+                        const Text("Express Delivery", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        Text("K15.00", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _deliveryMethod = 'pickup'),
+                  child: Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: _deliveryMethod == 'pickup' ? Theme.of(context).primaryColor.withValues(alpha: 0.1) : Colors.white,
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: _deliveryMethod == 'pickup' ? Theme.of(context).primaryColor : Colors.grey.withValues(alpha: 0.2),
+                        width: _deliveryMethod == 'pickup' ? 2 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(LucideIcons.mapPin, color: _deliveryMethod == 'pickup' ? Theme.of(context).primaryColor : Colors.grey),
+                        const SizedBox(height: 8),
+                        const Text("Pickup at Church", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        Text("FREE", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPaymentMethodSection(int walletBalance) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
       ),
@@ -337,10 +485,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                      color: isSelected ? (n['color'] as Color).withValues(alpha: 0.1) : Colors.white,
+                      color: isSelected ? (n['color'] as Color).withValues(alpha: 0.1) : Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected ? n['color'] as Color : const Color(0xFFF1F5F9),
+                        color: isSelected ? n['color'] as Color : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.12),
                         width: 2,
                       ),
                     ),
@@ -355,7 +503,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
                             color: isSelected
-                                ? (n['color'] == Colors.yellow ? Colors.black : n['color'] as Color)
+                                ? (n['color'] == Colors.yellow ? Colors.black87 : n['color'] as Color)
                                 : const Color(0xFF94A3B8),
                           ),
                         ),
@@ -372,7 +520,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               decoration: InputDecoration(
                 hintText: "Enter Mobile Money number",
                 filled: true,
-                fillColor: const Color(0xFFF8FAFC),
+                fillColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.6),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -386,7 +534,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -421,10 +569,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.05) : Colors.white,
+          color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.05) : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? Theme.of(context).primaryColor : const Color(0xFFF1F5F9),
+            color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.12),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -436,7 +584,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Theme.of(context).primaryColor : Colors.black)),
+                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.onSurface)),
                   Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
                 ],
               ),
@@ -451,11 +599,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   Widget _buildOrderTotal(double subtotal) {
     final fee = _platformFee;
+    final delivery = _deliveryFee;
     final total = _total;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
       ),
@@ -467,6 +616,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           _buildTotalRow("Subtotal", "K ${subtotal.toStringAsFixed(2)}"),
           const SizedBox(height: 8),
           _buildTotalRow("Platform Fee (5%)", "K ${fee.toStringAsFixed(2)}"),
+          if (delivery > 0) ...[
+            const SizedBox(height: 8),
+            _buildTotalRow("Express Delivery", "K ${delivery.toStringAsFixed(2)}"),
+          ],
+          if (_deliveryMethod == 'pickup') ...[
+            const SizedBox(height: 8),
+            _buildTotalRow("Pickup at Church", "FREE", isTotal: false),
+          ],
           const Divider(height: 24),
           _buildTotalRow("Total", "K ${total.toStringAsFixed(2)}", isTotal: true),
         ],
@@ -481,7 +638,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         Text(
           label,
           style: TextStyle(
-            color: isTotal ? Colors.black : Colors.grey,
+            color: isTotal ? Theme.of(context).colorScheme.onSurface : Colors.grey,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
             fontSize: isTotal ? 16 : 14,
           ),
@@ -491,7 +648,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           style: TextStyle(
             fontWeight: isTotal ? FontWeight.w900 : FontWeight.bold,
             fontSize: isTotal ? 18 : 14,
-            color: isTotal ? Theme.of(context).primaryColor : Colors.black,
+            color: isTotal ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ],
@@ -502,7 +659,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return Container(
       padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))],
       ),
       child: SizedBox(
@@ -560,7 +717,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(

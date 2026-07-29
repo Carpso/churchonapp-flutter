@@ -84,7 +84,7 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
       double tithes = 0, giving = 0;
       for (final t in txsRes) {
         final amount = (t['amount'] as num?)?.toDouble() ?? 0;
-        if (t['type'] == 'tithe') tithes += amount; else giving += amount;
+        if (t['type'] == 'tithe') { tithes += amount; } else { giving += amount; }
       }
 
       final branches = (tenantsRes as List).map((t) => t as Map<String, dynamic>).toList();
@@ -94,18 +94,20 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
         if (tid != null) memberSet.add(tid);
       }
 
-      if (mounted) setState(() {
-        _branchCount = branches.length;
-        _totalAttendance = (attThisMonth as List).length;
-        _lastMonthAttendance = (attLastMonth as List).length;
-        _totalTithes = tithes;
-        _totalGiving = giving;
-        _totalMembers = memberSet.length;
-        _branches = branches;
-        _missions = List<Map<String, dynamic>>.from(missionsRes);
-        _missionsActive = missionsRes.where((m) => m['status'] == 'active').length;
-        _isLoading = false; _error = null;
-      });
+      if (mounted) {
+        setState(() {
+          _branchCount = branches.length;
+          _totalAttendance = (attThisMonth as List).length;
+          _lastMonthAttendance = (attLastMonth as List).length;
+          _totalTithes = tithes;
+          _totalGiving = giving;
+          _totalMembers = memberSet.length;
+          _branches = branches;
+          _missions = List<Map<String, dynamic>>.from(missionsRes);
+          _missionsActive = missionsRes.where((m) => m['status'] == 'active').length;
+          _isLoading = false; _error = null;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() { _isLoading = false; _error = e.toString(); });
     }
@@ -152,7 +154,7 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                   Text("Quick Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                   const SizedBox(height: 15),
                   _quickAction(theme, LucideIcons.fileText, "Pastor Reports", "Review weekly reports from branches", Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ServiceReportScreen()))),
-                  _quickAction(theme, LucideIcons.map, "Kingdom Map", "Geographic view of all branches", Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LiveViewerHeatmapScreen()))),
+                  _quickAction(theme, LucideIcons.map, "Map", "Geographic view of all branches", Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LiveViewerHeatmapScreen()))),
                   _quickAction(theme, LucideIcons.barChart3, "Central Treasury", "Multi-branch financial oversight", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FinanceDashboardScreen()))),
                   _quickAction(theme, LucideIcons.users, "Clergy Management", "Manage pastors and ministry leaders", Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MemberManagementScreen()))),
                   _quickAction(theme, LucideIcons.userPlus, "Create Department Leader", "Assign a member as department leader or assistant", Colors.deepOrange, () async {
@@ -189,13 +191,17 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                         ),
                       ),
                     );
-                    if (result != null && result['userId']!.isNotEmpty && result['role']!.isNotEmpty) {
-                      final svc = ref.read(roleHierarchyServiceProvider);
-                      try {
-                        await svc.elevateRole(userId: result['userId']!, roleName: result['role']!);
-                        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("${result['role']} assigned successfully!"), backgroundColor: Colors.green));
-                      } catch (e) {
-                        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+                    if (result != null) {
+                      final uid = result['userId'];
+                      final role = result['role'];
+                      if (uid != null && uid.isNotEmpty && role != null && role.isNotEmpty) {
+                        final svc = ref.read(roleHierarchyServiceProvider);
+                        try {
+                          await svc.elevateRole(userId: uid, roleName: role);
+                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$role assigned successfully!"), backgroundColor: Colors.green));
+                        } catch (e) {
+                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+                        }
                       }
                     }
                   }),
@@ -229,13 +235,17 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                         ),
                       ),
                     );
-                    if (result != null && result['userId']!.isNotEmpty && result['role']!.isNotEmpty) {
-                      final svc = ref.read(roleHierarchyServiceProvider);
-                      try {
-                        await svc.assignRole(userId: result['userId']!, roleName: result['role']!);
-                         if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Approval request submitted for ${result['role']}!"), backgroundColor: Colors.blue));
-                      } catch (e) {
-                        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+                    if (result != null) {
+                      final uid = result['userId'];
+                      final role = result['role'];
+                      if (uid != null && uid.isNotEmpty && role != null && role.isNotEmpty) {
+                        final svc = ref.read(roleHierarchyServiceProvider);
+                        try {
+                          await svc.assignRole(userId: uid, roleName: role);
+                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Approval request submitted for $role!"), backgroundColor: Colors.blue));
+                        } catch (e) {
+                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+                        }
                       }
                     }
                   }),

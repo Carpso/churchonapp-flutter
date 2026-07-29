@@ -9,6 +9,7 @@ import '../../finance/presentation/giving_screen.dart';
 import 'package:church_on_app/features/admin/data/reporting_service.dart';
 import '../data/live_chat_service.dart';
 import '../../../core/providers/profile_provider.dart';
+import '../../../core/widgets/app_image.dart';
 import 'dart:async';
 
 class LiveStreamScreen extends ConsumerStatefulWidget {
@@ -115,15 +116,12 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
                 children: [
                    Row(
                     children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundImage: NetworkImage(tenant?.logoUrl ?? 'https://i.pravatar.cc/100'),
-                      ),
+                       ClipOval(child: AppImage(tenant?.logoUrl ?? '', width: 40, height: 40, fit: BoxFit.cover)),
                       const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(tenant?.name ?? "Kingdom Church", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          Text(tenant?.name ?? "Church", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                           Text("Join the community", style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
                         ],
                       ),
@@ -234,10 +232,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 8,
-            backgroundImage: NetworkImage(msg.senderPhoto ?? "https://i.pravatar.cc/100?u=${msg.senderId}"),
-          ),
+          ClipOval(child: AppImage(msg.senderPhoto ?? '', width: 16, height: 16, fit: BoxFit.cover)),
           const SizedBox(width: 8),
           Text("${msg.senderName}: ", style: const TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold, fontSize: 13)),
           Expanded(child: Text(msg.text, style: const TextStyle(color: Colors.white, fontSize: 13))),
@@ -290,7 +285,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         tenantId: tenant.id,
         content: message,
         userName: profile.name,
-        userPhoto: "https://i.pravatar.cc/100?u=${profile.id}",
+        userPhoto: profile.avatarUrl ?? '',
       );
     } catch (e) {
       if (mounted) {

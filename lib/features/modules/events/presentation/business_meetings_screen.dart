@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:church_on_app/features/modules/events/presentation/meeting_subscription_sheet.dart';
 import '../data/meeting_service.dart';
 
 class BusinessMeetingsScreen extends ConsumerStatefulWidget {
@@ -69,13 +70,13 @@ class _BusinessMeetingsScreenState extends ConsumerState<BusinessMeetingsScreen>
                   children: [
                     const Center(child: Text("MEETING PARTICIPANTS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))),
                     const SizedBox(height: 20),
-                    _buildParticipant("Pastor (You)", "https://i.pravatar.cc/150?u=me", isMe: true),
+                    _buildParticipant("Pastor (You)", '', isMe: true),
                     const SizedBox(height: 12),
-                    _buildParticipant("Bishop David", "https://i.pravatar.cc/150?u=bishop"),
+                    _buildParticipant("Bishop David", ''),
                     const SizedBox(height: 12),
-                    _buildParticipant("Secretary", "https://i.pravatar.cc/150?u=sec"),
+                    _buildParticipant("Secretary", ''),
                     const SizedBox(height: 12),
-                    _buildParticipant("Elder Moses", "https://i.pravatar.cc/150?u=elder"),
+                    _buildParticipant("Elder Moses", ''),
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -93,10 +94,10 @@ class _BusinessMeetingsScreenState extends ConsumerState<BusinessMeetingsScreen>
               mainAxisSpacing: 15,
               crossAxisSpacing: 15,
               children: [
-                _buildParticipant("Pastor (You)", "https://i.pravatar.cc/150?u=me", isMe: true),
-                _buildParticipant("Bishop David", "https://i.pravatar.cc/150?u=bishop"),
-                _buildParticipant("Secretary", "https://i.pravatar.cc/150?u=sec"),
-                _buildParticipant("Elder Moses", "https://i.pravatar.cc/150?u=elder"),
+                _buildParticipant("Pastor (You)", '', isMe: true),
+                _buildParticipant("Bishop David", ''),
+                _buildParticipant("Secretary", ''),
+                _buildParticipant("Elder Moses", ''),
               ],
             ),
           ),
@@ -147,6 +148,16 @@ class _BusinessMeetingsScreenState extends ConsumerState<BusinessMeetingsScreen>
           _buildControlButton(_isMuted ? LucideIcons.micOff : LucideIcons.mic, _isMuted ? Colors.redAccent : Colors.white, () => setState(() => _isMuted = !_isMuted)),
           _buildControlButton(_isVideoOff ? LucideIcons.videoOff : LucideIcons.video, _isVideoOff ? Colors.redAccent : Colors.white, () => setState(() => _isVideoOff = !_isVideoOff)),
           _buildControlButton(LucideIcons.messageSquare, Colors.blueAccent, _showRecords),
+          _buildControlButton(LucideIcons.bell, Colors.amberAccent, () => showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (ctx) => MeetingSubscriptionSheet(
+              onSubscribe: (planType, amountZmw, paymentRef) async {
+                return true;
+              },
+            ),
+          )),
           Container(
             height: 50,
             width: 70,

@@ -56,17 +56,19 @@ class WriterApprovalService {
   Future<List<WriterApplication>> getPendingApplications() async {
     final result = await _supabase.client
         .from('writer_applications')
-        .select('*')
+        .select('id, user_id, full_name, email, phone, reason, writing_samples_url, status, reviewed_by, reviewed_at, rejection_reason, created_at')
         .eq('status', 'pending')
         .order('created_at', ascending: false);
     return (result as List).map((e) => WriterApplication.fromMap(e)).toList();
   }
 
   Future<WriterApplication?> getMyApplication() async {
-    final userId = _supabase.client.auth.currentUser!.id;
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    final userId = user.id;
     final result = await _supabase.client
         .from('writer_applications')
-        .select('*')
+        .select('id, user_id, full_name, email, phone, reason, writing_samples_url, status, reviewed_by, reviewed_at, rejection_reason, created_at')
         .eq('user_id', userId)
         .maybeSingle();
     if (result == null) return null;
@@ -80,7 +82,9 @@ class WriterApprovalService {
     String? reason,
     String? writingSamplesUrl,
   }) async {
-    final userId = _supabase.client.auth.currentUser!.id;
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    final userId = user.id;
     await _supabase.client.from('writer_applications').insert({
       'user_id': userId,
       'full_name': fullName,
@@ -92,16 +96,34 @@ class WriterApprovalService {
   }
 
   Future<void> approveApplication(String applicationId) async {
-    final userId = _supabase.client.auth.currentUser!.id;
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    final adminId = user.id;
+
+    final app = await _supabase.client
+        .from('writer_applications')
+        .select('user_id')
+        .eq('id', applicationId)
+        .maybeSingle();
+
     await _supabase.client.from('writer_applications').update({
       'status': 'approved',
-      'reviewed_by': userId,
+      'reviewed_by': adminId,
       'reviewed_at': DateTime.now().toUtc().toIso8601String(),
     }).eq('id', applicationId);
+
+    if (app != null) {
+      final writerUserId = app['user_id'] as String;
+      await _supabase.client.from('profiles').update({
+        'role': 'writer',
+      }).eq('id', writerUserId);
+    }
   }
 
   Future<void> rejectApplication(String applicationId, {String? reason}) async {
-    final userId = _supabase.client.auth.currentUser!.id;
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    final userId = user.id;
     await _supabase.client.from('writer_applications').update({
       'status': 'rejected',
       'reviewed_by': userId,

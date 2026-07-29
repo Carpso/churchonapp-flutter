@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/services/code_generator_service.dart';
 
 class RegisterChurchScreen extends ConsumerStatefulWidget {
   const RegisterChurchScreen({super.key});
@@ -59,8 +61,16 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
       if (user == null) throw Exception("Please login first");
 
       final slug = _nameController.text.toLowerCase().replaceAll(' ', '-').replaceAll(RegExp(r'[^a-z0-9-]'), '');
-      
-      await Supabase.instance.client.from('churches').insert({
+      final client = Supabase.instance.client;
+
+      final tenantRes = await client.from('tenants').insert({
+        'name': _nameController.text.trim(),
+        'type': 'church',
+        'country': _detectedCountry,
+      }).select('id').single();
+      final tenantId = tenantRes['id'] as String;
+
+      await client.from('churches').insert({
         'name': _nameController.text.trim(),
         'address': _locationController.text.trim(),
         'country': _detectedCountry,
@@ -68,13 +78,33 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
         'longitude': _lng,
         'contact_phone': _treasurerPhoneController.text.trim(),
         'slug': slug,
+        'tenant_id': tenantId,
         'is_verified': false,
-        'pastor_name': "${user.id}:$_selectedRole",
         'subscription_ends_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
       });
 
+      await client.from('profiles').update({
+        'tenant_id': tenantId,
+        'role': _selectedRole,
+      }).eq('id', user.id);
+
+      String? inviteCode;
+      try {
+        final codeGen = CodeGeneratorService(client);
+        inviteCode = await codeGen.generateTenantCode(_detectedCountry);
+        await codeGen.registerCode(
+          codeType: 'tenant',
+          codeValue: inviteCode,
+          countryIso: CodeGeneratorService.countryToISO(_detectedCountry),
+          userId: user.id,
+          metadata: {'tenant_id': tenantId, 'church_name': _nameController.text.trim()},
+        );
+      } catch (e) {
+        debugPrint('Invite code generation failed: $e');
+      }
+
       if (mounted) {
-        _showSuccessDialog();
+        _showSuccessDialog(inviteCode: inviteCode);
       }
     } catch (e) {
       if (mounted) {
@@ -87,43 +117,81 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
     }
   }
 
-  void _showSuccessDialog() {
+  void _showSuccessDialog({String? inviteCode}) {
     final fee = _selectedRole == 'pastor' ? 'K 1,500' : 'K 2,000';
+    final churchName = _nameController.text.trim();
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
         title: const Icon(LucideIcons.checkCircle, color: Colors.green, size: 60),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("Registration Received!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-            const SizedBox(height: 15),
-            Text(
-              "Within 3 days, you are required to pay the onboarding fee of $fee to activate your church management suite.",
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(15)),
-              child: const Column(
-                children: [
-                  Text("Zamtel/Airtel/MTN Money", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  Text("Superadmin MoMo: 0976847775", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.blue)),
-                ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Registration Received!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+              const SizedBox(height: 15),
+              Text(
+                "Within 3 days, you are required to pay the onboarding fee of $fee to activate your church management suite.",
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.grey),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(15)),
+                child: const Column(
+                  children: [
+                    Text("Zamtel/Airtel/MTN Money", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    Text("Superadmin MoMo: 0976847775", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.blue)),
+                  ],
+                ),
+              ),
+              if (inviteCode != null) ...[
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(15)),
+                  child: Column(
+                    children: [
+                      const Text("Share This Invite Code", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      SelectableText(inviteCode, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            final link = "https://churchonapp.com/join?code=$inviteCode";
+                            SharePlus.instance.share(
+                              ShareParams(
+                                text: "Join our church $churchName on Church On App!\n\nUse invite code: $inviteCode\nOr open: $link",
+                              ),
+                            );
+                          },
+                          icon: const Icon(LucideIcons.share2, size: 18),
+                          label: const Text("Share Invite Link"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
         actions: [
           Center(
             child: ElevatedButton(
               onPressed: () {
-                Navigator.of(context).pop(); // dialog
-                Navigator.of(context).pop(); // screen
+                Navigator.of(ctx).pop();
+                Navigator.of(ctx).pop();
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size(200, 50)),
               child: const Text("UNDERSTOOD"),
@@ -253,6 +321,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
       child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
+        textCapitalization: label.contains("Phone") || label.contains("Number") ? TextCapitalization.none : TextCapitalization.words,
         validator: (v) {
           if (v == null || v.trim().isEmpty) return 'Required';
           if (label == "Church Name" && v.trim().length < 2) return 'Min 2 characters';

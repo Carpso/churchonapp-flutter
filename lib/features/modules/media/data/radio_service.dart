@@ -44,11 +44,16 @@ class RadioService {
     } catch (e) {
       debugPrint("Error fetching radio stations: $e");
       return [
-        RadioStation(id: '1', name: "Radio Christian Voice", location: "Lusaka", streamUrl: "http://stream.rcv.co.zm:8000/stream"),
-        RadioStation(id: '2', name: "United Voice Radio", location: "Lusaka", streamUrl: "https://streaming.unitedvoice.radio/stream"),
-        RadioStation(id: '3', name: "Radio Maria Zambia", location: "National", streamUrl: "http://net.radiomaria.org.ar:8000/Zamba"),
-        RadioStation(id: '4', name: "Radio Icengelo", location: "Copperbelt", streamUrl: "http://45.89.84.148:8000/radio.mp3"),
-        RadioStation(id: '5', name: "Yatsani Radio", location: "Lusaka", streamUrl: "http://yatsaniradio.stream:80/live"),
+        RadioStation(id: '1', name: "Radio Christian Voice", location: "Lusaka, Zambia", streamUrl: "http://stream.rcv.co.zm:8000/stream"),
+        RadioStation(id: '2', name: "United Voice Radio", location: "Lusaka, Zambia", streamUrl: "https://streaming.unitedvoice.radio/stream"),
+        RadioStation(id: '3', name: "Radio Maria Zambia", location: "Zambia", streamUrl: "http://net.radiomaria.org.ar:8000/Zamba"),
+        RadioStation(id: '4', name: "Radio Icengelo", location: "Copperbelt, Zambia", streamUrl: "http://45.89.84.148:8000/radio.mp3"),
+        RadioStation(id: '5', name: "Yatsani Radio", location: "Lusaka, Zambia", streamUrl: "http://yatsaniradio.stream:80/live"),
+        RadioStation(id: '6', name: "Faith FM", location: "Lusaka, Zambia", streamUrl: "http://stream.faithfm.co.zm:8000/live"),
+        RadioStation(id: '7', name: "Crossroads Radio", location: "International", streamUrl: "http://stream.crossroads.ca:8000/live"),
+        RadioStation(id: '8', name: "TBN Radio", location: "International", streamUrl: "http://stream.tbn.org:8000/radio"),
+        RadioStation(id: '9', name: "Power FM Zambia", location: "Lusaka, Zambia", streamUrl: "http://stream.powerfm.co.zm:8000/live"),
+        RadioStation(id: '10', name: "Christian Radio", location: "Zambia", streamUrl: "http://stream.christianradio.co.zm:8000/live"),
       ];
     }
   }
@@ -67,11 +72,19 @@ class RadioService {
     });
   }
 
+  Future<void> updateStation(String id, Map<String, dynamic> data) async {
+    await _client.from('radio_stations').update(data).eq('id', id);
+  }
+
+  Future<void> deleteStation(String id) async {
+    await _client.from('radio_stations').delete().eq('id', id);
+  }
+
   Future<void> playStation(RadioStation station) async {
     if (_handler == null) return;
     await _handler.playFromUri(Uri.parse(station.streamUrl), {
       'title': station.name,
-      'album': "Kingdom Radio",
+      'album': "Radio",
       'artist': station.location,
     });
   }
@@ -95,7 +108,7 @@ class RadioService {
   }
 
   Future<String> fetchLiveMetadata(String stationUrl) async {
-    return "LIVE: 24/7 Kingdom Content";
+    return "LIVE: 24/7 Content";
   }
 }
 

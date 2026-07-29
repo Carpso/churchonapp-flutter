@@ -36,7 +36,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _rememberMe = true;
         });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error loading remembered email: $e');
+    }
   }
 
   Future<void> _handleLogin() async {
@@ -45,6 +47,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final email = _emailController.text.trim();
       final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('remember_me', _rememberMe);
       if (_rememberMe) {
         await prefs.setString('remembered_email', email);
       } else {
@@ -59,7 +62,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final authState = ref.read(authProvider);
       if (authState.errorMessage != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(authState.errorMessage!), backgroundColor: Colors.red),
+          SnackBar(content: Text(authState.errorMessage ?? 'Authentication failed'), backgroundColor: Colors.red),
         );
       } else if (mounted && authState.user != null) {
         ScaffoldMessenger.of(context).showSnackBar(

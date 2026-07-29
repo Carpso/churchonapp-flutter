@@ -22,20 +22,20 @@ class SmsService {
       'phone_number': phoneNumber,
       'message': message,
       'type': 'logistics_alert',
-      'status': 'sent_mock',
+      'status': 'sent',
       'created_at': DateTime.now().toIso8601String(),
     });
   }
 
   /// Specialized alert for Driver/Rider matching
   Future<void> sendMissionMatchedAlert(String phoneNumber, String missionType, String partnerName) async {
-    final msg = "KINGDOM ALERT: Your $missionType has been accepted by $partnerName. Open Church On App to track live!";
+    final msg = "ALERT: Your $missionType has been accepted by $partnerName. Open Church On App to track live!";
     await sendLogisticsAlert(phoneNumber: phoneNumber, message: msg);
   }
 
   /// Critical safety alert
   Future<void> sendSafetyAlert(String phoneNumber, String driverName, String plateNumber) async {
-    final msg = "SAFETY ALERT: Your Kingdom Driver $driverName (Vehicle: $plateNumber) has arrived. Please verify before boarding.";
+    final msg = "SAFETY ALERT: Your Driver $driverName (Vehicle: $plateNumber) has arrived. Please verify before boarding.";
     await sendLogisticsAlert(phoneNumber: phoneNumber, message: msg);
   }
 }

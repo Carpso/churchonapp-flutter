@@ -7,6 +7,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 // Feature screens for direct navigation from How-To guides
 import '../../finance/presentation/giving_screen.dart';
+import '../../finance/presentation/coa_missions_donate_screen.dart';
+import '../../finance/presentation/buy_coins_screen.dart';
+import '../../finance/presentation/partner_redemption_screen.dart';
 import '../../modules/bible_quiz/presentation/bible_quiz_hub_screen.dart';
 import '../../connect/presentation/prayer_wall_screen.dart';
 import '../../profile/presentation/kyc_verification_screen.dart';
@@ -230,10 +233,10 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
           _GuideExpansionTile(
             icon: LucideIcons.coins,
             title: "Daily Church Coins (CC)",
-            description: "Claim your daily rewards to pay tithes or purchase books.",
+            description: "Claim your daily rewards to spend on ads, books, and partner offers.",
             steps: const [
               "Navigate to your Profile Tab by clicking the user avatar on the bottom-right.",
-              "Locate the Kingdom Wallet section at the top of the screen.",
+              "Locate the Wallet section at the top of the screen.",
               "Click the COLLECT button to claim your daily CC reward instantly.",
               "Daily claims accumulate. Make sure to log in every day to keep your streak!"
             ],
@@ -241,14 +244,42 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
             onActionPressed: () => context.push('/profile'),
           ),
           _GuideExpansionTile(
+            icon: LucideIcons.shoppingCart,
+            title: "Buy Church Coins",
+            description: "Purchase coins with Mobile Money or Card to unlock premium features.",
+            steps: const [
+              "Go to Profile > Wallet and tap BUY CC.",
+              "Choose a coin package (100 CC = K10 up to 2500 CC = K150).",
+              "Select your payment method: MTN MoMo, Airtel Money, or Card.",
+              "Complete the payment via the secure Lipila gateway.",
+              "Coins are credited instantly to your balance."
+            ],
+            actionLabel: "Buy Coins",
+            onActionPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BuyCoinsScreen())),
+          ),
+          _GuideExpansionTile(
+            icon: LucideIcons.badgePercent,
+            title: "Redeem Coins at Partners",
+            description: "Spend your Church Coins at bookshops, coffee shops, and partner businesses.",
+            steps: const [
+              "Go to Profile > Wallet and tap REDEEM.",
+              "Browse available offers from partner bookshops, coffee shops, and more.",
+              "Tap REDEEM on an offer you can afford (check your CC balance).",
+              "Confirm the redemption — you'll get a confirmation code.",
+              "Present the code at the partner location to collect your item."
+            ],
+            actionLabel: "Browse Partners",
+            onActionPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PartnerRedemptionScreen())),
+          ),
+          _GuideExpansionTile(
             icon: LucideIcons.send,
             title: "Tithing & Digital Giving",
             description: "Contribute to local branches and ministries safely via mobile money.",
             steps: const [
               "On your Home Dashboard or Profile wallet, tap the GIVE button.",
-              "Specify the collection type (Tithe, Offering, Thanksgiving, or Project).",
-              "Enter the amount and pick your currency (ZMW or USD).",
-              "Select your network provider (Airtel, MTN, Zamtel, or EcoCash).",
+              "Specify the collection type (Tithe, Offering, Mission, Building Fund).",
+              "Enter the amount and confirm the MoMo transaction fee.",
+              "Select Mobile Money as your payment method.",
               "Input your payment phone number and complete the secure transaction prompt."
             ],
             actionLabel: "Give Now",
@@ -262,7 +293,7 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
               "Go to the Profile Tab and click KYC Verification under Account & Trust.",
               "Type in your official name, date of birth, and identity number (NRC/Passport).",
               "Upload a clear photo of your ID document and a verification selfie.",
-              "Submit details. Our database administrators will review and verify your identity within 24 hours."
+              "Submit details. Our team will review and verify your identity within 24 hours."
             ],
             actionLabel: "Verify Identity",
             onActionPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KycVerificationScreen())),
@@ -373,10 +404,10 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
           _GuideExpansionTile(
             icon: LucideIcons.scroll,
             title: "Pastor Branch Reports",
-            description: "Log weekly metrics, attendance, and branch statistics for the Bishop.",
+            description: "Log weekly metrics, attendance, and branch statistics for the COA Team.",
             steps: const [
               "Authorized Pastors should head to their Profile Tab.",
-              "Select Submit Report to Bishop inside the Ministry & Command section.",
+              "Select Submit Report to COA Team inside the Ministry & Command section.",
               "Enter attendance counts, local offerings, branch growth charts, and testimonies.",
               "Confirm and click Submit to securely index the report in the diocesan vault."
             ],
@@ -395,6 +426,19 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
             ],
             actionLabel: "Go to Profile",
             onActionPressed: () => context.push('/profile'),
+          ),
+          _GuideExpansionTile(
+            icon: LucideIcons.heart,
+            title: "COA Missions Donate",
+            description: "Support the Church On App missions — development, outreach, and expansion.",
+            steps: const [
+              "Navigate to your Profile Tab and tap COA Missions Donate.",
+              "Choose a purpose: In-House Missions, App Development, Community Outreach, or General Support.",
+              "Enter your donation amount or select a quick-amount button.",
+              "Confirm payment via mobile money. Your donation supports the global COA mission."
+            ],
+            actionLabel: "Donate Now",
+            onActionPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CoaMissionsDonateScreen())),
           ),
         ];
       default:

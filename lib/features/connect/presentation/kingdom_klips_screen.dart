@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
 
 class KingdomKlipsScreen extends StatefulWidget {
   const KingdomKlipsScreen({super.key});
@@ -12,46 +14,11 @@ class KingdomKlipsScreen extends StatefulWidget {
   State<KingdomKlipsScreen> createState() => KingdomKlipsScreenState();
 }
 
-class KingdomKlipsScreenState extends State<KingdomKlipsScreen> {
+class KingdomKlipsScreenState extends State<KingdomKlipsScreen> with WidgetsBindingObserver {
   late PageController _pageController;
   late Future<List<Map<String, dynamic>>> _klipsFuture;
-
-  // 3 guaranteed sample klips using free Google sample videos
-  static const List<Map<String, String>> _sampleKlips = [
-    {
-      'id': 'sample-1',
-      'url': 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-      'author': 'Pastor Abel Banda',
-      'handle': '@pastor_abel',
-      'caption': '🔥 God\'s fire purifies and empowers. Stay in His presence! #Faith #Revival',
-      'avatar': 'https://i.pravatar.cc/100?img=51',
-      'amen_count': '3.2K',
-      'comments_count': '184',
-      'is_audio': 'false',
-    },
-    {
-      'id': 'sample-2',
-      'url': 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-      'author': 'Worship Ministry',
-      'handle': '@worship_unity',
-      'caption': '🕊️ Psalm 23 meditation — He restores my soul. Take a moment with God today.',
-      'avatar': 'https://i.pravatar.cc/100?img=47',
-      'amen_count': '1.8K',
-      'comments_count': '95',
-      'is_audio': 'false',
-    },
-    {
-      'id': 'sample-3',
-      'url': 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-      'author': 'Bible Study Hub',
-      'handle': '@biblestudyhub',
-      'caption': '📖 John 3:16 — For God so loved the world. Share this Good News! #Gospel',
-      'avatar': 'https://i.pravatar.cc/100?img=32',
-      'amen_count': '5.1K',
-      'comments_count': '312',
-      'is_audio': 'false',
-    },
-  ];
+  int _currentPage = 0;
+  bool _forYouMode = true;
 
   void refresh() {
     setState(() {
@@ -61,30 +28,61 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> {
 
   Future<List<Map<String, dynamic>>> _fetchKlips() async {
     try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
       final data = await Supabase.instance.client
           .from('klips')
-          .select('*')
+          .select('id, video_url, user_name, description, user_avatar, amen_count, comments_count, is_audio, created_at, user_id')
           .order('created_at', ascending: false)
-          .limit(20);
-      final dbKlips = List<Map<String, dynamic>>.from(data);
-      if (dbKlips.isNotEmpty) return dbKlips;
+          .limit(50);
+
+      if (userId != null) {
+        try {
+          final likedKlips = await Supabase.instance.client
+              .from('klip_likes')
+              .select('klip_id')
+              .eq('user_id', userId);
+          final likedIds = (likedKlips as List).map((e) => e['klip_id'] as String).toSet();
+
+          for (final k in data) {
+            final engagement = (k['amen_count'] ?? 0) + (k['comments_count'] ?? 0) * 2;
+            final isLiked = likedIds.contains(k['id']);
+            k['_score'] = engagement - (isLiked ? 1000 : 0);
+          }
+
+          data.sort((a, b) => (b['_score'] as int).compareTo(a['_score'] as int));
+        } catch (e) {
+          debugPrint('Recommendation scoring failed, using chronological: $e');
+        }
+      }
+
+      return List<Map<String, dynamic>>.from(data);
     } catch (e) {
-      debugPrint('Failed to fetch klips from DB, using samples: $e');
+      debugPrint('Failed to fetch klips: $e');
+      return [];
     }
-    // Always fall back to sample klips so screen is never empty
-    return _sampleKlips.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _pageController = PageController();
     _klipsFuture = _fetchKlips();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    } else if (state == AppLifecycleState.resumed) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
@@ -98,9 +96,31 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> {
         future: _klipsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)));
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFFFFD700)),
+            );
           }
-          final klips = snapshot.data ?? _sampleKlips.map((e) => Map<String, dynamic>.from(e)).toList();
+          final klips = snapshot.data ?? [];
+          if (klips.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(LucideIcons.video, size: 64, color: Colors.grey[700]),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No Klips yet',
+                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Church leaders can upload short-form videos',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ],
+              ),
+            );
+          }
 
           return Stack(
             children: [
@@ -108,23 +128,26 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> {
                 controller: _pageController,
                 scrollDirection: Axis.vertical,
                 itemCount: klips.length,
+                onPageChanged: (index) {
+                  setState(() => _currentPage = index);
+                },
                 itemBuilder: (context, index) {
                   final k = klips[index];
                   return VideoClipPlayer(
-                    key: ValueKey(k['id'] ?? k['url'] ?? index),
-                    videoUrl: k['video_url'] ?? k['url'] ?? '',
-                    author: k['user_name'] ?? k['author'] ?? '@kingdom',
-                    handle: k['handle'] ?? '@${(k['user_name'] ?? k['author'] ?? 'kingdom').toString().toLowerCase().replaceAll(' ', '_')}',
-                    caption: k['description'] ?? k['caption'] ?? '',
-                    avatarUrl: k['avatar'] ?? 'https://i.pravatar.cc/100',
-                    initialAmenCount: _parseCount(k['amen_count'] ?? k['likes']),
-                    initialCommentsCount: _parseCount(k['comments_count'] ?? k['comments']),
+                    key: ValueKey(k['id'] ?? index),
+                    videoUrl: k['video_url'] ?? '',
+                    author: k['user_name'] ?? '@user',
+                    handle: '@${(k['user_name'] ?? 'user').toString().toLowerCase().replaceAll(' ', '_')}',
+                    caption: k['description'] ?? '',
+                    avatarUrl: k['user_avatar'] ?? '',
+                    initialAmenCount: k['amen_count'] ?? 0,
+                    initialCommentsCount: k['comments_count'] ?? 0,
                     klipId: k['id']?.toString(),
-                    isAudio: k['is_audio'] == 'true' || k['is_audio'] == true,
+                    isAudio: k['is_audio'] == true,
+                    isActive: index == _currentPage,
                   );
                 },
               ),
-              // Back button
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.only(left: 10, top: 8),
@@ -134,20 +157,79 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> {
                   ),
                 ),
               ),
-              // "Kingdom Klips" header
               SafeArea(
                 child: Align(
                   alignment: Alignment.topCenter,
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    padding: const EdgeInsets.only(top: 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(LucideIcons.flame, color: Color(0xFFFFD700), size: 18),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Kingdom Klips',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: 0.5),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(LucideIcons.flame, color: Color(0xFFFFD700), size: 18),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Klips',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: 0.5),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black45,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          padding: const EdgeInsets.all(3),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() => _forYouMode = true);
+                                  refresh();
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: _forYouMode ? const Color(0xFFFFD700) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Text(
+                                    'For You',
+                                    style: TextStyle(
+                                      color: _forYouMode ? Colors.black : Colors.white70,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() => _forYouMode = false);
+                                  refresh();
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: !_forYouMode ? const Color(0xFFFFD700) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Text(
+                                    'Latest',
+                                    style: TextStyle(
+                                      color: !_forYouMode ? Colors.black : Colors.white70,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -160,18 +242,7 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> {
       ),
     );
   }
-
-  int _parseCount(dynamic val) {
-    if (val == null) return 0;
-    final s = val.toString().replaceAll('K', '').replaceAll('.', '');
-    if (val.toString().contains('K')) {
-      return (double.tryParse(val.toString().replaceAll('K', '')) ?? 0 * 1000).toInt();
-    }
-    return int.tryParse(s) ?? 0;
-  }
 }
-
-// ─── Full-screen TikTok-style player ─────────────────────────────────────────
 
 class VideoClipPlayer extends StatefulWidget {
   final String videoUrl;
@@ -183,6 +254,7 @@ class VideoClipPlayer extends StatefulWidget {
   final int initialCommentsCount;
   final String? klipId;
   final bool isAudio;
+  final bool isActive;
 
   const VideoClipPlayer({
     super.key,
@@ -195,6 +267,7 @@ class VideoClipPlayer extends StatefulWidget {
     required this.initialCommentsCount,
     this.klipId,
     this.isAudio = false,
+    this.isActive = true,
   });
 
   @override
@@ -202,7 +275,7 @@ class VideoClipPlayer extends StatefulWidget {
 }
 
 class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderStateMixin {
-  late VideoPlayerController _vc;
+  VideoPlayerController? _vc;
   late AnimationController _amenBurstAnim;
   late AnimationController _spinAnim;
 
@@ -211,15 +284,9 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
   bool _isLiked = false;
   late int _amenCount;
   late int _commentsCount;
-
-  final List<String> _comments = [
-    "🙌 Amen! What an inspiring word!",
-    "This touched my heart deeply. Praise God!",
-    "God's grace is indeed sufficient. 🕊️",
-    "So powerful, thanks for sharing Pastor!",
-    "Fire! 🔥 This is the word I needed today.",
-  ];
+  bool _tabVisible = true;
   final TextEditingController _commentCtrl = TextEditingController();
+  TabController? _tabController;
 
   @override
   void initState() {
@@ -230,12 +297,61 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
     _amenBurstAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _spinAnim = AnimationController(vsync: this, duration: const Duration(seconds: 12))..repeat();
 
+    if (widget.isActive && widget.videoUrl.isNotEmpty) {
+      _initPlayer();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final newController = DefaultTabController.maybeOf(context);
+    if (newController != _tabController) {
+      _tabController?.removeListener(_onTabChanged);
+      _tabController = newController;
+      _tabController?.addListener(_onTabChanged);
+    }
+  }
+
+  void _onTabChanged() {
+    if (_tabController != null && mounted) {
+      final visible = _tabController!.index == 0;
+      if (visible != _tabVisible) {
+        setState(() => _tabVisible = visible);
+        if (visible && widget.isActive && _vc != null && !_vc!.value.isPlaying) {
+          _vc!.play();
+        } else if (!visible && _vc != null && _vc!.value.isPlaying) {
+          _vc!.pause();
+        }
+      }
+    }
+  }
+
+  @override
+  void didUpdateWidget(VideoClipPlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !oldWidget.isActive) {
+      // Became active — initialize and play
+      if (_vc == null && widget.videoUrl.isNotEmpty) {
+        _initPlayer();
+      } else if (_vc != null && !_vc!.value.isPlaying) {
+        _vc!.play();
+      }
+    } else if (!widget.isActive && oldWidget.isActive) {
+      // Became inactive — pause
+      if (_vc != null && _vc!.value.isPlaying) {
+        _vc!.pause();
+      }
+    }
+  }
+
+  void _initPlayer() {
     _vc = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
       ..initialize().then((_) {
         if (mounted) {
           setState(() => _isInitialized = true);
-          _vc.play();
-          _vc.setLooping(true);
+          _vc!.play();
+          _vc!.setLooping(true);
         }
       }).catchError((_) {
         if (mounted) setState(() => _isInitialized = false);
@@ -244,7 +360,8 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
 
   @override
   void dispose() {
-    _vc.dispose();
+    _tabController?.removeListener(_onTabChanged);
+    _vc?.dispose();
     _amenBurstAnim.dispose();
     _spinAnim.dispose();
     _commentCtrl.dispose();
@@ -268,8 +385,7 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
     await Future.delayed(const Duration(milliseconds: 700));
     if (mounted) setState(() => _showAmenBurst = false);
 
-    // Persist to Supabase
-    if (widget.klipId != null && !widget.klipId!.startsWith('sample')) {
+    if (widget.klipId != null) {
       try {
         await Supabase.instance.client
             .from('klips')
@@ -278,12 +394,31 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
       } catch (e) {
         debugPrint('Failed to sync amen count: $e');
       }
+
+      try {
+        final userId = Supabase.instance.client.auth.currentUser?.id;
+        if (userId != null && _isLiked) {
+          await Supabase.instance.client.from('klip_likes').upsert({
+            'user_id': userId,
+            'klip_id': widget.klipId,
+          });
+        } else if (userId != null && !_isLiked) {
+          await Supabase.instance.client
+              .from('klip_likes')
+              .delete()
+              .eq('user_id', userId)
+              .eq('klip_id', widget.klipId!);
+        }
+      } catch (e) {
+        debugPrint('Error toggling klip like: $e');
+      }
     }
   }
 
   void _togglePlayPause() {
+    if (_vc == null) return;
     setState(() {
-      _vc.value.isPlaying ? _vc.pause() : _vc.play();
+      _vc!.value.isPlaying ? _vc!.pause() : _vc!.play();
     });
   }
 
@@ -308,27 +443,21 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
                 children: [
                   const Icon(LucideIcons.messageSquare, color: Colors.white, size: 20),
                   const SizedBox(width: 8),
-                  Text('${_comments.length} Comments', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text('$_commentsCount Comments', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                 ],
               ),
               const SizedBox(height: 12),
               SizedBox(
                 height: 240,
-                child: ListView.separated(
-                  itemCount: _comments.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircleAvatar(radius: 16, backgroundImage: NetworkImage('https://i.pravatar.cc/60?img=${i + 10}')),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
-                          child: Text(_comments[i], style: const TextStyle(color: Colors.white, fontSize: 13)),
-                        ),
-                      ),
+                      Icon(LucideIcons.messageSquare, size: 40, color: Colors.grey[600]),
+                      const SizedBox(height: 12),
+                      const Text('No comments yet', style: TextStyle(color: Colors.white54, fontSize: 13)),
+                      const SizedBox(height: 4),
+                      const Text('Be the first to say Amen!', style: TextStyle(color: Colors.white38, fontSize: 11)),
                     ],
                   ),
                 ),
@@ -348,12 +477,21 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
                     ),
                     IconButton(
                       icon: const Icon(LucideIcons.send, color: Color(0xFFFFD700)),
-                      onPressed: () {
+                      onPressed: () async {
                         final text = _commentCtrl.text.trim();
-                        if (text.isNotEmpty) {
-                          setModal(() => _comments.add(text));
-                          setState(() => _commentsCount++);
-                          _commentCtrl.clear();
+                        if (text.isNotEmpty && widget.klipId != null) {
+                          try {
+                            await Supabase.instance.client.from('klip_comments').insert({
+                              'klip_id': widget.klipId,
+                              'content': text,
+                              'user_id': Supabase.instance.client.auth.currentUser?.id,
+                              'user_name': 'Member',
+                            });
+                            setModal(() => _commentsCount++);
+                            _commentCtrl.clear();
+                          } catch (e) {
+                            debugPrint('Failed to post comment: $e');
+                          }
                         }
                       },
                     ),
@@ -375,7 +513,6 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // ── Video / Audio background ──────────────────────────────────────
           if (widget.isAudio)
             Container(
               color: const Color(0xFF0F172A),
@@ -387,39 +524,38 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: const Color(0xFFFFD700), width: 4),
-                      image: const DecorationImage(image: NetworkImage('https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=600'), fit: BoxFit.cover),
                       boxShadow: [BoxShadow(color: Colors.amber.withValues(alpha: 0.4), blurRadius: 40, spreadRadius: 10)],
                     ),
+                    clipBehavior: Clip.antiAlias,
+                    child: const Icon(LucideIcons.music, color: Colors.white38, size: 60),
                   ),
                 ),
               ),
             )
-          else if (_isInitialized)
+          else if (_isInitialized && _vc != null)
             SizedBox.expand(
               child: FittedBox(
                 fit: BoxFit.cover,
                 child: SizedBox(
-                  width: _vc.value.size.width,
-                  height: _vc.value.size.height,
-                  child: VideoPlayer(_vc),
+                  width: _vc!.value.size.width,
+                  height: _vc!.value.size.height,
+                  child: VideoPlayer(_vc!),
                 ),
               ),
             )
           else
             const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))),
 
-          // ── Gradient overlays ─────────────────────────────────────────────
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.black.withValues(alpha: 0.25), Colors.transparent, Colors.transparent, Colors.black.withValues(alpha: 0.75)],
+                colors: [Colors.black.withValues(alpha: 0.25), Colors.transparent, Colors.transparent, Colors.black.withValues(alpha: 0.8)],
               ),
             ),
           ),
 
-          // ── Amen burst animation ──────────────────────────────────────────
           if (_showAmenBurst)
             Center(
               child: ScaleTransition(
@@ -428,19 +564,17 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
               ),
             ),
 
-          // ── Pause indicator ───────────────────────────────────────────────
-          if (_isInitialized && !_vc.value.isPlaying && !_showAmenBurst)
+          if (_isInitialized && _vc != null && !_vc!.value.isPlaying && !_showAmenBurst)
             Center(
               child: Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: Colors.black38, shape: BoxShape.circle),
+                decoration: const BoxDecoration(color: Colors.black38, shape: BoxShape.circle),
                 child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 56),
               ),
             ),
 
-          // ── Author & caption (bottom-left) ────────────────────────────────
           Positioned(
-            bottom: 90,
+            bottom: 110,
             left: 16,
             right: 90,
             child: Column(
@@ -448,7 +582,19 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
               children: [
                 Row(
                   children: [
-                    CircleAvatar(radius: 18, backgroundImage: NetworkImage(widget.avatarUrl)),
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: const Color(0xFF0F172A),
+                      backgroundImage: widget.avatarUrl.isNotEmpty
+                          ? CachedNetworkImageProvider(widget.avatarUrl)
+                          : null,
+                      child: widget.avatarUrl.isEmpty
+                          ? Text(
+                              (widget.author.isNotEmpty ? widget.author[0] : 'K').toUpperCase(),
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            )
+                          : null,
+                    ),
                     const SizedBox(width: 10),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -461,56 +607,43 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(color: const Color(0xFFFFD700), borderRadius: BorderRadius.circular(4)),
-                      child: const Text('KINGDOM', style: TextStyle(color: Colors.black, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                      child: const Text('KLIP', style: TextStyle(color: Colors.black, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Text(widget.caption, style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.45), maxLines: 3, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(LucideIcons.music, color: Colors.white54, size: 13),
-                    const SizedBox(width: 6),
-                    Text('Original Sound · Church On App', style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 11)),
-                  ],
-                ),
               ],
             ),
           ),
 
-          // ── Right action bar ──────────────────────────────────────────────
           Positioned(
-            bottom: 90,
+            bottom: 110,
             right: 14,
             child: Column(
               children: [
-                // Amen / fire reaction
                 _ActionBtn(
                   icon: LucideIcons.flame,
                   label: _amenCount > 0 ? _formatCount(_amenCount) : 'Amen',
                   color: _isLiked ? const Color(0xFFFFD700) : Colors.white,
                   onTap: _triggerAmen,
                 ),
-                const SizedBox(height: 22),
-                // Comments
+                const SizedBox(height: 18),
                 _ActionBtn(
                   icon: LucideIcons.messageSquare,
                   label: _formatCount(_commentsCount),
                   onTap: _openComments,
                 ),
-                const SizedBox(height: 22),
-                // Share
+                const SizedBox(height: 18),
                 _ActionBtn(
                   icon: LucideIcons.share2,
                   label: 'Share',
                   onTap: () {
-                    final shareText = '🔥 Watch this Kingdom Klip on Church On App!\n${widget.caption}\n\nhttps://churchonapp.com/klips/${widget.klipId ?? 'demo'}';
+                    final shareText = '🔥 Watch this Klip on Church On App!\n${widget.caption}\n\nhttps://churchonapp.com/klips/${widget.klipId ?? 'demo'}';
                     SharePlus.instance.share(ShareParams(text: shareText));
                   },
                 ),
-                const SizedBox(height: 22),
-                // Save
+                const SizedBox(height: 18),
                 _ActionBtn(
                   icon: LucideIcons.bookmark,
                   label: 'Save',
@@ -520,34 +653,53 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
                     );
                   },
                 ),
-                const SizedBox(height: 22),
-                // Avatar disc
-                GestureDetector(
+                const SizedBox(height: 18),
+                _ActionBtn(
+                  icon: LucideIcons.heart,
+                  label: 'Give',
+                  color: const Color(0xFFE91E63),
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Viewing profile activities...'), backgroundColor: Colors.amber, duration: Duration(seconds: 2)),
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (ctx) => Container(
+                        height: MediaQuery.of(ctx).size.height * 0.85,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFFFAEB),
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                        ),
+                        child: LipilaPaymentGateway(
+                          amount: 50.0,
+                          description: "Klip Offering",
+                          category: "offering",
+                          onComplete: (success, txId) {
+                            if (success) {
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Offering received! God bless your generous giving."),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ),
                     );
                   },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFFFD700), width: 2),
-                    ),
-                    child: CircleAvatar(radius: 20, backgroundImage: NetworkImage(widget.avatarUrl)),
-                  ),
                 ),
               ],
             ),
           ),
 
-          // ── Progress bar ──────────────────────────────────────────────────
-          if (_isInitialized)
+          if (_isInitialized && _vc != null)
             Positioned(
               bottom: 0,
               left: 0,
               right: 0,
               child: VideoProgressIndicator(
-                _vc,
+                _vc!,
                 allowScrubbing: true,
                 colors: const VideoProgressColors(
                   playedColor: Color(0xFFFFD700),
@@ -567,8 +719,6 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
   }
 }
 
-// ─── Reusable right-bar action button ────────────────────────────────────────
-
 class _ActionBtn extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -585,7 +735,7 @@ class _ActionBtn extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+            decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
             child: Icon(icon, color: color, size: 27),
           ),
           const SizedBox(height: 5),

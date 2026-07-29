@@ -29,7 +29,7 @@ class _NewsManagementScreenState extends ConsumerState<NewsManagementScreen> {
       final tenantId = ref.read(currentTenantProvider)?.id;
       var query = Supabase.instance.client
           .from('news')
-          .select('*');
+          .select('id, title, content, category, image_url, is_published, created_at, tenant_id, user_id');
 
       if (tenantId != null) {
         query = query.eq('tenant_id', tenantId);

@@ -26,7 +26,7 @@ class _AIStewardshipReportScreenState extends ConsumerState<AIStewardshipReportS
       });
     } catch (e) {
       setState(() {
-        _report = "System connection to Kingdom intelligence interrupted. Total Stats: Monthly recorded volume verified.";
+        _report = "System connection to intelligence interrupted. Total Stats: Monthly recorded volume verified.";
         _isLoading = false;
       });
     }
@@ -83,7 +83,7 @@ class _AIStewardshipReportScreenState extends ConsumerState<AIStewardshipReportS
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text("Prophetic Oversight", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-                Text("Analyzing the material health of the Kingdom ledger.", style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+                Text("Analyzing the material health of the ledger.", style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
               ],
             ),
           ),

@@ -19,16 +19,6 @@ class SupabaseService {
         .stream(primaryKey: ['id'])
         .eq('id', userId);
   }
-
-  // Fetch mock user for prototype
-  Future<Map<String, dynamic>?> getMockUser() async {
-    // For now, returning mock data to keep the UI alive
-    return {
-      'name': 'Believer',
-      'church_coins': 2450,
-      'is_faithful': true,
-    };
-  }
 }
 
 final supabaseServiceProvider = Provider((ref) => SupabaseService());

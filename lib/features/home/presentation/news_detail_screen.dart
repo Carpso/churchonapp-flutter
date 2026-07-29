@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/features/home/data/news_service.dart';
+import '../../../core/widgets/app_image.dart';
 
 class NewsDetailScreen extends StatelessWidget {
   final NewsArticle article;
@@ -17,7 +18,7 @@ class NewsDetailScreen extends StatelessWidget {
             expandedHeight: 300,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
-              background: Image.network(article.image, fit: BoxFit.cover),
+              background: AppImage(article.image, height: 300, width: double.infinity, fit: BoxFit.cover),
             ),
             leading: Padding(
               padding: const EdgeInsets.all(8.0),

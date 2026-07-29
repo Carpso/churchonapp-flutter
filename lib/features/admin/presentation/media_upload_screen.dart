@@ -57,9 +57,9 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
           'user_id': user?.id,
           'title': _titleController.text,
           'video_url': publicUrl,
-          'speaker': _speakerController.text.isEmpty ? 'Kingdom Member' : _speakerController.text,
+          'speaker': _speakerController.text.isEmpty ? 'Member' : _speakerController.text,
           'description': 'Uploaded via Media Manager',
-          'thumbnail_url': 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=400&q=60',
+          'thumbnail_url': '',
         });
 
         setState(() => _progress = 1.0);
@@ -88,7 +88,7 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
             const SizedBox(height: 20),
             const Text("Upload Successful!", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            const Text("Your file has been saved to Cloudflare R2 and indexed in the Kingdom Database.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+            const Text("Your file has been saved to Cloudflare R2 and indexed in the Database.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
           ],
         ),
         actions: [
@@ -103,7 +103,7 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
-        title: const Text("Kingdom Media Manager"),
+        title: const Text("Media Manager"),
       ),
       body: RefreshIndicator(
         onRefresh: () async {

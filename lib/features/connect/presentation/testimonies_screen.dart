@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import '../data/testimony_service.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -73,7 +74,7 @@ class _TestimoniesScreenState extends ConsumerState<TestimoniesScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
-        title: const Text("Kingdom Testimonies", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Testimonies", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(icon: const Icon(LucideIcons.plusCircle), onPressed: _shareTestimony),
         ],
@@ -88,7 +89,7 @@ class _TestimoniesScreenState extends ConsumerState<TestimoniesScreen> {
               return _buildTestimonyCard(testimonies[index]);
             },
           ),
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ListSkeleton(count: 3),
         error: (err, stack) => Center(child: Text("Error: $err")),
       ),
     );
@@ -109,9 +110,16 @@ class _TestimoniesScreenState extends ConsumerState<TestimoniesScreen> {
           Row(
             children: [
               CircleAvatar(
-                backgroundImage: testimony.userPhoto != null 
-                  ? CachedNetworkImageProvider(testimony.userPhoto!) 
-                  : const NetworkImage("https://i.pravatar.cc/100") as ImageProvider,
+                backgroundColor: const Color(0xFF075E54),
+                backgroundImage: (testimony.userPhoto != null && testimony.userPhoto!.isNotEmpty)
+                    ? CachedNetworkImageProvider(testimony.userPhoto!)
+                    : null,
+                child: (testimony.userPhoto == null || testimony.userPhoto!.isEmpty)
+                    ? Text(
+                        testimony.userName.isNotEmpty ? testimony.userName[0].toUpperCase() : 'T',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      )
+                    : null,
               ),
               const SizedBox(width: 15),
               Column(
@@ -129,7 +137,7 @@ class _TestimoniesScreenState extends ConsumerState<TestimoniesScreen> {
             const SizedBox(height: 15),
             ClipRRect(
               borderRadius: BorderRadius.circular(15),
-              child: CachedNetworkImage(imageUrl: testimony.imageUrl!, height: 200, width: double.infinity, fit: BoxFit.cover),
+              child: CachedNetworkImage(imageUrl: testimony.imageUrl!, height: 200, width: double.infinity, fit: BoxFit.cover, memCacheHeight: 400),
             ),
           ],
           const SizedBox(height: 20),

@@ -94,7 +94,7 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              "Verify your identity to increase your withdrawal limits, secure your Kingdom Coins, and participate in executive ministry roles.",
+              "Verify your identity to increase your withdrawal limits, secure your Coins, and participate in executive ministry roles.",
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white38, fontSize: 13, height: 1.5),
             ),

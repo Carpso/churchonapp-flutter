@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
 import '../data/fasting_service.dart';
 import '../../connect/data/user_activity_service.dart';
+import 'package:church_on_app/core/services/dnd_service.dart';
+import 'fasting_history_screen.dart';
 
 class FastingTrackerScreen extends ConsumerStatefulWidget {
   const FastingTrackerScreen({super.key});
@@ -74,16 +75,19 @@ class _FastingTrackerScreenState extends ConsumerState<FastingTrackerScreen> wit
   }
 
   void _refreshTimer() {
-    if (_activeFast == null) return;
+    final fast = _activeFast;
+    if (fast == null) return;
     final now = DateTime.now();
-    if (now.isAfter(_activeFast!.endTime)) {
+    if (now.isAfter(fast.endTime)) {
       _timer?.cancel();
       _completeFast();
     } else {
-      setState(() {
-        _timeLeft = _activeFast!.endTime.difference(now);
-        _percentComplete = _activeFast!.percentComplete;
-      });
+      if (mounted) {
+        setState(() {
+          _timeLeft = fast.endTime.difference(now);
+          _percentComplete = fast.percentComplete;
+        });
+      }
     }
   }
 
@@ -95,69 +99,110 @@ class _FastingTrackerScreenState extends ConsumerState<FastingTrackerScreen> wit
         description: "Started a $_selectedFastType for $_selectedDurationDays days",
         coinsEarned: 15,
       );
-      setState(() {
-        _activeFast = fast;
-        _timeLeft = fast.endTime.difference(DateTime.now());
-        _percentComplete = 0.0;
-      });
-      _startTimer(fast);
+      if (mounted) {
+        setState(() {
+          _activeFast = fast;
+          _timeLeft = fast.endTime.difference(DateTime.now());
+          _percentComplete = 0.0;
+        });
+        _startTimer(fast);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Fast started! 🕊️ +15 Church Coins"), backgroundColor: Colors.brown),
+        );
+      }
+      ref.invalidate(activeFastProvider);
+      ref.invalidate(fastHistoryProvider);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error starting fast: $e"), backgroundColor: Colors.red));
       }
     }
   }
 
   Future<void> _stopFast() async {
-    if (_activeFast == null) return;
+    final fast = _activeFast;
+    if (fast == null) return;
     _timer?.cancel();
-    await ref.read(fastingServiceProvider).endFast(_activeFast!.id);
-    setState(() {
-      _activeFast = null;
-      _timeLeft = Duration.zero;
-      _percentComplete = 0.0;
-    });
+    await DndService.disable();
+    await DndService.stopAppMonitor();
+    try {
+      await ref.read(fastingServiceProvider).endFast(fast.id);
+      if (mounted) {
+        setState(() {
+          _activeFast = null;
+          _timeLeft = Duration.zero;
+          _percentComplete = 0.0;
+          _dndEnabled = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Fast ended"), backgroundColor: Colors.orange),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error ending fast: $e"), backgroundColor: Colors.red));
+      }
+    }
+    ref.invalidate(activeFastProvider);
+    ref.invalidate(fastHistoryProvider);
   }
 
   void _completeFast() async {
-    ref.read(fastingServiceProvider).endFast(_activeFast!.id);
-    ref.read(userActivityServiceProvider).logActivity(
-      type: ActivityType.fastCompleted,
-      description: "Completed a ${_activeFast!.fastType}",
-      coinsEarned: 50,
-    );
-    setState(() => _activeFast = null);
-    _showVictoryDialog();
+    final fast = _activeFast;
+    if (fast == null) return;
+    await DndService.disable();
+    await DndService.stopAppMonitor();
+    try {
+      await ref.read(fastingServiceProvider).endFast(fast.id);
+      ref.read(userActivityServiceProvider).logActivity(
+        type: ActivityType.fastCompleted,
+        description: "Completed a ${fast.fastType}",
+        coinsEarned: 50,
+      );
+    } catch (e) {
+      debugPrint("Error auto-completing fast: $e");
+    }
+    if (mounted) {
+      setState(() {
+        _activeFast = null;
+        _dndEnabled = false;
+      });
+      _showVictoryDialog();
+    }
+    ref.invalidate(activeFastProvider);
+    ref.invalidate(fastHistoryProvider);
   }
 
   Future<void> _toggleDnd(bool enable) async {
     if (enable) {
-      final status = await Permission.ignoreBatteryOptimizations.request();
-      if (status.isGranted) {
-        setState(() => _dndEnabled = true);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Focus mode active — notifications silenced"), backgroundColor: Colors.brown),
-          );
-        }
-      } else {
-        if (mounted) {
-          final goToSettings = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text("Focus Mode"),
-              content: const Text("Allow ChurchOnApp to silence notifications during your fast? You can enable this in Settings."),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("No")),
-                TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Open Settings")),
-              ],
-            ),
-          );
-          if (goToSettings == true) openAppSettings();
+      final hasPerm = await DndService.hasPermission();
+      if (hasPerm) {
+        await DndService.enable();
+      } else if (mounted) {
+        await DndService.requestPermissionWithRationale(context);
+        final nowHasPerm = await DndService.hasPermission();
+        if (nowHasPerm) await DndService.enable();
+      }
+
+      if (mounted) {
+        final hasUsage = await DndService.hasUsagePermission();
+        if (!hasUsage && mounted) {
+          await DndService.requestUsagePermissionWithRationale(context);
         }
       }
+
+      await DndService.startAppMonitor();
+
+      if (mounted) {
+        setState(() => _dndEnabled = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Focus Mode & App Blocker active — notifications silenced & social apps monitored! 🕊️"), backgroundColor: Colors.brown),
+        );
+      }
     } else {
-      setState(() => _dndEnabled = false);
+      await DndService.disable();
+      await DndService.stopAppMonitor();
+      if (mounted) setState(() => _dndEnabled = false);
     }
   }
 
@@ -208,6 +253,18 @@ class _FastingTrackerScreenState extends ConsumerState<FastingTrackerScreen> wit
         title: const Text("Spiritual Fasting Tracker", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.brown,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.history),
+            tooltip: "Fasting History",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const FastingHistoryScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(25),

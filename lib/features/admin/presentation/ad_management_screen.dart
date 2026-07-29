@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/features/admin/data/ad_service.dart';
+import 'package:church_on_app/features/admin/presentation/ad_payment_sheet.dart';
 import '../../../core/widgets/app_image.dart';
 import '../../../core/providers/profile_provider.dart';
 
@@ -68,6 +69,15 @@ class _AdManagementScreenState extends ConsumerState<AdManagementScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(ad.isActive ? Icons.check_circle : Icons.cancel, color: ad.isActive ? Colors.green : Colors.red),
+                          IconButton(
+                            icon: const Icon(Icons.monetization_on, size: 18, color: Colors.amber),
+                            onPressed: () => showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (ctx) => AdPaymentSheet(adId: ad.id),
+                            ),
+                          ),
                           IconButton(
                             icon: const Icon(Icons.edit, size: 18),
                             onPressed: () => _showAdDialog(context, ref, ad),

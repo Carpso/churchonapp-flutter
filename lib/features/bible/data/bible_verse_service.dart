@@ -69,7 +69,27 @@ class BibleVerseService {
       debugPrint(s.toString());
     }
 
-    // 3. Last fallback: return a default beautiful verse
+    try {
+      // 3. Random verse from full bible_verses table
+      final response = await _client
+          .from('bible_verses')
+          .select('id, reference, text')
+          .limit(1)
+          .maybeSingle();
+      if (response != null) {
+        return DailyBibleVerse(
+          id: response['id']?.toString() ?? 'random',
+          reference: response['reference'] ?? 'Scripture',
+          text: response['text'] ?? '',
+          createdAt: DateTime.now(),
+        );
+      }
+    } catch (e, s) {
+      debugPrint('Querying random bible_verses failed: $e');
+      debugPrint(s.toString());
+    }
+
+    // 4. Last fallback: return a default beautiful verse
     return DailyBibleVerse(
       id: 'default',
       reference: 'Jeremiah 29:11',

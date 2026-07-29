@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/admin_service.dart';
 import '../../../core/providers/profile_provider.dart';
+import '../../../core/widgets/app_image.dart';
 
 class MemberManagementScreen extends ConsumerStatefulWidget {
   const MemberManagementScreen({super.key});
@@ -16,7 +17,7 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
 
   @override
   Widget build(BuildContext context) {
-    final membersAsync = ref.watch(membersStreamProvider);
+    final membersAsync = ref.watch(membersProvider);
     final profileAsync = ref.watch(profileProvider);
 
     return profileAsync.when(
@@ -26,7 +27,7 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (e, st) => Scaffold(
-        backgroundColor: Color(0xFFFFFAEB),
+        backgroundColor: const Color(0xFFFFFAEB),
         body: Center(child: Text('Error: $e')),
       ),
     );
@@ -75,9 +76,11 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
                 
                 return RefreshIndicator(
                   onRefresh: () async {
-                    ref.invalidate(membersStreamProvider);
+                    ref.invalidate(membersProvider);
                   },
-                  child: ListView.builder(
+                  child: filtered.isEmpty
+                      ? const Center(child: Text("No members found", style: TextStyle(color: Colors.grey)))
+                      : ListView.builder(
                     padding: const EdgeInsets.all(20),
                     itemCount: filtered.length,
                     itemBuilder: (context, index) => _buildMemberCard(filtered[index], currentProfile),
@@ -144,7 +147,10 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
         children: [
           CircleAvatar(
             radius: 25,
-            backgroundImage: NetworkImage("https://i.pravatar.cc/150?u=${member.id.hashCode}"),
+            backgroundColor: Colors.grey[200],
+              child: ClipOval(
+              child: AppImage(member.avatarUrl ?? '', width: 50, height: 50, fit: BoxFit.cover),
+            ),
           ),
           const SizedBox(width: 15),
           Expanded(
@@ -182,8 +188,8 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
               return [
                 const PopupMenuItem(value: 'member', child: Text("Set as Member")),
                 if (isGlobalAdmin) ...[
-                  const PopupMenuItem(value: 'driver', child: Text("Set as Kingdom Driver")),
-                  const PopupMenuItem(value: 'rider', child: Text("Set as Kingdom Rider")),
+                  const PopupMenuItem(value: 'driver', child: Text("Set as Driver")),
+                  const PopupMenuItem(value: 'rider', child: Text("Set as Rider")),
                   const PopupMenuItem(value: 'employee', child: Text("Set as Employee")),
                 ],
                 const PopupMenuItem(value: 'pastor', child: Text("Set as Pastor")),

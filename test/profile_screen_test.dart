@@ -199,6 +199,7 @@ void main() {
       name: 'Test User',
       role: 'member',
       coins: 1000,
+      walletId: 'COA-SHORT',
     );
 
     // Provide a localized mock to avoid network issues

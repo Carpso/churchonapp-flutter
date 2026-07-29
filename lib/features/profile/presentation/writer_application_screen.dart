@@ -18,6 +18,7 @@ class _WriterApplicationScreenState extends ConsumerState<WriterApplicationScree
   final _reasonC = TextEditingController();
   final _samplesC = TextEditingController();
   bool _isSubmitting = false;
+  bool _agreedToTerms = false;
 
   @override
   void dispose() {
@@ -35,6 +36,7 @@ class _WriterApplicationScreenState extends ConsumerState<WriterApplicationScree
     final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(title: const Text('Apply as Writer')),
       body: existingApp.when(
         data: (app) {
@@ -85,32 +87,102 @@ class _WriterApplicationScreenState extends ConsumerState<WriterApplicationScree
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Become a Writer', style: theme.textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text('Submit your application to become an approved writer. You\'ll be able to publish Kingdom News articles.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[600])),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [theme.primaryColor, theme.primaryColor.withValues(alpha: 0.7)],
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(LucideIcons.penTool, color: Colors.white, size: 32),
+                  const SizedBox(height: 12),
+                  const Text('Become a Writer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22)),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Submit your application to become an approved writer for News.',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 24),
-            TextFormField(controller: _nameC, decoration: const InputDecoration(labelText: 'Full Name *', border: OutlineInputBorder()), validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Required';
-              if (v.trim().length < 2) return 'Min 2 characters';
-              return null;
-            }),
+            _sectionLabel('Personal Information'),
             const SizedBox(height: 12),
-            TextFormField(controller: _emailC, decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()), keyboardType: TextInputType.emailAddress, validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Required';
-              if (!v.contains('@')) return 'Enter a valid email';
-              return null;
-            }),
+            TextFormField(
+              controller: _nameC,
+              textCapitalization: TextCapitalization.words,
+              decoration: _inputDecoration('Full Name *', LucideIcons.user),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Required';
+                if (v.trim().length < 2) return 'Min 2 characters';
+                return null;
+              },
+            ),
             const SizedBox(height: 12),
-            TextFormField(controller: _phoneC, decoration: const InputDecoration(labelText: 'Phone', border: OutlineInputBorder()), keyboardType: TextInputType.phone, validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Required';
-              if (v.replaceAll(RegExp(r'\D'), '').length < 10) return 'Min 10 digits';
-              return null;
-            }),
+            TextFormField(
+              controller: _emailC,
+              decoration: _inputDecoration('Email *', LucideIcons.mail),
+              keyboardType: TextInputType.emailAddress,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Required';
+                if (!v.contains('@') || !v.contains('.')) return 'Enter a valid email';
+                return null;
+              },
+            ),
             const SizedBox(height: 12),
-            TextFormField(controller: _reasonC, decoration: const InputDecoration(labelText: 'Why do you want to write? *', border: OutlineInputBorder()), maxLines: 3, validator: (v) => v?.isEmpty == true ? 'Required' : null),
-            const SizedBox(height: 12),
-            TextFormField(controller: _samplesC, decoration: const InputDecoration(labelText: 'Link to writing samples (optional)', border: OutlineInputBorder(), hintText: 'https://...'), keyboardType: TextInputType.url),
+            TextFormField(
+              controller: _phoneC,
+              decoration: _inputDecoration('Phone *', LucideIcons.phone),
+              keyboardType: TextInputType.phone,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Required';
+                if (v.replaceAll(RegExp(r'\D'), '').length < 10) return 'Min 10 digits';
+                return null;
+              },
+            ),
             const SizedBox(height: 24),
+            Container(height: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 24),
+            _sectionLabel('Writing Background'),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _reasonC,
+              decoration: _inputDecoration('Why do you want to write? *', LucideIcons.fileText),
+              maxLines: 4,
+              maxLength: 500,
+              validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _samplesC,
+              decoration: _inputDecoration('Writing samples link (optional)', LucideIcons.link),
+              keyboardType: TextInputType.url,
+              maxLength: 200,
+            ),
+            const SizedBox(height: 24),
+            Container(height: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Checkbox(
+                  value: _agreedToTerms,
+                  onChanged: (v) => setState(() => _agreedToTerms = v ?? false),
+                  activeColor: theme.primaryColor,
+                ),
+                Expanded(
+                  child: Text(
+                    'I confirm that the information provided is accurate and I agree to the writer guidelines.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -118,6 +190,9 @@ class _WriterApplicationScreenState extends ConsumerState<WriterApplicationScree
                 onPressed: _isSubmitting ? null : _submit,
                 icon: const Icon(LucideIcons.send),
                 label: Text(_isSubmitting ? 'Submitting...' : 'Submit Application'),
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
               ),
             ),
           ],
@@ -126,7 +201,35 @@ class _WriterApplicationScreenState extends ConsumerState<WriterApplicationScree
     );
   }
 
+  Widget _sectionLabel(String label) {
+    return Text(
+      label,
+      style: TextStyle(
+        fontWeight: FontWeight.w700,
+        fontSize: 14,
+        color: Colors.grey.shade800,
+        letterSpacing: 0.3,
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, size: 18),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+      filled: true,
+      fillColor: Colors.white,
+    );
+  }
+
   Future<void> _submit() async {
+    if (!_agreedToTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please agree to the terms before submitting.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSubmitting = true);
     try {

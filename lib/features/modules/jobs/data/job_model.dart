@@ -11,6 +11,10 @@ class Job {
   final String employerId;
   final DateTime createdAt;
 
+  final bool isFeatured;
+
+  bool get isPromoted => isFeatured;
+
   Job({
     required this.id,
     required this.title,
@@ -22,20 +26,22 @@ class Job {
     required this.contact,
     required this.employerId,
     required this.createdAt,
+    this.isFeatured = false,
   });
 
   factory Job.fromMap(Map<String, dynamic> map) {
     return Job(
-      id: map['id'],
-      title: map['title'],
-      company: map['company'],
-      location: map['location'],
-      type: map['type'],
-      description: map['description'],
-      salary: map['salary'],
-      contact: map['contact'],
-      employerId: map['employer_id'],
-      createdAt: DateTime.parse(map['created_at']),
+      id: map['id']?.toString() ?? '',
+      title: map['title']?.toString() ?? '',
+      company: map['company']?.toString() ?? '',
+      location: map['location']?.toString() ?? '',
+      type: map['type']?.toString() ?? '',
+      description: map['description']?.toString() ?? '',
+      salary: map['salary']?.toString(),
+      contact: map['contact']?.toString() ?? '',
+      employerId: map['employer_id']?.toString() ?? '',
+      createdAt: map['created_at'] != null ? DateTime.parse(map['created_at'].toString()) : DateTime.now(),
+      isFeatured: map['is_featured'] == true,
     );
   }
 

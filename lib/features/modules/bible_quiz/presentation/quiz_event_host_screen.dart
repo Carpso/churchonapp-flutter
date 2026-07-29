@@ -680,7 +680,7 @@ class _CreateEventDialogState extends ConsumerState<_CreateEventDialog> {
   }
 
   Widget _difficultyDropdown() {
-    const diffs = ['', 'Easy', 'Medium', 'Hard'];
+    const diffs = ['', 'Hard'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

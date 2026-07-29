@@ -8,6 +8,8 @@ class BusInfo {
   final String nextStop;
   final List<LatLng> path;
   final List<BusStop> stops;
+  final String? driverName;
+  final String? driverPhone;
 
   BusInfo({
     required this.id,
@@ -17,6 +19,8 @@ class BusInfo {
     required this.nextStop,
     this.path = const [],
     this.stops = const [],
+    this.driverName,
+    this.driverPhone,
   });
 }
 

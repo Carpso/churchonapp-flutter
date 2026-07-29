@@ -12,6 +12,8 @@ class BookshopOnboardingScreen extends ConsumerStatefulWidget {
 
 class _BookshopOnboardingScreenState extends ConsumerState<BookshopOnboardingScreen> {
   final _pageController = PageController();
+  final _formKey1 = GlobalKey<FormState>();
+  final _formKey2 = GlobalKey<FormState>();
   int _currentStep = 0;
 
   final _nameC = TextEditingController();
@@ -30,24 +32,61 @@ class _BookshopOnboardingScreenState extends ConsumerState<BookshopOnboardingScr
     super.dispose();
   }
 
-  bool get _canProceedFromStep1 =>
-      _nameC.text.trim().isNotEmpty && _descC.text.trim().isNotEmpty;
+  String? _validateName(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Bookshop name is required';
+    if (v.trim().length < 2) return 'Min 2 characters';
+    return null;
+  }
 
-  bool get _canProceedFromStep2 =>
-      _contactC.text.trim().isNotEmpty && _locationC.text.trim().isNotEmpty;
+  String? _validateDesc(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Description is required';
+    if (v.trim().length < 5) return 'Min 5 characters';
+    return null;
+  }
+
+  String? _validateContact(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Contact is required';
+    final trimmed = v.trim();
+    final isEmail = trimmed.contains('@') && trimmed.contains('.');
+    final isPhone = RegExp(r'^\d{10,13}$').hasMatch(trimmed.replaceAll(RegExp(r'[\s\-\+]'), ''));
+    if (!isEmail && !isPhone) return 'Enter a valid phone number or email';
+    return null;
+  }
+
+  String? _validateLocation(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Location is required';
+    if (v.trim().length < 3) return 'Enter a valid location';
+    return null;
+  }
 
   Future<void> _submit() async {
     setState(() => _isSubmitting = true);
     try {
-      await Supabase.instance.client.from('marketplace_items').insert({
+      final client = Supabase.instance.client;
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) throw Exception("Not logged in");
+
+      final tenantRes = await client.from('tenants').insert({
+        'name': _nameC.text.trim(),
+        'type': 'bookshop',
+      }).select('id').single();
+      final tenantId = tenantRes['id'] as String;
+
+      await client.from('marketplace_items').insert({
         'name': _nameC.text.trim(),
         'description': _descC.text.trim(),
         'contact': _contactC.text.trim(),
         'location': _locationC.text.trim(),
         'category': 'bookshop',
-        'vendor_id': Supabase.instance.client.auth.currentUser?.id,
+        'vendor_id': userId,
+        'tenant_id': tenantId,
         'created_at': DateTime.now().toIso8601String(),
       });
+
+      await client.from('profiles').update({
+        'role': 'vendor',
+        'tenant_id': tenantId,
+      }).eq('id', userId);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -78,20 +117,50 @@ class _BookshopOnboardingScreenState extends ConsumerState<BookshopOnboardingScr
       ),
       body: Column(
         children: [
-          Padding(
+          Container(
+            width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [theme.primaryColor, theme.primaryColor.withValues(alpha: 0.7)],
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(LucideIcons.store, color: Colors.white, size: 22),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Step ${_currentStep + 1} of 3',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    Text(
+                      _currentStep == 0
+                          ? 'Bookshop Details'
+                          : _currentStep == 1
+                              ? 'Contact & Location'
+                              : 'Review & Submit',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Row(
               children: List.generate(3, (i) {
                 final isActive = i <= _currentStep;
                 return Expanded(
                   child: Container(
-                    height: 4,
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    height: 5,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
                     decoration: BoxDecoration(
-                      color: isActive
-                          ? theme.primaryColor
-                          : Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(2),
+                      color: isActive ? theme.primaryColor : Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(3),
                     ),
                   ),
                 );
@@ -116,78 +185,87 @@ class _BookshopOnboardingScreenState extends ConsumerState<BookshopOnboardingScr
     );
   }
 
-  Widget _buildStepText(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: Colors.grey,
-          letterSpacing: 1.2,
+  Widget _buildSectionHeader(IconData icon, String title, String subtitle, ThemeData theme) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: theme.primaryColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: theme.primaryColor, size: 22),
         ),
-      ),
-    );
-  }
-
-  Widget _buildInput({
-    required TextEditingController controller,
-    required String hint,
-    int maxLines = 1,
-  }) {
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(
-        hintText: hint,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        filled: true,
-        fillColor: Colors.white,
-      ),
-      maxLines: maxLines,
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+              Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildStep1(ThemeData theme) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(LucideIcons.store, color: theme.primaryColor, size: 24),
-                const SizedBox(width: 12),
-                const Text(
-                  'Bookshop Details',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Form(
+        key: _formKey1,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSectionHeader(LucideIcons.store, 'Bookshop Details', 'Tell us about your bookshop', theme),
+              const SizedBox(height: 28),
+              const Text('Bookshop Name', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _nameC,
+                validator: _validateName,
+                decoration: InputDecoration(
+                  hintText: 'e.g. Faith Books',
+                  prefixIcon: const Icon(LucideIcons.store, size: 18),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Tell us about your bookshop',
-              style: TextStyle(color: Colors.grey, fontSize: 13),
-            ),
-            const SizedBox(height: 24),
-            _buildStepText('Bookshop Name'),
-            _buildInput(controller: _nameC, hint: 'e.g. Kingdom Books'),
-            const SizedBox(height: 16),
-            _buildStepText('Description'),
-            _buildInput(controller: _descC, hint: 'Describe your bookshop...', maxLines: 3),
-          ],
+              ),
+              const SizedBox(height: 20),
+              const Text('Description', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _descC,
+                validator: _validateDesc,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Describe your bookshop...',
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(bottom: 40),
+                    child: Icon(LucideIcons.bookOpen, size: 18),
+                  ),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -195,44 +273,57 @@ class _BookshopOnboardingScreenState extends ConsumerState<BookshopOnboardingScr
 
   Widget _buildStep2(ThemeData theme) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(LucideIcons.phone, color: theme.primaryColor, size: 24),
-                const SizedBox(width: 12),
-                const Text(
-                  'Contact & Location',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Form(
+        key: _formKey2,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSectionHeader(LucideIcons.phone, 'Contact & Location', 'How can customers reach you?', theme),
+              const SizedBox(height: 28),
+              const Text('Contact Info', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _contactC,
+                validator: _validateContact,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  hintText: 'Phone number or email',
+                  prefixIcon: const Icon(LucideIcons.phone, size: 18),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'How can customers reach you?',
-              style: TextStyle(color: Colors.grey, fontSize: 13),
-            ),
-            const SizedBox(height: 24),
-            _buildStepText('Contact Info'),
-            _buildInput(controller: _contactC, hint: 'Phone or email'),
-            const SizedBox(height: 16),
-            _buildStepText('Location'),
-            _buildInput(controller: _locationC, hint: 'Address or area'),
-          ],
+              ),
+              const SizedBox(height: 20),
+              const Text('Location', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _locationC,
+                validator: _validateLocation,
+                decoration: InputDecoration(
+                  hintText: 'Address or area',
+                  prefixIcon: const Icon(LucideIcons.mapPin, size: 18),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -240,7 +331,7 @@ class _BookshopOnboardingScreenState extends ConsumerState<BookshopOnboardingScr
 
   Widget _buildStep3(ThemeData theme) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -248,67 +339,57 @@ class _BookshopOnboardingScreenState extends ConsumerState<BookshopOnboardingScr
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(LucideIcons.eye, color: theme.primaryColor, size: 24),
-                const SizedBox(width: 12),
-                const Text(
-                  'Preview',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                ),
-              ],
-            ),
+            _buildSectionHeader(LucideIcons.eye, 'Preview', 'Review your bookshop details', theme),
             const SizedBox(height: 24),
-            _buildPreviewRow('Bookshop', _nameC.text),
-            const Divider(height: 20),
-            _buildPreviewRow('Description', _descC.text),
-            const Divider(height: 20),
-            _buildPreviewRow('Contact', _contactC.text),
-            const Divider(height: 20),
-            _buildPreviewRow('Location', _locationC.text),
+            _buildPreviewRow(LucideIcons.store, 'Bookshop', _nameC.text),
+            const Divider(height: 24),
+            _buildPreviewRow(LucideIcons.bookOpen, 'Description', _descC.text),
+            const Divider(height: 24),
+            _buildPreviewRow(LucideIcons.phone, 'Contact', _contactC.text),
+            const Divider(height: 24),
+            _buildPreviewRow(LucideIcons.mapPin, 'Location', _locationC.text),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPreviewRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
+  Widget _buildPreviewRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: Colors.grey.shade400),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 80,
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade500),
           ),
-          Expanded(
-            child: Text(
-              value.isNotEmpty ? value : '(not set)',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: value.isNotEmpty ? Colors.black : Colors.grey.shade400,
-              ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value.isNotEmpty ? value : '(not set)',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: value.isNotEmpty ? Colors.black : Colors.grey.shade400,
             ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 3,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -349,29 +430,13 @@ class _BookshopOnboardingScreenState extends ConsumerState<BookshopOnboardingScr
             child: ElevatedButton(
               onPressed: () {
                 if (_currentStep == 0) {
-                  if (!_canProceedFromStep1) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please fill in all fields'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
+                  if (!_formKey1.currentState!.validate()) return;
                   _pageController.nextPage(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOut,
                   );
                 } else if (_currentStep == 1) {
-                  if (!_canProceedFromStep2) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please fill in all fields'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
+                  if (!_formKey2.currentState!.validate()) return;
                   _pageController.nextPage(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOut,

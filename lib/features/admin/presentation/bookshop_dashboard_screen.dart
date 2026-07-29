@@ -69,15 +69,17 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
         if (dt != null && dt.isAfter(firstOfMonth)) monthRev += amount;
       }
 
-      if (mounted) setState(() {
-        _totalProducts = products.length;
-        _lowStockCount = lowStock;
-        _totalSales = sales;
-        _monthRevenue = monthRev;
-        _products = products;
-        _recentOrders = List<Map<String, dynamic>>.from(ordersRes);
-        _isLoading = false; _error = null;
-      });
+      if (mounted) {
+        setState(() {
+          _totalProducts = products.length;
+          _lowStockCount = lowStock;
+          _totalSales = sales;
+          _monthRevenue = monthRev;
+          _products = products;
+          _recentOrders = List<Map<String, dynamic>>.from(ordersRes);
+          _isLoading = false; _error = null;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() { _isLoading = false; _error = e.toString(); });
     }
@@ -116,14 +118,22 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
       ),
     );
 
-    if (result != null && result['userId']!.isNotEmpty && result['role']!.isNotEmpty) {
-      final svc = ref.read(roleHierarchyServiceProvider);
-      try {
-        await svc.elevateRole(userId: result['userId']!, roleName: result['role']!);
-        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("${result['role']} added to shop!"), backgroundColor: Colors.green));
-        _loadDashboard();
-      } catch (e) {
-        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+    if (result != null) {
+      final uid = result['userId'];
+      final role = result['role'];
+      if (uid != null && uid.isNotEmpty && role != null && role.isNotEmpty) {
+        final svc = ref.read(roleHierarchyServiceProvider);
+        try {
+          await svc.elevateRole(userId: uid, roleName: role);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$role added to shop!"), backgroundColor: Colors.green));
+          }
+          _loadDashboard();
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+          }
+        }
       }
     }
   }

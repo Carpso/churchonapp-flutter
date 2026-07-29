@@ -109,18 +109,18 @@ class _TwoFactorSetupScreenState extends ConsumerState<TwoFactorSetupScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: AppBar(backgroundColor: Colors.transparent),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text("Two-Factor Auth", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: Text("Two-Factor Auth", style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
         backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
@@ -141,10 +141,10 @@ class _TwoFactorSetupScreenState extends ConsumerState<TwoFactorSetupScreen> {
             const SizedBox(height: 24),
             Text(
               _isVerified ? "PROTECTED" : "SETUP REQUIRED",
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.onSurface,
                 letterSpacing: 2,
               ),
             ),
@@ -154,14 +154,14 @@ class _TwoFactorSetupScreenState extends ConsumerState<TwoFactorSetupScreen> {
                   ? "Your account is secured with two-factor authentication."
                   : "Scan the QR code with Google Authenticator or Authy, then enter the 6-digit code below.",
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white38, fontSize: 13),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 13),
             ),
             const SizedBox(height: 40),
             if (!_isVerified) ...[
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: QrCodeWithLogo(
@@ -171,9 +171,9 @@ class _TwoFactorSetupScreenState extends ConsumerState<TwoFactorSetupScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 "Or enter this key manually:",
-                style: TextStyle(color: Colors.white38, fontSize: 11),
+                style: const TextStyle(color: Colors.white38, fontSize: 11),
               ),
               const SizedBox(height: 8),
               Container(

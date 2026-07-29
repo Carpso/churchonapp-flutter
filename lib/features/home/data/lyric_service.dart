@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class Lyric {
   final String title;
@@ -29,22 +30,20 @@ class LyricService {
     const cacheKey = 'current_lyric';
     final prefs = await SharedPreferences.getInstance();
 
-    // Mock Fetch (Simulate API)
     try {
-      // In a real app, this would be http.get(...)
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      final mockData = {
-        'title': 'GOODNESS OF GOD',
-        'artist': 'Bethel Music',
-        'sections': {
-          'VERSE 1': "I love You, Lord\nFor Your mercy never fails me\nAll my days, I've been held in Your hands\nFrom the moment that I wake up\nUntil I lay my head\nI will sing of the goodness of God",
-          'CHORUS': "All my life You have been faithful\nAll my life You have been so, so good\nWith every breath that I am able\nI will sing of the goodness of God",
-        }
-      };
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('lyrics')
+          .select('title, artist, sections')
+          .order('created_at', ascending: false)
+          .limit(1);
 
-      await prefs.setString(cacheKey, json.encode(mockData));
-      return Lyric.fromJson(mockData);
+      if (response.isNotEmpty) {
+        await prefs.setString(cacheKey, json.encode(response.first));
+        return Lyric.fromJson(response.first);
+      } else {
+        throw Exception('No lyrics found in database');
+      }
     } catch (e) {
       final cached = prefs.getString(cacheKey);
       if (cached != null) {

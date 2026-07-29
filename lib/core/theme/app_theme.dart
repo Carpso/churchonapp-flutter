@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/tenant_service.dart';
+import '../config/app_constants.dart';
+
+/// The official Church On App brand color — Sunflower Yellow.
+const Color kSunflowerYellow = AppConstants.sunflowerYellow;
 
 final Map<String, TextTheme Function()> _fontFactories = {
   'Plus Jakarta Sans': () => GoogleFonts.plusJakartaSansTextTheme(),
@@ -47,9 +51,9 @@ TextTheme _buildTextTheme(String fontFamily) {
 
 class AppTheme {
   static ThemeData getTheme(Tenant? tenant) {
-    final primary = tenant?.primaryColor ?? const Color(0xFFFFD700);
-    final secondary = tenant?.accentColor ?? const Color(0xFF1A1A1A);
-    final surface = tenant?.surfaceColor ?? const Color(0xFFFFFAEB);
+    final primary = tenant?.primaryColor ?? kSunflowerYellow;
+    final secondary = tenant?.accentColor ?? AppConstants.primaryDark;
+    final surface = tenant?.surfaceColor ?? AppConstants.surfaceWarm;
     const surfaceWhite = Colors.white;
     final fontFamily = tenant?.fontFamily ?? 'Plus Jakarta Sans';
     final baseTextTheme = _buildTextTheme(fontFamily);
@@ -116,7 +120,7 @@ class AppTheme {
   }
 
   static ThemeData getDarkTheme(Tenant? tenant) {
-    final primary = tenant?.primaryColor ?? const Color(0xFFFFD700);
+    final primary = tenant?.primaryColor ?? kSunflowerYellow;
     final surface = const Color(0xFF121212);
     final cardColor = const Color(0xFF1E1E1E);
     final fontFamily = tenant?.fontFamily ?? 'Plus Jakarta Sans';
@@ -184,7 +188,7 @@ class AppTheme {
   }
 
   static LinearGradient getGradient(Tenant? tenant) {
-    final primary = tenant?.primaryColor ?? const Color(0xFFFFD700);
+    final primary = tenant?.primaryColor ?? kSunflowerYellow;
     return LinearGradient(
       colors: [primary, primary.withValues(alpha: 0.8)],
       begin: Alignment.topLeft,

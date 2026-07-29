@@ -23,7 +23,7 @@ class KingdomGamesHubScreen extends ConsumerWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Kingdom Games", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: primary)),
+                  Text("Games", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: primary)),
                   Text("Pure edifying entertainment", style: TextStyle(fontSize: 12, color: primary.withValues(alpha: 0.7), fontWeight: FontWeight.bold)),
                 ],
               ),

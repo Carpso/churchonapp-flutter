@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/providers/profile_provider.dart';
+import '../../../core/widgets/shimmer_loader.dart';
 
 class MultiCurrencyWalletScreen extends ConsumerWidget {
   const MultiCurrencyWalletScreen({super.key});
@@ -13,7 +14,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
       data: (profile) => _buildScreen(context, profile),
       loading: () => const Scaffold(
         backgroundColor: Color(0xFFFFFAEB),
-        body: Center(child: CircularProgressIndicator()),
+        body: ListSkeleton(count: 4),
       ),
       error: (e, st) => Scaffold(
         backgroundColor: Color(0xFFFFFAEB),
@@ -26,7 +27,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
-        title: const Text("Kingdom Multi-Wallet", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Multi-Wallet", style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(25),
@@ -44,7 +45,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
             const SizedBox(height: 20),
             _buildCurrencyTile(
               context, 
-              "Kingdom Coins (CC)", 
+              "Coins (CC)", 
               "${profile?.balanceCc.toStringAsFixed(2) ?? '0.00'} CC", 
               Colors.amber, 
               LucideIcons.coins
@@ -87,13 +88,13 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "ESTIMATED GLOBAL WEALTH", 
+            "CHURCH COINS BALANCE", 
             style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)
           ),
           const SizedBox(height: 15),
-          const Text(
-            "Sovereign Ledger Active", 
-            style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)
+          Text(
+            "K ${profile?.balanceZmw.toInt() ?? 0}",
+            style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)
           ),
           const SizedBox(height: 30),
           Row(
@@ -163,7 +164,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
           SizedBox(width: 15),
           Expanded(
             child: Text(
-              "Zambia & Zimbabwe Hubs Active. Upcoming expansion to South Africa & Nigeria.",
+              "Church On App is available in Zambia and Zimbabwe. More regions coming soon.",
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ),
@@ -173,48 +174,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
   }
 
   Widget _buildActionButtons(BuildContext context) {
-    return Column(
-      children: [
-        ElevatedButton(
-          onPressed: () {
-            showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text("Currency Exchange"),
-                content: const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Current Exchange Rates:", style: TextStyle(fontWeight: FontWeight.bold)),
-                    SizedBox(height: 10),
-                    Text("1 ZMW → 10 CC"),
-                    Text("1 CC → 0.10 ZMW"),
-                    SizedBox(height: 15),
-                    Text("Exchange fees: 2%", style: TextStyle(color: Colors.grey)),
-                  ],
-                ),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CLOSE")),
-                  ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text("EXCHANGE NOW")),
-                ],
-              ),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.secondary,
-            foregroundColor: Colors.white,
-            minimumSize: const Size(double.infinity, 60),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          ),
-          child: const Text("CURRENCY EXCHANGE", style: TextStyle(fontWeight: FontWeight.bold)),
-        ),
-        const SizedBox(height: 15),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("GENERATE AUDIT PROOF", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-        ),
-      ],
-    );
+    return const SizedBox.shrink();
   }
 }
 

@@ -50,11 +50,15 @@ class UserProfile {
   factory UserProfile.fromMap(Map<String, dynamic> map) {
     return UserProfile(
       id: map['id']?.toString() ?? '',
-      name: (map['full_name'] ?? map['name'] ?? map['displayName'] ?? 'Believer').toString(),
+      name:
+          (map['full_name'] ?? map['name'] ?? map['displayName'] ?? 'Believer')
+              .toString(),
       role: (map['role'] ?? map['user_role'] ?? 'member').toString(),
       coins: int.tryParse(map['coins']?.toString() ?? '0') ?? 0,
       streakCount: int.tryParse(map['streak_count']?.toString() ?? '0') ?? 0,
-      lastReadAt: map['last_read_at'] != null ? DateTime.tryParse(map['last_read_at'].toString()) : null,
+      lastReadAt: map['last_read_at'] != null
+          ? DateTime.tryParse(map['last_read_at'].toString())
+          : null,
       isWorkMode: map['is_work_mode'] == true,
       lat: (map['lat'] as num?)?.toDouble() ?? 0.0,
       lng: (map['lng'] as num?)?.toDouble() ?? 0.0,
@@ -66,55 +70,86 @@ class UserProfile {
       isVerified: map['is_verified'] == true,
       walletId: map['wallet_id']?.toString(),
       membershipId: map['membership_id']?.toString(),
-      dateOfBirth: map['date_of_birth'] != null ? DateTime.tryParse(map['date_of_birth'].toString()) : null,
+      dateOfBirth: map['date_of_birth'] != null
+          ? DateTime.tryParse(map['date_of_birth'].toString())
+          : null,
     );
   }
 
   bool get isSuperadmin => role == 'superadmin';
   bool get isEmployee => role == 'employee' || role == 'superadmin';
-  bool get isAdminOrHigher => role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'superadmin' || role == 'prophet' || role == 'apostle';
-  bool get isLedgerManager => isAdminOrHigher || role == 'usher' || role == 'employee';
-  bool get isOnboardingOfficer => isSuperadmin || role == 'employee' || role == 'bishop';
+  bool get isAdminOrHigher =>
+      role == 'admin' ||
+      role == 'pastor' ||
+      role == 'bishop' ||
+      role == 'superadmin' ||
+      role == 'prophet' ||
+      role == 'apostle';
+  bool get isLedgerManager =>
+      isAdminOrHigher || role == 'usher' || role == 'employee';
+  bool get isOnboardingOfficer =>
+      isSuperadmin || role == 'employee' || role == 'bishop';
   bool get isBishop => role == 'bishop';
   bool get isPastor => role == 'pastor';
   bool get isUsher => role == 'usher';
-  bool get isBookshopOwner => role == 'bookshop_owner' || role == 'store_manager' || role == 'vendor';
-  bool get isStoreManager => role == 'store_manager' || role == 'bookshop_owner';
-  bool get isBookshopStaff => ['bookshop_owner', 'store_manager', 'assistant', 'cashier'].contains(role);
-  bool get isLeadershipTeam => isAdminOrHigher || role == 'leader' || role == 'department_leader';
-  bool get isPraiseTeam => role == 'praise_team_leader' || role == 'worship_leader' || role == 'praise_team_member';
-  bool get isWorshipLeader => role == 'worship_leader' || role == 'praise_team_leader';
-  bool get isExecutiveOffice => isBishop || role == 'general_secretary' || role == 'general_treasurer' || isSuperadmin;
+  bool get isBookshopOwner =>
+      role == 'bookshop_owner' || role == 'store_manager' || role == 'vendor';
+  bool get isStoreManager =>
+      role == 'store_manager' || role == 'bookshop_owner';
+  bool get isBookshopStaff => [
+    'bookshop_owner',
+    'store_manager',
+    'assistant',
+    'cashier',
+  ].contains(role);
+  bool get isLeadershipTeam =>
+      isAdminOrHigher || role == 'leader' || role == 'department_leader';
+  bool get isPraiseTeam =>
+      role == 'praise_team_leader' ||
+      role == 'worship_leader' ||
+      role == 'praise_team_member';
+  bool get isWorshipLeader =>
+      role == 'worship_leader' || role == 'praise_team_leader';
+  bool get isExecutiveOffice =>
+      isBishop ||
+      role == 'general_secretary' ||
+      role == 'general_treasurer' ||
+      isSuperadmin;
   bool get canWork => role == 'driver' || role == 'rider';
-  bool get isBirthdayToday => dateOfBirth != null && dateOfBirth!.month == DateTime.now().month && dateOfBirth!.day == DateTime.now().day;
-  int get age => dateOfBirth == null ? 0 : DateTime.now().year - dateOfBirth!.year;
+  bool get isBirthdayToday =>
+      dateOfBirth != null &&
+      dateOfBirth!.month == DateTime.now().month &&
+      dateOfBirth!.day == DateTime.now().day;
+  int get age =>
+      dateOfBirth == null ? 0 : DateTime.now().year - dateOfBirth!.year;
 }
 
 class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
-  Future<void>? _fetchFuture;
+  int _fetchSeq = 0;
 
   @override
   AsyncValue<UserProfile?> build() {
     final auth = ref.watch(authProvider);
-    if (auth.user == null) {
-      _fetchFuture = null;
+    final user = auth.user;
+    if (user == null) {
       return const AsyncValue.data(null);
     }
 
-    _fetchFuture ??= _fetchProfile(auth.user!.id, auth.user!.email);
+    _fetchProfile(user.id, user.email);
     return const AsyncValue.loading();
   }
 
   SupabaseClient get _client => Supabase.instance.client;
 
   Future<void> _fetchProfile(String userId, String? email) async {
+    final seq = ++_fetchSeq;
     try {
       final res = await _client
           .from('profiles')
           .select()
           .eq('id', userId)
           .maybeSingle();
-      
+
       const superadminEmail = 'superadmingosomzkay7@churchonapp.com';
       Map<String, dynamic>? profileData;
 
@@ -125,9 +160,17 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
 
         String country = 'Zambia';
         if (selectedTenant != null) {
-          final church = await _client.from('churches').select('country').eq('tenant_id', selectedTenant.id).maybeSingle();
-          if (church != null && church['country'] != null) {
-            country = church['country'].toString();
+          try {
+            final church = await _client
+                .from('churches')
+                .select('country')
+                .eq('tenant_id', selectedTenant.id)
+                .maybeSingle();
+            if (church != null && church['country'] != null) {
+              country = church['country'].toString();
+            }
+          } catch (e) {
+            debugPrint('Error fetching church country: $e');
           }
         }
 
@@ -137,7 +180,8 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
 
         profileData = {
           'id': userId,
-          'full_name': metadata?['full_name'] ?? metadata?['name'] ?? 'Believer',
+          'full_name':
+              metadata?['full_name'] ?? metadata?['name'] ?? 'Believer',
           'role': email == superadminEmail ? 'superadmin' : 'member',
           'coins': 0,
           'is_work_mode': false,
@@ -149,36 +193,67 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
         await _client.from('profiles').insert(profileData);
 
         final iso = CodeGeneratorService.countryToISO(country);
-        await codeGen.registerCode(codeType: 'wallet', codeValue: walletId, countryIso: iso, userId: userId);
-        await codeGen.registerCode(codeType: 'membership', codeValue: membershipId, countryIso: iso, userId: userId);
+        await codeGen.registerCode(
+          codeType: 'wallet',
+          codeValue: walletId,
+          countryIso: iso,
+          userId: userId,
+        );
+        await codeGen.registerCode(
+          codeType: 'membership',
+          codeValue: membershipId,
+          countryIso: iso,
+          userId: userId,
+        );
       } else {
         // Use existing data, but ensure it's modifiable if we need to update it
         profileData = Map<String, dynamic>.from(res);
-        
+
         // Auto-upgrade superadmin if matching email
         if (email == superadminEmail && profileData['role'] != 'superadmin') {
-          await _client.from('profiles').update({'role': 'superadmin'}).eq('id', userId);
+          await _client
+              .from('profiles')
+              .update({'role': 'superadmin'})
+              .eq('id', userId);
           profileData['role'] = 'superadmin';
         }
 
         // Sync local selected tenant with DB profile
-        final dbTenantId = profileData['tenant_id'];
-        if (dbTenantId != null && (selectedTenant == null || selectedTenant.id != dbTenantId)) {
-          final service = ref.read(tenantServiceProvider);
-          final tenant = await service.getTenantById(dbTenantId);
-          if (tenant != null) {
-            await ref.read(currentTenantProvider.notifier).setTenant(tenant);
+        final dbTenantId = profileData['tenant_id']?.toString();
+        if (dbTenantId != null &&
+            dbTenantId.isNotEmpty &&
+            (selectedTenant == null || selectedTenant.id != dbTenantId)) {
+          try {
+            final service = ref.read(tenantServiceProvider);
+            final tenant = await service.getTenantById(dbTenantId);
+            if (tenant != null) {
+              await ref.read(currentTenantProvider.notifier).setTenant(tenant);
+            }
+          } catch (e) {
+            debugPrint('Error syncing tenant from DB profile: $e');
           }
         } else if (selectedTenant != null && dbTenantId != selectedTenant.id) {
-          await _client.from('profiles').update({'tenant_id': selectedTenant.id}).eq('id', userId);
-          profileData['tenant_id'] = selectedTenant.id;
+          try {
+            await _client
+                .from('profiles')
+                .update({'tenant_id': selectedTenant.id})
+                .eq('id', userId);
+            profileData['tenant_id'] = selectedTenant.id;
+          } catch (e) {
+            debugPrint('Error updating profile tenant_id in sync: $e');
+          }
         }
       }
-      
-      state = AsyncValue.data(UserProfile.fromMap(profileData));
+
+      if (seq == _fetchSeq) {
+        state = AsyncValue.data(UserProfile.fromMap(profileData));
+      }
     } catch (e, st) {
       debugPrint("ProfileNotifier Error: $e");
-      state = AsyncValue.error(e, st);
+      debugPrint("PROFILE FETCH ERROR: $e\n$st");
+      if (seq == _fetchSeq) {
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 
@@ -191,23 +266,26 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
       throw Exception("Only superadmins and employees can change roles");
     }
     await _client.from('profiles').update({'role': newRole}).eq('id', userId);
-    _fetchFuture = null;
     ref.invalidateSelf();
   }
 
   Future<void> toggleWorkMode() async {
     final profile = state.value;
     if (profile == null) return;
-    await _client.from('profiles').update({'is_work_mode': !profile.isWorkMode}).eq('id', profile.id);
-    _fetchFuture = null;
+    await _client
+        .from('profiles')
+        .update({'is_work_mode': !profile.isWorkMode})
+        .eq('id', profile.id);
     ref.invalidateSelf();
   }
 
   Future<void> addCoins(int amount) async {
     final profile = state.value;
     if (profile == null) return;
-    await _client.from('profiles').update({'coins': (profile.coins) + amount}).eq('id', profile.id);
-    _fetchFuture = null;
+    await _client
+        .from('profiles')
+        .update({'coins': (profile.coins) + amount})
+        .eq('id', profile.id);
     ref.invalidateSelf();
   }
 
@@ -218,30 +296,39 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
     try {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
-      
+
       if (profile.lastReadAt != null) {
         final lastRead = profile.lastReadAt!.toLocal();
-        final lastReadDate = DateTime(lastRead.year, lastRead.month, lastRead.day);
+        final lastReadDate = DateTime(
+          lastRead.year,
+          lastRead.month,
+          lastRead.day,
+        );
         final difference = today.difference(lastReadDate).inDays;
 
         if (difference == 1) {
-          await _client.from('profiles').update({
-            'streak_count': profile.streakCount + 1,
-            'last_read_at': now.toIso8601String(),
-          }).eq('id', profile.id);
+          await _client
+              .from('profiles')
+              .update({
+                'streak_count': profile.streakCount + 1,
+                'last_read_at': now.toIso8601String(),
+              })
+              .eq('id', profile.id);
         } else if (difference > 1) {
-          await _client.from('profiles').update({
-            'streak_count': 1,
-            'last_read_at': now.toIso8601String(),
-          }).eq('id', profile.id);
+          await _client
+              .from('profiles')
+              .update({
+                'streak_count': 1,
+                'last_read_at': now.toIso8601String(),
+              })
+              .eq('id', profile.id);
         }
       } else {
-        await _client.from('profiles').update({
-          'streak_count': 1,
-          'last_read_at': now.toIso8601String(),
-        }).eq('id', profile.id);
+        await _client
+            .from('profiles')
+            .update({'streak_count': 1, 'last_read_at': now.toIso8601String()})
+            .eq('id', profile.id);
       }
-      _fetchFuture = null;
       ref.invalidateSelf();
     } catch (e) {
       debugPrint("Error updating reading streak: $e");
@@ -249,4 +336,7 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
   }
 }
 
-final profileProvider = NotifierProvider<ProfileNotifier, AsyncValue<UserProfile?>>(ProfileNotifier.new);
+final profileProvider =
+    NotifierProvider<ProfileNotifier, AsyncValue<UserProfile?>>(
+      ProfileNotifier.new,
+    );

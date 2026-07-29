@@ -16,9 +16,10 @@ class KingdomLogo extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tenant = ref.watch(currentTenantProvider);
 
-    if (tenant?.logoUrl != null) {
+    final logo = tenant?.logoUrl;
+    if (logo != null && logo.isNotEmpty) {
       return Image.network(
-        tenant!.logoUrl!,
+        logo,
         width: size,
         height: size,
         fit: BoxFit.contain,

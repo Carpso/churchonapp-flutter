@@ -78,6 +78,27 @@ class R2Service {
     }
   }
 
+  Future<String?> getSignedUrl(String url, {int expiresIn = 3600}) async {
+    try {
+      final pubDomain = publicDomain.replaceAll('https://', '');
+      final r2Prefix = 'https://$pubDomain/';
+      if (!url.startsWith(r2Prefix)) return url;
+
+      final key = url.substring(r2Prefix.length);
+      final response = await _client.functions.invoke('r2-sign', body: {
+        'action': 'read',
+        'key': key,
+      });
+
+      if (response.status == 200) {
+        return response.data['signedUrl'] as String? ?? url;
+      }
+    } catch (e) {
+      debugPrint("R2 getSignedUrl error: $e");
+    }
+    return url;
+  }
+
   Future<String?> _uploadToSupabaseStorageFallback(File file, String path) async {
     try {
       const bucket = 'sermons-vault';

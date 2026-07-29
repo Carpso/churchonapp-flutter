@@ -37,7 +37,7 @@ class TitheAutomationService {
         // 3. Send gentle reminder
         final name = profile['full_name'];
         final phone = profile['phone_number'];
-        final message = "Peace be with you $name. As we conclude $currentPeriod, this is a gentle reminder to honor your Kingdom Tithe. God bless your faithfulness! - Church On App";
+        final message = "Peace be with you $name. As we conclude $currentPeriod, this is a gentle reminder to honor your Tithe. God bless your faithfulness! - Church On App";
         
         await smsService.sendLogisticsAlert(phoneNumber: phone, message: message);
         

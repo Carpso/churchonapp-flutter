@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
+import 'package:church_on_app/core/services/notification_service.dart';
 
 class FcmService {
   final WidgetRef ref;
@@ -29,6 +30,14 @@ class FcmService {
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('[FCM] onMessage: ${message.notification?.title}');
+      final notification = message.notification;
+      if (notification != null) {
+        ref.read(notificationServiceProvider).sendNotification(
+          title: notification.title ?? 'Church On App',
+          body: notification.body ?? '',
+          payload: message.data['payload'],
+        );
+      }
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {

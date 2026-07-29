@@ -7,6 +7,7 @@ import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/admin/presentation/bishop_heatmap_screen.dart';
 import 'package:church_on_app/features/admin/presentation/finance_dashboard_screen.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 
 class BishopHubScreen extends ConsumerWidget {
   const BishopHubScreen({super.key});
@@ -48,7 +49,7 @@ class BishopHubScreen extends ConsumerWidget {
               ),
               delegate: SliverChildListDelegate([
                 _buildActionCard(context, LucideIcons.church, "Ministries & Branches", Colors.blue),
-                _buildActionCard(context, LucideIcons.map, "Kingdom Map", Colors.green, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BishopHeatmapScreen()))),
+                _buildActionCard(context, LucideIcons.map, "Map", Colors.green, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BishopHeatmapScreen()))),
                 _buildActionCard(context, LucideIcons.fileText, "Pastor Reports", Colors.purple),
                 _buildActionCard(context, LucideIcons.banknote, "Central Treasury", Colors.orange, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FinanceDashboardScreen()))),
               ]),
@@ -191,7 +192,12 @@ class BishopHubScreen extends ConsumerWidget {
                     final church = churches[index];
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(backgroundImage: NetworkImage(church.logoUrl ?? "")),
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.grey[200],
+                        child: ClipOval(
+                          child: AppImage(church.logoUrl ?? "", width: 40, height: 40, fit: BoxFit.cover),
+                        ),
+                      ),
                       title: Text(church.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       subtitle: const Text("Active Branch • Fully Synced", style: TextStyle(fontSize: 10, color: Colors.green)),
                       trailing: const Icon(LucideIcons.chevronRight, size: 16),

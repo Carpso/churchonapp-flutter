@@ -6,20 +6,25 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/qr_code_with_logo.dart';
+import 'package:church_on_app/core/widgets/error_retry_widget.dart';
+import 'package:church_on_app/core/widgets/verification_badge.dart';
 import '../../finance/presentation/giving_screen.dart';
-import '../../finance/presentation/giving_history_screen.dart';
 import '../../marketplace/presentation/my_library_screen.dart';
 import '../../marketplace/presentation/vendor_dashboard_screen.dart';
 import 'referral_system_screen.dart';
 import 'package:church_on_app/features/admin/presentation/admin_hub_screen.dart';
 import 'account_settings_screen.dart';
+import 'package:church_on_app/features/finance/presentation/buy_coins_screen.dart';
+import 'package:church_on_app/features/finance/presentation/partner_redemption_screen.dart';
+import 'package:church_on_app/features/finance/presentation/payout_request_screen.dart';
 import 'kyc_verification_screen.dart';
+import 'verification_request_screen.dart';
 import 'package:church_on_app/features/admin/presentation/superadmin_hub_screen.dart';
 import '../../auth/presentation/register_church_screen.dart';
 import 'package:church_on_app/features/admin/presentation/service_report_screen.dart';
 import 'package:church_on_app/features/admin/presentation/ledger_screen.dart';
 import 'package:church_on_app/features/admin/presentation/bishop_hub_screen.dart';
-import 'package:church_on_app/features/admin/presentation/year_planner_screen.dart';
+import 'package:church_on_app/features/planner/presentation/planner_screen.dart';
 import 'package:church_on_app/features/admin/presentation/pastor_bishop_report_screen.dart';
 import 'package:church_on_app/features/admin/presentation/attendance_scanner_screen.dart';
 import '../../modules/events/presentation/events_screen.dart';
@@ -40,12 +45,17 @@ import 'security_screen.dart';
 import 'role_onboarding_screen.dart';
 import 'writer_application_screen.dart';
 import 'church_referral_screen.dart';
+import 'rewards_screen.dart';
+import 'certificates_screen.dart';
 import 'package:church_on_app/features/admin/presentation/order_tracking_screen.dart';
 import 'package:church_on_app/features/admin/presentation/apostle_dashboard_screen.dart';
 import 'package:church_on_app/features/admin/presentation/pastor_dashboard_screen.dart';
+import '../../finance/presentation/coa_missions_donate_screen.dart';
+import '../../marketplace/presentation/bookshop_onboarding_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
-  const ProfileScreen({super.key});
+  final String? userId;
+  const ProfileScreen({super.key, this.userId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,7 +75,7 @@ class ProfileScreen extends ConsumerWidget {
                   const SizedBox(height: 24),
                   const Text("PROFILE NOT FOUND", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white, letterSpacing: 1.5)),
                   const SizedBox(height: 12),
-                  const Text("Please sign in to access your Kingdom account.", style: TextStyle(color: Colors.white38, fontSize: 13)),
+                  const Text("Please sign in to access your account.", style: TextStyle(color: Colors.white38, fontSize: 13)),
                   const SizedBox(height: 32),
                   ElevatedButton(
                     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen())),
@@ -115,7 +125,10 @@ class ProfileScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator(color: Colors.amber)),
-        error: (e, st) => Center(child: Text("Error: $e", style: const TextStyle(color: Colors.red))),
+        error: (e, st) => ErrorRetryWidget(
+          message: "Failed to load profile",
+          onRetry: () => ref.invalidate(profileProvider),
+        ),
       ),
     );
   }
@@ -161,7 +174,12 @@ class ProfileScreen extends ConsumerWidget {
                           child: CircleAvatar(
                             radius: 56,
                             backgroundColor: Colors.white10,
-                            backgroundImage: NetworkImage(profile.avatarUrl ?? "https://i.pravatar.cc/300?u=${profile.id}"),
+                            backgroundImage: (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty)
+                                ? NetworkImage(profile.avatarUrl!)
+                                : null,
+                            child: (profile.avatarUrl == null || profile.avatarUrl!.isEmpty)
+                                ? const Icon(LucideIcons.user, color: Colors.white54, size: 40)
+                                : null,
                           ),
                         ),
                       ),
@@ -176,7 +194,7 @@ class ProfileScreen extends ConsumerWidget {
                             color: Color(0xFFFFD700),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.verified, color: Colors.black, size: 20),
+                          child: const VerificationBadge(size: 20),
                         ),
                       ),
                     Positioned(
@@ -212,7 +230,7 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                       if (profile.isVerified) ...[
                         const SizedBox(width: 8),
-                        const Icon(Icons.verified, color: Color(0xFFFFD700), size: 22),
+                        const VerificationBadge(size: 22),
                       ],
                     ],
                   ),
@@ -239,8 +257,7 @@ class ProfileScreen extends ConsumerWidget {
   Widget _buildPremiumWallet(BuildContext context, UserProfile profile, WidgetRef ref) {
     final coins = profile.coins;
     final canCollectAsync = ref.watch(canCollectDailyProvider);
-    final String safeId = profile.id.length >= 8 ? profile.id.substring(0, 8).toUpperCase() : profile.id.toUpperCase();
-    final walletId = "COA-$safeId";
+    final walletId = profile.walletId ?? "COA-PENDING";
 
     return Container(
       width: double.infinity,
@@ -258,7 +275,7 @@ class ProfileScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("KINGDOM WALLET", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white24, letterSpacing: 2)),
+                    const Text("WALLET", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white24, letterSpacing: 2)),
                     const SizedBox(height: 8),
                     Text("$coins CC", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.amber)),
                     const SizedBox(height: 4),
@@ -291,30 +308,43 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   Widget _buildWalletActionsRow(BuildContext context, UserProfile profile, WidgetRef ref, bool canCollect) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
       children: [
-        _buildWalletAction(context, LucideIcons.send, "GIVE", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GivingScreen()))),
-        _buildWalletAction(context, LucideIcons.history, "RECORDS", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GivingHistoryScreen()))),
-        _buildWalletAction(context, canCollect ? LucideIcons.coins : LucideIcons.checkCircle, canCollect ? "COLLECT" : "DONE", () async {
-          if (!canCollect) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Already collected today! Come back tomorrow."), backgroundColor: Colors.orange));
-            }
-            return;
-          }
-          final service = ref.read(coinsServiceProvider);
-          final activity = ref.read(userActivityServiceProvider);
-          final earned = await service.collectDailyCoins();
-          if (earned > 0) {
-            await activity.logActivity(type: ActivityType.coinCollected, description: "Daily coin reward", coinsEarned: earned);
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("+$earned coins collected!"), backgroundColor: Colors.green));
-            }
-          }
-        }),
-        _buildWalletAction(context, LucideIcons.gift, "REWARDS", () => _showRewardsDialog(context, profile)),
-        _buildWalletAction(context, LucideIcons.shieldCheck, "IDENTITY", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KycVerificationScreen()))),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildWalletAction(context, LucideIcons.send, "GIVE", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GivingScreen()))),
+            _buildWalletAction(context, LucideIcons.gift, "REDEEM", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PartnerRedemptionScreen()))),
+            _buildWalletAction(context, canCollect ? LucideIcons.coins : LucideIcons.checkCircle, canCollect ? "COLLECT" : "DONE", () async {
+              if (!canCollect) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Already collected today! Come back tomorrow."), backgroundColor: Colors.orange));
+                }
+                return;
+              }
+              final service = ref.read(coinsServiceProvider);
+              final activity = ref.read(userActivityServiceProvider);
+              final earned = await service.collectDailyCoins();
+              if (earned > 0) {
+                await activity.logActivity(type: ActivityType.coinCollected, description: "Daily coin reward", coinsEarned: earned);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("+$earned coins collected!"), backgroundColor: Colors.green));
+                }
+              }
+            }),
+            _buildWalletAction(context, LucideIcons.gift, "REWARDS", () => _showRewardsDialog(context, profile)),
+            _buildWalletAction(context, LucideIcons.shieldCheck, "IDENTITY", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KycVerificationScreen()))),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildWalletAction(context, LucideIcons.shoppingCart, "BUY CC", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BuyCoinsScreen()))),
+            _buildWalletAction(context, LucideIcons.badgePercent, "REDEEM", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PartnerRedemptionScreen()))),
+            _buildWalletAction(context, LucideIcons.coins, "MY CC", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PayoutRequestScreen()))),
+          ],
+        ),
       ],
     );
   }
@@ -378,6 +408,8 @@ class ProfileScreen extends ConsumerWidget {
         if (profile.role == 'vendor' || profile.role == 'merchant' || profile.role == 'bookshop_owner') ...[
           _buildPremiumItem(context, LucideIcons.store, "VENDOR DASHBOARD", isHighlighted: true, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VendorDashboardScreen()))),
         ],
+        if (profile.role == 'bookshop_owner')
+          _buildPremiumItem(context, LucideIcons.store, "Set Up Bookshop", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BookshopOnboardingScreen()))),
       ],
     );
   }
@@ -388,12 +420,15 @@ class ProfileScreen extends ConsumerWidget {
         _buildPremiumItem(context, LucideIcons.user, "Personal Information", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AccountSettingsScreen()))),
         _buildPremiumItem(context, LucideIcons.shield, "Security & Privacy", onTap: () => _showSecuritySettings(context)),
         _buildPremiumItem(context, LucideIcons.fileCheck, "KYC Verification", trailing: "UNVERIFIED", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KycVerificationScreen()))),
+        if (!profile.isVerified)
+          _buildPremiumItem(context, LucideIcons.badgeCheck, "Request Verification", isHighlighted: true, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VerificationRequestScreen()))),
         _buildPremiumItem(context, LucideIcons.trendingUp, "Role Onboarding", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => RoleOnboardingScreen(role: profile.role)))),
         if (profile.role != 'writer')
           _buildPremiumItem(context, LucideIcons.penTool, "Apply as Writer", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WriterApplicationScreen()))),
         _buildPremiumItem(context, LucideIcons.package, "My Orders", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderTrackingScreen()))),
         _buildPremiumItem(context, LucideIcons.gift, "Referral Program", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReferralSystemScreen()))),
         _buildPremiumItem(context, LucideIcons.church, "Can't Find Your Church?", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchReferralScreen()))),
+        _buildPremiumItem(context, LucideIcons.heart, "COA Missions Donate", isHighlighted: true, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CoaMissionsDonateScreen()))),
         _buildPremiumItem(context, LucideIcons.helpCircle, "Help & Support", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportHubScreen()))),
         _buildPremiumItem(context, LucideIcons.logOut, "Logout", isDestructive: true, onTap: () => _showLogoutConfirmation(context, ref)),
       ],
@@ -466,10 +501,10 @@ class ProfileScreen extends ConsumerWidget {
 
   Widget _buildAssetGrid(BuildContext context, WidgetRef ref) {
     final assets = [
-      {"icon": LucideIcons.book, "title": "My Library", "count": "156 items", "action": "library"},
-      {"icon": LucideIcons.calendar, "title": "Events", "count": "3 upcoming", "action": "events"},
-      {"icon": LucideIcons.flame, "title": "Prayer Wall", "count": "12 entries", "action": "prayer"},
-      {"icon": LucideIcons.award, "title": "Certificates", "count": "4 earned", "action": "certs"},
+      {"icon": LucideIcons.book, "title": "My Library", "count": "Digital books & content", "action": "library"},
+      {"icon": LucideIcons.award, "title": "Certificates", "count": "Faith milestones", "action": "certs"},
+      {"icon": LucideIcons.gift, "title": "Rewards", "count": "Coins & achievements", "action": "rewards"},
+      {"icon": LucideIcons.flame, "title": "Prayer Wall", "count": "Community prayers", "action": "prayer"},
     ];
 
     return GridView.builder(
@@ -488,11 +523,14 @@ class ProfileScreen extends ConsumerWidget {
               case 'events':
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const EventsScreen()));
                 break;
+              case 'rewards':
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardsScreen()));
+                break;
               case 'prayer':
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const PrayerWallScreen()));
                 break;
               case 'certs':
-                _showCertificatesDialog(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const CertificatesScreen()));
                 break;
             }
           },
@@ -622,20 +660,18 @@ class ProfileScreen extends ConsumerWidget {
   void _showLogoutConfirmation(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         title: const Text("SIGN OUT?", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
         content: const Text("Are you sure you want to exit your session?", style: TextStyle(color: Colors.white60)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(color: Colors.white24))),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text("CANCEL", style: TextStyle(color: Colors.white24))),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.of(ctx).pop();
               await ref.read(authProvider.notifier).signOut();
-              if (context.mounted) {
-                Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
-              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
             child: const Text("LOGOUT"),
@@ -658,12 +694,12 @@ class ProfileScreen extends ConsumerWidget {
         builder: (dialogContext) => AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-          title: const Row(children: [Icon(LucideIcons.gift, color: Colors.amber), SizedBox(width: 10), Text("Kingdom Rewards", style: TextStyle(color: Colors.white))]),
+          title: const Row(children: [Icon(LucideIcons.gift, color: Colors.amber), SizedBox(width: 10), Text("Rewards", style: TextStyle(color: Colors.white))]),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const ListTile(leading: Icon(LucideIcons.star, color: Colors.amber), title: Text("Welcome Bonus", style: TextStyle(color: Colors.white)), subtitle: Text("500 Kingdom Coins", style: TextStyle(color: Colors.white38)), dense: true),
-              ListTile(leading: const Icon(LucideIcons.flame, color: Colors.red), title: Text("${profile.streakCount}-Day Streak", style: const TextStyle(color: Colors.white)), subtitle: const Text("100 Kingdom Coins", style: TextStyle(color: Colors.white38)), dense: true),
+              const ListTile(leading: Icon(LucideIcons.star, color: Colors.amber), title: Text("Welcome Bonus", style: TextStyle(color: Colors.white)), subtitle: Text("500 Coins", style: TextStyle(color: Colors.white38)), dense: true),
+              ListTile(leading: const Icon(LucideIcons.flame, color: Colors.red), title: Text("${profile.streakCount}-Day Streak", style: const TextStyle(color: Colors.white)), subtitle: const Text("Streak Bonus", style: TextStyle(color: Colors.white38)), dense: true),
             ],
           ),
           actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text("CLOSE"))],
@@ -789,24 +825,6 @@ class ProfileScreen extends ConsumerWidget {
       trailing: const Icon(LucideIcons.chevronRight, color: Colors.white10),
       onTap: onTap,
     );
-  }
-
-  void _showCertificatesDialog(BuildContext context) {
-    showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-          title: const Row(children: [Icon(LucideIcons.award, color: Colors.amber), SizedBox(width: 10), Text("Certificates", style: TextStyle(color: Colors.white))]),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(leading: Icon(LucideIcons.bookOpen, color: Colors.blue), title: Text("Bible Completion", style: TextStyle(color: Colors.white)), dense: true),
-              ListTile(leading: Icon(LucideIcons.award, color: Colors.amber), title: Text("Quiz Champion", style: TextStyle(color: Colors.white)), dense: true),
-            ],
-          ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("CLOSE"))],
-        ));
   }
 
   void _pickAvatar(BuildContext context, WidgetRef ref, UserProfile profile) async {

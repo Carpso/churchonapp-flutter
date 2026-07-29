@@ -19,7 +19,7 @@ class _CustomRoleManagementScreenState extends ConsumerState<CustomRoleManagemen
     final tenant = ref.watch(currentTenantProvider);
     final rolesAsync = ref.watch(_tenantRolesProvider(tenant?.id));
     final profileAsync = ref.watch(profileProvider);
-    final profile = profileAsync.asData?.value;
+    final profile = profileAsync.value;
     final canManage = profile?.isSuperadmin == true || profile?.isEmployee == true ||
         profile?.role == 'bishop' || profile?.role == 'pastor' ||
         profile?.role == 'bookshop_owner' || profile?.role == 'prophet' ||

@@ -47,7 +47,7 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final pricing = ref.watch(ridePricingProvider);
     final driversAsync = ref.watch(activeDriversStreamProvider);
@@ -140,7 +140,7 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
                         ? "Shared Bus Route Ride"
                         : (pricing.selectedCategory == 'marketplace' ||
                                 pricing.selectedCategory == 'bookshop')
-                            ? "Kingdom Cargo Delivery"
+                            ? "Cargo Delivery"
                             : "Standard Carpso Ride",
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
@@ -303,7 +303,7 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
         isDelivery: isDelivery,
         onDriverSelected: (driverId) {
           Navigator.pop(ctx);
-          onDriverSelected(driverId);
+          widget.onDriverSelected(driverId);
         },
       ),
     );
@@ -324,7 +324,7 @@ class _DriverListContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final driverType = isDelivery ? 'Kingdom Courier' : 'Carpso Ride Driver';
+    final driverType = isDelivery ? 'Courier' : 'Carpso Ride Driver';
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.5,

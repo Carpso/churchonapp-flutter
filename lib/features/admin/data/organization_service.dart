@@ -36,7 +36,7 @@ class OrganizationService {
   Future<Organization?> getOrganizationByBishop(String bishopId) async {
     final data = await _client
         .from('organizations')
-        .select('*')
+        .select('id, name, bishop_id, secretary_id, treasurer_id')
         .eq('bishop_id', bishopId)
         .maybeSingle();
     return data != null ? Organization.fromMap(data) : null;

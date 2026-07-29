@@ -12,7 +12,7 @@ class RoleApprovalScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pendingAsync = ref.watch(pendingRoleApprovalsProvider);
-    final profile = ref.watch(profileProvider).asData?.value;
+    final profile = ref.watch(profileProvider).value;
 
     return Scaffold(
       appBar: AppBar(
@@ -81,7 +81,7 @@ class RoleApprovalScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: null,
-              items: 'superadmin,employee,admin,pastor,bishop,prophet,apostle,bookshop_owner,driver,writer,leader,vendor,usher,merchant'
+              items: 'superadmin,employee,admin,pastor,bishop,prophet,apostle,bookshop_owner,driver,rider,writer,leader,vendor,usher,merchant'
                   .split(',').map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
               onChanged: (v) => roleC.text = v ?? '',
               decoration: const InputDecoration(labelText: 'Role'),

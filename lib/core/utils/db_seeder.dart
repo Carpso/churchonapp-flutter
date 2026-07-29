@@ -88,7 +88,7 @@ class DbSeeder {
       {
         'title': 'New Tech Hub at COA HQ',
         'excerpt': 'Bridging the gap between ministry and innovation.',
-        'content': 'The new office will house 50 developers dedicated to building Kingdom tools.',
+        'content': 'The new office will house 50 developers dedicated to building church tools.',
         'author_name': 'Tech Director Luke',
         'image_url': 'https://images.unsplash.com/photo-1512389142860-9c449e58a543?w=800',
         'created_at': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
@@ -118,7 +118,17 @@ class DbSeeder {
         'video_url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         'thumbnail_url': 'https://images.unsplash.com/photo-1510133755869-79a639739569?w=800',
         'category': 'theology',
-      }
+      },
+      // Rock Of Ages Chapel Kabulonga sermon
+      {
+        'tenant_id': '00000000-0000-0000-0000-000000000036',
+        'church_id': '00000000-0000-0000-0000-000000000036',
+        'title': 'The Power of Persistent Prayer',
+        'preacher': 'Pastor Chola Musonda',
+        'video_url': 'https://assets.mixkit.co/videos/preview/mixkit-pastor-preaching-at-a-church-service-34538-large.mp4',
+        'thumbnail_url': 'https://images.unsplash.com/photo-1507699622108-4be3abd695ad?w=800',
+        'category': 'faith',
+      },
     ];
 
     try {
@@ -135,7 +145,7 @@ class DbSeeder {
         'location': 'Lusaka, Zambia',
         'type': 'Full-time',
         'salary_range': 'K25,000 - K40,000',
-        'description': 'Help us build the sovereign network for the Kingdom.',
+        'description': 'Help us build the sovereign network for the faith.',
       },
       {
         'title': 'Social Media Manager',
@@ -208,7 +218,7 @@ class DbSeeder {
     // 8. Seed Social Posts
     final posts = [
       {
-        'content': 'Taking the Gospel to the digital frontier! 🚀 #KingdomTech',
+        'content': 'Taking the Gospel to the digital frontier! 🚀',
         'media_url': 'https://images.unsplash.com/photo-1512389142860-9c449e58a543?w=800',
         'media_type': 'image',
         'likes_count': 342,

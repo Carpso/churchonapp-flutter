@@ -29,14 +29,24 @@ class LiveStreamingService {
   LiveStreamingService(this._client);
 
   Stream<LiveStreamStatus> streamLiveStatus(String churchId) {
-    return _client
-        .from('church_live_status')
-        .stream(primaryKey: ['id'])
-        .eq('church_id', churchId)
-        .limit(1)
-        .map((data) => data.isNotEmpty 
-            ? LiveStreamStatus.fromMap(data.first) 
-            : LiveStreamStatus(isLive: false));
+    try {
+      if (churchId.isEmpty) {
+        return Stream.value(LiveStreamStatus(isLive: false));
+      }
+      return _client
+          .from('church_live_status')
+          .stream(primaryKey: ['id'])
+          .eq('church_id', churchId)
+          .limit(1)
+          .map((data) => data.isNotEmpty 
+              ? LiveStreamStatus.fromMap(data.first) 
+              : LiveStreamStatus(isLive: false))
+          .handleError((e) {
+            return LiveStreamStatus(isLive: false);
+          });
+    } catch (_) {
+      return Stream.value(LiveStreamStatus(isLive: false));
+    }
   }
 
   Future<void> setLiveStatus(String churchId, bool isLive, {String? streamUrl, String? title}) async {

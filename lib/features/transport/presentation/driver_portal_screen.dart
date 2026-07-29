@@ -19,7 +19,7 @@ class DriverPortalScreen extends ConsumerWidget {
       child: Scaffold(
         backgroundColor: const Color(0xFFFFFAEB),
         appBar: AppBar(
-          title: const Text("Kingdom Command", style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text("Command", style: TextStyle(fontWeight: FontWeight.bold)),
           bottom: const TabBar(
             tabs: [
               Tab(icon: Icon(LucideIcons.car), text: "RIDES"),
@@ -141,7 +141,7 @@ class DriverPortalScreen extends ConsumerWidget {
                     const Text("Main Street, Church View", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 10),
                     const Text("Destination", style: TextStyle(color: Colors.grey, fontSize: 10)),
-                    const Text("Kingdom Mall, Wing B", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const Text("Mall, Wing B", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   ],
                 ),
               ),

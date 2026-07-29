@@ -158,7 +158,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 height: 90,
                 child: Image.network(
                   item.product.image ??
-                      "https://images.unsplash.com/photo-1543165796-5426273ea430?w=400&q=60",
+                      '',
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => Container(
                     color: Colors.grey.shade100,

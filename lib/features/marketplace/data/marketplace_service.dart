@@ -51,7 +51,7 @@ class MarketplaceService {
   MarketplaceService(this._client);
 
   Future<List<MarketProduct>> fetchProducts({String? category, String? marketType}) async {
-    var query = _client.from('marketplace_items').select('*').eq('status', 'active');
+    var query = _client.from('marketplace_items').select('id, name, price, category, image, description, vendor_name, vendor_id, condition, market_type, is_curated').eq('status', 'active');
     
     if (category != null && category != 'all') {
       query = query.eq('category', category);

@@ -26,7 +26,7 @@ class DiscipleshipService {
   Future<List<Map<String, dynamic>>> getMilestones(String discipleId) async {
     final data = await _supabase
         .from('discipleship_milestones')
-        .select('*')
+        .select('id, disciple_id, title, description, completed_at')
         .eq('disciple_id', discipleId)
         .order('completed_at', ascending: false);
     return data;

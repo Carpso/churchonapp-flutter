@@ -35,7 +35,7 @@ class SystemDocsScreen extends ConsumerWidget {
         '\u2022  Ministry Management: Create and oversee ministry groups and leaders.',
         '\u2022  Event Scheduling: Plan services, conferences, and church-wide events.',
         '\u2022  Financial Dashboard: Track tithes, offerings, and platform revenue.',
-        '\u2022  Media Upload: Publish sermons, videos, and Kingdom Klips.',
+        '\u2022  Media Upload: Publish sermons, videos, and Klips.',
         '\u2022  Global Broadcast: Send push notifications and church alerts.',
         '\u2022  Report Creator: Generate custom statistical reports.',
         '\u2022  Role Management: Assign and approve custom user roles.',

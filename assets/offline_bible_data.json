@@ -1,0 +1,2548 @@
+{
+  "kjv": {
+    "John": {
+      "1": [
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 1,
+          "text": "In the beginning was the Word, and the Word was with God, and the Word was God.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 2,
+          "text": "The same was in the beginning with God.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 3,
+          "text": "All things were made by him; and without him was not any thing made that was made.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 4,
+          "text": "In him was life; and the life was the light of men.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 5,
+          "text": "And the light shineth in darkness; and the darkness comprehended it not.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 6,
+          "text": "There was a man sent from God, whose name\nwas John.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 7,
+          "text": "The same came for a witness, to bear witness of the Light, that all\nmen through him might believe.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 8,
+          "text": "He was not that Light, but\nwas sent to bear witness of that Light.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 9,
+          "text": "That was the true Light, which lighteth every man that cometh into the world.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 10,
+          "text": "He was in the world, and the world was made by him, and the world knew him not.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 11,
+          "text": "He came unto his own, and his own received him not.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 12,
+          "text": "But as many as received him, to them gave he power to become the sons of God,\neven to them that believe on his name:\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 13,
+          "text": "Which were born, not of blood, nor of the will of the flesh, nor of the will of man, but of God.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 14,
+          "text": "And the Word was made flesh, and dwelt among us, (and we beheld his glory, the glory as of the only begotten of the Father,) full of grace and truth.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 15,
+          "text": "John bare witness of him, and cried, saying, This was he of whom I spake, He that cometh after me is preferred before me: for he was before me.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 16,
+          "text": "And of his fulness have all we received, and grace for grace.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 17,
+          "text": "For the law was given by Moses,\nbut grace and truth came by Jesus Christ.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 18,
+          "text": "No man hath seen God at any time; the only begotten Son, which is in the bosom of the Father, he hath declared\nhim.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 19,
+          "text": "And this is the record of John, when the Jews sent priests and Levites from Jerusalem to ask him, Who art thou?\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 20,
+          "text": "And he confessed, and denied not; but confessed, I am not the Christ.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 21,
+          "text": "And they asked him, What then? Art thou Elias? And he saith, I am not. Art thou that prophet? And he answered, No.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 22,
+          "text": "Then said they unto him, Who art thou? that we may give an answer to them that sent us. What sayest thou of thyself?\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 23,
+          "text": "He said, I\nam the voice of one crying in the wilderness, Make straight the way of the Lord, as said the prophet Esaias.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 24,
+          "text": "And they which were sent were of the Pharisees.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 25,
+          "text": "And they asked him, and said unto him, Why baptizest thou then, if thou be not that Christ, nor Elias, neither that prophet?\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 26,
+          "text": "John answered them, saying, I baptize with water: but there standeth one among you, whom ye know not;\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 27,
+          "text": "He it is, who coming after me is preferred before me, whose shoe’s latchet I am not worthy to unloose.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 28,
+          "text": "These things were done in Bethabara beyond Jordan, where John was baptizing.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 29,
+          "text": "The next day John seeth Jesus coming unto him, and saith, Behold the Lamb of God, which taketh away the sin of the world.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 30,
+          "text": "This is he of whom I said, After me cometh a man which is preferred before me: for he was before me.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 31,
+          "text": "And I knew him not: but that he should be made manifest to Israel, therefore am I come baptizing with water.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 32,
+          "text": "And John bare record, saying, I saw the Spirit descending from heaven like a dove, and it abode upon him.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 33,
+          "text": "And I knew him not: but he that sent me to baptize with water, the same said unto me, Upon whom thou shalt see the Spirit descending, and remaining on him, the same is he which baptizeth with the Holy Ghost.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 34,
+          "text": "And I saw, and bare record that this is the Son of God.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 35,
+          "text": "Again the next day after John stood, and two of his disciples;\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 36,
+          "text": "And looking upon Jesus as he walked, he saith, Behold the Lamb of God!\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 37,
+          "text": "And the two disciples heard him speak, and they followed Jesus.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 38,
+          "text": "Then Jesus turned, and saw them following, and saith unto them,\nWhat seek ye? They said unto him, Rabbi, (which is to say, being interpreted, Master,) where dwellest thou?\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 39,
+          "text": "He saith unto them,\nCome and see. They came and saw where he dwelt, and abode with him that day: for it was about the tenth hour.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 40,
+          "text": "One of the two which heard John\nspeak, and followed him, was Andrew, Simon Peter’s brother.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 41,
+          "text": "He first findeth his own brother Simon, and saith unto him, We have found the Messias, which is, being interpreted, the Christ.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 42,
+          "text": "And he brought him to Jesus. And when Jesus beheld him, he said,\nThou art Simon the son of Jona: thou shalt be called Cephas, which is by interpretation, A stone.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 43,
+          "text": "The day following Jesus would go forth into Galilee, and findeth Philip, and saith unto him,\nFollow me.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 44,
+          "text": "Now Philip was of Bethsaida, the city of Andrew and Peter.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 45,
+          "text": "Philip findeth Nathanael, and saith unto him, We have found him, of whom Moses in the law, and the prophets, did write, Jesus of Nazareth, the son of Joseph.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 46,
+          "text": "And Nathanael said unto him, Can there any good thing come out of Nazareth? Philip saith unto him, Come and see.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 47,
+          "text": "Jesus saw Nathanael coming to him, and saith of him,\nBehold an Israelite indeed, in whom is no guile!\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 48,
+          "text": "Nathanael saith unto him, Whence knowest thou me? Jesus answered and said unto him,\nBefore that Philip called thee, when thou wast under the fig tree, I saw thee.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 49,
+          "text": "Nathanael answered and saith unto him, Rabbi, thou art the Son of God; thou art the King of Israel.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 50,
+          "text": "Jesus answered and said unto him,\nBecause I said unto thee, I saw thee under the fig tree, believest thou? thou shalt see greater things than these.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 51,
+          "text": "And he saith unto him,\nVerily, verily, I say unto you, Hereafter ye shall see heaven open, and the angels of God ascending and descending upon the Son of man."
+        }
+      ],
+      "5": [
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 1,
+          "text": "After this there was a feast of the Jews; and Jesus went up to Jerusalem.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 2,
+          "text": "Now there is at Jerusalem by the sheep\nmarket a pool, which is called in the Hebrew tongue Bethesda, having five porches.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 3,
+          "text": "In these lay a great multitude of impotent folk, of blind, halt, withered, waiting for the moving of the water.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 4,
+          "text": "For an angel went down at a certain season into the pool, and troubled the water: whosoever then first after the troubling of the water stepped in was made whole of whatsoever disease he had.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 5,
+          "text": "And a certain man was there, which had an infirmity thirty and eight years.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 6,
+          "text": "When Jesus saw him lie, and knew that he had been now a long time\nin that case, he saith unto him,\nWilt thou be made whole?\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 7,
+          "text": "The impotent man answered him, Sir, I have no man, when the water is troubled, to put me into the pool: but while I am coming, another steppeth down before me.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 8,
+          "text": "Jesus saith unto him,\nRise, take up thy bed, and walk.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 9,
+          "text": "And immediately the man was made whole, and took up his bed, and walked: and on the same day was the sabbath.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 10,
+          "text": "The Jews therefore said unto him that was cured, It is the sabbath day: it is not lawful for thee to carry\nthy bed.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 11,
+          "text": "He answered them, He that made me whole, the same said unto me,\nTake up thy bed, and walk.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 12,
+          "text": "Then asked they him, What man is that which said unto thee,\nTake up thy bed, and walk?\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 13,
+          "text": "And he that was healed wist not who it was: for Jesus had conveyed himself away, a multitude being in\nthat place.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 14,
+          "text": "Afterward Jesus findeth him in the temple, and said unto him,\nBehold, thou art made whole: sin no more, lest a worse thing come unto thee.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 15,
+          "text": "The man departed, and told the Jews that it was Jesus, which had made him whole.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 16,
+          "text": "And therefore did the Jews persecute Jesus, and sought to slay him, because he had done these things on the sabbath day.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 17,
+          "text": "But Jesus answered them,\nMy Father worketh hitherto, and I work.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 18,
+          "text": "Therefore the Jews sought the more to kill him, because he not only had broken the sabbath, but said also that God was his Father, making himself equal with God.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 19,
+          "text": "Then answered Jesus and said unto them,\nVerily, verily, I say unto you, The Son can do nothing of himself, but what he seeth the Father do: for what things soever he doeth, these also doeth the Son likewise.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 20,
+          "text": "For the Father loveth the Son, and sheweth him all things that himself doeth: and he will shew him greater works than these, that ye may marvel.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 21,
+          "text": "For as the Father raiseth up the dead, and quickeneth\nthem;\n even so the Son quickeneth whom he will.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 22,
+          "text": "For the Father judgeth no man, but hath committed all judgment unto the Son:\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 23,
+          "text": "That all\nmen should honour the Son, even as they honour the Father. He that honoureth not the Son honoureth not the Father which hath sent him.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 24,
+          "text": "Verily, verily, I say unto you, He that heareth my word, and believeth on him that sent me, hath everlasting life, and shall not come into condemnation; but is passed from death unto life.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 25,
+          "text": "Verily, verily, I say unto you, The hour is coming, and now is, when the dead shall hear the voice of the Son of God: and they that hear shall live.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 26,
+          "text": "For as the Father hath life in himself; so hath he given to the Son to have life in himself;\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 27,
+          "text": "And hath given him authority to execute judgment also, because he is the Son of man.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 28,
+          "text": "Marvel not at this: for the hour is coming, in the which all that are in the graves shall hear his voice,\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 29,
+          "text": "And shall come forth; they that have done good, unto the resurrection of life; and they that have done evil, unto the resurrection of damnation.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 30,
+          "text": "I can of mine own self do nothing: as I hear, I judge: and my judgment is just; because I seek not mine own will, but the will of the Father which hath sent me.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 31,
+          "text": "If I bear witness of myself, my witness is not true."
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 32,
+          "text": "          There is another that beareth witness of me; and I know that the witness which he witnesseth of me is true.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 33,
+          "text": "Ye sent unto John, and he bare witness unto the truth.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 34,
+          "text": "But I receive not testimony from man: but these things I say, that ye might be saved.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 35,
+          "text": "He was a burning and a shining light: and ye were willing for a season to rejoice in his light."
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 36,
+          "text": "          But I have greater witness than\nthat of John: for the works which the Father hath given me to finish, the same works that I do, bear witness of me, that the Father hath sent me.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 37,
+          "text": "And the Father himself, which hath sent me, hath borne witness of me. Ye have neither heard his voice at any time, nor seen his shape.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 38,
+          "text": "And ye have not his word abiding in you: for whom he hath sent, him ye believe not."
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 39,
+          "text": "          Search the scriptures; for in them ye think ye have eternal life: and they are they which testify of me.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 40,
+          "text": "And ye will not come to me, that ye might have life.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 41,
+          "text": "I receive not honour from men.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 42,
+          "text": "But I know you, that ye have not the love of God in you.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 43,
+          "text": "I am come in my Father’s name, and ye receive me not: if another shall come in his own name, him ye will receive.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 44,
+          "text": "How can ye believe, which receive honour one of another, and seek not the honour that\ncometh from God only?\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 45,
+          "text": "Do not think that I will accuse you to the Father: there is\none that accuseth you,\neven Moses, in whom ye trust.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 46,
+          "text": "For had ye believed Moses, ye would have believed me: for he wrote of me.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 47,
+          "text": "But if ye believe not his writings, how shall ye believe my words?\n"
+        }
+      ]
+    },
+    "Psalms": {
+      "1": [
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 1,
+          "verse": 1,
+          "text": "Blessed\nis the man that walketh not in the counsel of the ungodly, nor standeth in the way of sinners, nor sitteth in the seat of the scornful.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 1,
+          "verse": 2,
+          "text": "But his delight\nis in the law of the LORD; and in his law doth he meditate day and night.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 1,
+          "verse": 3,
+          "text": "And he shall be like a tree planted by the rivers of water, that bringeth forth his fruit in his season; his leaf also shall not wither; and whatsoever he doeth shall prosper.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 1,
+          "verse": 4,
+          "text": "The ungodly\nare not so: but\nare like the chaff which the wind driveth away.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 1,
+          "verse": 5,
+          "text": "Therefore the ungodly shall not stand in the judgment, nor sinners in the congregation of the righteous.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 1,
+          "verse": 6,
+          "text": "For the LORD knoweth the way of the righteous: but the way of the ungodly shall perish.\n"
+        }
+      ],
+      "5": [
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 1,
+          "text": "Give ear to my words, O LORD, consider my meditation.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 2,
+          "text": "Hearken unto the voice of my cry, my King, and my God: for unto thee will I pray.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 3,
+          "text": "My voice shalt thou hear in the morning, O LORD; in the morning will I direct\nmy prayer unto thee, and will look up.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 4,
+          "text": "For thou\nart not a God that hath pleasure in wickedness: neither shall evil dwell with thee.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 5,
+          "text": "The foolish shall not stand in thy sight: thou hatest all workers of iniquity.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 6,
+          "text": "Thou shalt destroy them that speak leasing: the LORD will abhor the bloody and deceitful man.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 7,
+          "text": "But as for me, I will come\ninto thy house in the multitude of thy mercy:\nand in thy fear will I worship toward thy holy temple.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 8,
+          "text": "Lead me, O LORD, in thy righteousness because of mine enemies; make thy way straight before my face.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 9,
+          "text": "For\nthere is no faithfulness in their mouth; their inward part\nis very wickedness; their throat\nis an open sepulchre; they flatter with their tongue.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 10,
+          "text": "Destroy thou them, O God; let them fall by their own counsels; cast them out in the multitude of their transgressions; for they have rebelled against thee.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 11,
+          "text": "But let all those that put their trust in thee rejoice: let them ever shout for joy, because thou defendest them: let them also that love thy name be joyful in thee.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 12,
+          "text": "For thou, LORD, wilt bless the righteous; with favour wilt thou compass him as\nwith a shield.\n"
+        }
+      ]
+    },
+    "Genesis": {
+      "1": [
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 1,
+          "text": "In the beginning God created the heaven and the earth.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 2,
+          "text": "And the earth was without form, and void; and darkness\nwas\n upon the face of the deep. And the Spirit of God moved upon the face of the waters.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 3,
+          "text": "And God said, Let there be light: and there was light.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 4,
+          "text": "And God saw the light, that\nit was good: and God divided the light from the darkness.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 5,
+          "text": "And God called the light Day, and the darkness he called Night. And the evening and the morning were the first day.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 6,
+          "text": "And God said, Let there be a firmament in the midst of the waters, and let it divide the waters from the waters.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 7,
+          "text": "And God made the firmament, and divided the waters which\nwere\n under the firmament from the waters which\nwere above the firmament: and it was so.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 8,
+          "text": "And God called the firmament Heaven. And the evening and the morning were the second day.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 9,
+          "text": "And God said, Let the waters under the heaven be gathered together unto one place, and let the dry\nland appear: and it was so.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 10,
+          "text": "And God called the dry\nland Earth; and the gathering together of the waters called he Seas: and God saw that\nit was good.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 11,
+          "text": "And God said, Let the earth bring forth grass, the herb yielding seed,\nand the fruit tree yielding fruit after his kind, whose seed\nis in itself, upon the earth: and it was so.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 12,
+          "text": "And the earth brought forth grass,\nand herb yielding seed after his kind, and the tree yielding fruit, whose seed\nwas in itself, after his kind: and God saw that\nit was good.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 13,
+          "text": "And the evening and the morning were the third day.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 14,
+          "text": "And God said, Let there be lights in the firmament of the heaven to divide the day from the night; and let them be for signs, and for seasons, and for days, and years:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 15,
+          "text": "And let them be for lights in the firmament of the heaven to give light upon the earth: and it was so.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 16,
+          "text": "And God made two great lights; the greater light to rule the day, and the lesser light to rule the night:\nhe made the stars also.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 17,
+          "text": "And God set them in the firmament of the heaven to give light upon the earth,\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 18,
+          "text": "And to rule over the day and over the night, and to divide the light from the darkness: and God saw that\nit was good.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 19,
+          "text": "And the evening and the morning were the fourth day.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 20,
+          "text": "And God said, Let the waters bring forth abundantly the moving creature that hath life, and fowl\nthat may fly above the earth in the open firmament of heaven.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 21,
+          "text": "And God created great whales, and every living creature that moveth, which the waters brought forth abundantly, after their kind, and every winged fowl after his kind: and God saw that\nit was good.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 22,
+          "text": "And God blessed them, saying, Be fruitful, and multiply, and fill the waters in the seas, and let fowl multiply in the earth.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 23,
+          "text": "And the evening and the morning were the fifth day.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 24,
+          "text": "And God said, Let the earth bring forth the living creature after his kind, cattle, and creeping thing, and beast of the earth after his kind: and it was so.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 25,
+          "text": "And God made the beast of the earth after his kind, and cattle after their kind, and every thing that creepeth upon the earth after his kind: and God saw that\nit was good.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 26,
+          "text": "And God said, Let us make man in our image, after our likeness: and let them have dominion over the fish of the sea, and over the fowl of the air, and over the cattle, and over all the earth, and over every creeping thing that creepeth upon the earth.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 27,
+          "text": "So God created man in his\nown image, in the image of God created he him; male and female created he them.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 28,
+          "text": "And God blessed them, and God said unto them, Be fruitful, and multiply, and replenish the earth, and subdue it: and have dominion over the fish of the sea, and over the fowl of the air, and over every living thing that moveth upon the earth.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 29,
+          "text": "And God said, Behold, I have given you every herb bearing seed, which\nis upon the face of all the earth, and every tree, in the which\nis the fruit of a tree yielding seed; to you it shall be for meat.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 30,
+          "text": "And to every beast of the earth, and to every fowl of the air, and to every thing that creepeth upon the earth, wherein\nthere is life,\nI have given every green herb for meat: and it was so.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 31,
+          "text": "And God saw every thing that he had made, and, behold,\nit was\n very good. And the evening and the morning were the sixth day.\n"
+        }
+      ],
+      "5": [
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 1,
+          "text": "This\nis the book of the generations of Adam. In the day that God created man, in the likeness of God made he him;\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 2,
+          "text": "Male and female created he them; and blessed them, and called their name Adam, in the day when they were created.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 3,
+          "text": "And Adam lived an hundred and thirty years, and begat\na son\n in his own likeness, after his image; and called his name Seth:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 4,
+          "text": "And the days of Adam after he had begotten Seth were eight hundred years: and he begat sons and daughters:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 5,
+          "text": "And all the days that Adam lived were nine hundred and thirty years: and he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 6,
+          "text": "And Seth lived an hundred and five years, and begat Enos:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 7,
+          "text": "And Seth lived after he begat Enos eight hundred and seven years, and begat sons and daughters:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 8,
+          "text": "And all the days of Seth were nine hundred and twelve years: and he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 9,
+          "text": "And Enos lived ninety years, and begat Cainan:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 10,
+          "text": "And Enos lived after he begat Cainan eight hundred and fifteen years, and begat sons and daughters:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 11,
+          "text": "And all the days of Enos were nine hundred and five years: and he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 12,
+          "text": "And Cainan lived seventy years, and begat Mahalaleel:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 13,
+          "text": "And Cainan lived after he begat Mahalaleel eight hundred and forty years, and begat sons and daughters:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 14,
+          "text": "And all the days of Cainan were nine hundred and ten years: and he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 15,
+          "text": "And Mahalaleel lived sixty and five years, and begat Jared:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 16,
+          "text": "And Mahalaleel lived after he begat Jared eight hundred and thirty years, and begat sons and daughters:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 17,
+          "text": "And all the days of Mahalaleel were eight hundred ninety and five years: and he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 18,
+          "text": "And Jared lived an hundred sixty and two years, and he begat Enoch:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 19,
+          "text": "And Jared lived after he begat Enoch eight hundred years, and begat sons and daughters:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 20,
+          "text": "And all the days of Jared were nine hundred sixty and two years: and he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 21,
+          "text": "And Enoch lived sixty and five years, and begat Methuselah:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 22,
+          "text": "And Enoch walked with God after he begat Methuselah three hundred years, and begat sons and daughters:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 23,
+          "text": "And all the days of Enoch were three hundred sixty and five years:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 24,
+          "text": "And Enoch walked with God: and he\nwas not; for God took him.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 25,
+          "text": "And Methuselah lived an hundred eighty and seven years, and begat Lamech:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 26,
+          "text": "And Methuselah lived after he begat Lamech seven hundred eighty and two years, and begat sons and daughters:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 27,
+          "text": "And all the days of Methuselah were nine hundred sixty and nine years: and he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 28,
+          "text": "And Lamech lived an hundred eighty and two years, and begat a son:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 29,
+          "text": "And he called his name Noah, saying, This\nsame shall comfort us concerning our work and toil of our hands, because of the ground which the LORD hath cursed.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 30,
+          "text": "And Lamech lived after he begat Noah five hundred ninety and five years, and begat sons and daughters:\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 31,
+          "text": "And all the days of Lamech were seven hundred seventy and seven years: and he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 32,
+          "text": "And Noah was five hundred years old: and Noah begat Shem, Ham, and Japheth.\n"
+        }
+      ]
+    }
+  },
+  "web": {
+    "John": {
+      "1": [
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 1,
+          "text": "In the beginning was the Word, and the Word was with God, and the Word was God.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 2,
+          "text": "The same was in the beginning with God.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 3,
+          "text": "All things were made through him. Without him was not anything made that has been made.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 4,
+          "text": "In him was life, and the life was the light of men.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 5,
+          "text": "The light shines in the darkness, and the darkness hasn’t overcome\n it.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 6,
+          "text": "There came a man, sent from God, whose name was John.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 7,
+          "text": "The same came as a witness, that he might testify about the light, that all might believe through him.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 8,
+          "text": "He was not the light, but was sent that he might testify about the light.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 9,
+          "text": "The true light that enlightens everyone was coming into the world.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 10,
+          "text": "He was in the world, and the world was made through him, and the world didn’t recognize him.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 11,
+          "text": "He came to his own, and those who were his own didn’t receive him.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 12,
+          "text": "But as many as received him, to them he gave the right to become God’s children, to those who believe in his name:\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 13,
+          "text": "who were born not of blood, nor of the will of the flesh, nor of the will of man, but of God.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 14,
+          "text": "The Word became flesh, and lived among us. We saw his glory, such glory as of the one and only Son of the Father, full of grace and truth.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 15,
+          "text": "John testified about him. He cried out, saying, “This was he of whom I said, ‘He who comes after me has surpassed me, for he was before me.’”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 16,
+          "text": "From his fullness we all received grace upon grace.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 17,
+          "text": "For the law was given through Moses. Grace and truth were realized through Jesus Christ.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 18,
+          "text": "No one has seen God at any time. The one and only Son, who is in the bosom of the Father, he has declared him.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 19,
+          "text": "This is John’s testimony, when the Jews sent priests and Levites from Jerusalem to ask him, “Who are you?”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 20,
+          "text": "He declared, and didn’t deny, but he declared, “I am not the Christ.”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 21,
+          "text": "They asked him, “What then? Are you Elijah?”\nHe said, “I am not.”\n“Are you the prophet?”\nHe answered, “No.”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 22,
+          "text": "They said therefore to him, “Who are you? Give us an answer to take back to those who sent us. What do you say about yourself?”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 23,
+          "text": "He said, “I am the voice of one crying in the wilderness, ‘Make straight the way of the Lord,’ as Isaiah the prophet said.”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 24,
+          "text": "The ones who had been sent were from the Pharisees.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 25,
+          "text": "They asked him, “Why then do you baptize, if you are not the Christ, nor Elijah, nor the prophet?”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 26,
+          "text": "John answered them, “I baptize in water, but among you stands one whom you don’t know.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 27,
+          "text": "He is the one who comes after me, who is preferred before me, whose sandal strap I’m not worthy to loosen.”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 28,
+          "text": "These things were done in Bethany beyond the Jordan, where John was baptizing.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 29,
+          "text": "The next day, he saw Jesus coming to him, and said, “Behold, the Lamb of God, who takes away the sin of the world!\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 30,
+          "text": "This is he of whom I said, ‘After me comes a man who is preferred before me, for he was before me.’\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 31,
+          "text": "I didn’t know him, but for this reason I came baptizing in water: that he would be revealed to Israel.”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 32,
+          "text": "John testified, saying, “I have seen the Spirit descending like a dove out of heaven, and it remained on him.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 33,
+          "text": "I didn’t recognize him, but he who sent me to baptize in water, he said to me, ‘On whomever you will see the Spirit descending, and remaining on him, the same is he who baptizes in the Holy Spirit.’\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 34,
+          "text": "I have seen, and have testified that this is the Son of God.”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 35,
+          "text": "Again, the next day, John was standing with two of his disciples,\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 36,
+          "text": "and he looked at Jesus as he walked, and said, “Behold, the Lamb of God!”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 37,
+          "text": "The two disciples heard him speak, and they followed Jesus.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 38,
+          "text": "Jesus turned, and saw them following, and said to them,\n“What are you looking for?”\nThey said to him, “Rabbi” (which is to say, being interpreted, Teacher), “where are you staying?”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 39,
+          "text": "He said to them,\n“Come, and see.”\nThey came and saw where he was staying, and they stayed with him that day. It was about the tenth hour.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 40,
+          "text": "One of the two who heard John, and followed him, was Andrew, Simon Peter’s brother.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 41,
+          "text": "He first found his own brother, Simon, and said to him, “We have found the Messiah!” (which is, being interpreted, Christ).\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 42,
+          "text": "He brought him to Jesus. Jesus looked at him, and said,\n“You are Simon the son of Jonah. You shall be called Cephas” (which is by interpretation, Peter).\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 43,
+          "text": "On the next day, he was determined to go out into Galilee, and he found Philip. Jesus said to him,\n“Follow me.”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 44,
+          "text": "Now Philip was from Bethsaida, of the city of Andrew and Peter.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 45,
+          "text": "Philip found Nathanael, and said to him, “We have found him, of whom Moses in the law, and the prophets, wrote: Jesus of Nazareth, the son of Joseph.”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 46,
+          "text": "Nathanael said to him, “Can any good thing come out of Nazareth?”\nPhilip said to him, “Come and see.”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 47,
+          "text": "Jesus saw Nathanael coming to him, and said about him,\n“Behold, an Israelite indeed, in whom is no deceit!”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 48,
+          "text": "Nathanael said to him, “How do you know me?”\nJesus answered him,\n“Before Philip called you, when you were under the fig tree, I saw you.”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 49,
+          "text": "Nathanael answered him, “Rabbi, you are the Son of God! You are King of Israel!”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 50,
+          "text": "Jesus answered him,\n“Because I told you, ‘I saw you underneath the fig tree,’ do you believe? You will see greater things than these!”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 1,
+          "verse": 51,
+          "text": "He said to him,\n“Most certainly, I tell you all, hereafter you will see heaven opened, and the angels of God ascending and descending on the Son of Man.”\n"
+        }
+      ],
+      "5": [
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 1,
+          "text": "After these things, there was a feast of the Jews, and Jesus went up to Jerusalem.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 2,
+          "text": "Now in Jerusalem by the sheep gate, there is a pool, which is called in Hebrew, “Bethesda”, having five porches.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 3,
+          "text": "In these lay a great multitude of those who were sick, blind, lame, or paralyzed, waiting for the moving of the water;\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 4,
+          "text": "for an angel went down at certain times into the pool, and stirred up the water. Whoever stepped in first after the stirring of the water was healed of whatever disease he had.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 5,
+          "text": "A certain man was there, who had been sick for thirty-eight years.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 6,
+          "text": "When Jesus saw him lying there, and knew that he had been sick for a long time, he asked him,\n“Do you want to be made well?”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 7,
+          "text": "The sick man answered him, “Sir, I have no one to put me into the pool when the water is stirred up, but while I’m coming, another steps down before me.”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 8,
+          "text": "Jesus said to him,\n“Arise, take up your mat, and walk.”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 9,
+          "text": "Immediately, the man was made well, and took up his mat and walked.\nNow it was the Sabbath on that day.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 10,
+          "text": "So the Jews said to him who was cured, “It is the Sabbath. It is not lawful for you to carry the mat.”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 11,
+          "text": "He answered them, “He who made me well, the same said to me,\n‘Take up your mat, and walk.’”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 12,
+          "text": "Then they asked him, “Who is the man who said to you,\n‘Take up your mat, and walk’?”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 13,
+          "text": "But he who was healed didn’t know who it was, for Jesus had withdrawn, a crowd being in the place.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 14,
+          "text": "Afterward Jesus found him in the temple, and said to him,\n“Behold, you are made well. Sin no more, so that nothing worse happens to you.”\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 15,
+          "text": "The man went away, and told the Jews that it was Jesus who had made him well.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 16,
+          "text": "For this cause the Jews persecuted Jesus, and sought to kill him, because he did these things on the Sabbath.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 17,
+          "text": "But Jesus answered them,\n“My Father is still working, so I am working, too.”\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 18,
+          "text": "For this cause therefore the Jews sought all the more to kill him, because he not only broke the Sabbath, but also called God his own Father, making himself equal with God.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 19,
+          "text": "Jesus therefore answered them,\n“Most certainly, I tell you, the Son can do nothing of himself, but what he sees the Father doing. For whatever things he does, these the Son also does likewise.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 20,
+          "text": "\nFor the Father has affection for the Son, and shows him all things that he himself does. He will show him greater works than these, that you may marvel.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 21,
+          "text": "\nFor as the Father raises the dead and gives them life, even so the Son also gives life to whom he desires.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 22,
+          "text": "\nFor the Father judges no one, but he has given all judgment to the Son,\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 23,
+          "text": "\nthat all may honor the Son, even as they honor the Father. He who doesn’t honor the Son doesn’t honor the Father who sent him.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 24,
+          "text": "\n“Most certainly I tell you, he who hears my word, and believes him who sent me, has eternal life, and doesn’t come into judgment, but has passed out of death into life.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 25,
+          "text": "\nMost certainly, I tell you, the hour comes, and now is, when the dead will hear the Son of God’s voice; and those who hear will live.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 26,
+          "text": "\nFor as the Father has life in himself, even so he gave to the Son also to have life in himself.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 27,
+          "text": "\nHe also gave him authority to execute judgment, because he is a son of man.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 28,
+          "text": "\nDon’t marvel at this, for the hour comes, in which all that are in the tombs will hear his voice,\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 29,
+          "text": "\nand will come out; those who have done good, to the resurrection of life; and those who have done evil, to the resurrection of judgment.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 30,
+          "text": "\nI can of myself do nothing. As I hear, I judge, and my judgment is righteous; because I don’t seek my own will, but the will of my Father who sent me.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 31,
+          "text": "\n“If I testify about myself, my witness is not valid.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 32,
+          "text": "\nIt is another who testifies about me. I know that the testimony which he testifies about me is true.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 33,
+          "text": "\nYou have sent to John, and he has testified to the truth.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 34,
+          "text": "\nBut the testimony which I receive is not from man. However, I say these things that you may be saved.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 35,
+          "text": "\nHe was the burning and shining lamp, and you were willing to rejoice for a while in his light.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 36,
+          "text": "\nBut the testimony which I have is greater than that of John, for the works which the Father gave me to accomplish, the very works that I do, testify about me, that the Father has sent me.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 37,
+          "text": "\nThe Father himself, who sent me, has testified about me. You have neither heard his voice at any time, nor seen his form.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 38,
+          "text": "\nYou don’t have his word living in you; because you don’t believe him whom he sent.\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 39,
+          "text": "\n“You search the Scriptures, because you think that in them you have eternal life; and these are they which testify about me.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 40,
+          "text": "\nYet you will not come to me, that you may have life.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 41,
+          "text": "\nI don’t receive glory from men.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 42,
+          "text": "\nBut I know you, that you don’t have God’s love in yourselves.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 43,
+          "text": "\nI have come in my Father’s name, and you don’t receive me. If another comes in his own name, you will receive him.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 44,
+          "text": "\nHow can you believe, who receive glory from one another, and you don’t seek the glory that comes from the only God?\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 45,
+          "text": "\n“Don’t think that I will accuse you to the Father. There is one who accuses you, even Moses, on whom you have set your hope.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 46,
+          "text": "\nFor if you believed Moses, you would believe me; for he wrote about me.\n\n"
+        },
+        {
+          "book_id": "JHN",
+          "book_name": "John",
+          "chapter": 5,
+          "verse": 47,
+          "text": "\nBut if you don’t believe his writings, how will you believe my words?”\n"
+        }
+      ]
+    },
+    "Psalms": {
+      "1": [
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 1,
+          "verse": 1,
+          "text": "Blessed is the man who doesn’t walk in the counsel of the wicked,\nnor stand on the path of sinners,\nnor sit in the seat of scoffers;\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 1,
+          "verse": 2,
+          "text": "but his delight is in Yahweh’s law.\nOn his law he meditates day and night.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 1,
+          "verse": 3,
+          "text": "He will be like a tree planted by the streams of water,\nthat produces its fruit in its season,\nwhose leaf also does not wither.\nWhatever he does shall prosper.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 1,
+          "verse": 4,
+          "text": "The wicked are not so,\nbut are like the chaff which the wind drives away.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 1,
+          "verse": 5,
+          "text": "Therefore the wicked shall not stand in the judgment,\nnor sinners in the congregation of the righteous.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 1,
+          "verse": 6,
+          "text": "For Yahweh knows the way of the righteous,\nbut the way of the wicked shall perish.\n"
+        }
+      ],
+      "5": [
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 1,
+          "text": "Give ear to my words, Yahweh.\nConsider my meditation.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 2,
+          "text": "Listen to the voice of my cry, my King and my God;\nfor to you do I pray.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 3,
+          "text": "Yahweh, in the morning you shall hear my voice.\nIn the morning I will lay my requests before you, and will watch expectantly.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 4,
+          "text": "For you are not a God who has pleasure in wickedness.\nEvil can’t live with you.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 5,
+          "text": "The arrogant shall not stand in your sight.\nYou hate all workers of iniquity.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 6,
+          "text": "You will destroy those who speak lies.\nYahweh abhors the bloodthirsty and deceitful man.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 7,
+          "text": "But as for me, in the abundance of your loving kindness I will come into your house.\nI will bow toward your holy temple in reverence of you.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 8,
+          "text": "Lead me, Yahweh, in your righteousness because of my enemies.\nMake your way straight before my face.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 9,
+          "text": "For there is no faithfulness in their mouth.\nTheir heart is destruction.\nTheir throat is an open tomb.\nThey flatter with their tongue.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 10,
+          "text": "Hold them guilty, God.\nLet them fall by their own counsels;\nThrust them out in the multitude of their transgressions,\nfor they have rebelled against you.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 11,
+          "text": "But let all those who take refuge in you rejoice,\nLet them always shout for joy, because you defend them.\nLet them also who love your name be joyful in you.\n"
+        },
+        {
+          "book_id": "PSA",
+          "book_name": "Psalms",
+          "chapter": 5,
+          "verse": 12,
+          "text": "For you will bless the righteous.\nYahweh, you will surround him with favor as with a shield.\n"
+        }
+      ]
+    },
+    "Genesis": {
+      "1": [
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 1,
+          "text": "In the beginning, God created the heavens and the earth.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 2,
+          "text": "The earth was formless and empty. Darkness was on the surface of the deep and God’s Spirit was hovering over the surface of the waters.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 3,
+          "text": "God said, “Let there be light,” and there was light.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 4,
+          "text": "God saw the light, and saw that it was good. God divided the light from the darkness.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 5,
+          "text": "God called the light “day”, and the darkness he called “night”. There was evening and there was morning, the first day.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 6,
+          "text": "God said, “Let there be an expanse in the middle of the waters, and let it divide the waters from the waters.”\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 7,
+          "text": "God made the expanse, and divided the waters which were under the expanse from the waters which were above the expanse; and it was so.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 8,
+          "text": "God called the expanse “sky”. There was evening and there was morning, a second day.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 9,
+          "text": "God said, “Let the waters under the sky be gathered together to one place, and let the dry land appear”; and it was so.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 10,
+          "text": "God called the dry land “earth”, and the gathering together of the waters he called “seas”. God saw that it was good.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 11,
+          "text": "God said, “Let the earth yield grass, herbs yielding seeds, and fruit trees bearing fruit after their kind, with their seeds in it, on the earth”; and it was so.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 12,
+          "text": "The earth yielded grass, herbs yielding seed after their kind, and trees bearing fruit, with their seeds in it, after their kind; and God saw that it was good.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 13,
+          "text": "There was evening and there was morning, a third day.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 14,
+          "text": "God said, “Let there be lights in the expanse of the sky to divide the day from the night; and let them be for signs to mark seasons, days, and years;\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 15,
+          "text": "and let them be for lights in the expanse of the sky to give light on the earth”; and it was so.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 16,
+          "text": "God made the two great lights: the greater light to rule the day, and the lesser light to rule the night. He also made the stars.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 17,
+          "text": "God set them in the expanse of the sky to give light to the earth,\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 18,
+          "text": "and to rule over the day and over the night, and to divide the light from the darkness. God saw that it was good.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 19,
+          "text": "There was evening and there was morning, a fourth day.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 20,
+          "text": "God said, “Let the waters abound with living creatures, and let birds fly above the earth in the open expanse of the sky.”\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 21,
+          "text": "God created the large sea creatures and every living creature that moves, with which the waters swarmed, after their kind, and every winged bird after its kind. God saw that it was good.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 22,
+          "text": "God blessed them, saying, “Be fruitful, and multiply, and fill the waters in the seas, and let birds multiply on the earth.”\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 23,
+          "text": "There was evening and there was morning, a fifth day.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 24,
+          "text": "God said, “Let the earth produce living creatures after their kind, livestock, creeping things, and animals of the earth after their kind”; and it was so.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 25,
+          "text": "God made the animals of the earth after their kind, and the livestock after their kind, and everything that creeps on the ground after its kind. God saw that it was good.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 26,
+          "text": "God said, “Let us make man in our image, after our likeness: and let them have dominion over the fish of the sea, and over the birds of the sky, and over the livestock, and over all the earth, and over every creeping thing that creeps on the earth.”\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 27,
+          "text": "God created man in his own image. In God’s image he created him; male and female he created them.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 28,
+          "text": "God blessed them. God said to them, “Be fruitful, multiply, fill the earth, and subdue it. Have dominion over the fish of the sea, over the birds of the sky, and over every living thing that moves on the earth.”\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 29,
+          "text": "God said, “Behold, I have given you every herb yielding seed, which is on the surface of all the earth, and every tree, which bears fruit yielding seed. It will be your food.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 30,
+          "text": "To every animal of the earth, and to every bird of the sky, and to everything that creeps on the earth, in which there is life, I have given every green herb for food;” and it was so.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 1,
+          "verse": 31,
+          "text": "God saw everything that he had made, and, behold, it was very good. There was evening and there was morning, a sixth day.\n"
+        }
+      ],
+      "5": [
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 1,
+          "text": "This is the book of the generations of Adam. In the day that God created man, he made him in God’s likeness.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 2,
+          "text": "He created them male and female, and blessed them. On the day they were created, he named them “Adam”.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 3,
+          "text": "Adam lived one hundred thirty years, and became the father of a son in his own likeness, after his image, and named him Seth.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 4,
+          "text": "The days of Adam after he became the father of Seth were eight hundred years, and he became the father of other sons and daughters.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 5,
+          "text": "All the days that Adam lived were nine hundred thirty years, then he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 6,
+          "text": "Seth lived one hundred five years, then became the father of Enosh.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 7,
+          "text": "Seth lived after he became the father of Enosh eight hundred seven years, and became the father of other sons and daughters.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 8,
+          "text": "All of the days of Seth were nine hundred twelve years, then he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 9,
+          "text": "Enosh lived ninety years, and became the father of Kenan.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 10,
+          "text": "Enosh lived after he became the father of Kenan, eight hundred fifteen years, and became the father of other sons and daughters.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 11,
+          "text": "All of the days of Enosh were nine hundred five years, then he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 12,
+          "text": "Kenan lived seventy years, then became the father of Mahalalel.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 13,
+          "text": "Kenan lived after he became the father of Mahalalel eight hundred forty years, and became the father of other sons and daughters\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 14,
+          "text": "and all of the days of Kenan were nine hundred ten years, then he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 15,
+          "text": "Mahalalel lived sixty-five years, then became the father of Jared.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 16,
+          "text": "Mahalalel lived after he became the father of Jared eight hundred thirty years, and became the father of other sons and daughters.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 17,
+          "text": "All of the days of Mahalalel were eight hundred ninety-five years, then he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 18,
+          "text": "Jared lived one hundred sixty-two years, then became the father of Enoch.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 19,
+          "text": "Jared lived after he became the father of Enoch eight hundred years, and became the father of other sons and daughters.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 20,
+          "text": "All of the days of Jared were nine hundred sixty-two years, then he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 21,
+          "text": "Enoch lived sixty-five years, then became the father of Methuselah.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 22,
+          "text": "After Methuselah’s birth, Enoch walked with God for three hundred years, and became the father of more sons and daughters.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 23,
+          "text": "All the days of Enoch were three hundred sixty-five years.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 24,
+          "text": "Enoch walked with God, and he was not found, for God took him.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 25,
+          "text": "Methuselah lived one hundred eighty-seven years, then became the father of Lamech.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 26,
+          "text": "Methuselah lived after he became the father of Lamech seven hundred eighty-two years, and became the father of other sons and daughters.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 27,
+          "text": "All the days of Methuselah were nine hundred sixty-nine years, then he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 28,
+          "text": "Lamech lived one hundred eighty-two years, then became the father of a son.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 29,
+          "text": "He named him Noah, saying, “This one will comfort us in our work and in the toil of our hands, caused by the ground which Yahweh has cursed.”\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 30,
+          "text": "Lamech lived after he became the father of Noah five hundred ninety-five years, and became the father of other sons and daughters.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 31,
+          "text": "All the days of Lamech were seven hundred seventy-seven years, then he died.\n"
+        },
+        {
+          "book_id": "GEN",
+          "book_name": "Genesis",
+          "chapter": 5,
+          "verse": 32,
+          "text": "Noah was five hundred years old, then Noah became the father of Shem, Ham, and Japheth.\n"
+        }
+      ]
+    }
+  }
+}

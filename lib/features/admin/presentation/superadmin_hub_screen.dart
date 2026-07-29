@@ -11,6 +11,7 @@ import '../../../core/providers/profile_provider.dart';
 import '../../../core/utils/db_seeder.dart';
 import '../../../core/services/platform_settings_service.dart';
 import '../data/admin_service.dart';
+import '../data/role_hierarchy_service.dart';
 import '../../events/data/event_service.dart';
 import '../data/audit_service.dart';
 import 'emergency_shutdown_screen.dart';
@@ -70,11 +71,11 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       final tenantsCount = activeChurchesRes.length;
 
       // Pending registrations list
-      final pendingRes = await client.from('churches').select('id, name, email, phone, location, is_verified, subscription_ends_at, logo_url').eq('is_verified', false);
+      final pendingRes = await client.from('churches').select('id, name, email, contact_phone, location, is_verified, subscription_ends_at, logo_url').eq('is_verified', false);
       final pendingList = List<Map<String, dynamic>>.from(pendingRes);
 
       // Pending subscription payments
-      final paymentsRes = await client.from('churches').select('id, name, email, phone, location, payment_reference, payment_amount, is_verified').not('payment_reference', 'is', null);
+      final paymentsRes = await client.from('churches').select('id, name, email, contact_phone, location, payment_reference, payment_amount, is_verified').not('payment_reference', 'is', null);
       final paymentsList = List<Map<String, dynamic>>.from(paymentsRes)
           .where((c) => (c['payment_reference'] as String?)?.isNotEmpty == true)
           .toList();
@@ -500,9 +501,9 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
   }
 
   final List<String> _allFeatures = [
-    'Kingdom Radio',
+    'Radio',
     'Marketplace',
-    'Kingdom Klips',
+    'Klips',
     'Jobs Portal',
     'Logistics & Tracking',
     'Kids Zone',
@@ -629,16 +630,16 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomRoleManagementScreen()));
             }),
             _buildGlobalAction(LucideIcons.userPlus, "Quick Add Tenant Staff", "Create staff with department roles for any tenant", Colors.green, () async {
-              final tenantCtrl = TextEditingController();
               final userCtrl = TextEditingController();
               final roleCtrl = TextEditingController(text: 'assistant');
               String staffRole = 'assistant';
               String selectedTenantId = '';
 
               // Load tenants
-              final tenants = await Supabase.instance.client.from('tenants').select('id, name').order('name').execute();
-              final tenantList = tenants.data as List<dynamic>? ?? [];
+              final tenants = await Supabase.instance.client.from('tenants').select('id, name').order('name');
+              final tenantList = tenants as List<dynamic>? ?? [];
 
+              if (!context.mounted) return;
               final result = await showDialog<Map<String, String>>(
                 context: context,
                 builder: (ctx) => StatefulBuilder(
@@ -647,8 +648,8 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
                     content: SingleChildScrollView(
                       child: Column(mainAxisSize: MainAxisSize.min, children: [
                         DropdownButtonFormField<String>(
-                          value: selectedTenantId.isNotEmpty ? selectedTenantId : null,
-                          items: tenantList.map((t) => DropdownMenuItem(value: t['id'] as String, child: Text(t['name'] as String ?? 'Unknown'))).toList(),
+                          initialValue: selectedTenantId.isNotEmpty ? selectedTenantId : null,
+                          items: tenantList.map((t) => DropdownMenuItem(value: t['id'] as String, child: Text(t['name'] as String? ?? 'Unknown'))).toList(),
                           onChanged: (v) => setDialogState(() => selectedTenantId = v ?? ''),
                           decoration: const InputDecoration(labelText: "Tenant", hintText: "Select tenant"),
                         ),
@@ -679,13 +680,18 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
                   ),
                 ),
               );
-              if (result != null && result['userId']!.isNotEmpty && result['role']!.isNotEmpty) {
-                final svc = ref.read(roleHierarchyServiceProvider);
-                try {
-                  await svc.assignRole(userId: result['userId']!, roleName: result['role']!, tenantId: result['tenantId']);
-                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: "Staff role requested: ${result['role']} for tenant ${result['tenantId']}", backgroundColor: Colors.green));
-                } catch (e) {
-                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+              if (result != null) {
+                final uid = result['userId'];
+                final role = result['role'];
+                final tenantId = result['tenantId'];
+                if (uid != null && uid.isNotEmpty && role != null && role.isNotEmpty) {
+                  final svc = ref.read(roleHierarchyServiceProvider);
+                  try {
+                    await svc.assignRole(userId: uid, roleName: role, tenantId: tenantId);
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Staff role requested: $role for tenant $tenantId"), backgroundColor: Colors.green));
+                  } catch (e) {
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+                  }
                 }
               }
             }),

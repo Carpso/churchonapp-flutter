@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
+import 'package:encrypt/encrypt.dart' as encrypt_lib;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -14,25 +16,27 @@ class TwoFactorService {
   static const _issuer = 'ChurchOnApp';
 
   String _encryptSecret(String secret, String userId) {
-    final key = sha256.convert(utf8.encode('$userId-coa-totp-v1'));
-    final iv = List<int>.generate(16, (_) => Random.secure().nextInt(256));
-    final secretBytes = utf8.encode(secret);
-    final encrypted = <int>[];
-    encrypted.addAll(iv);
-    for (int i = 0; i < secretBytes.length; i++) {
-      encrypted.add(secretBytes[i] ^ key.bytes[i % key.bytes.length]);
-    }
-    return base64.encode(encrypted);
+    final keyBytes = sha256.convert(utf8.encode('$userId-coa-totp-v2')).bytes;
+    final key = encrypt_lib.Key(Uint8List.fromList(keyBytes));
+    final iv = encrypt_lib.IV.fromSecureRandom(12);
+    final encrypter = encrypt_lib.Encrypter(
+      encrypt_lib.AES(key, mode: encrypt_lib.AESMode.gcm),
+    );
+    final encrypted = encrypter.encrypt(secret, iv: iv);
+    final combined = Uint8List.fromList(iv.bytes + encrypted.bytes);
+    return base64.encode(combined);
   }
 
   String _decryptSecret(String encryptedBase64, String userId) {
-    final key = sha256.convert(utf8.encode('$userId-coa-totp-v1'));
-    final encrypted = base64.decode(encryptedBase64);
-    final decrypted = <int>[];
-    for (int i = 16; i < encrypted.length; i++) {
-      decrypted.add(encrypted[i] ^ key.bytes[(i - 16) % key.bytes.length]);
-    }
-    return utf8.decode(decrypted);
+    final keyBytes = sha256.convert(utf8.encode('$userId-coa-totp-v2')).bytes;
+    final key = encrypt_lib.Key(Uint8List.fromList(keyBytes));
+    final combined = base64.decode(encryptedBase64);
+    final iv = encrypt_lib.IV(combined.sublist(0, 12));
+    final encryptedBytes = combined.sublist(12);
+    final encrypter = encrypt_lib.Encrypter(
+      encrypt_lib.AES(key, mode: encrypt_lib.AESMode.gcm),
+    );
+    return encrypter.decrypt(encrypt_lib.Encrypted(encryptedBytes), iv: iv);
   }
 
   String _base32Encode(List<int> bytes) {

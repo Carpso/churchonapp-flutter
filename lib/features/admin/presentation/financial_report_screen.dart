@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../data/admin_service.dart';
+import '../presentation/export_data_screen.dart';
 
 class FinancialReportScreen extends ConsumerStatefulWidget {
   const FinancialReportScreen({super.key});
@@ -86,15 +87,41 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
             style: TextStyle(color: Colors.white60, fontSize: 12),
           ),
           const SizedBox(height: 30),
-          ElevatedButton(
-            onPressed: _generating ? null : _generateReport,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.amber,
-              foregroundColor: Colors.black,
-              minimumSize: const Size(200, 50),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-            ),
-            child: const Text("GENERATE REPORT", style: TextStyle(fontWeight: FontWeight.bold)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Semantics(
+                label: "Generate financial stewardship report for February 2026",
+                button: true,
+                hint: "Compiles tithes, offerings, ride earnings, and cargo mission revenue into a comprehensive PDF audit report",
+                child: ElevatedButton(
+                  onPressed: _generating ? null : _generateReport,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber,
+                    foregroundColor: Colors.black,
+                    minimumSize: const Size(200, 50),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                  child: const Text("GENERATE REPORT", style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 15),
+              Semantics(
+                label: "Export financial data as PDF, CSV, or JSON",
+                button: true,
+                hint: "Opens export options for ledger, members, and financial reports",
+                child: OutlinedButton(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ExportDataScreen())),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.green,
+                    side: const BorderSide(color: Colors.green),
+                    minimumSize: const Size(160, 50),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                  child: const Text("EXPORT", style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -104,7 +131,7 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
   Widget _buildReportDetails(Map<String, double> data) {
     return Column(
       children: [
-        _buildFinancialItem("Kingdom Rides", data['rides'] ?? 0, LucideIcons.car, Colors.blue),
+        _buildFinancialItem("Rides", data['rides'] ?? 0, LucideIcons.car, Colors.blue),
         _buildFinancialItem("Cargo Missions", data['deliveries'] ?? 0, LucideIcons.package, Colors.orange),
         _buildFinancialItem("Spiritual Giving (Tithes)", data['tithes'] ?? 0, LucideIcons.heartPulse, Colors.red),
         const Divider(height: 40),

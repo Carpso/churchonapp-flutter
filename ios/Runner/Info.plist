@@ -58,5 +58,20 @@
 			</array>
 		</dict>
 	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>location</string>
+	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Church On App uses your location to find nearby churches, connect with ride services, and track event check-ins.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Church On App uses your location in the background to provide real-time ride tracking and driver location updates for Carpso Ride.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Church On App uses your camera to take photos for your profile, share moments on Church Social, and upload verification documents.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Church On App accesses your photo library to let you choose existing photos for your profile, posts, and verification documents.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Church On App may use your microphone for voice messages and audio recordings.</string>
 </dict>
 </plist>

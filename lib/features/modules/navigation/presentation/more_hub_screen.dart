@@ -4,9 +4,9 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../events/presentation/events_screen.dart';
 import '../../jobs/presentation/jobs_portal_screen.dart';
-import '../../logistics/presentation/kingdom_map_screen.dart';
+import '../../logistics/presentation/map_screen.dart';
 import '../../kids/presentation/kids_zone_screen.dart';
-import '../../media/presentation/kingdom_radio_screen.dart';
+import '../../media/presentation/radio_screen.dart';
 import 'package:church_on_app/features/admin/presentation/admin_hub_screen.dart';
 import 'package:church_on_app/features/transport/presentation/rider_onboarding_screen.dart';
 import '../../bible_quiz/presentation/bible_quiz_hub_screen.dart';
@@ -42,7 +42,7 @@ class MoreHubScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
-        title: const Text("Kingdom Life & Modules", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Life & Modules", style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(25),
@@ -60,7 +60,7 @@ class MoreHubScreen extends ConsumerWidget {
               childAspectRatio: 1.1,
               children: [
                 _buildModuleCard(context, "Events & Calendars", LucideIcons.calendar, Colors.blue, () => _handleNavigation(context, tenant, "Events", "events_management", const EventsScreen())),
-                _buildModuleCard(context, "Kingdom Maps", LucideIcons.map, Colors.orange, () => _handleNavigation(context, tenant, "Kingdom Maps", "logistics_&_tracking", const KingdomMapScreen())),
+                _buildModuleCard(context, "Maps", LucideIcons.map, Colors.orange, () => _handleNavigation(context, tenant, "Maps", "logistics_&_tracking", const MapScreen())),
                 _buildModuleCard(context, "Jobs & Serve", LucideIcons.briefcase, Colors.green, () => _handleNavigation(context, tenant, "Jobs & Serve", "jobs_portal", const JobsPortalScreen())),
                 _buildModuleCard(context, "Church Commute", LucideIcons.car, Colors.indigo, () => _handleNavigation(context, tenant, "Church Commute", "logistics_&_tracking", const ChurchCommuteScreen())),
               ],
@@ -77,7 +77,7 @@ class MoreHubScreen extends ConsumerWidget {
               childAspectRatio: 1.1,
               children: [
                 _buildModuleCard(context, "Kids Zone", LucideIcons.gamepad2, Colors.purple, () => _handleNavigation(context, tenant, "Kids Zone", "kids_zone", const KidsZoneScreen())),
-                _buildModuleCard(context, "Kingdom Radio", LucideIcons.radio, Colors.red, () => _handleNavigation(context, tenant, "Kingdom Radio", "kingdom_radio", const KingdomRadioScreen())),
+                _buildModuleCard(context, "Radio", LucideIcons.radio, Colors.red, () => _handleNavigation(context, tenant, "Radio", "kingdom_radio", const RadioScreen())),
                 _buildModuleCard(context, "Bible Quizzing", LucideIcons.brainCircuit, Colors.pink, () => _handleNavigation(context, tenant, "Bible Quizzing", "game_arena", const BibleQuizHubScreen())),
                 _buildModuleCard(context, "Drive & Earn", LucideIcons.car, Colors.teal, () => _handleNavigation(context, tenant, "Drive & Earn", "logistics_&_tracking", const RiderOnboardingScreen())),
                 _buildModuleCard(context, "Kael AI Assistance", LucideIcons.zap, Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const KaelChatScreen()))),
@@ -144,7 +144,7 @@ class MoreHubScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Kingdom Admin Hub", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text("Admin Hub", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
                   Text("Manage members, finance & streams", style: TextStyle(color: Colors.white70, fontSize: 12)),
                 ],
               ),

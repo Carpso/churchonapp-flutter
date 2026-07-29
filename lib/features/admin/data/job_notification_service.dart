@@ -41,7 +41,7 @@ class JobNotificationService {
   Future<List<JobNotification>> getNotifications() async {
     final result = await _supabase.client
         .from('job_notifications')
-        .select('*')
+        .select('id, user_id, job_id, type, message, is_read, created_at')
         .order('created_at', ascending: false);
     return (result as List).map((e) => JobNotification.fromMap(e)).toList();
   }
@@ -51,14 +51,18 @@ class JobNotificationService {
   }
 
   Future<void> markAllAsRead() async {
-    await _supabase.client.from('job_notifications').update({'is_read': true}).eq('user_id', _supabase.client.auth.currentUser!.id);
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    await _supabase.client.from('job_notifications').update({'is_read': true}).eq('user_id', user.id);
   }
 
   Future<int> getUnreadCount() async {
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
     final result = await _supabase.client
         .from('job_notifications')
         .select('id')
-        .eq('user_id', _supabase.client.auth.currentUser!.id)
+        .eq('user_id', user.id)
         .eq('is_read', false);
     return (result as List).length;
   }

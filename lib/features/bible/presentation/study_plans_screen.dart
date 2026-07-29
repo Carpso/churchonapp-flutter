@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import '../data/reading_plan_service.dart';
+import 'package:church_on_app/core/services/coins_service.dart';
 
 class StudyPlansScreen extends ConsumerWidget {
   const StudyPlansScreen({super.key});
@@ -18,12 +20,28 @@ class StudyPlansScreen extends ConsumerWidget {
         foregroundColor: Colors.white,
       ),
       body: plansAsync.when(
-        data: (plans) => ListView.builder(
-          padding: const EdgeInsets.all(25),
-          itemCount: plans.length,
-          itemBuilder: (context, index) => _buildPlanCard(context, ref, plans[index]),
-        ),
-        loading: () => const Center(child: CircularProgressIndicator()),
+        data: (plans) {
+          if (plans.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(LucideIcons.bookOpen, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text("No study plans yet", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text("Start a daily Bible reading plan\nto build your faith habit.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade500)),
+                ],
+              ),
+            );
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.all(25),
+            itemCount: plans.length,
+            itemBuilder: (context, index) => _buildPlanCard(context, ref, plans[index]),
+          );
+        },
+        loading: () => const ListSkeleton(count: 3),
         error: (e, _) => Center(child: Text("Error: $e")),
       ),
     );
@@ -158,19 +176,25 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
                       color: isDone ? Colors.grey : Colors.black87,
                     ),
                   ),
-                  trailing: isNext
-                      ? ElevatedButton(
-                          onPressed: () async {
-                            await widget.ref.read(readingPlanServiceProvider).completeDay(_plan.id);
-                            widget.ref.invalidate(readingPlansProvider);
-                            setState(() => _plan.completedDays++);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                                content: Text("Day completed! +10 Loyalty Coins earned."),
-                                backgroundColor: Colors.green,
-                              ));
-                            }
-                          },
+                    trailing: isNext
+                        ? ElevatedButton(
+                            onPressed: () async {
+                              await widget.ref.read(readingPlanServiceProvider).completeDay(_plan.id);
+                              try {
+                                final coinsService = widget.ref.read(coinsServiceProvider);
+                                await coinsService.addStreakBonus(1);
+                              } catch (e) {
+                                debugPrint('Error adding streak bonus: $e');
+                              }
+                              widget.ref.invalidate(readingPlansProvider);
+                              setState(() => _plan.completedDays++);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                                  content: Text("Day completed! +10 Church Coins earned."),
+                                  backgroundColor: Colors.green,
+                                ));
+                              }
+                            },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.indigo,
                             foregroundColor: Colors.white,

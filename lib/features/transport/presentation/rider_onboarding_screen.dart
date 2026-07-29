@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../data/transport_service.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
 
 class RiderOnboardingScreen extends ConsumerStatefulWidget {
   const RiderOnboardingScreen({super.key});
@@ -14,42 +16,121 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
   int _step = 1;
   final _formKeys = List.generate(4, (_) => GlobalKey<FormState>());
 
-  // Form Data
   String _fullName = '';
-  // ignore: unused_field
   String _phone = '';
-  // ignore: unused_field
   String _email = '';
   String _payoutOperator = 'mtn';
-  // ignore: unused_field
   String _payoutNumber = '';
   String _vehicleType = 'motorbike';
-  // ignore: unused_field
   String _makeModel = '';
   String _licensePlate = '';
-  // ignore: unused_field
   String _color = '';
+  String? _vehiclePhotoPath;
+  String? _licensePhotoPath;
+  String? _idPhotoPath;
+  bool _vehicleUploaded = false;
+  bool _licenseUploaded = false;
+  bool _idUploaded = false;
 
   void _handleNext() {
-    if (!_formKeys[_step - 1].currentState!.validate()) return;
-    setState(() => _step++);
+    final key = _formKeys[_step - 1];
+    if (key.currentState != null && !key.currentState!.validate()) return;
+    if (_step < 4) {
+      setState(() => _step++);
+    }
   }
 
   void _handleSubmit() async {
-    // In a real app, we would insert into a 'driver_applications' table.
-    // Here we simulate going live immediately for the task.
-    await ref.read(transportServiceProvider).updateLocation(-15.39, 28.33);
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Application Submitted & You are now LIVE!')));
-      Navigator.pop(context);
+    try {
+      final client = Supabase.instance.client;
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) throw Exception("Not logged in");
+
+      final profile = ref.read(profileProvider).value;
+      final tenantId = profile?.tenantId;
+
+      await client.from('profiles').update({
+        'role': 'driver',
+        'full_name': _fullName,
+        'phone_number': _phone,
+        'email': _email,
+      }).eq('id', userId);
+
+      final vehicleInfo = {
+        'type': _vehicleType,
+        'make_model': _makeModel,
+        'license_plate': _licensePlate,
+        'color': _color,
+      };
+
+      await client.from('ride_registrations').upsert({
+        'user_id': userId,
+        'lat': -15.39,
+        'lng': 28.33,
+        'type': 'driver',
+        'status': 'available',
+        'vehicle_info': vehicleInfo,
+        'payout_operator': _payoutOperator,
+        'payout_number': _payoutNumber,
+        'full_name': _fullName,
+        'pre_registered_phone': _phone,
+        'email': _email,
+        'vehicle_photo': _vehiclePhotoPath,
+        'license_photo': _licensePhotoPath,
+        'id_photo': _idPhotoPath,
+        'tenant_id': tenantId,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Application Submitted Successfully!')));
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Submission failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickDocument(String type) async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      if (picked == null) return;
+
+      setState(() {
+        if (type == 'vehicle') {
+          _vehiclePhotoPath = picked.path;
+          _vehicleUploaded = true;
+        } else if (type == 'license') {
+          _licensePhotoPath = picked.path;
+          _licenseUploaded = true;
+        } else if (type == 'id') {
+          _idPhotoPath = picked.path;
+          _idUploaded = true;
+        }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${type.toUpperCase()} document selected'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pick document: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB), // gray-50
+      backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
         title: const Text("Driver Application", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF0c2d48),
@@ -160,7 +241,7 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
               const SizedBox(height: 15),
               _buildTextField("Email Address", "e.g. john@example.com", (val) => _email = val, validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Required';
-                if (!v.contains('@')) return 'Enter a valid email';
+                if (!v.contains('@') || !v.contains('.')) return 'Enter a valid email';
                 return null;
               }),
               const SizedBox(height: 30),
@@ -174,7 +255,7 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("💰 Payout Settings", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800)),
+                    Text("Payout Settings", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800)),
                     Text("Where we send your earnings", style: TextStyle(color: Colors.green.shade600, fontSize: 12)),
                     const SizedBox(height: 15),
                     _buildTextField("Mobile Money Number", "097XXXXXXX", (val) => _payoutNumber = val, isNumber: true),
@@ -202,7 +283,6 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
 
   Widget _buildNetworkBtn(String label, String id, Color activeColor) {
     bool isSelected = _payoutOperator == id;
-    final String logo = 'assets/logo_$id.png';
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _payoutOperator = id),
@@ -213,20 +293,15 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: isSelected ? activeColor : Colors.grey.shade200),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset(logo, height: 16, width: 16, fit: BoxFit.contain),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.white : Colors.grey.shade700,
-                  fontSize: 12,
-                ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isSelected ? Colors.white : Colors.grey.shade700,
+                fontSize: 12,
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -284,7 +359,7 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
               const SizedBox(height: 15),
               Row(
                 children: [
-                  Expanded(child: _buildTextField("License Plate", "ABC 123", (val) => _licensePlate = val, validator: (v) {
+                  Expanded(child: _buildTextField("License Plate", "ABC 123", (val) => _licensePlate = val.toUpperCase(), isAllCaps: true, validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Required';
                     return null;
                   })),
@@ -293,19 +368,37 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(30),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.grey.shade300, style: BorderStyle.none),
-                ),
-                child: const Column(
-                  children: [
-                    Icon(LucideIcons.camera, size: 40, color: Colors.grey),
-                    SizedBox(height: 10),
-                    Text("Tap to upload vehicle photo", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                  ],
+              GestureDetector(
+                onTap: () => _pickDocument('vehicle'),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(30),
+                  decoration: BoxDecoration(
+                    color: _vehicleUploaded ? Colors.green.shade50 : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: _vehicleUploaded ? Colors.green.shade300 : Colors.grey.shade300,
+                      style: BorderStyle.none,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        _vehicleUploaded ? LucideIcons.checkCircle : LucideIcons.camera,
+                        size: 40,
+                        color: _vehicleUploaded ? Colors.green : Colors.grey,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        _vehicleUploaded ? "Vehicle photo selected" : "Tap to upload vehicle photo",
+                        style: TextStyle(
+                          color: _vehicleUploaded ? Colors.green.shade700 : Colors.grey,
+                          fontSize: 12,
+                          fontWeight: _vehicleUploaded ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -330,9 +423,9 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
         const Text("Documents & KYC", textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
         const Text("Verify your identity.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
         const SizedBox(height: 30),
-        _buildDocumentBox("Driver's License", "Valid Class C or Motorbike License", false),
+        _buildDocumentBox("Driver's License", "Valid Class C or Motorbike License", _licenseUploaded, () => _pickDocument('license')),
         const SizedBox(height: 15),
-        _buildDocumentBox("National ID / Passport", "Proof of Identification", false),
+        _buildDocumentBox("National ID / Passport", "Proof of Identification", _idUploaded, () => _pickDocument('id')),
         const SizedBox(height: 20),
         Container(
           padding: const EdgeInsets.all(15),
@@ -355,13 +448,13 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
     );
   }
 
-  Widget _buildDocumentBox(String title, String subtitle, bool isUploaded) {
+  Widget _buildDocumentBox(String title, String subtitle, bool isUploaded, VoidCallback onUpload) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: isUploaded ? Colors.green.shade200 : Colors.grey.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,18 +473,36 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
             ],
           ),
           const SizedBox(height: 15),
-          Container(
-             width: double.infinity,
-             padding: const EdgeInsets.symmetric(vertical: 12),
-             decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue.shade100)),
-             child: const Row(
-               mainAxisAlignment: MainAxisAlignment.center,
-               children: [
-                 Icon(LucideIcons.upload, size: 16, color: Colors.blue),
-                 SizedBox(width: 8),
-                 Text("Upload Document", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
-               ],
-             ),
+          GestureDetector(
+            onTap: onUpload,
+            child: Container(
+               width: double.infinity,
+               padding: const EdgeInsets.symmetric(vertical: 12),
+               decoration: BoxDecoration(
+                 color: isUploaded ? Colors.green.shade50 : Colors.grey.shade50,
+                 borderRadius: BorderRadius.circular(10),
+                 border: Border.all(color: isUploaded ? Colors.green.shade200 : Colors.blue.shade100),
+               ),
+               child: Row(
+                 mainAxisAlignment: MainAxisAlignment.center,
+                 children: [
+                   Icon(
+                     isUploaded ? LucideIcons.check : LucideIcons.upload,
+                     size: 16,
+                     color: isUploaded ? Colors.green : Colors.blue,
+                   ),
+                   const SizedBox(width: 8),
+                   Text(
+                     isUploaded ? "Uploaded" : "Upload Document",
+                     style: TextStyle(
+                       color: isUploaded ? Colors.green.shade700 : Colors.blue,
+                       fontWeight: FontWeight.bold,
+                       fontSize: 12,
+                     ),
+                   ),
+                 ],
+               ),
+            ),
           )
         ],
       ),
@@ -446,7 +557,7 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
     );
   }
 
-  Widget _buildTextField(String label, String hint, Function(String) onChanged, {bool isNumber = false, String? Function(String?)? validator}) {
+  Widget _buildTextField(String label, String hint, Function(String) onChanged, {bool isNumber = false, bool isAllCaps = false, String? Function(String?)? validator}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -455,6 +566,7 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
         TextFormField(
           onChanged: onChanged,
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+          textCapitalization: isAllCaps ? TextCapitalization.characters : TextCapitalization.none,
           validator: validator,
           decoration: InputDecoration(
             hintText: hint,
@@ -468,4 +580,3 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
     );
   }
 }
-

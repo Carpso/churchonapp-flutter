@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:church_on_app/core/widgets/error_retry_widget.dart';
+import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../data/prayer_service.dart';
 import 'package:intl/intl.dart';
 
@@ -93,27 +96,46 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
-        title: const Text("Kingdom Prayer Wall", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Prayer Wall", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(icon: const Icon(LucideIcons.plusCircle), onPressed: _addPrayer),
         ],
       ),
       body: prayersAsync.when(
-        data: (prayers) => RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(prayerStreamProvider);
-          },
-          child: ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: prayers.length,
-            itemBuilder: (context, index) {
-            final prayer = prayers[index];
-            return _buildPrayerCard(prayer);
-          },
+        data: (prayers) {
+          if (prayers.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(LucideIcons.flame, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text("No prayer requests yet", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text("Be the first to share a prayer request\nwith your church community.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade500)),
+                ],
+              ),
+            );
+          }
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(prayerStreamProvider);
+            },
+            child: ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: prayers.length,
+              itemBuilder: (context, index) {
+              final prayer = prayers[index];
+              return _buildPrayerCard(prayer);
+            },
+          ),
+          );
+        },
+        loading: () => const ListSkeleton(count: 3),
+        error: (err, stack) => ErrorRetryWidget(
+          message: "Failed to load prayer wall",
+          onRetry: () => ref.invalidate(prayerStreamProvider),
         ),
-        ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text("Error loading wall: $err")),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addPrayer,
@@ -138,9 +160,16 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
           Row(
             children: [
               CircleAvatar(
-                backgroundImage: prayer.userPhoto != null 
-                  ? NetworkImage(prayer.userPhoto!) 
-                  : const NetworkImage("https://i.pravatar.cc/100"),
+                backgroundColor: const Color(0xFF075E54),
+                backgroundImage: (prayer.userPhoto != null && prayer.userPhoto!.isNotEmpty)
+                    ? CachedNetworkImageProvider(prayer.userPhoto!)
+                    : null,
+                child: (prayer.userPhoto == null || prayer.userPhoto!.isEmpty)
+                    ? Text(
+                        prayer.userName.isNotEmpty ? prayer.userName[0].toUpperCase() : 'P',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      )
+                    : null,
               ),
               const SizedBox(width: 15),
               Column(
@@ -196,17 +225,21 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
   }
 
   Widget _buildActionButton(IconData icon, String label, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 14),
-            const SizedBox(width: 8),
-            Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
-          ],
+    return Semantics(
+      label: "$label button",
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+          child: Row(
+            children: [
+              Icon(icon, color: color, size: 14),
+              const SizedBox(width: 8),
+              Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+            ],
+          ),
         ),
       ),
     );

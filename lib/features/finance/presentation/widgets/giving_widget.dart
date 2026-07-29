@@ -7,6 +7,7 @@ import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/core/widgets/premium_confirmation_sheet.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
+import 'giving_category_selector.dart';
 
 class GivingWidget extends ConsumerStatefulWidget {
   final String? churchName;
@@ -91,7 +92,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
-          widget.churchName ?? tenant?.name ?? "Kingdom Giving",
+          widget.churchName ?? tenant?.name ?? "Giving",
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: secondary,
@@ -123,10 +124,6 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
             _buildPaymentMethods(primary),
             const SizedBox(height: 40),
             _buildProceedButton(secondary, tenant),
-            const SizedBox(height: 15),
-            _buildQrOption(tenant),
-            const SizedBox(height: 10),
-            _buildOfflineKeyOption(secondary),
           ],
         ),
       ),
@@ -225,37 +222,11 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
   }
 
   Widget _buildCategorySelector(Color primary, Color secondary) {
-    return SizedBox(
-      height: 45,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _categories.length,
-        itemBuilder: (context, index) {
-          final isSelected = _selectedCategory == _categories[index];
-          return GestureDetector(
-            onTap: () => setState(() => _selectedCategory = _categories[index]),
-            child: Container(
-              margin: const EdgeInsets.only(right: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              decoration: BoxDecoration(
-                color: isSelected ? secondary : Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
-              ),
-              child: Center(
-                child: Text(
-                  _categories[index],
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.grey,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+    return GivingCategorySelector(
+      categories: _categories,
+      selectedCategory: _selectedCategory,
+      onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
+      activeColor: secondary,
     );
   }
 
@@ -375,50 +346,6 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
     );
   }
 
-  Widget _buildQrOption(Tenant? tenant) {
-    return TextButton(
-      onPressed: _amount <= 0
-          ? null
-          : () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => _QrPaymentScreen(
-                    amount: _amount,
-                    description: "Giving: $_selectedCategory",
-                    recipient:
-                        tenant?.name ?? (widget.churchName ?? "Kingdom Local Church"),
-                  ),
-                ),
-              );
-            },
-      child: const Text(
-        "Pay via Kingdom QR Code",
-        style: TextStyle(
-          color: Colors.amber,
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOfflineKeyOption(Color secondary) {
-    return TextButton(
-      onPressed: _amount <= 0
-          ? null
-          : () => _showGivingKey(secondary),
-      child: const Text(
-        "Generate Offline Giving Key",
-        style: TextStyle(
-          color: Colors.grey,
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-        ),
-      ),
-    );
-  }
-
   Future<void> _startPayment(Tenant? tenant) async {
     if (_amount <= 0) {
       PremiumToast.showWarning(context, "Please enter a valid amount.");
@@ -434,7 +361,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
         backgroundColor: Colors.transparent,
         builder: (ctx) => LipilaPaymentGateway(
           amount: _amount + _fee,
-          description: "Kingdom Giving: $_selectedCategory",
+          description: "Giving: $_selectedCategory",
           category: _selectedCategory.toLowerCase(),
           recipientName: tenant?.name ?? (widget.churchName ?? "Local Church"),
           recipientAccount: tenant?.treasurerPhone ?? "CHURCH-OFFICIAL-AC",
@@ -472,83 +399,6 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
       referenceId: txId,
       type: ConfirmationType.success,
       primaryLabel: "AMEN",
-    );
-  }
-
-  void _showGivingKey(Color secondary) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text(
-          "OFFICIAL GIVING KEY",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              "Present this at any verified COA hub or use in USSD checkout.",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white60, fontSize: 11),
-            ),
-            const SizedBox(height: 30),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.white24),
-              ),
-              child: const Text(
-                "COA-GIVE-8822-XP",
-                style: TextStyle(
-                  color: Colors.greenAccent,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
-                ),
-              ),
-            ),
-            const SizedBox(height: 25),
-            const Icon(LucideIcons.qrCode, color: Colors.white, size: 100),
-            const SizedBox(height: 20),
-            Text(
-              "Amount: K${_amountController.text}",
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          Center(
-            child: ElevatedButton(
-              onPressed: () => Navigator.pop(ctx),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: secondary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-              child: const Text(
-                "DONE",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-        ],
-      ),
     );
   }
 
@@ -591,31 +441,6 @@ class _PaymentOption extends StatelessWidget {
           if (isSelected)
             const Icon(LucideIcons.checkCircle, color: Colors.green, size: 20),
         ],
-      ),
-    );
-  }
-}
-
-class _QrPaymentScreen extends StatelessWidget {
-  final double amount;
-  final String description;
-  final String recipient;
-
-  const _QrPaymentScreen({
-    required this.amount,
-    required this.description,
-    required this.recipient,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("QR Payment")),
-      body: Center(
-        child: Text(
-          "QR Payment of K$amount for $description to $recipient",
-          style: const TextStyle(fontSize: 16),
-        ),
       ),
     );
   }

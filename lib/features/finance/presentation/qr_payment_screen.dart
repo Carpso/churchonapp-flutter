@@ -1,10 +1,10 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/widgets/qr_code_with_logo.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 import 'package:church_on_app/core/widgets/premium_confirmation_sheet.dart';
+import 'package:church_on_app/core/services/code_generator_service.dart';
 import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 
@@ -20,49 +20,57 @@ class QrPaymentScreen extends ConsumerWidget {
     required this.recipient,
   });
 
-  String _generateRef() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    final rng = Random();
-    final code = List.generate(8, (_) => chars[rng.nextInt(chars.length)]).join();
-    return 'COA-TX-$code';
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final refCode = _generateRef();
-    final qrData = 'churchonapp://pay?ref=$refCode&amount=${amount.toStringAsFixed(2)}&recipient=${Uri.encodeComponent(recipient)}';
+    final codeGen = ref.read(codeGeneratorProvider);
+    final refCodeAsync = FutureProvider<String>((ref) => codeGen.generatePaymentRef());
+    final refCodeValue = ref.watch(refCodeAsync);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text("KINGDOM PAY", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(30),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildQrCard(context, qrData, refCode),
-              const SizedBox(height: 40),
-              _buildPaymentDetails(),
-              const SizedBox(height: 50),
-              _buildActionButtons(context, ref, refCode),
-              const SizedBox(height: 20),
-              const Text(
-                "Scan this QR at any Kingdom Hub or with your Banking App to settle the transaction via our sovereign ledger.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white38, fontSize: 11),
-              ),
-            ],
+    return refCodeValue.when(
+      data: (refCode) {
+        final qrData = 'churchonapp://pay?ref=$refCode&amount=${amount.toStringAsFixed(2)}&recipient=${Uri.encodeComponent(recipient)}';
+
+        return Scaffold(
+          backgroundColor: const Color(0xFF0F172A),
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: const Text("PAY", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            leading: IconButton(
+              icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
           ),
-        ),
+          body: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(30),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildQrCard(context, qrData, refCode),
+                  const SizedBox(height: 40),
+                  _buildPaymentDetails(),
+                  const SizedBox(height: 50),
+                  _buildActionButtons(context, ref, refCode),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "Scan this QR at any Hub or with your Banking App to settle the transaction via our sovereign ledger.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      loading: () => const Scaffold(
+        backgroundColor: Color(0xFF0F172A),
+        body: Center(child: CircularProgressIndicator(color: Colors.amber)),
+      ),
+      error: (e, _) => Scaffold(
+        backgroundColor: const Color(0xFF0F172A),
+        body: Center(child: Text("Error: $e", style: TextStyle(color: Colors.red))),
       ),
     );
   }

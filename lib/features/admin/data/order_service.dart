@@ -160,23 +160,25 @@ class OrderService {
   OrderService(this._supabase);
 
   Future<List<Order>> getMyOrders() async {
-    final userId = _supabase.client.auth.currentUser!.id;
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) return [];
     final result = await _supabase.client
         .from('orders')
-        .select('*')
-        .eq('user_id', userId)
+        .select('*, order_items(*)')
+        .eq('user_id', user.id)
         .order('created_at', ascending: false);
-    final orders = (result as List).map((e) => Order.fromMap(e)).toList();
-    for (final order in orders) {
-      order.items = await _getOrderItems(order.id);
-    }
-    return orders;
+    return (result as List).map((e) {
+      final items = (e['order_items'] as List?)
+          ?.map((i) => OrderItem.fromMap(i as Map<String, dynamic>))
+          .toList();
+      return Order.fromMap(e, items: items);
+    }).toList();
   }
 
   Future<List<OrderItem>> _getOrderItems(String orderId) async {
     final result = await _supabase.client
         .from('order_items')
-        .select('*')
+        .select('id, order_id, item_id, item_name, quantity, unit_price, total_price, vendor_id')
         .eq('order_id', orderId);
     return (result as List).map((e) => OrderItem.fromMap(e)).toList();
   }
@@ -184,7 +186,7 @@ class OrderService {
   Future<Order?> getOrderById(String orderId) async {
     final result = await _supabase.client
         .from('orders')
-        .select('*')
+        .select('id, user_id, tenant_id, status, total_amount, delivery_fee, platform_fee, payment_reference, payment_status, shipping_address, contact_phone, notes, created_at')
         .eq('id', orderId)
         .single();
     final items = await _getOrderItems(orderId);
@@ -202,7 +204,9 @@ class OrderService {
     String? notes,
     String? tenantId,
   }) async {
-    final userId = _supabase.client.auth.currentUser!.id;
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    final userId = user.id;
     final orderResult = await _supabase.client.from('orders').insert({
       'user_id': userId,
       'tenant_id': tenantId,
@@ -249,14 +253,16 @@ class OrderService {
   Future<List<Delivery>> getDeliveriesForOrder(String orderId) async {
     final result = await _supabase.client
         .from('deliveries')
-        .select('*')
+        .select('id, order_id, delivery_request_id, driver_id, status, pickup_address, delivery_address, pickup_lat, pickup_lng, delivery_lat, delivery_lng, estimated_delivery_time, actual_delivery_time, proof_of_delivery_url, recipient_name, recipient_phone, notes, created_at')
         .eq('order_id', orderId)
         .order('created_at', ascending: false);
     return (result as List).map((e) => Delivery.fromMap(e)).toList();
   }
 
   Future<Delivery?> getMyActiveDelivery() async {
-    final userId = _supabase.client.auth.currentUser!.id;
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    final userId = user.id;
     final result = await _supabase.client
         .from('deliveries')
         .select('*, orders!inner(user_id)')

@@ -1,0 +1,1 @@
+-- Intentionally empty: profiles RLS fixes are handled in 2026071002_missing_tables_schema.sql

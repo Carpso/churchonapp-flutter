@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../../../core/widgets/app_image.dart';
 import '../data/network_service.dart';
 
 class InterchurchNetworkScreen extends ConsumerStatefulWidget {
@@ -14,9 +17,11 @@ class InterchurchNetworkScreen extends ConsumerStatefulWidget {
 class _InterchurchNetworkScreenState extends ConsumerState<InterchurchNetworkScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  Timer? _debounceTimer;
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -36,7 +41,12 @@ class _InterchurchNetworkScreenState extends ConsumerState<InterchurchNetworkScr
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
             child: TextField(
               controller: _searchController,
-              onChanged: (v) => setState(() => _searchQuery = v),
+              onChanged: (v) {
+                _debounceTimer?.cancel();
+                _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+                  if (mounted) setState(() => _searchQuery = v);
+                });
+              },
               decoration: InputDecoration(
                 hintText: 'Search churches by name or location...',
                 prefixIcon: const Icon(LucideIcons.search, size: 20),
@@ -130,7 +140,7 @@ class _InterchurchNetworkScreenState extends ConsumerState<InterchurchNetworkScr
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: church.logoUrl != null
-                    ? ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.network(church.logoUrl!, fit: BoxFit.cover))
+                    ? ClipRRect(borderRadius: BorderRadius.circular(16), child: AppImage(church.logoUrl!, fit: BoxFit.cover))
                     : const Icon(LucideIcons.church, color: Colors.amber, size: 26),
               ),
               const SizedBox(width: 14),

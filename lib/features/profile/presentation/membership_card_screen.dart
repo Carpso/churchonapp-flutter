@@ -16,7 +16,7 @@ class MembershipCardScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFFFD700),
       appBar: AppBar(
-        title: const Text("Digital Kingdom ID", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: const Text("Digital ID", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.black,
@@ -24,8 +24,8 @@ class MembershipCardScreen extends ConsumerWidget {
       body: Center(
         child: profileAsync.when(
           data: (profile) {
-            final name = profile?.name ?? "Kingdom Believer";
-            final memberId = profile?.id ?? "K-ID-000000";
+            final name = profile?.name ?? "Believer";
+            final memberId = profile?.membershipId ?? "COA-PENDING";
             
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 30),
@@ -91,7 +91,7 @@ class MembershipCardScreen extends ConsumerWidget {
                       child: Text(tenant != null && tenant.name.isNotEmpty ? tenant.name.substring(0,1) : "K", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(width: 15),
-                    Text(tenant?.name ?? "KINGDOM CHURCH", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(tenant?.name ?? "CHURCH", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                   ],
                 ),
                 const Spacer(),

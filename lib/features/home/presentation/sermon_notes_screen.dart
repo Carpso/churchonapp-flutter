@@ -45,7 +45,7 @@ Consistency in communion and intercession leads to community miracles.
 
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Saved to your Kingdom Journal!")),
+                  const SnackBar(content: Text("Saved to your Journal!")),
                 );
               }
             }

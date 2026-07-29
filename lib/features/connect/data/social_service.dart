@@ -8,7 +8,7 @@ class SocialPost {
   final String userId;
   final String? content;
   final String? mediaUrl;
-  final List<String> images; // Multi-image support
+  final List<String> images;
   final String? mediaType;
   final int likesCount;
   final int commentsCount;
@@ -47,8 +47,8 @@ class SocialPost {
       likesCount: map['likes_count'] ?? 0,
       commentsCount: map['comments_count'] ?? 0,
       createdAt: map['created_at'] != null ? DateTime.parse(map['created_at']) : DateTime.now(),
-      userName: map['profiles'] is Map ? map['profiles']['full_name'] : 'Kingdom Member',
-      userAvatar: map['profiles'] is Map ? map['profiles']['avatar_url'] : "https://i.pravatar.cc/100?u=${map['user_id']}",
+      userName: (map['profiles'] is Map ? (map['profiles']['full_name'] ?? map['profiles']['username'] ?? map['user_id']?.toString().substring(0, 6)) : null) ?? 'Member',
+      userAvatar: map['profiles'] is Map ? map['profiles']['avatar_url'] : null,
       isModerated: map['is_moderated'] ?? false,
       propheticWeight: (map['prophetic_weight'] as num?)?.toDouble() ?? 0.0,
       category: map['category'] ?? 'general',
@@ -82,7 +82,7 @@ class SocialComment {
       userId: map['user_id']?.toString() ?? '',
       content: map['content'] ?? '',
       createdAt: map['created_at'] != null ? DateTime.parse(map['created_at']) : DateTime.now(),
-      userName: map['profiles'] is Map ? map['profiles']['full_name'] : 'Member',
+      userName: (map['profiles'] is Map ? (map['profiles']['full_name'] ?? map['profiles']['username'] ?? map['user_id']?.toString().substring(0, 6)) : null) ?? 'Member',
       userAvatar: map['profiles'] is Map ? map['profiles']['avatar_url'] : null,
     );
   }
@@ -92,7 +92,7 @@ class SocialService {
   final SupabaseClient _client;
   SocialService(this._client);
 
-  Future<List<SocialPost>> fetchPosts({String? tenantId}) async {
+  Future<List<SocialPost>> fetchPosts({String? tenantId, int limit = 15, int offset = 0}) async {
     try {
       var query = _client
           .from('social_posts')
@@ -104,12 +104,32 @@ class SocialService {
 
       final response = await query
           .order('created_at', ascending: false)
-          .limit(50);
+          .range(offset, offset + limit - 1);
       return (response as List).map((map) => SocialPost.fromMap(map)).toList();
     } catch (e) {
       debugPrint("social_service: Error fetching social posts: $e");
       return [];
     }
+  }
+
+  Stream<List<SocialPost>> streamPosts({String? tenantId}) {
+    final hasTenant = tenantId != null && tenantId.isNotEmpty;
+    final stream = _client.from('social_posts').stream(primaryKey: ['id']);
+
+    if (hasTenant) {
+      return stream
+          .eq('tenant_id', tenantId)
+          .order('created_at', ascending: false)
+          .limit(50)
+          .map((data) =>
+              (data as List).map((map) => SocialPost.fromMap(map)).toList());
+    }
+
+    return stream
+        .order('created_at', ascending: false)
+        .limit(50)
+        .map((data) =>
+            (data as List).map((map) => SocialPost.fromMap(map)).toList());
   }
 
   Future<void> createPost({String? content, String? mediaUrl, List<String>? images, String? mediaType}) async {
@@ -132,7 +152,6 @@ class SocialService {
     });
   }
 
-  /// Returns true if user has liked the post, false otherwise
   Future<bool> hasLiked(String postId) async {
     final user = _client.auth.currentUser;
     if (user == null) return false;
@@ -149,7 +168,6 @@ class SocialService {
     }
   }
 
-  /// Toggle like — inserts if not liked, deletes if already liked. Returns new liked state.
   Future<bool> toggleLike(String postId) async {
     final user = _client.auth.currentUser;
     if (user == null) return false;
@@ -163,13 +181,11 @@ class SocialService {
           .maybeSingle();
 
       if (existing != null) {
-        // Already liked — remove like (trigger will decrement likes_count)
         await _client.from('social_likes').delete()
             .eq('post_id', postId)
             .eq('user_id', user.id);
         return false;
       } else {
-        // Not liked — add like (trigger will increment likes_count)
         await _client.from('social_likes').insert({
           'post_id': postId,
           'user_id': user.id,
@@ -181,14 +197,14 @@ class SocialService {
     }
   }
 
-  Future<List<SocialComment>> fetchComments(String postId) async {
+  Future<List<SocialComment>> fetchComments(String postId, {int limit = 50}) async {
     try {
       final res = await _client
           .from('social_comments')
           .select('*, profiles(full_name, avatar_url)')
           .eq('post_id', postId)
           .order('created_at', ascending: true)
-          .limit(50);
+          .limit(limit);
       return (res as List).map((m) => SocialComment.fromMap(m)).toList();
     } catch (e) {
       debugPrint("social_service: Error fetching comments: $e");
@@ -200,16 +216,11 @@ class SocialService {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
-    // Insert comment (trigger will automatically increment comments_count)
     await _client.from('social_comments').insert({
       'post_id': postId,
       'user_id': user.id,
       'content': content,
     });
-  }
-
-  Future<void> praiseTestimony(String id, List? praisedBy) async {
-    // Mock legacy method to resolve build error
   }
 }
 
@@ -229,6 +240,7 @@ class SocialFilterNotifier extends Notifier<SocialFeedFilter> {
 
 final socialFilterProvider = NotifierProvider<SocialFilterNotifier, SocialFeedFilter>(SocialFilterNotifier.new);
 
+/// Posts provider with realtime updates
 final socialPostsProvider = StreamProvider<List<SocialPost>>((ref) async* {
   final service = ref.watch(socialServiceProvider);
   final filter = ref.watch(socialFilterProvider);
@@ -258,16 +270,10 @@ final socialPostsProvider = StreamProvider<List<SocialPost>>((ref) async* {
       yield [];
       return;
     }
-    final allPosts = await service.fetchPosts(tenantId: tenantId);
-    yield allPosts.where((p) => friendIds.contains(p.userId)).toList();
-    await for (final _ in Stream.periodic(const Duration(seconds: 30))) {
-      final refreshed = await service.fetchPosts(tenantId: tenantId);
-      yield refreshed.where((p) => friendIds.contains(p.userId)).toList();
-    }
+    yield* service.streamPosts(tenantId: tenantId).map(
+      (posts) => posts.where((p) => friendIds.contains(p.userId)).toList(),
+    );
   } else {
-    yield await service.fetchPosts(tenantId: tenantId);
-    await for (final _ in Stream.periodic(const Duration(seconds: 30))) {
-      yield await service.fetchPosts(tenantId: tenantId);
-    }
+    yield* service.streamPosts(tenantId: tenantId);
   }
 });

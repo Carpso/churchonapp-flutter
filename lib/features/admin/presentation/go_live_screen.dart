@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../home/data/live_streaming_service.dart';
 import '../../../core/services/tenant_service.dart';
+import '../../../core/widgets/app_image.dart';
 
 class GoLiveScreen extends ConsumerStatefulWidget {
   const GoLiveScreen({super.key});
@@ -44,7 +45,7 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text("Kingdom Live Studio", style: TextStyle(color: Colors.white)),
+        title: const Text("Live Studio", style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
       ),
@@ -56,27 +57,31 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen> {
               decoration: BoxDecoration(
                 color: Colors.grey.shade900,
                 borderRadius: BorderRadius.circular(30),
-                image: const DecorationImage(
-                  image: NetworkImage("https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=800&q=80"),
-                  fit: BoxFit.cover,
-                  opacity: 0.3,
-                ),
               ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (_isBroadcasting)
-                      const Icon(LucideIcons.radio, color: Colors.red, size: 80)
-                    else
-                      const Icon(LucideIcons.video, color: Colors.white24, size: 80),
-                    const SizedBox(height: 20),
-                    Text(
-                      _isBroadcasting ? "BROADCASTING LIVE" : "READY TO STREAM",
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 2),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Opacity(
+                    opacity: 0.3,
+                    child: AppImage("", fit: BoxFit.cover),
+                  ),
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_isBroadcasting)
+                          const Icon(LucideIcons.radio, color: Colors.red, size: 80)
+                        else
+                          const Icon(LucideIcons.video, color: Colors.white24, size: 80),
+                        const SizedBox(height: 20),
+                        Text(
+                          _isBroadcasting ? "BROADCASTING LIVE" : "READY TO STREAM",
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 2),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

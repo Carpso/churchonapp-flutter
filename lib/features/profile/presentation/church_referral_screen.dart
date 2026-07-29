@@ -74,6 +74,7 @@ class _ChurchReferralScreenState extends ConsumerState<ChurchReferralScreen> {
                 children: [
                   TextFormField(
                     controller: _pastorNameC,
+                    textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(labelText: 'Pastor/Leader Name *', border: OutlineInputBorder()),
                     validator: (v) => v?.isEmpty == true ? 'Required' : null,
                   ),
@@ -87,11 +88,13 @@ class _ChurchReferralScreenState extends ConsumerState<ChurchReferralScreen> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _churchNameC,
+                    textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(labelText: 'Church Name', border: OutlineInputBorder()),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _churchLocationC,
+                    textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(labelText: 'Church Location', border: OutlineInputBorder()),
                   ),
                   const SizedBox(height: 12),

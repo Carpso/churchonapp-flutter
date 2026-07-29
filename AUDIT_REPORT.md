@@ -1,187 +1,249 @@
-# ChurchOnApp — Senior Mobile Developer Audit Report
+# Church On App — Project Audit
 
-**Date:** 2026-07-26  
-**Scope:** Full codebase audit covering security, business logic, performance, code quality, and production readiness  
-**Status:** All critical and high findings addressed; medium findings documented for next sprint
-
----
-
-## Executive Summary
-
-The app is in solid production shape. Zero new errors/warnings introduced by any changes. 162 total issues found (136 pre-existing RLS `always_true` policies in old migrations, 26 `print()` in tooling scripts, 1 deprecated API usage). All critical security, business logic, and payment issues are resolved.
+**Date:** 2026-07-27
+**Scope:** `lib/`, `supabase/`, `pubspec.yaml`, env, router, services.
+**Method:** Static code inspection of duplicate files, broken provider scopes, dead routes, and security posture. **No `flutter analyze` or test run was executed** (Flutter SDK not invoked in this session).
 
 ---
 
-## 1. SECURITY AUDIT (Critical)
+## TL;DR — 3 must-fix bugs, 6 structural problems
 
-### FINDINGS
-
-| # | Severity | Area | Finding | Status |
-|---|----------|------|---------|--------|
-| 1 | **CRITICAL** | RLS Policies | 136 `USING (true)` / `WITH CHECK (true)` policies in old migrations (pre-20260832). These allow anonymous/unauthenticated data access. | ✅ Fixed in migration `20260832_linter_warnings_fix.sql` per AGENTS.md |
-| 2 | **HIGH** | RLS Policies | Some policies check `auth.jwt() -> 'role'` instead of `auth.uid() = user_id`. Roles can be spoofed client-side. | ✅ Fixed in migration `20260836_rls_always_true_fix.sql` |
-| 3 | **MEDIUM** | Secrets | No hardcoded API keys, tokens, or MoMo phone numbers found in `lib/`. All secrets use `Env.*` from `env.dart`. | ✅ Clean |
-| 4 | **MEDIUM** | Access Control | `PromoCampaignScreen` and `AdManagementScreen` had NO role gating — any authenticated user could manage promo codes and ads. | ✅ Fixed: now gated to `isSuperadmin || isEmployee` only |
-| 5 | **MEDIUM** | Role Escalation | Tenant leaders (pastor/bishop/bookshop) could directly promote users to `pastor` or `bishop` via `elevateRole()` without COA approval. | ✅ Fixed: now requires `assignRole()` which creates pending approval for COA/superadmin |
-| 6 | **LOW** | Print Statements | 26 `print()` calls in `tools/generate_audio_bible.dart` (tooling script, not production lib/). | ✅ Acceptable for tooling |
-
-### ACTIONS TAKEN
-- Added role gating to PromoCampaignScreen and AdManagementScreen
-- Converted bishop dashboard "Create Leader" to require pending approval for pastor/bishop elevation
-- Added bookshop staff management with proper role separation
-- All secret management confirmed using `Env.*` pattern, no hardcoded credentials
+| # | Severity | Area | Issue |
+|---|----------|------|-------|
+| 1 | 🔴 Critical | Live streaming | `live_streaming_screen.dart` redefines `activeStreamsProvider` / `upcomingStreamsProvider` locally, shadowing the service's providers (no fallback, no RLS-respecting query). |
+| 2 | 🔴 Critical | Live streaming | `LiveStreamService.sendChatMessage` and `chatMessagesStream` write/read `tenant_id` instead of `stream_id` on `stream_chat_messages` — chat is **silently broken**. |
+| 3 | 🔴 Critical | Payment reliability | `LipilaPaymentNotifier._startPolling` enqueues a retry via `PaymentReliabilityService` with `amount: 0.0` and `recipientPhone: ''` after a 40 s timeout — **the queue cannot retry a payment without those fields**. |
+| 4 | 🟠 High | Code dup | Two `event_service.dart` files with different models (`ChurchEvent` vs `KingdomEvent`) talking to the same `events` table. |
+| 5 | 🟠 High | Code dup | Two `live_stream_screen` / `live_streaming_screen` files, neither registered in the router. |
+| 6 | 🟠 High | Structure | Payment service lives under `features/give/data/` but is consumed by tithes, coins, marketplace, payouts. Cross-feature import. |
+| 7 | 🟡 Medium | Security | `.env` is present in the working tree (AGENTS.md flags it as exposed; rotate keys before any production deploy). |
+| 8 | 🟡 Medium | Dead code | `lib/features/finance/presentation/lipila_payment_gateway.dart` is a 1-line re-export shim — easy to break, low value. |
+| 9 | 🟡 Medium | Dead code | `KingdomEvent` service (`features/modules/media/data/event_service.dart`) appears unused — no import of `kingdomEventServiceProvider` or `kingdomUpcomingEventsProvider` outside its own file. |
+| 10 | 🟢 Low | R2 | `R2`/`migrate-to-r2` mixed with `coa_payments` (see section 6). |
 
 ---
 
-## 2. BUSINESS LOGIC AUDIT (Critical)
+## 1. Critical bugs
 
-### FINDINGS
+### 1.1 Provider shadowing in `live_streaming_screen.dart` 🔴
 
-| # | Severity | Area | Finding | Status |
-|---|----------|------|---------|--------|
-| 1 | **CRITICAL** | Payment Flow | Mobile money (Lipila) payment modal was not catching successful payments after PIN confirmation. Root cause: polling used only 30 attempts at 4s intervals (120s), and status extraction paths were too narrow. | ✅ Fixed |
-| 2 | **CRITICAL** | Payment Speed | Payment polling took up to 8 minutes to timeout. Users would think payment failed and retry, causing double charges. | ✅ Fixed: 2s interval, 20 attempts (40s total) with immediate DB check |
-| 3 | **HIGH** | Payment DB Fallback | Polling only checked Edge Function status, never checked local `coa_payments` table. Payment could be recorded in DB before Edge Function returned status. | ✅ Fixed: DB check runs immediately and on every poll iteration |
-| 4 | **HIGH** | Role Hierarchy | `department_leader` role was not defined in `UserProfile` getters. Bishop/pastor could create department leaders but the role wasn't recognized in access control. | ✅ Fixed: added to `isLeadershipTeam` |
-| 5 | **HIGH** | Bookshop Staff | Bookshop owners had NO way to assign store assistants/cashiers. Required manual SQL or COA intervention. | ✅ Fixed: added "Add Staff" button with `store_manager`, `assistant`, `cashier` role picker |
-| 6 | **MEDIUM** | Superadmin Team Mgmt | Superadmin had no quick way to add staff to a tenant. Had to create role approval requests manually. | ✅ Fixed: "Quick Add Tenant Staff" action in superadmin hub |
-| 7 | **MEDIUM** | Store Manager Gating | `store_manager` and `vendor` roles were not explicitly gated in admin hub. Bookshop owner access was implicit via `vendor` gate. | ✅ Verified: `isBookshopOwner` getter added to profile_provider.dart |
+**File:** `lib/features/modules/live_streaming/presentation/live_streaming_screen.dart` (lines 8–18)
 
-### ACTIONS TAKEN
-- Payment polling: 4s→2s interval, 60→20 attempts, added immediate DB check, expanded status paths 2→8, added success values 5→12
-- Added `isBookshopOwner`, `isStoreManager`, `isBookshopStaff` to profile_provider.dart
-- Added "Add Staff" action to bookshop dashboard
-- Added "Quick Add Tenant Staff" to superadmin hub
-- Converted bishop dashboard role creation to separate department-level vs pastor/bishop flows
-- Added `department_leader` to `isLeadershipTeam` getter
-
----
-
-## 3. PERFORMANCE AUDIT (Critical)
-
-### FINDINGS
-
-| # | Severity | Area | Finding | Status |
-|---|----------|------|---------|--------|
-| 1 | **HIGH** | Payment Polling | Original 4s/60 attempt polling = 4 min timeout. With DB check first added, this is now 40s max. | ✅ Fixed |
-| 2 | **MEDIUM** | LipilaService State | `state.value!.copyWith()` used unsafe `!` operator on nullable AsyncData value. Could crash if state is null during polling. | ✅ Fixed: `(state.value ?? const LipilaPaymentState())` safe null-coalescing |
-| 3 | **MEDIUM** | VehicleSelectionSheet | `TextEditingController` as field on stateless `ConsumerWidget`. Recreated on every build + never disposed = memory leak. | ✅ Fixed: converted to `ConsumerStatefulWidget` with proper `dispose()` |
-| 4 | **LOW** | DropdownButtonFormField | Used deprecated `value` parameter instead of `initialValue` (Flutter 3.33+). | ✅ Fixed: changed to `initialValue` in both bishop dialogs |
-
----
-
-## 4. CODE QUALITY AUDIT (High)
-
-### FINDINGS
-
-| # | Severity | Area | Finding | Status |
-|---|----------|------|---------|--------|
-| 1 | **HIGH** | Const Constructor | `VehicleSelectionSheet` lost `const` constructor when `_promoCodeController` field was added (non-const). | ✅ Fixed: moved controller to State class with `dispose()`, restored `const` constructor |
-| 2 | **MEDIUM** | Dead Code | Orphaned `Widget build(BuildContext context) {` (empty body) left in `VehicleSelectionSheet` after converting to `ConsumerStatefulWidget`. | ✅ Fixed: removed stray method, `formatZmw` moved to State class properly |
-| 3 | **MEDIUM** | StatefulWidget Pattern | `AdManagementScreen` was `ConsumerWidget` (stateless) but needed state for `_buildContent`. Converted to `ConsumerStatefulWidget`. | ✅ Fixed |
-| 4 | **LOW** | Deprecated API | `DropdownButtonFormField.value` → `DropdownButtonFormField.initialValue` in 2 places. | ✅ Fixed |
-| 5 | **INFO** | Info Hints | 19 info-level hints (`curly_braces_in_flow_control_structures`, `prefer_const_constructors_in_immutables`) — all pre-existing in unmodified files. | ℹ️ Noted for next sprint |
-
----
-
-## 5. PRODUCTION READINESS (High)
-
-### FINDINGS
-
-| # | Severity | Area | Finding | Status |
-|---|----------|------|---------|--------|
-| 1 | **CRITICAL** | Payment Timeout UX | When payment times out (40s), users get "Transaction timed out" but money WAS deducted by Lipila. No reference ID to contact support. | ✅ Fixed: timeout message now includes reference ID for support |
-| 2 | **HIGH** | Error Recovery | Payment failure shows "Try Again" button but doesn't reset the reference — user enters same PIN on retry causing duplicate requests. | ⚠️ Mitigated: `reset()` is called before `_initiatePayment()` on retry |
-| 3 | **HIGH** | Offline Payments | No offline detection for payment flow. If user loses connection after PIN but before success, payment is lost. | ⚠️ Future: add Connectivity monitoring + payment retry queue integration |
-| 4 | **MEDIUM** | Role Approval Workflow | `assignRole()` creates pending approval but there's no notification to COA/superadmin about new requests. | ⚠️ Future: integrate with `NotificationService` to alert COA on new role requests |
-| 5 | **MEDIUM** | Duplicate Payment Guard | `coa_payments.payment_ref` has no unique constraint — retries could create duplicate records. | ✅ Fixed in migration `20260835_coa_payments_constraints.sql` — added UNIQUE constraint on `payment_ref` |
-| 6 | **LOW** | Payment Reference Truncation | Timeout message shows `referenceId.substring(0, 8)` but `clamp(0, 8)` could fail for short IDs. | ✅ Fixed: used `referenceId.length.clamp(0, 8)` properly |
-
----
-
-## 6. FLUTTER BEST PRACTICES (Medium)
-
-### FINDINGS
-
-| # | Severity | Area | Finding | Status |
-|---|----------|------|---------|--------|
-| 1 | **MEDIUM** | State Management | `ref.listen` in `LipilaPaymentGateway.build()` registers new listener on every rebuild. Old listener auto-disposed by Riverpod. Correct pattern. | ✅ OK |
-| 2 | **MEDIUM** | Widget Architecture | `PaymentStatusModal` (stateless widget) doesn't use `ref.listen` — it's a pure display widget. Correct for static display. | ✅ OK |
-| 3 | **LOW** | Code Duplication | `_showAddLyricsSheet` in worship_lyrics_screen.dart uses inline `showModalBottomSheet` — could extract to reusable widget. | ℹ️ Acceptable for now |
-| 4 | **LOW** | Magic Numbers | `0.05` platform fee hardcoded in `ride_pricing_provider.dart` (5% fee). Should be a constant. | ℹ️ Noted for refactor |
-| 5 | **INFO** | Test Gaps | No unit tests for `LipilaPaymentNotifier` polling logic, `PromoService` redemption, or `RoleHierarchyService` role assignment. | ⚠️ Next sprint |
-
----
-
-## 7. ARCHITECTURE NOTES
-
-### Multi-Tenant Security (Verified)
-- All tenant-scoped queries filter by `tenant_id` ✅
-- `tenant_id` column has RLS policies (needs verification on `profiles.tenant_id` FK type mismatch: `text` vs `uuid`)
-- Superadmin/COA universal access properly gated with `isSuperOrEmployee` ✅
-- Role hierarchy properly separates: tenant leaders → department-level roles → pastor/bishop (superadmin approvable)
-
-### Payment Architecture (Verified)
-```
-User PIN → Lipila Collect → lipila-collect Edge Function (initiate)
-                                  ↓
-Polling: lipila-collect Edge Function (status) + coa_payments DB check
-                                  ↓
-On success → PaymentStatus.succeeded → onComplete → coa_payment_service.submitPayment()
-                                                          ↓
-                                              coa_payments table (status: pending)
-                                                          ↓
-                                              COA/Superadmin approves → status: approved
+```dart
+final activeStreamsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final client = Supabase.instance.client;
+  final result = await client.from('live_streams').select().eq('status', 'live').order('started_at', ascending: false);
+  return result;
+});
 ```
 
-### Role Hierarchy (Verified)
+This is a **top-level** provider defined inside a presentation file. The actual `LiveStreamService` in `lib/features/modules/live_streaming/data/live_stream_service.dart` also exports `activeStreamsProvider` and `upcomingStreamsProvider` (lines 260–268) — but those use the service which:
+- joins `churches(id, name, logo_url)` for display
+- has a graceful fallback to demo data when the table is empty
+- logs errors
+
+**Effect:** The `LiveStreamingScreen` widget **never uses the service**. It calls a separate top-level provider that:
+- bypasses the service's `debugPrint` error handling
+- has no demo fallback (empty table → empty list)
+- ignores RLS column narrowing (no `churches` join)
+
+**Fix:**
+```dart
+// Remove the top-level providers from live_streaming_screen.dart
+// Import from the service file instead:
+import 'package:church_on_app/features/modules/live_streaming/data/live_stream_service.dart';
+// activeStreamsProvider and upcomingStreamsProvider are already exported.
 ```
-Superadmin/COA Employee → can: manage all tenants, approve role elevations, manage promo codes & ads, full access
-Tenant Leader (pastor/bishop) → can: create department-level staff, manage branch, financial oversight
-Department Staff (store_manager/assistant/cashier/department_leader) → can: work within assigned role
-Member → can: all member features (Bible, giving, events, etc.)
+
+### 1.2 Wrong column in `LiveStreamService` chat 🔴
+
+**File:** `lib/features/modules/live_streaming/data/live_stream_service.dart`
+
+```dart
+// Line 174-181 (sendChatMessage)
+await _client.from('stream_chat_messages').insert({
+  'tenant_id': streamId,        // ❌ This is the streamId being saved as tenant_id
+  'user_id': _client.auth.currentUser?.id,
+  'content': message,
+});
+
+// Line 184-191 (chatMessagesStream)
+return _client
+    .from('stream_chat_messages')
+    .stream(primaryKey: ['id'])
+    .eq('tenant_id', streamId)   // ❌ Filtering by tenant_id, not stream_id
+    .order('created_at')
+    .map((events) => List<Map<String, dynamic>>.from(events));
 ```
 
----
+The table `stream_chat_messages` is keyed by `stream_id` and a tenant scope. By writing the `streamId` into the `tenant_id` column, every chat message is attributed to the wrong tenant and **silently fails RLS** (or leaks across tenants if RLS is loose).
 
-## 8. CRITICAL REMINDERS (Not Yet Fixed)
+**Fix:** Read the actual `stream_chat_messages` schema (likely `stream_id`, `tenant_id`, `user_id`, `content`, `created_at`), then:
+```dart
+.insert({
+  'stream_id': streamId,
+  'tenant_id': _resolveTenantForStream(streamId),  // look it up or pass it in
+  'user_id':   _client.auth.currentUser?.id,
+  'content':   message,
+})
+```
 
-1. **Database RLS (remaining)**: Migration `20260836` fixed 14 critical `always_true` policies (wallet_transactions, notifications, platform_settings, testimonies, social_posts, daily_bible_verses, prayers, radio_stations, quiz_seasons, quiz_weekly_scores, bible_study_sessions, notification_channels, game_scores, quiz_season_rewards). Remaining permissive policies on read-only public content tables (testimonies SELECT, radio_stations SELECT) are acceptable for public content.
+### 1.3 Broken payment retry queue 🔴
 
-2. **Proactive Notification for Role Approvals**: When a tenant leader submits a pastor/bishop elevation request via `assignRole()`, the COA/superadmin should receive a notification (push + in-app). Currently `NotificationService` is NOT called from `role_hierarchy_service.assignRole()`.
+**File:** `lib/features/give/data/lipila_service.dart` (lines 342–359)
 
-3. **Offline Payment Handling**: If user loses connectivity after PIN confirmation but before Lipila-collect polling detects success, the payment is silently lost. Should integrate with `PaymentReliabilityService.processRetryQueue()`.
+```dart
+if (attempts >= maxAttempts) {
+  timer.cancel();
+  final reliability = PaymentReliabilityService(client);
+  unawaited(reliability.queuePaymentForRetry(
+    referenceId: referenceId,
+    amount: 0.0,                 // ❌
+    recipientPhone: '',          // ❌
+    method: 'coa_payment',
+    metadata: {'type': 'coa_payment_timeout', 'reference': referenceId},
+  ));
+  state = AsyncData(...failed: "Payment verification timed out. Your money has been deducted. Reference: $referenceId" ...);
+}
+```
 
-4. **`profiles.tenant_id` type**: Uses `text` instead of `uuid`. The FK to `tenants(id)` (which is `uuid`) requires a column type migration for referential integrity.
+The retry queue is given **`amount: 0.0`** and an **empty phone** — the original payment call site has both values, so they must be threaded through `_startPolling(referenceId, client, amount, phone)` and used here. As written, the retry will never be actionable.
 
-5. **`SECRETS_BACKUP.md` in git**: Per AGENTS.md — this file may contain exposed keys that need rotation in production and removal from git history.
-
----
-
-## Final Metrics
-
-| Metric | Before Audit | After Audit |
-|--------|-------------|-------------|
-| `flutter analyze` errors | 0 | 0 |
-| `flutter analyze` warnings | 0 | 0 |
-| info-level hints | ~17 | ~19 |
-| Hardcoded secrets found | 0 | 0 |
-| Ungated admin tiles | 10+ | 0 |
-| Missing role getters | 3 | 0 |
-| Payment polling timeout | 120s (30×4s) | 40s (20×2s) |
-| Payment DB fallback | None | Immediate + per-poll |
-| Bookshop staff management | None | Full UI |
-| Superadmin team creation | None | Quick Add Staff action |
-| coa_payments unique constraint | None | Added UNIQUE on payment_ref |
-| RLS always_true policies (critical tables) | 136+ | ~122 remaining (read-only public content) |
-| Tenant leader role restrictions | None | Department-level only |
-| Pastor/bishop elevation guard | None | Pending approval workflow |
-
-### Commits
-- `fix: tenant leader restrictions, payment modal robustness, COA access control` (1805bbd) - 8 files, +1912/-107
-- `feat: bookshop staff roles, superadmin quick team, payment polling optimized` (ceeb7d5) - 4 files, +406/-118
-- `fix: add department_leader to isLeadershipTeam getters` (8b4160c) - 1 file, +1/-1
-- `fix: add coa_payments unique constraint and tighten RLS always_true policies` (0b2c054) - 2 migrations, +141/-0
+**Fix:** Pass the values into `_startPolling` and persist them on `LipilaPaymentState` (or look up the original row in `coa_payments` by `payment_ref` to recover the amount). The recovery-by-DB approach is more robust since the user could be offline.
 
 ---
-*Audit completed by senior mobile developer. All critical and high findings addressed in-sprint. Medium findings documented for next sprint planning.*
+
+## 2. Duplicate code
+
+### 2.1 Two `event_service.dart` files
+
+| File | Model | Schema expectations | Used by |
+|------|-------|---------------------|---------|
+| `lib/features/events/data/event_service.dart` (228 lines) | `ChurchEvent` | `date`, `image_url`, `ticket_price`, `attendee_count`, `organizer_momo_*` | **App router** (`app_router.dart` line 30, 613), event details screen, event host dashboard |
+| `lib/features/modules/media/data/event_service.dart` (81 lines) | `KingdomEvent` | `event_date`, `church_id`, `price` | **Nothing in the repo** (no imports found) |
+
+The "media" version expects `event_date` and `church_id`, but the active schema and the rest of the app use `date` and `tenant_id`. They cannot be reconciled without data migration.
+
+**Fix:** Delete `lib/features/modules/media/data/event_service.dart` and its `kingdomEventServiceProvider` / `kingdomUpcomingEventsProvider` (no consumers). If a separate read model is genuinely needed later, scope it under the `events/` feature, not `media/`.
+
+### 2.2 Two live-stream screens, both un-routed
+
+| File | Status |
+|------|--------|
+| `lib/features/home/presentation/live_stream_screen.dart` (297 lines) | Has full chat UI; takes `streamUrl` + `title` as constructor args. **No route in `app_router.dart`.** |
+| `lib/features/modules/live_streaming/presentation/live_streaming_screen.dart` (143 lines) | The "browser" screen that lists active + upcoming streams. **No route in `app_router.dart` (verified up to line 1000).** |
+
+`app_router.dart` registers `/live-studio` (the broadcasting screen) but no viewer route. Search for `/live-stream` shows no matches in the router file. **Users cannot open a stream from the app.**
+
+**Fix:**
+- Pick one: either fold the chat/player from `home/presentation/live_stream_screen.dart` into `live_streaming_screen.dart` and navigate with `context.push('/live/:id')`, or
+- Make `live_streaming_screen.dart` the index and add a `/live/:id` route that constructs `LiveStreamScreen(streamUrl, title)` from a `live_streams` row.
+
+Also fix the provider shadowing from §1.1 at the same time.
+
+### 2.3 Lipila re-export shim
+
+`lib/features/finance/presentation/lipila_payment_gateway.dart` (1 line):
+```dart
+export 'package:church_on_app/features/give/presentation/lipila_payment_gateway.dart';
+```
+
+The actual file is in `give/presentation/`. The re-export was probably created when refactoring `give/` → `finance/`, but the underlying service was not moved.
+
+**Fix:** Decide on a single home for payments:
+- Move `lib/features/give/data/lipila_service.dart` → `lib/core/services/payments/lipila_service.dart`
+- Move `lib/features/give/presentation/lipila_payment_gateway.dart` → `lib/core/services/payments/lipila_payment_gateway.dart` (or keep it under `features/finance/`)
+- Update all imports (router, giving screen, coins, marketplace, tithes)
+- Delete the re-export shim
+
+This eliminates a cross-feature import (`features/finance/...` → `features/give/...`).
+
+---
+
+## 3. Security
+
+### 3.1 `.env` in tree 🔴
+
+`.env` exists in the working tree. AGENTS.md already flags this. **Before any production deploy, rotate every secret** (Supabase service role, Lipila, Cloudflare R2, FCM, Resend, TURN) — once a key is in a git history, the only safe action is revocation.
+
+The standard `.gitignore` rules from AGENTS.md look correct; the issue is historical commits.
+
+### 3.2 RLS, function search path, anon EXECUTE
+
+These are policy items already covered by migrations (`20260838_harden_db_and_dashboard_logic.sql`, the series `20260826_*`, and the `anon` REVOKE batch). **No new code-side issue spotted from static review** beyond confirming the migrations are applied to the live project.
+
+### 3.3 TURN credentials
+
+`supabase/functions/turn-credentials` exists; deployment is gated on `TURN_SERVER_URL` + `TURN_SECRET`. Confirm they are set in the Supabase Edge Function environment before relying on the audio/video call features.
+
+### 3.4 iOS universal links
+
+`apple-app-site-association` reads `APPLE_TEAM_ID` from env. Verify this is set; otherwise the file will return without a team id and iOS will reject the association silently.
+
+---
+
+## 4. Dead / suspect code
+
+| File | Reason |
+|------|--------|
+| `lib/features/finance/presentation/lipila_payment_gateway.dart` | 1-line re-export shim (see §2.3). |
+| `lib/features/modules/media/data/event_service.dart` | No consumers; wrong schema assumptions. |
+| `lib/features/home/presentation/live_stream_screen.dart` | Not routed; would crash on routes that need it. |
+| `lib/features/modules/live_streaming/presentation/live_streaming_screen.dart` | Not routed. |
+| `lib/features/give/data/lipila_service.dart` lines 209–241, 309–340 | The `coa_payments` DB poll runs **twice per polling tick** (once before the Edge Function call, once after, with identical logic). The second poll is reachable only if the Edge Function call returns a "pending/empty" status — but that path always succeeds in the early-return before the duplicate, so the second block is unreachable. Collapse it. |
+| `lib/features/connect/data/notification_service.dart` vs `lib/core/services/notification_service.dart` | Two notification services; verify which one is canonical. |
+
+---
+
+## 5. Router inventory gap
+
+`app_router.dart` is 1061 lines; routes registered include `/events/:id`, `/wallet`, `/klips/:id`, `/posts/:id`, but **no `/live/:id` or `/live-streams`**. If the live-streaming feature is meant to be reachable, that is the highest-priority missing route.
+
+Also, the route name `/sermons` is referenced from the notifications redirect handler (line 862) but I do not see a corresponding `GoRoute(path: '/sermons', ...)` block in the file (truncated at 1061). **Verify and add it if missing.**
+
+---
+
+## 6. Architecture notes
+
+- **Multi-tenant pattern is sound.** `tenant_id` is consistently applied across event, social, quiz, leaderboard, and admin queries. Seed IDs (`zm_*`, `zw_*`) and UUID production IDs co-exist; the migration `20260827_reassign_users_to_rock_of_ages.sql` and the `20260826_tenants_table.sql` series handle the split.
+- **Coin economy is correctly constrained.** `add_coins` RPC, separate `coin_purchases` / `coin_redemptions` tables, and the partner-offer pattern in `coins_service.dart` are aligned with the BoZ loyalty-points (not cryptocurrency) stance.
+- **`PaymentReliabilityService` exists but is underused.** It is only called once, from the broken timeout path. Its `startAutoSync` / `queuePaymentForRetry` API should be invoked from any place that touches a `coa_payments` write, including webhook handlers and the coins flow.
+
+---
+
+## 7. Prioritized remediation plan
+
+### P0 (block release)
+1. Fix the `stream_chat_messages` `tenant_id` vs `stream_id` bug (§1.2) — currently chat silently fails.
+2. Pass `amount` + `phone` through to `PaymentReliabilityService` in the timeout branch (§1.3) — currently the queue is dead.
+3. Delete the local providers in `live_streaming_screen.dart` and use the service's providers (§1.1) — currently the screen has wrong schema and no fallback.
+
+### P1 (block release, lower risk)
+4. Delete `lib/features/modules/media/data/event_service.dart` (§2.1, §4).
+5. Add `/live-streams` and `/live/:id` routes to `app_router.dart` (or delete the screens) (§2.2, §5).
+6. Confirm `/sermons` route exists in `app_router.dart` (it is referenced by the notifications redirect) (§5).
+7. Consolidate the Lipila service: move to `core/services/payments/` and update all imports; delete the 1-line shim (§2.3).
+
+### P2 (tech debt)
+8. Collapse the duplicate `coa_payments` poll block in `lipila_service.dart` (§4).
+9. Resolve the two `notification_service.dart` files (§4).
+10. Rotate every secret listed in `SECRETS_BACKUP.md` if it has ever been committed (§3.1).
+11. Run `flutter analyze --no-fatal-infos --no-fatal-warnings` and fix any new warnings in `lib/` (AGENTS.md target: 0/0 in source, 0/0 in tests after the test fixes noted in `AGENTS.md`).
+
+### P3 (operational)
+12. Confirm `TURN_SERVER_URL`, `TURN_SECRET`, `APPLE_TEAM_ID` are set in Supabase Edge Function environment.
+13. Confirm R2 secrets and `R2_PUBLIC_DOMAIN` are set (Cloudflare R2 is used by `migrate-to-r2` and `r2-sign`).
+
+---
+
+## 8. What was NOT audited
+
+- `flutter analyze` output (Flutter not invoked in this session).
+- Test pass/fail status.
+- Database migrations for the 2026-08 series beyond reading the filenames.
+- Edge Function runtime behavior beyond the TypeScript signatures.
+- The web build (`flutter build web`) and Cloudflare Pages deployment.
+- iOS build (no macOS toolchain on this host).
+- Asset / image optimization.
+
+To extend this audit: run `flutter analyze`, `flutter test`, and exercise the live-stream end-to-end against a staging Supabase project with a known `live_streams` row.

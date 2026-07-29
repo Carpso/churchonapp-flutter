@@ -83,8 +83,6 @@ class BibleQuizResultsScreen extends ConsumerWidget {
                   Expanded(
                     child: FilledButton.icon(
                       onPressed: () {
-                        // Pop twice: results screen + arena screen → hub
-                        context.pop();
                         context.pop();
                       },
                       icon: const Icon(LucideIcons.home, size: 18),

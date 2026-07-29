@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../profile/data/referral_service.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -16,6 +17,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _referralController = TextEditingController();
   bool _isPasswordVisible = false;
   final _formKey = GlobalKey<FormState>();
 
@@ -27,11 +29,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         _passwordController.text.trim(),
         _nameController.text.trim(),
       );
-      
+
       if (mounted) {
         final session = Supabase.instance.client.auth.currentSession;
         if (session == null) {
-          // Success but needs email verification
           showDialog(
             context: context,
             barrierDismissible: false,
@@ -48,14 +49,26 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             ),
           );
         } else {
-          // Logged in automatically (uncommon in prod Supabase, but possible)
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Account created successfully!"), backgroundColor: Colors.green),
-          );
-          context.go('/');
+          final referralCode = _referralController.text.trim();
+          if (referralCode.isNotEmpty) {
+            try {
+              await ref.read(referralServiceProvider).recordReferral(
+                referralCode,
+                session.user.id,
+              );
+            } catch (e) {
+              debugPrint("Referral recording failed (non-fatal): $e");
+            }
+          }
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Account created successfully!"), backgroundColor: Colors.green),
+            );
+            context.go('/');
+          }
         }
       }
-
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -63,6 +76,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         );
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _referralController.dispose();
+    super.dispose();
   }
 
   @override
@@ -121,6 +143,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   return null;
                 },
               ),
+              const SizedBox(height: 20),
+              _buildTextField(
+                controller: _referralController,
+                label: "Referral Code (Optional)",
+                icon: LucideIcons.gift,
+                validator: null,
+              ),
               const SizedBox(height: 40),
               ElevatedButton(
                 onPressed: _handleSignup,
@@ -164,6 +193,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     String? Function(String?)? validator,
     TextInputType? keyboardType,
   }) {
+    final isName = label.toLowerCase().contains('name');
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
       decoration: BoxDecoration(
@@ -176,6 +206,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         obscureText: isPassword && !_isPasswordVisible,
         validator: validator,
         keyboardType: keyboardType,
+        textCapitalization: isName ? TextCapitalization.words : TextCapitalization.none,
         decoration: InputDecoration(
           icon: Icon(icon, color: Theme.of(context).primaryColor, size: 20),
           labelText: label,
@@ -192,4 +223,3 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     );
   }
 }
-

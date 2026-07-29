@@ -43,7 +43,7 @@ final vendorProductsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) 
   if (userId == null) return [];
   final data = await Supabase.instance.client
       .from('marketplace_items')
-      .select('*')
+      .select('id, name, price, image, status, created_at, vendor_id')
       .eq('vendor_id', userId)
       .order('created_at', ascending: false);
   return (data as List).cast<Map<String, dynamic>>();
@@ -55,7 +55,7 @@ final vendorRecentOrdersProvider = FutureProvider<List<Map<String, dynamic>>>((r
 
   final orderItemsData = await Supabase.instance.client
       .from('order_items')
-      .select('*')
+      .select('order_id, total_price, item_name, item_id, unit_price, quantity')
       .eq('vendor_id', userId);
 
   if ((orderItemsData as List).isEmpty) return [];
@@ -65,7 +65,7 @@ final vendorRecentOrdersProvider = FutureProvider<List<Map<String, dynamic>>>((r
 
   final ordersData = await Supabase.instance.client
       .from('orders')
-      .select('*')
+      .select('id, user_id, tenant_id, status, total_amount, delivery_fee, platform_fee, payment_reference, payment_status, shipping_address, contact_phone, notes, created_at')
       .filter('id', 'in', '(${orderIds.join(",")})')
       .order('created_at', ascending: false)
       .limit(10);

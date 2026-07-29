@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:church_on_app/features/baptism/data/baptism_service.dart';
 
 class BaptismRecord {
   final String id;
@@ -28,6 +29,13 @@ class BaptismRegistryScreen extends ConsumerStatefulWidget {
 }
 
 class _BaptismRegistryScreenState extends ConsumerState<BaptismRegistryScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(baptismServiceProvider);
+    });
+  }
   final List<BaptismRecord> _records = [
     BaptismRecord(id: "B-101", name: "Mwansa Chilufya", date: DateTime(2026, 4, 12), minister: "Pastor Abel Banda", location: "St. Peters Lusaka", status: "Verified"),
     BaptismRecord(id: "B-102", name: "Chipo Moyo", date: DateTime(2026, 5, 20), minister: "Pastor Abel Banda", location: "Bread of Life Church", status: "Verified"),
@@ -213,6 +221,7 @@ class _BaptismRegistryScreenState extends ConsumerState<BaptismRegistryScreen> {
               const SizedBox(height: 25),
               TextField(
                 controller: _nameCtrl,
+                textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
                   labelText: "Baptist's Full Name",
                   fillColor: Colors.white,
@@ -223,6 +232,7 @@ class _BaptismRegistryScreenState extends ConsumerState<BaptismRegistryScreen> {
               const SizedBox(height: 15),
               TextField(
                 controller: _ministerCtrl,
+                textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
                   labelText: "Officiating Minister",
                   fillColor: Colors.white,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -12,13 +13,29 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
 
 import 'core/widgets/error_boundary.dart';
+import 'core/widgets/notification_overlay.dart';
+import 'core/widgets/notification_permission_dialog.dart';
 import 'core/providers/global_state_provider.dart';
+import 'core/providers/fcm_provider.dart';
 import 'core/routes/app_router.dart';
 import 'package:audio_service/audio_service.dart';
 import 'core/services/audio_handler.dart';
 import 'core/providers/audio_provider.dart' as ap;
 import 'core/config/env.dart';
+import 'core/config/app_constants.dart';
 import 'package:app_links/app_links.dart';
+
+// Core service imports (for init calls and provider lifecycle)
+import 'core/services/email_service.dart';
+import 'core/services/foreground_service_helper.dart';
+import 'core/services/payout_service.dart';
+import 'core/services/performance_service.dart';
+import 'core/services/security_service.dart';
+import 'core/services/service_rating_service.dart';
+import 'core/services/session_guard_service.dart';
+import 'core/services/smart_prefetch_service.dart';
+import 'core/services/tutorial_service.dart';
+import 'core/services/wake_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,30 +72,17 @@ void main() async {
       debugPrint('WARNING: SUPABASE_URL is empty. check your .env file.');
     }
 
-    // 2. Remaining services in parallel
-    await Future.wait([
-      // Audio Service
-      AudioService.init(
-        builder: () => MyAudioHandler(),
-        config: const AudioServiceConfig(
-          androidNotificationChannelId: 'com.churchonapp.channel.audio',
-          androidNotificationChannelName: 'Kingdom Radio',
-          androidNotificationOngoing: false,
-          androidStopForegroundOnPause: true,
-        ),
-      ).then((handler) {
-        ap.audioHandler = handler;
-        return handler;
-      }).catchError((e) {
-        debugPrint('AudioService init error: $e');
-        return MyAudioHandler(); // Fallback dummy handler
-      }),
-      
-      // Supabase
-      SupabaseService.initialize().catchError((e) {
-        debugPrint('Supabase init error: $e');
-      }),
-    ]);
+    // 2. Initialize performance detection early
+    await PerformanceService.instance.init();
+    debugPrint('PerformanceService initialized (lowEndDevice: ${PerformanceService.instance.isLowEndDevice}).');
+
+    // 3. Start background services without blocking runApp()
+    unawaited(_initBackgroundServices());
+    
+    // 4. Block only on Supabase (critical path)
+    await SupabaseService.initialize().catchError((e) {
+      debugPrint('Supabase init error: $e');
+    });
     
     debugPrint('Services initialized successfully.');
   } catch (e, stack) {
@@ -94,6 +98,28 @@ void main() async {
   );
 }
 
+Future<void> _initBackgroundServices() async {
+  try {
+    await AudioService.init(
+      builder: () => MyAudioHandler(),
+      config: const AudioServiceConfig(
+        androidNotificationChannelId: 'com.churchonapp.channel.audio',
+        androidNotificationChannelName: 'Radio',
+        androidNotificationOngoing: false,
+        androidStopForegroundOnPause: true,
+      ),
+    ).then((handler) {
+      ap.audioHandler = handler;
+    }).catchError((e) {
+      debugPrint('AudioService init error: $e');
+    });
+
+    // Create foreground notification channels for media, location, data sync
+    await ForegroundServiceHelper.createNotificationChannels();
+  } catch (e) {
+    debugPrint('Background service error: $e');
+  }
+}
 
 class ChurchOnApp extends ConsumerStatefulWidget {
   const ChurchOnApp({super.key});
@@ -103,12 +129,27 @@ class ChurchOnApp extends ConsumerStatefulWidget {
 }
 
 class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingObserver {
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initNotifications();
     _initDeepLinks();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateOverlayStyle(ref.read(themeModeProvider));
+    });
+  }
+
+  void _updateOverlayStyle(ThemeMode mode) {
+    final brightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
+    final isDark = mode == ThemeMode.dark || (mode == ThemeMode.system && brightness == Brightness.dark);
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      systemNavigationBarColor: Colors.black,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ));
   }
 
   void _initDeepLinks() {
@@ -145,12 +186,20 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
     final notifService = container.read(notificationServiceProvider);
     await notifService.init();
 
-    try {
-      final fcm = FcmService(ref);
-      await fcm.init();
-    } catch (e) {
-      debugPrint('FCM init skipped: $e');
-    }
+      if (mounted) {
+        final permitted = await showNotificationPermissionDialog(context);
+        if (permitted) {
+          try {
+            final fcm = FcmService(ref);
+            await fcm.init();
+            fcmInstance = fcm;
+            // Wake screen for important notifications
+            WakeService.wakeScreen();
+          } catch (e) {
+            debugPrint('FCM init skipped: $e');
+          }
+        }
+      }
 
     // Start Realtime listeners once the user is authenticated
     final user = Supabase.instance.client.auth.currentUser;
@@ -189,31 +238,41 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
     final darkTheme = ref.watch(darkThemeProvider);
     final themeMode = ref.watch(themeModeProvider);
     final router = ref.watch(routerProvider);
-    final tenant = ref.watch(currentTenantProvider);
 
     // Initialize tenant data
     ref.watch(tenantInitializerProvider);
     // Observe global config
     ref.watch(globalStateProvider);
+    // Initialize core service providers (lazy — created once on first watch)
+    ref.watch(emailServiceProvider);
+    ref.watch(payoutServiceProvider);
+    ref.watch(securityServiceProvider);
+    ref.watch(sessionGuardProvider);
+    ref.watch(smartPrefetchProvider);
+    ref.watch(tutorialServiceProvider);
+    ref.watch(serviceRatingServiceProvider);
 
-    final primaryColor = tenant?.primaryColor ?? const Color(0xFFFFD700);
-    final isDark = themeMode == ThemeMode.dark || (themeMode == ThemeMode.system && MediaQuery.platformBrightnessOf(context) == Brightness.dark);
-    SystemChrome.setSystemUIOverlayStyle(
-      SystemUiOverlayStyle(
-        statusBarColor: primaryColor.withValues(alpha: 0.15),
-        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-        systemNavigationBarColor: theme.scaffoldBackgroundColor,
-        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-      ),
-    );
+    // Listen for theme mode changes to update system UI overlay
+    ref.listen<ThemeMode>(themeModeProvider, (prev, next) {
+      _updateOverlayStyle(next);
+    });
 
     return MaterialApp.router(
-      title: 'Church On App',
+      title: AppConstants.appName,
       theme: theme,
       darkTheme: darkTheme,
       themeMode: themeMode,
       debugShowCheckedModeBanner: false,
       routerConfig: router,
+      builder: (context, child) {
+        return SafeArea(
+          top: true,
+          bottom: false,
+          child: NotificationOverlay(
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+      },
     );
   }
 }

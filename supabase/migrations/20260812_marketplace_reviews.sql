@@ -1,0 +1,1 @@
+-- Intentionally empty: marketplace_reviews table created in 20260709_role_hierarchy_marketplace_trial.sql

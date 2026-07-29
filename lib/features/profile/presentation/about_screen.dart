@@ -39,15 +39,15 @@ class AboutScreen extends StatelessWidget {
             const SizedBox(height: 40),
             _infoRow(LucideIcons.globe, "Website", "churchonapp.com", () async {
               final url = Uri.parse("https://churchonapp.com");
-              if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
+              if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.inAppWebView);
             }),
             _infoRow(LucideIcons.mail, "Email", "hello@churchonapp.com", () async {
               final url = Uri.parse("mailto:hello@churchonapp.com");
-              if (await canLaunchUrl(url)) await launchUrl(url);
+              if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.inAppWebView);
             }),
             _infoRow(LucideIcons.phone, "Phone", "+260 968 551 110", () async {
               final url = Uri.parse("tel:+260968551110");
-              if (await canLaunchUrl(url)) await launchUrl(url);
+              if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.inAppWebView);
             }),
             _infoRow(LucideIcons.mapPin, "Location", "Lusaka, Zambia", null),
             const SizedBox(height: 40),

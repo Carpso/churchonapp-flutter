@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
 import '../data/chat_service.dart';
+import '../data/community_service.dart';
 import 'chat_messenger_screen.dart';
 import 'group_details_screen.dart';
-import '../../modules/media/presentation/kingdom_events_screen.dart';
+import '../../modules/media/presentation/events_list_screen.dart';
+import '../../../core/widgets/shimmer_loader.dart';
 
 class CommunitiesScreen extends ConsumerStatefulWidget {
   const CommunitiesScreen({super.key});
@@ -17,58 +21,6 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
   List<Map<String, dynamic>> _churchMembers = [];
   bool _loadingMembers = true;
 
-  // ── Church groups definition ───────────────────────────────────────────────
-  static const List<Map<String, dynamic>> _churchGroups = [
-    {
-      'title': 'Worship Team',
-      'subtitle': 'Internal prep for Sunday missions',
-      'image': 'https://images.unsplash.com/photo-1514525253361-b83f859b73c0?w=800&q=80',
-      'groupId': 'worship-team-id',
-      'badge': 'LIVE',
-      'count': 12,
-    },
-    {
-      'title': 'General Grace Group',
-      'subtitle': 'Whole church community chat',
-      'image': 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=800&q=80',
-      'groupId': 'general_grace',
-      'badge': null,
-      'count': 154,
-    },
-    {
-      'title': 'Youth Ministry',
-      'subtitle': 'Empowering the next generation',
-      'image': 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&q=80',
-      'groupId': 'youth_ministry',
-      'badge': null,
-      'count': 47,
-    },
-    {
-      'title': 'Prayer Warriors',
-      'subtitle': 'Collective intercession for the nation',
-      'image': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
-      'groupId': 'national-prayer-id',
-      'badge': null,
-      'count': 89,
-    },
-    {
-      'title': 'Zambian Apostolic Network',
-      'subtitle': 'Unity across 50+ congregations',
-      'image': 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=800&q=80',
-      'groupId': 'apostolic-network-id',
-      'badge': null,
-      'count': 312,
-    },
-    {
-      'title': 'Kingdom Youth Alliance',
-      'subtitle': 'Cross-church youth empowerment',
-      'image': 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&q=80',
-      'groupId': 'youth-alliance-id',
-      'badge': null,
-      'count': 98,
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -77,7 +29,11 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
 
   Future<void> _loadMembers() async {
     setState(() => _loadingMembers = true);
-    final members = await ref.read(chatServiceProvider).fetchChurchMembers(limit: 30);
+    final profile = ref.read(profileProvider).value;
+    final members = await ref.read(chatServiceProvider).fetchChurchMembers(
+      limit: 30,
+      tenantId: profile?.tenantId,
+    );
     if (mounted) {
       setState(() {
         _churchMembers = members;
@@ -88,6 +44,8 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final groupsAsync = ref.watch(communityGroupsProvider);
+
     return Container(
       color: const Color(0xFFFFFAEB),
       child: CustomScrollView(
@@ -109,17 +67,49 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
             ),
           ),
 
-          // Church Groups list
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final group = _churchGroups[index];
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                  child: _buildGroupTile(context, group),
+          // Church Groups — from real Supabase data
+          groupsAsync.when(
+            data: (groups) {
+              if (groups.isEmpty) {
+                return const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(LucideIcons.users, size: 48, color: Colors.grey),
+                          SizedBox(height: 12),
+                          Text('No groups available yet', style: TextStyle(color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                  ),
                 );
-              },
-              childCount: _churchGroups.length,
+              }
+              return SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: _buildGroupTile(context, groups[index]),
+                  ),
+                  childCount: groups.length,
+                ),
+              );
+            },
+            loading: () => SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (_, __) => Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: _buildGroupShimmer(),
+                ),
+                childCount: 4,
+              ),
+            ),
+            error: (e, s) => const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(child: Text('Failed to load groups')),
+              ),
             ),
           ),
 
@@ -203,10 +193,10 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Kingdom Communities',
+                Text('Communities',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17)),
                 SizedBox(height: 4),
-                Text('Real-time collaboration across the Kingdom.',
+                Text('Real-time collaboration across the community.',
                     style: TextStyle(color: Colors.white70, fontSize: 12)),
               ],
             ),
@@ -219,7 +209,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
   Widget _buildEventGateway(BuildContext context) {
     return GestureDetector(
       onTap: () => Navigator.push(
-          context, MaterialPageRoute(builder: (_) => const KingdomEventsScreen())),
+          context, MaterialPageRoute(builder: (_) => const EventsListScreen())),
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -253,12 +243,39 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
     );
   }
 
-  Widget _buildGroupTile(BuildContext context, Map<String, dynamic> group) {
-    final memberCount = group['count'] as int;
-    final badge = group['badge'] as String?;
+  Widget _buildGroupShimmer() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(
+        children: [
+          const ShimmerLoader.rectangular(width: 56, height: 56),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ShimmerLoader.rectangular(width: 120, height: 14),
+                const SizedBox(height: 8),
+                ShimmerLoader.rectangular(width: 180, height: 10),
+                const SizedBox(height: 8),
+                ShimmerLoader.rectangular(width: 80, height: 10),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    // Generate some fake member avatars for the stack
-    final avatarCount = memberCount > 4 ? 4 : memberCount;
+  Widget _buildGroupTile(BuildContext context, Map<String, dynamic> group) {
+    final title = group['title'] as String? ?? '';
+    final subtitle = group['subtitle'] as String? ?? '';
+    final imageUrl = group['image'] as String? ?? '';
+    final memberCount = group['count'] as int? ?? 0;
 
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -278,52 +295,43 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
         ),
         child: Row(
           children: [
-            // Group image
-            Stack(
-              children: [
-                Container(
+            // Group image — CachedNetworkImage
+            ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                width: 56,
+                height: 56,
+                memCacheWidth: 112,
+                memCacheHeight: 112,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
                   width: 56,
                   height: 56,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    image: DecorationImage(
-                      image: NetworkImage(group['image']!),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
+                  color: Colors.grey[200],
+                  child: const Icon(LucideIcons.users, color: Colors.grey, size: 24),
                 ),
-                if (badge != null)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(badge,
-                          style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900)),
-                    ),
-                  ),
-              ],
+                errorWidget: (context, url, error) => Container(
+                  width: 56,
+                  height: 56,
+                  color: Colors.grey[200],
+                  child: const Icon(LucideIcons.users, color: Colors.grey, size: 24),
+                ),
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(group['title']!,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 3),
-                  Text(group['subtitle']!,
-                      style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                  Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 8),
-                  // Member avatar stack
                   Row(
                     children: [
-                      _buildAvatarStack(avatarCount),
-                      const SizedBox(width: 8),
+                      Icon(LucideIcons.users, size: 14, color: Colors.grey[400]),
+                      const SizedBox(width: 4),
                       Text(
                         '$memberCount members',
                         style: const TextStyle(
@@ -341,34 +349,10 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
     );
   }
 
-  Widget _buildAvatarStack(int count) {
-    return SizedBox(
-      width: 16.0 * count + 22,
-      height: 26,
-      child: Stack(
-        children: List.generate(count, (i) {
-          return Positioned(
-            left: i * 16.0,
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-              child: CircleAvatar(
-                radius: 11,
-                backgroundImage: NetworkImage('https://i.pravatar.cc/60?img=${i + 20}'),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-
   Widget _buildMemberTile(BuildContext context, Map<String, dynamic> member) {
     final name = member['full_name'] as String? ?? 'Member';
     final id = member['id'] as String? ?? '';
-    final avatar = member['avatar_url'] as String? ?? 'https://i.pravatar.cc/100?u=$id';
+    final avatar = member['avatar_url'] as String?;
     final role = member['role'] as String? ?? 'member';
 
     return GestureDetector(
@@ -377,7 +361,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
         MaterialPageRoute(
           builder: (_) => ChatMessengerScreen(
             userName: name,
-            userAvatar: avatar,
+            userAvatar: avatar ?? '',
             receiverId: id,
           ),
         ),
@@ -395,7 +379,19 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
           children: [
             Stack(
               children: [
-                CircleAvatar(radius: 24, backgroundImage: NetworkImage(avatar)),
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: const Color(0xFF075E54),
+                  backgroundImage: avatar != null && avatar.isNotEmpty
+                      ? CachedNetworkImageProvider(avatar)
+                      : null,
+                  child: avatar == null || avatar.isEmpty
+                      ? Text(
+                          (name.isNotEmpty ? name[0] : 'M').toUpperCase(),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        )
+                      : null,
+                ),
                 Positioned(
                   bottom: 0,
                   right: 0,
@@ -433,7 +429,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
                     MaterialPageRoute(
                       builder: (_) => ChatMessengerScreen(
                         userName: name,
-                        userAvatar: avatar,
+                        userAvatar: avatar ?? '',
                         receiverId: id,
                       ),
                     ),
@@ -446,7 +442,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
                     MaterialPageRoute(
                       builder: (_) => ChatMessengerScreen(
                         userName: name,
-                        userAvatar: avatar,
+                        userAvatar: avatar ?? '',
                         receiverId: id,
                       ),
                     ),
@@ -497,11 +493,11 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
 
   String _formatRole(String role) {
     switch (role) {
-      case 'pastor': return '🎤 Pastor';
-      case 'admin': return '⚙️ Admin';
-      case 'leader': return '👑 Leader';
-      case 'worship': return '🎵 Worship Team';
-      default: return '🙏 Church Member';
+      case 'pastor': return 'Pastor';
+      case 'admin': return 'Admin';
+      case 'leader': return 'Leader';
+      case 'worship': return 'Worship Team';
+      default: return 'Church Member';
     }
   }
 }

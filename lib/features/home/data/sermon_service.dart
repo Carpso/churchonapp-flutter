@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -31,7 +32,7 @@ class Sermon {
       id: map['id']?.toString() ?? '',
       title: map['title'] ?? 'Untitled Sermon',
       preacher: map['preacher'] ?? 'Unknown Preacher',
-      thumbnailUrl: map['thumbnail_url'] ?? 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800&q=80',
+      thumbnailUrl: map['thumbnail_url'] ?? '',
       videoUrl: map['video_url'] ?? '',
       isLive: map['is_live'] ?? false,
       viewerCount: map['viewer_count'] ?? 0,
@@ -56,25 +57,8 @@ class SermonService {
       
       return (response as List).map((s) => Sermon.fromMap(s)).toList();
     } catch (e) {
-      // Fallback for prototype if table doesn't exist yet
-      return [
-        Sermon(
-          id: '1',
-          title: 'The Path to Faithful Stewardship',
-          preacher: 'Pastor John Doe',
-          thumbnailUrl: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800&q=80',
-          videoUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-          createdAt: DateTime.now(),
-        ),
-        Sermon(
-          id: '2',
-          title: 'Grace Abounding',
-          preacher: 'Pastor Hope',
-          thumbnailUrl: 'https://images.unsplash.com/photo-1543165796-5426273ea430?w=800&q=80',
-          videoUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-          createdAt: DateTime.now(),
-        ),
-      ];
+      debugPrint('Failed to fetch sermons: $e');
+      return [];
     }
   }
 

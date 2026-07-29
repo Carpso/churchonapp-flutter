@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/utils/connectivity_util.dart';
+import '../data/kids_service.dart';
 import 'activity_details_page.dart';
 
 class KidsZoneScreen extends ConsumerWidget {
@@ -9,6 +10,8 @@ class KidsZoneScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Wire KidsService into kids zone feature lifecycle
+    ref.watch(kidsServiceProvider);
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: const Color(0xFFFFF8F0),
@@ -53,7 +56,7 @@ class KidsZoneScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Junior Kingdom", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+                const Text("Junior", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 6),
                 Text("Earn points by learning verses and completing activities!", style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
                 const SizedBox(height: 14),
@@ -110,7 +113,13 @@ class KidsZoneScreen extends ConsumerWidget {
 
   Widget _activityCard(BuildContext context, String title, IconData icon, Color color, String subtitle) {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ActivityDetailsPage(title: title, icon: icon, color: color))),
+      onTap: () {
+        try {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => ActivityDetailsPage(title: title, icon: icon, color: color)));
+        } catch (e) {
+          debugPrint('Error navigating to activity details: $e');
+        }
+      },
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(

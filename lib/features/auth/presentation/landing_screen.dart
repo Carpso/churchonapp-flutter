@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/expansion_service.dart';
+import '../../../core/widgets/app_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class LandingScreen extends ConsumerWidget {
@@ -164,13 +165,14 @@ class LandingScreen extends ConsumerWidget {
           borderRadius: BorderRadius.circular(42),
           child: Stack(
             children: [
-              Image.network(
-                "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&q=80&w=1000",
-                width: double.infinity,
-                height: double.infinity,
-                fit: BoxFit.cover,
-                opacity: const AlwaysStoppedAnimation(0.4),
-              ),
+                Opacity(
+                  opacity: 0.4,
+                  child: AppImage("",
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
               Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -224,7 +226,7 @@ class LandingScreen extends ConsumerWidget {
                 _paymentLogo("assets/logo_airtel.png"),
                 _paymentLogo("assets/logo_mtn.png"),
                 _paymentLogo("assets/logo_zamtel.png"),
-                _partnerLogo("KINGDOM RADIO"),
+                _partnerLogo("RADIO"),
                 _partnerLogo("CARPSO RIDE"),
                 _partnerLogo("MOBILE MONEY"),
               ],
@@ -299,14 +301,14 @@ class LandingScreen extends ConsumerWidget {
         children: [
           Text("CHURCH OPERATING SYSTEM", style: TextStyle(letterSpacing: 2, color: Colors.blue[800], fontWeight: FontWeight.bold, fontSize: 12)),
           const SizedBox(height: 20),
-          Text("Uniting the Kingdom.", style: GoogleFonts.plusJakartaSans(fontSize: 48, fontWeight: FontWeight.w900)),
+          Text("Uniting the Faithful.", style: GoogleFonts.plusJakartaSans(fontSize: 48, fontWeight: FontWeight.w900)),
           const SizedBox(height: 80),
           Wrap(
             spacing: 30,
             runSpacing: 30,
             alignment: WrapAlignment.center,
             children: [
-              _featureCard(context, Icons.radio, "Kingdom Radio", "Broadcasting the word 24/7 across the continent."),
+              _featureCard(context, Icons.radio, "Radio", "Broadcasting the word 24/7 across the continent."),
               _featureCard(context, Icons.calendar_today, "Events & Calendars", "Never miss a conference or a local fellowship again."),
               _featureCard(context, Icons.volunteer_activism, "Charity & Missions", "Organize giving for those who need it most."),
               _featureCard(context, Icons.dashboard, "Church Micro-sites", "Every branch gets its own digital home within the app."),
@@ -483,7 +485,7 @@ class LandingScreen extends ConsumerWidget {
             style: GoogleFonts.plusJakartaSans(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.black),
           ),
           const SizedBox(height: 20),
-          const Text("Join the fastest growing kingdom ecosystem today.", style: TextStyle(fontSize: 18, color: Colors.black54)),
+          const Text("Join the fastest growing ecosystem today.", style: TextStyle(fontSize: 18, color: Colors.black54)),
           const SizedBox(height: 40),
           ElevatedButton(
             onPressed: () => context.go('/register-church'),
@@ -536,7 +538,7 @@ class LandingScreen extends ConsumerWidget {
                       _footerHeading("Features"),
                       _footerLink("Sermons & Teachings", onTap: () => context.push('/sermons')),
                       _footerLink("Events & Calendars", onTap: () => context.push('/events/0')),
-                      _footerLink("Kingdom Klips", onTap: () => context.push('/klips/0')),
+                      _footerLink("Klips", onTap: () => context.push('/klips/0')),
                       _footerLink("Bible Quiz", onTap: () => {}),
                       _footerLink("Carpso Ride", onTap: () => context.push('/ride')),
                       _footerLink("Jobs Portal", onTap: () => context.push('/jobs')),
@@ -553,7 +555,7 @@ class LandingScreen extends ConsumerWidget {
                       _footerLink("Support", onTap: () => context.push('/support')),
                       _footerLink("Contact Us", onTap: () async {
                         final url = Uri.parse("mailto:hello@churchonapp.com");
-                        if (await canLaunchUrl(url)) await launchUrl(url);
+                        if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.inAppWebView);
                       }),
                     ],
                   ),

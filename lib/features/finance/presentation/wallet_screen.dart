@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/services/coins_service.dart';
+import '../../../core/widgets/error_retry_widget.dart';
+import '../../../core/widgets/shimmer_loader.dart';
 import '../../connect/data/user_activity_service.dart';
 import '../data/finance_service.dart';
-import 'giving_screen.dart';
 import 'transaction_page.dart';
 import 'payout_request_screen.dart';
 import 'lipila_payment_gateway.dart';
+import 'widgets/giving_widget.dart';
 
 class WalletScreen extends ConsumerWidget {
   const WalletScreen({super.key});
@@ -119,8 +121,11 @@ class WalletScreen extends ConsumerWidget {
           ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => Center(child: Text("Error: $e")),
+        loading: () => const ListSkeleton(count: 3),
+        error: (e, s) => ErrorRetryWidget(
+          message: "Failed to load wallet",
+          onRetry: () => ref.invalidate(profileProvider),
+        ),
       ),
     );
   }
@@ -182,7 +187,12 @@ class WalletScreen extends ConsumerWidget {
           )));
         }),
         _buildActionButton(context, LucideIcons.gift, "Give", onTap: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const GivingScreen()));
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => const GivingWidget(),
+          );
         }),
         _buildActionButton(context, LucideIcons.arrowDownLeft, "Withdraw", onTap: () {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const PayoutRequestScreen()));
@@ -254,28 +264,32 @@ class WalletScreen extends ConsumerWidget {
   }
 
   Widget _buildActionButton(BuildContext context, IconData icon, String label, {required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
+    return Semantics(
+      label: "$label button",
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Icon(icon, color: Theme.of(context).colorScheme.secondary, size: 24),
             ),
-            child: Icon(icon, color: Theme.of(context).colorScheme.secondary, size: 24),
-          ),
-          const SizedBox(height: 8),
-          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-        ],
+            const SizedBox(height: 8),
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ],
+        ),
       ),
     );
   }
@@ -314,7 +328,7 @@ class WalletScreen extends ConsumerWidget {
               icon = LucideIcons.heart;
               iconColor = Colors.red;
             } else if (t.category == 'giving') {
-              title = "Kingdom Offering";
+              title = "Offering";
               icon = LucideIcons.gift;
               iconColor = Colors.purple;
             } else if (t.category == 'top_up') {
@@ -377,7 +391,19 @@ class WalletScreen extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, s) => Center(child: Text("Error loading transactions: $e")),
+      error: (e, s) => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(30),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(LucideIcons.alertTriangle, size: 36, color: Colors.grey),
+              SizedBox(height: 12),
+              Text("Failed to load transactions", style: TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

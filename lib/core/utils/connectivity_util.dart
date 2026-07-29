@@ -32,7 +32,7 @@ class OfflineBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(connectivityProvider);
-    final isOffline = async.asData?.value == false;
+    final isOffline = async.value == false;
     if (isOffline != true) return const SizedBox.shrink();
 
     return Container(

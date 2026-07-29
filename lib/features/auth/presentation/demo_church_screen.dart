@@ -128,7 +128,7 @@ class _DemoChurchScreenState extends ConsumerState<DemoChurchScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Kingdom Life Church',
+                    'Life Church',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 22,
                       fontWeight: FontWeight.w900,

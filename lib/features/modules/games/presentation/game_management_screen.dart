@@ -58,7 +58,7 @@ class GameManagementScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Kingdom Games Management',
+                const Text('Games Management',
                     style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,

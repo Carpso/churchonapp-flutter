@@ -25,7 +25,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     ),
     OnboardingData(
       title: "Faithful Giving",
-      description: "Securely give your tithes and offerings with just a few taps via Church Coins.",
+      description: "Securely give your tithes and offerings in a few taps via mobile money (MTN, Airtel, Zamtel) or Card.",
       icon: LucideIcons.wallet,
       color: const Color(0xFF1A1A1A),
     ),

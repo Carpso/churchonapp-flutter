@@ -7,7 +7,8 @@ import 'package:church_on_app/core/providers/auth_provider.dart';
 import 'package:go_router/go_router.dart';
 
 class PostJobScreen extends ConsumerStatefulWidget {
-  const PostJobScreen({super.key});
+  final Job? editJob;
+  const PostJobScreen({super.key, this.editJob});
 
   @override
   ConsumerState<PostJobScreen> createState() => _PostJobScreenState();

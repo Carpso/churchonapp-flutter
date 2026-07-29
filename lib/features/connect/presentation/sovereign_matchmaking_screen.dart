@@ -17,7 +17,7 @@ class _SovereignMatchmakingScreenState extends State<SovereignMatchmakingScreen>
     super.initState();
     // Realtime dummy data initially
     _messages.addAll([
-      Message("Welcome to Sovereign connect! Start chatting with local kingdom singles.", isMe: false),
+      Message("Welcome to Sovereign connect! Start chatting with local singles.", isMe: false),
     ]);
   }
 

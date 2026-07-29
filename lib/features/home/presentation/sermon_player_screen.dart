@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// Theme via context
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:church_on_app/core/services/supabase_service.dart';
+import 'package:church_on_app/core/services/r2_service.dart';
+import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import '../data/sermon_service.dart';
 import 'sermon_notes_screen.dart';
 
@@ -16,6 +20,11 @@ class SermonPlayerScreen extends ConsumerStatefulWidget {
 
 class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
   late VideoPlayerController _videoController;
+  bool _isLoading = true;
+  bool _hasError = false;
+  bool _isLiked = false;
+  final TextEditingController _commentCtrl = TextEditingController();
+  String _resolvedVideoUrl = '';
 
   @override
   void initState() {
@@ -23,23 +32,52 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
     _initializePlayer();
   }
 
+  bool get _hasValidMedia {
+    final url = widget.sermon.videoUrl;
+    return url.isNotEmpty;
+  }
+
   Future<void> _initializePlayer() async {
+    if (!_hasValidMedia) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = false;
+        });
+      }
+      return;
+    }
+
+    if (mounted) setState(() { _isLoading = true; _hasError = false; });
+
     try {
-      _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.sermon.videoUrl));
+      final client = ref.read(supabaseServiceProvider).client;
+      final r2 = R2Service(client);
+      final resolved = await r2.getSignedUrl(widget.sermon.videoUrl);
+      _resolvedVideoUrl = resolved ?? widget.sermon.videoUrl;
+
+      _videoController = VideoPlayerController.networkUrl(Uri.parse(_resolvedVideoUrl));
       _videoController.addListener(() {
         if (mounted) setState(() {});
       });
       await _videoController.initialize();
       _videoController.play();
+      if (mounted) setState(() { _isLoading = false; });
     } catch (e) {
       debugPrint("Sermon player init error: $e");
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
     }
-    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _videoController.dispose();
+    _commentCtrl.dispose();
     super.dispose();
   }
 
@@ -47,7 +85,11 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
-      body: Column(
+      resizeToAvoidBottomInset: true,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.translucent,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildPlayer(),
@@ -78,6 +120,8 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                   ),
                   const SizedBox(height: 30),
                   _buildActionRow(),
+                  const SizedBox(height: 20),
+                  _buildLikeCommentSection(),
                   const SizedBox(height: 30),
                   const Text(
                     "Description",
@@ -85,7 +129,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    "Discover the spiritual foundations of stewardship and how to manage the blessings of the Kingdom in this powerful message. Pastor John explores the biblical principles of faith and finance.",
+                    "Discover the spiritual foundations of stewardship and how to manage the blessings of faith in this powerful message. Pastor John explores the biblical principles of faith and finance.",
                     style: TextStyle(color: Colors.grey, height: 1.6),
                   ),
                   const SizedBox(height: 30),
@@ -98,10 +142,130 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
           ),
         ],
       ),
+      ),
     );
   }
 
   Widget _buildPlayer() {
+    if (_isLoading) {
+      return Container(
+        width: double.infinity,
+        height: 280,
+        decoration: const BoxDecoration(color: Colors.black87),
+        child: Shimmer.fromColors(
+          baseColor: Colors.grey[800]!,
+          highlightColor: Colors.grey[700]!,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white24),
+              ),
+              const SizedBox(height: 20),
+              Container(width: 160, height: 12, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(6))),
+              const SizedBox(height: 16),
+              Container(width: 120, height: 8, decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(4))),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!_hasValidMedia) {
+      return Container(
+        width: double.infinity,
+        height: 280,
+        decoration: const BoxDecoration(color: Colors.black87),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CachedNetworkImage(
+              imageUrl: widget.sermon.thumbnailUrl,
+              width: 100,
+              height: 100,
+              memCacheWidth: 200,
+              memCacheHeight: 200,
+              fit: BoxFit.cover,
+              imageBuilder: (context, imageProvider) => Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Theme.of(context).primaryColor, width: 3),
+                  image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
+                ),
+              ),
+              placeholder: (context, url) => Container(
+                width: 100,
+                height: 100,
+                decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white24),
+                child: const Icon(LucideIcons.music, color: Colors.amber, size: 30),
+              ),
+              errorWidget: (context, url, error) => Container(
+                width: 100,
+                height: 100,
+                decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white24),
+                child: const Icon(LucideIcons.music, color: Colors.amber, size: 30),
+              ),
+            ),
+            const SizedBox(height: 15),
+            const Icon(LucideIcons.music, color: Colors.amber, size: 14),
+            const SizedBox(height: 8),
+            const Text(
+              "AUDIO SERMON",
+              style: TextStyle(color: Colors.amber, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_hasError) {
+      return Container(
+        width: double.infinity,
+        height: 280,
+        decoration: const BoxDecoration(color: Colors.black87),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(LucideIcons.alertTriangle, color: Colors.redAccent, size: 36),
+            const SizedBox(height: 12),
+            const Text(
+              "Stream Unavailable",
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              "Unable to load media. Check your connection.",
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () {
+                _videoController.dispose();
+                _resolvedVideoUrl = '';
+                _initializePlayer();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  "RETRY",
+                  style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final bool isInitialized = _videoController.value.isInitialized;
     final bool isPlaying = _videoController.value.isPlaying;
     final Duration position = _videoController.value.position;
@@ -110,15 +274,21 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
     return Container(
       width: double.infinity,
       height: 280,
-      decoration: BoxDecoration(
-        color: Colors.black87,
-        image: DecorationImage(
-          image: NetworkImage(widget.sermon.thumbnailUrl),
-          fit: BoxFit.cover,
-          colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: 0.85), BlendMode.dstATop),
-        ),
-      ),
-      child: SafeArea(
+      decoration: const BoxDecoration(color: Colors.black87),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          CachedNetworkImage(
+            imageUrl: widget.sermon.thumbnailUrl,
+            fit: BoxFit.cover,
+            memCacheWidth: 360,
+            memCacheHeight: 640,
+            color: Colors.black.withValues(alpha: 0.85),
+            colorBlendMode: BlendMode.dstATop,
+            placeholder: (context, url) => Container(color: Colors.black87, child: const Center(child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2))),
+            errorWidget: (context, url, error) => Container(color: Colors.black87, child: const Icon(Icons.broken_image, color: Colors.grey)),
+          ),
+          SafeArea(
         bottom: false,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -129,10 +299,6 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: Theme.of(context).primaryColor, width: 3),
-                image: DecorationImage(
-                  image: NetworkImage(widget.sermon.thumbnailUrl),
-                  fit: BoxFit.cover,
-                ),
                 boxShadow: [
                   BoxShadow(
                     color: Theme.of(context).primaryColor.withValues(alpha: 0.4),
@@ -140,6 +306,15 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                     spreadRadius: 2,
                   ),
                 ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: CachedNetworkImage(
+                imageUrl: widget.sermon.thumbnailUrl,
+                fit: BoxFit.cover,
+                memCacheWidth: 360,
+                memCacheHeight: 640,
+                placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.grey),
               ),
             ),
             const SizedBox(height: 15),
@@ -163,7 +338,6 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
             ),
             const SizedBox(height: 10),
             
-            // Slider Progress bar
             if (isInitialized)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -208,7 +382,6 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
             
             const SizedBox(height: 5),
             
-            // Audio Controls
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -255,6 +428,8 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
             ),
           ],
         ),
+        ),
+      ],
       ),
     );
   }
@@ -270,15 +445,23 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
         _buildActionItem(LucideIcons.heart, "Amen", onTap: () async {
-          await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'amen');
-          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Amen! Seed of faith received.")));
+          try {
+            await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'amen');
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Amen! Seed of faith received.")));
+          } catch (e) {
+            debugPrint("Amen reaction error: $e");
+          }
         }),
         _buildActionItem(LucideIcons.messageSquare, "Discuss", onTap: () {
           _showComments();
         }),
         _buildActionItem(LucideIcons.share2, "Forward", onTap: () async {
-           await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'forward');
-           if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sharing spiritual wisdom...")));
+          try {
+            await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'forward');
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sharing spiritual wisdom...")));
+          } catch (e) {
+            debugPrint("Forward reaction error: $e");
+          }
         }),
         _buildActionItem(LucideIcons.bookOpen, "Notes", onTap: () {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const SermonNotesScreen()));
@@ -298,7 +481,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
 
         return Container(
           height: MediaQuery.of(context).size.height * 0.7,
-          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+          decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
           padding: const EdgeInsets.all(25),
           child: Column(
             children: [
@@ -307,16 +490,27 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
               Expanded(
                 child: insightsAsync.when(
                   data: (comments) => comments.isEmpty 
-                    ? const Center(child: Text("Join the spiritual conversation. First insight pending..."))
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(LucideIcons.messageCircle, size: 64, color: Colors.grey.shade300),
+                            const SizedBox(height: 16),
+                            const Text("No insights yet", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 16)),
+                            const SizedBox(height: 8),
+                            const Text("Be the first to share your spiritual insight.", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                          ],
+                        ),
+                      )
                     : ListView.builder(
                         itemCount: comments.length,
                         itemBuilder: (context, i) => ListTile(
                           leading: const CircleAvatar(child: Icon(LucideIcons.user, size: 14)),
                           title: Text(comments[i]['content'] ?? "", style: const TextStyle(fontSize: 14)),
-                          subtitle: const Text("Kingdom Citizen", style: TextStyle(fontSize: 10)),
+                          subtitle: const Text("Citizen", style: TextStyle(fontSize: 10)),
                         ),
                       ),
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () => const ListSkeleton(count: 3),
                   error: (e, _) => Center(child: Text("Sync Error: $e")),
                 ),
               ),
@@ -324,14 +518,27 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                 padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
                 child: TextField(
                   controller: commentCtrl,
+                  onSubmitted: (value) async {
+                    if (value.trim().isEmpty) return;
+                    try {
+                      await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'discuss', content: value.trim());
+                      commentCtrl.clear();
+                    } catch (e) {
+                      debugPrint("Comment error: $e");
+                    }
+                  },
                   decoration: InputDecoration(
                     hintText: "Add your spiritual insight...",
                     suffixIcon: IconButton(
                       icon: const Icon(LucideIcons.send),
                       onPressed: () async {
                         if (commentCtrl.text.isEmpty) return;
-                        await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'discuss', content: commentCtrl.text);
-                        commentCtrl.clear();
+                        try {
+                          await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'discuss', content: commentCtrl.text);
+                          commentCtrl.clear();
+                        } catch (e) {
+                          debugPrint("Comment error: $e");
+                        }
                       },
                     ),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
@@ -352,11 +559,160 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: Colors.grey.withValues(alpha: 0.1))),
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, shape: BoxShape.circle, border: Border.all(color: Colors.grey.withValues(alpha: 0.1))),
             child: Icon(icon, color: Theme.of(context).colorScheme.secondary, size: 22),
           ),
           const SizedBox(height: 8),
           Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLikeCommentSection() {
+    final insightsAsync = ref.watch(sermonInsightsProvider(widget.sermon.id));
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () async {
+                  setState(() => _isLiked = !_isLiked);
+                  await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'amen');
+                },
+                child: Row(
+                  children: [
+                    Icon(
+                      _isLiked ? LucideIcons.heart : LucideIcons.heart,
+                      color: _isLiked ? Colors.red : Colors.grey,
+                      size: 18,
+                      fill: _isLiked ? 1.0 : 0.0,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _isLiked ? "Amen!" : "Amen",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: _isLiked ? Colors.red : Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 20),
+              const Icon(LucideIcons.messageSquare, size: 16, color: Colors.grey),
+              const SizedBox(width: 6),
+              insightsAsync.when(
+                data: (comments) => Text(
+                  "${comments.length} insight${comments.length == 1 ? '' : 's'}",
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                ),
+                loading: () => const Text("...", style: TextStyle(color: Colors.grey)),
+                error: (_, __) => const Text("0 insights", style: TextStyle(color: Colors.grey)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          insightsAsync.when(
+            data: (comments) {
+              if (comments.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              final preview = comments.take(2).toList();
+              return Column(
+                children: preview.map((c) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const CircleAvatar(
+                        radius: 12,
+                        child: Icon(LucideIcons.user, size: 12),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Citizen",
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              c['content'] ?? "",
+                              style: const TextStyle(fontSize: 13, color: Colors.black87),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )).toList(),
+              );
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _commentCtrl,
+                  style: const TextStyle(fontSize: 13),
+                  onSubmitted: (value) async {
+                    if (value.trim().isEmpty) return;
+                    final text = value.trim();
+                    _commentCtrl.clear();
+                    try {
+                      await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'discuss', content: text);
+                    } catch (e) {
+                      debugPrint("Comment error: $e");
+                    }
+                  },
+                  decoration: InputDecoration(
+                    hintText: "Share your insight...",
+                    hintStyle: const TextStyle(fontSize: 13),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.grey.shade200)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.grey.shade200)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Theme.of(context).primaryColor)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () async {
+                  if (_commentCtrl.text.trim().isEmpty) return;
+                  final text = _commentCtrl.text.trim();
+                  _commentCtrl.clear();
+                  try {
+                    await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'discuss', content: text);
+                  } catch (e) {
+                    debugPrint("Comment error: $e");
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Theme.of(context).primaryColor, shape: BoxShape.circle),
+                  child: Icon(LucideIcons.send, size: 18, color: Theme.of(context).colorScheme.secondary),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -369,7 +725,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
          const Text("More from this Series", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
          const SizedBox(height: 20),
          _buildRecommendedItem("Part 1: The Covenant of Plenty", "12:45"),
-         _buildRecommendedItem("Part 2: Kingdom Multipliers", "15:20"),
+         _buildRecommendedItem("Part 2: Multipliers", "15:20"),
       ],
     );
   }
@@ -378,7 +734,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(15)),
       child: Row(
         children: [
           Container(
@@ -388,7 +744,8 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
             child: const Icon(LucideIcons.play, size: 20),
           ),
           const SizedBox(width: 15),
-          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold))),
+          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis)),
+          const SizedBox(width: 8),
           Text(duration, style: const TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),
@@ -401,13 +758,13 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       children: [
         const Text("Apostolic Archive", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 15),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
-          ),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8)],
+              ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -420,7 +777,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
               ),
               const SizedBox(height: 10),
               Text(
-                widget.sermon.aiSummary ?? "This sermon explores the foundational principles of Kingdom stewardship, emphasizing faithfulness and spiritual multiplier effects in everyday life.",
+                widget.sermon.aiSummary ?? "This sermon explores the foundational principles of stewardship, emphasizing faithfulness and spiritual multiplier effects in everyday life.",
                 style: const TextStyle(color: Colors.grey, fontSize: 13, height: 1.5),
               ),
               const Divider(height: 30),
@@ -438,7 +795,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
               ),
               const SizedBox(height: 10),
               Text(
-                widget.sermon.transcript?.substring(0, 200) ?? "In the beginning of this profound message, Pastor John Doe invites us to consider the ultimate source of all our blessings. He reminds us that true prosperity is not measured solely by material wealth, but by our capacity to be faithful stewards of what the Kingdom has entrusted to us...",
+                widget.sermon.transcript?.substring(0, 200) ?? "In the beginning of this profound message, Pastor John Doe invites us to consider the ultimate source of all our blessings. He reminds us that true prosperity is not measured solely by material wealth, but by our capacity to be faithful stewards of what has been entrusted to us...",
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic),
@@ -457,9 +814,9 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         height: MediaQuery.of(context).size.height * 0.8,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
         ),
         padding: const EdgeInsets.fromLTRB(25, 40, 25, 25),
         child: Column(
@@ -477,7 +834,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
             Expanded(
               child: SingleChildScrollView(
                 child: Text(
-                  widget.sermon.transcript ?? "Transcription pending... In the beginning of this profound message, Pastor John Doe invites us to consider the ultimate source of all our blessings. He reminds us that true prosperity is not measured solely by material wealth, but by our capacity to be faithful stewards of what the Kingdom has entrusted to us. As we dive into the Word today, let us open our hearts to the multiplier effect that comes from a life fully surrendered to spiritual service. It's about being a conduit for grace, not just a reservoir. (Complete archive available on the Kingdom VPS)",
+                  widget.sermon.transcript ?? "Transcription pending... In the beginning of this profound message, Pastor John Doe invites us to consider the ultimate source of all our blessings. He reminds us that true prosperity is not measured solely by material wealth, but by our capacity to be faithful stewards of what has been entrusted to us. As we dive into the Word today, let us open our hearts to the multiplier effect that comes from a life fully surrendered to spiritual service. It's about being a conduit for grace, not just a reservoir. (Complete archive available on the VPS)",
                   style: const TextStyle(height: 1.8, color: Colors.black87),
                 ),
               ),

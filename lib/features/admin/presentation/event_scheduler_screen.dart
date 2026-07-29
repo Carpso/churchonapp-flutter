@@ -4,6 +4,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/features/events/data/event_service.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/features/admin/data/event_pass_service.dart';
+import 'package:church_on_app/features/events/data/event_rsvp_service.dart';
 
 class EventSchedulerScreen extends ConsumerStatefulWidget {
   const EventSchedulerScreen({super.key});
@@ -14,7 +16,7 @@ class EventSchedulerScreen extends ConsumerStatefulWidget {
 
 class _EventSchedulerScreenState extends ConsumerState<EventSchedulerScreen> {
   final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController(text: "Interchurch Kingdom Conference");
+  final _descriptionController = TextEditingController(text: "Interchurch Conference");
   final _locationController = TextEditingController(text: "Main Sanctuary");
   final _priceController = TextEditingController(text: "0.0");
   final _momoPhoneController = TextEditingController();
@@ -34,6 +36,10 @@ class _EventSchedulerScreenState extends ConsumerState<EventSchedulerScreen> {
         .select('id, name')
         .then((data) => List<Map<String, dynamic>>.from(data))
         .catchError((_) => <Map<String, dynamic>>[]);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(eventPassServiceProvider);
+      ref.read(eventRsvpServiceProvider);
+    });
   }
 
   @override
@@ -51,7 +57,7 @@ class _EventSchedulerScreenState extends ConsumerState<EventSchedulerScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
-        title: const Text("Kingdom Event Scheduler", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Event Scheduler", style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(25),

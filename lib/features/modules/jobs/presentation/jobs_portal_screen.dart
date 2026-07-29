@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../data/jobs_service.dart';
 import '../data/job_model.dart';
-import 'post_job_screen.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:go_router/go_router.dart';
 
@@ -57,7 +56,7 @@ class JobsPortalScreen extends ConsumerWidget {
         error: (e, st) => Center(child: Text("Error: $e")),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PostJobScreen())),
+        onPressed: () => context.push('/jobs/post'),
         backgroundColor: Colors.black,
         child: const Icon(LucideIcons.plus, color: Colors.white),
       ),
@@ -82,7 +81,7 @@ class JobsPortalScreen extends ConsumerWidget {
               children: [
                 Text("Serve Your Community", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
                 SizedBox(height: 5),
-                Text("Find kingdom-centered employment and volunteer opportunities.", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                Text("Find faith-centered employment and volunteer opportunities.", style: TextStyle(color: Colors.white70, fontSize: 12)),
               ],
             ),
           ),
@@ -96,9 +95,11 @@ class JobsPortalScreen extends ConsumerWidget {
       child: Column(
         children: [
           const SizedBox(height: 50),
-          Icon(LucideIcons.searchX, size: 60, color: Colors.grey.shade300),
+          Icon(LucideIcons.searchX, size: 64, color: Colors.grey.shade300),
           const SizedBox(height: 20),
-          const Text("No openings right now", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+          const Text("No openings right now", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 8),
+          const Text("Check back later for new opportunities.", style: TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),
     );

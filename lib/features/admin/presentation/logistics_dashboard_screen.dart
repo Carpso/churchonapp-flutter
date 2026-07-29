@@ -49,7 +49,7 @@ class LogisticsDashboardScreen extends ConsumerWidget {
               _buildOperationTile(
                 theme,
                 LucideIcons.truck,
-                "Kingdom Couriers",
+                "Couriers",
                 "${stats.activeCouriers} drivers on duty",
                 Colors.green,
               ),

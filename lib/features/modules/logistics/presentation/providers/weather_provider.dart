@@ -9,9 +9,25 @@ final weatherServiceProvider = Provider<WeatherService>((ref) => WeatherService(
 
 final logisticsServiceProvider = Provider<LogisticsService>((ref) => LogisticsService(Supabase.instance.client));
 
+class SelectedCityNotifier extends Notifier<CityPreset> {
+  @override
+  CityPreset build() => WeatherService.cityPresets.first;
+
+  void selectCity(CityPreset preset) {
+    state = preset;
+  }
+}
+
+final selectedCityPresetProvider = NotifierProvider<SelectedCityNotifier, CityPreset>(SelectedCityNotifier.new);
+
 final weatherDataProvider = FutureProvider.autoDispose<WeatherData>((ref) async {
   final service = ref.watch(weatherServiceProvider);
-  return service.fetchWeather();
+  final city = ref.watch(selectedCityPresetProvider);
+  return service.fetchWeather(
+    latitude: city.latitude,
+    longitude: city.longitude,
+    locationName: city.name,
+  );
 });
 
 final busesProvider = FutureProvider.autoDispose<List<BusInfo>>((ref) async {
@@ -46,7 +62,12 @@ final weatherRefreshProvider = NotifierProvider<WeatherRefreshNotifier, int>(Wea
 final refreshableWeatherProvider = FutureProvider.autoDispose<WeatherData>((ref) async {
   ref.watch(weatherRefreshProvider);
   final service = ref.watch(weatherServiceProvider);
-  return service.fetchWeather();
+  final city = ref.watch(selectedCityPresetProvider);
+  return service.fetchWeather(
+    latitude: city.latitude,
+    longitude: city.longitude,
+    locationName: city.name,
+  );
 });
 
 final refreshableBusesProvider = FutureProvider.autoDispose<List<BusInfo>>((ref) async {

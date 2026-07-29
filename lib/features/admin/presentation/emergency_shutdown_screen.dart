@@ -2,11 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/services/lockdown_service.dart';
 
-class EmergencyShutdownScreen extends ConsumerWidget {
+class EmergencyShutdownScreen extends ConsumerStatefulWidget {
   const EmergencyShutdownScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<EmergencyShutdownScreen> createState() => _EmergencyShutdownScreenState();
+}
+
+class _EmergencyShutdownScreenState extends ConsumerState<EmergencyShutdownScreen> {
+  bool _isToggling = false;
+  late TextEditingController _messageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _messageController = TextEditingController(
+      text: 'System is under maintenance. Please check back later.',
+    );
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final lockdownAsync = ref.watch(isSystemLockedProvider);
     final theme = Theme.of(context);
 
@@ -15,18 +37,14 @@ class EmergencyShutdownScreen extends ConsumerWidget {
         title: const Text('Emergency Shutdown'),
       ),
       body: lockdownAsync.when(
-        data: (isLocked) => _buildBody(context, ref, isLocked, theme),
+        data: (isLocked) => _buildBody(context, isLocked, theme),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
       ),
     );
   }
 
-  Widget _buildBody(BuildContext context, WidgetRef ref, bool isLocked, ThemeData theme) {
-    final messageController = TextEditingController(
-      text: 'System is under maintenance. Please check back later.',
-    );
-
+  Widget _buildBody(BuildContext context, bool isLocked, ThemeData theme) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -54,7 +72,7 @@ class EmergencyShutdownScreen extends ConsumerWidget {
                   Text('Lockdown Message', style: theme.textTheme.titleMedium),
                   const SizedBox(height: 8),
                   TextField(
-                    controller: messageController,
+                    controller: _messageController,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       hintText: 'Enter message shown to users...',
@@ -70,10 +88,14 @@ class EmergencyShutdownScreen extends ConsumerWidget {
             width: double.infinity,
             height: 52,
             child: ElevatedButton.icon(
-              onPressed: () => _toggleLockdown(context, ref, !isLocked, messageController.text),
-              icon: Icon(isLocked ? Icons.lock_open : Icons.lock_outline),
+              onPressed: _isToggling ? null : () => _confirmToggle(context, !isLocked),
+              icon: _isToggling
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Icon(isLocked ? Icons.lock_open : Icons.lock_outline),
               label: Text(
-                isLocked ? 'DISABLE LOCKDOWN' : 'ACTIVATE LOCKDOWN',
+                _isToggling
+                    ? 'Processing...'
+                    : (isLocked ? 'DISABLE LOCKDOWN' : 'ACTIVATE LOCKDOWN'),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
@@ -95,21 +117,57 @@ class EmergencyShutdownScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _toggleLockdown(BuildContext context, WidgetRef ref, bool lock, String message) async {
+  void _confirmToggle(BuildContext context, bool lock) {
+    final action = lock ? 'LOCK DOWN' : 'UNLOCK';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Confirm $action'),
+        content: Text(lock
+            ? 'This will prevent ALL users from accessing the app. Are you sure?'
+            : 'This will restore access for all users. Are you sure?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _toggleLockdown(lock);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: lock ? Colors.red : Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(action),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _toggleLockdown(bool lock) async {
+    setState(() => _isToggling = true);
     try {
-      await ref.read(lockdownServiceProvider).toggleLockdown(lock: lock, message: message);
+      await ref.read(lockdownServiceProvider).toggleLockdown(
+        lock: lock,
+        message: _messageController.text.trim(),
+      );
       ref.invalidate(isSystemLockedProvider);
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(lock ? 'System locked down' : 'Lockdown disabled')),
+          SnackBar(
+            content: Text(lock ? 'System locked down' : 'Lockdown disabled'),
+            backgroundColor: lock ? Colors.red : Colors.green,
+          ),
         );
       }
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isToggling = false);
     }
   }
 }

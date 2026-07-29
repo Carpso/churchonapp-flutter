@@ -81,13 +81,13 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
 
       final productData = {
         'name': _nameCtrl.text.trim(),
-        'price': double.parse(_priceCtrl.text.trim()),
+        'price': double.tryParse(_priceCtrl.text.trim()) ?? 0.0,
         'description': _descCtrl.text.trim(),
         'image': imageUrl,
         'category': _selectedCategory,
         'market_type': _selectedType,
         'vendor_id': user.id,
-        'vendor_name': profile?.name ?? "Kingdom Citizen",
+        'vendor_name': profile?.name ?? "Citizen",
       };
 
       await ref.read(marketplaceServiceProvider).postProduct(productData);

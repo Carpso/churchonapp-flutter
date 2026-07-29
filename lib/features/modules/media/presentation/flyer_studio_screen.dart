@@ -52,7 +52,7 @@ class _FlyerStudioScreenState extends ConsumerState<FlyerStudioScreen> {
                 color: Theme.of(context).primaryColor,
                 borderRadius: BorderRadius.circular(20),
                 image: const DecorationImage(
-                  image: NetworkImage("https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=800&q=80"),
+                  image: NetworkImage(''),
                   fit: BoxFit.cover,
                   colorFilter: ColorFilter.mode(Colors.black54, BlendMode.darken),
                 ),
@@ -75,7 +75,7 @@ class _FlyerStudioScreenState extends ConsumerState<FlyerStudioScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const CircleAvatar(radius: 12, backgroundImage: NetworkImage("https://i.pravatar.cc/100")),
+                        const CircleAvatar(radius: 12, backgroundColor: Colors.white24),
                         const SizedBox(width: 8),
                         Text(_preacherController.text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                       ],

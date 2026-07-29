@@ -1,17 +1,59 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/widgets/app_image.dart';
+import '../data/community_service.dart';
 import 'chat_messenger_screen.dart';
 
-class GroupDetailsScreen extends ConsumerWidget {
+class GroupDetailsScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> group;
 
   const GroupDetailsScreen({super.key, required this.group});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final memberCount = group['count'] as int;
-    final groupId = group['groupId'] as String;
+  ConsumerState<GroupDetailsScreen> createState() => _GroupDetailsScreenState();
+}
+
+class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
+  bool _isMember = false;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkMembership();
+  }
+
+  Future<void> _checkMembership() async {
+    final groupId = widget.group['id'] as String? ?? widget.group['groupId'] as String? ?? '';
+    if (groupId.isEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    final service = ref.read(communityServiceProvider);
+    final member = await service.isMember(groupId);
+    if (mounted) setState(() { _isMember = member; _loading = false; });
+  }
+
+  Future<void> _toggleMembership() async {
+    final groupId = widget.group['id'] as String? ?? widget.group['groupId'] as String? ?? '';
+    if (groupId.isEmpty) return;
+    final service = ref.read(communityServiceProvider);
+    if (_isMember) {
+      final ok = await service.leaveGroup(groupId);
+      if (ok && mounted) setState(() => _isMember = false);
+    } else {
+      final ok = await service.joinGroup(groupId);
+      if (ok && mounted) setState(() => _isMember = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final memberCount = widget.group['count'] as int? ?? 0;
+    final groupId = widget.group['groupId'] as String? ?? widget.group['id'] as String? ?? '';
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
@@ -24,7 +66,7 @@ class GroupDetailsScreen extends ConsumerWidget {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(group['image'], fit: BoxFit.cover),
+                  AppImage(widget.group['image'], fit: BoxFit.cover),
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -41,21 +83,13 @@ class GroupDetailsScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(group['title'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 28)),
+                        Text(widget.group['title'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 28)),
                         const SizedBox(height: 6),
                         Row(
                           children: [
                             const Icon(LucideIcons.users, color: Colors.white70, size: 16),
                             const SizedBox(width: 6),
                             Text("$memberCount members", style: const TextStyle(color: Colors.white70, fontSize: 14)),
-                            if (group['badge'] != null) ...[
-                              const SizedBox(width: 12),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)),
-                                child: Text(group['badge'], style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
-                              ),
-                            ],
                           ],
                         ),
                       ],
@@ -77,7 +111,7 @@ class GroupDetailsScreen extends ConsumerWidget {
                 children: [
                   const Text("About", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
-                  Text(group['subtitle'], style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87)),
+                  Text(widget.group['subtitle'], style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87)),
                   const SizedBox(height: 30),
                   Row(
                     children: [
@@ -91,31 +125,7 @@ class GroupDetailsScreen extends ConsumerWidget {
               ),
             ),
           ),
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final imgIndex = (index + 10) % 70;
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: NetworkImage('https://i.pravatar.cc/60?img=$imgIndex'),
-                  ),
-                  title: Text("Member ${index + 1}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: const Text("Active in chat", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                  trailing: const Icon(LucideIcons.messageCircle, color: Color(0xFF075E54), size: 18),
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => ChatMessengerScreen(
-                        userName: "Member ${index + 1}",
-                        userAvatar: 'https://i.pravatar.cc/60?img=$imgIndex',
-                        receiverId: 'member-$imgIndex',
-                      ),
-                    ));
-                  },
-                );
-              },
-              childCount: memberCount > 20 ? 20 : memberCount,
-            ),
-          ),
+          _MembersList(groupId: groupId),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
@@ -127,25 +137,26 @@ class GroupDetailsScreen extends ConsumerWidget {
         ),
         child: Row(
           children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () {},
-                icon: const Icon(LucideIcons.userPlus, size: 18),
-                label: const Text("JOIN GROUP"),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 55),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            if (!_loading)
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _toggleMembership,
+                  icon: Icon(_isMember ? LucideIcons.userMinus : LucideIcons.userPlus, size: 18),
+                  label: Text(_isMember ? "LEAVE GROUP" : "JOIN GROUP"),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 55),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 15),
+            if (!_loading) const SizedBox(width: 15),
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () {
                   Navigator.push(context, MaterialPageRoute(
                     builder: (_) => ChatMessengerScreen(
-                      userName: group['title'],
-                      userAvatar: group['image'],
+                      userName: widget.group['title'],
+                      userAvatar: widget.group['image'],
                       groupId: groupId,
                       isGroup: true,
                     ),
@@ -167,3 +178,92 @@ class GroupDetailsScreen extends ConsumerWidget {
     );
   }
 }
+
+class _MembersList extends ConsumerWidget {
+  final String groupId;
+
+  const _MembersList({required this.groupId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final membersAsync = ref.watch(_groupMembersProvider(groupId));
+
+    return membersAsync.when(
+      data: (members) {
+        if (members.isEmpty) {
+          return const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 30),
+              child: Center(child: Text("No members yet", style: TextStyle(color: Colors.grey))),
+            ),
+          );
+        }
+        return SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final m = members[index];
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: const Color(0xFF075E54),
+                  backgroundImage: m['avatar_url'] != null && (m['avatar_url'] as String).isNotEmpty
+                      ? CachedNetworkImageProvider(m['avatar_url'] as String)
+                      : null,
+                  child: m['avatar_url'] == null || (m['avatar_url'] as String).isEmpty
+                      ? Text(
+                          ((m['user_name'] as String?)?.isNotEmpty == true ? (m['user_name'] as String)[0] : 'M').toUpperCase(),
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        )
+                      : null,
+                ),
+                title: Text(m['user_name'] ?? 'Member', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: Text("Active in chat", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                trailing: const Icon(LucideIcons.messageCircle, color: Color(0xFF075E54), size: 18),
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => ChatMessengerScreen(
+                      userName: m['user_name'] ?? 'Member',
+                      userAvatar: m['avatar_url'] ?? '',
+                      receiverId: m['user_id'] ?? '',
+                    ),
+                  ));
+                },
+              );
+            },
+            childCount: members.length,
+          ),
+        );
+      },
+      loading: () => SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (_, __) => ListTile(
+            leading: CircleAvatar(backgroundColor: Colors.grey[200]),
+            title: Container(height: 14, width: 100, decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(4))),
+            subtitle: Container(height: 10, width: 80, decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(4))),
+          ),
+          childCount: 4,
+        ),
+      ),
+      error: (e, _) => const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Center(child: Text("Failed to load members", style: TextStyle(color: Colors.grey))),
+        ),
+      ),
+    );
+  }
+}
+
+final _groupMembersProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, groupId) async {
+  final client = Supabase.instance.client;
+  try {
+    final res = await client
+        .from('community_group_members')
+        .select('user_id, user_name, avatar_url')
+        .eq('group_id', groupId)
+        .limit(50);
+    return List<Map<String, dynamic>>.from(res);
+  } catch (e) {
+    debugPrint('Failed to load group members: $e');
+    return [];
+  }
+});

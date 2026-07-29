@@ -25,7 +25,7 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
     try {
       final client = Supabase.instance.client;
 
-      final churchesRes = await client.from('churches').select('*');
+      final churchesRes = await client.from('churches').select('id, name, location, is_verified');
       final churches = List<Map<String, dynamic>>.from(churchesRes);
 
       final profilesRes = await client

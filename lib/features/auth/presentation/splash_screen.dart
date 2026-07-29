@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/routes/app_router.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -34,8 +36,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
     _controller.forward();
 
     // Route to main flow after 2.8 seconds
-    Future.delayed(const Duration(milliseconds: 2800), () {
+    Future.delayed(const Duration(milliseconds: 2800), () async {
       if (mounted) {
+        final prefs = await SharedPreferences.getInstance();
+        final rememberMe = prefs.getBool('remember_me') ?? true;
+        if (!rememberMe) {
+          await Supabase.instance.client.auth.signOut();
+        }
         ref.read(splashCompletedProvider.notifier).setCompleted(true);
       }
     });

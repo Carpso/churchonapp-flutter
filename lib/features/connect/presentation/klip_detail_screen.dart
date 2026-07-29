@@ -26,7 +26,7 @@ class _KlipDetailScreenState extends State<KlipDetailScreen> {
     try {
       final data = await Supabase.instance.client
           .from('klips')
-          .select('*')
+          .select('id, video_url, url, description, caption')
           .eq('id', widget.klipId)
           .maybeSingle();
       if (data != null) {
@@ -65,7 +65,7 @@ class _KlipDetailScreenState extends State<KlipDetailScreen> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        title: const Text("Kingdom Klip", style: TextStyle(color: Colors.white)),
+        title: const Text("Klip", style: TextStyle(color: Colors.white)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),

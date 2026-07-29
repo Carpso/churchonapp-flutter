@@ -87,7 +87,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                         children: [
                           CircleAvatar(
                             backgroundImage: _post!['profiles'] is Map
-                                ? NetworkImage((_post!['profiles'] as Map)['avatar_url'] ?? '')
+                                ? CachedNetworkImageProvider((_post!['profiles'] as Map)['avatar_url'] ?? '')
                                 : null,
                             radius: 22,
                           ),
@@ -125,6 +125,8 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                             fit: BoxFit.cover,
                             width: double.infinity,
                             height: 300,
+                            memCacheWidth: 540,
+                            memCacheHeight: 300,
                           ),
                         ),
                       ],

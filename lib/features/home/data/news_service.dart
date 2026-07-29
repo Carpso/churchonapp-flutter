@@ -34,7 +34,7 @@ class NewsArticle {
       description: json['description'] ?? '',
       image: json['enclosure']?['link'] ?? 
              _extractImage(json['description'] ?? '') ?? 
-             'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800',
+             '',
       pubDate: json['pubDate'] ?? '',
       link: json['link'] ?? '',
     );
@@ -44,10 +44,10 @@ class NewsArticle {
     return NewsArticle(
       id: map['id']?.toString() ?? '',
       title: map['title'] ?? '',
-      source: map['author_name'] ?? 'Kingdom Writer',
+      source: map['author_name'] ?? 'Writer',
       description: map['excerpt'] ?? '',
       content: map['content'] ?? '',
-      image: map['image_url'] ?? 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800',
+      image: map['image_url'] ?? '',
       pubDate: map['created_at'] ?? '',
       link: '',
       isLocal: true,
@@ -84,7 +84,7 @@ class NewsService {
     }
   }
 
-  Stream<List<NewsArticle>> streamKingdomNews() {
+  Stream<List<NewsArticle>> streamNews() {
     return _client
         .from('kingdom_news')
         .stream(primaryKey: ['id'])
@@ -117,7 +117,7 @@ final publicNewsProvider = FutureProvider<List<NewsArticle>>((ref) async {
   return ref.watch(newsServiceProvider).getPublicNews();
 });
 
-final kingdomNewsStreamProvider = StreamProvider<List<NewsArticle>>((ref) {
-  return ref.watch(newsServiceProvider).streamKingdomNews();
+final newsStreamProvider = StreamProvider<List<NewsArticle>>((ref) {
+  return ref.watch(newsServiceProvider).streamNews();
 });
 

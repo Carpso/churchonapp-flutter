@@ -39,6 +39,8 @@ class LogisticsService {
             nextStop: b['next_stop']?.toString() ?? '--',
             stops: stopsRaw,
             path: pathRaw,
+            driverName: b['driver_name']?.toString(),
+            driverPhone: b['driver_phone']?.toString(),
           );
         }).toList();
       }

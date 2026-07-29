@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
 import '../../../core/widgets/church_map.dart';
 import '../data/admin_service.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 
 class PropheticHeatmapScreen extends ConsumerWidget {
   const PropheticHeatmapScreen({super.key});
@@ -31,23 +32,28 @@ class PropheticHeatmapScreen extends ConsumerWidget {
               ChurchMap(
                 center: const LatLng(-15.3875, 28.3228), 
                 zoom: 12,
-                markers: points.map((p) => Marker(
-                  point: LatLng(p['lat']!, p['lng']!),
-                  width: 60,
-                  height: 60,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        colors: [
-                          Colors.red.withValues(alpha: (0.6 * p['weight']!).clamp(0.0, 1.0)),
-                          Colors.orange.withValues(alpha: (0.3 * p['weight']!).clamp(0.0, 1.0)),
-                          Colors.transparent,
-                        ],
+                markers: points.map((p) {
+                  final lat = (p['lat'] as num?)?.toDouble() ?? 0.0;
+                  final lng = (p['lng'] as num?)?.toDouble() ?? 0.0;
+                  final weight = (p['weight'] as num?)?.toDouble() ?? 0.0;
+                  return Marker(
+                    point: LatLng(lat, lng),
+                    width: 60,
+                    height: 60,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          colors: [
+                            Colors.red.withValues(alpha: (0.6 * weight).clamp(0.0, 1.0)),
+                            Colors.orange.withValues(alpha: (0.3 * weight).clamp(0.0, 1.0)),
+                            Colors.transparent,
+                          ],
+                        ),
+                        shape: BoxShape.circle,
                       ),
-                      shape: BoxShape.circle,
                     ),
-                  ),
-                )).toList(),
+                  );
+                }).toList(),
               ),
               _buildLegend(),
               _buildControlPanel(context, ref, points.length),
@@ -120,7 +126,7 @@ class PropheticHeatmapScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 10),
-            Text("Tracking $count real-time Kingdom data points for expansion.", style: const TextStyle(color: Colors.white38, fontSize: 12)),
+            Text("Tracking $count real-time data points for expansion.", style: const TextStyle(color: Colors.white38, fontSize: 12)),
             const Divider(height: 30, color: Colors.white10),
             Row(
               children: [
@@ -140,17 +146,20 @@ class PropheticHeatmapScreen extends ConsumerWidget {
                 Container(
                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15)),
                    child: IconButton(
-                     icon: const Icon(LucideIcons.refreshCw, color: Colors.white, size: 20), 
-                     onPressed: () async {
-                        // Generate mock prophetic points around major hubs
-                        final admin = ref.read(adminServiceProvider);
-                        for (int i = 0; i < 5; i++) {
-                          await admin.generatePropheticDataPoint(-15.3875 + (0.05 * i), 28.3228 + (0.05 * i), weight: 0.8 + (0.05 * i), region: "Lusaka Exp Hub");
-                        }
-                        await admin.generatePropheticDataPoint(-15.4200, 28.3100, weight: 1.0, region: "Chilenje Mission");
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Prophetic Data synchronized from VPS.")));
-                     },
+                      icon: const Icon(LucideIcons.refreshCw, color: Colors.white, size: 20), 
+                      onPressed: () async {
+                         final admin = ref.read(adminServiceProvider);
+                         final tenant = ref.read(currentTenantProvider);
+                         if (tenant == null) return;
+
+                         try {
+                           await admin.generatePropheticDataPoint(tenant.latitude ?? -15.3875, tenant.longitude ?? 28.3228, weight: 1.0, region: tenant.name);
+                           if (!context.mounted) return;
+                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Prophetic Data synchronized from current tenant.")));
+                         } catch (e) {
+                           debugPrint('[prophetic_heatmap_screen] Failed to generate prophetic data: \$e');
+                         }
+                      },
                    ),
                 ),
               ],

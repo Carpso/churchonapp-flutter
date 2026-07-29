@@ -130,7 +130,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("KINGDOM TREASURY", style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                  const Text("TREASURY", style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
                   const SizedBox(height: 5),
                   Text("K ${total.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900)),
                 ],
@@ -202,7 +202,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
 
     final sortedKeys = dailyTotals.keys.toList()..sort();
     final spots = sortedKeys.asMap().entries.map((e) {
-      return FlSpot(e.key.toDouble(), dailyTotals[e.value]!);
+      return FlSpot(e.key.toDouble(), dailyTotals[e.value] ?? 0);
     }).toList();
 
     if (spots.isEmpty) {

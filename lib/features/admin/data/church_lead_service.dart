@@ -60,10 +60,12 @@ class ChurchLeadService {
   ChurchLeadService(this._supabase);
 
   Future<List<ChurchLead>> getMyLeads() async {
-    final userId = _supabase.client.auth.currentUser!.id;
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    final userId = user.id;
     final result = await _supabase.client
         .from('church_leads')
-        .select('*')
+        .select('id, referred_by_user_id, referrer_name, referrer_phone, pastor_name, pastor_phone, church_name, church_location, notes, status, contacted_at, registered_church_id, assigned_to, created_at')
         .eq('referred_by_user_id', userId)
         .order('created_at', ascending: false);
     return (result as List).map((e) => ChurchLead.fromMap(e)).toList();
@@ -72,7 +74,7 @@ class ChurchLeadService {
   Future<List<ChurchLead>> getAllLeads() async {
     final result = await _supabase.client
         .from('church_leads')
-        .select('*')
+        .select('id, referred_by_user_id, referrer_name, referrer_phone, pastor_name, pastor_phone, church_name, church_location, notes, status, contacted_at, registered_church_id, assigned_to, created_at')
         .order('created_at', ascending: false);
     return (result as List).map((e) => ChurchLead.fromMap(e)).toList();
   }
@@ -84,16 +86,18 @@ class ChurchLeadService {
     String? churchLocation,
     String? notes,
   }) async {
-    final userId = _supabase.client.auth.currentUser!.id;
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    final userId = user.id;
     final profile = await _supabase.client
         .from('profiles')
-        .select('full_name, phone')
+        .select('full_name, phone_number')
         .eq('id', userId)
         .single();
     await _supabase.client.from('church_leads').insert({
       'referred_by_user_id': userId,
       'referrer_name': profile['full_name'],
-      'referrer_phone': profile['phone'],
+      'referrer_phone': profile['phone_number'],
       'pastor_name': pastorName,
       'pastor_phone': pastorPhone,
       'church_name': churchName,

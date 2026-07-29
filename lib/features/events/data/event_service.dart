@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/services/tenant_service.dart';
 
 class ChurchEvent {
   final String id;
@@ -58,52 +59,17 @@ class EventService {
   EventService(this._client, this._ref);
 
   Stream<List<ChurchEvent>> getEventsStream() {
-    return _client
-        .from('events')
-        .stream(primaryKey: ['id'])
-        .order('date', ascending: true)
-        .map((data) {
-          final events = data.map((map) => ChurchEvent.fromMap(map)).toList();
-          if (events.isEmpty) {
-            return _getMockEvents();
-          }
-          return events;
-        });
-  }
-
-  List<ChurchEvent> _getMockEvents() {
-    return [
-      ChurchEvent(
-        id: 'mock-1',
-        title: 'National Prayer Day',
-        description: 'Join the entire nation in prayer.',
-        location: 'National Stadium, Lusaka',
-        date: DateTime.now().add(const Duration(days: 10)),
-        imageUrl: 'https://images.unsplash.com/photo-1444464666168-49d633b867ad?w=800',
-        ticketPrice: 0,
-        attendeeCount: 1540,
-        category: 'Spiritual',
-        speakers: 'Apostolic Council',
-        organizerMomoPhone: '0976847775',
-        organizerMomoName: 'National Committee',
-        endDate: DateTime.now().add(const Duration(days: 10, hours: 4)),
-      ),
-      ChurchEvent(
-        id: 'mock-2',
-        title: 'Youth Impact Conference',
-        description: 'Empowering the next generation.',
-        location: 'Grace Cathedral, Harare',
-        date: DateTime.now().add(const Duration(days: 5)),
-        imageUrl: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800',
-        ticketPrice: 50,
-        attendeeCount: 420,
-        category: 'Youth',
-        speakers: 'Dr. Myles & Team',
-        organizerMomoPhone: '0976847775',
-        organizerMomoName: 'Grace Youth Treasury',
-        endDate: DateTime.now().add(const Duration(days: 5, hours: 3)),
-      ),
-    ];
+    final tenant = _ref.watch(currentTenantProvider);
+    final baseStream = _client.from('events').stream(primaryKey: ['id']);
+    final mapped = (tenant != null)
+        ? baseStream
+            .eq('tenant_id', tenant.id)
+            .order('date', ascending: true)
+            .map((data) => data.map((map) => ChurchEvent.fromMap(map)).toList())
+        : baseStream
+            .order('date', ascending: true)
+            .map((data) => data.map((map) => ChurchEvent.fromMap(map)).toList());
+    return mapped;
   }
 
   Future<Map<String, dynamic>> createEvent(Map<String, dynamic> eventData) async {
@@ -142,7 +108,7 @@ class EventService {
     final result = await _client.from('events').insert(dbData).select().single();
     final eventId = result['id'];
 
-    // Notify church members about new event
+    // Notify church members about new event (bulk insert)
     final tenantId = eventData['tenant_id'];
     if (tenantId != null) {
       final members = await _client
@@ -150,17 +116,19 @@ class EventService {
           .select('id')
           .eq('tenant_id', tenantId);
       final title = eventData['title'] ?? 'New Event';
-      for (final member in members) {
-        if (member['id'] != user.id) {
-          await _client.from('notifications').insert({
-            'user_id': member['id'],
-            'tenant_id': tenantId,
-            'title': 'New Event: $title',
-            'body': 'A new event has been created in your church.',
-            'type': 'event',
-            'reference_id': eventId,
-          });
-        }
+      final notifications = members
+          .where((member) => member['id'] != user.id)
+          .map((member) => {
+                'user_id': member['id'],
+                'tenant_id': tenantId,
+                'title': 'New Event: $title',
+                'body': 'A new event has been created in your church.',
+                'type': 'event',
+                'reference_id': eventId,
+              })
+          .toList();
+      if (notifications.isNotEmpty) {
+        await _client.from('notifications').insert(notifications);
       }
     }
 
@@ -237,7 +205,7 @@ class EventService {
       if (res != null) {
         return {
           ...res,
-          'cover': res['image_url'] ?? 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800',
+          'cover': res['image_url'] ?? '',
           'price': (res['ticket_price'] ?? 0).toDouble(),
         };
       }

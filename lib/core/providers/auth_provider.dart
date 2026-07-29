@@ -2,21 +2,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/env.dart';
-
 
 class AuthState {
   final User? user;
   final bool isLoading;
   final String? errorMessage;
+  final bool requires2FA;
 
-  AuthState({this.user, this.isLoading = false, this.errorMessage});
+  AuthState({this.user, this.isLoading = false, this.errorMessage, this.requires2FA = false});
 
-  AuthState copyWith({User? user, bool? isLoading, String? errorMessage}) {
+  AuthState copyWith({User? user, bool? isLoading, String? errorMessage, bool? requires2FA}) {
     return AuthState(
       user: user ?? this.user,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage ?? this.errorMessage,
+      requires2FA: requires2FA ?? this.requires2FA,
     );
   }
 }
@@ -38,11 +40,25 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-
   Future<void> signIn(String email, String password) async {
     state = AuthState(user: state.user, isLoading: true, errorMessage: null);
+
     try {
       await _client.auth.signInWithPassword(email: email, password: password);
+
+      try {
+        final uid = _client.auth.currentUser?.id;
+        if (uid != null) {
+          await _client.from('login_history').insert({
+            'user_id': uid,
+            'status': 'success',
+            'device_info': 'Flutter App',
+            'user_agent': 'ChurchOnApp/Flutter',
+          });
+        }
+      } catch (logErr) {
+        debugPrint('Failed to log login history: $logErr');
+      }
     } catch (e) {
       state = AuthState(user: state.user, isLoading: false, errorMessage: e.toString());
       rethrow;
@@ -54,31 +70,62 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> signInWithGoogle() async {
     state = AuthState(user: state.user, isLoading: true, errorMessage: null);
     try {
-      // 1. Initialize Google Sign In
+      final rawClientId = Env.googleWebClientId.trim();
+      final webClientId = rawClientId.isNotEmpty ? rawClientId : null;
+
       final GoogleSignIn googleSignIn = GoogleSignIn(
-        clientId: kIsWeb ? Env.googleWebClientId : null,
-        serverClientId: Env.googleWebClientId,
+        clientId: kIsWeb ? webClientId : null,
+        serverClientId: webClientId,
       );
 
-      final googleUser = await googleSignIn.signIn();
-      if (googleUser == null) {
-        state = AuthState(user: state.user, isLoading: false);
-        return;
+      try {
+        final googleUser = await googleSignIn.signIn();
+        if (googleUser == null) {
+          state = AuthState(user: state.user, isLoading: false);
+          return;
+        }
+
+        final googleAuth = await googleUser.authentication;
+        final accessToken = googleAuth.accessToken;
+        final idToken = googleAuth.idToken;
+
+        if (idToken != null) {
+          final response = await _client.auth.signInWithIdToken(
+            provider: OAuthProvider.google,
+            idToken: idToken,
+            accessToken: accessToken,
+          );
+          if (response.user != null) {
+            state = AuthState(user: response.user, isLoading: false);
+          }
+        } else {
+          // Fallback to Supabase OAuth if ID token missing
+          await _client.auth.signInWithOAuth(
+            OAuthProvider.google,
+            redirectTo: kIsWeb ? null : 'io.supabase.churchonapp://login-callback',
+          );
+        }
+      } catch (nativeError) {
+        debugPrint("Native Google Sign-In failed: $nativeError. Attempting OAuth redirect fallback.");
+        await _client.auth.signInWithOAuth(
+          OAuthProvider.google,
+          redirectTo: kIsWeb ? null : 'io.supabase.churchonapp://login-callback',
+        );
       }
 
-      final googleAuth = await googleUser.authentication;
-      final accessToken = googleAuth.accessToken;
-      final idToken = googleAuth.idToken;
-
-      if (idToken == null) {
-        throw 'No ID Token found.';
+      try {
+        final uid = _client.auth.currentUser?.id;
+        if (uid != null) {
+          await _client.from('login_history').insert({
+            'user_id': uid,
+            'status': 'success',
+            'device_info': 'Flutter App (Google)',
+            'user_agent': 'ChurchOnApp/Flutter',
+          });
+        }
+      } catch (logErr) {
+        debugPrint('Failed to log login history: $logErr');
       }
-
-      await _client.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: idToken,
-        accessToken: accessToken,
-      );
     } catch (e) {
       state = AuthState(user: state.user, isLoading: false, errorMessage: e.toString());
       rethrow;
@@ -95,8 +142,6 @@ class AuthNotifier extends Notifier<AuthState> {
         password: password,
         data: {'full_name': name},
       );
-      // Profile creation is now handled primarily by a database trigger (on_auth_user_created).
-      // ProfileNotifier._fetchProfile acts as a client-side fallback if needed.
     } catch (e) {
       state = AuthState(user: state.user, isLoading: false, errorMessage: e.toString());
       rethrow;
@@ -105,7 +150,32 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  Future<bool> complete2FA(String code) async {
+    try {
+      state = state.copyWith(isLoading: true);
+      final factors = await _client.auth.mfa.listFactors();
+      final totpFactors = factors.totp;
+      if (totpFactors.isEmpty) {
+        state = state.copyWith(isLoading: false, errorMessage: "No 2FA factors found");
+        return false;
+      }
+      final totpFactor = totpFactors.first;
+      await _client.auth.mfa.challengeAndVerify(
+        factorId: totpFactor.id,
+        code: code,
+      );
+      state = state.copyWith(isLoading: false, requires2FA: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+      return false;
+    }
+  }
+
   Future<void> signOut() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('remember_me');
+    await prefs.remove('remembered_email');
     await _client.auth.signOut();
     await GoogleSignIn().signOut();
   }
@@ -114,4 +184,3 @@ class AuthNotifier extends Notifier<AuthState> {
 final authProvider = NotifierProvider<AuthNotifier, AuthState>(() {
   return AuthNotifier();
 });
-

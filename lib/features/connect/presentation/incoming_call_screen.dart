@@ -48,7 +48,11 @@ class IncomingCallScreen extends ConsumerWidget {
                 const Spacer(flex: 2),
                 CircleAvatar(
                   radius: 70,
-                  backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=${callSession.callerId}'),
+                  backgroundColor: const Color(0xFF075E54),
+                  child: Text(
+                    'C',
+                    style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold),
+                  ),
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -107,7 +111,7 @@ class IncomingCallScreen extends ConsumerWidget {
                             MaterialPageRoute(
                               builder: (_) => AudioCallScreen(
                                 userName: "Incoming Spiritual Call",
-                                userAvatar: "https://i.pravatar.cc/150?u=${callSession.callerId}",
+                                userAvatar: '',
                                 callSession: callSession,
                               ),
                             ),

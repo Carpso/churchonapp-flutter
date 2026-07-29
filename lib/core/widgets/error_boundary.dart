@@ -13,12 +13,12 @@ class CustomErrorBoundary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final body = Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         leading: const SizedBox.shrink(),
-        title: const Text("App Recovered", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: Text("App Recovered", style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
       ),
       body: Center(
         child: Padding(
@@ -35,27 +35,36 @@ class CustomErrorBoundary extends StatelessWidget {
                 child: const Icon(LucideIcons.alertTriangle, color: Colors.red, size: 60),
               ),
               const SizedBox(height: 25),
-              const Text(
+              Text(
                 "An unexpected error occurred.",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.black),
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 15),
               Text(
                 "Our engineers have been notified. Please return to the Home Hub or restart the app.",
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 14),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 30),
-              // Optional dev info string if needed
               Container(
                 padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(15)),
-                child: Text(
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(15)),
+                width: double.infinity,
+                child: SelectableText(
                   errorDetails.exceptionAsString(),
-                  style: const TextStyle(fontSize: 10, color: Colors.grey, fontFamily: "monospace"),
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4), fontFamily: "monospace"),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(15)),
+                width: double.infinity,
+                child: SelectableText(
+                  errorDetails.stack.toString(),
+                  style: TextStyle(fontSize: 8, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3), fontFamily: "monospace"),
+                  maxLines: 8,
                 ),
               ),
               const SizedBox(height: 30),
@@ -68,12 +77,12 @@ class CustomErrorBoundary extends StatelessWidget {
                    }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   minimumSize: const Size(double.infinity, 55),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
-                icon: const Icon(LucideIcons.home, color: Colors.white),
-                label: const Text("RETURN TO HOME", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                icon: Icon(LucideIcons.home, color: Theme.of(context).colorScheme.onPrimary),
+                label: Text("RETURN TO HOME", style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontWeight: FontWeight.bold)),
               )
             ],
           ),

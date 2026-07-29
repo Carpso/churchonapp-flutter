@@ -75,7 +75,7 @@ class _DriverSimulationHubScreenState extends ConsumerState<DriverSimulationHubS
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAEB),
       appBar: AppBar(
-        title: const Text("Kingdom GPS Simulator", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("GPS Simulator", style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: Padding(
         padding: const EdgeInsets.all(25),

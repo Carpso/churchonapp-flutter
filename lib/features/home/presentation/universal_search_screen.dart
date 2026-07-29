@@ -81,7 +81,7 @@ class _UniversalSearchScreenState extends State<UniversalSearchScreen> {
               _buildSuggestionChip("Sunday Service", LucideIcons.video),
               _buildSuggestionChip("Giving", LucideIcons.heart),
               _buildSuggestionChip("Prayer Request", LucideIcons.flame),
-              _buildSuggestionChip("Kingdom Klips", LucideIcons.play),
+              _buildSuggestionChip("Klips", LucideIcons.play),
               _buildSuggestionChip("My Schedule", LucideIcons.calendar),
             ],
           ),
@@ -149,7 +149,7 @@ class _UniversalSearchScreenState extends State<UniversalSearchScreen> {
         children: [
           Icon(LucideIcons.searchX, size: 60, color: Colors.grey),
           SizedBox(height: 20),
-          Text("No matches found in the Kingdom", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+          Text("No matches found", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
         ],
       ),
     );

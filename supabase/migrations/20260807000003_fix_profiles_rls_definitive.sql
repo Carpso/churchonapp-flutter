@@ -1,0 +1,1 @@
+-- Intentionally empty: profiles RLS already finalized in 2026071002_missing_tables_schema.sql

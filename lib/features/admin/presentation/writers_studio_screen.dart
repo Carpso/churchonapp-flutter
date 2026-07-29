@@ -41,7 +41,7 @@ class _WriterStudioScreenState extends ConsumerState<WriterStudioScreen> {
         excerpt: _excerptCtrl.text.isEmpty ? _titleCtrl.text : _excerptCtrl.text,
         content: _contentCtrl.text,
         imageUrl: _imageUrlCtrl.text.isEmpty 
-          ? "https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800" 
+          ? ""
           : _imageUrlCtrl.text,
         authorId: profile.id,
         authorName: profile.name,
@@ -49,7 +49,7 @@ class _WriterStudioScreenState extends ConsumerState<WriterStudioScreen> {
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Kingdom News Published!"), backgroundColor: Colors.green));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("News Published!"), backgroundColor: Colors.green));
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to publish: $e")));
@@ -63,7 +63,7 @@ class _WriterStudioScreenState extends ConsumerState<WriterStudioScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text("Kingdom News Studio", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        title: Text("News Studio", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,

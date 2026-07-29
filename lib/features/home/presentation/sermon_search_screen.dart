@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../../../core/widgets/app_image.dart';
+import '../../../core/widgets/shimmer_loader.dart';
 import '../data/sermon_service.dart';
 import 'sermon_player_screen.dart';
 
@@ -51,7 +53,7 @@ class _SermonSearchScreenState extends ConsumerState<SermonSearchScreen> {
         ],
       ),
       body: _isLoading 
-        ? const Center(child: CircularProgressIndicator(color: Colors.amber))
+        ? const ListSkeleton(count: 5)
         : _searchResults.isEmpty 
           ? _buildInitialState()
           : ListView.builder(
@@ -91,7 +93,7 @@ class _SermonSearchScreenState extends ConsumerState<SermonSearchScreen> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.network(sermon.thumbnailUrl, width: 80, height: 60, fit: BoxFit.cover),
+              child: AppImage(sermon.thumbnailUrl, width: 80, height: 60, fit: BoxFit.cover),
             ),
             const SizedBox(width: 15),
             Expanded(

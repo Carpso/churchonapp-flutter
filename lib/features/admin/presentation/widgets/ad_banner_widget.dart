@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/features/admin/data/ad_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/widgets/app_image.dart';
 
 class AdBannerWidget extends ConsumerWidget {
   final String placement;
@@ -20,24 +21,29 @@ class AdBannerWidget extends ConsumerWidget {
           onTap: () {
             ref.read(adServiceProvider).trackImpression(ad.id);
             if (ad.targetUrl != null) {
-              launchUrl(Uri.parse(ad.targetUrl!), mode: LaunchMode.externalApplication);
+              launchUrl(Uri.parse(ad.targetUrl!), mode: LaunchMode.inAppWebView);
             }
           },
           child: Card(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Container(
+            clipBehavior: Clip.antiAlias,
+            child: SizedBox(
               height: 80,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                image: ad.imageUrl != null
-                    ? DecorationImage(image: NetworkImage(ad.imageUrl!), fit: BoxFit.cover)
-                    : null,
-                color: Colors.grey[900],
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                ad.title,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (ad.imageUrl != null)
+                    AppImage(ad.imageUrl!, fit: BoxFit.cover)
+                  else
+                    Container(color: Colors.grey[900]),
+                  Container(color: Colors.black.withValues(alpha: 0.4)),
+                  Center(
+                    child: Text(
+                      ad.title,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

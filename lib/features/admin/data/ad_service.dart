@@ -28,6 +28,9 @@ class TenantAd {
     this.maxImpressions,
   });
 
+  bool get isPlatformWide => tenantId == 'global' || placement == 'all';
+  int get priority => maxImpressions ?? 0;
+
   factory TenantAd.fromMap(Map<String, dynamic> map) {
     return TenantAd(
       id: map['id'] as String,
@@ -38,7 +41,7 @@ class TenantAd {
       adType: map['ad_type'] as String? ?? 'banner',
       placement: map['placement'] as String? ?? 'home',
       isActive: map['is_active'] as bool? ?? true,
-      tenantId: map['tenant_id'] as String,
+      tenantId: map['tenant_id'] as String? ?? '',
       endsAt: map['ends_at'] != null ? DateTime.parse(map['ends_at'] as String) : null,
       maxImpressions: map['max_impressions'] as int?,
     );
@@ -50,10 +53,17 @@ class AdService {
 
   AdService(this._supabase);
 
+  Future<List<TenantAd>> getAllAds() async {
+    final result = await _supabase.client.from('tenant_ads')
+        .select('id, title, description, image_url, target_url, ad_type, placement, is_active, tenant_id, ends_at, max_impressions')
+        .order('created_at', ascending: false);
+    return (result as List).map((e) => TenantAd.fromMap(e)).toList();
+  }
+
   Future<List<TenantAd>> getActiveAds({String? tenantId, String? placement}) async {
     var query = _supabase.client
         .from('tenant_ads')
-        .select('*')
+        .select('id, title, description, image_url, target_url, ad_type, placement, is_active, tenant_id, ends_at, max_impressions')
         .eq('is_active', true);
 
     if (tenantId != null) {
@@ -82,11 +92,35 @@ class AdService {
   Future<void> deleteAd(String adId) async {
     await _supabase.client.from('tenant_ads').delete().eq('id', adId);
   }
+
+  Future<void> promoteAd(String adId, String paymentMethod, int coinsSpent) async {
+    await _supabase.client.from('tenant_ads').update({
+      'is_promoted': true,
+      'promoted_at': DateTime.now().toIso8601String(),
+      'payment_method': paymentMethod,
+      'coins_spent': coinsSpent,
+    }).eq('id', adId);
+  }
+
+  Future<void> promoteWithMobileMoney(String adId, double amountZmw, String paymentRef) async {
+    await _supabase.client.from('tenant_ads').update({
+      'is_promoted': true,
+      'promoted_at': DateTime.now().toIso8601String(),
+      'payment_method': 'mobile_money',
+      'payment_amount_zmw': amountZmw,
+      'payment_ref': paymentRef,
+    }).eq('id', adId);
+  }
 }
 
 final adServiceProvider = Provider<AdService>((ref) {
   final supabase = ref.read(supabaseServiceProvider);
   return AdService(supabase);
+});
+
+final allAdsProvider = FutureProvider<List<TenantAd>>((ref) async {
+  final service = ref.read(adServiceProvider);
+  return service.getAllAds();
 });
 
 final activeAdsProvider = FutureProvider.family<List<TenantAd>, String?>((ref, placement) async {

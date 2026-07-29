@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
 // Theme via context
 import '../../../core/widgets/pdf_viewer_screen.dart';
@@ -89,7 +90,7 @@ class MyLibraryScreen extends ConsumerWidget {
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(25),
               ),
-              child: Image.network(
+              child: AppImage(
                 item.image,
                 fit: BoxFit.cover,
                 width: double.infinity,

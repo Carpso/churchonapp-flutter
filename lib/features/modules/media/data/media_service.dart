@@ -287,16 +287,16 @@ class MediaService {
         'title': 'The Power of Prayer',
         'description': 'Pastor John explains the necessity of prayer in the life of a believer.',
         'video_url': 'https://assets.mixkit.co/videos/preview/mixkit-pastor-preaching-at-a-church-service-34538-large.mp4',
-        'thumbnail_url': 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800&q=80',
+        'thumbnail_url': '',
         'speaker': 'Pastor John',
         'church_name': 'Grace Assemblies',
         'user_id': user.id
       },
       {
-        'title': 'Kingdom Worship 2024',
+        'title': 'Worship 2024',
         'description': 'Highlights from the national worship night.',
         'video_url': 'https://assets.mixkit.co/videos/preview/mixkit-group-of-friends-partying-happily-4640-large.mp4',
-        'thumbnail_url': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
+        'thumbnail_url': '',
         'speaker': 'Worship Team',
         'church_name': 'Zion Gates',
         'user_id': user.id
@@ -310,7 +310,7 @@ class MediaService {
     final flyers = [
       {
         'name': 'Sunday Celebration',
-        'url': 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=800&q=80',
+        'url': '',
         'created_by': 'Admin'
       }
     ];

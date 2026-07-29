@@ -1,12 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-
-class MemoryVerse {
-  final String reference;
-  final String text;
-
-  MemoryVerse({required this.reference, required this.text});
-}
+import '../data/memory_verses_data.dart' as memory_data;
 
 class ScriptureMemoryScreen extends StatefulWidget {
   const ScriptureMemoryScreen({super.key});
@@ -16,11 +10,7 @@ class ScriptureMemoryScreen extends StatefulWidget {
 }
 
 class _ScriptureMemoryScreenState extends State<ScriptureMemoryScreen> {
-  final List<MemoryVerse> _verses = [
-    MemoryVerse(reference: "Philippians 4:13", text: "I can do all things through Christ which strengtheneth me."),
-    MemoryVerse(reference: "Romans 8:28", text: "And we know that all things work together for good to them that love God..."),
-    MemoryVerse(reference: "John 3:16", text: "For God so loved the world, that he gave his only begotten Son..."),
-  ];
+  final List<memory_data.MemoryVerse> _verses = List.from(memory_data.memoryVerses);
 
   double _hideLevel = 0.0; // 0.0 to 1.0
 
@@ -56,7 +46,7 @@ class _ScriptureMemoryScreenState extends State<ScriptureMemoryScreen> {
     );
   }
 
-  Widget _buildVerseCard(MemoryVerse verse) {
+  Widget _buildVerseCard(memory_data.MemoryVerse verse) {
     final maskedText = _applyMask(verse.text, _hideLevel);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 5),

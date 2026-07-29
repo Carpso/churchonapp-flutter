@@ -120,7 +120,7 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(request['profiles']['full_name'] ?? "Kingdom Worker", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    Text(request['profiles']['full_name'] ?? "Worker", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     Text("${request['network'].toUpperCase()} | ${request['mobile_number']}", style: const TextStyle(color: Colors.white38, fontSize: 11)),
                   ],
                 ),

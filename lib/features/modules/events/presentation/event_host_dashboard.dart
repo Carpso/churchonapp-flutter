@@ -50,14 +50,14 @@ class _EventHostDashboardScreenState extends State<EventHostDashboardScreen> {
 
       _resourcesFuture = Supabase.instance.client
           .from('event_resources')
-          .select('*')
+          .select('id, title, resource_url, resource_type, event_id')
           .eq('event_id', widget.eventId)
           .then((data) => List<Map<String, dynamic>>.from(data))
           .catchError((_) => <Map<String, dynamic>>[]);
 
       _eventDetailsFuture = Supabase.instance.client
           .from('events')
-          .select('*')
+          .select('id, title, description, location, category, ticket_price, organizer_momo_phone, created_by, date, time, end_date, cover, speakers, type, price')
           .eq('id', widget.eventId)
           .single()
           .then((data) {
@@ -280,7 +280,10 @@ class _EventHostDashboardScreenState extends State<EventHostDashboardScreen> {
                         leading: CircleAvatar(
                           backgroundImage: profile?['avatar_url'] != null
                               ? NetworkImage(profile!['avatar_url'])
-                              : const NetworkImage("https://i.pravatar.cc/100"),
+                              : null,
+                          child: profile?['avatar_url'] == null
+                              ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?')
+                              : null,
                         ),
                         title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text("Phone: $phone", style: const TextStyle(fontSize: 12, color: Colors.grey)),

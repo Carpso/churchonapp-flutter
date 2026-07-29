@@ -30,7 +30,7 @@ class GeminiService {
   }
 
   Future<Map<String, dynamic>> optimizeLogisticsRoute(Map<String, dynamic> missionData) async {
-    final prompt = "As a Kingdom Logistics Strategist, optimize this cargo mission: $missionData. "
+    final prompt = "As a Logistics Strategist, optimize this cargo mission: $missionData. "
                   "Provide: 1. A verified optimized route plan, 2. Efficiency factor (0.0 to 1.0), "
                   "3. A 'Prophetic Logistics' insight to ensure the safety and success of the cargo.";
 
@@ -66,7 +66,7 @@ class GeminiService {
   }
 
   Future<Map<String, dynamic>> moderateSocialPost(String content) async {
-    final prompt = "As a Kingdom Gatekeeper AI, analyze this social post/testimony: \"$content\". "
+    final prompt = "As a Gatekeeper AI, analyze this social post/testimony: \"$content\". "
                   "Provide: 1. A 'Prophetic Weight' (double 0.0 to 1.0) based on spiritual impact and clarity. "
                   "2. A category (Testimony, Vision, Exhortation, Warning). "
                   "3. A 'Justification' for this weight. "
@@ -82,13 +82,13 @@ class GeminiService {
         return {
           'weight': (parsed['weight'] as num?)?.toDouble() ?? 0.5,
           'category': parsed['category']?.toString() ?? 'General',
-          'justification': parsed['justification']?.toString() ?? 'Standard Kingdom communication.',
+          'justification': parsed['justification']?.toString() ?? 'Standard communication.',
         };
       } catch (_) {
         return {
           'weight': 0.5,
           'category': 'General',
-          'justification': rawText.isNotEmpty ? rawText : 'Standard Kingdom communication.',
+          'justification': rawText.isNotEmpty ? rawText : 'Standard communication.',
         };
       }
     } catch (e) {

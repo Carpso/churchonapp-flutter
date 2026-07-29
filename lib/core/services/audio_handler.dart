@@ -28,7 +28,7 @@ class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   Future<void> playFromUri(Uri uri, [Map<String, dynamic>? extras]) async {
     final mediaItem = MediaItem(
       id: uri.toString(),
-      album: extras?['album'] ?? "Kingdom Radio",
+      album: extras?['album'] ?? "Radio",
       title: extras?['title'] ?? "Live Stream",
       artist: extras?['artist'] ?? "Church On App",
       artUri: Uri.parse(extras?['artUri'] ?? "https://media.churchonapp.com/radio_cover.png"),

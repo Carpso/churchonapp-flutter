@@ -45,16 +45,20 @@ class EventPassService {
   EventPassService(this._supabase);
 
   Future<List<EventPass>> getMyPasses() async {
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
     final result = await _supabase.client
         .from('event_passes')
-        .select('*')
-        .eq('user_id', _supabase.client.auth.currentUser!.id)
+        .select('id, event_id, quiz_event_id, user_id, pass_type, amount_paid, payment_reference, is_used, created_at')
+        .eq('user_id', user.id)
         .order('created_at', ascending: false);
     return (result as List).map((e) => EventPass.fromMap(e)).toList();
   }
 
   Future<bool> hasPassForEvent(String quizEventId) async {
-    final userId = _supabase.client.auth.currentUser!.id;
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    final userId = user.id;
     final result = await _supabase.client
         .from('event_passes')
         .select('id')
@@ -69,7 +73,9 @@ class EventPassService {
     required double amount,
     String? paymentRef,
   }) async {
-    final userId = _supabase.client.auth.currentUser!.id;
+    final user = _supabase.client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    final userId = user.id;
     await _supabase.client.from('event_passes').insert({
       'quiz_event_id': quizEventId,
       'user_id': userId,

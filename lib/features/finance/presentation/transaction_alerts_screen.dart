@@ -63,6 +63,92 @@ class _TransactionAlertCard extends ConsumerWidget {
   final Transaction transaction;
   const _TransactionAlertCard({required this.transaction});
 
+  void _showDetailSheet(BuildContext context) {
+    final isCompleted = transaction.status == 'completed';
+    final isPending = transaction.status == 'pending';
+    final Color statusColor;
+    if (isCompleted) {
+      statusColor = Colors.green;
+    } else if (isPending) {
+      statusColor = Colors.orange;
+    } else {
+      statusColor = Colors.red;
+    }
+    final categoryLabel = transaction.category.toUpperCase();
+    final time = DateFormat('dd MMM yyyy HH:mm').format(transaction.createdAt);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      backgroundColor: Colors.white,
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(25),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+                  child: Icon(isCompleted ? LucideIcons.checkCircle : isPending ? LucideIcons.clock : LucideIcons.xCircle, color: statusColor, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("K ${transaction.amount.toStringAsFixed(2)}", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: statusColor)),
+                      const SizedBox(height: 2),
+                      Text(transaction.recipientName ?? "Member", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _detailRow("Status", transaction.status.toUpperCase(), statusColor),
+            _detailRow("Category", categoryLabel, Colors.grey.shade700),
+            _detailRow("Reference", transaction.reference, Colors.grey.shade700),
+            _detailRow("Date", time, Colors.grey.shade700),
+            if (transaction.recipientPhone != null) _detailRow("Phone", transaction.recipientPhone!, Colors.grey.shade700),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.push('/receipt/${transaction.reference}');
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                child: const Text("VIEW RECEIPT", style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value, Color valueColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+          Flexible(child: Text(value, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: valueColor), textAlign: TextAlign.end)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isCompleted = transaction.status == 'completed';
@@ -89,7 +175,7 @@ class _TransactionAlertCard extends ConsumerWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => context.push('/receipt/${transaction.reference}'),
+        onTap: () => _showDetailSheet(context),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(

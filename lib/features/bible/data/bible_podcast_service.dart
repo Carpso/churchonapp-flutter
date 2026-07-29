@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'bible_books.dart';
 import '../../../core/services/r2_service.dart';
 
@@ -25,12 +27,14 @@ class BiblePodcastEpisode {
 class BiblePodcastService {
   BiblePodcastService();
 
+  final SupabaseClient _supabase = Supabase.instance.client;
+
   final List<String> _thumbnails = [
-    "https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=500&q=80",
-    "https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=500&q=80",
-    "https://images.unsplash.com/photo-1512389142860-9c449e58a543?w=500&q=80",
-    "https://images.unsplash.com/photo-1544427928-c49cdfebf4ad?w=500&q=80",
-    "https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=500&q=80"
+    '',
+    '',
+    '',
+    '',
+    '',
   ];
 
   final Map<String, String> _bookSubtitles = {
@@ -73,6 +77,35 @@ class BiblePodcastService {
         description: 'Explore the profound truths and historical context of the Book of $book in this comprehensive audio study.',
       );
     }).toList();
+  }
+
+  Future<String> generateDramatizedContent(String bookName) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cacheKey = 'dramatized_$bookName';
+    final cached = prefs.getString(cacheKey);
+    if (cached != null && cached.isNotEmpty) {
+      return cached;
+    }
+
+    try {
+      final response = await _supabase.functions.invoke(
+        'kael-ai',
+        body: {
+          'prompt': 'Create a dramatic, cinematic narration script for the Book of $bookName from the Bible. Include vivid scene descriptions, character emotions, and atmospheric details. Format as a spoken-word script suitable for audio drama.',
+          'bookName': bookName,
+          'type': 'dramatized_content',
+        },
+      );
+
+      final content = response.data?['content'] ?? response.data?['text'] ?? '';
+      if (content is String && content.isNotEmpty) {
+        await prefs.setString(cacheKey, content);
+        return content;
+      }
+      return '';
+    } catch (e) {
+      return '';
+    }
   }
 }
 

@@ -1,22 +1,103 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/services/gemini_service.dart';
+import '../../../core/services/tenant_service.dart';
 import '../../connect/data/social_service.dart';
 
 class AdminService {
   final SupabaseClient _client;
   AdminService(this._client);
 
-  Stream<List<UserProfile>> getMembersStream() {
-    return _client
-        .from('profiles')
-        .stream(primaryKey: ['id'])
-        .order('full_name')
-        .map((data) => data.map((map) => UserProfile.fromMap(map)).toList());
+  /// Fetch members for a tenant — uses one-shot query for reliability
+  /// Fetch members for a tenant — enforces strict tenant isolation
+  Future<List<UserProfile>> getMembers({String? tenantId}) async {
+    try {
+      final currentUser = _client.auth.currentUser;
+      String? effectiveTenantId = tenantId;
+
+      if (currentUser != null) {
+        final callerProfile = await _client
+            .from('profiles')
+            .select('role, tenant_id')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+
+        final role = callerProfile?['role'] as String? ?? 'member';
+        final isSuper = role == 'superadmin' || role == 'employee';
+
+        if (!isSuper) {
+          // Non-superadmins are strictly restricted to their own tenant
+          effectiveTenantId = callerProfile?['tenant_id'] as String?;
+          if (effectiveTenantId == null || effectiveTenantId.isEmpty) {
+            return [];
+          }
+        }
+      }
+
+      if (effectiveTenantId != null && effectiveTenantId.isNotEmpty) {
+        final result = await _client
+            .from('profiles')
+            .select()
+            .eq('tenant_id', effectiveTenantId)
+            .order('full_name');
+        return (result as List).map((m) => UserProfile.fromMap(m)).toList();
+      } else {
+        final result = await _client
+            .from('profiles')
+            .select()
+            .order('full_name');
+        return (result as List).map((m) => UserProfile.fromMap(m)).toList();
+      }
+    } catch (e) {
+      debugPrint('Error fetching members: $e');
+      return [];
+    }
+  }
+
+  Stream<List<UserProfile>> getMembersStream({String? tenantId}) {
+    final baseStream = _client.from('profiles').stream(primaryKey: ['id']);
+    if (tenantId != null && tenantId.isNotEmpty) {
+      return baseStream
+          .eq('tenant_id', tenantId)
+          .order('full_name')
+          .map((data) => data.map((map) => UserProfile.fromMap(map)).toList());
+    } else {
+      return baseStream
+          .order('full_name')
+          .map((data) => data.map((map) => UserProfile.fromMap(map)).toList());
+    }
   }
 
   Future<void> updateUserRole(String userId, String newRole) async {
+    final currentUser = _client.auth.currentUser;
+    if (currentUser == null) throw Exception("Not authenticated");
+
+    final callerProfile = await _client
+        .from('profiles')
+        .select('role, tenant_id')
+        .eq('id', currentUser.id)
+        .maybeSingle();
+
+    final callerRole = callerProfile?['role'] as String? ?? 'member';
+    final callerTenantId = callerProfile?['tenant_id'] as String?;
+    final isSuper = callerRole == 'superadmin' || callerRole == 'employee';
+
+    final targetProfile = await _client
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (targetProfile == null) throw Exception("Target user profile not found");
+
+    if (!isSuper) {
+      if (callerTenantId == null || callerTenantId != targetProfile['tenant_id']) {
+        throw Exception("Security Restriction: You can only update roles for members within your own church.");
+      }
+    }
+
     await _client.from('profiles').update({'role': newRole}).eq('id', userId);
   }
 
@@ -28,12 +109,12 @@ class AdminService {
   }
 
   Future<int> getPendingDeliveriesCount() async {
-    final res = await _client.from('delivery_requests').select('*').eq('status', 'pending');
+    final res = await _client.from('delivery_requests').select('id').eq('status', 'pending');
     return (res as List).length;
   }
 
   Future<int> getActiveCouriersCount() async {
-    final res = await _client.from('profiles').select('*').eq('is_work_mode', true);
+    final res = await _client.from('profiles').select('id').eq('is_work_mode', true);
     return (res as List).length;
   }
 
@@ -138,7 +219,7 @@ class AdminService {
           'amount': -amount,
           'type': 'payout_settlement',
           'reference_id': req['id'],
-          'description': 'Automated Kingdom Payout: $role',
+          'description': 'Automated Payout: $role',
         });
 
         processedCount++;
@@ -200,7 +281,7 @@ class AdminService {
   // --- Apostolic Resource Allocation ---
 
   Future<List<Map<String, dynamic>>> getChurchHubs() async {
-    final res = await _client.from('churches').select('*').order('name');
+    final res = await _client.from('churches').select('id, name').order('name');
     return List<Map<String, dynamic>>.from(res);
   }
 
@@ -308,8 +389,15 @@ class AdminService {
 
 final adminServiceProvider = Provider((ref) => AdminService(Supabase.instance.client));
 
+/// One-shot members provider — more reliable than Realtime stream
+final membersProvider = FutureProvider<List<UserProfile>>((ref) async {
+  final tenantId = ref.watch(currentTenantProvider)?.id;
+  return ref.watch(adminServiceProvider).getMembers(tenantId: tenantId);
+});
+
 final membersStreamProvider = StreamProvider<List<UserProfile>>((ref) {
-  return ref.watch(adminServiceProvider).getMembersStream();
+  final tenantId = ref.watch(currentTenantProvider)?.id;
+  return ref.watch(adminServiceProvider).getMembersStream(tenantId: tenantId);
 });
 
 final postsStreamProvider = StreamProvider<List<SocialPost>>((ref) {

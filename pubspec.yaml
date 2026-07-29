@@ -2,7 +2,7 @@ name: church_on_app
 description: "A new Flutter project."
 publish_to: "none"
 
-version: 1.0.0+156
+version: 1.0.0+224
 
 environment:
   sdk: ^3.9.0
@@ -73,6 +73,7 @@ dependencies:
   video_compress: ^3.1.2
   package_info_plus: ^9.0.0
   device_info_plus: ^11.3.0
+  showcaseview: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -85,6 +86,10 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/app_icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/app_icon_512.png"
+  adaptive_icon_round: true
+  min_sdk_android: 21
 
 flutter:
   uses-material-design: true

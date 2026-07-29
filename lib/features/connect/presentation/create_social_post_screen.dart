@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../data/social_service.dart';
 import '../data/testimony_service.dart';
 import '../data/prayer_service.dart';
@@ -48,10 +49,23 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
 
       if (_selectedImages.isNotEmpty) {
         final r2 = ref.read(r2ServiceProvider);
+        int uploadFailed = 0;
         for (final image in _selectedImages) {
           final fileName = "social_${DateTime.now().millisecondsSinceEpoch}_${uploadedUrls.length}.jpg";
           final url = await r2.uploadFile(image, "social/$fileName");
-          if (url != null) uploadedUrls.add(url);
+          if (url != null) {
+            uploadedUrls.add(url);
+          } else {
+            uploadFailed++;
+          }
+        }
+        if (uploadFailed > 0 && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("$uploadFailed image(s) failed to upload. ${uploadedUrls.isEmpty ? 'Posting without images.' : 'Posting with ${uploadedUrls.length} image(s).'}"),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
       }
 
@@ -141,8 +155,41 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
       types.add("Daily Verse");
     }
 
-    return Scaffold(
-      backgroundColor: Colors.white,
+    final hasDraft = _controller.text.trim().isNotEmpty || _selectedImages.isNotEmpty || _isPosting;
+
+    return PopScope(
+      canPop: !hasDraft,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Discard Draft?"),
+            content: const Text(
+              "You have an unsaved post draft in progress. Discarding will erase your text and attached images.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("KEEP EDITING"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text("DISCARD DRAFT"),
+              ),
+            ],
+          ),
+        );
+        if (confirm == true && context.mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text("Create $_postType", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         actions: [
@@ -160,12 +207,27 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
           children: [
             Row(
               children: [
-                CircleAvatar(backgroundImage: NetworkImage(profile?.avatarUrl ?? "https://i.pravatar.cc/100?u=me")),
+                Builder(
+                  builder: (context) {
+                    final avatarUrl = profile?.avatarUrl;
+                    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+                    return CircleAvatar(
+                      backgroundColor: const Color(0xFF075E54),
+                      backgroundImage: hasAvatar ? CachedNetworkImageProvider(avatarUrl) : null,
+                      child: hasAvatar
+                          ? null
+                          : Text(
+                              (profile?.name ?? 'K')[0].toUpperCase(),
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                    );
+                  },
+                ),
                 const SizedBox(width: 15),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(profile?.name ?? "Kingdom Partner", style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(profile?.name ?? "Partner", style: const TextStyle(fontWeight: FontWeight.bold)),
                     Text("Posting to public feed", style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
                   ],
                 ),
@@ -275,7 +337,8 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

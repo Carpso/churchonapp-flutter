@@ -4,6 +4,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 
 class BishopHeatmapScreen extends ConsumerStatefulWidget {
   const BishopHeatmapScreen({super.key});
@@ -24,38 +26,39 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
     _loadHeatmapData();
   }
 
-  void _loadHeatmapData() {
-    // Simulate church density data for the Bishop
-    final mockChurches = [
-      {'name': 'Lusaka Central', 'lat': -15.3875, 'lng': 28.3228, 'attendance': 1200},
-      {'name': 'Kitwe North', 'lat': -12.8166, 'lng': 28.2, 'attendance': 850},
-      {'name': 'Ndola South', 'lat': -12.9667, 'lng': 28.6333, 'attendance': 600},
-      {'name': 'Livingstone Branch', 'lat': -17.85, 'lng': 25.85, 'attendance': 450},
-    ];
+  Future<void> _loadHeatmapData() async {
+    final tenant = ref.read(currentTenantProvider);
+    if (tenant == null) return;
 
-    for (var church in mockChurches) {
-      final pos = LatLng(church['lat'] as double, church['lng'] as double);
-      
-      _markers.add(Marker(
-        point: pos,
-        width: 80,
-        height: 80,
-        child: GestureDetector(
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("${church['name']}: ${church['attendance']} Members")));
-          },
-          child: const Icon(LucideIcons.mapPin, color: Colors.blue, size: 30),
-        ),
-      ));
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase.from('churches').select('name, lat, lng, attendance').eq('tenant_id', tenant.id);
 
-      _circles.add(CircleMarker(
-        point: pos,
-        radius: (church['attendance'] as int) * 0.1, // Adjusted density scaling for OSM
-        useRadiusInMeter: true,
-        color: Colors.red.withValues(alpha: 0.2),
-        borderColor: Colors.red.withValues(alpha: 0.5),
-        borderStrokeWidth: 1,
-      ));
+      for (var church in response) {
+        final name = church['name']?.toString() ?? '';
+        final lat = (church['lat'] ?? 0) is int ? (church['lat'] as int).toDouble() : (church['lat'] as num).toDouble();
+        final lng = (church['lng'] ?? 0) is int ? (church['lng'] as int).toDouble() : (church['lng'] as num).toDouble();
+        final attendance = (church['attendance'] ?? 0) is int ? church['attendance'] as int : 0;
+
+        _markers.add(Marker(
+          point: LatLng(lat, lng),
+          child: Tooltip(
+            message: "$name\nAttendance: $attendance",
+            child: const Icon(Icons.location_on, color: Colors.red, size: 30),
+          ),
+        ));
+
+        _circles.add(CircleMarker(
+          point: LatLng(lat, lng),
+          radius: (attendance * 2.0).clamp(20.0, 100.0),
+          useRadiusInMeter: true,
+          color: Colors.red.withValues(alpha: 0.2),
+          borderColor: Colors.red.withValues(alpha: 0.5),
+          borderStrokeWidth: 1,
+        ));
+      }
+    } catch (e) {
+      debugPrint('[bishop_heatmap_screen] Failed to load churches: $e');
     }
   }
 
@@ -63,7 +66,7 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("KINGDOM DENSITY MAP", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        title: Text("DENSITY MAP", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,

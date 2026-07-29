@@ -23,7 +23,7 @@ class _OnboardingManagerScreenState extends ConsumerState<OnboardingManagerScree
 
   final List<Map<String, dynamic>> _roles = [
     {'id': 'church', 'label': 'New Ministry', 'icon': LucideIcons.church, 'desc': 'Register a new church tenant'},
-    {'id': 'writer', 'label': 'Church Writer', 'icon': LucideIcons.penTool, 'desc': 'Can publish Kingdom News'},
+    {'id': 'writer', 'label': 'Church Writer', 'icon': LucideIcons.penTool, 'desc': 'Can publish News'},
     {'id': 'rider', 'label': 'Rider', 'icon': LucideIcons.bike, 'desc': 'Delivery personnel'},
     {'id': 'driver', 'label': 'Driver', 'icon': LucideIcons.car, 'desc': 'Transport driver'},
     {'id': 'event_organizer', 'label': 'Event Organizer', 'icon': LucideIcons.calendarDays, 'desc': 'Can create & manage events'},
@@ -145,7 +145,7 @@ class _OnboardingManagerScreenState extends ConsumerState<OnboardingManagerScree
           ),
           const SizedBox(height: 5),
           Text(
-            "Pre-register riders, drivers, writers, event organizers and employees into the Kingdom Ecosystem — even before they have an account.",
+            "Pre-register riders, drivers, writers, event organizers and employees into the Ecosystem — even before they have an account.",
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
           ),

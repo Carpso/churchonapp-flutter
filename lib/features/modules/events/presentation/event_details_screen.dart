@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
@@ -9,18 +10,27 @@ import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 import 'package:church_on_app/core/widgets/premium_confirmation_sheet.dart';
+import 'package:church_on_app/features/navigation/presentation/carpso_suggestion_card.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'event_host_dashboard.dart';
 
-class EventDetailsScreen extends ConsumerWidget {
+class EventDetailsScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> event;
   const EventDetailsScreen({super.key, required this.event});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    bool isFree = event['price'] == 0;
+  ConsumerState<EventDetailsScreen> createState() => _EventDetailsScreenState();
+}
+
+class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
+  bool _isPurchasing = false;
+
+  @override
+  Widget build(BuildContext context) {
+    bool isFree = widget.event['price'] == 0;
     final currentUser = Supabase.instance.client.auth.currentUser;
+    final event = widget.event;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -30,10 +40,10 @@ class EventDetailsScreen extends ConsumerWidget {
             expandedHeight: 300,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
-              background: Image.network(
+              background: AppImage(
                 (event['cover'] != null && (event['cover'] as String).isNotEmpty)
                     ? event['cover']
-                    : "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&q=80",
+                    : "",
                 fit: BoxFit.cover,
               ),
             ),
@@ -77,6 +87,8 @@ class EventDetailsScreen extends ConsumerWidget {
                       event['description'] ?? "Join us for an incredible experience as we gather to worship, learn, and grow together. This event is designed to bring the community closer to God through inspired messages and powerful fellowship.",
                       style: const TextStyle(fontSize: 16, height: 1.6, color: Colors.black87),
                     ),
+                    const SizedBox(height: 16),
+                    const CarpsoSuggestionCard(contextType: 'event'),
                     const SizedBox(height: 30),
                     // 1. Linked Participating Churches (For interchurch conferences)
                     FutureBuilder<List<Map<String, dynamic>>>(
@@ -120,7 +132,7 @@ class EventDetailsScreen extends ConsumerWidget {
                     FutureBuilder<List<Map<String, dynamic>>>(
                       future: Supabase.instance.client
                           .from('event_resources')
-                          .select('*')
+                          .select('id, title, resource_type, resource_url')
                           .eq('event_id', event['id'])
                           .then((data) => List<Map<String, dynamic>>.from(data))
                           .catchError((_) => <Map<String, dynamic>>[]),
@@ -233,10 +245,12 @@ class EventDetailsScreen extends ConsumerWidget {
             const SizedBox(width: 20),
             Expanded(
               child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: _isPurchasing ? null : () {
                     if (isFree) {
+                      setState(() => _isPurchasing = true);
                       ref.read(eventServiceProvider).registerForEvent(event['id']).then((_) {
                         if (context.mounted) {
+                          setState(() => _isPurchasing = false);
                           PremiumConfirmationSheet.show(
                             context: context,
                             title: "RSVP Successful!",
@@ -247,6 +261,7 @@ class EventDetailsScreen extends ConsumerWidget {
                         }
                       }).catchError((err) {
                         if (context.mounted) {
+                          setState(() => _isPurchasing = false);
                           PremiumToast.showError(context, "RSVP Failed: ${err.toString().replaceAll("Exception: ", "")}");
                         }
                       });
@@ -262,10 +277,13 @@ class EventDetailsScreen extends ConsumerWidget {
                         ? "Event Host Payout"
                         : (tenant?.name ?? "Church On App (Events)");
 
+                    setState(() => _isPurchasing = true);
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
                       backgroundColor: Colors.transparent,
+                      isDismissible: true,
+                      enableDrag: true,
                       builder: (context) => LipilaPaymentGateway(
                         amount: ticketPrice + fee, 
                         description: "Ticket: ${event['title']}",
@@ -277,7 +295,6 @@ class EventDetailsScreen extends ConsumerWidget {
                           Navigator.pop(context);
                           if (success) {
                             try {
-                              // 1. Log transaction
                               await ref.read(financeServiceProvider).logTransaction(
                                 ticketPrice,
                                 'event',
@@ -286,10 +303,10 @@ class EventDetailsScreen extends ConsumerWidget {
                                 recipientPhone: event['organizer_momo_phone'],
                                 recipientName: event['organizer_momo_name'] ?? destinationName,
                               );
-                              // 2. Register for event
                               await ref.read(eventServiceProvider).registerForEvent(event['id']);
 
                               if (context.mounted) {
+                                setState(() => _isPurchasing = false);
                                 PremiumConfirmationSheet.show(
                                   context: context,
                                   title: "Ticket Purchased!",
@@ -300,6 +317,7 @@ class EventDetailsScreen extends ConsumerWidget {
                               }
                             } catch (e) {
                               if (context.mounted) {
+                                setState(() => _isPurchasing = false);
                                 PremiumToast.showWarning(
                                   context,
                                   "Registration Sync Error: ${e.toString().replaceAll("Exception: ", "")}",
@@ -307,10 +325,16 @@ class EventDetailsScreen extends ConsumerWidget {
                                 );
                               }
                             }
+                          } else {
+                            if (context.mounted) setState(() => _isPurchasing = false);
                           }
                         },
                       ),
-                    );
+                    ).whenComplete(() {
+                      if (mounted && _isPurchasing) {
+                        setState(() => _isPurchasing = false);
+                      }
+                    });
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -318,7 +342,9 @@ class EventDetailsScreen extends ConsumerWidget {
                   minimumSize: const Size(double.infinity, 60),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
-                child: Text(isFree ? "RSVP NOW" : "SECURE TICKET", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: _isPurchasing
+                    ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : Text(isFree ? "RSVP NOW" : "SECURE TICKET", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
@@ -373,7 +399,7 @@ class EventDetailsScreen extends ConsumerWidget {
   }
 
   List<Widget> _buildSpecialGuests(BuildContext context) {
-    final raw = event['special_guests'] ?? [];
+    final raw = widget.event['special_guests'] ?? [];
     final guests = raw is List ? raw.cast<Map<String, dynamic>>() : <Map<String, dynamic>>[];
     if (guests.isEmpty) {
       return [
@@ -397,7 +423,7 @@ class EventDetailsScreen extends ConsumerWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "Full Name", border: OutlineInputBorder())),
+            TextField(controller: nameCtrl, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: "Full Name", border: OutlineInputBorder())),
             const SizedBox(height: 12),
             TextField(controller: roleCtrl, decoration: const InputDecoration(labelText: "Role (e.g. Guest Speaker)", border: OutlineInputBorder())),
             const SizedBox(height: 12),
@@ -410,7 +436,7 @@ class EventDetailsScreen extends ConsumerWidget {
             onPressed: () async {
               if (nameCtrl.text.trim().isEmpty) return;
               Navigator.pop(ctx);
-              final guests = List<Map<String, dynamic>>.from(event['special_guests'] ?? []);
+              final guests = List<Map<String, dynamic>>.from(widget.event['special_guests'] ?? []);
               guests.add({
                 'name': nameCtrl.text.trim(),
                 'role': roleCtrl.text.trim().isNotEmpty ? roleCtrl.text.trim() : 'Special Guest',
@@ -419,7 +445,7 @@ class EventDetailsScreen extends ConsumerWidget {
               await Supabase.instance.client
                   .from('events')
                   .update({'special_guests': guests})
-                  .eq('id', event['id']);
+                  .eq('id', widget.event['id']);
               if (context.mounted) {
                 PremiumToast.showSuccess(context, "Special guest added!");
               }

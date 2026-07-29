@@ -11,6 +11,7 @@ import '../../../core/services/supabase_service.dart';
 class NotificationService {
   final SupabaseClient _client;
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+  final Set<String> _shownIds = {};
 
   NotificationService(this._client, this.ref);
   final Ref ref;
@@ -57,12 +58,14 @@ class NotificationService {
           .eq('is_read', false);
       
       for (final n in unread) {
+        final id = n['id'] as String;
+        _shownIds.add(id);
         await _showLocalNotification(
-          n['id'].hashCode,
-          n['title'] ?? 'Kingdom Update',
+          id.hashCode,
+          n['title'] ?? 'Update',
           n['body'] ?? '',
         );
-        await _markAsRead(n['id']);
+        await _markAsRead(id);
       }
     } catch (e) {
       debugPrint('Error fetching catch-up notifications: $e');
@@ -79,17 +82,21 @@ class NotificationService {
         .listen((data) {
           if (data.isNotEmpty) {
             final latest = data.first;
+            final id = latest['id'] as String;
+            // Skip if already shown by the catch-up loop
+            if (_shownIds.contains(id)) return;
             // Only show if not read and fresh (last 1 minute)
             final createdAt = DateTime.parse(latest['created_at']);
             final diff = DateTime.now().difference(createdAt).inMinutes;
-            
+
             if (latest['is_read'] == false && diff <= 1) {
+              _shownIds.add(id);
               _showLocalNotification(
-                latest['id'].hashCode,
-                latest['title'] ?? 'Kingdom Update',
+                id.hashCode,
+                latest['title'] ?? 'Update',
                 latest['body'] ?? '',
               );
-              _markAsRead(latest['id']);
+              _markAsRead(id);
             }
           }
         });
@@ -99,7 +106,7 @@ class NotificationService {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'kingdom_alerts',
-      'Kingdom Alerts',
+      'Alerts',
       channelDescription: 'Real-time church updates via VPS',
       importance: Importance.max,
       priority: Priority.high,

@@ -6,9 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:church_on_app/core/services/payment_reliability_service.dart';
 import 'package:church_on_app/features/give/presentation/widgets/payment_status_overlay.dart';
 import 'package:church_on_app/features/give/presentation/widgets/momo_phone_input_widget.dart';
-import 'package:church_on_app/core/services/payment_reliability_service.dart';
 
 class LipilaPaymentState {
   final PaymentStatus status;
@@ -344,7 +344,7 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
         final reliability = PaymentReliabilityService(client);
         unawaited(reliability.queuePaymentForRetry(
           referenceId: referenceId,
-          amount: 0,
+          amount: 0.0,
           recipientPhone: '',
           method: 'coa_payment',
           metadata: {'type': 'coa_payment_timeout', 'reference': referenceId},

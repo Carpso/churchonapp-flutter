@@ -1,0 +1,441 @@
+name: Church On App - CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - both
+          - apk
+          - aab
+      release:
+        description: 'Create release'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  FLUTTER_VERSION: '3.22.0'
+  JAVA_VERSION: '17'
+  FLUTTER_CHANNEL: 'stable'
+
+jobs:
+  # Linting and static analysis
+  analyze:
+    name: 🔍 Static Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run Flutter analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Check formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Check for unused imports
+        run: |
+          echo "Checking for unused imports..."
+          flutter analyze --no-fatal-infos --no-fatal-warnings lib/ | grep -i "unused_import" || true
+
+  # Unit and widget tests
+  test:
+    name: 🧪 Run Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run unit tests
+        run: flutter test --coverage --exclude-tags=integration
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test-results.xml
+          retention-days: 7
+
+  # Build Android APK
+  build-apk:
+    name: 📱 Build Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [analyze, test]
+    if: github.event.inputs.build_type == 'both' || github.event.inputs.build_type == 'apk' || github.event_name != 'workflow_dispatch'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'gradle'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate build number
+        id: build_number
+        run: |
+          BUILD_NUMBER=$(date +%s)
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "VERSION_NAME=1.0.0" >> $GITHUB_OUTPUT
+
+      - name: Update pubspec version
+        run: |
+          sed -i "s/version: .*/version: ${VERSION_NAME}+${BUILD_NUMBER}/" pubspec.yaml
+          echo "Updated pubspec.yaml to version ${VERSION_NAME}+${BUILD_NUMBER}"
+        env:
+          VERSION_NAME: 1.0.0
+          BUILD_NUMBER: ${{ steps.build_number.outputs.BUILD_NUMBER }}
+
+      - name: Build APK
+        run: |
+          flutter build apk --release \
+            --build-name=1.0.0 \
+            --build-number=${{ steps.build_number.outputs.BUILD_NUMBER }} \
+            --obfuscate --split-debug-info=build/app/outputs/symbols
+
+      - name: Verify APK
+        run: |
+          APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
+          if [ -f "$APK_PATH" ]; then
+            echo "APK found at $APK_PATH"
+            ls -lh "$APK_PATH"
+            echo "APK_SIZE=$(stat -c%s "$APK_PATH")" >> $GITHUB_OUTPUT
+          else
+            echo "APK not found!"
+            exit 1
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+
+      - name: Upload mapping files
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapping-files
+          path: build/app/outputs/symbols/
+          retention-days: 30
+
+  # Build Android App Bundle (AAB)
+  build-aab:
+    name: 📦 Build Android App Bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [analyze, test]
+    if: github.event.inputs.build_type == 'both' || github.event.inputs.build_type == 'aab' || github.event_name != 'workflow_dispatch'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'gradle'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate build number
+        id: build_number
+        run: |
+          BUILD_NUMBER=$(date +%s)
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "VERSION_NAME=1.0.0" >> $GITHUB_OUTPUT
+
+      - name: Update pubspec version
+        run: |
+          sed -i "s/version: .*/version: ${VERSION_NAME}+${BUILD_NUMBER}/" pubspec.yaml
+          echo "Updated pubspec.yaml to version ${VERSION_NAME}+${BUILD_NUMBER}"
+        env:
+          VERSION_NAME: 1.0.0
+          BUILD_NUMBER: ${{ steps.build_number.outputs.BUILD_NUMBER }}
+
+      - name: Build AAB
+        run: |
+          flutter build appbundle --release \
+            --build-name=1.0.0 \
+            --build-number=${{ steps.build_number.outputs.BUILD_NUMBER }} \
+            --obfuscate --split-debug-info=build/app/outputs/symbols
+
+      - name: Verify AAB
+        run: |
+          AAB_PATH="build/app/outputs/bundle/release/app-release.aab"
+          if [ -f "$AAB_PATH" ]; then
+            echo "AAB found at $AAB_PATH"
+            ls -lh "$AAB_PATH"
+            echo "AAB_SIZE=$(stat -c%s "$AAB_PATH")" >> $GITHUB_OUTPUT
+          else
+            echo "AAB not found!"
+            exit 1
+          fi
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aab-release
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      - name: Upload mapping files
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapping-files
+          path: build/app/outputs/symbols/
+          retention-days: 30
+
+  # Build iOS (macOS runner required)
+  build-ios:
+    name: 🍎 Build iOS
+    runs-on: macos-latest
+    timeout-minutes: 60
+    needs: [analyze, test]
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.build_type != 'apk'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate build number
+        id: build_number
+        run: |
+          BUILD_NUMBER=$(date +%s)
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+
+      - name: Update pubspec version
+        run: |
+          sed -i '' "s/version: .*/version: 1.0.0+${BUILD_NUMBER}/" pubspec.yaml
+        env:
+          BUILD_NUMBER: ${{ steps.build_number.outputs.BUILD_NUMBER }}
+
+      - name: Build iOS
+        run: |
+          flutter build ios --release \
+            --build-name=1.0.0 \
+            --build-number=${{ steps.build_number.outputs.BUILD_NUMBER }}
+
+      - name: Upload iOS build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build
+          path: build/ios/iphoneos/Runner.app
+          retention-days: 7
+
+  # Deploy to Play Store (internal testing)
+  deploy-play-store:
+    name: 🚀 Deploy to Play Store (Internal)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [build-aab]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download AAB
+        uses: actions/download-artifact@v4
+        with:
+          name: aab-release
+          path: ./build
+
+      - name: Setup Google Play credentials
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+
+      - name: Upload to Play Store (Internal Testing)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+          packageName: com.churchonapp.app
+          releaseFiles: build/app-release.aab
+          track: internal
+          status: completed
+          inAppUpdatePriority: 2
+
+      - name: Comment on PR/Commit
+        if: success()
+        run: |
+          echo "✅ Successfully deployed to Play Store Internal Testing track"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Create GitHub Release
+  create-release:
+    name: 🏷️ Create GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build-apk, build-aab]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: apk-release
+          path: ./apk
+
+      - name: Download AAB
+        uses: actions/download-artifact@v4
+        with:
+          name: aab-release
+          path: ./aab
+
+      - name: Download mapping files
+        uses: actions/download-artifact@v4
+        with:
+          name: mapping-files
+          path: ./mapping
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## Church On App Release ${{ github.ref_name }}
+
+            ### 📱 Android Builds
+            - **APK**: Ready for direct installation and testing
+            - **AAB**: Optimized for Google Play Store distribution
+
+            ### 📦 What's New
+            - Enhanced Bible reading experience
+            - New quiz features and competitions
+            - Improved radio streaming
+            - Bug fixes and performance improvements
+
+            ### 📱 Installation
+            1. Download the APK file
+            2. Enable "Install from unknown sources" in Android settings
+            3. Install and enjoy!
+
+          draft: false
+          prerelease: false
+          files: |
+            apk/app-release.apk
+            aab/app-release.aab
+
+  # Notify on failure
+  notify-failure:
+    name: 🔔 Notify on Failure
+    runs-on: ubuntu-latest
+    if: failure()
+    needs: [analyze, test, build-apk, build-aab]
+    steps:
+      - name: Send failure notification
+        run: |
+          echo "❌ Build failed! Check the Actions tab for details."
+          echo "Workflow: ${{ github.workflow }}"
+          echo "Run: ${{ github.run_id }}"
+          echo "Commit: ${{ github.sha }}"
+
+      - name: Create issue on failure
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 CI/CD Pipeline Failed - ${{ github.workflow }}',
+              body: `The CI/CD pipeline failed on the main branch.\n\n**Workflow:** ${{ github.workflow }}\n**Run:** [#${{ github.run_id }}](${github.server_url}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n**Commit:** ${{ github.sha }}\n\nPlease check the Actions tab for details.`,
+              labels: ['bug', 'ci-cd', 'urgent']
+            })
+
+  # Success notification
+  notify-success:
+    name: ✅ Notify on Success
+    runs-on: ubuntu-latest
+    if: success()
+    needs: [analyze, test, build-apk, build-aab]
+    steps:
+      - name: Send success notification
+        run: |
+          echo "✅ All checks passed!"
+          echo "Build artifacts are ready for deployment."
