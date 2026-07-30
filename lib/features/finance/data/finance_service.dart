@@ -80,8 +80,8 @@ class FinanceService {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
-    final cutPercent = category == 'event' ? 0.10 : 0.05;
-    final platformFee = amount * cutPercent > 5.0 ? amount * cutPercent : 5.0;
+    const cutPercent = 0.01;
+    final platformFee = amount * cutPercent > 3.0 ? amount * cutPercent : 3.0;
 
     // Dynamic fallback for Church Giving/Offerings if recipientPhone is null
     String? finalPhone = recipientPhone;

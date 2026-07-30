@@ -129,6 +129,7 @@ class ChurchOnApp extends ConsumerStatefulWidget {
 }
 
 class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingObserver {
+  bool _isInitialized = false;
 
   @override
   void initState() {
@@ -153,6 +154,9 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
   }
 
   void _initDeepLinks() {
+    if (_isInitialized) return;
+    _isInitialized = true;
+
     final appLinks = AppLinks();
 
     appLinks.getInitialLink().then((uri) {
@@ -170,7 +174,29 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
 
   void _handleDeepLink(Uri uri) {
     final router = ref.read(routerProvider);
-    if (uri.scheme == 'churchonapp' || uri.host == 'churchonapp.com' || uri.host == 'www.churchonapp.com') {
+
+    // Handle Firebase Dynamic Links — extract inner link
+    if (uri.host == 'churchonapp.page.link' || uri.host == 'churchonapp.app.link') {
+      final inner = uri.queryParameters['link'];
+      if (inner != null && inner.isNotEmpty) {
+        uri = Uri.parse(inner);
+      } else {
+        return;
+      }
+    }
+
+    // Handle Supabase OAuth redirect (Google Sign-In)
+    if (uri.scheme == 'io.supabase.churchonapp') {
+      // Supabase handles the OAuth callback automatically
+      // Just navigate to home after successful auth
+      router.go('/');
+      return;
+    }
+
+    if (uri.scheme == 'churchonapp' ||
+        uri.host == 'churchonapp.com' ||
+        uri.host == 'www.churchonapp.com' ||
+        uri.host == 'app.churchonapp.com') {
       final path = uri.path.isEmpty ? '/' : uri.path;
       if (uri.queryParameters.isNotEmpty) {
         final queryString = uri.query;
@@ -182,6 +208,9 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
   }
 
   Future<void> _initNotifications() async {
+    if (_isInitialized) return;
+    _isInitialized = true;
+
     final container = ProviderScope.containerOf(context, listen: false);
     final notifService = container.read(notificationServiceProvider);
     await notifService.init();

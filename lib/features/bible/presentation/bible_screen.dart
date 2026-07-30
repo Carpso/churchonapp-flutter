@@ -36,6 +36,8 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
   int? selectedVerse;
   String selectedTranslation = "web";
   List<BibleBook> _allBooks = [];
+  final ScrollController _verseScrollController = ScrollController();
+  bool _hasScrolledToVerse = false;
 
   @override
   void initState() {
@@ -44,6 +46,12 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
       ref.read(audioBibleServiceProvider).initialize();
       _loadBooks();
     });
+  }
+
+  @override
+  void dispose() {
+    _verseScrollController.dispose();
+    super.dispose();
   }
 
   void _loadBooks() async {
@@ -58,6 +66,20 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
         }
       });
     }
+  }
+
+  void _scrollToVerse(int verse) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_verseScrollController.hasClients) return;
+      const double estimatedItemHeight = 60.0;
+      final double offset = (verse - 1) * estimatedItemHeight;
+      final double maxScroll = _verseScrollController.position.maxScrollExtent;
+      _verseScrollController.animateTo(
+        offset.clamp(0, maxScroll),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    });
   }
 
   bool isStudyPaneOpen = false;
@@ -153,6 +175,10 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
             ),
           );
         }
+        if (widget.initialVerse != null && !_hasScrolledToVerse) {
+          _hasScrolledToVerse = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToVerse(widget.initialVerse!));
+        }
         return Column(
           children: [
             // Chapter navigator
@@ -179,6 +205,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
             ),
             Expanded(
               child: ListView.builder(
+                controller: _verseScrollController,
                 padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
                 itemCount: verses.length,
                 itemBuilder: (context, index) {

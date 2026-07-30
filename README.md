@@ -2,7 +2,7 @@
 
 A comprehensive church management and community platform built with Flutter, connecting congregations through digital giving, marketplace, media, events, and more.
 
-**v1.0.0+40 | Flutter 3.35.1 | Dart 3.x | 0 errors, 0 warnings**
+**v1.0.0+232 | Flutter 3.35.1 | Dart 3.x | 0 errors, 0 warnings**
 
 ## Features
 
@@ -38,12 +38,13 @@ A comprehensive church management and community platform built with Flutter, con
 
 | Metric | Status |
 |--------|--------|
-| `flutter analyze` | **0 errors, 0 warnings** (33 info-level tips) |
+| `flutter analyze` | **0 errors, 0 warnings, 0 info** |
 | Catch blocks | All non-empty, with `debugPrint` logging |
 | Async state | `.when()` pattern used consistently across screens |
 | Error handling | Global `ErrorWidget.builder` boundary configured |
 | API keys | Removed from source code; loaded from `.env` file |
 | Demo credentials | Removed from production auth flow |
+| R8 optimization | 5-pass proguard + full mode, log stripping, ABI splits |
 
 ## Project Structure
 
@@ -97,9 +98,9 @@ flutter pub get
 # Run on device
 flutter run
 
-# Build release
-flutter build apk --release
-flutter build appbundle --release
+# Build release (auto-increments build number)
+.\build_release.ps1           # AAB for Play Store
+.\build_release.ps1 -Type apk # APK for direct install
 ```
 
 ### Environment Variables
@@ -125,7 +126,8 @@ Configured via `.env` file (see `.env.example`):
 
 | Platform | Command | Size |
 |----------|---------|------|
-| Android | `flutter build appbundle --release` | ~110 MB |
+| Android (AAB) | `.\build_release.ps1` | ~117 MB |
+| Android (APK) | `.\build_release.ps1 -Type apk` | ~200 MB universal / ~80 MB per-ABI |
 | iOS | `flutter build ios --release` | Requires Apple developer account |
 | Web | `flutter build web` | Hosted via Cloudflare Pages |
 

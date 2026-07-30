@@ -18,13 +18,33 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
   bool _isSubmitting = false;
 
   Future<void> _pickDocument() async {
-    final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (file != null) setState(() => _idFilePath = file.path);
+    try {
+      final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      if (file != null && mounted) {
+        setState(() => _idFilePath = file.path);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error picking document: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Future<void> _takeSelfie() async {
-    final file = await _picker.pickImage(source: ImageSource.camera, imageQuality: 80);
-    if (file != null) setState(() => _selfiePath = file.path);
+    try {
+      final file = await _picker.pickImage(source: ImageSource.camera, imageQuality: 80);
+      if (file != null && mounted) {
+        setState(() => _selfiePath = file.path);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error taking selfie: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Future<void> _submit() async {

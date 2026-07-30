@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../../core/providers/profile_provider.dart';
+import '../../../../core/services/tenant_service.dart';
 import '../../../../core/widgets/premium_toast.dart';
 import '../../../finance/presentation/lipila_payment_gateway.dart';
 import '../data/bible_quiz_service.dart';
@@ -52,8 +53,9 @@ class _ChurchCompetitionScreenState extends ConsumerState<ChurchCompetitionScree
     setState(() => _isCreating = true);
 
     final profile = ref.read(profileProvider).value;
-    final tenantId = profile?.tenantId;
-    if (tenantId == null) {
+    final activeTenant = ref.read(currentTenantProvider);
+    final tenantId = profile?.tenantId ?? activeTenant?.id;
+    if (tenantId == null || activeTenant == null) {
       PremiumToast.showError(context, "You must belong to a church to host competitions");
       setState(() => _isCreating = false);
       return;

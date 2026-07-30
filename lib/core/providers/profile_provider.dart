@@ -78,6 +78,8 @@ class UserProfile {
 
   bool get isSuperadmin => role == 'superadmin';
   bool get isEmployee => role == 'employee' || role == 'superadmin';
+  bool get isTenantAdmin =>
+      role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle';
   bool get isAdminOrHigher =>
       role == 'admin' ||
       role == 'pastor' ||

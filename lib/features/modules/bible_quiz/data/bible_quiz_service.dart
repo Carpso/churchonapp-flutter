@@ -134,7 +134,10 @@ class BibleQuizService {
       });
 
       if (res is List && res.isNotEmpty) {
-        return res.map((e) => QuizQuestion.fromMap(e as Map<String, dynamic>)).toList();
+        final questions = res.map((e) => QuizQuestion.fromMap(e as Map<String, dynamic>)).toList();
+        if (questions.length >= count) return questions.take(count).toList();
+        _triggerAutoGenerateIfNeeded(category: category, difficulty: difficulty);
+        return questions;
       }
     } catch (e) {
       debugPrint("Error fetching unseen questions: $e");
@@ -142,13 +145,15 @@ class BibleQuizService {
 
     // If unseen pool exhausted, try random (still fresh for this context)
     final randomResult = await getRandomQuestions(count, category: category, difficulty: difficulty);
+    if (randomResult.length >= count) return randomResult.take(count).toList();
 
-    // If random also returns very few, trigger auto-generation in background
+    // If random returns too few, trigger auto-generation in background
     if (randomResult.length < count) {
       _triggerAutoGenerateIfNeeded(category: category, difficulty: difficulty);
     }
 
-    return randomResult;
+    // Immediate fallback to seed bank — never leave user stranded
+    return getFallbackQuestions(count, category: category, difficulty: difficulty);
   }
 
   /// Triggers question auto-generation in the background (fire-and-forget).
@@ -231,7 +236,7 @@ class BibleQuizService {
     } catch (e) {
       debugPrint("Error fetching questions: $e");
     }
-    return _getFallbackQuestions(count, category: category, difficulty: difficulty);
+    return getFallbackQuestions(count, category: category, difficulty: difficulty);
   }
 
   /// Returns the total number of questions in the bank.
@@ -272,7 +277,7 @@ class BibleQuizService {
     }
   }
 
-  List<QuizQuestion> _getFallbackQuestions(
+  List<QuizQuestion> getFallbackQuestions(
     int count, {
     String? category,
     String? difficulty,

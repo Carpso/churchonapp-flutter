@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -52,8 +53,8 @@ class BibleService {
       }
       return [];
     } catch (e) {
-      debugPrint('Bible Error: $e — trying cache');
-      // On any error, try cache one more time (might have been populated)
+      debugPrint('Bible Error: $e — trying cache then offline asset');
+      // Try cache one more time
       try {
         final prefs2 = await SharedPreferences.getInstance();
         final cachedData = prefs2.getString(cacheKey);
@@ -61,8 +62,19 @@ class BibleService {
           final List versesJson = json.decode(cachedData);
           return versesJson.map((v) => BibleVerse.fromJson(v)).toList();
         }
-      } catch (e) {
-        debugPrint('Failed to read cached bible verses: $e');
+      } catch (_) {}
+      // Fallback to offline asset
+      try {
+        final jsonString = await rootBundle.loadString('assets/offline_bible_data.json');
+        final Map<String, dynamic> allData = json.decode(jsonString);
+        final Map<String, dynamic>? translationData = allData[translation] as Map<String, dynamic>?;
+        final Map<String, dynamic>? bookData = translationData?[book] as Map<String, dynamic>?;
+        final List<dynamic>? chapterData = bookData?[chapter.toString()] as List<dynamic>?;
+        if (chapterData != null) {
+          return chapterData.map((v) => BibleVerse.fromJson(v as Map<String, dynamic>)).toList();
+        }
+      } catch (e2) {
+        debugPrint('Offline Bible fallback failed: $e2');
       }
       return [];
     }

@@ -2,13 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'member_management_screen.dart';
 import 'baptism_registry_screen.dart';
-import 'finance_dashboard_screen.dart';
 import 'media_upload_screen.dart';
 import 'package:church_on_app/features/modules/live_streaming/presentation/live_stream_studio_screen.dart';
 import 'global_broadcast_screen.dart';
-import 'superadmin_dashboard.dart';
-import 'bishop_dashboard_screen.dart';
-import 'pastor_dashboard_screen.dart';
 import 'bookshop_dashboard_screen.dart';
 import 'writer_dashboard_screen.dart';
 import 'driver_dashboard_screen.dart';
@@ -17,31 +13,16 @@ import 'event_scheduler_screen.dart';
 import 'live_viewer_heatmap_screen.dart';
 import 'logistics_dashboard_screen.dart';
 import 'prophetic_heatmap_screen.dart';
-import 'withdrawal_approval_screen.dart';
-import 'driver_simulation_hub_screen.dart';
-import 'ai_stewardship_report_screen.dart';
-import 'prophetic_navigation_screen.dart';
-import 'apostolic_resource_planning_screen.dart';
-import 'global_payout_command_screen.dart';
-import 'kingdom_ai_moderator_screen.dart';
-import 'zambian_payroll_screen.dart';
 import 'flyer_studio_screen.dart';
 import 'ministry_management_screen.dart';
-import '../../finance/presentation/multi_currency_wallet_screen.dart';
-import 'package:church_on_app/features/finance/data/tithe_automation_service.dart';
-import '../../modules/media/presentation/radio_screen.dart';
-import 'onboarding_manager_screen.dart';
-import '../../modules/games/presentation/game_management_screen.dart';
 
-import 'package:church_on_app/features/admin/data/admin_service.dart';
-import 'package:church_on_app/features/auth/presentation/church_onboarding_screen.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/features/admin/presentation/widgets/admin_navigation_registry.dart';
-import 'package:church_on_app/core/widgets/entity_selector.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/stats_provider.dart';
 import '../../../core/providers/profile_provider.dart';
+import '../../../core/services/tenant_service.dart';
 
 class AdminHubScreen extends ConsumerWidget {
   const AdminHubScreen({super.key});
@@ -50,13 +31,14 @@ class AdminHubScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(adminStatsProvider);
     final profileAsync = ref.watch(profileProvider);
+    final tenant = ref.watch(currentTenantProvider);
 
     return profileAsync.when(
       data: (profile) {
-        if (profile == null || !profile.isAdminOrHigher && !profile.isEmployee) {
+        if (profile == null || !profile.isTenantAdmin) {
           return const SizedBox.shrink();
         }
-        return _buildScreen(context, ref, statsAsync, profile);
+        return _buildScreen(context, ref, statsAsync, profile, tenant);
       },
       loading: () => Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -67,15 +49,21 @@ class AdminHubScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildScreen(BuildContext context, WidgetRef ref, AsyncValue<AdminStats> statsAsync, UserProfile profile) {
-    final isSuperOrEmployee = profile.isSuperadmin || profile.isEmployee;
+  Widget _buildScreen(BuildContext context, WidgetRef ref, AsyncValue<AdminStats> statsAsync, UserProfile profile, Tenant? tenant) {
     final role = profile.role;
+    final churchName = tenant?.name ?? 'Church';
 
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: Text("Admin Hub", style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Admin Hub", style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 20)),
+            Text("ADMIN - $churchName", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: theme.colorScheme.primary, letterSpacing: 0.8)),
+          ],
+        ),
         backgroundColor: theme.colorScheme.surface,
         elevation: 0,
         foregroundColor: theme.colorScheme.onSurface,
@@ -101,77 +89,8 @@ class AdminHubScreen extends ConsumerWidget {
             const SizedBox(height: 40),
             Text("Management Console", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
             const SizedBox(height: 20),
-            if (isSuperOrEmployee) // SuperAdmin console for Admins/Employees only
-              _buildAdminTile(
-                context,
-                LucideIcons.shieldAlert,
-                "SuperAdmin Console",
-                "Global settings, Tenants & Platform access",
-                Colors.black87,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SuperAdminDashboard())),
-              ),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.home,
-                "Congregation Management",
-                "Onboard and audit Church branches",
-                Colors.indigo,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ChurchOnboardingScreen())),
-              ),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.userPlus,
-                "Entity Onboarding",
-                "Pre-register drivers, riders, staff & organizers",
-                Colors.teal,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const OnboardingManagerScreen())),
-              ),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.arrowLeftRight,
-                "Quick Entity Switch",
-                "Switch between churches, bookshops & entities",
-                Colors.amber,
-                () {
-                  showEntitySelector(
-                    context: context,
-                    title: "Select Entity",
-                    options: [
-                      EntityOption(id: 'church', name: 'Local Church', subtitle: 'Congregation management', icon: LucideIcons.church),
-                      EntityOption(id: 'bookshop', name: 'Bookshop', subtitle: 'Inventory & sales', icon: LucideIcons.bookOpen),
-                      EntityOption(id: 'school', name: 'Bible School', subtitle: 'Course & student management', icon: LucideIcons.graduationCap),
-                    ],
-                    onSelected: (option) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Switched to ${option.name}')),
-                      );
-                    },
-                  );
-                },
-              ),
-            if (isSuperOrEmployee || role == 'bishop' || role == 'apostle')
-              _buildAdminTile(
-                context,
-                LucideIcons.crown,
-                "Leadership Dashboard",
-                "Multi-branch oversight, tithes, attendance & missions",
-                Colors.purple,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BishopDashboardScreen())),
-              ),
-            if (isSuperOrEmployee || role == 'pastor' || role == 'admin')
-              _buildAdminTile(
-                context,
-                LucideIcons.layoutDashboard,
-                "Pastor Dashboard",
-                "Members, sermons, attendance & giving stats",
-                Colors.teal,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PastorDashboardScreen())),
-              ),
-            Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
-            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            // Tenant-scoped features only - no SuperAdmin/Employee features
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.users,
@@ -180,7 +99,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.blue,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MemberManagementScreen())),
               ),
-            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.award,
@@ -189,7 +108,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.indigo,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BaptismRegistryScreen())),
               ),
-            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.church,
@@ -198,7 +117,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.amber,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MinistryManagementScreen())),
               ),
-            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'bookshop_owner' || role == 'vendor' || role == 'merchant')
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'bookshop_owner' || role == 'vendor' || role == 'merchant')
               _buildAdminTile(
                 context,
                 LucideIcons.bookOpen,
@@ -207,7 +126,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.orange,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BookshopDashboardScreen())),
               ),
-            if (isSuperOrEmployee || role == 'admin' || role == 'writer' || role == 'author')
+            if (role == 'admin' || role == 'writer' || role == 'author')
               _buildAdminTile(
                 context,
                 LucideIcons.feather,
@@ -216,7 +135,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.amber,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const WriterDashboardScreen())),
               ),
-            if (isSuperOrEmployee || role == 'driver')
+            if (role == 'driver')
               _buildAdminTile(
                 context,
                 LucideIcons.truck,
@@ -225,7 +144,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.blue,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DriverDashboardScreen())),
               ),
-            if (isSuperOrEmployee || role == 'rider')
+            if (role == 'rider')
               _buildAdminTile(
                 context,
                 LucideIcons.map,
@@ -234,25 +153,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.teal,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RiderDashboardScreen())),
               ),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.barChart3,
-                "Financial Oversight",
-                "Annual stewardship, tithes & marketplace analytics",
-                Colors.green,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FinanceDashboardScreen())),
-              ),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.fileSpreadsheet,
-                "Zambian Statutory Payroll",
-                "Calculate NHIMA, NAPSA, & PAYE deductions",
-                Colors.blueGrey,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ZambianPayrollScreen())),
-              ),
-            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.video,
@@ -261,7 +162,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.red,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LiveStreamStudioScreen())),
               ),
-            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.uploadCloud,
@@ -270,7 +171,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.orange,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MediaUploadScreen())),
               ),
-            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.paintbrush,
@@ -279,7 +180,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.amber,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FlyerStudioScreen())),
               ),
-            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.megaphone,
@@ -288,7 +189,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.purple,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const GlobalBroadcastScreen())),
               ),
-            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.calendarDays,
@@ -297,7 +198,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.red,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EventSchedulerScreen())),
               ),
-            if (isSuperOrEmployee || role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.map,
@@ -309,7 +210,7 @@ class AdminHubScreen extends ConsumerWidget {
             Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
             ...AdminNavigationRegistry.buildAccessibleTiles(
               context,
-              isSuperadmin: isSuperOrEmployee,
+              isSuperadmin: false,
               isPastor: role == 'pastor',
               isBishop: role == 'bishop',
               isTreasurer: role == 'treasurer',
@@ -317,224 +218,29 @@ class AdminHubScreen extends ConsumerWidget {
             Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
             Text("Logistics & Finance", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
             const SizedBox(height: 20),
-            _buildAdminTile(
-              context,
-              LucideIcons.truck,
-              "Logistics Command",
-              "Monitor real-time rides, cargo & couriers",
-              Colors.amber,
-              () {
-                if (isSuperOrEmployee) {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const LogisticsDashboardScreen()));
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Access restricted to SuperAdmin & Employees.")));
-                }
-              },
-            ),
-            _buildAdminTile(
-              context,
-              LucideIcons.map,
-              "Prophetic Heatmap",
-              "Strategic expansion and mission planning",
-              Colors.redAccent,
-              () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PropheticHeatmapScreen())),
-            ),
-            if (isSuperOrEmployee)
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'treasurer')
               _buildAdminTile(
                 context,
-                LucideIcons.creditCard,
-                "Payout Settlement Queue",
-                "Approve and process Mobile Money payouts",
-                Colors.blueGrey,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const WithdrawalApprovalScreen())),
+                LucideIcons.truck,
+                "Logistics Command",
+                "Monitor real-time rides, cargo & couriers",
+                Colors.amber,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LogisticsDashboardScreen())),
               ),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.satellite,
-                "GPS Driver Simulator",
-                "Test live tracking & logistics matching",
-                Colors.orangeAccent,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DriverSimulationHubScreen())),
-              ),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.bellRing,
-                "Trigger Tithe Reminders",
-                "Automated spiritual stewardship alerts",
-                Colors.pinkAccent,
-                () async {
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text("Trigger Global Reminders?"),
-                      content: const Text("This will send SMS reminders to all members who have not yet tithed this month."),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("CANCEL")),
-                        ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text("PROCEED")),
-                      ],
-                    ),
-                  );
-                  if (confirmed == true) {
-                    await ref.read(titheAutomationServiceProvider).sendMonthlyReminders();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Stewardship Reminders Initiated!")));
-                    }
-                  }
-                },
-              ),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.zap,
-                "Execute Multi-Payout",
-                "Automated worker & employee settlement",
-                Colors.deepPurpleAccent,
-                () async {
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text("Run Payout Engine?"),
-                      content: const Text("This will automatically approve and settle all pending payouts for authorized workers and employees."),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("CANCEL")),
-                        ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text("EXECUTE")),
-                      ],
-                    ),
-                  );
-                  if (confirmed == true) {
-                    final count = await ref.read(adminServiceProvider).automateWorkerPayouts();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Successfully processed $count settlements!")));
-                    }
-                  }
-                },
-              ),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.radio,
-                "Radio Global Command",
-                "Oversee broadcasts & metadata",
-                Colors.redAccent,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RadioScreen())),
-              ),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.brainCircuit,
-                "Apostolic AI Report",
-                "Prophetic financial stewardship analysis",
-                Colors.blueAccent,
-                () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const AIStewardshipReportScreen()));
-                },
-              ),
-            if (isSuperOrEmployee)
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.map,
-                "Prophetic Navigation",
-                "AI-Powered logistics route optimization",
-                Colors.teal,
-                () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const PropheticNavigationScreen()));
-                },
-              ),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.globe,
-                "International Multi-Wallet",
-                "Global stewardship hub (ZMW & CC)",
-                Colors.green,
-                () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const MultiCurrencyWalletScreen()));
-                },
-              ),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.layoutGrid,
-                "Apostolic Planning",
-                "AI material resource allocation hubs",
-                Colors.indigo,
-                () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ApostolicResourcePlanningScreen()));
-                },
-              ),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.send,
-                "Global Payout Command",
-                "Execute Lipila settlements (MTN/Airtel)",
-                Colors.greenAccent,
-                () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const GlobalPayoutCommandScreen()));
-                },
-              ),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.shieldCheck,
-                "AI Moderator",
-                "AI Gatekeeper for social testimonies",
-                Colors.blue,
-                () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const KingdomAIModeratorScreen()));
-                },
-              ),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.checkSquare,
-                "Verify Driver Payouts",
-                "Global logistics settlement verification",
-                Colors.orangeAccent,
-                () => _showDriverVerificationDialog(context, ref),
-              ),
-            Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
-            Text("Games & Entertainment", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
-            const SizedBox(height: 20),
-            if (isSuperOrEmployee)
-              _buildAdminTile(
-                context,
-                LucideIcons.gamepad2,
-                "Games Management",
-                "Control all games, host premium quizzes & events",
-                Colors.amberAccent,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const GameManagementScreen())),
+                "Prophetic Heatmap",
+                "Strategic expansion and mission planning",
+                Colors.redAccent,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PropheticHeatmapScreen())),
               ),
           ],
         ),
       ),
     );
-  }
-
-  void _showDriverVerificationDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Driver Verification"),
-        content: const Text("Initiate global settlement check for all active logistics workers?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
-          ElevatedButton(
-            onPressed: () async {
-              await ref.read(adminServiceProvider).triggerGlobalWorkerPayouts();
-              if (context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Global Driver Payout Settlement verified on Prophetic ledger.")));
-              }
-            },
-            child: const Text("VERIFY ALL"),
-          ),
-        ],
-      ),
-    );
-  }
+}
 
   Widget _buildStatGrid(BuildContext ctx, AdminStats stats) {
     final theme = Theme.of(ctx);

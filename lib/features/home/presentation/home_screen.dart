@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/services/notification_service.dart';
-import 'package:church_on_app/core/services/prediction_service.dart';
 import 'package:church_on_app/core/services/recommendation_engine_service.dart';
 import 'package:church_on_app/core/services/app_update_service.dart';
 import 'package:church_on_app/core/services/birthday_service.dart';
@@ -172,6 +171,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final tenant = ref.watch(currentTenantProvider);
     final isExpired = tenant != null && tenant.isSubscriptionExpired;
 
+    final bottomInset = MediaQuery.of(context).padding.bottom + kBottomNavigationBarHeight;
+
     return Scaffold(
       body: SafeArea(
         top: true,
@@ -204,8 +205,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             const CarpsoSuggestionCard(contextType: 'home'),
                             const SizedBox(height: 20),
                             const OnboardingQuickStart(),
-                            const SizedBox(height: 20),
-                            const SpiritualPredictorCard(),
                             const SizedBox(height: 20),
                             const RecommendationCarouselWidget(),
                             const SizedBox(height: 20),
@@ -242,7 +241,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                             ),
                             const HomeNews(),
-                            const SizedBox(height: 100),
+                            SizedBox(height: 80 + bottomInset),
                           ]),
                         ),
                 ),

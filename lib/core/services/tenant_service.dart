@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'plan_service.dart';
 
 class Tenant {
   final String id;
   final String slug;
   final String name;
-  final String type; // 'church' | 'bookshop'
+  final String type;
   final String? shortName;
   final String? logoUrl;
   final Color primaryColor;
@@ -22,6 +23,9 @@ class Tenant {
   final DateTime? subscriptionEndsAt;
   final String? paymentReference;
   final DateTime? paymentSubmittedAt;
+  final TenantPlan plan;
+  final bool onboardingFeePaid;
+  final DateTime? promotionPlatinumUntil;
 
   Tenant({
     required this.id,
@@ -42,6 +46,9 @@ class Tenant {
     this.subscriptionEndsAt,
     this.paymentReference,
     this.paymentSubmittedAt,
+    this.plan = TenantPlan.silver,
+    this.onboardingFeePaid = false,
+    this.promotionPlatinumUntil,
   });
 
   bool get isChurch => type == 'church';
@@ -57,6 +64,17 @@ class Tenant {
         return ThemeMode.light;
     }
   }
+
+  /// The effective plan — if promotion platinum is active, returns platinum.
+  TenantPlan get effectivePlan {
+    if (promotionPlatinumUntil != null &&
+        DateTime.now().isBefore(promotionPlatinumUntil!)) {
+      return TenantPlan.platinum;
+    }
+    return plan;
+  }
+
+  PlanLimits get limits => PlanLimits.forPlan(effectivePlan);
 
   factory Tenant.fromMap(Map<String, dynamic> map) {
     final rawId = (map['id'] ?? map['slug'] ?? '').toString().trim();
@@ -98,18 +116,29 @@ class Tenant {
               : null),
       paymentReference: map['payment_reference']?.toString(),
       paymentSubmittedAt: _parseDateTime(map['payment_submitted_at']),
+      plan: PlanLimits.fromString(map['plan']?.toString()),
+      onboardingFeePaid: map['onboarding_fee_paid'] == true,
+      promotionPlatinumUntil:
+          _parseDateTime(map['promotion_platinum_until']),
     );
   }
 
   String? get announcement => settings?['announcement']?.toString();
 
+  /// Trial period starts when church is created (30 days).
+  bool get isInTrialPeriod {
+    if (subscriptionEndsAt == null) return false;
+    return DateTime.now().isBefore(subscriptionEndsAt!);
+  }
+
+  /// Subscription is expired only AFTER trial + any paid period.
   bool get isSubscriptionExpired {
     if (subscriptionEndsAt == null) return false;
     return DateTime.now().isAfter(subscriptionEndsAt!);
   }
 
   bool isFeatureEnabled(String featureKey) {
-    if (settings == null) return true; // Default enabled
+    if (settings == null) return true;
     return (settings?[featureKey] as bool?) ?? true;
   }
 
@@ -186,7 +215,7 @@ class TenantService {
       final data = await _client
           .from('churches')
           .select(
-            'id, slug, name, short_name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at',
+            'id, slug, name, short_name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
           )
           .eq('slug', slug.toLowerCase())
           .maybeSingle();
@@ -224,7 +253,7 @@ class TenantService {
           final churchData = await _client
               .from('churches')
               .select(
-                'id, slug, name, short_name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at',
+                'id, slug, name, short_name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
               )
               .eq('id', id)
               .maybeSingle();
@@ -241,7 +270,7 @@ class TenantService {
       final data = await _client
           .from('churches')
           .select(
-            'id, slug, name, short_name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at',
+            'id, slug, name, short_name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
           )
           .eq('id', id)
           .maybeSingle();
@@ -331,7 +360,7 @@ class TenantService {
       final data = await _client
           .from('churches')
           .select(
-            'id, slug, name, short_name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at',
+            'id, slug, name, short_name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
           )
           .not('latitude', 'is', null);
 

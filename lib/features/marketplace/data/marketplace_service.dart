@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 export 'cart_provider.dart';
 
 class MarketProduct {
@@ -50,8 +51,12 @@ class MarketplaceService {
   final SupabaseClient _client;
   MarketplaceService(this._client);
 
-  Future<List<MarketProduct>> fetchProducts({String? category, String? marketType}) async {
+  Future<List<MarketProduct>> fetchProducts({String? category, String? marketType, String? tenantId}) async {
     var query = _client.from('marketplace_items').select('id, name, price, category, image, description, vendor_name, vendor_id, condition, market_type, is_curated').eq('status', 'active');
+    
+    if (tenantId != null) {
+      query = query.eq('tenant_id', tenantId);
+    }
     
     if (category != null && category != 'all') {
       query = query.eq('category', category);
@@ -77,9 +82,11 @@ class MarketplaceService {
 final marketplaceServiceProvider = Provider((ref) => MarketplaceService(Supabase.instance.client));
 
 final productsProvider = FutureProvider.family<List<MarketProduct>, Map<String, String?>>((ref, filters) async {
+  final tenant = ref.watch(currentTenantProvider);
   return ref.watch(marketplaceServiceProvider).fetchProducts(
     category: filters['category'],
     marketType: filters['marketType'],
+    tenantId: tenant?.id,
   );
 });
 

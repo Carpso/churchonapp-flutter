@@ -64,7 +64,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
   }
 
   double get _amount => double.tryParse(_amountController.text) ?? 0.0;
-  double get _fee => _amount * 0.05 > 3.00 ? _amount * 0.05 : 3.00;
+  double get _fee => _amount * 0.01 > 3.00 ? _amount * 0.01 : 3.00;
 
   @override
   Widget build(BuildContext context) {

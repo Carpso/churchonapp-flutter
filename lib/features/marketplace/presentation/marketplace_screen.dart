@@ -9,6 +9,7 @@ import 'post_product_screen.dart';
 import '../../../core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/features/navigation/presentation/carpso_suggestion_card.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 
 class MarketplaceScreen extends ConsumerStatefulWidget {
   final String? initialCategory;
@@ -21,6 +22,11 @@ class MarketplaceScreen extends ConsumerStatefulWidget {
 class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   late String _selectedCategory;
   String _activeTab = "shop";
+
+  bool _showCarpsoCard() {
+    final day = DateTime.now().weekday;
+    return day == DateTime.sunday || day == DateTime.wednesday || day == DateTime.friday;
+  }
 
   @override
   void initState() {
@@ -37,9 +43,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tenant = ref.watch(currentTenantProvider);
     final filters = {
       'category': _selectedCategory,
       'marketType': _tabs.firstWhere((t) => t['id'] == _activeTab)['marketType'] as String?,
+      'tenantId': tenant?.id ?? '',
     };
     final productsAsync = ref.watch(productsProvider(filters));
     final cartItems = ref.watch(cartProvider);
@@ -77,7 +85,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         children: [
           _buildTabRibbon(),
           _buildCategoryRibbon(),
-          const CarpsoSuggestionCard(contextType: 'marketplace'),
+          if (_showCarpsoCard())
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: SizedBox(
+                height: 48,
+                child: CarpsoSuggestionCard(contextType: 'marketplace'),
+              ),
+            ),
           Expanded(
             child: productsAsync.when(
               data: (products) {

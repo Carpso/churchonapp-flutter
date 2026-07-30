@@ -22,6 +22,11 @@ class ConnectScreen extends ConsumerStatefulWidget {
 }
 
 class _ConnectScreenState extends ConsumerState<ConnectScreen> {
+  bool _showCarpsoCard() {
+    final day = DateTime.now().weekday;
+    return day == DateTime.sunday || day == DateTime.wednesday || day == DateTime.friday;
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -53,9 +58,20 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
             ),
           ),
         ),
-        body: Column(
+        body: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(socialPostsProvider);
+          },
+          child: Column(
           children: [
-            const CarpsoSuggestionCard(contextType: 'connect'),
+            if (_showCarpsoCard())
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: SizedBox(
+                  height: 48,
+                  child: CarpsoSuggestionCard(contextType: 'connect'),
+                ),
+              ),
             Expanded(
               child: Stack(
                 children: [
@@ -77,6 +93,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
               ),
             ),
           ],
+        ),
         ),
         floatingActionButton: FloatingActionButton(
           heroTag: null,

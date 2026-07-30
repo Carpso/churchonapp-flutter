@@ -389,8 +389,8 @@ class LandingScreen extends ConsumerWidget {
             alignment: WrapAlignment.center,
             children: [
               _pricingCard(
-                "Churches", "K1,500", "/setup",
-                ["White-labeled Mobile App", "Unlimited Members", "Digital Tithes & Offerings", "6 Months Free Storage"],
+                "Churches", "Free - K500/mo", "/setup",
+                ["Free Silver plan forever", "Gold K100/mo • Platinum K500/mo", "One-time K500 onboarding fee", "Digital Tithes & Offerings"],
                 isFeatured: true,
                 onTap: () => context.go('/register-church'),
               ),

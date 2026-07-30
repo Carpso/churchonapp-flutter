@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/services/code_generator_service.dart';
+import '../../../core/services/plan_service.dart';
 
 class RegisterChurchScreen extends ConsumerStatefulWidget {
   const RegisterChurchScreen({super.key});
@@ -118,7 +119,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
   }
 
   void _showSuccessDialog({String? inviteCode}) {
-    final fee = _selectedRole == 'pastor' ? 'K 1,500' : 'K 2,000';
+    final fee = 'K${PlanLimits.onboardingFeeKwacha.toStringAsFixed(0)}';
     final churchName = _nameController.text.trim();
     showDialog(
       context: context,
@@ -133,7 +134,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
               const Text("Registration Received!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
               const SizedBox(height: 15),
               Text(
-                "Within 3 days, you are required to pay the onboarding fee of $fee to activate your church management suite.",
+                "You're on a 30-day FREE Silver trial! After the trial, pay a one-time onboarding fee of $fee to unlock 30 days of Platinum — or stay on Silver for free forever.",
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.grey),
               ),

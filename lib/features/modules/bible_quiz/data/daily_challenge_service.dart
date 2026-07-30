@@ -84,12 +84,22 @@ class DailyChallengeService {
           .eq('date', today)
           .eq('is_active', true)
           .maybeSingle();
-      if (res == null) return null;
-      return DailyChallenge.fromMap(res);
+      if (res != null) return DailyChallenge.fromMap(res);
     } catch (e) {
       debugPrint('DailyChallengeService.getTodaysChallenge error: $e');
-      return null;
     }
+
+    // Fallback: create synthetic daily challenge from seed questions
+    return DailyChallenge(
+      id: 'daily_$today',
+      date: DateTime.now(),
+      title: 'Daily Challenge — $today',
+      questionCount: 5,
+      category: 'General',
+      difficulty: null,
+      xpReward: 100,
+      isActive: true,
+    );
   }
 
   Future<DailyChallengeResult?> getTodaysResult() async {

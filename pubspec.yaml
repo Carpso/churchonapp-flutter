@@ -2,7 +2,7 @@ name: church_on_app
 description: "A new Flutter project."
 publish_to: "none"
 
-version: 1.0.0+224
+version: 1.0.0+232
 
 environment:
   sdk: ^3.9.0
@@ -100,3 +100,4 @@ flutter:
     - assets/logo_airtel.png
     - assets/logo_mtn.png
     - assets/logo_zamtel.png
+    - assets/offline_bible_data.json

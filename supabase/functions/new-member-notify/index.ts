@@ -172,9 +172,10 @@ serve(async (req) => {
                       priority: "high",
                       notification: { icon: iconForChannel(channelId) },
                     },
-                }),
+                },
               }
-            );
+            )
+});
 
             if (fcmRes.ok) {
               sentCount++;

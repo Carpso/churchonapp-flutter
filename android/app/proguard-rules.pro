@@ -1,60 +1,188 @@
+# ============================================================
+# R8 FULL OPTIMIZATION — Church On App
+# ============================================================
+# Optimization passes (higher = more aggressive shrinking)
+-optimizationpasses 5
+-overloadaggressively
+-allowaccessmodification
+-mergeinterfacesaggressively
+-repackageclasses 'coa'
+
+# Keep Flutter engine classes (required for runtime)
 -keep class io.flutter.app.** { *; }
 -keep class io.flutter.plugin.** { *; }
 -keep class io.flutter.util.** { *; }
 -keep class io.flutter.view.** { *; }
 -keep class io.flutter.** { *; }
 -keep class io.flutter.plugins.** { *; }
+-keep class io.flutter.embedding.** { *; }
 -dontwarn io.flutter.embedding.**
 
-# Supabase / GoTrue / Postgrest
+# Flutter JNI / native layer
+-keep class io.flutter.embedding.engine.FlutterJNI { *; }
+-keep class io.flutter.embedding.engine.dart.DartExecutor { *; }
+-keep class io.flutter.embedding.engine.renderer.FlutterRenderer { *; }
+
+# ============================================================
+# SUPABASE + GOTRUE + POSTGREST
+# ============================================================
 -keep class com.supabase.** { *; }
 -keep class io.github.jan.supabase.** { *; }
+-keep class kotlinx.serialization.** { *; }
+-dontwarn kotlinx.serialization.**
 
-# OkHttp (used by many plugins)
+# ============================================================
+# NETWORK — OkHttp + Retrofit
+# ============================================================
 -keepattributes Signature
 -keepattributes *Annotation*
+-keepattributes Exceptions, InnerClasses, EnclosingMethod, RuntimeVisibleAnnotations, RuntimeInvisibleAnnotations
 -keep class okhttp3.** { *; }
 -keep interface okhttp3.** { *; }
 -dontwarn okhttp3.**
+-dontwarn okio.**
 
-# Gson / JSON Serialization
+# ============================================================
+# JSON — Gson + Moshi + Jackson
+# ============================================================
 -keep class com.google.gson.** { *; }
--keepattributes EnclosingMethod
--keepattributes InnerClasses
+-keepattributes EnclosingMethod, InnerClasses
+-keepattributes Signature
 
-# Audio Service
--keep class com.ryanheise.audioservice.** { *; }
--keep class com.ryanheise.just_audio.** { *; }
+# ============================================================
+# DART MODEL CLASSES — Keep all fromJson/toJson targets
+# ============================================================
+-keep class church_on_app.** { *; }
+-keep class **.g.** { *; }
+-keep class **.freezed.** { *; }
+-keep class **.serialization.** { *; }
 
-# Flutter Foreground Task (Carpso Ride background location)
--keep class com.pravera.flutter_foreground_task.** { *; }
-
-# Video Player / Chewie
--keep class io.flutter.plugins.videoplayer.** { *; }
--keep class com.yourcompany.videoplayer.** { *; }
-
-# Mobile Scanner (QR/barcode)
--keep class com.yourcompany.mobilescanner.** { *; }
-
-# Prevent stripping of Dart model classes used in fromJson factories
-# Supabase/PostgREST responses are deserialized via .fromMap / fromJson
--keep class church_on_app.features.** { *; }
+# Feature-specific model keeps (reflection-safe)
+-keep class church_on_app.features.finance.** { *; }
+-keep class church_on_app.features.admin.** { *; }
+-keep class church_on_app.features.home.** { *; }
+-keep class church_on_app.features.profile.** { *; }
+-keep class church_on_app.features.modules.** { *; }
+-keep class church_on_app.features.navigation.** { *; }
+-keep class church_on_app.features.auth.** { *; }
+-keep class church_on_app.features.support.** { *; }
 -keep class church_on_app.core.** { *; }
 
-# Lipila Payment callback models
--keep class com.lipila.** { *; }
+# ============================================================
+# AUDIO SERVICE (just_audio / audio_service)
+# ============================================================
+-keep class com.ryanheise.audioservice.** { *; }
+-keep class com.ryanheise.just_audio.** { *; }
+-keep class com.google.android.exoplayer2.** { *; }
+-dontwarn com.google.android.exoplayer2.**
 
-# Bitmap downsampling — strip metadata to reduce APK size
+# ============================================================
+# FOREGROUND SERVICE (Carpso Ride & location)
+# ============================================================
+-keep class com.pravera.flutter_foreground_task.** { *; }
+
+# ============================================================
+# VIDEO PLAYER — Media3 / ExoPlayer
+# ============================================================
+-keep class androidx.media3.** { *; }
+-keep class com.google.android.exoplayer2.** { *; }
+
+# ============================================================
+# FIREBASE + GOOGLE PLAY SERVICES
+# ============================================================
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+-dontwarn com.google.firebase.**
+-dontwarn com.google.android.gms.**
+
+# Firebase Auth multi-factor
+-keep class com.google.firebase.auth.** { *; }
+
+# ============================================================
+# FACEBOOK / SHIMMER / ANIMATION LIBRARIES
+# ============================================================
+-keep class com.facebook.** { *; }
+-dontwarn com.facebook.**
+
+# ============================================================
+# LEAFCANVAS / FLUTTER_MAP
+# ============================================================
+-keep class org.maplibre.** { *; }
+-keep class com.mapbox.** { *; }
+-dontwarn org.maplibre.**
+-dontwarn com.mapbox.**
+
+# ============================================================
+# SQUARE / PICASSO / COIL (image loading)
+# ============================================================
+-keep class com.squareup.picasso.** { *; }
+-keep class coil.** { *; }
+-dontwarn coil.**
+
+# ============================================================
+# ANDROID ARCHITECTURE COMPONENTS
+# ============================================================
+-keep class androidx.lifecycle.** { *; }
+-keep class androidx.room.** { *; }
+-dontwarn androidx.room.**
+-keep class androidx.work.** { *; }
+
+# ============================================================
+# R8 RESOURCE SHRINKING — keep app resources
+# ============================================================
+-keep class **.R$* { *; }
+-keep class ** extends android.app.Application { *; }
+
+# Bitmap metadata (needed for image caching)
 -keepclassmembers class * extends android.graphics.drawable.Drawable {
     public int getIntrinsicWidth();
     public int getIntrinsicHeight();
 }
 
-# Prevent R8 from stripping R8 resource shrinking
--keep class ** extends android.app.Application { *; }
+# ============================================================
+# STRIP LOGGING IN RELEASE (safe after debugging)
+# ============================================================
+-assumenosideeffects class android.util.Log {
+    public static boolean isLoggable(java.lang.String, int);
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}
 
-# Firebase / Google Services
--keep class com.google.firebase.** { *; }
--keep class com.google.android.gms.** { *; }
--dontwarn com.google.firebase.**
--dontwarn com.google.android.gms.**
+# ============================================================
+# DART / FLUTTER RUNTIME REFLECTION CALLBACKS
+# ============================================================
+-keepclassmembers class * {
+    native <methods>;
+}
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# Keep enum classes (Dart enums bridge to Java)
+-keepclassmembers enum * { *; }
+
+# ============================================================
+# LOCAL BROADCAST / RECEIVERS
+# ============================================================
+-keep class android.content.** { *; }
+
+# ============================================================
+# THIRD-PARTY CRASH REPORTERS
+# ============================================================
+-keep class com.sentry.** { *; }
+-keep class net.hockeyapp.** { *; }
+-dontwarn com.sentry.**
+-dontwarn net.hockeyapp.**
+
+# ============================================================
+# WEBRTC (for voice/video calls & streaming)
+# ============================================================
+-keep class org.webrtc.** { *; }
+-dontwarn org.webrtc.**
+
+# ============================================================
+# CRYPTOGRAPHY / ENCRYPT
+# ============================================================
+-keep class javax.crypto.** { *; }
+-keep class android.security.** { *; }

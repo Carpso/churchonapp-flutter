@@ -204,20 +204,27 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     });
 
     if (!mounted) return;
-    if (result.isEmpty && _loadingTimedOut) {
-      setState(() => _loadingError = true);
-      return;
-    }
-    if (result.isEmpty) {
+
+    // Fallback: if result is empty, try seed bank directly
+    final questionsToUse = result.isNotEmpty
+        ? result
+        : _service.getFallbackQuestions(
+            widget.questionCount,
+            category: widget.categoryFilter,
+            difficulty: widget.difficultyFilter,
+          );
+
+    if (questionsToUse.isEmpty) {
       setState(() => _loadingError = true);
       return;
     }
 
     setState(() {
       final seenIds = <String>{};
-      _questions = result.where((q) => seenIds.add(q.id)).map(_shuffleQuestionOptions).toList();
+      _questions = questionsToUse.where((q) => seenIds.add(q.id)).map(_shuffleQuestionOptions).toList();
       if (_questions.isEmpty) {
-        _questions = _questions.map(_shuffleQuestionOptions).toList();
+        _loadingError = true;
+        return;
       }
       _answers.clear();
       _responseTimesMs.clear();
@@ -227,7 +234,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       }
       _phase = GamePhase.countdown;
     });
-    _startCountdown();
+    if (!_loadingError) _startCountdown();
   }
 
   void _retryLoadQuestions() {

@@ -31,7 +31,7 @@ class RidePricingState {
     return base;
   }
 
-  double get platformFee => displayPrice * 0.05 > 3.00 ? displayPrice * 0.05 : 3.00;
+  double get platformFee => displayPrice * 0.01 > 3.00 ? displayPrice * 0.01 : 3.00;
 
   double get totalPayable => displayPrice + platformFee;
 
@@ -63,8 +63,8 @@ class RidePricingState {
 }
 
 class RidePricingNotifier extends Notifier<RidePricingState> {
-  static const _baseFareKm = 5.0;
-  static const _minimumFare = 15.0;
+  static const _baseFarePerKm = 5.0;
+  static const _minimumTotalFare = 15.0;
   static const _deliveryMultiplier = 1.3;
   static const _heavyWeightSurcharge = 10.0;
 
@@ -97,8 +97,8 @@ class RidePricingNotifier extends Notifier<RidePricingState> {
 
     await Future.delayed(const Duration(milliseconds: 800));
 
-    double price = distance * _baseFareKm;
-    price = price < _minimumFare ? _minimumFare : price;
+    double price = distance * _baseFarePerKm;
+    price = price < _minimumTotalFare ? _minimumTotalFare : price;
 
     if (state.selectedCategory == 'marketplace' ||
         state.selectedCategory == 'bookshop') {
@@ -120,8 +120,8 @@ class RidePricingNotifier extends Notifier<RidePricingState> {
   void recalculate() {
     if (state.distanceKm != null) {
       final distance = state.distanceKm!;
-      double price = distance * _baseFareKm;
-      price = price < _minimumFare ? _minimumFare : price;
+      double price = distance * _baseFarePerKm;
+      price = price < _minimumTotalFare ? _minimumTotalFare : price;
 
       if (state.selectedCategory == 'marketplace' ||
           state.selectedCategory == 'bookshop') {

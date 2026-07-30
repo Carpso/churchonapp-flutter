@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import '../data/reading_plan_service.dart';
@@ -136,6 +137,27 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
     _plan = widget.plan;
   }
 
+  void _navigateToVerse(String verseRef) {
+    final parsed = _parseVerseRef(verseRef);
+    if (parsed != null) {
+      final (book, chapter, verse) = parsed;
+      context.push('/bible/$book/$chapter/$verse');
+    }
+  }
+
+  (String, int, int)? _parseVerseRef(String ref) {
+    final parts = ref.split(' ');
+    if (parts.length < 2) return null;
+    final bookParts = parts.sublist(0, parts.length - 1);
+    final refPart = parts.last;
+    final refParts = refPart.split(':');
+    if (refParts.length < 2) return null;
+    final chapter = int.tryParse(refParts[0]) ?? 1;
+    final verseStr = refParts[1].split('-').first;
+    final verse = int.tryParse(verseStr) ?? 1;
+    return (bookParts.join(' '), chapter, verse);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -162,47 +184,51 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
               itemBuilder: (context, idx) {
                 final isDone = idx < _plan.completedDays;
                 final isNext = idx == _plan.completedDays;
+                final verseRef = _plan.dailyVerses[idx];
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
                     isDone ? LucideIcons.checkCircle2 : LucideIcons.circle,
                     color: isDone ? Colors.green : (isNext ? Colors.indigo : Colors.grey),
                   ),
-                  title: Text(
-                    "Day ${idx + 1}: ${_plan.dailyVerses[idx]}",
-                    style: TextStyle(
-                      fontWeight: isNext ? FontWeight.bold : FontWeight.normal,
-                      decoration: isDone ? TextDecoration.lineThrough : null,
-                      color: isDone ? Colors.grey : Colors.black87,
+                  title: GestureDetector(
+                    onTap: () => _navigateToVerse(verseRef),
+                    child: Text(
+                      "Day ${idx + 1}: $verseRef",
+                      style: TextStyle(
+                        fontWeight: isNext ? FontWeight.bold : FontWeight.normal,
+                        decoration: isDone ? TextDecoration.lineThrough : null,
+                        color: isDone ? Colors.grey : Colors.black87,
+                      ),
                     ),
                   ),
-                    trailing: isNext
-                        ? ElevatedButton(
-                            onPressed: () async {
-                              await widget.ref.read(readingPlanServiceProvider).completeDay(_plan.id);
-                              try {
-                                final coinsService = widget.ref.read(coinsServiceProvider);
-                                await coinsService.addStreakBonus(1);
-                              } catch (e) {
-                                debugPrint('Error adding streak bonus: $e');
-                              }
-                              widget.ref.invalidate(readingPlansProvider);
-                              setState(() => _plan.completedDays++);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                                  content: Text("Day completed! +10 Church Coins earned."),
-                                  backgroundColor: Colors.green,
-                                ));
-                              }
-                            },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.indigo,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(60, 30),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: const Text("READ", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                        )
+                  trailing: isNext
+                      ? ElevatedButton(
+                          onPressed: () async {
+                            await widget.ref.read(readingPlanServiceProvider).completeDay(_plan.id);
+                            try {
+                              final coinsService = widget.ref.read(coinsServiceProvider);
+                              await coinsService.addStreakBonus(1);
+                            } catch (e) {
+                              debugPrint('Error adding streak bonus: $e');
+                            }
+                            widget.ref.invalidate(readingPlansProvider);
+                            setState(() => _plan.completedDays++);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                                content: Text("Day completed! +10 Church Coins earned."),
+                                backgroundColor: Colors.green,
+                              ));
+                            }
+                          },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.indigo,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(60, 30),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text("READ", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                      )
                       : null,
                 );
               },

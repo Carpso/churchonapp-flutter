@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/services/coa_payment_service.dart';
+import '../../../core/services/plan_service.dart';
 import '../data/audit_service.dart';
 
 class CoaEmployeeDashboard extends ConsumerStatefulWidget {
@@ -90,6 +91,7 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
       await client.from('churches').update({
         'is_verified': true,
         'subscription_ends_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+        'plan': 'silver',
       }).eq('id', church['id']);
 
       final pastorData = church['pastor_name']?.toString() ?? '';
@@ -144,9 +146,15 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
   Future<void> _approvePayment(Map<String, dynamic> church) async {
     try {
       final client = Supabase.instance.client;
-      final expiry = DateTime.now().add(const Duration(days: 365));
+      var platinumUntil = DateTime.now().add(const Duration(days: 30));
+      if (platinumUntil.isAfter(PlanLimits.promotionEndDate)) {
+        platinumUntil = PlanLimits.promotionEndDate;
+      }
       await client.from('churches').update({
-        'subscription_ends_at': expiry.toIso8601String(),
+        'onboarding_fee_paid': true,
+        'onboarding_fee_paid_at': DateTime.now().toIso8601String(),
+        'promotion_platinum_until': platinumUntil.toIso8601String(),
+        'subscription_ends_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
         'payment_reference': null,
         'payment_submitted_at': null,
         'is_verified': true,
@@ -306,12 +314,18 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
     );
   }
 
-  Widget _buildScreen(UserProfile profile) {
+Widget _buildScreen(UserProfile profile) {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text("COA Employee Console", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("COA Employee Console", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+            const Text("COA TEAM", style: TextStyle(color: Colors.teal, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+          ],
+        ),
         backgroundColor: theme.colorScheme.surface,
         foregroundColor: theme.colorScheme.onSurface,
         elevation: 0,
@@ -328,161 +342,38 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildWelcomeHeader(theme, profile),
-            const SizedBox(height: 25),
-            _buildStatCards(),
-            _buildSystemStatus(),
-            _buildRevenueSplits(),
-            const SizedBox(height: 35),
-            const Text("Pending Church Registrations", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 15),
-            _buildPendingApprovals(),
-            const SizedBox(height: 35),
-            const Text("Pending Subscription Payments", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 15),
-            _buildPendingPayments(),
-            const SizedBox(height: 35),
-            const Text("Pending COA Service Payments", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 15),
-            _buildPendingCoaPayments(profile),
-            const SizedBox(height: 35),
-            const Text("Platform Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 15),
-            _buildAction(LucideIcons.bell, "Emergency SOS Alerts", "Manage user safety distress signals", Colors.redAccent, () {
-              context.push('/sos-alerts');
-            }),
-            _buildAction(LucideIcons.userCheck, "Manage Users & Roles", "Approve or elevate user roles", Colors.teal, () {
-              context.push('/role-approvals');
-            }),
-            _buildAction(LucideIcons.penTool, "Writer Approvals", "Approve writer applications", Colors.indigo, () {
-              context.push('/writer-approvals');
-            }),
-            _buildAction(LucideIcons.car, "Carpso Driver Approvals", "Approve driver applications for Carpso Ride", Colors.deepPurple, () {
-              context.push('/carpso-approval');
-            }),
-            _buildAction(LucideIcons.scrollText, "Audit Log", "View admin actions and changes", Colors.orange, () => _showAuditLog()),
-            const SizedBox(height: 40),
-          ],
-        ),
-      ),
-      ),
-    );
-  }
-
-  Widget _buildSystemStatus() {
-    final theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.only(top: 20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.dividerColor),
-        boxShadow: [
-          BoxShadow(
-            color: theme.shadowColor.withValues(alpha: 0.03),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("SYSTEM HEALTH HEARTBEAT", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
-          const SizedBox(height: 15),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildStatusBadge("SUPABASE / RLS", "Active", Colors.green),
-              _buildStatusBadge("EDGE FUNCTIONS", "Operational", Colors.green),
-              _buildStatusBadge("CDN CACHE", "In Sync", Colors.green),
+              const SizedBox(height: 25),
+              _buildStatCards(),
+              const SizedBox(height: 35),
+              const Text("Pending Church Registrations", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 15),
+              _buildPendingApprovals(),
+              const SizedBox(height: 35),
+              const Text("Pending Subscription Payments", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 15),
+              _buildPendingPayments(),
+              const SizedBox(height: 35),
+              const Text("Pending COA Service Payments", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 15),
+              _buildPendingCoaPayments(profile),
+              const SizedBox(height: 35),
+              const Text("Platform Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 15),
+              _buildAction(LucideIcons.userCheck, "Role Approvals", "Approve or elevate user roles", Colors.teal, () {
+                context.push('/role-approvals');
+              }),
+              _buildAction(LucideIcons.penTool, "Writer Approvals", "Approve writer applications", Colors.indigo, () {
+                context.push('/writer-approvals');
+              }),
+              _buildAction(LucideIcons.car, "Carpso Driver Approvals", "Approve driver applications for Carpso Ride", Colors.deepPurple, () {
+                context.push('/carpso-approval');
+              }),
+              _buildAction(LucideIcons.scrollText, "Audit Log", "View admin actions and changes", Colors.orange, () => _showAuditLog()),
+const SizedBox(height: 40),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusBadge(String name, String status, Color color) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(name, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 8, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
-            const SizedBox(width: 6),
-            Text(status, style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 12, fontWeight: FontWeight.bold)),
-          ],
         ),
-      ],
-    );
-  }
-
-  Widget _buildRevenueSplits() {
-    final theme = Theme.of(context);
-    final titheShare = _totalPlatformRevenue * 0.35;
-    final rideShare = _totalPlatformRevenue * 0.35;
-    final cargoShare = _totalPlatformRevenue * 0.20;
-    final subShare = _totalPlatformRevenue * 0.10;
-
-    return Container(
-      margin: const EdgeInsets.only(top: 20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.dividerColor),
-        boxShadow: [
-          BoxShadow(
-            color: theme.shadowColor.withValues(alpha: 0.03),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("PLATFORM REVENUE SPLIT LEDGER", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
-          const SizedBox(height: 20),
-          _buildPlatformSplitRow("Tithes & Giving Fees (35%)", titheShare, 0.35, Colors.blue),
-          const SizedBox(height: 12),
-          _buildPlatformSplitRow("Carpso Rides Commissions (35%)", rideShare, 0.35, Colors.indigo),
-          const SizedBox(height: 12),
-          _buildPlatformSplitRow("Cargo Deliveries Commissions (20%)", cargoShare, 0.20, Colors.green),
-          const SizedBox(height: 12),
-          _buildPlatformSplitRow("Partner Subscriptions (10%)", subShare, 0.10, Colors.amber),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlatformSplitRow(String title, double share, double value, Color color) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(title, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.bold)),
-            Text("K ${share.toStringAsFixed(0)}", style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: value,
-            minHeight: 4,
-            backgroundColor: Colors.grey.shade100,
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-          ),
-        ),
-      ],
     );
   }
 

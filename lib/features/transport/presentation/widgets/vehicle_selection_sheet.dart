@@ -155,6 +155,16 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
+                  if (pricing.distanceKm != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      "K5/km × ${pricing.distanceKm!.toStringAsFixed(1)} km",
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: theme.primaryColor.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               Column(
@@ -165,14 +175,14 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w900,
-                      color: theme.colorScheme.secondary,
+                      color: const Color(0xFFFFD700),
                     ),
                   ),
                   Text(
-                    "${formatZmw(pricing.displayPrice)} + ${formatZmw(pricing.platformFee)} fee",
+                    "Base K${pricing.distanceKm != null ? (pricing.distanceKm! * 5).toStringAsFixed(1) : '?'} + ${formatZmw(pricing.platformFee)} fee (1%)",
                     style: TextStyle(
                       fontSize: 10,
-                      color: theme.primaryColor.withValues(alpha: 0.7),
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -262,16 +272,16 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
               ? null
               : () => _showDriverSelection(context, ref, drivers, isDelivery, theme),
           style: ElevatedButton.styleFrom(
-            backgroundColor: theme.primaryColor,
+            backgroundColor: const Color(0xFFFFD700),
             minimumSize: const Size(double.infinity, 65),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
             elevation: 8,
-            shadowColor: theme.primaryColor.withValues(alpha: 0.5),
+            shadowColor: const Color(0xFFFFD700).withValues(alpha: 0.5),
           ),
           child: Text(
             isDelivery ? "REQUEST CARGO DELIVERY" : "REQUEST CARPSO RIDE",
             style: TextStyle(
-              color: theme.colorScheme.onSecondary,
+              color: Colors.black,
               fontWeight: FontWeight.w900,
               fontSize: 14,
               letterSpacing: 1.5,
@@ -390,8 +400,8 @@ class _DriverListContent extends StatelessWidget {
                     trailing: ElevatedButton(
                       onPressed: () => onDriverSelected(driver.userId),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.primaryColor,
-                        foregroundColor: theme.colorScheme.onSecondary,
+                        backgroundColor: const Color(0xFFFFD700),
+                        foregroundColor: Colors.black,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),

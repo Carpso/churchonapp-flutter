@@ -25,7 +25,15 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
   bool _loading = true;
   Position? _currentPosition;
   String _currentCountry = "Zambia";
-  final List<String> _supportedCountries = ["Zambia", "Zimbabwe"];
+  final List<String> _supportedCountries = [
+    "Zambia", "Zimbabwe", "Kenya", "Nigeria", "Ghana",
+    "South Africa", "Tanzania", "Uganda", "Rwanda", "Malawi",
+    "Mozambique", "Angola", "Botswana", "Namibia", "DR Congo",
+    "Ethiopia", "Cameroon", "Ivory Coast", "Senegal", "Mali",
+    "Burundi", "South Sudan", "Eswatini", "Lesotho", "Madagascar",
+  ];
+  /// Active countries that have live churches. Others show "Coming Soon".
+  final Set<String> _activeCountries = {"Zambia", "Zimbabwe"};
   bool _showOnlyRegistered = false;
   final _searchController = TextEditingController();
   LatLng? _pinPosition;
@@ -147,31 +155,27 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
 
   void _filterTenants(String query) {
     setState(() {
-      if (query.isEmpty) {
+      final countryFilter = _currentCountry.toLowerCase();
+      _filteredTenants = _tenants.where((c) {
+        final country = (c['country'] ?? '').toString().toLowerCase();
+        final matchesCountry = country.contains(countryFilter);
+
+        if (!matchesCountry) return false;
+
+        final name = (c['name'] ?? '').toString().toLowerCase();
+        final address = (c['address'] ?? '').toString().toLowerCase();
+        final type = (c['type'] ?? '').toString().toLowerCase();
+        final matchesQuery = query.isEmpty ||
+            name.contains(query.toLowerCase()) ||
+            address.contains(query.toLowerCase()) ||
+            country.contains(query.toLowerCase()) ||
+            type.contains(query.toLowerCase());
+
         if (_showOnlyRegistered) {
-          _filteredTenants = _tenants
-              .where((c) => c['_registered'] == true)
-              .toList();
-        } else {
-          _filteredTenants = _tenants;
+          return matchesQuery && c['_registered'] == true;
         }
-      } else {
-        _filteredTenants = _tenants.where((c) {
-          final name = (c['name'] ?? '').toString().toLowerCase();
-          final address = (c['address'] ?? '').toString().toLowerCase();
-          final country = (c['country'] ?? '').toString().toLowerCase();
-          final type = (c['type'] ?? '').toString().toLowerCase();
-          final matchesQuery =
-              name.contains(query.toLowerCase()) ||
-              address.contains(query.toLowerCase()) ||
-              country.contains(query.toLowerCase()) ||
-              type.contains(query.toLowerCase());
-          if (_showOnlyRegistered) {
-            return matchesQuery && c['_registered'] == true;
-          }
-          return matchesQuery;
-        }).toList();
-      }
+        return matchesQuery;
+      }).toList();
     });
   }
 
@@ -319,15 +323,17 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              "Churches & Bookshops in $_currentCountry",
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.5,
+                                _activeCountries.contains(_currentCountry)
+                                    ? "Churches & Bookshops in $_currentCountry"
+                                    : "$_currentCountry — Coming Soon",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  ),
                                 ),
-                              ),
                             ),
                           ],
                         ),
@@ -363,7 +369,38 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                                 .map(
                                   (c) => DropdownMenuItem(
                                     value: c,
-                                    child: Text(c),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(c),
+                                        if (!_activeCountries.contains(c)) ...[
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            "✱",
+                                            style: TextStyle(
+                                              color: theme.primaryColor,
+                                              fontSize: 8,
+                                            ),
+                                          ),
+                                        ],
+                                        if (isSuperadmin)
+                                          GestureDetector(
+                                            onTapDown: (details) {
+                                              _showCountryToggleMenu(c);
+                                            },
+                                            child: Padding(
+                                              padding: const EdgeInsets.only(left: 4),
+                                              child: Icon(
+                                                _activeCountries.contains(c)
+                                                    ? Icons.visibility
+                                                    : Icons.visibility_off,
+                                                size: 12,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                 )
                                 .toList(),
@@ -491,6 +528,43 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                   ? Center(
                       child: CircularProgressIndicator(
                         color: theme.primaryColor,
+                      ),
+                    )
+                  : !_activeCountries.contains(_currentCountry)
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.public,
+                            size: 50,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            "$_currentCountry — Coming Soon",
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            "We are expanding to $_currentCountry soon!\nStay tuned for updates.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.4,
+                              ),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     )
                   : _filteredTenants.isEmpty
@@ -1058,6 +1132,41 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text("OK", style: TextStyle(color: theme.primaryColor)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCountryToggleMenu(String country) {
+    final isActive = _activeCountries.contains(country);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text("${isActive ? 'Deactivate' : 'Activate'} $country"),
+        content: Text(
+          isActive
+              ? "Hide $country from the country selector for regular users?"
+              : "Make $country visible and selectable for all users?",
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                if (isActive) {
+                  _activeCountries.remove(country);
+                } else {
+                  _activeCountries.add(country);
+                }
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isActive ? Colors.red : Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(isActive ? "DEACTIVATE" : "ACTIVATE"),
           ),
         ],
       ),

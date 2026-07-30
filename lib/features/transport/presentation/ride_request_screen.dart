@@ -207,8 +207,8 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                       });
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primaryColor,
-                foregroundColor: theme.colorScheme.secondary,
+                backgroundColor: const Color(0xFFFFD700),
+                foregroundColor: Colors.black,
                 minimumSize: const Size(double.infinity, 56),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18)),
@@ -809,7 +809,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                       color: Colors.grey.shade600, fontSize: 13)),
               const SizedBox(height: 20),
               SwitchListTile(
-                activeThumbColor: theme.primaryColor,
+                activeThumbColor: const Color(0xFFFFD700),
                 title: const Text("Prefer Gospel Music / Sermons"),
                 subtitle: const Text(
                     "Drivers will try to play uplifting audio"),
@@ -819,7 +819,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                 },
               ),
               SwitchListTile(
-                activeThumbColor: theme.primaryColor,
+                activeThumbColor: const Color(0xFFFFD700),
                 title: const Text("Quiet / Silent Ride"),
                 subtitle:
                     const Text("Drivers will minimize conversation"),
@@ -829,7 +829,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                 },
               ),
               SwitchListTile(
-                activeThumbColor: theme.primaryColor,
+                activeThumbColor: const Color(0xFFFFD700),
                 title: const Text("Air Conditioning (AC)"),
                 subtitle:
                     const Text("Request temperature control"),
@@ -845,8 +845,8 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                   Navigator.pop(context);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.primaryColor,
-                  foregroundColor: theme.colorScheme.secondary,
+                  backgroundColor: const Color(0xFFFFD700),
+                  foregroundColor: Colors.black,
                   minimumSize: const Size(double.infinity, 56),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18)),
@@ -936,8 +936,8 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.primaryColor,
-                  foregroundColor: theme.colorScheme.secondary,
+                  backgroundColor: const Color(0xFFFFD700),
+                  foregroundColor: Colors.black,
                   minimumSize: const Size(double.infinity, 56),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18)),
@@ -1044,8 +1044,8 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                     icon: const Icon(LucideIcons.headphones),
                     label: const Text("CONTACT COA TEAM"),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.primaryColor,
-                      foregroundColor: theme.colorScheme.secondary,
+                      backgroundColor: const Color(0xFFFFD700),
+                      foregroundColor: Colors.black,
                       minimumSize: const Size(double.infinity, 56),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(18)),

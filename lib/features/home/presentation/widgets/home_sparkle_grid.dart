@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:church_on_app/features/marketplace/data/marketplace_service.dart';
@@ -12,7 +13,8 @@ class HomeSparkleGrid extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final productsAsync = ref.watch(productsProvider(const {'category': 'all'}));
+    final tenant = ref.watch(currentTenantProvider);
+    final productsAsync = ref.watch(productsProvider({'category': 'all', 'tenantId': tenant?.id ?? ''}));
 
     return productsAsync.when(
       data: (products) {

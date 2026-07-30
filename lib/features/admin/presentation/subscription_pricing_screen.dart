@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
+import 'package:church_on_app/core/services/plan_service.dart';
 
-/// Admin screen for editing subscription pricing
 class SubscriptionPricingScreen extends ConsumerStatefulWidget {
   const SubscriptionPricingScreen({super.key});
 
@@ -18,13 +18,10 @@ class _SubscriptionPricingScreenState extends ConsumerState<SubscriptionPricingS
   final Map<String, TextEditingController> _controllers = {};
 
   final _pricingFields = [
-    {'key': 'silver_monthly_price', 'label': 'Silver Monthly Price', 'default': '150'},
-    {'key': 'silver_monthly_label', 'label': 'Silver Monthly Label', 'default': 'K150/month'},
-    {'key': 'gold_yearly_price', 'label': 'Gold Yearly Price', 'default': '1500'},
-    {'key': 'gold_yearly_label', 'label': 'Gold Yearly Label', 'default': 'K1,500/year'},
-    {'key': 'church_subscription_price', 'label': 'Church Subscription Price', 'default': '1500'},
-    {'key': 'meeting_monthly_price', 'label': 'Meeting Monthly Price', 'default': '150'},
-    {'key': 'meeting_yearly_price', 'label': 'Meeting Yearly Price', 'default': '1500'},
+    {'key': 'onboarding_fee', 'label': 'Onboarding Fee (K)', 'default': PlanLimits.onboardingFeeKwacha.toStringAsFixed(0)},
+    {'key': 'gold_monthly_fee', 'label': 'Gold Monthly Fee (K)', 'default': PlanLimits.forPlan(TenantPlan.gold).monthlyPriceKwacha.toStringAsFixed(0)},
+    {'key': 'platinum_monthly_fee', 'label': 'Platinum Monthly Fee (K)', 'default': PlanLimits.forPlan(TenantPlan.platinum).monthlyPriceKwacha.toStringAsFixed(0)},
+    {'key': 'quiz_lease_fee', 'label': 'Quiz Engine Lease Fee (K)', 'default': PlanLimits.quizLeaseFeeKwacha.toStringAsFixed(0)},
   ];
 
   @override
@@ -93,7 +90,7 @@ class _SubscriptionPricingScreenState extends ConsumerState<SubscriptionPricingS
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Subscription Pricing"),
+        title: const Text("Pricing & Plans"),
         actions: [
           _saving
               ? const Padding(padding: EdgeInsets.all(16), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
@@ -103,23 +100,28 @@ class _SubscriptionPricingScreenState extends ConsumerState<SubscriptionPricingS
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Text("User Subscriptions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text("Church Plans", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          const Text("Silver is always free. Gold and Platinum have monthly fees.", style: TextStyle(fontSize: 12, color: Colors.grey)),
           const SizedBox(height: 16),
-          _buildField('silver_monthly_price', 'Silver Monthly Price (K)'),
-          _buildField('silver_monthly_label', 'Silver Monthly Label'),
-          _buildField('gold_yearly_price', 'Gold Yearly Price (K)'),
-          _buildField('gold_yearly_label', 'Gold Yearly Label'),
+          _buildField('onboarding_fee', 'Onboarding Fee (K) — one-time'),
+          _buildField('gold_monthly_fee', 'Gold Monthly Fee (K)'),
+          _buildField('platinum_monthly_fee', 'Platinum Monthly Fee (K)'),
+          _buildField('quiz_lease_fee', 'Quiz Engine Lease Fee (K/mo)'),
           const Divider(height: 40),
-          const Text("Church Subscription", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          _buildField('church_subscription_price', 'Church Price (K)'),
-          const Divider(height: 40),
-          const Text("Other Services", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          _buildField('meeting_monthly_price', 'Meeting Monthly (K)'),
-          _buildField('meeting_yearly_price', 'Meeting Yearly (K)'),
+          const Text("SMS Bundles", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          ...PlanLimits.smsBundles.entries.map((e) => Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle, size: 14, color: Colors.green.shade300),
+                const SizedBox(width: 8),
+                Text("K${e.key} → ${e.value} SMS credits", style: const TextStyle(fontSize: 13)),
+              ],
+            ),
+          )),
           const SizedBox(height: 30),
-          // Preview
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -129,11 +131,15 @@ class _SubscriptionPricingScreenState extends ConsumerState<SubscriptionPricingS
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Preview", style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text("Plan Overview", style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
-                Text("Silver: ${_controllers['silver_monthly_label']?.text ?? 'K150/month'}"),
-                Text("Gold: ${_controllers['gold_yearly_label']?.text ?? 'K1,500/year'}"),
-                Text("Church: K${_controllers['church_subscription_price']?.text ?? '1,500'}"),
+                Text("Silver: Free (100 members, 10 events, 1GB)"),
+                Text("Gold: K${_controllers['gold_monthly_fee']?.text ?? '100'}/mo (500 members, 50 events, 10GB)"),
+                Text("Platinum: K${_controllers['platinum_monthly_fee']?.text ?? '500'}/mo (Unlimited, quiz hosting, priority)"),
+                Text("Quiz Lease: K${_controllers['quiz_lease_fee']?.text ?? '250'}/mo"),
+                const Divider(height: 20),
+                Text("Onboarding: K${_controllers['onboarding_fee']?.text ?? '500'} (one-time, includes 30 days free Platinum)"),
+                Text("Platform fee: 1% per transaction (min K3) + Lipila charges"),
               ],
             ),
           ),

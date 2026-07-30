@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../events/presentation/events_screen.dart';
 import '../../jobs/presentation/jobs_portal_screen.dart';
@@ -10,10 +11,7 @@ import '../../media/presentation/radio_screen.dart';
 import 'package:church_on_app/features/admin/presentation/admin_hub_screen.dart';
 import 'package:church_on_app/features/transport/presentation/rider_onboarding_screen.dart';
 import '../../bible_quiz/presentation/bible_quiz_hub_screen.dart';
-import '../../media/presentation/kael_chat_screen.dart';
 import 'package:church_on_app/features/logistics/presentation/church_commute_screen.dart';
-import 'package:church_on_app/features/connect/presentation/testimonies_screen.dart';
-import 'package:church_on_app/features/connect/presentation/prayer_wall_screen.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 
 class MoreHubScreen extends ConsumerWidget {
@@ -80,9 +78,11 @@ class MoreHubScreen extends ConsumerWidget {
                 _buildModuleCard(context, "Radio", LucideIcons.radio, Colors.red, () => _handleNavigation(context, tenant, "Radio", "kingdom_radio", const RadioScreen())),
                 _buildModuleCard(context, "Bible Quizzing", LucideIcons.brainCircuit, Colors.pink, () => _handleNavigation(context, tenant, "Bible Quizzing", "game_arena", const BibleQuizHubScreen())),
                 _buildModuleCard(context, "Drive & Earn", LucideIcons.car, Colors.teal, () => _handleNavigation(context, tenant, "Drive & Earn", "logistics_&_tracking", const RiderOnboardingScreen())),
-                _buildModuleCard(context, "Kael AI Assistance", LucideIcons.zap, Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const KaelChatScreen()))),
-                _buildModuleCard(context, "Testimonies", LucideIcons.flame, Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TestimoniesScreen()))),
-                _buildModuleCard(context, "Prayer Wall", LucideIcons.helpingHand, Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PrayerWallScreen()))),
+                _buildModuleCard(context, "Kael AI Assistance", LucideIcons.zap, Colors.amber, () => context.push('/kael-chat')),
+                _buildModuleCard(context, "Testimonies", LucideIcons.flame, Colors.orange, () => context.push('/testimonies')),
+                _buildModuleCard(context, "Prayer Wall", LucideIcons.helpingHand, Colors.blue, () => context.push('/prayer-wall')),
+                _buildModuleCard(context, "Communities", LucideIcons.users, Colors.indigo, () => context.push('/communities')),
+                _buildModuleCard(context, "Kingdom Klips", LucideIcons.video, Colors.purple, () => context.push('/kingdom-klips')),
               ],
             ),
             const SizedBox(height: 40),

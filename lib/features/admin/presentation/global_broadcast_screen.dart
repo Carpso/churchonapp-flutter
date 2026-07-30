@@ -3,7 +3,10 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/services/tenant_sms_service.dart';
 import 'package:church_on_app/core/utils/connectivity_util.dart';
+import 'sms/buy_sms_credits_screen.dart';
 
 class GlobalBroadcastScreen extends ConsumerStatefulWidget {
   const GlobalBroadcastScreen({super.key});
@@ -21,7 +24,7 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
   List<Map<String, dynamic>> _history = [];
 
   final _targets = ["All Members", "Pastoral Staff", "Ushers/Helpers", "Transport Drivers", "Youth & Teens", "Women's Fellowship", "Men's Ministry"];
-  final _channels = ["Push Notification", "In-App Popup Alert"];
+  final _channels = ["Push Notification", "In-App Popup Alert", "SMS"];
 
   @override
   void initState() {
@@ -59,6 +62,11 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
 
     setState(() => _sending = true);
     try {
+      if (_selectedChannel == "SMS") {
+        await _sendSmsBroadcast(body);
+        return;
+      }
+
       await Supabase.instance.client.from('notifications').insert({
         'title': title,
         'message': body,
@@ -82,6 +90,71 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
     }
   }
 
+  Future<void> _sendSmsBroadcast(String body) async {
+    final tenant = ref.read(currentTenantProvider);
+    if (tenant == null) {
+      if (mounted) PremiumToast.showError(context, "No tenant selected");
+      return;
+    }
+
+    // Get member phone numbers for the selected audience
+    final client = Supabase.instance.client;
+    List<Map<String, dynamic>> members;
+
+    try {
+      final query = client.from('profiles').select('phone').not('phone', 'is', null).eq('tenant_id', tenant.id);
+      if (_selectedTarget != "All Members") {
+        final roleMap = {
+          "Pastoral Staff": "pastor",
+          "Ushers/Helpers": "usher",
+          "Transport Drivers": "driver",
+          "Youth & Teens": "youth",
+          "Women's Fellowship": "women",
+          "Men's Ministry": "men",
+        };
+        final role = roleMap[_selectedTarget];
+        if (role != null) {
+          members = await query.eq('role', role);
+        } else {
+          members = await query;
+        }
+      } else {
+        members = await query;
+      }
+    } catch (e) {
+      if (mounted) PremiumToast.showError(context, "Failed to load member contacts");
+      setState(() => _sending = false);
+      return;
+    }
+
+    final phones = members.map((m) => m['phone']?.toString() ?? '').where((p) => p.isNotEmpty).toList();
+    if (phones.isEmpty) {
+      if (mounted) PremiumToast.showWarning(context, "No phone numbers found for this audience");
+      setState(() => _sending = false);
+      return;
+    }
+
+    final service = ref.read(tenantSmsServiceProvider);
+    final success = await service.sendBroadcast(
+      tenantId: tenant.id,
+      phoneNumbers: phones,
+      message: body,
+      audienceLabel: _selectedTarget,
+    );
+
+    if (mounted) {
+      if (success) {
+        PremiumToast.showSuccess(context, "SMS sent to ${phones.length} recipients", title: "SMS Broadcast Sent");
+        _titleCtrl.clear();
+        _bodyCtrl.clear();
+      } else {
+        PremiumToast.showError(context, "SMS broadcast failed. Check credit balance.");
+      }
+      _loadHistory();
+      setState(() => _sending = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -94,9 +167,17 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text("Global Broadcast", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-            Text("Send push alerts to the church fleet", style: TextStyle(color: Colors.grey.shade600, fontSize: 11, fontWeight: FontWeight.normal)),
+            Text("Send push alerts or SMS to the church", style: TextStyle(color: Colors.grey.shade600, fontSize: 11, fontWeight: FontWeight.normal)),
           ],
         ),
+        actions: [
+          if (_selectedChannel == "SMS")
+            IconButton(
+              icon: const Icon(LucideIcons.creditCard, color: Colors.blueAccent),
+              tooltip: "Buy SMS Credits",
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BuySmsCreditsScreen())),
+            ),
+        ],
       ),
       body: OfflineAwareWrapper(
         child: CustomScrollView(
@@ -124,6 +205,11 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
   }
 
   Widget _buildForm() {
+    final tenant = ref.read(currentTenantProvider);
+    final balanceAsync = tenant != null
+        ? ref.watch(smsBalanceProvider(tenant.id))
+        : const AsyncValue.data(null);
+
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Container(
@@ -175,22 +261,60 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   value: _selectedChannel, isExpanded: true,
-                  items: _channels.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                  items: _channels.map((c) => DropdownMenuItem(value: c, child: _channelLabel(c))).toList(),
                   onChanged: (val) { if (val != null) setState(() => _selectedChannel = val); },
                 ),
               ),
             ),
+            if (_selectedChannel == "SMS") ...[
+              const SizedBox(height: 12),
+              balanceAsync.when(
+                data: (balance) {
+                  final balanceVal = balance;
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(LucideIcons.messageCircle, size: 16, color: Colors.blue.shade700),
+                        const SizedBox(width: 8),
+                        Text("$balanceVal SMS credits", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade800, fontSize: 13)),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BuySmsCreditsScreen())),
+                          child: const Text("Buy more", style: TextStyle(fontSize: 11)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+            ],
             const SizedBox(height: 35),
             ElevatedButton(
               onPressed: _sending ? null : _sendBroadcast,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple, foregroundColor: Colors.white,
+                backgroundColor: _selectedChannel == "SMS" ? Colors.green : Colors.purple,
+                foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 60), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                elevation: 5, shadowColor: Colors.purple.withValues(alpha: 0.3),
+                elevation: 5, shadowColor: (_selectedChannel == "SMS" ? Colors.green : Colors.purple).withValues(alpha: 0.3),
               ),
               child: _sending
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(LucideIcons.send), SizedBox(width: 10), Text("SEND GLOBAL BROADCAST", style: TextStyle(fontWeight: FontWeight.bold))]),
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(_selectedChannel == "SMS" ? LucideIcons.messageCircle : LucideIcons.send),
+                        const SizedBox(width: 10),
+                        Text(_selectedChannel == "SMS" ? "SEND SMS BROADCAST" : "SEND GLOBAL BROADCAST",
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
             ),
           ],
         ),
@@ -198,7 +322,35 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
     );
   }
 
+  Widget _channelLabel(String channel) {
+    IconData icon;
+    Color color;
+    switch (channel) {
+      case "SMS":
+        icon = LucideIcons.messageCircle;
+        color = Colors.green;
+        break;
+      case "In-App Popup Alert":
+        icon = LucideIcons.bell;
+        color = Colors.orange;
+        break;
+      default:
+        icon = LucideIcons.bellRing;
+        color = Colors.purple;
+    }
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 8),
+        Text(channel),
+      ],
+    );
+  }
+
   Widget _buildHistoryItem(Map<String, dynamic> h) {
+    final channel = h['channel']?.toString() ?? '';
+    final isSms = channel == "SMS";
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(20),
@@ -221,16 +373,22 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
               if (h['target_audience'] != null)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.purple.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                  child: Text(h['target_audience'].toString(), style: const TextStyle(color: Colors.purple, fontSize: 9, fontWeight: FontWeight.bold)),
+                  decoration: BoxDecoration(
+                    color: isSms ? Colors.green.withValues(alpha: 0.1) : Colors.purple.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(h['target_audience'].toString(),
+                      style: TextStyle(color: isSms ? Colors.green : Colors.purple, fontSize: 9, fontWeight: FontWeight.bold)),
                 ),
               const SizedBox(width: 10),
-              if (h['channel'] != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                  child: Text(h['channel'].toString(), style: const TextStyle(color: Colors.blue, fontSize: 9, fontWeight: FontWeight.bold)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isSms ? Colors.green.withValues(alpha: 0.1) : Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
                 ),
+                child: Text(channel, style: TextStyle(color: isSms ? Colors.green : Colors.blue, fontSize: 9, fontWeight: FontWeight.bold)),
+              ),
             ],
           ),
         ],

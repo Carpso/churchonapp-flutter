@@ -12,6 +12,7 @@ import '../data/xp_service.dart';
 import 'bible_quiz_arena_screen.dart';
 import 'quiz_event_lobby_screen.dart';
 
+
 class BibleQuizHubScreen extends ConsumerStatefulWidget {
   const BibleQuizHubScreen({super.key});
 
@@ -95,8 +96,14 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
         title: const Text("Global Bible Quiz", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, color: Colors.white)),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(quizLeaderboardProvider);
+          await _loadTrophyConfig();
+        },
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
+        physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -312,6 +319,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -832,7 +840,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
     final refCode = profile.walletId ?? "COA-ZM-REF-${profile.id.substring(0, 6).toUpperCase()}";
     final inviteText =
         'Join me on Church On App for a Bible Quiz PvP match!\n\n'
-        'Download the app and challenge me: https://churchonapp.com/quiz\n'
+        'Download the app and challenge me: https://churchonapp.com/quiz/invite\n'
         'My referral code: $refCode';
     SharePlus.instance.share(ShareParams(text: inviteText, subject: 'Bible Quiz Invitation'));
   }

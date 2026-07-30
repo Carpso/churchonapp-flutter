@@ -5,9 +5,11 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/services/prediction_service.dart';
 import 'package:church_on_app/core/widgets/qr_code_with_logo.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 import 'package:church_on_app/core/widgets/verification_badge.dart';
+import 'package:church_on_app/features/profile/presentation/membership_card_screen.dart';
 import '../../finance/presentation/giving_screen.dart';
 import '../../marketplace/presentation/my_library_screen.dart';
 import '../../marketplace/presentation/vendor_dashboard_screen.dart';
@@ -285,13 +287,19 @@ class ProfileScreen extends ConsumerWidget {
               ),
               if (profile.canWork) _buildWorkModeToggle(context, ref, profile),
               const SizedBox(width: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                child: QrCodeWithLogo(
-                  data: profile.id,
-                  size: 50,
-                  logoSize: 14,
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MembershipCardScreen()),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                  child: QrCodeWithLogo(
+                    data: profile.id,
+                    size: 50,
+                    logoSize: 14,
+                  ),
                 ),
               ),
             ],
@@ -547,8 +555,9 @@ class ProfileScreen extends ConsumerWidget {
               children: [
                 Icon(assets[index]['icon'] as IconData, color: Colors.amber, size: 24),
                 const SizedBox(height: 12),
-                Text(assets[index]['title'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
-                Text(assets[index]['count'] as String, style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                Text(assets[index]['title'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                Text(assets[index]['count'] as String, style: const TextStyle(color: Colors.white38, fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -605,6 +614,8 @@ class ProfileScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           const Text("SPIRITUAL GROWTH INDEX", style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.white10, letterSpacing: 3)),
+          const SizedBox(height: 24),
+          const SpiritualPredictorCard(),
         ],
       ),
     );

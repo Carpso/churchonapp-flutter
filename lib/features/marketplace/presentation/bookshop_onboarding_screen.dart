@@ -66,27 +66,16 @@ class _BookshopOnboardingScreenState extends ConsumerState<BookshopOnboardingScr
       final userId = client.auth.currentUser?.id;
       if (userId == null) throw Exception("Not logged in");
 
-      final tenantRes = await client.from('tenants').insert({
-        'name': _nameC.text.trim(),
-        'type': 'bookshop',
-      }).select('id').single();
-      final tenantId = tenantRes['id'] as String;
-
-      await client.from('marketplace_items').insert({
+      final response = await client.functions.invoke('create-bookshop', body: {
         'name': _nameC.text.trim(),
         'description': _descC.text.trim(),
         'contact': _contactC.text.trim(),
         'location': _locationC.text.trim(),
-        'category': 'bookshop',
-        'vendor_id': userId,
-        'tenant_id': tenantId,
-        'created_at': DateTime.now().toIso8601String(),
       });
-
-      await client.from('profiles').update({
-        'role': 'vendor',
-        'tenant_id': tenantId,
-      }).eq('id', userId);
+      final result = response.data as Map<String, dynamic>?;
+      if (result == null || result['success'] != true) {
+        throw Exception(result?['error'] ?? 'Failed to create bookshop');
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

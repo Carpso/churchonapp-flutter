@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:church_on_app/features/modules/media/data/lyrics_service.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'setlist_builder_screen.dart';
 
 class WorshipLyricsScreen extends ConsumerStatefulWidget {
@@ -37,6 +38,12 @@ class _WorshipLyricsScreenState extends ConsumerState<WorshipLyricsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final profileAsync = ref.watch(profileProvider);
+    final profile = profileAsync.value;
+    final canAddLyrics = profile != null &&
+        (profile.isEmployee ||
+            profile.isAdminOrHigher ||
+            profile.isPraiseTeam);
     final lyricsAsync = _selectedCategory == 'all'
         ? ref.watch(lyricsStreamProvider)
         : ref.watch(lyricsByCategoryProvider(_selectedCategory));
@@ -66,13 +73,15 @@ class _WorshipLyricsScreenState extends ConsumerState<WorshipLyricsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddLyricDialog(context),
-        icon: const Icon(LucideIcons.plus),
-        label: const Text('Add Song'),
-        backgroundColor: theme.primaryColor,
-        foregroundColor: Colors.white,
-      ),
+      floatingActionButton: canAddLyrics
+          ? FloatingActionButton.extended(
+              onPressed: () => _showAddLyricDialog(context),
+              icon: const Icon(LucideIcons.plus),
+              label: const Text('Add Song'),
+              backgroundColor: theme.primaryColor,
+              foregroundColor: Colors.white,
+            )
+          : null,
       body: Column(
         children: [
           // Search & Filter

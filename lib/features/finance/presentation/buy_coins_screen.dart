@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/services/platform_settings_service.dart';
+import 'package:church_on_app/core/config/env.dart';
 import 'package:church_on_app/features/finance/data/coin_purchase_service.dart';
 import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
@@ -228,6 +230,11 @@ class _BuyCoinsScreenState extends ConsumerState<BuyCoinsScreen> {
   }
 
   void _proceedToPayment(CoinPackage pkg) {
+    final settingsAsync = ref.read(platformSettingsProvider);
+    final settings = settingsAsync.value;
+    final recipientAccount = settings?.coaMoMoNumber ?? Env.coaMoMoNumber;
+    final recipientName = settings?.coaMoMoName ?? Env.coaMoMoName;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -235,6 +242,8 @@ class _BuyCoinsScreenState extends ConsumerState<BuyCoinsScreen> {
       builder: (sheetCtx) => LipilaPaymentGateway(
         amount: pkg.priceKwacha.toDouble(),
         description: "Church Coins: ${pkg.label} (${pkg.coins} CC)",
+        recipientName: recipientName,
+        recipientAccount: recipientAccount,
         onComplete: (success, txId) async {
           Navigator.pop(sheetCtx);
           if (success && txId != null) {

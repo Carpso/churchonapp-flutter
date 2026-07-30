@@ -60,14 +60,14 @@ class RideMapView extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(LucideIcons.flagTriangleRight, color: Colors.red, size: 32),
+                  const Icon(LucideIcons.flagTriangleRight, color: Color(0xFFFFD700), size: 32),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.red,
+                      color: const Color(0xFFFFD700),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text('Dropoff', style: TextStyle(color: Colors.white, fontSize: 10)),
+                    child: const Text('Dropoff', style: TextStyle(color: Colors.black, fontSize: 10)),
                   ),
                 ],
               ),
@@ -76,7 +76,7 @@ class RideMapView extends StatelessWidget {
           ...driversAsync.when(
             data: (drivers) => drivers.map((d) => buildRideMarker(
               point: LatLng(d.lat, d.lng),
-              color: Theme.of(context).primaryColor,
+              color: const Color(0xFFFFD700),
             )),
             loading: () => [],
             error: (e, s) => [],

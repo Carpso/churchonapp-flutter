@@ -9,6 +9,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/features/admin/data/admin_service.dart';
 import 'package:share_plus/share_plus.dart';
 
 /// Searchable, filterable member directory for church leadership.
@@ -251,6 +252,14 @@ class _MemberDirectoryScreenState
           style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.refreshCw),
+            tooltip: 'Refresh Members',
+            onPressed: () {
+              ref.invalidate(membersProvider);
+              _loadMembers();
+            },
+          ),
           PopupMenuButton<String>(
             icon: const Icon(LucideIcons.download),
             tooltip: 'Export Directory',

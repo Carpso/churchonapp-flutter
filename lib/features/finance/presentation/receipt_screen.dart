@@ -195,7 +195,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
           ),
           const SizedBox(height: 15),
           _feeRow("Transaction Amount", receipt.amount, Colors.black87),
-          _feeRow("Platform Fee (${receipt.category == 'event' ? '10' : '5'}%)", -receipt.platformFee!, Colors.red),
+          _feeRow("Platform Fee (1%)", -receipt.platformFee!, Colors.red),
           Divider(color: Colors.grey.shade200),
           _feeRow("Net to Recipient", netAmount, Colors.green.shade700),
           if (receipt.disbursementStatus != null) ...[

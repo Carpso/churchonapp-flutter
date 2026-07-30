@@ -236,7 +236,7 @@ class TransportService {
 
     if (driverId == null) return;
 
-    final platformCut = fare * 0.10;
+    final platformCut = fare * 0.01;
     final netEarning = fare - platformCut;
 
     // 2. Transfer Coins
@@ -260,7 +260,7 @@ class TransportService {
       'amount': -fare,
       'type': 'ride_payment',
       'reference_id': requestId,
-      'description': 'Payment for Ride (10% platform cut applied)',
+      'description': 'Payment for Ride (1% platform cut applied)',
       'platform_fee': platformCut,
     });
 
@@ -269,7 +269,7 @@ class TransportService {
       'amount': netEarning,
       'type': 'ride_earning',
       'reference_id': requestId,
-      'description': 'Earning from Ride (10% platform cut applied)',
+      'description': 'Earning from Ride (1% platform cut applied)',
       'platform_fee': platformCut,
     });
 
@@ -435,7 +435,7 @@ class TransportService {
 
     if (driverId == null) return;
 
-    final platformCut = fare * 0.10;
+    final platformCut = fare * 0.01;
     final netEarning = fare - platformCut;
 
     // Transfer Coins
@@ -457,7 +457,7 @@ class TransportService {
       'amount': -fare,
       'type': 'delivery_payment',
       'reference_id': deliveryId,
-      'description': 'Payment for Cargo: ${res['item_description']} (10% platform cut applied)',
+      'description': 'Payment for Cargo: ${res['item_description']} (1% platform cut applied)',
       'platform_fee': platformCut,
     });
 
@@ -466,7 +466,7 @@ class TransportService {
       'amount': netEarning,
       'type': 'delivery_earning',
       'reference_id': deliveryId,
-      'description': 'Earning from Cargo mission (10% platform cut applied)',
+      'description': 'Earning from Cargo mission (1% platform cut applied)',
       'platform_fee': platformCut,
     });
 

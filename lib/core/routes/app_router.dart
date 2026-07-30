@@ -10,7 +10,7 @@ import 'package:church_on_app/features/auth/presentation/onboarding_screen.dart'
 import 'package:church_on_app/features/auth/presentation/select_church_screen.dart'
     show SelectTenantScreen;
 import 'package:church_on_app/features/auth/presentation/landing_screen.dart';
-import 'package:church_on_app/features/auth/presentation/church_onboarding_screen.dart';
+
 import 'package:church_on_app/features/auth/presentation/splash_screen.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:church_on_app/features/home/presentation/home_screen.dart';
@@ -124,6 +124,7 @@ import 'package:church_on_app/features/home/presentation/news_list_screen.dart';
 import 'package:church_on_app/features/home/presentation/song_lyrics_screen.dart';
 import 'package:church_on_app/features/home/presentation/tech_fast_blocker.dart';
 import 'package:church_on_app/features/modules/ai_sermon_notes/presentation/ai_sermon_notes_screen.dart';
+import 'package:church_on_app/features/modules/bible_quiz/presentation/bible_quiz_arena_screen.dart';
 import 'package:church_on_app/features/modules/bible_quiz/presentation/church_competition_lobby_screen.dart';
 import 'package:church_on_app/features/modules/bible_quiz/presentation/church_competition_screen.dart';
 import 'package:church_on_app/features/modules/bible_quiz/presentation/quiz_invite_handler_screen.dart';
@@ -149,6 +150,16 @@ import 'package:church_on_app/features/profile/presentation/subscription_screen.
 import 'package:church_on_app/features/transport/presentation/driver_earnings_screen.dart';
 import 'package:church_on_app/features/transport/presentation/ride_history_screen.dart';
 import 'package:church_on_app/features/transport/presentation/sos_trigger_screen.dart';
+import 'package:church_on_app/features/admin/presentation/bishop_hub_screen.dart';
+import 'package:church_on_app/features/admin/presentation/bishop_dashboard_screen.dart';
+import 'package:church_on_app/features/admin/presentation/superadmin_hub_screen.dart';
+import 'package:church_on_app/features/finance/presentation/buy_coins_screen.dart';
+import 'package:church_on_app/features/finance/presentation/payout_request_screen.dart';
+import 'package:church_on_app/features/auth/presentation/register_church_screen.dart';
+import 'package:church_on_app/features/connect/presentation/communities_screen.dart';
+import 'package:church_on_app/features/connect/presentation/kingdom_klips_screen.dart';
+import 'package:church_on_app/features/connect/presentation/testimonies_screen.dart';
+import 'package:church_on_app/features/marketplace/presentation/post_product_screen.dart';
 import 'package:church_on_app/features/bible_study/data/bible_study_service.dart' show BibleStudy;
 import 'package:church_on_app/features/modules/games/data/game_service.dart' show KingdomGame;
 import 'package:church_on_app/core/providers/profile_provider.dart' show UserProfile;
@@ -273,7 +284,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/register-church',
-        builder: (context, state) => const ChurchOnboardingScreen(),
+        builder: (context, state) => const RegisterChurchScreen(),
       ),
 
       GoRoute(
@@ -292,6 +303,20 @@ final routerProvider = Provider<GoRouter>((ref) {
           final churchSlug = state.uri.queryParameters['slug'];
           final inviteCode = state.uri.queryParameters['code'];
           return JoinChurchScreen(churchId: churchId, churchSlug: churchSlug, inviteCode: inviteCode);
+        },
+      ),
+      GoRoute(
+        path: '/invite-church/:code',
+        builder: (context, state) {
+          final code = state.pathParameters['code']!;
+          return JoinChurchScreen(inviteCode: code);
+        },
+      ),
+      GoRoute(
+        path: '/invite/church/:code',
+        redirect: (context, state) {
+          final code = state.pathParameters['code']!;
+          return '/invite-church/$code';
         },
       ),
       GoRoute(
@@ -440,6 +465,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/events',
         builder: (context, state) => const EventsScreen(),
+      ),
+      GoRoute(
+        path: '/event/:id',
+        redirect: (context, state) {
+          final id = state.pathParameters['id']!;
+          final qs = state.uri.queryParameters;
+          final qString = qs.isNotEmpty ? '?${state.uri.query}' : '';
+          return '/events/$id$qString';
+        },
       ),
       GoRoute(
         path: '/events/:id',
@@ -663,6 +697,46 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/bible-books-audit',
         builder: (context, state) => const BibleBooksAuditScreen(),
       ),
+      // === NEW ROUTES FOR ORPHANED SCREENS ===
+      GoRoute(
+        path: '/bishop-hub',
+        builder: (context, state) => const BishopHubScreen(),
+      ),
+      GoRoute(
+        path: '/bishop-dashboard',
+        builder: (context, state) => const BishopDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/superadmin-hub',
+        builder: (context, state) => const SuperadminHubScreen(),
+      ),
+      GoRoute(
+        path: '/buy-coins',
+        builder: (context, state) => const BuyCoinsScreen(),
+      ),
+      GoRoute(
+        path: '/payout-request',
+        builder: (context, state) => const PayoutRequestScreen(),
+      ),
+      GoRoute(
+        path: '/communities',
+        builder: (context, state) => const CommunitiesScreen(),
+      ),
+      GoRoute(
+        path: '/kingdom-klips',
+        builder: (context, state) => const KingdomKlipsScreen(),
+      ),
+      GoRoute(
+        path: '/testimonies',
+        builder: (context, state) => const TestimoniesScreen(),
+      ),
+      GoRoute(
+        path: '/post-product',
+        builder: (context, state) {
+          final category = state.uri.queryParameters['category'];
+          return PostProductScreen(initialCategory: category);
+        },
+      ),
       GoRoute(
         path: '/bible/:book/:chapter/:verse',
         builder: (context, state) {
@@ -824,6 +898,25 @@ final routerProvider = Provider<GoRouter>((ref) {
               return ChurchCompetitionLobbyScreen(
                 competitionId: extra?['competitionId'] as String?,
                 initialPin: extra?['pin'] as String?,
+              );
+            },
+          ),
+          GoRoute(
+            path: 'arena',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              final mode = extra?['mode'] as String? ?? 'Solo';
+              final matchData = extra?['pvpMatch'];
+              int qCount = 10;
+              int tpq = 15;
+              if (matchData is Map<String, dynamic>) {
+                qCount = (matchData['questionCount'] as int?) ?? 10;
+                tpq = (matchData['timePerQuestion'] as int?) ?? 15;
+              }
+              return BibleQuizArenaScreen(
+                mode: mode,
+                questionCount: qCount,
+                timePerQuestionSec: tpq,
               );
             },
           ),

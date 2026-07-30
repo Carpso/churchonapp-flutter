@@ -193,7 +193,7 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
                           children: [
                             Text(_isPaid ? 'PAID SUBSCRIBER' : 'TRIAL (FREE)',
                                 style: TextStyle(fontWeight: FontWeight.bold, color: _isPaid ? Colors.green[800] : Colors.orange[800])),
-                            Text(_isPaid ? 'K1,500/yr — Full access' : '30-day trial with limits',
+                            Text(_isPaid ? 'Paid plan — Full access' : '30-day trial with limits',
                                 style: TextStyle(fontSize: 12, color: _isPaid ? Colors.green[600] : Colors.orange[600])),
                           ],
                         ),

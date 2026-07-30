@@ -103,7 +103,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
                   backgroundColor: Colors.transparent,
                   builder: (context) {
                     final tenant = ref.read(currentTenantProvider);
-                    final fee = amount * 0.05 > 3.00 ? amount * 0.05 : 3.00;
+                    final fee = amount * 0.01 > 3.00 ? amount * 0.01 : 3.00;
                     return LipilaPaymentGateway(
                       amount: amount + fee,
                       description: "Giving: $_selectedCategory",
@@ -207,7 +207,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
     final features = [
       (LucideIcons.coins, "Fundraising", "Active campaigns", '/fundraising', Colors.orange),
       (LucideIcons.users, "Group Giving", "Give together", '/fundraising/groups', Colors.blue),
-      (LucideIcons.scrollText, "My Pledges", "Track promises", '/pledges', Colors.purple),
+      (LucideIcons.scrollText, "My Pledges", "Track promises", '/my-pledges', Colors.purple),
       (LucideIcons.history, "Giving History", "All transactions", '/giving/history', Colors.teal),
       (LucideIcons.wallet, "Wallet", "Manage funds", '/wallet', Colors.green),
     ];
@@ -299,7 +299,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
                 const SizedBox(width: 5),
                 Flexible(
                   child: Text(
-                    "+ MoMo Transaction Fee (K${(() { final amt = double.tryParse(_amountController.text); if (amt == null) return '3.00'; final fee = amt * 0.05 > 3.00 ? amt * 0.05 : 3.00; return fee.toStringAsFixed(2); })()})",
+                    "+ Platform Fee (K${(() { final amt = double.tryParse(_amountController.text); if (amt == null) return '3.00'; final fee = amt * 0.01 > 3.00 ? amt * 0.01 : 3.00; return fee.toStringAsFixed(2); })()})",
                     style: const TextStyle(color: Colors.blue, fontSize: 10),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

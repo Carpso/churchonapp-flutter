@@ -10,6 +10,7 @@ import '../../../core/services/tenant_service.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/utils/db_seeder.dart';
 import '../../../core/services/platform_settings_service.dart';
+import '../../../core/services/plan_service.dart';
 import '../data/admin_service.dart';
 import '../data/role_hierarchy_service.dart';
 import '../../events/data/event_service.dart';
@@ -33,18 +34,25 @@ class SuperadminHubScreen extends ConsumerStatefulWidget {
 
 class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
   final _passController = TextEditingController();
-  final _silverFeeController = TextEditingController();
+  final _onboardingFeeController = TextEditingController();
   final _goldFeeController = TextEditingController();
-  final _churchFeeController = TextEditingController();
+  final _platinumFeeController = TextEditingController();
+  final _coaMoMoNumberController = TextEditingController();
+  final _coaMoMoNameController = TextEditingController();
+  final _coaTreasuryPhoneController = TextEditingController();
   bool _isSavingRates = false;
+  bool _isSavingMoMo = false;
   late final AuditService _audit;
 
   @override
   void dispose() {
     _passController.dispose();
-    _silverFeeController.dispose();
+    _onboardingFeeController.dispose();
     _goldFeeController.dispose();
-    _churchFeeController.dispose();
+    _platinumFeeController.dispose();
+    _coaMoMoNumberController.dispose();
+    _coaMoMoNameController.dispose();
+    _coaTreasuryPhoneController.dispose();
     super.dispose();
   }
 
@@ -96,9 +104,12 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       }
 
       final settings = await ref.read(platformSettingsServiceProvider).fetchSettings();
-      _silverFeeController.text = settings.silverFee.toStringAsFixed(0);
-      _goldFeeController.text = settings.goldFee.toStringAsFixed(0);
-      _churchFeeController.text = settings.churchFee.toStringAsFixed(0);
+      _onboardingFeeController.text = settings.onboardingFee.toStringAsFixed(0);
+      _goldFeeController.text = settings.goldMonthlyFee.toStringAsFixed(0);
+      _platinumFeeController.text = settings.platinumMonthlyFee.toStringAsFixed(0);
+      _coaMoMoNumberController.text = settings.coaMoMoNumber;
+      _coaMoMoNameController.text = settings.coaMoMoName;
+      _coaTreasuryPhoneController.text = settings.coaTreasuryPhone;
 
       if (mounted) {
         setState(() {
@@ -124,6 +135,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       await client.from('churches').update({
         'is_verified': true,
         'subscription_ends_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+        'plan': 'silver',
       }).eq('id', church['id']);
 
       final pastorData = church['pastor_name']?.toString() ?? '';
@@ -145,7 +157,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Approved ${church['name']}! ✅"), backgroundColor: Colors.green),
+          SnackBar(content: Text("Approved ${church['name']}! 30-day Silver trial started ✅"), backgroundColor: Colors.green),
         );
         _loadStats();
       }
@@ -269,10 +281,16 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
   Future<void> _approvePayment(Map<String, dynamic> church) async {
     try {
       final client = Supabase.instance.client;
-      final expiry = DateTime.now().add(const Duration(days: 365));
-      
+      var platinumUntil = DateTime.now().add(const Duration(days: 30));
+      if (platinumUntil.isAfter(PlanLimits.promotionEndDate)) {
+        platinumUntil = PlanLimits.promotionEndDate;
+      }
+
       await client.from('churches').update({
-        'subscription_ends_at': expiry.toIso8601String(),
+        'onboarding_fee_paid': true,
+        'onboarding_fee_paid_at': DateTime.now().toIso8601String(),
+        'promotion_platinum_until': platinumUntil.toIso8601String(),
+        'subscription_ends_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
         'payment_reference': null,
         'payment_submitted_at': null,
         'is_verified': true,
@@ -286,7 +304,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Approved payment for ${church['name']}! Subscription active until ${expiry.toLocal()} 🚀"), backgroundColor: Colors.green),
+          SnackBar(content: Text("Onboarding approved for ${church['name']}! Platinum active until ${platinumUntil.toLocal().toString().split(' ')[0]} 🚀"), backgroundColor: Colors.green),
         );
         _loadStats();
       }
@@ -414,16 +432,16 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
   }
 
   Future<void> _saveRates() async {
-    final silver = double.tryParse(_silverFeeController.text) ?? 50.0;
-    final gold = double.tryParse(_goldFeeController.text) ?? 150.0;
-    final church = double.tryParse(_churchFeeController.text) ?? 1500.0;
+    final onboarding = double.tryParse(_onboardingFeeController.text) ?? PlanLimits.onboardingFeeKwacha;
+    final gold = double.tryParse(_goldFeeController.text) ?? PlanLimits.forPlan(TenantPlan.gold).monthlyPriceKwacha;
+    final platinum = double.tryParse(_platinumFeeController.text) ?? PlanLimits.forPlan(TenantPlan.platinum).monthlyPriceKwacha;
 
     setState(() => _isSavingRates = true);
     try {
       await ref.read(platformSettingsServiceProvider).updateSettings(
-        silverFee: silver,
-        goldFee: gold,
-        churchFee: church,
+        onboardingFee: onboarding,
+        goldMonthlyFee: gold,
+        platinumMonthlyFee: platinum,
       );
       ref.invalidate(platformSettingsProvider);
       if (mounted) {
@@ -442,6 +460,77 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
     }
   }
 
+  Future<void> _saveMoMo() async {
+    final momoNumber = _coaMoMoNumberController.text.trim();
+    final momoName = _coaMoMoNameController.text.trim();
+    final treasuryPhone = _coaTreasuryPhoneController.text.trim();
+
+    setState(() => _isSavingMoMo = true);
+    try {
+      await ref.read(platformSettingsServiceProvider).updateSettings(
+        onboardingFee: double.tryParse(_onboardingFeeController.text) ?? PlanLimits.onboardingFeeKwacha,
+        goldMonthlyFee: double.tryParse(_goldFeeController.text) ?? PlanLimits.forPlan(TenantPlan.gold).monthlyPriceKwacha,
+        platinumMonthlyFee: double.tryParse(_platinumFeeController.text) ?? PlanLimits.forPlan(TenantPlan.platinum).monthlyPriceKwacha,
+        coaMoMoNumber: momoNumber,
+        coaMoMoName: momoName,
+        coaTreasuryPhone: treasuryPhone,
+      );
+      ref.invalidate(platformSettingsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("COA MoMo numbers updated! ✅"), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to update MoMo: $e"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingMoMo = false);
+    }
+  }
+
+  Widget _buildMoMoEditor() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("These numbers receive coin purchase payments.", style: TextStyle(color: Colors.white38, fontSize: 12)),
+          const SizedBox(height: 16),
+          _buildRateInput("COA MoMo Number (e.g. 0977000000)", _coaMoMoNumberController),
+          const SizedBox(height: 15),
+          _buildRateInput("COA MoMo Name (e.g. Church On App)", _coaMoMoNameController),
+          const SizedBox(height: 15),
+          _buildRateInput("COA Treasury Phone (e.g. 260977000000)", _coaTreasuryPhoneController),
+          const SizedBox(height: 25),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: _isSavingMoMo ? null : _saveMoMo,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              ),
+              child: _isSavingMoMo
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text("UPDATE MOMO NUMBERS", style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildRatesEditor() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -453,11 +542,11 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildRateInput("Silver Partner Subscription Fee (K/month)", _silverFeeController),
+          _buildRateInput("Onboarding Fee (K) — one-time", _onboardingFeeController),
           const SizedBox(height: 15),
-          _buildRateInput("Gold Partner Subscription Fee (K/month)", _goldFeeController),
+          _buildRateInput("Gold Monthly Plan Fee (K/mo)", _goldFeeController),
           const SizedBox(height: 15),
-          _buildRateInput("Church Annual Subscription Fee (K)", _churchFeeController),
+          _buildRateInput("Platinum Monthly Plan Fee (K/mo)", _platinumFeeController),
           const SizedBox(height: 25),
           SizedBox(
             width: double.infinity,
@@ -549,7 +638,13 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A), // Dark mode for superadmin
       appBar: AppBar(
-        title: const Text("Superadmin God-Mode", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Superadmin God-Mode", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
+            const Text("SUPERADMIN", style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+          ],
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -576,6 +671,10 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             const Text("Platform Subscription Rates", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
             _buildRatesEditor(),
+            const SizedBox(height: 40),
+            const Text("COA Treasury MoMo Numbers", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            _buildMoMoEditor(),
             const SizedBox(height: 40),
             const Text("Global Overrides", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),

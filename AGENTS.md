@@ -633,7 +633,16 @@ flutter analyze --no-fatal-infos --no-fatal-warnings
 - **`Remember Me` feature**: Now fully functional. When unchecked: saves `remember_me = false` to SharedPreferences, splash screen checks flag and calls `supabase.auth.signOut()` to prevent session persistence. On sign out: clears `remember_me` and `remembered_email` from SharedPreferences.
 - **Performance migration `20260842`**: Adds indexes on `messages(sender_id, conversation_id)`, `stream_chat_messages(stream_id)`, `fundraising_contributions(contributor_id)`, `live_streams(church_id, status)`, `community_communities(tenant_id)`, `community_members(community_id, user_id)`.
 - **Container assertion crash fixed**: `AnimatedContainer` in `main_navigation_shell.dart` had `clipBehavior: Clip.hardEdge` without `decoration`, triggering Flutter assertion. Added `decoration: const BoxDecoration()`.
-- **Release builds**: APK v1.0.0+215 (`build/app/outputs/flutter-apk/app-release.apk`), AAB v1.0.0+216 (`build/app/outputs/bundle/release/app-release.aab`).
+- **Release builds**: APK v1.0.0+229 (`build/app/outputs/flutter-apk/app-release.apk` 200.8MB), AAB v1.0.0+232 (`build/app/outputs/bundle/release/app-release.aab` 117.2MB).
+- **R8 optimization & Gradle performance (2026-07-30)**:
+  - **Proguard enhanced**: 5 optimization passes, `allowaccessmodification`, `repackageclasses`, `mergeinterfacesaggressively` to shrink DEX size. Comprehensive keep rules for all feature models, Supabase/GoTrue/PostgREST, ExoPlayer/Media3, MapLibre, WebRTC, crypto libraries.
+  - **Debug log stripping**: `-assumenosideeffects` strips `v/d/i` logs in release builds (reduces method count).
+  - **Gradle caching**: Enabled `org.gradle.caching=true`, `org.gradle.parallel=true`, `configureondemand=true`.
+  - **Resource shrinking**: `isShrinkResources=true` with R8 full mode removes unused resources.
+  - **Keystore path fixed**: `key.properties` relative path corrected to `storeFile=upload-keystore.jks`.
+  - **ABI splits**: Configured for APK builds (arm64-v8a 80.8MB, armeabi-v7a 64.5MB, x86_64 87.7MB) plus universal APK.
+  - **Deno config**: Added `supabase/functions/deno.json` to resolve TypeScript import errors in Edge Functions.
+  - **Paywall widget fix**: Fixed `use_build_context_synchronously` + `curly_braces_in_flow_control_structures` lints in `home_subscription_paywall.dart`.
 - **Pre-launch audit fixes (2026-07-29)**:
   - **C1 — Lipila webhook auth bypass FIXED**: Removed Bearer token short-circuit that allowed bypassing HMAC signature verification with any `Authorization: Bearer anything` header. Now always requires valid HMAC-SHA256 signature in `x-webhook-signature` header when `LIPILA_WEBHOOK_SECRET` is configured. Body is read as text for signature verification before JSON parsing. (`supabase/functions/lipila-webhook/index.ts`)
   - **F1 — Subscription paywall bypass FIXED**: `home_screen.dart:177` had `&& isAdmin` gating the paywall, meaning only admins saw the expired-subscription block. Removed `&& isAdmin` so ALL users are blocked when the church's trial/subscription has expired.
