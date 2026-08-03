@@ -15,7 +15,7 @@ class DiscoverScreen extends ConsumerWidget {
     final contentAsync = ref.watch(discoverContentProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Discover"),
       ),

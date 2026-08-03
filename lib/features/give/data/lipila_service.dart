@@ -15,6 +15,7 @@ class LipilaPaymentState {
   final String statusMessage;
   final String? errorMessage;
   final String? referenceId;
+  final String? cardUrl;
   final bool isCancelled;
   final bool isPolling;
   final int pollAttempt;
@@ -24,6 +25,7 @@ class LipilaPaymentState {
     this.statusMessage = '',
     this.errorMessage,
     this.referenceId,
+    this.cardUrl,
     this.isCancelled = false,
     this.isPolling = false,
     this.pollAttempt = 0,
@@ -37,6 +39,7 @@ class LipilaPaymentState {
     String? statusMessage,
     String? errorMessage,
     String? referenceId,
+    String? cardUrl,
     bool? isCancelled,
     bool? isPolling,
     int? pollAttempt,
@@ -46,6 +49,7 @@ class LipilaPaymentState {
       statusMessage: statusMessage ?? this.statusMessage,
       errorMessage: errorMessage,
       referenceId: referenceId ?? this.referenceId,
+      cardUrl: cardUrl ?? this.cardUrl,
       isCancelled: isCancelled ?? this.isCancelled,
       isPolling: isPolling ?? this.isPolling,
       pollAttempt: pollAttempt ?? this.pollAttempt,
@@ -158,6 +162,90 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
     }
   }
 
+  Future<void> initiateCardPayment({
+    required double amount,
+    required String description,
+    String? narration,
+    required String firstName,
+    required String lastName,
+    String? email,
+    String? phone,
+  }) async {
+    final client = Supabase.instance.client;
+    final session = client.auth.currentSession;
+    final token = session?.accessToken;
+    if (token == null) {
+      state = AsyncData(
+        const LipilaPaymentState().copyWith(
+          status: PaymentStatus.failed,
+          errorMessage: "Not authenticated. Please sign in.",
+        ),
+      );
+      return;
+    }
+
+    state = AsyncData(
+      const LipilaPaymentState().copyWith(
+        status: PaymentStatus.initiating,
+        statusMessage: "Connecting to card payment gateway...",
+      ),
+    );
+
+    try {
+      final String referenceId = const Uuid().v4();
+
+      final response = await client.functions.invoke('lipila-card-collect', body: {
+        "amount": amount,
+        "narration": narration ?? description,
+        "reference": referenceId,
+        "firstName": firstName,
+        "lastName": lastName,
+        "email": email ?? "",
+        "phone": phone ?? "",
+      });
+
+      if (response.data == null) {
+        throw Exception(response.status != 200
+            ? "Card collection failed (${response.status})"
+            : "No response from gateway");
+      }
+
+      final data = response.data is Map
+          ? Map<String, dynamic>.from(response.data as Map)
+          : {};
+
+      final cardUrl = data['url'] as String?;
+      if (cardUrl == null || cardUrl.isEmpty) {
+        throw Exception("No card payment URL returned");
+      }
+
+      state = AsyncData(
+        (state.value ?? const LipilaPaymentState()).copyWith(
+          status: PaymentStatus.cardRedirect,
+          statusMessage: "Opening card payment page...",
+          referenceId: referenceId,
+          cardUrl: cardUrl,
+        ),
+      );
+
+      // Start polling after redirect — user will complete card payment externally
+      await _startPolling(referenceId, client);
+    } catch (e) {
+      _cancelPolling();
+      final current = state.value;
+      state = AsyncData(
+        current?.copyWith(
+              status: PaymentStatus.failed,
+              errorMessage: e.toString().replaceFirst("Exception: ", ""),
+            ) ??
+            const LipilaPaymentState().copyWith(
+              status: PaymentStatus.failed,
+              errorMessage: e.toString().replaceFirst("Exception: ", ""),
+            ),
+      );
+    }
+  }
+
   Future<void> _startPolling(
     String referenceId,
     SupabaseClient client,
@@ -188,7 +276,9 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
           return;
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('LipilaService: Initial DB check failed: $e');
+    }
 
     _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
       attempts++;
@@ -238,7 +328,9 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
             return;
           }
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('LipilaService: Poll DB check failed (attempt $attempts): $e');
+      }
 
       try {
         final statusResponse = await client.functions.invoke('lipila-collect', body: {
@@ -337,7 +429,9 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
             return;
           }
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('LipilaService: Final DB check failed (attempt $attempts): $e');
+      }
 
       if (attempts >= maxAttempts) {
         timer.cancel();

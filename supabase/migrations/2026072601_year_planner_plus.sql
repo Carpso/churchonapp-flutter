@@ -3,6 +3,7 @@
 -- ════════════════════════════════════════════════════════════════
 
 -- 1. RPC: atomically increment attendee_count
+DROP FUNCTION IF EXISTS public.increment_attendee_count(UUID);
 CREATE OR REPLACE FUNCTION public.increment_attendee_count(event_id UUID)
 RETURNS void
 LANGUAGE plpgsql

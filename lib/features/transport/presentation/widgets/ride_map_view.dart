@@ -30,58 +30,77 @@ class RideMapView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer(
       builder: (context, ref, _) {
+        final theme = Theme.of(context);
         final driversAsync = ref.watch(activeDriversStreamProvider);
         final markers = <Marker>[
           if (pickupLatLng != null)
             Marker(
               point: pickupLatLng!,
-              width: 80,
-              height: 80,
+              width: 100,
+              height: 70,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(LucideIcons.mapPin, color: Colors.green, size: 32),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.green,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
                     ),
-                    child: const Text('Pickup', style: TextStyle(color: Colors.white, fontSize: 10)),
+                    child: const Text('Pickup', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                   ),
+                  const SizedBox(height: 2),
+                  const Icon(LucideIcons.mapPin, color: Colors.green, size: 28),
                 ],
               ),
             ),
           if (destLatLng != null)
             Marker(
               point: destLatLng!,
-              width: 80,
-              height: 80,
+              width: 100,
+              height: 70,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(LucideIcons.flagTriangleRight, color: Color(0xFFFFD700), size: 32),
+                  Icon(LucideIcons.flag, color: theme.primaryColor, size: 28),
+                  const SizedBox(height: 2),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFD700),
-                      borderRadius: BorderRadius.circular(4),
+                      color: theme.primaryColor,
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
                     ),
-                    child: const Text('Dropoff', style: TextStyle(color: Colors.black, fontSize: 10)),
+                    child: Text('Destination', style: TextStyle(color: theme.colorScheme.onPrimary, fontSize: 10, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
             ),
-          buildUserMarker(point: const LatLng(-15.3875, 28.3228)),
           ...driversAsync.when(
-            data: (drivers) => drivers.map((d) => buildRideMarker(
+            data: (drivers) => drivers.map((d) => Marker(
               point: LatLng(d.lat, d.lng),
-              color: const Color(0xFFFFD700),
+              width: 60,
+              height: 60,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: theme.primaryColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: theme.primaryColor.withValues(alpha: 0.4), blurRadius: 12)],
+                ),
+                child: Icon(LucideIcons.car, color: theme.colorScheme.onPrimary, size: 20),
+              ),
             )),
             loading: () => [],
             error: (e, s) => [],
           ),
         ];
+
+        // Draw polyline between pickup and destination if both set
+        final path = <LatLng>[];
+        if (pickupLatLng != null) path.add(pickupLatLng!);
+        if (destLatLng != null) path.add(destLatLng!);
 
         return ChurchMap(
           showPin: pinModeFor != null,
@@ -93,6 +112,7 @@ class RideMapView extends StatelessWidget {
               : 'Search destination address...',
           onAddressSelected: onAddressSelected ?? (address) {},
           markers: markers,
+          path: path.length >= 2 ? path : null,
           onMapTapped: onMapTapped,
         );
       },

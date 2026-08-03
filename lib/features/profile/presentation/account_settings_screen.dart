@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/services/r2_service.dart';
+import '../../../core/widgets/error_retry_widget.dart';
 
 class AccountSettingsScreen extends ConsumerStatefulWidget {
   const AccountSettingsScreen({super.key});
@@ -18,24 +18,12 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
   bool _isUploading = false;
 
   void _pickAndUploadImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-    if (picked == null) return;
     setState(() => _isUploading = true);
 
     try {
-      final file = File(picked.path);
-      final fileName = "avatar_${DateTime.now().millisecondsSinceEpoch}.jpg";
       final r2 = R2Service(Supabase.instance.client);
-      final url = await r2.uploadFile(file, "avatars/$fileName");
-
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
-        await Supabase.instance.client.from('profiles').update({
-          'avatar_url': url,
-          'updated_at': DateTime.now().toIso8601String(),
-        }).eq('id', user.id);
-      }
+      final url = await r2.uploadAvatar(ImageSource.gallery);
+      if (url == null) return;
 
       ref.invalidate(profileProvider);
       if (mounted) {
@@ -59,13 +47,16 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
     final profileAsync = ref.watch(profileProvider);
     return profileAsync.when(
       data: (profile) => _buildScreen(context, profile),
-      loading: () => const Scaffold(
-        backgroundColor: Color(0xFFFFFAEB),
+      loading: () => Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (e, st) => Scaffold(
-        backgroundColor: Color(0xFFFFFAEB),
-        body: Center(child: Text('Error loading profile: $e')),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: ErrorRetryWidget(
+          message: "Failed to load profile",
+          onRetry: () => ref.invalidate(profileProvider),
+        ),
       ),
     );
   }
@@ -75,7 +66,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
     final avatar = profile?.avatarUrl ?? '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Account Settings"),
       ),
@@ -110,11 +101,11 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
               ],
             ),
             const SizedBox(height: 40),
-            _buildSettingsInput("FULL NAME", userName),
+            _buildSettingsInput("FULL NAME", userName, showEditIcon: true),
             const SizedBox(height: 15),
             _buildSettingsInput("ROLE", profile?.role.toUpperCase() ?? "MEMBER"),
             const SizedBox(height: 15),
-            _buildSettingsInput("ID", profile?.id ?? "N/A"),
+            _buildSettingsInput("USER CODE", profile?.walletId ?? profile?.id.substring(0, 8).toUpperCase() ?? "N/A"),
             const SizedBox(height: 40),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
@@ -131,7 +122,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
     );
   }
 
-  Widget _buildSettingsInput(String label, String value) {
+  Widget _buildSettingsInput(String label, String value, {bool showEditIcon = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -150,8 +141,10 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
                   maxLines: 1,
                 ),
               ),
-              const SizedBox(width: 10),
-              const Icon(LucideIcons.edit2, size: 14, color: Colors.grey),
+              if (showEditIcon) ...[
+                const SizedBox(width: 10),
+                const Icon(LucideIcons.edit2, size: 14, color: Colors.grey),
+              ],
             ],
           ),
         ),

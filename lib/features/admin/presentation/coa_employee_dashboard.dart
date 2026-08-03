@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/services/coa_payment_service.dart';
 import '../../../core/services/plan_service.dart';
+import '../../../core/config/fee_config.dart';
+import '../../../core/config/remote_config.dart';
 import '../data/audit_service.dart';
 
 class CoaEmployeeDashboard extends ConsumerStatefulWidget {
@@ -88,9 +90,18 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
   Future<void> _approveChurch(Map<String, dynamic> church) async {
     try {
       final client = Supabase.instance.client;
+      // P3-39: Extend subscription from current end date (or now if expired)
+      final currentEnds = church['subscription_ends_at'] != null
+          ? DateTime.tryParse(church['subscription_ends_at'].toString())
+          : null;
+      final baseDate = (currentEnds != null && currentEnds.isAfter(DateTime.now()))
+          ? currentEnds
+          : DateTime.now();
       await client.from('churches').update({
         'is_verified': true,
-        'subscription_ends_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+        'subscription_ends_at': baseDate
+            .add(Duration(days: widgetRemoteConfig(ref).trialDurationDays))
+            .toIso8601String(),
         'plan': 'silver',
       }).eq('id', church['id']);
 
@@ -146,18 +157,29 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
   Future<void> _approvePayment(Map<String, dynamic> church) async {
     try {
       final client = Supabase.instance.client;
-      var platinumUntil = DateTime.now().add(const Duration(days: 30));
+      final rc = widgetRemoteConfig(ref);
+      var platinumUntil = DateTime.now().add(Duration(days: rc.platinumPromoDays));
       if (platinumUntil.isAfter(PlanLimits.promotionEndDate)) {
         platinumUntil = PlanLimits.promotionEndDate;
       }
+      // P3-39: Extend subscription from current end date (or now if expired)
+      final currentEnds = church['subscription_ends_at'] != null
+          ? DateTime.tryParse(church['subscription_ends_at'].toString())
+          : null;
+      final baseDate = (currentEnds != null && currentEnds.isAfter(DateTime.now()))
+          ? currentEnds
+          : DateTime.now();
       await client.from('churches').update({
         'onboarding_fee_paid': true,
         'onboarding_fee_paid_at': DateTime.now().toIso8601String(),
         'promotion_platinum_until': platinumUntil.toIso8601String(),
-        'subscription_ends_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+        'subscription_ends_at': baseDate
+            .add(Duration(days: widgetRemoteConfig(ref).renewalDurationDays))
+            .toIso8601String(),
         'payment_reference': null,
         'payment_submitted_at': null,
         'is_verified': true,
+        'plan': 'platinum',
       }).eq('id', church['id']);
       await _audit.logPaymentAction(action: 'approve_payment', paymentId: church['id'], churchName: church['name']?.toString());
       if (mounted) {
@@ -392,37 +414,84 @@ const SizedBox(height: 40),
           ],
         ),
         const SizedBox(height: 16),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: theme.dividerColor),
-            boxShadow: [
-              BoxShadow(
-                color: theme.shadowColor.withValues(alpha: 0.03),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
+        _buildFeeBreakdownCard(theme),
+      ],
+    );
+  }
+
+  Widget _buildFeeBreakdownCard(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: theme.dividerColor),
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withValues(alpha: 0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("PLATFORM REVENUE BREAKDOWN", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(LucideIcons.banknote, color: theme.colorScheme.primary, size: 28),
+              const SizedBox(width: 12),
+              Text("K ${_totalPlatformRevenue.toStringAsFixed(2)}", style: TextStyle(color: theme.colorScheme.primary, fontSize: 24, fontWeight: FontWeight.w900)),
             ],
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          const SizedBox(height: 12),
+          Divider(color: theme.dividerColor, height: 1),
+          const SizedBox(height: 12),
+          Consumer(
+            builder: (context, ref, _) {
+              final feeAsync = ref.watch(feeConfigProvider);
+              return feeAsync.when(
+                data: (fees) => Column(
+                  children: [
+                    _feeRow("COA Fee (${(fees.coaFeePercent * 100).toStringAsFixed(1)}%)", "1% of every transaction", Colors.greenAccent, theme),
+                    const SizedBox(height: 8),
+                    _feeRow("Lipila MoMo (${(fees.momoFeePercent * 100).toStringAsFixed(1)}%)", "Mobile money processing fee", Colors.blueAccent, theme),
+                    const SizedBox(height: 8),
+                    _feeRow("Lipila Card (${(fees.cardFeePercent * 100).toStringAsFixed(1)}%)", "Card processing fee", Colors.purpleAccent, theme),
+                    const SizedBox(height: 8),
+                    _feeRow("Business Cut (${(fees.businessCutPercent * 100).toStringAsFixed(0)}%)", "Deducted from sellers/drivers at settlement", Colors.orangeAccent, theme),
+                    const SizedBox(height: 8),
+                    _feeRow("Lipila Disbursement (${(fees.lipilaDisbursementFeePercent * 100).toStringAsFixed(1)}%)", "Deducted from every payout (money out)", Colors.pinkAccent, theme),
+                    const SizedBox(height: 8),
+                    _feeRow("COA Payout (${(fees.coaPayoutFeePercent * 100).toStringAsFixed(1)}%, min K${fees.minFeeKwacha.toStringAsFixed(0)})", "COA's cut on money out", Colors.amberAccent, theme),
+                    const SizedBox(height: 8),
+                    _feeRow("Min Fee", "K${fees.minFeeKwacha.toStringAsFixed(0)} floor on all platform fees", Colors.tealAccent, theme),
+                  ],
+                ),
+                loading: () => Text("Loading fee config...", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 11)),
+                error: (_, __) => Text("Using default fee config", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 11)),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _feeRow(String label, String description, Color color, ThemeData theme) {
+    return Row(
+      children: [
+        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   Text("PLATFORM REVENUE (5% / 10% CUTS)", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
-                  const SizedBox(height: 5),
-                  Text("K ${_totalPlatformRevenue.toStringAsFixed(2)}", style: TextStyle(color: theme.colorScheme.primary, fontSize: 24, fontWeight: FontWeight.w900)),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: theme.colorScheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
-                child: Icon(LucideIcons.banknote, color: theme.colorScheme.primary, size: 24),
-              ),
+              Text(label, style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 13, fontWeight: FontWeight.bold)),
+              Text(description, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10)),
             ],
           ),
         ),

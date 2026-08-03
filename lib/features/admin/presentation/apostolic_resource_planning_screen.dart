@@ -52,7 +52,7 @@ class _ApostolicResourcePlanningScreenState extends ConsumerState<ApostolicResou
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB), // Cream Canvas
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Cream Canvas
       appBar: AppBar(
         title: const Text("Apostolic Planning", style: TextStyle(fontWeight: FontWeight.bold)),
       ),

@@ -77,20 +77,22 @@ class UserProfile {
   }
 
   bool get isSuperadmin => role == 'superadmin';
-  bool get isEmployee => role == 'employee' || role == 'superadmin';
+  bool get isEmployee => role == 'coa_employee' || role == 'superadmin';
   bool get isTenantAdmin =>
-      role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle';
+      role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle'
+      || (role.endsWith('_employee') && role != 'coa_employee');
   bool get isAdminOrHigher =>
       role == 'admin' ||
       role == 'pastor' ||
       role == 'bishop' ||
       role == 'superadmin' ||
       role == 'prophet' ||
-      role == 'apostle';
+      role == 'apostle' ||
+      (role.endsWith('_employee') && role != 'coa_employee');
   bool get isLedgerManager =>
-      isAdminOrHigher || role == 'usher' || role == 'employee';
+      isAdminOrHigher || role == 'usher' || role == 'coa_employee';
   bool get isOnboardingOfficer =>
-      isSuperadmin || role == 'employee' || role == 'bishop';
+      isSuperadmin || role == 'coa_employee' || role == 'bishop';
   bool get isBishop => role == 'bishop';
   bool get isPastor => role == 'pastor';
   bool get isUsher => role == 'usher';
@@ -152,7 +154,6 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
           .eq('id', userId)
           .maybeSingle();
 
-      const superadminEmail = 'superadmingosomzkay7@churchonapp.com';
       Map<String, dynamic>? profileData;
 
       final selectedTenant = ref.read(currentTenantProvider);
@@ -184,7 +185,7 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
           'id': userId,
           'full_name':
               metadata?['full_name'] ?? metadata?['name'] ?? 'Believer',
-          'role': email == superadminEmail ? 'superadmin' : 'member',
+          'role': 'member',
           'coins': 0,
           'is_work_mode': false,
           'avatar_url': metadata?['avatar_url'] ?? metadata?['picture'],
@@ -192,7 +193,7 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
           'wallet_id': walletId,
           'membership_id': membershipId,
         };
-        await _client.from('profiles').insert(profileData);
+        await _client.from('profiles').upsert(profileData);
 
         final iso = CodeGeneratorService.countryToISO(country);
         await codeGen.registerCode(
@@ -210,15 +211,6 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
       } else {
         // Use existing data, but ensure it's modifiable if we need to update it
         profileData = Map<String, dynamic>.from(res);
-
-        // Auto-upgrade superadmin if matching email
-        if (email == superadminEmail && profileData['role'] != 'superadmin') {
-          await _client
-              .from('profiles')
-              .update({'role': 'superadmin'})
-              .eq('id', userId);
-          profileData['role'] = 'superadmin';
-        }
 
         // Sync local selected tenant with DB profile
         final dbTenantId = profileData['tenant_id']?.toString();
@@ -245,6 +237,58 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
             debugPrint('Error updating profile tenant_id in sync: $e');
           }
         }
+
+        // DERIVE ROLE FROM role_assignments FOR CURRENT TENANT
+        // This ensures a user's role is scoped to their current tenant.
+        // If Pastor John switches from Tenant1 to Tenant2, his role is
+        // recalculated from Tenant2's role_assignments, not carried over.
+        final effectiveTenantId = selectedTenant?.id ?? profileData['tenant_id']?.toString();
+        // role_assignments.tenant_id is a uuid column — only query it with valid
+        // UUIDs, otherwise PostgREST returns 400 and kills the whole profile.
+        final isUuidTenant = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+            .hasMatch(effectiveTenantId ?? '');
+        if (effectiveTenantId != null && effectiveTenantId.isNotEmpty && isUuidTenant) {
+          try {
+            final assignment = await _client
+                .from('role_assignments')
+                .select('role_name')
+                .eq('user_id', userId)
+                .eq('tenant_id', effectiveTenantId)
+                .eq('status', 'approved')
+                .order('created_at', ascending: false)
+                .maybeSingle();
+
+            final assignedRole = assignment?['role_name'] as String?;
+            if (assignedRole != null && assignedRole.isNotEmpty && assignedRole != profileData['role']) {
+              // Role from role_assignments differs from cached profiles.role
+              // Update the cache to stay in sync
+              profileData['role'] = assignedRole;
+              try {
+                await _client
+                    .from('profiles')
+                    .update({'role': assignedRole})
+                    .eq('id', userId);
+              } catch (e) {
+                debugPrint('Error syncing role cache: $e');
+              }
+            } else if (assignedRole == null) {
+              // No role_assignments for this tenant — user is a member
+              if (profileData['role'] != 'member') {
+                profileData['role'] = 'member';
+                try {
+                  await _client
+                      .from('profiles')
+                      .update({'role': 'member'})
+                      .eq('id', userId);
+                } catch (e) {
+                  debugPrint('Error resetting role to member: $e');
+                }
+              }
+            }
+          } catch (e) {
+            debugPrint('Error deriving role from role_assignments: $e');
+          }
+        }
       }
 
       if (seq == _fetchSeq) {
@@ -265,7 +309,7 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
     final profile = state.value;
     if (profile == null) return;
     if (!profile.isSuperadmin && !profile.isEmployee) {
-      throw Exception("Only superadmins and employees can change roles");
+      throw Exception("Only superadmins and COA employees can change roles");
     }
     await _client.from('profiles').update({'role': newRole}).eq('id', userId);
     ref.invalidateSelf();

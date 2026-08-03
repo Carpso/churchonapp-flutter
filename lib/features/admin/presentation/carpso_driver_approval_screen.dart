@@ -95,7 +95,7 @@ class _CarpsoDriverApprovalScreenState extends ConsumerState<CarpsoDriverApprova
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Carpso Driver Applications", style: TextStyle(fontWeight: FontWeight.bold)),
       ),

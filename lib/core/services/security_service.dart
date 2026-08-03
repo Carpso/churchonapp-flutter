@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:universal_io/io.dart' show Platform;
 
 class SecurityService {
   final SupabaseClient _client;
@@ -90,12 +92,30 @@ class SecurityService {
     }
   }
 
-  String _getDeviceInfo() {
-    return 'Flutter App';
+  Future<String> _getDeviceInfo() async {
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      if (Platform.isAndroid) {
+        final android = await deviceInfo.androidInfo;
+        return 'Android ${android.version.release} (${android.model})';
+      } else if (Platform.isIOS) {
+        final ios = await deviceInfo.iosInfo;
+        return 'iOS ${ios.systemVersion} (${ios.model})';
+      }
+    } catch (e) {
+      debugPrint('SecurityService: Failed to get device info: $e');
+    }
+    return 'Unknown Device';
   }
 
   Future<String?> _getClientIp() async {
-    return null;
+    try {
+      final response = await _client.rpc('get_client_ip');
+      return response?.toString();
+    } catch (e) {
+      debugPrint('SecurityService: Failed to get client IP: $e');
+      return null;
+    }
   }
 }
 

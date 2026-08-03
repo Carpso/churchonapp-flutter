@@ -1,15 +1,9 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -43,10 +37,30 @@ serve(async (req: Request) => {
       });
     }
 
+    // Role check: only superadmin, employee, or existing bookshop_owner can create bookshops
+    const { data: profile } = await supabase
+      .from("profiles").select("role").eq("id", user.id).maybeSingle();
+    if (!["superadmin", "coa_employee", "bookshop_owner", "vendor"].includes(profile?.role)) {
+      return new Response(JSON.stringify({ error: "Forbidden: insufficient permissions" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { name, description, contact, location } = await req.json();
     if (!name || !description || !contact || !location) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Check for duplicate bookshop name
+    const existing = await supabase
+      .from("tenants").select("id").ilike("name", name.trim()).maybeSingle();
+    if (existing?.data) {
+      return new Response(JSON.stringify({ error: "A bookshop with this name already exists" }), {
+        status: 409,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

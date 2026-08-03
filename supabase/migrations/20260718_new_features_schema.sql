@@ -18,11 +18,15 @@ CREATE TABLE IF NOT EXISTS live_streams (
 
 ALTER TABLE live_streams ENABLE ROW LEVEL SECURITY;
 
-DO $ BEGIN CREATE POLICY "live_streams_select" ON live_streams; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR SELECT USING (true);
+DO $$
+BEGIN
+  CREATE POLICY "live_streams_select" ON live_streams FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "live_streams_manage" ON live_streams; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR ALL USING (
+DO $$
+BEGIN
+  CREATE POLICY "live_streams_manage" ON live_streams FOR ALL USING (
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid()
@@ -30,6 +34,8 @@ DO $ BEGIN CREATE POLICY "live_streams_manage" ON live_streams; EXCEPTION WHEN d
       AND church_id = live_streams.church_id
     )
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Live stream chat
 CREATE TABLE IF NOT EXISTS stream_chat_messages (
@@ -43,11 +49,17 @@ CREATE TABLE IF NOT EXISTS stream_chat_messages (
 
 ALTER TABLE stream_chat_messages ENABLE ROW LEVEL SECURITY;
 
-DO $ BEGIN CREATE POLICY "stream_chat_select" ON stream_chat_messages; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR SELECT USING (true);
+DO $$
+BEGIN
+  CREATE POLICY "stream_chat_select" ON stream_chat_messages FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "stream_chat_insert" ON stream_chat_messages; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+  CREATE POLICY "stream_chat_insert" ON stream_chat_messages FOR INSERT WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Stream prayer requests
 CREATE TABLE IF NOT EXISTS stream_prayer_requests (
@@ -60,14 +72,23 @@ CREATE TABLE IF NOT EXISTS stream_prayer_requests (
 
 ALTER TABLE stream_prayer_requests ENABLE ROW LEVEL SECURITY;
 
-DO $ BEGIN CREATE POLICY "stream_prayer_select" ON stream_prayer_requests; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR SELECT USING (true);
+DO $$
+BEGIN
+  CREATE POLICY "stream_prayer_select" ON stream_prayer_requests FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "stream_prayer_insert" ON stream_prayer_requests; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+  CREATE POLICY "stream_prayer_insert" ON stream_prayer_requests FOR INSERT WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "stream_prayer_delete" ON stream_prayer_requests; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR DELETE USING (auth.uid() = user_id);
+DO $$
+BEGIN
+  CREATE POLICY "stream_prayer_delete" ON stream_prayer_requests FOR DELETE USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Church Websites
 CREATE TABLE IF NOT EXISTS church_websites (
@@ -92,11 +113,15 @@ CREATE TABLE IF NOT EXISTS church_websites (
 
 ALTER TABLE church_websites ENABLE ROW LEVEL SECURITY;
 
-DO $ BEGIN CREATE POLICY "church_websites_public" ON church_websites; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR SELECT USING (is_published = true);
+DO $$
+BEGIN
+  CREATE POLICY "church_websites_public" ON church_websites FOR SELECT USING (is_published = true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "church_websites_manage" ON church_websites; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR ALL USING (
+DO $$
+BEGIN
+  CREATE POLICY "church_websites_manage" ON church_websites FOR ALL USING (
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid()
@@ -104,6 +129,8 @@ DO $ BEGIN CREATE POLICY "church_websites_manage" ON church_websites; EXCEPTION 
       AND church_id = church_websites.church_id
     )
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Volunteer Scheduling
 CREATE TABLE IF NOT EXISTS volunteer_slots (
@@ -125,11 +152,15 @@ CREATE TABLE IF NOT EXISTS volunteer_slots (
 
 ALTER TABLE volunteer_slots ENABLE ROW LEVEL SECURITY;
 
-DO $ BEGIN CREATE POLICY "volunteer_slots_select" ON volunteer_slots; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR SELECT USING (true);
+DO $$
+BEGIN
+  CREATE POLICY "volunteer_slots_select" ON volunteer_slots FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "volunteer_slots_manage" ON volunteer_slots; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR ALL USING (
+DO $$
+BEGIN
+  CREATE POLICY "volunteer_slots_manage" ON volunteer_slots FOR ALL USING (
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid()
@@ -137,6 +168,8 @@ DO $ BEGIN CREATE POLICY "volunteer_slots_manage" ON volunteer_slots; EXCEPTION 
       AND church_id = volunteer_slots.church_id
     )
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Volunteer sign-ups
 CREATE TABLE IF NOT EXISTS volunteer_signups (
@@ -151,14 +184,23 @@ CREATE TABLE IF NOT EXISTS volunteer_signups (
 
 ALTER TABLE volunteer_signups ENABLE ROW LEVEL SECURITY;
 
-DO $ BEGIN CREATE POLICY "volunteer_signups_select" ON volunteer_signups; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR SELECT USING (true);
+DO $$
+BEGIN
+  CREATE POLICY "volunteer_signups_select" ON volunteer_signups FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "volunteer_signups_insert" ON volunteer_signups; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+  CREATE POLICY "volunteer_signups_insert" ON volunteer_signups FOR INSERT WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "volunteer_signups_update" ON volunteer_signups; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR UPDATE USING (auth.uid() = user_id);
+DO $$
+BEGIN
+  CREATE POLICY "volunteer_signups_update" ON volunteer_signups FOR UPDATE USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Sermon Notes (enhanced)
 CREATE TABLE IF NOT EXISTS sermon_notes (
@@ -175,17 +217,29 @@ CREATE TABLE IF NOT EXISTS sermon_notes (
 
 ALTER TABLE sermon_notes ENABLE ROW LEVEL SECURITY;
 
-DO $ BEGIN CREATE POLICY "sermon_notes_select" ON sermon_notes; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR SELECT USING (true);
+DO $$
+BEGIN
+  CREATE POLICY "sermon_notes_select" ON sermon_notes FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "sermon_notes_insert" ON sermon_notes; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR INSERT WITH CHECK (auth.uid() = author_id);
+DO $$
+BEGIN
+  CREATE POLICY "sermon_notes_insert" ON sermon_notes FOR INSERT WITH CHECK (auth.uid() = author_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "sermon_notes_update" ON sermon_notes; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR UPDATE USING (auth.uid() = author_id);
+DO $$
+BEGIN
+  CREATE POLICY "sermon_notes_update" ON sermon_notes FOR UPDATE USING (auth.uid() = author_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "sermon_notes_delete" ON sermon_notes; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR DELETE USING (auth.uid() = author_id);
+DO $$
+BEGIN
+  CREATE POLICY "sermon_notes_delete" ON sermon_notes FOR DELETE USING (auth.uid() = author_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Sermon Study Prompts
 CREATE TABLE IF NOT EXISTS sermon_study_prompts (
@@ -197,8 +251,11 @@ CREATE TABLE IF NOT EXISTS sermon_study_prompts (
 
 ALTER TABLE sermon_study_prompts ENABLE ROW LEVEL SECURITY;
 
-DO $ BEGIN CREATE POLICY "sermon_study_prompts_select" ON sermon_study_prompts; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR SELECT USING (true);
+DO $$
+BEGIN
+  CREATE POLICY "sermon_study_prompts_select" ON sermon_study_prompts FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CRM / Donor Management
 CREATE TABLE IF NOT EXISTS donor_profiles (
@@ -220,8 +277,9 @@ CREATE TABLE IF NOT EXISTS donor_profiles (
 
 ALTER TABLE donor_profiles ENABLE ROW LEVEL SECURITY;
 
-DO $ BEGIN CREATE POLICY "donor_profiles_select" ON donor_profiles; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR SELECT USING (
+DO $$
+BEGIN
+  CREATE POLICY "donor_profiles_select" ON donor_profiles FOR SELECT USING (
     auth.uid() = user_id OR
     EXISTS (
       SELECT 1 FROM profiles
@@ -230,12 +288,18 @@ DO $ BEGIN CREATE POLICY "donor_profiles_select" ON donor_profiles; EXCEPTION WH
       AND church_id = donor_profiles.church_id
     )
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "donor_profiles_insert" ON donor_profiles; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+  CREATE POLICY "donor_profiles_insert" ON donor_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "donor_profiles_update" ON donor_profiles; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR UPDATE USING (
+DO $$
+BEGIN
+  CREATE POLICY "donor_profiles_update" ON donor_profiles FOR UPDATE USING (
     auth.uid() = user_id OR
     EXISTS (
       SELECT 1 FROM profiles
@@ -244,6 +308,8 @@ DO $ BEGIN CREATE POLICY "donor_profiles_update" ON donor_profiles; EXCEPTION WH
       AND church_id = donor_profiles.church_id
     )
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Donor segments
 CREATE TABLE IF NOT EXISTS donor_segments (
@@ -257,11 +323,15 @@ CREATE TABLE IF NOT EXISTS donor_segments (
 
 ALTER TABLE donor_segments ENABLE ROW LEVEL SECURITY;
 
-DO $ BEGIN CREATE POLICY "donor_segments_select" ON donor_segments; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR SELECT USING (true);
+DO $$
+BEGIN
+  CREATE POLICY "donor_segments_select" ON donor_segments FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "donor_segments_manage" ON donor_segments; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR ALL USING (
+DO $$
+BEGIN
+  CREATE POLICY "donor_segments_manage" ON donor_segments FOR ALL USING (
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid()
@@ -269,6 +339,8 @@ DO $ BEGIN CREATE POLICY "donor_segments_manage" ON donor_segments; EXCEPTION WH
       AND church_id = donor_segments.church_id
     )
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- RPC: Update signed_up_count on volunteer signups
 CREATE OR REPLACE FUNCTION update_volunteer_signed_up_count()
@@ -287,8 +359,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER on_volunteer_signup_change
-  AFTER INSERT OR DELETE ON volunteer_signups
+DROP TRIGGER IF EXISTS "on_volunteer_signup_change" ON "volunteer_signups";
+CREATE TRIGGER "on_volunteer_signup_change"
+  AFTER INSERT OR UPDATE ON volunteer_signups
   FOR EACH ROW
   EXECUTE FUNCTION update_volunteer_signed_up_count();
 
@@ -316,7 +389,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER on_transaction_giving
-  AFTER INSERT ON transactions
+DROP TRIGGER IF EXISTS "on_transaction_giving" ON "transactions";
+CREATE TRIGGER "on_transaction_giving" 
+  AFTER INSERT ON "transactions"
   FOR EACH ROW
   EXECUTE FUNCTION update_donor_profile_on_giving();

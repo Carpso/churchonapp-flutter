@@ -79,10 +79,10 @@ class _AttendanceCheckinScreenState extends ConsumerState<AttendanceCheckinScree
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(_selectedEvent != null ? "Check-in: ${_selectedEvent!['title']}" : "Attendance Check-in", style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black87,
         elevation: 0,
         leading: _selectedEvent != null

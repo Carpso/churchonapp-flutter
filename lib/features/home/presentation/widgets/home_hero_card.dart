@@ -34,7 +34,7 @@ class HomeHeroCard extends ConsumerWidget {
         ? "${liveStatus?.viewerCount ?? 0} watching"
         : (tenant != null ? "Next Service: Sunday 09:00" : "Starts in 45 mins");
 
-    final String bgImage = isLive ? "" : (tenant?.logoUrl ?? "");
+    final String bgImage = tenant?.logoUrl ?? "";
 
     return Container(
       height: 245,
@@ -133,7 +133,7 @@ class HomeHeroCard extends ConsumerWidget {
   void _showServiceSchedule(BuildContext context, WidgetRef ref, Tenant tenant) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
       builder: (context) => _ServiceScheduleSheet(tenant: tenant, ref: ref),
     );
@@ -378,8 +378,8 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), shape: BoxShape.circle),
-            child: const Icon(LucideIcons.clock, size: 16, color: Colors.amber),
+            decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), shape: BoxShape.circle),
+            child: Icon(LucideIcons.clock, size: 16, color: Theme.of(context).primaryColor),
           ),
           const SizedBox(width: 15),
           Expanded(
@@ -389,21 +389,21 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Theme.of(context).colorScheme.onSurface)),
                     GestureDetector(
                       onTap: onTap,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: Colors.amber.withValues(alpha: 0.1),
+                          color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(LucideIcons.bell, size: 10, color: Colors.amber),
+                            Icon(LucideIcons.bell, size: 10, color: Theme.of(context).primaryColor),
                             const SizedBox(width: 3),
-                            Text("SET", style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.amber)),
+                            Text("SET", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
                           ],
                         ),
                       ),
@@ -411,9 +411,9 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
                   ],
                 ),
                 const SizedBox(height: 3),
-                Text(time, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.amber)),
+                Text(time, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Theme.of(context).primaryColor)),
                 const SizedBox(height: 3),
-                Text(description, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                Text(description, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
               ],
             ),
           ),

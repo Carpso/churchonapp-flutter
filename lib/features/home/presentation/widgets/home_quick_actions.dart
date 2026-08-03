@@ -12,6 +12,7 @@ import 'package:church_on_app/features/notebook/presentation/notebook_screen.dar
 import 'package:church_on_app/features/navigation/presentation/carpso_ride_scanner_screen.dart';
 import 'package:church_on_app/features/home/presentation/sermon_library_screen.dart';
 import 'package:church_on_app/features/home/presentation/fasting_tracker_screen.dart';
+import 'home_section_title.dart';
 
 
 class HomeQuickActions extends StatelessWidget {
@@ -25,7 +26,7 @@ class HomeQuickActions extends StatelessWidget {
       {"icon": LucideIcons.calendar, "label": "Events", "color": Colors.orange},
       {"icon": LucideIcons.qrCode, "label": "Check-in", "color": Colors.purple},
       {"icon": LucideIcons.flame, "label": "Fasting", "color": Colors.orange},
-      {"icon": LucideIcons.flame, "label": "Life", "color": Colors.red},
+      {"icon": LucideIcons.heart, "label": "Life", "color": Colors.red},
       {"icon": LucideIcons.helpCircle, "label": "Bible Quiz", "color": Colors.indigo},
       {"icon": LucideIcons.shoppingBag, "label": "Marketplace", "color": Colors.teal},
       {"icon": LucideIcons.penTool, "label": "Notebook", "color": Colors.brown},
@@ -34,7 +35,7 @@ class HomeQuickActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle(context, "Quick Actions"),
+        const HomeSectionTitle(title: "Quick Actions"),
         SizedBox(
           height: 100,
           child: ListView.builder(
@@ -118,16 +119,4 @@ class HomeQuickActions extends StatelessWidget {
     }
   }
 
-  Widget _buildSectionTitle(BuildContext context, String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 15.0),
-      child: Row(
-        children: [
-          Container(width: 4, height: 18, decoration: BoxDecoration(color: Theme.of(context).primaryColor, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(width: 10),
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
 }

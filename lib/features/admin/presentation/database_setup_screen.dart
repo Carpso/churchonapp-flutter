@@ -118,7 +118,7 @@ class _DatabaseSetupScreenState extends ConsumerState<DatabaseSetupScreen> {
       data: (profile) {
         if (profile == null || !profile.isSuperadmin) {
           return Scaffold(
-            backgroundColor: const Color(0xFFFFFAEB),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             appBar: AppBar(
               title: const Text('Database Setup'),
               backgroundColor: Colors.transparent,
@@ -142,12 +142,12 @@ class _DatabaseSetupScreenState extends ConsumerState<DatabaseSetupScreen> {
         }
         return _buildScreen();
       },
-      loading: () => const Scaffold(
-        backgroundColor: Color(0xFFFFFAEB),
+      loading: () => Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => Scaffold(
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(child: Text('Error: $e')),
       ),
     );
@@ -155,7 +155,7 @@ class _DatabaseSetupScreenState extends ConsumerState<DatabaseSetupScreen> {
 
   Widget _buildScreen() {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           'DATABASE SETUP',

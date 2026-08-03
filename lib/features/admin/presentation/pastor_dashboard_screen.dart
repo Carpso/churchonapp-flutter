@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/features/admin/presentation/widgets/pastor_telemetry_widget.dart';
+import 'church_invite_screen.dart';
 import 'global_broadcast_screen.dart';
 import 'member_management_screen.dart';
 import 'media_upload_screen.dart';
@@ -148,10 +149,10 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
     final profileAsync = ref.watch(profileProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Pastor Dashboard", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black87,
         elevation: 0,
         actions: [
@@ -272,12 +273,12 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [const Color(0xFF075E54), const Color(0xFF128C7E)],
+          colors: [const Color(0xFF1A1A1A), const Color(0xFF128C7E)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: const Color(0xFF075E54).withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: const Color(0xFF1A1A1A).withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Row(
         children: [
@@ -313,7 +314,6 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
     final givingGrowth = _calcGrowth(_givingTotal.round(), _lastMonthGiving.round());
 
     return GridView.count(
-      shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
       mainAxisSpacing: 15,
@@ -486,11 +486,13 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContentModerationScreen()))),
         _actionTile(theme, LucideIcons.qrCode, "QR Check-in", "Scan QR codes for attendance tracking", Colors.blue,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceCheckinScreen()))),
-        _actionTile(theme, LucideIcons.piggyBank, "Church Financial Hub", "Building funds, group contributions & goals", Colors.green,
-          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchFinancialHubScreen()))),
-      ],
-    );
-  }
+         _actionTile(theme, LucideIcons.piggyBank, "Church Financial Hub", "Building funds, group contributions & goals", Colors.green,
+           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchFinancialHubScreen()))),
+         _actionTile(theme, LucideIcons.userPlus, "Invite Members", "Share church invite link, QR code & more", Colors.blue,
+           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchInviteScreen()))),
+       ],
+     );
+   }
 
   Widget _actionTile(ThemeData theme, IconData icon, String title, String subtitle, Color color, VoidCallback onTap) {
     return GestureDetector(

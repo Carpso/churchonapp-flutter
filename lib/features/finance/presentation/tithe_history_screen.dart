@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/finance_service.dart';
 import '../../../core/providers/profile_provider.dart';
 import 'package:intl/intl.dart';
+import '../../../core/widgets/error_retry_widget.dart';
 
 class TitheHistoryScreen extends ConsumerWidget {
   const TitheHistoryScreen({super.key});
@@ -15,13 +16,16 @@ class TitheHistoryScreen extends ConsumerWidget {
 
     return profileAsync.when(
       data: (profile) => _buildScreen(context, ref, profile, transactionsAsync),
-      loading: () => const Scaffold(
-        backgroundColor: Color(0xFFFFFAEB),
+      loading: () => Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (e, st) => Scaffold(
-        backgroundColor: Color(0xFFFFFAEB),
-        body: Center(child: Text('Error loading profile: $e')),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: ErrorRetryWidget(
+          message: "Failed to load profile",
+          onRetry: () => ref.invalidate(profileProvider),
+        ),
       ),
     );
   }
@@ -30,7 +34,7 @@ class TitheHistoryScreen extends ConsumerWidget {
     final bool isPastor = profile?.role == 'pastor' || profile?.role == 'admin';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Tithe & Offering Sheet", style: TextStyle(fontWeight: FontWeight.bold)),
       ),
@@ -69,7 +73,6 @@ class TitheHistoryScreen extends ConsumerWidget {
                   ))
                 else
                   ListView.builder(
-                    shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: transactions.length,
                     itemBuilder: (context, index) {
@@ -88,7 +91,10 @@ class TitheHistoryScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text("Error: $err")),
+        error: (err, stack) => ErrorRetryWidget(
+          message: "Failed to load transactions",
+          onRetry: () => ref.invalidate(transactionsStreamProvider),
+        ),
       ),
     );
   }
@@ -109,7 +115,7 @@ class TitheHistoryScreen extends ConsumerWidget {
           const SizedBox(height: 10),
           Text("K ${amount.toStringAsFixed(2)}", style: TextStyle(color: color, fontSize: 28, fontWeight: FontWeight.w900)),
           const SizedBox(height: 10),
-          const LinearProgressIndicator(value: 1.0, backgroundColor: Color(0xFFEEEEEE), color: Colors.green),
+          Text("Total giving to date", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
         ],
       ),
     );

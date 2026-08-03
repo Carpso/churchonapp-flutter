@@ -72,7 +72,7 @@ class _TestimoniesScreenState extends ConsumerState<TestimoniesScreen> {
     final testimoniesAsync = ref.watch(testimonyStreamProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Testimonies", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
@@ -110,7 +110,7 @@ class _TestimoniesScreenState extends ConsumerState<TestimoniesScreen> {
           Row(
             children: [
               CircleAvatar(
-                backgroundColor: const Color(0xFF075E54),
+                backgroundColor: const Color(0xFF1A1A1A),
                 backgroundImage: (testimony.userPhoto != null && testimony.userPhoto!.isNotEmpty)
                     ? CachedNetworkImageProvider(testimony.userPhoto!)
                     : null,

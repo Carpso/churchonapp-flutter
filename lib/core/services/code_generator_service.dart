@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -312,10 +313,10 @@ class CodeGeneratorService {
 
   String _randomAlphaNum(int length) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    final rand = DateTime.now().microsecondsSinceEpoch;
+    final rng = Random.secure();
     final buffer = StringBuffer();
     for (int i = 0; i < length; i++) {
-      buffer.write(chars[(rand + i * 7) % chars.length]);
+      buffer.write(chars[rng.nextInt(chars.length)]);
     }
     return buffer.toString();
   }

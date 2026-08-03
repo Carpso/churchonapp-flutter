@@ -12,8 +12,9 @@ class JoinChurchScreen extends ConsumerStatefulWidget {
   final String? churchId;
   final String? churchSlug;
   final String? inviteCode;
+  final String? referralCode;
 
-  const JoinChurchScreen({super.key, this.churchId, this.churchSlug, this.inviteCode});
+  const JoinChurchScreen({super.key, this.churchId, this.churchSlug, this.inviteCode, this.referralCode});
 
   @override
   ConsumerState<JoinChurchScreen> createState() => _JoinChurchScreenState();
@@ -28,8 +29,10 @@ class _JoinChurchScreenState extends ConsumerState<JoinChurchScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.inviteCode != null && widget.inviteCode!.isNotEmpty) {
-      _lookupCode(widget.inviteCode!);
+    // Handle invite code from deep link (?code=) or referral (?ref=)
+    final code = widget.inviteCode ?? widget.referralCode;
+    if (code != null && code.isNotEmpty) {
+      _lookupCode(code);
     }
   }
 
@@ -38,6 +41,7 @@ class _JoinChurchScreenState extends ConsumerState<JoinChurchScreen> {
     try {
       final codeGen = CodeGeneratorService(Supabase.instance.client);
       final record = await codeGen.lookupCode(code);
+      if (!mounted) return;
       if (record == null) {
         setState(() { _error = "Invalid invite code. Please check and try again."; _joining = false; });
         return;
@@ -53,13 +57,16 @@ class _JoinChurchScreenState extends ConsumerState<JoinChurchScreen> {
           .select('id, name, type, country')
           .eq('id', tenantId)
           .maybeSingle();
+      if (!mounted) return;
       if (tenantRes == null) {
         setState(() { _error = "Church not found. The invite may have expired."; _joining = false; });
         return;
       }
       setState(() { _foundTenant = tenantRes; _joining = false; });
     } catch (e) {
-      setState(() { _error = "Error looking up invite: $e"; _joining = false; });
+      if (mounted) {
+        setState(() { _error = "Error looking up invite: $e"; _joining = false; });
+      }
     }
   }
 
@@ -85,7 +92,9 @@ class _JoinChurchScreenState extends ConsumerState<JoinChurchScreen> {
         context.go('/');
       }
     } catch (e) {
-      setState(() { _error = "Failed to join: $e"; _joining = false; });
+      if (mounted) {
+        setState(() { _error = "Failed to join: $e"; _joining = false; });
+      }
     }
   }
 
@@ -95,7 +104,7 @@ class _JoinChurchScreenState extends ConsumerState<JoinChurchScreen> {
     final user = authState.user;
     if (user == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(title: const Text("Join Church")),
         body: Center(
           child: Padding(
@@ -121,10 +130,11 @@ class _JoinChurchScreenState extends ConsumerState<JoinChurchScreen> {
       );
     }
 
-    final hasCodeParam = widget.inviteCode != null && widget.inviteCode!.isNotEmpty;
+    final hasCodeParam = (widget.inviteCode != null && widget.inviteCode!.isNotEmpty) ||
+        (widget.referralCode != null && widget.referralCode!.isNotEmpty);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: const Text("Join Church")),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),

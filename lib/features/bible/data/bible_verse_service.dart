@@ -28,13 +28,83 @@ class DailyBibleVerse {
   }
 }
 
+class VerseNote {
+  final String id;
+  final String note;
+  final bool isBookmark;
+  final bool isFavorite;
+  final List<String> tags;
+  final DateTime createdAt;
+
+  VerseNote({
+    required this.id,
+    required this.note,
+    required this.isBookmark,
+    required this.isFavorite,
+    required this.tags,
+    required this.createdAt,
+  });
+
+  factory VerseNote.fromMap(Map<String, dynamic> map) {
+    return VerseNote(
+      id: map['id']?.toString() ?? '',
+      note: map['note'] ?? '',
+      isBookmark: map['is_bookmark'] ?? false,
+      isFavorite: map['is_favorite'] ?? false,
+      tags: List<String>.from(map['tags'] ?? []),
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'])
+          : DateTime.now(),
+    );
+  }
+}
+
+class CrossReference {
+  final String sourceRef;
+  final String targetRef;
+  final String type;
+
+  CrossReference({
+    required this.sourceRef,
+    required this.targetRef,
+    required this.type,
+  });
+
+  factory CrossReference.fromMap(Map<String, dynamic> map) {
+    return CrossReference(
+      sourceRef: map['source_ref'] ?? '',
+      targetRef: map['target_ref'] ?? '',
+      type: map['reference_type'] ?? 'parallel',
+    );
+  }
+}
+
+class ChapterSummary {
+  final String summary;
+  final List<String> keyVerses;
+  final List<String> themes;
+
+  ChapterSummary({
+    required this.summary,
+    required this.keyVerses,
+    required this.themes,
+  });
+
+  factory ChapterSummary.fromMap(Map<String, dynamic> map) {
+    return ChapterSummary(
+      summary: map['summary'] ?? '',
+      keyVerses: List<String>.from(map['key_verses'] ?? []),
+      themes: List<String>.from(map['themes'] ?? []),
+    );
+  }
+}
+
 class BibleVerseService {
   final SupabaseClient _client;
   BibleVerseService(this._client);
 
   Future<DailyBibleVerse> fetchLatestVerse() async {
     try {
-      // 1. Try fetching from daily_bible_verses table
       final response = await _client
           .from('daily_bible_verses')
           .select()
@@ -46,13 +116,11 @@ class BibleVerseService {
         return DailyBibleVerse.fromMap(response);
       }
     } catch (e) {
-      // Use debugPrint for development-only logging
       debugPrint('Querying daily_bible_verses failed, falling back: $e');
       debugPrint(e.toString());
     }
 
     try {
-      // 2. Fallback: fetch from social_posts with category 'daily_verse'
       final response = await _client
           .from('social_posts')
           .select()
@@ -70,7 +138,6 @@ class BibleVerseService {
     }
 
     try {
-      // 3. Random verse from full bible_verses table
       final response = await _client
           .from('bible_verses')
           .select('id, reference, text')
@@ -89,7 +156,6 @@ class BibleVerseService {
       debugPrint(s.toString());
     }
 
-    // 4. Last fallback: return a default beautiful verse
     return DailyBibleVerse(
       id: 'default',
       reference: 'Jeremiah 29:11',
@@ -107,7 +173,6 @@ class BibleVerseService {
     if (user == null) return;
 
     try {
-      // 1. Try to insert into daily_bible_verses
       await _client.from('daily_bible_verses').insert({
         'reference': reference,
         'text': text,
@@ -117,17 +182,347 @@ class BibleVerseService {
     } catch (e, s) {
       debugPrint('Posting to daily_bible_verses failed, falling back: $e');
       debugPrint(s.toString());
-      // 2. Fallback: insert into social_posts table with category = 'daily_verse'
       await _client.from('social_posts').insert({
         'user_id': user.id,
         'content': text,
-        // Storing reference in a field named 'media_url' can be confusing.
-        // A better approach would be to have a dedicated 'reference' field or use metadata.
-        // For now, we'll keep it but acknowledge it's not ideal.
         'media_url': reference,
         'category': 'daily_verse',
       });
       debugPrint('Successfully posted to fallback social_posts');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> searchVerses({
+    required String query,
+    String? translationCode,
+    int limit = 20,
+  }) async {
+    try {
+      final searchQuery = query.trim();
+      if (searchQuery.isEmpty) return [];
+
+      var queryBuilder = _client
+          .from('bible_verses')
+          .select('id, reference, text, book_id, chapter, verse');
+
+      if (translationCode != null) {
+        final translation = await _client
+            .from('bible_translations')
+            .select('id')
+            .eq('code', translationCode)
+            .maybeSingle();
+        if (translation != null) {
+          queryBuilder = queryBuilder.eq('translation_id', translation['id']);
+        }
+      }
+
+      final data = await queryBuilder.limit(limit);
+      return (data as List<dynamic>)
+          .where((row) {
+            final text = (row['text'] ?? '').toString().toLowerCase();
+            final reference = (row['reference'] ?? '').toString().toLowerCase();
+            return text.contains(searchQuery.toLowerCase()) ||
+                reference.contains(searchQuery.toLowerCase());
+          })
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
+    } catch (e, s) {
+      debugPrint('Search verses error: $e');
+      debugPrint(s.toString());
+      return [];
+    }
+  }
+
+  Future<List<VerseNote>> fetchVerseNotes({
+    int? bookId,
+    int? chapter,
+    int? verse,
+  }) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return [];
+
+      var queryBuilder = _client
+          .from('verse_notes')
+          .select('id, note, is_bookmark, is_favorite, tags, created_at')
+          .eq('user_id', user.id);
+
+      if (bookId != null) {
+        queryBuilder = queryBuilder.eq('book_id', bookId);
+      }
+      if (chapter != null) {
+        queryBuilder = queryBuilder.eq('chapter', chapter);
+      }
+      if (verse != null) {
+        queryBuilder = queryBuilder.eq('verse', verse);
+      }
+
+      final data = await queryBuilder.order('created_at', ascending: false);
+      return (data as List<dynamic>)
+          .map((row) => VerseNote.fromMap(row))
+          .toList();
+    } catch (e, s) {
+      debugPrint('Fetch verse notes error: $e');
+      debugPrint(s.toString());
+      return [];
+    }
+  }
+
+  Future<VerseNote?> addVerseNote({
+    required int bookId,
+    required int chapter,
+    required int verse,
+    required String note,
+    bool isBookmark = false,
+    bool isFavorite = false,
+    List<String> tags = const [],
+  }) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return null;
+
+      final book = await _client
+          .from('bible_books')
+          .select('id')
+          .eq('book_order', bookId)
+          .maybeSingle();
+
+      if (book == null) return null;
+
+      final response = await _client.from('verse_notes').insert({
+        'user_id': user.id,
+        'book_id': book['id'],
+        'chapter': chapter,
+        'verse': verse,
+        'note': note,
+        'is_bookmark': isBookmark,
+        'is_favorite': isFavorite,
+        'tags': tags,
+      }).select().maybeSingle();
+
+      if (response != null) {
+        return VerseNote.fromMap(response);
+      }
+    } catch (e, s) {
+      debugPrint('Add verse note error: $e');
+      debugPrint(s.toString());
+    }
+    return null;
+  }
+
+  Future<List<CrossReference>> fetchCrossReferences({
+    required int bookId,
+    required int chapter,
+    required int verse,
+  }) async {
+    try {
+      final book = await _client
+          .from('bible_books')
+          .select('id')
+          .eq('book_order', bookId)
+          .maybeSingle();
+
+      if (book == null) return [];
+
+      final data = await _client
+          .from('cross_references')
+          .select('''
+            id,
+            source_book_id,
+            source_chapter,
+            source_verse,
+            target_book_id,
+            target_chapter,
+            target_verse,
+            reference_type,
+            target_book:bible_books(name, abbreviation)
+          ''')
+          .eq('source_book_id', book['id'])
+          .eq('source_chapter', chapter)
+          .eq('source_verse', verse);
+
+      return (data as List<dynamic>)
+          .map((row) {
+            final targetBook = row['target_book'] as Map<String, dynamic>?;
+            return CrossReference(
+              sourceRef: '$bookId $chapter:$verse',
+              targetRef:
+                  '${targetBook?['abbreviation'] ?? targetBook?['name'] ?? 'Unknown'} ${row['target_chapter']}:${row['target_verse']}',
+              type: row['reference_type'] ?? 'parallel',
+            );
+          })
+          .toList();
+    } catch (e, s) {
+      debugPrint('Fetch cross-references error: $e');
+      debugPrint(s.toString());
+      return [];
+    }
+  }
+
+  Future<ChapterSummary?> fetchChapterSummary({
+    required int bookId,
+    required int chapter,
+    String? translationCode,
+  }) async {
+    try {
+      final book = await _client
+          .from('bible_books')
+          .select('id')
+          .eq('book_order', bookId)
+          .maybeSingle();
+
+      if (book == null) return null;
+
+      dynamic translationId;
+      if (translationCode != null) {
+        final translation = await _client
+            .from('bible_translations')
+            .select('id')
+            .eq('code', translationCode)
+            .maybeSingle();
+        translationId = translation?['id'];
+      }
+
+      var queryBuilder = _client
+          .from('bible_chapter_summaries')
+          .select('summary, key_verses, themes')
+          .eq('book_id', book['id'])
+          .eq('chapter_number', chapter);
+
+      if (translationId != null) {
+        queryBuilder = queryBuilder.eq('translation_id', translationId);
+      }
+
+      final response = await queryBuilder.maybeSingle();
+      if (response != null) {
+        return ChapterSummary.fromMap(response);
+      }
+    } catch (e, s) {
+      debugPrint('Fetch chapter summary error: $e');
+      debugPrint(s.toString());
+    }
+    return null;
+  }
+
+  Future<ChapterSummary?> generateChapterSummary({
+    required int bookId,
+    required int chapter,
+    String? translationCode,
+  }) async {
+    try {
+      final book = await _client
+          .from('bible_books')
+          .select('id, name')
+          .eq('book_order', bookId)
+          .maybeSingle();
+
+      if (book == null) return null;
+
+      final verses = await _client
+          .from('bible_verses')
+          .select('text')
+          .eq('book_id', book['id'])
+          .eq('chapter', chapter)
+          .order('verse', ascending: true);
+
+      if (verses.isEmpty) return null;
+
+      final verseTexts = (verses as List<dynamic>)
+          .map((v) => v['text'] ?? '')
+          .join(' ');
+
+      final user = _client.auth.currentUser;
+      if (user == null) return null;
+
+      final summary = await _client.functions.invoke('kael-ai', body: {
+        'action': 'summary',
+        'prompt':
+            'Provide a concise chapter summary for ${book['name']} chapter $chapter. Include key themes, main message, and 3-5 key verses. Chapter text: $verseTexts',
+      });
+
+      final summaryText = summary.data?['response'] ?? 'No summary available.';
+
+      dynamic tid;
+      if (translationCode != null) {
+        final translation = await _client
+            .from('bible_translations')
+            .select('id')
+            .eq('code', translationCode)
+            .maybeSingle();
+        tid = translation?['id'];
+      }
+
+      await _client.from('bible_chapter_summaries').upsert({
+        'book_id': book['id'],
+        'translation_id': tid,
+        'chapter_number': chapter,
+        'summary': summaryText,
+        'key_verses': [],
+        'themes': [],
+        'ai_model': 'kael',
+        'generated_by': user.id,
+      });
+
+      return ChapterSummary(
+        summary: summaryText,
+        keyVerses: [],
+        themes: [],
+      );
+    } catch (e, s) {
+      debugPrint('Generate chapter summary error: $e');
+      debugPrint(s.toString());
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchReadingPlans({
+    bool activeOnly = true,
+  }) async {
+    try {
+      var queryBuilder = _client
+          .from('reading_plans')
+          .select('id, name, description, plan_type, day_count, start_date, created_at');
+
+      if (activeOnly) {
+        queryBuilder = queryBuilder.eq('is_active', true);
+      }
+
+      final data = await queryBuilder.order('created_at', ascending: false);
+      return (data as List<dynamic>)
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
+    } catch (e, s) {
+      debugPrint('Fetch reading plans error: $e');
+      debugPrint(s.toString());
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchReadingPlanEntries({
+    required String planId,
+  }) async {
+    try {
+      final data = await _client
+          .from('reading_plan_entries')
+          .select('''
+            id,
+            day_number,
+            book_id,
+            chapter,
+            verse_start,
+            verse_end,
+            book:bible_books(name, abbreviation, book_order)
+          ''')
+          .eq('plan_id', planId)
+          .order('day_number', ascending: true);
+
+      return (data as List<dynamic>)
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
+    } catch (e, s) {
+      debugPrint('Fetch reading plan entries error: $e');
+      debugPrint(s.toString());
+      return [];
     }
   }
 }
@@ -140,3 +535,29 @@ final bibleVerseServiceProvider = Provider((ref) {
 final dailyBibleVerseProvider = FutureProvider<DailyBibleVerse>((ref) async {
   return ref.watch(bibleVerseServiceProvider).fetchLatestVerse();
 });
+
+final bibleSearchProvider = FutureProvider.family<List<Map<String, dynamic>>, String>(
+  (ref, query) async {
+    return ref.watch(bibleVerseServiceProvider).searchVerses(query: query);
+  },
+);
+
+final verseNotesProvider = FutureProvider.family<List<VerseNote>, Map<String, dynamic>>(
+  (ref, params) async {
+    return ref.watch(bibleVerseServiceProvider).fetchVerseNotes(
+      bookId: params['bookId'] as int?,
+      chapter: params['chapter'] as int?,
+      verse: params['verse'] as int?,
+    );
+  },
+);
+
+final chapterSummaryProvider = FutureProvider.family<ChapterSummary?, Map<String, dynamic>>(
+  (ref, params) async {
+    return ref.watch(bibleVerseServiceProvider).fetchChapterSummary(
+      bookId: params['bookId'] as int,
+      chapter: params['chapter'] as int,
+      translationCode: params['translationCode'] as String?,
+    );
+  },
+);

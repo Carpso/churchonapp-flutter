@@ -14,7 +14,9 @@ END $$;
 
 -- 2. Fix UPDATE policy: allow both sender AND receiver to update (for reactions)
 DROP POLICY IF EXISTS "messages_update" ON messages;
-DO $ BEGIN CREATE POLICY "messages_update" ON messages; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR UPDATE USING (
-    auth.uid() = user_id OR auth.uid() = receiver_id
-  );
+DO $$
+BEGIN
+  CREATE POLICY "messages_update" ON messages
+    FOR UPDATE USING (auth.uid() = user_id OR auth.uid() = receiver_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

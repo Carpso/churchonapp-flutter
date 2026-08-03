@@ -35,7 +35,7 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
     ref.watch(profileProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Digital Tithe Card", style: TextStyle(fontWeight: FontWeight.bold)),
         leading: IconButton(

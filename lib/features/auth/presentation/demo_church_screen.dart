@@ -20,9 +20,23 @@ class _DemoChurchScreenState extends ConsumerState<DemoChurchScreen> {
     setState(() => _isLoading = true);
     try {
       final client = Supabase.instance.client;
+      final demoEmail = const String.fromEnvironment('DEMO_EMAIL', defaultValue: '');
+      final demoPassword = const String.fromEnvironment('DEMO_PASSWORD', defaultValue: '');
+      if (demoEmail.isEmpty || demoPassword.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Demo mode not configured. Please sign up.'),
+              backgroundColor: Colors.amber,
+            ),
+          );
+        }
+        return;
+      }
+      final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
       final signInRes = await client.auth.signInWithPassword(
-        email: 'demo@churchonapp.com',
-        password: 'DemoChurch2026!',
+        email: demoEmail,
+        password: demoPassword,
       );
 
       if (signInRes.user == null) {
@@ -47,7 +61,7 @@ class _DemoChurchScreenState extends ConsumerState<DemoChurchScreen> {
                 slug: churchesRes['slug']?.toString() ?? 'demo',
                 primaryColor: const Color(0xFFFFD700),
                 accentColor: const Color(0xFF1A1A1A),
-                surfaceColor: const Color(0xFFFFFAEB),
+                surfaceColor: scaffoldBg,
                 fontFamily: 'Plus Jakarta Sans',
                 darkMode: 'light',
               ),
@@ -74,7 +88,7 @@ class _DemoChurchScreenState extends ConsumerState<DemoChurchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           'DEMO CHURCH',
@@ -117,7 +131,7 @@ class _DemoChurchScreenState extends ConsumerState<DemoChurchScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFFAEB),
+                      color: Theme.of(context).scaffoldBackgroundColor,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -222,7 +236,7 @@ class _DemoChurchScreenState extends ConsumerState<DemoChurchScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(0xFFFFFAEB),
+            color: Theme.of(context).scaffoldBackgroundColor,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, size: 18, color: Colors.black87),

@@ -10,8 +10,10 @@ CREATE TABLE IF NOT EXISTS public.job_notifications (
 );
 
 ALTER TABLE public.job_notifications ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view own job notifications" ON public.job_notifications FOR SELECT TO authenticated USING (auth.uid() = user_id);
-CREATE POLICY "Users can update own job notifications" ON public.job_notifications FOR UPDATE TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own job notifications" ON "public".job_notifications;
+CREATE POLICY "Users can view own job notifications" ON "public".job_notifications FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own job notifications" ON "public".job_notifications;
+CREATE POLICY "Users can update own job notifications" ON "public".job_notifications FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 CREATE INDEX IF NOT EXISTS idx_job_notifications_user ON public.job_notifications(user_id, is_read);
 
 -- 2. Tenant ads / sponsored content table
@@ -34,8 +36,10 @@ CREATE TABLE IF NOT EXISTS public.tenant_ads (
 );
 
 ALTER TABLE public.tenant_ads ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Anyone can view active ads" ON public.tenant_ads FOR SELECT TO authenticated USING (is_active = true);
-CREATE POLICY "Superadmins and employees can manage ads" ON public.tenant_ads FOR ALL TO authenticated USING (
+DROP POLICY IF EXISTS "Anyone can view active ads" ON "public".tenant_ads;
+CREATE POLICY "Anyone can view active ads" ON "public".tenant_ads FOR SELECT TO authenticated USING (is_active = true);
+DROP POLICY IF EXISTS "Superadmins and employees can manage ads" ON "public".tenant_ads;
+CREATE POLICY "Superadmins and employees can manage ads" ON "public".tenant_ads FOR ALL TO authenticated USING (
     EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND (role = 'superadmin' OR role = 'employee'))
 );
 CREATE INDEX IF NOT EXISTS idx_tenant_ads_active ON public.tenant_ads(tenant_id, is_active, placement);
@@ -53,8 +57,10 @@ CREATE TABLE IF NOT EXISTS public.system_lockdown (
 INSERT INTO public.system_lockdown (is_locked) VALUES (false) ON CONFLICT DO NOTHING;
 
 ALTER TABLE public.system_lockdown ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Anyone can read lockdown status" ON public.system_lockdown FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Superadmins can manage lockdown" ON public.system_lockdown FOR ALL TO authenticated USING (
+DROP POLICY IF EXISTS "Anyone can read lockdown status" ON "public".system_lockdown;
+CREATE POLICY "Anyone can read lockdown status" ON "public".system_lockdown FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Superadmins can manage lockdown" ON "public".system_lockdown;
+CREATE POLICY "Superadmins can manage lockdown" ON "public".system_lockdown FOR ALL TO authenticated USING (
     EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND (role = 'superadmin' OR role = 'employee'))
 );
 
@@ -71,7 +77,8 @@ CREATE TABLE IF NOT EXISTS public.fasting_schedules (
 );
 
 ALTER TABLE public.fasting_schedules ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage own fasting schedules" ON public.fasting_schedules FOR ALL TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can manage own fasting schedules" ON "public".fasting_schedules;
+CREATE POLICY "Users can manage own fasting schedules" ON "public".fasting_schedules FOR ALL TO authenticated USING (auth.uid() = user_id);
 CREATE INDEX IF NOT EXISTS idx_fasting_schedules_user ON public.fasting_schedules(user_id, is_active);
 
 -- 5. Role onboarding status tracking
@@ -89,8 +96,10 @@ CREATE TABLE IF NOT EXISTS public.role_onboarding (
 );
 
 ALTER TABLE public.role_onboarding ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage own onboarding" ON public.role_onboarding FOR ALL TO authenticated USING (auth.uid() = user_id);
-CREATE POLICY "Admins can view onboarding status" ON public.role_onboarding FOR SELECT TO authenticated USING (
+DROP POLICY IF EXISTS "Users can manage own onboarding" ON "public".role_onboarding;
+CREATE POLICY "Users can manage own onboarding" ON "public".role_onboarding FOR ALL TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can view onboarding status" ON "public".role_onboarding;
+CREATE POLICY "Admins can view onboarding status" ON "public".role_onboarding FOR SELECT TO authenticated USING (
     EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND (role = 'superadmin' OR role = 'employee'))
 );
 
@@ -121,11 +130,14 @@ CREATE TABLE IF NOT EXISTS public.event_passes (
 );
 
 ALTER TABLE public.event_passes ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view own passes" ON public.event_passes FOR SELECT TO authenticated USING (auth.uid() = user_id);
-CREATE POLICY "Admins can view all passes" ON public.event_passes FOR SELECT TO authenticated USING (
+DROP POLICY IF EXISTS "Users can view own passes" ON "public".event_passes;
+CREATE POLICY "Users can view own passes" ON "public".event_passes FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can view all passes" ON "public".event_passes;
+CREATE POLICY "Admins can view all passes" ON "public".event_passes FOR SELECT TO authenticated USING (
     EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND (role = 'superadmin' OR role = 'employee'))
 );
-CREATE POLICY "Users can insert own passes" ON public.event_passes FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert own passes" ON "public".event_passes;
+CREATE POLICY "Users can insert own passes" ON "public".event_passes FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
 CREATE INDEX IF NOT EXISTS idx_event_passes_user ON public.event_passes(user_id);
 CREATE INDEX IF NOT EXISTS idx_event_passes_event ON public.event_passes(event_id);

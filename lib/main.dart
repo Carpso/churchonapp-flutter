@@ -8,6 +8,8 @@ import 'core/services/tenant_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/fcm_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
@@ -40,32 +42,38 @@ import 'core/services/wake_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Phase 7: Global Error Boundary Trapping - Move to start
+  // Initialize Firebase first (required for Crashlytics)
+  await Firebase.initializeApp();
+
+  // Wire Flutter errors to Crashlytics
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
+    FirebaseCrashlytics.instance.recordFlutterFatalError(details);
     debugPrint('FlutterError: ${details.exception}');
   };
   
   PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     debugPrint('Global Dispatcher Error: $error');
     debugPrint('Stack: $stack');
     return true; 
   };
 
   ErrorWidget.builder = (FlutterErrorDetails details) {
+    FirebaseCrashlytics.instance.recordFlutterError(details);
     return CustomErrorBoundary(errorDetails: details);
   };
 
-  try {
+  // Capture async errors outside the Flutter framework
+  runZonedGuarded<Future<void>>(() async {
     debugPrint('Starting services initialization...');
     
     // 1. Environment MUST be loaded first
     try {
-      await dotenv.load(fileName: ".env");
+      await dotenv.load(fileName: '.env');
       debugPrint('Environment loaded.');
     } catch (e) {
       debugPrint('Error loading .env file: $e');
-      // Fallback or handle missing env
     }
     
     if (Env.supabaseUrl.isEmpty) {
@@ -85,17 +93,17 @@ void main() async {
     });
     
     debugPrint('Services initialized successfully.');
-  } catch (e, stack) {
-    debugPrint('CRITICAL Initialization error: $e');
-    debugPrint('Stack trace: $stack');
-  }
 
-
-  runApp(
-    const ProviderScope(
-      child: ChurchOnApp(),
-    ),
-  );
+    runApp(
+      const ProviderScope(
+        child: ChurchOnApp(),
+      ),
+    );
+  }, (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    debugPrint('Unhandled async error: $error');
+    debugPrint('Stack: $stack');
+  });
 }
 
 Future<void> _initBackgroundServices() async {
@@ -129,7 +137,8 @@ class ChurchOnApp extends ConsumerStatefulWidget {
 }
 
 class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingObserver {
-  bool _isInitialized = false;
+  bool _notificationsInitialized = false;
+  bool _deepLinksInitialized = false;
 
   @override
   void initState() {
@@ -137,6 +146,14 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
     WidgetsBinding.instance.addObserver(this);
     _initNotifications();
     _initDeepLinks();
+    // Opt into edge-to-edge via the NON-deprecated API. Android 15 (targetSdk 35)
+    // enforces edge-to-edge anyway; this keeps transparent bars on older Androids.
+    // IMPORTANT (Google Play compliance): NEVER pass statusBarColor /
+    // systemNavigationBarColor in SystemUiOverlayStyle — they map to the
+    // deprecated Window.setStatusBarColor / setNavigationBarColor and Google
+    // Play flags the release ("deprecated APIs or parameters for edge-to-edge").
+    // Use icon brightness only, and let SafeArea handle the padding.
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateOverlayStyle(ref.read(themeModeProvider));
     });
@@ -146,16 +163,14 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
     final brightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
     final isDark = mode == ThemeMode.dark || (mode == ThemeMode.system && brightness == Brightness.dark);
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
       statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-      systemNavigationBarColor: Colors.black,
       systemNavigationBarIconBrightness: Brightness.light,
     ));
   }
 
   void _initDeepLinks() {
-    if (_isInitialized) return;
-    _isInitialized = true;
+    if (_deepLinksInitialized) return;
+    _deepLinksInitialized = true;
 
     final appLinks = AppLinks();
 
@@ -208,8 +223,8 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
   }
 
   Future<void> _initNotifications() async {
-    if (_isInitialized) return;
-    _isInitialized = true;
+    if (_notificationsInitialized) return;
+    _notificationsInitialized = true;
 
     final container = ProviderScope.containerOf(context, listen: false);
     final notifService = container.read(notificationServiceProvider);
@@ -263,23 +278,22 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
 
   @override
   Widget build(BuildContext context) {
-    final theme = ref.watch(themeProvider);
-    final darkTheme = ref.watch(darkThemeProvider);
-    final themeMode = ref.watch(themeModeProvider);
+    final appTheme = ref.watch(appThemeProvider);
     final router = ref.watch(routerProvider);
 
     // Initialize tenant data
     ref.watch(tenantInitializerProvider);
     // Observe global config
     ref.watch(globalStateProvider);
-    // Initialize core service providers (lazy — created once on first watch)
-    ref.watch(emailServiceProvider);
-    ref.watch(payoutServiceProvider);
-    ref.watch(securityServiceProvider);
-    ref.watch(sessionGuardProvider);
-    ref.watch(smartPrefetchProvider);
-    ref.watch(tutorialServiceProvider);
-    ref.watch(serviceRatingServiceProvider);
+
+    // Initialize core service providers once (read, not watch — no rebuilds)
+    ref.read(emailServiceProvider);
+    ref.read(payoutServiceProvider);
+    ref.read(securityServiceProvider);
+    ref.read(sessionGuardProvider);
+    ref.read(smartPrefetchProvider);
+    ref.read(tutorialServiceProvider);
+    ref.read(serviceRatingServiceProvider);
 
     // Listen for theme mode changes to update system UI overlay
     ref.listen<ThemeMode>(themeModeProvider, (prev, next) {
@@ -288,9 +302,9 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
 
     return MaterialApp.router(
       title: AppConstants.appName,
-      theme: theme,
-      darkTheme: darkTheme,
-      themeMode: themeMode,
+      theme: appTheme.light,
+      darkTheme: appTheme.dark,
+      themeMode: appTheme.mode,
       debugShowCheckedModeBanner: false,
       routerConfig: router,
       builder: (context, child) {

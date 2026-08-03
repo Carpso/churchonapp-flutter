@@ -93,7 +93,7 @@ CREATE POLICY "Tenant members can view service reports"
         tenant_id IS NULL OR
         EXISTS (
             SELECT 1 FROM public.profiles
-            WHERE id = auth.uid() AND tenant_id = service_reports.tenant_id
+            WHERE id = auth.uid() AND tenant_id = service_reports.tenant_id::text
         )
     );
 

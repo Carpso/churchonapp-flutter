@@ -41,6 +41,7 @@ import 'package:church_on_app/features/bible/presentation/daily_devotions_screen
 import 'package:church_on_app/features/finance/presentation/multi_currency_wallet_screen.dart';
 import 'package:church_on_app/features/finance/presentation/receipt_screen.dart';
 import 'package:church_on_app/features/finance/presentation/transaction_alerts_screen.dart';
+import 'package:church_on_app/features/admin/presentation/church_invite_screen.dart';
 import 'package:church_on_app/features/auth/presentation/join_church_screen.dart';
 import 'package:church_on_app/features/connect/presentation/klip_detail_screen.dart';
 import 'package:church_on_app/features/connect/presentation/post_detail_screen.dart';
@@ -54,6 +55,7 @@ import 'package:church_on_app/features/admin/presentation/report_creator_screen.
 import 'package:church_on_app/features/admin/presentation/job_notifications_screen.dart';
 import 'package:church_on_app/features/profile/presentation/role_onboarding_screen.dart';
 import 'package:church_on_app/features/profile/presentation/security_screen.dart';
+import 'package:church_on_app/features/profile/presentation/active_sessions_screen.dart';
 import 'package:church_on_app/features/admin/presentation/role_approval_screen.dart';
 import 'package:church_on_app/features/admin/presentation/custom_role_management_screen.dart';
 import 'package:church_on_app/features/admin/presentation/writer_approval_screen.dart';
@@ -162,7 +164,7 @@ import 'package:church_on_app/features/connect/presentation/testimonies_screen.d
 import 'package:church_on_app/features/marketplace/presentation/post_product_screen.dart';
 import 'package:church_on_app/features/bible_study/data/bible_study_service.dart' show BibleStudy;
 import 'package:church_on_app/features/modules/games/data/game_service.dart' show KingdomGame;
-import 'package:church_on_app/core/providers/profile_provider.dart' show UserProfile;
+import 'package:church_on_app/core/providers/profile_provider.dart';
 
 class SplashCompletedNotifier extends Notifier<bool> {
   @override
@@ -225,7 +227,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           !isLoggingIn &&
           !isSignUp &&
           !isForgotPassword &&
-          state.uri.path != '/join') {
+           state.uri.path != '/join' &&
+           state.uri.path != '/invite') {
         return '/select-church';
       }
 
@@ -263,6 +266,49 @@ final routerProvider = Provider<GoRouter>((ref) {
         }
       }
 
+      // Role-based route guards
+      final path = state.uri.path;
+      final profileAsync = ref.read(profileProvider);
+      final profile = profileAsync.value;
+      final role = profile?.role ?? 'member';
+
+      const adminRoutes = [
+        '/superadmin-hub', '/coa-employee-dashboard', '/onboarding-manager',
+        '/system-docs', '/database-setup', '/emergency-shutdown',
+      ];
+      const bishopRoutes = ['/bishop-hub', '/bishop-dashboard'];
+      const pastorRoutes = ['/pastor-dashboard', '/service-report'];
+      const driverRoutes = ['/driver-portal', '/driver-earnings', '/ride-portal'];
+      const vendorRoutes = ['/vendor-dashboard', '/bookshop-dashboard'];
+      // COA management-only routes (tenant admins must NOT access these)
+      const coaManagementRoutes = ['/role-approvals', '/onboarding-manager', '/system-docs', '/database-setup', '/emergency-shutdown', '/ads', '/platform-ads'];
+
+      bool hasAccess(String route, String role) {
+        if (adminRoutes.contains(route)) {
+          return ['superadmin', 'coa_employee'].contains(role);
+        }
+        if (coaManagementRoutes.contains(route)) {
+          return ['superadmin', 'coa_employee'].contains(role);
+        }
+        if (bishopRoutes.contains(route)) {
+          return ['bishop', 'superadmin', 'coa_employee', 'apostle'].contains(role);
+        }
+        if (pastorRoutes.contains(route)) {
+          return ['pastor', 'bishop', 'superadmin', 'coa_employee', 'apostle', 'prophet'].contains(role);
+        }
+        if (driverRoutes.contains(route)) {
+          return ['driver', 'superadmin', 'coa_employee'].contains(role);
+        }
+        if (vendorRoutes.contains(route)) {
+          return ['vendor', 'bookshop_owner', 'store_manager', 'superadmin', 'coa_employee'].contains(role);
+        }
+        return true;
+      }
+
+      if (!hasAccess(path, role)) {
+        return '/';
+      }
+
       return null;
     },
     routes: [
@@ -296,17 +342,29 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
-      GoRoute(
-        path: '/join',
-        builder: (context, state) {
-          final churchId = state.uri.queryParameters['church'];
-          final churchSlug = state.uri.queryParameters['slug'];
-          final inviteCode = state.uri.queryParameters['code'];
-          return JoinChurchScreen(churchId: churchId, churchSlug: churchSlug, inviteCode: inviteCode);
-        },
-      ),
-      GoRoute(
-        path: '/invite-church/:code',
+       GoRoute(
+         path: '/join',
+         builder: (context, state) {
+           final churchId = state.uri.queryParameters['church'];
+           final churchSlug = state.uri.queryParameters['slug'];
+           final inviteCode = state.uri.queryParameters['code'];
+           final referralCode = state.uri.queryParameters['ref'];
+           return JoinChurchScreen(
+             churchId: churchId,
+             churchSlug: churchSlug,
+             inviteCode: inviteCode,
+             referralCode: referralCode,
+           );
+         },
+       ),
+       GoRoute(
+         path: '/invite',
+         builder: (context, state) {
+           return const ChurchInviteScreen();
+         },
+       ),
+       GoRoute(
+         path: '/invite-church/:code',
         builder: (context, state) {
           final code = state.pathParameters['code']!;
           return JoinChurchScreen(inviteCode: code);
@@ -335,6 +393,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/security',
         builder: (context, state) => const SecurityScreen(),
+      ),
+      GoRoute(
+        path: '/active-sessions',
+        builder: (context, state) => const ActiveSessionsScreen(),
       ),
       GoRoute(
         path: '/shutdown',

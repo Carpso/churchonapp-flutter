@@ -13,7 +13,7 @@ class NetworkActivityScreen extends ConsumerWidget {
     final activitiesAsync = ref.watch(networkActivityStreamProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Network Activity"),
       ),

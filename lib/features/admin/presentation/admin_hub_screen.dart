@@ -23,6 +23,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/stats_provider.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/services/tenant_service.dart';
+import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 
 class AdminHubScreen extends ConsumerWidget {
   const AdminHubScreen({super.key});
@@ -40,11 +41,14 @@ class AdminHubScreen extends ConsumerWidget {
         }
         return _buildScreen(context, ref, statsAsync, profile, tenant);
       },
-      loading: () => Scaffold(
+      loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (e, st) => Scaffold(
-        body: Center(child: Text('Error loading profile: $e')),
+        body: ErrorRetryWidget(
+          message: "Failed to load profile",
+          onRetry: () => ref.invalidate(profileProvider),
+        ),
       ),
     );
   }
@@ -76,7 +80,6 @@ class AdminHubScreen extends ConsumerWidget {
             statsAsync.when(
               data: (stats) => _buildStatGrid(context, stats),
               loading: () => GridView.count(
-                shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: 2,
                 mainAxisSpacing: 15,
@@ -245,7 +248,6 @@ class AdminHubScreen extends ConsumerWidget {
   Widget _buildStatGrid(BuildContext ctx, AdminStats stats) {
     final theme = Theme.of(ctx);
     return GridView.count(
-      shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
       mainAxisSpacing: 15,

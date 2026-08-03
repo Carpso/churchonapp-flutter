@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import '../data/receipt_service.dart';
@@ -157,7 +157,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
           _receiptRow("Date", DateFormat.yMMMd().add_jm().format(receipt.createdAt)),
           if (receipt.provider != null) ...[
             const SizedBox(height: 8),
-            _receiptRow("Payment Method", "Mobile Money (${receipt.provider})"),
+            _receiptRow("Payment Method", receipt.provider == 'card' ? "Card" : "Mobile Money (${receipt.provider})"),
           ],
         ],
       ),
@@ -195,7 +195,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
           ),
           const SizedBox(height: 15),
           _feeRow("Transaction Amount", receipt.amount, Colors.black87),
-          _feeRow("Platform Fee (1%)", -receipt.platformFee!, Colors.red),
+          _feeRow("Platform Fee", -receipt.platformFee!, Colors.red),
           Divider(color: Colors.grey.shade200),
           _feeRow("Net to Recipient", netAmount, Colors.green.shade700),
           if (receipt.disbursementStatus != null) ...[

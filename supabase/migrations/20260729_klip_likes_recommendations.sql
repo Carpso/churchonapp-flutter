@@ -8,17 +8,17 @@ CREATE TABLE IF NOT EXISTS klip_likes (
 
 ALTER TABLE klip_likes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can insert their own klip likes"
-  ON klip_likes FOR INSERT
+DROP POLICY IF EXISTS "Users can insert their own klip likes" ON "klip_likes";
+CREATE POLICY "Users can insert their own klip likes" ON "klip_likes" FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can delete their own klip likes"
-  ON klip_likes FOR DELETE
+DROP POLICY IF EXISTS "Users can delete their own klip likes" ON "klip_likes";
+CREATE POLICY "Users can delete their own klip likes" ON "klip_likes" FOR DELETE
   USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can read their own klip likes"
-  ON klip_likes FOR SELECT
+DROP POLICY IF EXISTS "Users can read their own klip likes" ON "klip_likes";
+CREATE POLICY "Users can read their own klip likes" ON "klip_likes" FOR SELECT
   USING (auth.uid() = user_id);
 
-CREATE INDEX idx_klip_likes_user ON klip_likes(user_id);
-CREATE INDEX idx_klip_likes_klip ON klip_likes(klip_id);
+CREATE INDEX IF NOT EXISTS idx_klip_likes_user ON klip_likes(user_id);
+CREATE INDEX IF NOT EXISTS idx_klip_likes_klip ON klip_likes(klip_id);

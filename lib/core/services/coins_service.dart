@@ -1,19 +1,25 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/remote_config.dart';
 import 'supabase_service.dart';
 
 class CoinsService {
   final SupabaseClient _client;
+  final RemoteConfig _config;
 
-  CoinsService(this._client);
+  CoinsService(this._client, [this._config = const RemoteConfig()]);
 
   static const _dailyCollectKey = 'last_daily_coin_collect';
-  static const int _dailyCoins = 25;
-  static const int _streakBonus = 50;
-  static const int _attendanceCoins = 50;
-  static const int _referralCoins = 100;
-  static const Duration _collectCooldown = Duration(hours: 20);
+
+  /// Reward amounts are remote-configurable via `coins_*` keys in
+  /// `platform_settings` — no app update needed to change them.
+  int get _dailyCoins => _config.getInt('coins_daily_open_reward', 25);
+  int get _streakBonus => _config.getInt('coins_streak_bonus_per_day', 50);
+  int get _attendanceCoins => _config.getInt('coins_attendance_reward', 50);
+  int get _referralCoins => _config.getInt('coins_referral_reward', 100);
+  Duration get _collectCooldown =>
+      _config.getDuration('coins_daily_collect_cooldown_sec', const Duration(hours: 20));
 
   Future<bool> canCollectDaily() async {
     final prefs = await SharedPreferences.getInstance();
@@ -91,15 +97,15 @@ class CoinsService {
 
     if (consecutiveDays <= 0) return 0;
 
-    int coins = 0;
+    int coins = _config.getInt('coins_open_streak_1d', 5);
     if (consecutiveDays == 1) {
-      coins = 5;
+      coins = _config.getInt('coins_open_streak_1d', 5);
     } else if (consecutiveDays <= 6) {
-      coins = 10;
+      coins = _config.getInt('coins_open_streak_6d', 10);
     } else if (consecutiveDays <= 13) {
-      coins = 20;
+      coins = _config.getInt('coins_open_streak_13d', 20);
     } else {
-      coins = 30;
+      coins = _config.getInt('coins_open_streak_14d', 30);
     }
 
     await _client.rpc('add_coins', params: {
@@ -160,7 +166,8 @@ class CoinsService {
 
 final coinsServiceProvider = Provider((ref) {
   final client = ref.watch(supabaseServiceProvider).client;
-  return CoinsService(client);
+  final config = ref.watch(remoteConfigProvider).value ?? const RemoteConfig();
+  return CoinsService(client, config);
 });
 
 final canCollectDailyProvider = FutureProvider<bool>((ref) {

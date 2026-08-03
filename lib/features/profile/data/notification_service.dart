@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
 import '../../../core/services/supabase_service.dart';
+import '../../../core/services/notification_service.dart' as core;
 
 /// Hybrid Notification Service optimized for Self-Hosted Supabase VPS.
 /// This implementation prioritizes privacy and cost-efficiency by avoiding 3rd party clouds.
@@ -12,11 +14,18 @@ class NotificationService {
   final SupabaseClient _client;
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
   final Set<String> _shownIds = {};
+  StreamSubscription<List<Map<String, dynamic>>>? _streamSub;
+  bool _initialized = false;
 
   NotificationService(this._client, this.ref);
   final Ref ref;
 
   Future<void> init() async {
+    // Guard: only initialize once per process. Re-init (shell remounts,
+    // logout/login) would stack duplicate table streams → duplicate banners.
+    if (_initialized) return;
+    _initialized = true;
+
     // 1. Setup Local Notifications for visual alerts
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -50,30 +59,22 @@ class NotificationService {
     if (currentUser == null) return;
 
     // 2. Fetch Catch-up Notifications (sent while phone or app was OFF)
+    // Only mark as read — do NOT fire system notifications for old messages
     try {
-      final unread = await _client
+      await _client
           .from('notifications')
-          .select()
+          .update({'is_read': true})
           .eq('user_id', currentUser.id)
           .eq('is_read', false);
-      
-      for (final n in unread) {
-        final id = n['id'] as String;
-        _shownIds.add(id);
-        await _showLocalNotification(
-          id.hashCode,
-          n['title'] ?? 'Update',
-          n['body'] ?? '',
-        );
-        await _markAsRead(id);
-      }
     } catch (e) {
-      debugPrint('Error fetching catch-up notifications: $e');
+      debugPrint('Error marking catch-up notifications as read: $e');
     }
 
     // 3. Persistent Supabase Real-time Listener (Proprietary VPS Infrastructure)
     // Listens for 'notifications' table inserts specifically for the current user.
-    _client
+    // Cancel any previous subscription before re-subscribing.
+    await _streamSub?.cancel();
+    _streamSub = _client
         .from('notifications')
         .stream(primaryKey: ['id'])
         .eq('user_id', currentUser.id)
@@ -90,11 +91,19 @@ class NotificationService {
             final diff = DateTime.now().difference(createdAt).inMinutes;
 
             if (latest['is_read'] == false && diff <= 1) {
+              // Cross-service dedup: the same event may also surface via the
+              // core realtime channels or FCM — show only the first copy.
+              final title = '${latest['title'] ?? 'Update'}';
+              final body = '${latest['body'] ?? ''}';
+              final key = core.NotificationService.contentKey('coa_notifications', title, body);
+              if (core.NotificationService.isDuplicate(key)) return;
+              core.NotificationService.markShown(key);
+
               _shownIds.add(id);
               _showLocalNotification(
                 id.hashCode,
-                latest['title'] ?? 'Update',
-                latest['body'] ?? '',
+                title,
+                body,
               );
               _markAsRead(id);
             }

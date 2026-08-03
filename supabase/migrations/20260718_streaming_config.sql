@@ -31,8 +31,9 @@ CREATE TABLE IF NOT EXISTS church_stream_config (
 ALTER TABLE church_stream_config ENABLE ROW LEVEL SECURITY;
 
 -- Church admins can manage their own config
-DO $ BEGIN CREATE POLICY "stream_config_church_admin" ON church_stream_config; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR ALL USING (
+DO $$
+BEGIN
+  CREATE POLICY "stream_config_church_admin" ON church_stream_config FOR ALL USING (
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid()
@@ -40,12 +41,17 @@ DO $ BEGIN CREATE POLICY "stream_config_church_admin" ON church_stream_config; E
       AND church_id = church_stream_config.church_id
     )
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Superadmin can manage all configs
-DO $ BEGIN CREATE POLICY "stream_config_superadmin" ON church_stream_config; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR ALL USING (
+DO $$
+BEGIN
+  CREATE POLICY "stream_config_superadmin" ON church_stream_config FOR ALL USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'superadmin')
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Add streaming_backend column to live_streams if not exists
 DO $$

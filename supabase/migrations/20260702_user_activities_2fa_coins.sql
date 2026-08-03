@@ -29,6 +29,7 @@ CREATE INDEX IF NOT EXISTS idx_social_posts_tenant_id ON social_posts(tenant_id)
 CREATE INDEX IF NOT EXISTS idx_user_activities_user_id ON user_activities(user_id);
 
 -- RPC function for adding coins
+DROP FUNCTION IF EXISTS add_coins(UUID, INTEGER);
 CREATE OR REPLACE FUNCTION add_coins(user_id UUID, amount INTEGER)
 RETURNS void
 LANGUAGE plpgsql

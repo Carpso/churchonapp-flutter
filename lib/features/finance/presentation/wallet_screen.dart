@@ -93,7 +93,7 @@ class WalletScreen extends ConsumerWidget {
     final transactionsAsync = ref.watch(transactionsStreamProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Church Wallet", style: TextStyle(fontWeight: FontWeight.bold)),
       ),
@@ -115,7 +115,7 @@ class WalletScreen extends ConsumerWidget {
         const SizedBox(height: 40),
                 const Text("Recent Transactions", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
-                _buildTransactionsList(context, transactionsAsync),
+                 _buildTransactionsList(context, transactionsAsync, ref),
               ],
             ),
           ),
@@ -294,7 +294,7 @@ class WalletScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTransactionsList(BuildContext context, AsyncValue<List<Transaction>> transactionsAsync) {
+  Widget _buildTransactionsList(BuildContext context, AsyncValue<List<Transaction>> transactionsAsync, WidgetRef ref) {
     return transactionsAsync.when(
       data: (transactions) {
         if (transactions.isEmpty) {
@@ -306,7 +306,6 @@ class WalletScreen extends ConsumerWidget {
           );
         }
         return ListView.separated(
-          shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: transactions.length,
           separatorBuilder: (context, index) => const SizedBox(height: 15),
@@ -391,18 +390,9 @@ class WalletScreen extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, s) => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(30),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(LucideIcons.alertTriangle, size: 36, color: Colors.grey),
-              SizedBox(height: 12),
-              Text("Failed to load transactions", style: TextStyle(fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ),
+      error: (e, s) => ErrorRetryWidget(
+        message: "Failed to load transactions",
+        onRetry: () => ref.invalidate(transactionsStreamProvider),
       ),
     );
   }

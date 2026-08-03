@@ -253,13 +253,13 @@ class _ReportCreatorScreenState extends ConsumerState<ReportCreatorScreen> {
       data: (userProfile) {
         if (tenant == null) {
           return Scaffold(
-            backgroundColor: const Color(0xFFFFFAEB),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             appBar: AppBar(title: const Text("Report Creator")),
             body: const Center(child: Text("No Church Context")),
           );
         }
         return Scaffold(
-          backgroundColor: const Color(0xFFFFFAEB),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             title: Text("Report Creator", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
             elevation: 0,

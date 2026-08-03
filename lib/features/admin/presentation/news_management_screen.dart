@@ -259,19 +259,19 @@ class _NewsManagementScreenState extends ConsumerState<NewsManagementScreen> {
     return profileAsync.when(
       data: (profile) {
         if (profile == null || (!profile.isAdminOrHigher && !profile.isSuperadmin && !profile.isEmployee)) {
-          return const Scaffold(
-            backgroundColor: Color(0xFFFFFAEB),
+          return Scaffold(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             body: Center(child: Text('Unauthorized', style: TextStyle(color: Colors.grey))),
           );
         }
         return _buildScreen();
       },
-      loading: () => const Scaffold(
-        backgroundColor: Color(0xFFFFFAEB),
+      loading: () => Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (e, st) => Scaffold(
-        backgroundColor: Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(child: Text('Error: $e')),
       ),
     );
@@ -279,7 +279,7 @@ class _NewsManagementScreenState extends ConsumerState<NewsManagementScreen> {
 
   Widget _buildScreen() {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('News Management'),
         actions: [

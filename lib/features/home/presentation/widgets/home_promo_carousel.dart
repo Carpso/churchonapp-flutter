@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/features/marketplace/presentation/marketplace_screen.dart';
 
 class HomePromoCarousel extends StatelessWidget {
@@ -19,7 +18,19 @@ class HomePromoCarousel extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Stack(
           children: [
-            AppImage("", fit: BoxFit.cover),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Theme.of(context).primaryColor,
+                    Theme.of(context).primaryColor.withValues(alpha: 0.7),
+                    Colors.teal.shade700,
+                  ],
+                ),
+              ),
+            ),
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(

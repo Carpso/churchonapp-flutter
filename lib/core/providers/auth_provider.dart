@@ -26,6 +26,13 @@ class AuthState {
 class AuthNotifier extends Notifier<AuthState> {
   SupabaseClient get _client => Supabase.instance.client;
 
+  /// Redirect target for OAuth flows. On web this is the app's own origin
+  /// (e.g. https://churchonapp.com) — never null, otherwise GoTrue falls back
+  /// to the project Site URL which defaults to http://localhost:3000.
+  /// On mobile it's the app deep link scheme.
+  String get _oauthRedirectTo =>
+      kIsWeb ? Uri.base.origin : 'io.supabase.churchonapp://login-callback';
+
   @override
   AuthState build() {
     try {
@@ -44,7 +51,7 @@ class AuthNotifier extends Notifier<AuthState> {
     state = AuthState(user: state.user, isLoading: true, errorMessage: null);
 
     try {
-      await _client.auth.signInWithPassword(email: email, password: password);
+      final authResult = await _client.auth.signInWithPassword(email: email, password: password);
 
       try {
         final uid = _client.auth.currentUser?.id;
@@ -59,11 +66,29 @@ class AuthNotifier extends Notifier<AuthState> {
       } catch (logErr) {
         debugPrint('Failed to log login history: $logErr');
       }
+
+      // Check if 2FA is enabled — if so, do NOT set user yet
+      if (authResult.user != null) {
+        try {
+          final profile = await _client
+              .from('profiles')
+              .select('totp_enabled')
+              .eq('id', authResult.user!.id)
+              .maybeSingle();
+          final totpEnabled = profile?['totp_enabled'] == true;
+          if (totpEnabled) {
+            state = AuthState(user: null, isLoading: false, requires2FA: true);
+            return;
+          }
+        } catch (e) {
+          debugPrint('2FA check failed, proceeding without 2FA: $e');
+        }
+      }
+
+      state = AuthState(user: authResult.user, isLoading: false);
     } catch (e) {
       state = AuthState(user: state.user, isLoading: false, errorMessage: e.toString());
       rethrow;
-    } finally {
-      state = AuthState(user: state.user, isLoading: false, errorMessage: state.errorMessage);
     }
   }
 
@@ -102,14 +127,14 @@ class AuthNotifier extends Notifier<AuthState> {
           // Fallback to Supabase OAuth if ID token missing
           await _client.auth.signInWithOAuth(
             OAuthProvider.google,
-            redirectTo: kIsWeb ? null : 'io.supabase.churchonapp://login-callback',
+            redirectTo: _oauthRedirectTo,
           );
         }
       } catch (nativeError) {
         debugPrint("Native Google Sign-In failed: $nativeError. Attempting OAuth redirect fallback.");
         await _client.auth.signInWithOAuth(
           OAuthProvider.google,
-          redirectTo: kIsWeb ? null : 'io.supabase.churchonapp://login-callback',
+          redirectTo: _oauthRedirectTo,
         );
       }
 

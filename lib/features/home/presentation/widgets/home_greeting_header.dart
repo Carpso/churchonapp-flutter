@@ -35,7 +35,7 @@ class HomeGreetingHeader extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(greeting, style: GoogleFonts.plusJakartaSans(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w600)),
+                  Text(greeting, style: GoogleFonts.plusJakartaSans(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontWeight: FontWeight.w600)),
                   Text(
                     firstName,
                     style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.secondary),
@@ -49,17 +49,17 @@ class HomeGreetingHeader extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(25),
                 border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.2)),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+                boxShadow: [BoxShadow(color: Theme.of(context).shadowColor.withValues(alpha: 0.05), blurRadius: 10)],
               ),
               child: Row(
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text("CHURCH COINS", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey)),
+                      Text("CHURCH COINS", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
                       Text("$coins CC", style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.secondary)),
                     ],
                   ),
@@ -91,7 +91,7 @@ class HomeGreetingHeader extends ConsumerWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_getGreeting(), style: GoogleFonts.plusJakartaSans(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w600)),
+              Text(_getGreeting(), style: GoogleFonts.plusJakartaSans(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontWeight: FontWeight.w600)),
               const Text("Welcome!", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             ],
           ),

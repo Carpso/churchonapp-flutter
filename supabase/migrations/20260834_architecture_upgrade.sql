@@ -22,11 +22,13 @@ CREATE TABLE IF NOT EXISTS public.system_lock_state (
 
 ALTER TABLE public.system_lock_state ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "system_lock_state_superadmin_all" ON public.system_lock_state;
 CREATE POLICY "system_lock_state_superadmin_all"
   ON public.system_lock_state FOR ALL
   TO authenticated
   USING (auth.jwt() -> 'app_metadata' -> 'role' ? 'superadmin');
 
+DROP POLICY IF EXISTS "system_lock_state_read_auth" ON public.system_lock_state;
 CREATE POLICY "system_lock_state_read_auth"
   ON public.system_lock_state FOR SELECT
   TO authenticated
@@ -105,12 +107,14 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON public.audit_logs(created_a
 
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "audit_logs_admin_read" ON public.audit_logs;
 CREATE POLICY "audit_logs_admin_read"
   ON public.audit_logs FOR SELECT
   TO authenticated
   USING (auth.jwt() -> 'app_metadata' -> 'role' ? 'superadmin'
       OR auth.jwt() -> 'app_metadata' -> 'role' ? 'coa_employee');
 
+DROP POLICY IF EXISTS "audit_logs_insert_auth" ON public.audit_logs;
 CREATE POLICY "audit_logs_insert_auth"
   ON public.audit_logs FOR INSERT
   TO authenticated
@@ -131,6 +135,7 @@ CREATE INDEX IF NOT EXISTS idx_idempotency_key ON public.transaction_idempotency
 
 ALTER TABLE public.transaction_idempotency ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "idempotency_service_only" ON public.transaction_idempotency;
 CREATE POLICY "idempotency_service_only"
   ON public.transaction_idempotency FOR ALL
   TO service_role
@@ -169,8 +174,8 @@ BEGIN
 
   -- Insert transaction
   v_new_id := gen_random_uuid();
-  INSERT INTO public.transactions (id, user_id, tenant_id, amount, type, currency, payment_method, payment_ref, description, platform_fee, status, created_at)
-  VALUES (v_new_id, p_user_id, p_tenant_id, p_amount, p_type, p_currency, p_payment_method, p_payment_ref, p_description, p_platform_fee, 'completed', now());
+  INSERT INTO public.transactions (id, user_id, tenant_id, amount, category, payment_method, reference, platform_fee, status, created_at)
+  VALUES (v_new_id, p_user_id, p_tenant_id, p_amount, p_type, p_payment_method, p_payment_ref, p_platform_fee, 'completed', now());
 
   -- Record idempotency key
   INSERT INTO public.transaction_idempotency (idempotency_key, transaction_id)
@@ -200,7 +205,7 @@ SELECT
   SUM(t.platform_fee) AS total_platform_fee,
   COUNT(DISTINCT t.user_id) AS unique_members
 FROM public.transactions t
-WHERE t.type IN ('tithe', 'giving', 'offering')
+WHERE t.category IN ('tithe', 'giving', 'offering')
   AND t.status = 'completed'
 GROUP BY date_trunc('day', t.created_at)::DATE, t.tenant_id
 WITH DATA;
@@ -214,18 +219,18 @@ AS
 SELECT
   date_trunc('month', t.created_at)::DATE AS month,
   t.tenant_id,
-  t.type,
+  t.category,
   COUNT(*) AS transaction_count,
   SUM(t.amount) AS total_amount,
   SUM(t.platform_fee) AS total_platform_fee,
   COUNT(DISTINCT t.user_id) AS unique_members
 FROM public.transactions t
 WHERE t.status = 'completed'
-GROUP BY date_trunc('month', t.created_at)::DATE, t.tenant_id, t.type
+GROUP BY date_trunc('month', t.created_at)::DATE, t.tenant_id, t.category
 WITH DATA;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_monthly_revenue
-  ON public.mv_monthly_church_revenue(month, tenant_id, type);
+  ON public.mv_monthly_church_revenue(month, tenant_id, category);
 
 -- Platform-wide summary (superadmin dashboard)
 CREATE MATERIALIZED VIEW IF NOT EXISTS public.mv_platform_summary
@@ -236,8 +241,8 @@ SELECT
   COALESCE(SUM(t.platform_fee), 0) AS total_platform_fees,
   COUNT(DISTINCT t.tenant_id) AS active_tenants,
   COUNT(DISTINCT t.user_id) AS active_users,
-  COALESCE(SUM(CASE WHEN t.type = 'tithe' THEN t.amount ELSE 0 END), 0) AS total_tithes,
-  COALESCE(SUM(CASE WHEN t.type = 'giving' THEN t.amount ELSE 0 END), 0) AS total_givings,
+  COALESCE(SUM(CASE WHEN t.category = 'tithe' THEN t.amount ELSE 0 END), 0) AS total_tithes,
+  COALESCE(SUM(CASE WHEN t.category = 'giving' THEN t.amount ELSE 0 END), 0) AS total_givings,
   now() AS computed_at
 FROM public.transactions t
 WHERE t.status = 'completed'
@@ -261,6 +266,12 @@ $$;
 -- ────────────────────────────────────────────────────────────
 -- 5. TENANT LEASE LIFECYCLE
 -- ────────────────────────────────────────────────────────────
+
+-- Ensure columns used by lease lifecycle exist
+ALTER TABLE IF EXISTS public.tenants ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE IF EXISTS public.churches ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+ALTER TABLE IF EXISTS public.churches ADD COLUMN IF NOT EXISTS quiz_enabled BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE IF EXISTS public.churches ADD COLUMN IF NOT EXISTS quiz_lease_until TIMESTAMPTZ;
 
 -- Extend church trial on approval
 CREATE OR REPLACE FUNCTION public.extend_church_trial(p_church_id UUID, p_extra_days INTEGER DEFAULT 30)
@@ -293,6 +304,7 @@ END;
 $$;
 
 -- Activate quiz lease with payment validation
+DROP FUNCTION IF EXISTS public.activate_quiz_lease(UUID, TEXT, INTEGER);
 CREATE OR REPLACE FUNCTION public.activate_quiz_lease(
   p_church_id UUID,
   p_payment_ref TEXT,
@@ -313,7 +325,7 @@ BEGIN
   -- Validate payment reference exists in transactions
   SELECT EXISTS(
     SELECT 1 FROM public.transactions
-    WHERE payment_ref = p_payment_ref
+    WHERE reference = p_payment_ref
       AND tenant_id = p_church_id
       AND status = 'completed'
   ) INTO v_payment_exists;

@@ -269,7 +269,6 @@ class _GroupContributionDetailScreenState extends ConsumerState<GroupContributio
           data: (members) {
             if (members.isEmpty) return const Padding(padding: EdgeInsets.all(16), child: Text("No members yet", style: TextStyle(color: Colors.grey)));
             return ListView.separated(
-              shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: members.length,
               separatorBuilder: (_, __) => const Divider(height: 1),
@@ -304,7 +303,6 @@ Widget _buildPaymentsSection(ThemeData theme) {
           data: (payments) {
             if (payments.isEmpty) return const Padding(padding: EdgeInsets.all(16), child: Text("No payments yet", style: TextStyle(color: Colors.grey)));
             return ListView.separated(
-              shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: payments.length,
               separatorBuilder: (_, __) => const Divider(height: 1),

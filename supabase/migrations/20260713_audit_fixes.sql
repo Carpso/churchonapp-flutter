@@ -34,7 +34,7 @@ CREATE POLICY "Anyone can read messages" ON public.messages
         auth.uid() = receiver_id OR
         (group_id IS NOT NULL AND EXISTS (
             SELECT 1 FROM public.group_members gm
-            WHERE gm.group_id = messages.group_id AND gm.user_id = auth.uid()
+            WHERE gm.group_id::text = messages.group_id AND gm.user_id = auth.uid()
         ))
     );
 

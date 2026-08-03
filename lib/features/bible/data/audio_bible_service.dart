@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -106,6 +106,11 @@ class AudioBibleService {
   int _currentSpeakingChapter = 0;
   int _currentSpeakingVerse = 0;
   double _currentSpeechRate = 0.5;
+  void Function(int verseNum)? _onVerseChangeCallback;
+  final RegExp _versePattern = RegExp(r'(?:Verse )?(\d+)\.');
+  final StreamController<int> _verseChangeController = StreamController<int>.broadcast();
+
+  Stream<int> get verseChangeStream => _verseChangeController.stream;
 
   bool get isPlayingSpeech => _isPlayingSpeech;
   bool get isPausedSpeech => _isPausedSpeech;
@@ -158,9 +163,21 @@ class AudioBibleService {
     _currentSpeakingVerse = 1;
     _isPlayingSpeech = true;
     _isPausedSpeech = false;
+    _onVerseChangeCallback = onVerseChange;
 
     _flutterTts.setProgressHandler((String text, int startOffset, int endOffset, String word) {
-      // Find approximate verse being spoken
+      // Parse verse number from the spoken text chunk
+      final match = _versePattern.firstMatch(text);
+      if (match != null) {
+        final verseNum = int.tryParse(match.group(1) ?? '');
+        if (verseNum != null && verseNum != _currentSpeakingVerse) {
+          _currentSpeakingVerse = verseNum;
+          _onVerseChangeCallback?.call(verseNum);
+          if (!_verseChangeController.isClosed) {
+            _verseChangeController.add(verseNum);
+          }
+        }
+      }
     });
 
     final spokenText = _formatChapterText(bookName, chapter, verses);
@@ -535,6 +552,7 @@ class AudioBibleService {
 
   void dispose() {
     _flutterTts.stop();
+    _verseChangeController.close();
   }
 }
 

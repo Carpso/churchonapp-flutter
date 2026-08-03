@@ -266,14 +266,14 @@ class CriticalDataCache {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return;
 
-    // Get user's church
+    // Get user's church (tenant_id, not church_id)
     final profile = await _client
         .from('profiles')
-        .select('church_id')
+        .select('tenant_id')
         .eq('id', userId)
         .maybeSingle();
 
-    final tenantId = profile?['church_id'];
+    final tenantId = profile?['tenant_id'];
 
     await Future.wait([
       cacheUserProfile(),

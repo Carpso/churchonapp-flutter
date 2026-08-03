@@ -128,7 +128,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,

@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -43,6 +44,11 @@ class PerformanceService {
     }
 
     _isInitialized = true;
+
+    // Start frame monitoring in debug mode only
+    if (kDebugMode) {
+      PerformanceMonitor.instance.startMonitoring();
+    }
   }
 
   int _getTotalRamMb(AndroidDeviceInfo info) {

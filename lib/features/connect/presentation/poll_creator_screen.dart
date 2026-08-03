@@ -121,7 +121,7 @@ class _PollCreatorScreenState extends ConsumerState<PollCreatorScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Create Poll'),
       ),
@@ -162,7 +162,7 @@ class _PollCreatorScreenState extends ConsumerState<PollCreatorScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       filled: true,
-                      fillColor: const Color(0xFFFFFAEB),
+                      fillColor: Theme.of(context).scaffoldBackgroundColor,
                     ),
                     maxLines: 2,
                   ),
@@ -188,7 +188,7 @@ class _PollCreatorScreenState extends ConsumerState<PollCreatorScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 filled: true,
-                                fillColor: const Color(0xFFFFFAEB),
+                                fillColor: Theme.of(context).scaffoldBackgroundColor,
                               ),
                             ),
                           ),

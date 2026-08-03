@@ -160,7 +160,7 @@ class _EntitySelectorSheetState extends State<_EntitySelectorSheet> {
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFFFAEB),
+                                color: Theme.of(context).scaffoldBackgroundColor,
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               child: Icon(option.icon, color: Theme.of(context).colorScheme.onSurface, size: 22),

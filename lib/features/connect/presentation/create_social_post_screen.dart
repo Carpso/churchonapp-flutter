@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../data/social_service.dart';
 import '../data/testimony_service.dart';
@@ -28,7 +28,7 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
   Future<void> _pickImages(ImageSource source) async {
     final picker = ImagePicker();
     if (source == ImageSource.camera) {
-      final picked = await picker.pickImage(source: source, imageQuality: 70);
+      final picked = await picker.pickImage(source: source, imageQuality: 70, maxWidth: 1080, maxHeight: 1080);
       if (picked != null) {
         setState(() => _selectedImages = [File(picked.path)]);
       }
@@ -212,7 +212,7 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
                     final avatarUrl = profile?.avatarUrl;
                     final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
                     return CircleAvatar(
-                      backgroundColor: const Color(0xFF075E54),
+                      backgroundColor: const Color(0xFF1A1A1A),
                       backgroundImage: hasAvatar ? CachedNetworkImageProvider(avatarUrl) : null,
                       child: hasAvatar
                           ? null

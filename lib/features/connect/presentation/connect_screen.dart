@@ -21,7 +21,30 @@ class ConnectScreen extends ConsumerStatefulWidget {
   ConsumerState<ConnectScreen> createState() => _ConnectScreenState();
 }
 
-class _ConnectScreenState extends ConsumerState<ConnectScreen> {
+class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  late TabController _tabController;
+  int _currentTab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this, initialIndex: 0);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() => _currentTab = _tabController.index);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
   bool _showCarpsoCard() {
     final day = DateTime.now().weekday;
     return day == DateTime.sunday || day == DateTime.wednesday || day == DateTime.friday;
@@ -29,40 +52,48 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFFFFAEB),
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(100),
-          child: Container(
-            padding: const EdgeInsets.only(top: 50, bottom: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
-            ),
-            child: TabBar(
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              indicatorColor: Colors.amber,
-              dividerColor: Colors.transparent,
-              labelColor: Colors.black,
-              unselectedLabelColor: Colors.grey,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1),
-              tabs: const [
-                Tab(text: "KLIPS"),
-                Tab(text: "COMMUNITIES"),
-                Tab(text: "CHURCH SOCIAL"),
-                Tab(text: "GAMES"),
-              ],
-            ),
+    super.build(context);
+    final fab = _currentTab == 0
+        ? FloatingActionButton(
+            heroTag: null,
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen())),
+            backgroundColor: Theme.of(context).primaryColor,
+            child: Icon(LucideIcons.plus, color: Theme.of(context).colorScheme.onPrimary),
+          )
+        : null;
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(100),
+        child: Container(
+          padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 10, bottom: 10),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+          ),
+          child: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            indicatorColor: Theme.of(context).primaryColor,
+            dividerColor: Colors.transparent,
+            labelColor: Theme.of(context).colorScheme.onSurface,
+            unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1),
+            tabs: const [
+              Tab(text: "CHURCH SOCIAL"),
+              Tab(text: "COMMUNITIES"),
+              Tab(text: "KLIPS"),
+              Tab(text: "GAMES"),
+            ],
           ),
         ),
-        body: RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(socialPostsProvider);
-          },
-          child: Column(
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(socialPostsProvider);
+        },
+        child: Column(
           children: [
             if (_showCarpsoCard())
               Padding(
@@ -76,10 +107,11 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
               child: Stack(
                 children: [
                   TabBarView(
+                    controller: _tabController,
                     children: [
-                      const KingdomKlipsScreen(),
-                      const CommunitiesScreen(),
                       _buildChurchSocial(),
+                      const CommunitiesScreen(),
+                      const KingdomKlipsScreen(),
                       const KingdomGamesHubScreen(),
                     ],
                   ),
@@ -94,26 +126,41 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
             ),
           ],
         ),
-        ),
-        floatingActionButton: FloatingActionButton(
-          heroTag: null,
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen())),
-          backgroundColor: Colors.amber,
-          child: const Icon(LucideIcons.plus, color: Colors.black),
-        ),
       ),
+      floatingActionButton: fab,
     );
   }
 
   Widget _buildChurchSocial() {
     return Container(
-      color: const Color(0xFFFFFAEB),
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: Column(
         children: [
           Expanded(
             child: Consumer(
               builder: (context, ref, child) {
                 final postsAsync = ref.watch(socialPostsProvider);
+                final socialItems = <Widget>[
+                  _buildChurchSocialHeader(ref),
+                  const SizedBox(height: 20),
+                  postsAsync.when(
+                      data: (posts) => posts.isEmpty 
+                      ? _buildEmptySocialState()
+                      : Column(children: posts.map((p) => SocialPostCard(
+                        post: p,
+                        formatTimeAgo: _formatTimeAgo,
+                        onCommentTap: () => _showCommentsSheet(context, p.id, ref),
+                        onShareTap: () => _sharePost(p.id),
+                      )).toList()),
+                    loading: () => Column(
+                      children: List.generate(3, (_) => Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: _buildPostShimmer(),
+                      )),
+                    ),
+                    error: (e, s) => _buildSocialErrorState(e.toString()),
+                  ),
+                ];
 
                 return RefreshIndicator(
                   onRefresh: () async {
@@ -131,30 +178,11 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                       }
                       return false;
                     },
-                    child: ListView(
-                    padding: const EdgeInsets.all(20),
-                    children: [
-                      _buildChurchSocialHeader(ref),
-                      const SizedBox(height: 20),
-                      postsAsync.when(
-                          data: (posts) => posts.isEmpty 
-                          ? _buildEmptySocialState()
-                          : Column(children: posts.map((p) => SocialPostCard(
-                            post: p,
-                            formatTimeAgo: _formatTimeAgo,
-                            onCommentTap: () => _showCommentsSheet(context, p.id, ref),
-                            onShareTap: () => _sharePost(p.id),
-                          )).toList()),
-                        loading: () => Column(
-                          children: List.generate(3, (_) => Padding(
-                            padding: const EdgeInsets.only(bottom: 20),
-                            child: _buildPostShimmer(),
-                          )),
-                        ),
-                        error: (e, s) => _buildSocialErrorState(e.toString()),
-                      ),
-                    ],
-                  ),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(20),
+                      itemCount: socialItems.length,
+                      itemBuilder: (context, index) => socialItems[index],
+                    ),
                   ),
                 );
               }
@@ -169,7 +197,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(25),
       ),
       child: Column(
@@ -212,11 +240,11 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            Icon(LucideIcons.wifiOff, size: 50, color: Colors.grey.shade300),
+            Icon(LucideIcons.wifiOff, size: 50, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2)),
             const SizedBox(height: 10),
-            const Text("Could not load posts", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            Text("Could not load posts", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontWeight: FontWeight.bold)),
             const SizedBox(height: 5),
-            Text(error, style: const TextStyle(color: Colors.grey, fontSize: 10), maxLines: 2, overflow: TextOverflow.ellipsis),
+            Text(error, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 10), maxLines: 2, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 15),
             TextButton.icon(
               icon: const Icon(LucideIcons.refreshCw, size: 16),
@@ -233,11 +261,11 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
      return Center(
       child: Column(
         children: [
-          Icon(LucideIcons.messageSquare, size: 50, color: Colors.grey.shade300),
+          Icon(LucideIcons.messageSquare, size: 50, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2)),
           const SizedBox(height: 10),
-          const Text("No posts in the community yet.", style: TextStyle(color: Colors.grey, fontSize: 12)),
+          Text("No posts in the community yet.", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12)),
           const SizedBox(height: 10),
-          const Text("Be the first to share!", style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
+          Text("Be the first to share!", style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(height: 20),
         ],
       ),
@@ -263,7 +291,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
             const Text("Church Social", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const Spacer(),
             IconButton(
-              icon: const Icon(LucideIcons.plusSquare, color: Colors.amber),
+              icon: Icon(LucideIcons.plusSquare, color: Theme.of(context).primaryColor),
               onPressed: () {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen()));
               },
@@ -293,16 +321,16 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.amber : Colors.white,
+          color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? Colors.amber : Colors.grey.shade300),
+          border: Border.all(color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.outlineVariant),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: isSelected ? Colors.black : Colors.grey.shade600,
+            color: isSelected ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
           ),
         ),
       ),
@@ -377,15 +405,15 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
       ),
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Column(
         children: [
           const SizedBox(height: 12),
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: Theme.of(context).dividerColor, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 20),
           const Text("Comments", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           const Divider(height: 20),
@@ -441,9 +469,10 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 c.userAvatar != null && c.userAvatar!.isNotEmpty
-                                    ? ClipOval(child: CachedNetworkImage(imageUrl: c.userAvatar!, width: 36, height: 36, memCacheWidth: 72, memCacheHeight: 72, fit: BoxFit.cover, placeholder: (_, __) => CircleAvatar(radius: 18, backgroundColor: Colors.grey[200]), errorWidget: (_, __, ___) => CircleAvatar(radius: 18, backgroundColor: Colors.grey[300], child: Text((c.userName ?? 'M')[0]))))
+                                    ? ClipOval(child: CachedNetworkImage(imageUrl: c.userAvatar!, width: 36, height: 36, memCacheWidth: 72, memCacheHeight: 72, fit: BoxFit.cover, placeholder: (_, __) => CircleAvatar(radius: 18, backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest), errorWidget: (_, __, ___) => CircleAvatar(radius: 18, backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest, child: Text((c.userName ?? 'M')[0]))))
                                     : CircleAvatar(
                                         radius: 18,
+                                        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                                         child: Text((c.userName ?? 'M')[0]),
                                       ),
                                 const SizedBox(width: 12),
@@ -451,15 +480,15 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                                   child: Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: Colors.grey[50],
+                                      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                                       borderRadius: BorderRadius.circular(16),
                                     ),
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(c.userName ?? 'Member', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                        Text(c.userName ?? 'User', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Theme.of(context).colorScheme.onSurface)),
                                         const SizedBox(height: 4),
-                                        Text(c.content, style: const TextStyle(fontSize: 14)),
+                                        Text(c.content, style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
                                       ],
                                     ),
                                   ),
@@ -480,7 +509,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                     decoration: InputDecoration(
                       hintText: "Write a comment...",
                       filled: true,
-                      fillColor: Colors.grey[100],
+                      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(25), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
@@ -493,10 +522,10 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                   onTap: _sendComment,
                   child: Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: const BoxDecoration(color: Colors.amber, shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: Theme.of(context).primaryColor, shape: BoxShape.circle),
                     child: _sending
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
-                        : const Icon(LucideIcons.send, color: Colors.black, size: 20),
+                        : Icon(LucideIcons.send, color: Theme.of(context).colorScheme.onPrimary, size: 20),
                   ),
                 ),
               ],

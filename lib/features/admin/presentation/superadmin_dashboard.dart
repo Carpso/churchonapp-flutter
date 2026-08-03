@@ -11,6 +11,10 @@ import 'logistics_dashboard_screen.dart';
 import 'withdrawal_approval_screen.dart';
 import 'global_payout_command_screen.dart';
 import 'zambian_payroll_screen.dart';
+import 'zambian_compliance_dashboard.dart';
+import 'employee_management_screen.dart';
+import 'payroll_processing_screen.dart';
+import 'payroll_reports_screen.dart';
 import 'ad_management_screen.dart';
 import 'manage_partners_screen.dart';
 import 'role_approval_screen.dart';
@@ -82,10 +86,10 @@ class SuperAdminDashboard extends ConsumerWidget {
     final statsAsync = ref.watch(_superStatsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("SuperAdmin Console", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black87,
         elevation: 0,
       ),
@@ -196,7 +200,6 @@ class SuperAdminDashboard extends ConsumerWidget {
   Widget _buildStatsGrid(ThemeData theme, _SuperStats stats) {
     final currencyFormat = NumberFormat.currency(symbol: 'K ', decimalDigits: 0);
     return GridView.count(
-      shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
       mainAxisSpacing: 15,
@@ -241,7 +244,11 @@ class SuperAdminDashboard extends ConsumerWidget {
       _tile(context, theme, LucideIcons.truck, "Logistics Command", "Monitor real-time rides, cargo & couriers", Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LogisticsDashboardScreen()))),
       _tile(context, theme, LucideIcons.creditCard, "Payout Settlement", "Approve and process Mobile Money payouts", Colors.blueGrey, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WithdrawalApprovalScreen()))),
       _tile(context, theme, LucideIcons.send, "Global Payout Command", "Execute Lipila settlements (MTN/Airtel)", Colors.greenAccent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GlobalPayoutCommandScreen()))),
+      _tile(context, theme, LucideIcons.users, "Employee Management", "Add staff, set salaries, manage departments", Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmployeeManagementScreen()))),
+      _tile(context, theme, LucideIcons.calculator, "Payroll Processing", "Process monthly payroll with PAYE, NAPSA, NHIMA", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PayrollProcessingScreen()))),
+      _tile(context, theme, LucideIcons.barChart3, "Payroll Reports", "Annual summaries, remittance schedules, compliance", Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PayrollReportsScreen()))),
       _tile(context, theme, LucideIcons.fileSpreadsheet, "Zambian Statutory Payroll", "Calculate NHIMA, NAPSA, & PAYE deductions", Colors.blueGrey, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ZambianPayrollScreen()))),
+      _tile(context, theme, LucideIcons.clipboardCheck, "Zambian Compliance Dashboard", "ZRA, NAPSA, NHIMA, ECZ — full statutory view", Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ZambianComplianceDashboard()))),
       _tile(context, theme, LucideIcons.megaphone, "Ad Campaigns", "Manage platform ads and promotions", Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdManagementScreen()))),
       _tile(context, theme, LucideIcons.store, "Partner Management", "Manage partner tenants for coin redemption", Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManagePartnersScreen()))),
       _tile(context, theme, LucideIcons.userCheck, "Role Approvals", "Approve or elevate user roles", Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RoleApprovalScreen()))),

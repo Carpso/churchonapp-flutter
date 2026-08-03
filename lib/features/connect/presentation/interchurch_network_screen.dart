@@ -31,7 +31,7 @@ class _InterchurchNetworkScreenState extends ConsumerState<InterchurchNetworkScr
     final churchesAsync = ref.watch(connectedChurchesProvider(_searchQuery.isNotEmpty ? _searchQuery : null));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Church Network"),
       ),

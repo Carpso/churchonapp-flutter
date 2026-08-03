@@ -110,18 +110,16 @@ $$;
 -- 6) Ensure Rock of Ages church has all tenant fields populated
 UPDATE public.churches
 SET
-    short_name = COALESCE(short_name, 'Rock Of Ages'),
     logo_url = COALESCE(logo_url, 'https://media.churchonapp.com/churches/rock_of_ages.png'),
     primary_color = COALESCE(primary_color, '#1A1A2E'),
     accent_color = COALESCE(accent_color, '#FFD700'),
     surface_color = COALESCE(surface_color, '#16213E'),
-    pastor_phone = COALESCE(pastor_phone, '+260975000000'),
     treasurer_phone = COALESCE(treasurer_phone, '+260975000001'),
     payout_mobile = COALESCE(payout_mobile, '+260975000000'),
     payout_network = COALESCE(payout_network, 'MTN'),
     latitude = COALESCE(latitude, -15.3875),
     longitude = COALESCE(longitude, 28.3228)
-WHERE id = 'zm_36' OR slug = 'rock-of-ages-kabulonga';
+WHERE slug = 'rock-of-ages-kabulonga';
 
 -- 7) Index for rewards queries
 CREATE INDEX IF NOT EXISTS idx_user_rewards_user ON public.user_rewards(user_id);

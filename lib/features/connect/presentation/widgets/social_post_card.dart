@@ -48,7 +48,7 @@ class SocialPostCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(post.userName ?? "Member", style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text(post.userName ?? "User", style: const TextStyle(fontWeight: FontWeight.bold)),
                       Text(
                         formatTimeAgo(post.createdAt),
                         style: const TextStyle(color: Colors.grey, fontSize: 10),
@@ -82,8 +82,8 @@ class SocialPostCard extends StatelessWidget {
                       memCacheWidth: 540,
                       memCacheHeight: 300,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(color: Colors.grey[100]),
-                      errorWidget: (_, __, ___) => Container(color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey)),
+                      placeholder: (_, __) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+                      errorWidget: (_, __, ___) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: Icon(Icons.broken_image, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4))),
                     ),
                   ),
                 ),
@@ -106,8 +106,8 @@ class SocialPostCard extends StatelessWidget {
                   memCacheWidth: 540,
                   memCacheHeight: 300,
                   fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(color: Colors.grey[100]),
-                  errorWidget: (_, __, ___) => Container(color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey)),
+                  placeholder: (_, __) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+                  errorWidget: (_, __, ___) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: Icon(Icons.broken_image, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4))),
                 ),
               ),
             ),
@@ -185,13 +185,17 @@ class _SocialPostActionsState extends ConsumerState<SocialPostActions> {
       children: [
         GestureDetector(
           onTap: _handleLike,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: Icon(
-              LucideIcons.heart,
-              key: ValueKey(_liked),
-              size: 24,
-              color: _liked ? Colors.red : Colors.grey,
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                LucideIcons.heart,
+                key: ValueKey(_liked),
+                size: 24,
+                color: _liked ? Colors.red : Colors.grey,
+              ),
             ),
           ),
         ),
@@ -200,18 +204,26 @@ class _SocialPostActionsState extends ConsumerState<SocialPostActions> {
         const SizedBox(width: 20),
         GestureDetector(
           onTap: widget.onCommentTap,
-          child: Row(
-            children: [
-              const Icon(LucideIcons.messageCircle, size: 24, color: Colors.grey),
-              const SizedBox(width: 6),
-              Text("$_commentsCount", style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                const Icon(LucideIcons.messageCircle, size: 24, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text("$_commentsCount", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 20),
         GestureDetector(
           onTap: widget.onShareTap,
-          child: const Icon(LucideIcons.send, size: 24, color: Colors.grey),
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: const Icon(LucideIcons.send, size: 24, color: Colors.grey),
+          ),
         ),
         const Spacer(),
         GestureDetector(
@@ -224,10 +236,14 @@ class _SocialPostActionsState extends ConsumerState<SocialPostActions> {
               ),
             );
           },
-          child: Icon(
-            LucideIcons.bookmark,
-            size: 24,
-            color: _saved ? Colors.amber : Colors.grey,
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: Icon(
+              LucideIcons.bookmark,
+              size: 24,
+              color: _saved ? Colors.amber : Colors.grey,
+            ),
           ),
         ),
       ],

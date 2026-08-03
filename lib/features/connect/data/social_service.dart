@@ -3,6 +3,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/supabase_service.dart';
 
+String _resolveSocialName(dynamic profiles, dynamic userId) {
+  if (profiles is Map) {
+    final name = profiles['full_name'] ?? profiles['username'];
+    if (name != null && name.toString().trim().isNotEmpty) {
+      return name.toString().trim();
+    }
+  }
+  final uid = userId?.toString() ?? '';
+  if (uid.length >= 6) return 'User ${uid.substring(0, 6).toUpperCase()}';
+  return 'User';
+}
+
 class SocialPost {
   final String id;
   final String userId;
@@ -47,7 +59,7 @@ class SocialPost {
       likesCount: map['likes_count'] ?? 0,
       commentsCount: map['comments_count'] ?? 0,
       createdAt: map['created_at'] != null ? DateTime.parse(map['created_at']) : DateTime.now(),
-      userName: (map['profiles'] is Map ? (map['profiles']['full_name'] ?? map['profiles']['username'] ?? map['user_id']?.toString().substring(0, 6)) : null) ?? 'Member',
+      userName: _resolveSocialName(map['profiles'], map['user_id']),
       userAvatar: map['profiles'] is Map ? map['profiles']['avatar_url'] : null,
       isModerated: map['is_moderated'] ?? false,
       propheticWeight: (map['prophetic_weight'] as num?)?.toDouble() ?? 0.0,
@@ -82,7 +94,7 @@ class SocialComment {
       userId: map['user_id']?.toString() ?? '',
       content: map['content'] ?? '',
       createdAt: map['created_at'] != null ? DateTime.parse(map['created_at']) : DateTime.now(),
-      userName: (map['profiles'] is Map ? (map['profiles']['full_name'] ?? map['profiles']['username'] ?? map['user_id']?.toString().substring(0, 6)) : null) ?? 'Member',
+      userName: _resolveSocialName(map['profiles'], map['user_id']),
       userAvatar: map['profiles'] is Map ? map['profiles']['avatar_url'] : null,
     );
   }
@@ -98,8 +110,9 @@ class SocialService {
           .from('social_posts')
           .select('*, profiles(full_name, avatar_url, role)');
 
-      if (tenantId != null) {
-        query = query.eq('tenant_id', tenantId);
+      if (tenantId != null && tenantId.isNotEmpty) {
+        // Cast to text for comparison since profiles.tenant_id is text but social_posts.tenant_id is uuid
+        query = query.filter('tenant_id::text', 'eq', tenantId);
       }
 
       final response = await query
@@ -122,14 +135,22 @@ class SocialService {
           .order('created_at', ascending: false)
           .limit(50)
           .map((data) =>
-              (data as List).map((map) => SocialPost.fromMap(map)).toList());
+              (data as List).map((map) => SocialPost.fromMap(map)).toList())
+          .handleError((error) {
+        debugPrint('social_service: Stream error for tenant $tenantId: $error');
+        return <SocialPost>[];
+      });
     }
 
     return stream
         .order('created_at', ascending: false)
         .limit(50)
         .map((data) =>
-            (data as List).map((map) => SocialPost.fromMap(map)).toList());
+            (data as List).map((map) => SocialPost.fromMap(map)).toList())
+        .handleError((error) {
+      debugPrint('social_service: Stream error (global): $error');
+      return <SocialPost>[];
+    });
   }
 
   Future<void> createPost({String? content, String? mediaUrl, List<String>? images, String? mediaType}) async {
@@ -256,10 +277,18 @@ final socialPostsProvider = StreamProvider<List<SocialPost>>((ref) async* {
           .eq('id', userId)
           .maybeSingle();
       tenantId = profileRes?['tenant_id']?.toString();
+      debugPrint('social_posts_provider: filter=$filter, tenantId=$tenantId');
     }
   }
 
-  if (filter == SocialFeedFilter.friends && tenantId != null && userId != null) {
+  // If user has no tenant_id for church/friends filter, yield empty
+  if ((filter == SocialFeedFilter.church || filter == SocialFeedFilter.friends) &&
+      (tenantId == null || tenantId.isEmpty)) {
+    yield [];
+    return;
+  }
+
+  if (filter == SocialFeedFilter.friends && tenantId != null && tenantId.isNotEmpty && userId != null) {
     final friendsRes = await client
         .from('profiles')
         .select('id')
@@ -274,6 +303,9 @@ final socialPostsProvider = StreamProvider<List<SocialPost>>((ref) async* {
       (posts) => posts.where((p) => friendIds.contains(p.userId)).toList(),
     );
   } else {
-    yield* service.streamPosts(tenantId: tenantId);
+    yield* service.streamPosts(tenantId: tenantId).handleError((error) {
+      debugPrint('socialPostsProvider: stream error for filter=$filter: $error');
+      return <SocialPost>[];
+    });
   }
 });

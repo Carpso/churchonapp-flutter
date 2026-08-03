@@ -8,23 +8,57 @@ class SmsService {
 
   SmsService(this._client);
 
-  /// Sends a mission-critical SMS alert for logistics.
-  /// In a production environment, this would call a gateway like Twilio, Bulksms.com, or AfricasTalking.
+  /// Sends a mission-critical SMS alert via the send-sms Edge Function (Africa's Talking).
   Future<void> sendLogisticsAlert({
     required String phoneNumber,
     required String message,
   }) async {
-    // 1. Mock the external API call
-    debugPrint("LOGISTICS SMS -> To: $phoneNumber | Msg: $message");
-    
-    // 2. Log the SMS in our private VPS audit trail for sovereignty
-    await _client.from('sms_logs').insert({
-      'phone_number': phoneNumber,
-      'message': message,
-      'type': 'logistics_alert',
-      'status': 'sent',
-      'created_at': DateTime.now().toIso8601String(),
-    });
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        debugPrint('SmsService: Not authenticated');
+        return;
+      }
+
+      // Resolve tenant_id from the user's profile
+      final profile = await _client
+          .from('profiles')
+          .select('tenant_id')
+          .eq('id', user.id)
+          .maybeSingle();
+      final tenantId = profile?['tenant_id'] as String?;
+      if (tenantId == null) {
+        debugPrint('SmsService: No tenant_id found for user');
+        return;
+      }
+
+      // Send SMS via Edge Function (expects tenant_id + phone_numbers array)
+      await _client.functions.invoke('send-sms', body: {
+        'tenant_id': tenantId,
+        'phone_numbers': [phoneNumber],
+        'message': message,
+      });
+
+      // Log in our audit trail
+      await _client.from('sms_logs').insert({
+        'phone_number': phoneNumber,
+        'message': message,
+        'type': 'logistics_alert',
+        'status': 'sent',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('SmsService: Failed to send SMS: $e');
+      // Still log failed attempts
+      await _client.from('sms_logs').insert({
+        'phone_number': phoneNumber,
+        'message': message,
+        'type': 'logistics_alert',
+        'status': 'failed',
+        'error': e.toString(),
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    }
   }
 
   /// Specialized alert for Driver/Rider matching

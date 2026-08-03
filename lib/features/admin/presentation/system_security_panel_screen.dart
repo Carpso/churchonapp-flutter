@@ -92,10 +92,10 @@ class _SystemSecurityPanelScreenState extends ConsumerState<SystemSecurityPanelS
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("System Security", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black87,
         elevation: 0,
         actions: [IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _isLoading ? null : _loadAll)],

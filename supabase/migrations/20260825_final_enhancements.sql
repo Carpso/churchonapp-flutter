@@ -23,6 +23,7 @@ INSERT INTO public.notification_channels (id, name, description, icon, sort_orde
 ON CONFLICT (id) DO NOTHING;
 
 ALTER TABLE public.notification_channels ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "notification_channels_select" ON public.notification_channels;
 CREATE POLICY "notification_channels_select" ON public.notification_channels FOR SELECT USING (true);
 
 -- 2. Add notification_preferences RLS (already exists, but ensure policies)
@@ -71,6 +72,10 @@ CREATE TABLE IF NOT EXISTS public.bible_study_sessions (
 );
 
 ALTER TABLE public.bible_study_sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "bible_study_sessions_select" ON public.bible_study_sessions;
+DROP POLICY IF EXISTS "bible_study_sessions_insert" ON public.bible_study_sessions;
+DROP POLICY IF EXISTS "bible_study_sessions_update" ON public.bible_study_sessions;
+DROP POLICY IF EXISTS "bible_study_sessions_delete" ON public.bible_study_sessions;
 CREATE POLICY "bible_study_sessions_select" ON public.bible_study_sessions FOR SELECT USING (true);
 CREATE POLICY "bible_study_sessions_insert" ON public.bible_study_sessions FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "bible_study_sessions_update" ON public.bible_study_sessions FOR UPDATE USING (auth.role() = 'authenticated');

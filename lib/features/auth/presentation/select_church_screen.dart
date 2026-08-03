@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/utils/country_detection_util.dart';
 import 'package:church_on_app/core/widgets/church_map.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/features/navigation/presentation/main_navigation_shell.dart';
 
 class SelectTenantScreen extends ConsumerStatefulWidget {
@@ -33,7 +35,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
     "Burundi", "South Sudan", "Eswatini", "Lesotho", "Madagascar",
   ];
   /// Active countries that have live churches. Others show "Coming Soon".
-  final Set<String> _activeCountries = {"Zambia", "Zimbabwe"};
+  final Set<String> _activeCountries = {"Zambia"};
   bool _showOnlyRegistered = false;
   final _searchController = TextEditingController();
   LatLng? _pinPosition;
@@ -67,12 +69,10 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
         if (mounted) {
           setState(() {
             _currentPosition = position;
-            // Detect country from coordinates
-            if (position.latitude < -17.5 && position.longitude > 25.0) {
-              _currentCountry = "Zimbabwe";
-            } else {
-              _currentCountry = "Zambia";
-            }
+            _currentCountry = detectCountryFromCoordinates(
+              position.latitude,
+              position.longitude,
+            );
           });
         }
       }
@@ -652,12 +652,12 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                 child:
                     tenant['logo_url'] != null &&
                         (tenant['logo_url'] as String).isNotEmpty
-                    ? Image.network(
-                        tenant['logo_url'],
+                    ? CachedNetworkImage(
+                        imageUrl: tenant['logo_url'],
                         width: 50,
                         height: 50,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
+                        errorWidget: (context, url, error) {
                           return Icon(
                             isBookshop ? Icons.store : Icons.church,
                             color: isRegistered

@@ -24,7 +24,11 @@ class HomeSectionTitle extends StatelessWidget {
           if (trailing != null)
             GestureDetector(
               onTap: onTrailingTap,
-              child: Text(trailing!, style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w900)),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Text(trailing!, style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 10, fontWeight: FontWeight.w900)),
+              ),
             ),
         ],
       ),

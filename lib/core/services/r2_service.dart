@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:universal_io/io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -22,6 +23,29 @@ class R2Service {
 
   final SupabaseClient _client;
   R2Service(this._client);
+
+  Future<String?> uploadAvatar(ImageSource source) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      imageQuality: 70,
+      maxWidth: 512,
+      maxHeight: 512,
+    );
+    if (picked == null) return null;
+    final file = File(picked.path);
+    final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final url = await uploadFile(file, 'avatars/$fileName');
+    if (url == null) return null;
+    final user = _client.auth.currentUser;
+    if (user != null) {
+      await _client.from('profiles').update({
+        'avatar_url': url,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', user.id);
+    }
+    return url;
+  }
 
   Future<String?> uploadFile(File file, String path) async {
     try {

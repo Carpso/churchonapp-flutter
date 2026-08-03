@@ -338,7 +338,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text("FREQUENCIES", style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2)),
-              if (profile?.isSuperadmin == true || profile?.role == 'employee')
+              if (profile?.isSuperadmin == true || profile?.role == 'coa_employee')
                 TextButton.icon(
                   onPressed: () => _showAddStationDialog(),
                   icon: const Icon(LucideIcons.plus, size: 14, color: Colors.amber),

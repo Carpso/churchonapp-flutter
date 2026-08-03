@@ -32,7 +32,7 @@ class _FundraisingDetailScreenState extends ConsumerState<FundraisingDetailScree
         return _buildScreen(context, venture, tenant?.id);
       },
       loading: () => Scaffold(
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Shimmer.fromColors(
           baseColor: Colors.grey[300]!,
           highlightColor: Colors.grey[100]!,
@@ -40,7 +40,7 @@ class _FundraisingDetailScreenState extends ConsumerState<FundraisingDetailScree
         ),
       ),
       error: (error, stack) => Scaffold(
-        backgroundColor: Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(LucideIcons.arrowLeft),
@@ -222,7 +222,7 @@ class _FundraisingDetailScreenState extends ConsumerState<FundraisingDetailScree
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFAEB),
+        color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(

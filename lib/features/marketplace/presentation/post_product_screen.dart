@@ -7,7 +7,7 @@ import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/profile_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/services/r2_service.dart';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 
 class PostProductScreen extends ConsumerStatefulWidget {
   final String? initialCategory;
@@ -42,7 +42,7 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70, maxWidth: 1080, maxHeight: 1080);
     if (pickedFile != null) {
       setState(() => _imageFile = File(pickedFile.path));
     }
@@ -113,7 +113,7 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text("List an Item", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
       ),
@@ -175,7 +175,16 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
                   child: _imageFile != null
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(15),
-                          child: Image.file(_imageFile!, fit: BoxFit.cover),
+                          // Downsample at decode time — camera photos are 12MP+;
+                          // decoding full size is what Google Play flags as
+                          // "improve your app's performance with bitmap downsampling".
+                          child: Image.file(
+                            _imageFile!,
+                            fit: BoxFit.cover,
+                            cacheWidth: (MediaQuery.sizeOf(context).width *
+                                    MediaQuery.devicePixelRatioOf(context))
+                                .round(),
+                          ),
                         )
                       : Column(
                           mainAxisAlignment: MainAxisAlignment.center,

@@ -57,13 +57,58 @@ Migration files are in `supabase/migrations/`. Apply via Supabase dashboard SQL 
 4. Add to `.gitignore` if not already listed
 5. Never commit `.env` to git
 
+## How To: Use Kael AI (chat, sermon summaries, audio drama)
+
+Kael is the in-app AI assistant. Edge Function: `supabase/functions/kael-ai/index.ts`. Client: `lib/features/modules/media/data/ai_chat_service.dart`.
+
+**Provider order**: Gemini Flash (`GEMINI_API_KEY`, env `GEMINI_MODEL` default `gemini-2.0-flash`) → HuggingFace free-tier (`HUGGINGFACE_TOKEN`; env `HF_MODEL_ID` default `HuggingFaceH4/zephyr-7b-beta` — never a PRO-gated model like `mistralai/Mistral-7B-Instruct-v0.3`).
+
+**Request contract (unified)** — `action` decides the response format:
+- `action: 'chat'` (default, requires `messages[]` + optional `userContext`) → **SSE** (`data: {"chunk": ...}` then `data: {"done": true}` or `data: {"error": ...}`)
+- `action: 'summary'` / `'dramatize'` / other (requires `prompt` — `message`/`content` accepted as legacy aliases) → **JSON** `{"response": "..."}`
+
+**Client**: chat uses true SSE streaming via raw HTTP (`POST <restUrl>/functions/v1/kael-ai` with Bearer token, `Accept: text/event-stream`), buffered `functions.invoke` as fallback. Never treat chat as JSON — the Edge Function returns `text/event-stream`.
+
+**DB**: `ai_chat_sessions` + `ai_chat_messages` (with RLS) must exist — recreated standalone in migration `20260857_ai_chat_tables.sql` (previously only in the failed `20260710_missing_tables_schema.sql` batch).
+
 ## How To: Handle Payments
 
 The Lipila payment gateway lives at `lib/features/finance/presentation/lipila_payment_gateway.dart`.
 - Uses `supabase.functions.invoke()` (NOT raw HTTP) to call Lipila API server-side
 - PIN polling: 30 attempts, 4s interval
-- Platform collects → auto-disburses minus 5% fee
+- Real Lipila merchant rates (wallet 68907, Carpso Solutions): **2.5% MoMo collection, 1.5% MoMo disbursement**
+- Fees are remote-configurable via `platform_settings`: `momo_fee_percent` (2.5%) + `coa_fee_percent` (1%) = 3.5% customer MoMo fee; `lipila_disbursement_fee_percent` (1.5%) + `coa_payout_fee_percent` (1%, min K3) are deducted from every payout via `FeeConfig.payoutNet()` — never send a raw payout amount to `lipila-payout`
 - For payout webhooks, set `LIPILA_PAYOUT_WEBHOOK_URL` in Edge Function env
+
+## How To: Use Remote Configuration (no app updates for value changes)
+
+`RemoteConfig` (`lib/core/config/remote_config.dart`) reads ALL `platform_settings` rows once and exposes typed getters with local fallbacks. Change a `value` in Supabase → next app launch picks it up. **Never hardcode a tunable business value** — add a key instead.
+
+### Usage
+
+- Providers/services: `currentRemoteConfig(ref)` (takes `Ref`)
+- Widgets: `widgetRemoteConfig(ref)` (takes `WidgetRef` — Riverpod 3 keeps these separate)
+- Reactive: `ref.watch(remoteConfigProvider).value` in build
+
+### How To: Add a New Config Key
+
+1. Use it in code with a fallback: `currentRemoteConfig(ref).getInt('my_key', 25)` (or `getDouble` / `getBool` / `getString` / `getDuration` (seconds) / `getDoubleList` (comma-separated))
+2. Add the key + default to migration `supabase/migrations/20260854_remote_config_keys.sql` with `ON CONFLICT (key) DO NOTHING`
+3. Add an editable field to `_featureFields` in `lib/features/admin/presentation/subscription_pricing_screen.dart` so COA can edit it from the admin UI
+
+### Currently wired keys
+
+| Area | Keys (fallback) |
+|------|-----------------|
+| Coin rewards | `coins_daily_open_reward` (25), `coins_streak_bonus_per_day` (50), `coins_attendance_reward` (50), `coins_referral_reward` (100), `coins_daily_collect_cooldown_sec` (72000), `coins_open_streak_1d/6d/13d/14d` (5/10/20/30) |
+| Carpso rides | `ride_per_km_kwacha` (5), `ride_min_total_fare_kwacha` (15), `ride_delivery_min_fare_kwacha` (20), `ride_medium_weight_surcharge_kwacha` (5), `ride_heavy_weight_surcharge_kwacha` (10), `ride_avg_city_speed_kmh` (25) |
+| Bible quiz | `quiz_prize_1st/2nd/3rd_kwacha` (500/300/150), `quiz_season_weeks` (12), `quiz_lease_fee_kwacha` (1500), `quiz_lease_fee_usd` (50) |
+| Subscriptions | `subscription_trial_days` (30), `subscription_renewal_days` (365), `platinum_promo_days` (30), `subscription_manual_payment_days` (30) |
+| Marketplace/Events | `marketplace_delivery_fee_kwacha` (15), `event_commission_percent` (0.10) |
+| Fees (FeeConfig) | `coa_fee_percent`, `momo_fee_percent`, `card_fee_percent`, `business_cut_percent`, `min_fee_kwacha`, `lipila_disbursement_fee_percent`, `coa_payout_fee_percent`, `ride_base_fare_kwacha`, `ride_delivery_base_fare_kwacha`, `ride_delivery_per_km_kwacha` |
+| Plan pricing | `onboarding_fee`, `gold_monthly_fee`, `platinum_monthly_fee` (wired in `home_subscription_paywall.dart`) |
+
+**Known gap**: the old `quiz_lease_fee` key (K250 default) is still shown in the pricing screen overview but the hub lease modal now reads `quiz_lease_fee_kwacha` (K1,500).
 
 ## How To: Manage Church Coins (CC)
 
@@ -344,13 +389,32 @@ Edit `_buildQuickActions()` in `lib/features/home/presentation/home_screen.dart`
 
 ## How To: Fix UI Obstructed by Phone Status Bar
 
-The app uses `SystemUiMode.edgeToEdge` in `main.dart` (line 117) which draws behind the system status bar. To prevent content from being hidden under the notch/status bar:
+The app opts into edge-to-edge via `SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge)` in `main.dart` `initState()`, which draws behind the system status bar. To prevent content from being hidden under the notch/status bar:
 
-1. **Global fix**: A `SafeArea(top: true)` is applied in `MaterialApp.router`'s `builder` (main.dart line 229)
+1. **Global fix**: A `SafeArea(top: true)` is applied in `MaterialApp.router`'s `builder` (main.dart)
 2. **Navigation shell**: `main_navigation_shell.dart` has `SafeArea(top: true)` (line 252)
 3. **Fix a screen**: Add `SafeArea(top: true, child: ...)` or use `MediaQuery.of(context).padding.top` for positioning
 
 Never remove the status bar padding — some Android devices have notches, punch-holes, or camera cutouts.
+
+## Google Play Compliance — DO NOT REGRESS (read before every release)
+
+Google Play flags 3 things on every release. These are FIXED — do not undo them:
+
+### 1. Edge-to-edge: NEVER use deprecated color parameters
+- `SystemUiOverlayStyle(statusBarColor: ...)` and `systemNavigationBarColor: ...` map to the deprecated `Window.setStatusBarColor()` / `setNavigationBarColor()` — Google Play flags the release with **"deprecated APIs or parameters for edge-to-edge"**.
+- Correct pattern (in `main.dart` `_updateOverlayStyle`): set **icon brightness only** (`statusBarIconBrightness`, `systemNavigationBarIconBrightness`), plus `SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge)` once in `initState()`. SafeArea handles the padding.
+- `SystemUiMode.immersiveSticky` in video/call screens is fine (different feature, not flagged).
+
+### 2. R8 optimization: keep minification ON
+- `android/app/build.gradle.kts` release build type MUST keep `isMinifyEnabled = true` and `isShrinkResources = true` (with `proguard-rules.pro`). Removing them re-triggers **"Improve your app's memory and performance with R8 optimization"**.
+- Release 247's warning was from a build predating this config — the next release clears it automatically.
+
+### 3. Bitmap downsampling: always downscale image decodes
+- Full-size decodes (camera photos, `Image.file` without `cacheWidth`) trigger **"Improve your app's performance with bitmap downsampling"**.
+- Rule: any `Image.file`/`Image.network`/`Image.memory` rendering a photo MUST pass `cacheWidth`/`cacheHeight` (≈ display size × `MediaQuery.devicePixelRatioOf(context)`). `AppImage` (`lib/core/widgets/app_image.dart`) already downsamples via `memCacheWidth`/`memCacheHeight` — prefer it for network images.
+- Verified fixed: `post_product_screen.dart` preview, `events_screen.dart` banner preview.
+
 
 ## How To: Ensure Users Show Up Per Tenant
 
@@ -550,6 +614,7 @@ supabase secrets set FCM_SERVER_KEY=xxx
 
 # AI
 supabase secrets set HUGGINGFACE_TOKEN=hf_xxx
+supabase secrets set GEMINI_API_KEY=AIza_xxx   # Kael primary provider (Gemini Flash); HF is fallback
 
 # IDs
 supabase secrets set TREASURY_ID=xxx
@@ -620,20 +685,19 @@ flutter analyze --no-fatal-infos --no-fatal-warnings
 - Website Google sign-in is handled by the Flutter web SPA; no separate `website/` directory exists
 - `churches.id` and `tenants.id` are `uuid` type — registration code uses `package:uuid` v4, NOT string codes like `zm_1` or `ZM_CH_0001` (those are only in `tenant_service.dart` fallback data)
 - Church registration screens upload logo files to R2 under `church-logos/{uuid}.jpg`
-- Database tables `coin_purchases`, `coin_redemptions`, `partner_tenants`, `partner_offers` need to be created (SQL in "How To: Manage Church Coins" section)
-- Database tables `generated_codes`, `id_sequences` need to be created (SQL in "How To: Generate Codes" section)
+- **All coin/partner/code tables created**: `coin_purchases`, `coin_redemptions`, `partner_tenants`, `partner_offers`, `generated_codes`, `id_sequences` — applied via migrations `20260841` and `20260850`.
 - Existing users with old referral codes (`COA-{UUID[0:8]}`) will keep them as aliases; new codes use `COA-{ISO}-REF-{XXXXXX}` format
 - **Supabase linter**: 7 WARN `function_search_path_mutable` fixed (update_quiz_events_updated_at, get_user_avg_rating, check_admin_rate_limit); remaining functions may still trigger
 - **Supabase linter**: 25 WARN `rls_policy_always_true` fixed (fundraising_contributions, group_contribution_members, group_contribution_payments, churches, transactions)
 - **Supabase linter**: `anon` role EXECUTE revoked on ~55 SECURITY DEFINER functions
 - **Supabase linter**: Leaked password protection requires manual toggle in Supabase Auth dashboard
 - **Supabase linter**: 68 legacy migration files use `DO $ BEGIN` (single-dollar) syntax — these are already applied and non-re-runnable; comprehensive migration `20260832` covers critical fixes
-- **30 migration files still fail** — pre-existing issues (legacy `DO $` syntax rejected by Supabase API, `uuid = text` type mismatches in RLS policies, missing columns). These failures existed before the 2026-07-29 session fixes. Successful runs: `20260826_final_deploy`, `20260826_final_fixes`, `20260722_carpso_ride_fixes`, `20260724000001_fix_messages_rls_and_channel_id`, `20260828_expansion_bookshops_pvp` (churches insert now uses `gen_random_uuid()`), `20260829_country_prefix_ids_migration`, `20260832_linter_warnings_fix`, `20260833_chat_rls_and_messages_fix`, `20260835_coa_payments_constraints`, `20260841_coin_partner_tables`, `20260842_performance_indexes`
+- **All migrations clean**: Full deploy sweep applies 147 migrations with 0 failures (18 skipped by design: 6 deleted empty placeholders, 11 KJV seed batches already applied, 1 neutralized seed file). 15 previously-missing migrations (`20260845`–`20260857`) added to `deploy.ps1` and applied. Bible enhancement migration `20260803_133358_bible_nkjv_nlt_smart_features.sql` adds NKJV/NLT translations, `bible_chapters`, `reading_plan_entries`, `verse_notes`, `cross_references`, `bible_chapter_summaries` tables with full-text search on `bible_verses`. All function signature mismatches, text=uuid type mismatches, and policy name conflicts resolved with idempotent guards.
 - **`live_stream_studio_screen.dart`**: Now wired to `UnifiedStreamService` which creates Cloudflare Stream live input via Edge Function (real RTMP/HLS). Previously only updated DB status without any actual video transmission. Route `/live-studio` registered in GoRouter. `delete_video` action added to `cloudflare-stream` Edge Function.
 - **`Remember Me` feature**: Now fully functional. When unchecked: saves `remember_me = false` to SharedPreferences, splash screen checks flag and calls `supabase.auth.signOut()` to prevent session persistence. On sign out: clears `remember_me` and `remembered_email` from SharedPreferences.
 - **Performance migration `20260842`**: Adds indexes on `messages(sender_id, conversation_id)`, `stream_chat_messages(stream_id)`, `fundraising_contributions(contributor_id)`, `live_streams(church_id, status)`, `community_communities(tenant_id)`, `community_members(community_id, user_id)`.
 - **Container assertion crash fixed**: `AnimatedContainer` in `main_navigation_shell.dart` had `clipBehavior: Clip.hardEdge` without `decoration`, triggering Flutter assertion. Added `decoration: const BoxDecoration()`.
-- **Release builds**: APK v1.0.0+229 (`build/app/outputs/flutter-apk/app-release.apk` 200.8MB), AAB v1.0.0+232 (`build/app/outputs/bundle/release/app-release.aab` 117.2MB).
+- **Release builds**: APK v1.0.0+249 (`build/app/outputs/flutter-apk/app-release.apk` 202.9MB), AAB v1.0.0+248 (`build/app/outputs/bundle/release/app-release.aab` 118.3MB).
 - **R8 optimization & Gradle performance (2026-07-30)**:
   - **Proguard enhanced**: 5 optimization passes, `allowaccessmodification`, `repackageclasses`, `mergeinterfacesaggressively` to shrink DEX size. Comprehensive keep rules for all feature models, Supabase/GoTrue/PostgREST, ExoPlayer/Media3, MapLibre, WebRTC, crypto libraries.
   - **Debug log stripping**: `-assumenosideeffects` strips `v/d/i` logs in release builds (reduces method count).

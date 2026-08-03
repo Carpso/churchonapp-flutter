@@ -33,8 +33,8 @@ class SermonNotesService {
     // 1. Try Kael AI Edge Function (Hugging Face Open Source / Kael model)
     try {
       final result = await _client.functions.invoke('kael-ai', body: {
-        'message': promptText,
-        'userContext': {'action': 'sermon_summary', 'sermon_title': title},
+        'action': 'summary',
+        'prompt': promptText,
       });
       final data = result.data as Map<String, dynamic>?;
       if (data != null && data['response'] != null && (data['response'] as String).isNotEmpty) {

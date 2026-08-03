@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/features/admin/data/role_onboarding_service.dart';
 import 'package:church_on_app/features/marketplace/presentation/bookshop_onboarding_screen.dart';
 import 'package:church_on_app/features/marketplace/presentation/post_product_screen.dart';
@@ -249,7 +250,7 @@ class _RoleOnboardingScreenState extends ConsumerState<RoleOnboardingScreen> {
         {
           'title': 'Oversight Tools',
           'content': _stepCard(
-            icon: Icons.admin_panel_settings,
+            icon: LucideIcons.shield,
             title: 'Setup Oversight',
             desc: 'Get access to diocese-wide analytics, reports, and church management tools.',
             action: 'Enable Tools',

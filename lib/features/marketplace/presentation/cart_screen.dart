@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
+import 'package:church_on_app/core/config/fee_config.dart';
 import '../data/cart_provider.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
@@ -21,7 +23,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
           "Shopping Cart",
@@ -156,11 +158,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               child: SizedBox(
                 width: 90,
                 height: 90,
-                child: Image.network(
-                  item.product.image ??
+                child: CachedNetworkImage(
+                  imageUrl: item.product.image ??
                       '',
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
+                  errorWidget: (context, url, error) => Container(
                     color: Colors.grey.shade100,
                     child: Icon(
                       LucideIcons.package,
@@ -271,7 +273,8 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 
   Widget _buildBottomBar(double total) {
-    final fee = total * 0.05 > 3.00 ? total * 0.05 : 3.00;
+    final fees = ref.read(feeConfigProvider).value ?? FeeConfig.defaults;
+    final fee = fees.platformFee(total);
     final grandTotal = total + fee;
 
     return Container(
@@ -316,7 +319,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                     const Icon(LucideIcons.info, size: 14, color: Colors.blue),
                     const SizedBox(width: 5),
                     Text(
-                      "Transaction Fee",
+                      "Platform Fee",
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.blue.shade600,

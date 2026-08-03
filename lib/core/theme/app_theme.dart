@@ -132,7 +132,7 @@ class AppTheme {
       colorScheme: ColorScheme.fromSeed(
         seedColor: primary,
         primary: primary,
-        secondary: Colors.amberAccent,
+        secondary: tenant?.accentColor ?? Colors.amberAccent,
         surface: cardColor,
         brightness: Brightness.dark,
       ),
@@ -197,17 +197,22 @@ class AppTheme {
   }
 }
 
-final themeProvider = Provider<ThemeData>((ref) {
+class AppThemeData {
+  final ThemeData light;
+  final ThemeData dark;
+  final ThemeMode mode;
+  const AppThemeData({required this.light, required this.dark, required this.mode});
+}
+
+final appThemeProvider = Provider<AppThemeData>((ref) {
   final tenant = ref.watch(currentTenantProvider);
-  return AppTheme.getTheme(tenant);
+  return AppThemeData(
+    light: AppTheme.getTheme(tenant),
+    dark: AppTheme.getDarkTheme(tenant),
+    mode: tenant?.themeMode ?? ThemeMode.light,
+  );
 });
 
-final darkThemeProvider = Provider<ThemeData>((ref) {
-  final tenant = ref.watch(currentTenantProvider);
-  return AppTheme.getDarkTheme(tenant);
-});
-
-final themeModeProvider = Provider<ThemeMode>((ref) {
-  final tenant = ref.watch(currentTenantProvider);
-  return tenant?.themeMode ?? ThemeMode.light;
-});
+final themeProvider = Provider<ThemeData>((ref) => ref.watch(appThemeProvider).light);
+final darkThemeProvider = Provider<ThemeData>((ref) => ref.watch(appThemeProvider).dark);
+final themeModeProvider = Provider<ThemeMode>((ref) => ref.watch(appThemeProvider).mode);

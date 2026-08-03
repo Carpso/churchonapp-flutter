@@ -11,6 +11,8 @@ class PickupDropoffInputs extends StatelessWidget {
   final ValueChanged<String>? onWeightChanged;
   final VoidCallback? onPickupTap;
   final VoidCallback? onDropoffTap;
+  final VoidCallback? onUseMyLocation;
+  final bool isLocating;
 
   const PickupDropoffInputs({
     super.key,
@@ -23,6 +25,8 @@ class PickupDropoffInputs extends StatelessWidget {
     this.onWeightChanged,
     this.onPickupTap,
     this.onDropoffTap,
+    this.onUseMyLocation,
+    this.isLocating = false,
   });
 
   @override
@@ -39,6 +43,48 @@ class PickupDropoffInputs extends StatelessWidget {
           hint: "Pickup Location",
           field: 'pickup',
         ),
+        if (onUseMyLocation != null) ...[
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: GestureDetector(
+              onTap: onUseMyLocation,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isLocating)
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      )
+                    else
+                      Icon(LucideIcons.navigation,
+                          size: 13, color: Theme.of(context).primaryColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      isLocating ? "Detecting location..." : "Use my current location",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 15),
         _buildTextField(
           context,

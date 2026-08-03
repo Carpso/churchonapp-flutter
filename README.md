@@ -2,7 +2,7 @@
 
 A comprehensive church management and community platform built with Flutter, connecting congregations through digital giving, marketplace, media, events, and more.
 
-**v1.0.0+232 | Flutter 3.35.1 | Dart 3.x | 0 errors, 0 warnings**
+**v1.0.0+249 | Flutter 3.35.1 | Dart 3.x | 0 errors, 0 warnings**
 
 ## Features
 
@@ -10,7 +10,7 @@ A comprehensive church management and community platform built with Flutter, con
 - **Digital Giving** — Mobile money payments via Lipila gateway (MTN/Airtel/Zamtel), tithe tracking, QR giving, wallet coins
 - **Marketplace** — Multi-vendor marketplace with cart, checkout, and order management
 - **Media & Streaming** — Sermon uploads (R2), live streaming studio (YouTube), Kingdom Radio
-- **Bible Study** — Reading plans, verse of the day, deep study suite, memory verses
+- **Bible Study** — Reading plans, verse of the day, deep study suite, memory verses; NKJV/NLT translations, full-text search, verse notes/bookmarks, cross-references, AI-powered chapter summaries via Kael
 - **Events** — Service scheduling, conference management, event ticketing
 - **Logistics** — Ride & delivery requests with real-time GPS tracking, driver portal
 - **Games** — Bible Quiz arena (multiplayer), trivia games
@@ -118,16 +118,42 @@ Configured via `.env` file (see `.env.example`):
 
 - **State Management**: Riverpod with `FutureProvider`, `StreamProvider`, and `NotifierProvider`
 - **Data Layer**: Supabase direct queries with fallback mock data for offline resilience
-- **Payments**: Lipila mobile money collection with PIN polling (30 attempts, 4s interval). Platform-first model: payments collected to merchant wallet, then auto-disbursed minus 5% fee.
+- **Payments**: Lipila mobile money collection with PIN polling (30 attempts, 4s interval). Platform-first model: payments collected to merchant wallet (2.5% collection fee), then auto-disbursed minus the 1.5% Lipila disbursement fee.
 - **Offline**: SharedPreferences-based cache service with TTL expiry
 - **Navigation**: Standard `Navigator.push` with `MaterialPageRoute`
 
-## Deployment
+## Database Migrations
+
+Migrations live in `supabase/migrations/` and are applied via `supabase\deploy.ps1`.
+
+### Seed Data
+
+The KJV Bible text (31,102 verses) was originally a single 7.3MB SQL file that exceeded Supabase's API request size limit (413). It has been split into 11 idempotent batches (`20260711000004_seed_kjjv_text_p001.sql` … `p011.sql`) in `supabase/migrations/` and referenced by `deploy.ps1`. The original seed file (`20260711000004_seed_kjjv_text.sql`) has been replaced with a no-op verification comment.
+
+### Migration Health
+
+All migrations apply cleanly — **0 failures** across the full deploy list (148 applied, 18 skipped by design: 6 deleted empty placeholders, 11 KJV seed batches already applied, 1 neutralized seed file). Latest migration `20260803_133358_bible_nkjv_nlt_smart_features.sql` adds NKJV/NLT translations, `bible_chapters` table, full-text search on `bible_verses`, reading plans, verse notes, cross-references, and AI-powered chapter summaries.
+
+### Deployment
+
+```powershell
+# Apply all migrations
+.\supabase\deploy.ps1
+
+# Deploy Edge Functions
+supabase functions deploy push-notifications --no-verify-jwt
+supabase functions deploy kael-ai --no-verify-jwt
+# ... (all 21 functions)
+
+# Build release
+.\build_release.ps1           # AAB
+.\build_release.ps1 -Type apk # APK
+```
 
 | Platform | Command | Size |
 |----------|---------|------|
-| Android (AAB) | `.\build_release.ps1` | ~117 MB |
-| Android (APK) | `.\build_release.ps1 -Type apk` | ~200 MB universal / ~80 MB per-ABI |
+| Android (AAB) | `.\build_release.ps1` | ~118 MB |
+| Android (APK) | `.\build_release.ps1 -Type apk` | ~203 MB universal |
 | iOS | `flutter build ios --release` | Requires Apple developer account |
 | Web | `flutter build web` | Hosted via Cloudflare Pages |
 

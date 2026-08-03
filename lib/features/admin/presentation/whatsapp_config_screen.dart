@@ -89,7 +89,7 @@ class _WhatsAppConfigScreenState extends ConsumerState<WhatsAppConfigScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('WhatsApp Configuration', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF0F172A),
@@ -114,7 +114,7 @@ class _WhatsAppConfigScreenState extends ConsumerState<WhatsAppConfigScreen> {
                         children: [
                           Icon(
                             LucideIcons.messageCircle,
-                            color: _isEnabled ? const Color(0xFF075E54) : Colors.grey,
+                            color: _isEnabled ? const Color(0xFF1A1A1A) : Colors.grey,
                             size: 30,
                           ),
                           const SizedBox(width: 15),
@@ -126,7 +126,7 @@ class _WhatsAppConfigScreenState extends ConsumerState<WhatsAppConfigScreen> {
                                   _isEnabled ? 'WhatsApp Integration Active' : 'WhatsApp Integration Disabled',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: _isEnabled ? const Color(0xFF075E54) : Colors.grey,
+                                    color: _isEnabled ? const Color(0xFF1A1A1A) : Colors.grey,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -140,7 +140,7 @@ class _WhatsAppConfigScreenState extends ConsumerState<WhatsAppConfigScreen> {
                           Switch(
                             value: _isEnabled,
                             onChanged: (v) => setState(() => _isEnabled = v),
-                            activeTrackColor: const Color(0xFF075E54),
+                            activeTrackColor: const Color(0xFF1A1A1A),
                           ),
                         ],
                       ),
@@ -187,7 +187,7 @@ class _WhatsAppConfigScreenState extends ConsumerState<WhatsAppConfigScreen> {
                     ElevatedButton(
                       onPressed: _isSaving ? null : _saveConfig,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF075E54),
+                        backgroundColor: const Color(0xFF1A1A1A),
                         minimumSize: const Size(double.infinity, 55),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                       ),
@@ -216,7 +216,7 @@ class _WhatsAppConfigScreenState extends ConsumerState<WhatsAppConfigScreen> {
           controller: controller,
           obscureText: obscure,
           decoration: InputDecoration(
-            icon: Icon(icon, color: const Color(0xFF075E54), size: 18),
+            icon: Icon(icon, color: const Color(0xFF1A1A1A), size: 18),
             labelText: label,
             labelStyle: const TextStyle(color: Colors.grey, fontSize: 13),
             border: InputBorder.none,

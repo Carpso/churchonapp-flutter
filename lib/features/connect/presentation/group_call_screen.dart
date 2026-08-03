@@ -113,7 +113,7 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
             if (userId != null && userId != currentUserId) {
               _participants.add(_Participant(
                 id: userId,
-                name: profile?['full_name'] ?? 'Member',
+                name: profile?['full_name'] ?? profile?['username'] ?? 'User',
                 avatar: profile?['avatar_url'] ?? '',
                 isMe: false,
               ));
@@ -203,7 +203,7 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
       pc.close();
     }
     _peerConnections.clear();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     Navigator.pop(context);
   }
 
@@ -217,7 +217,7 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
       pc.close();
     }
     _peerConnections.clear();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     super.dispose();
   }
 
@@ -430,7 +430,7 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
             icon: _isSpeakerOn ? LucideIcons.volume2 : LucideIcons.volumeX,
             label: _isSpeakerOn ? 'Speaker' : 'Earpiece',
             isActive: _isSpeakerOn,
-            activeColor: const Color(0xFF075E54),
+            activeColor: const Color(0xFF1A1A1A),
             onTap: () {
               setState(() => _isSpeakerOn = !_isSpeakerOn);
               try {
@@ -457,7 +457,7 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
             icon: _isVideoOn ? LucideIcons.video : LucideIcons.videoOff,
             label: 'Video',
             isActive: _isVideoOn,
-            activeColor: const Color(0xFF075E54),
+            activeColor: const Color(0xFF1A1A1A),
             onTap: () {
               setState(() => _isVideoOn = !_isVideoOn);
               if (_isVideoOn) {

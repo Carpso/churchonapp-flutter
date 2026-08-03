@@ -18,15 +18,18 @@ CREATE TABLE IF NOT EXISTS public.tenant_roles (
 
 ALTER TABLE public.tenant_roles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can view tenant roles" ON public.tenant_roles
+DROP POLICY IF EXISTS "Anyone can view tenant roles" ON "public".tenant_roles;
+CREATE POLICY "Anyone can view tenant roles" ON "public".tenant_roles
     FOR SELECT TO authenticated USING (true);
 
-CREATE POLICY "Superadmins and employees can manage all roles" ON public.tenant_roles
+DROP POLICY IF EXISTS "Superadmins and employees can manage all roles" ON "public".tenant_roles;
+CREATE POLICY "Superadmins and employees can manage all roles" ON "public".tenant_roles
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('superadmin', 'employee'))
     );
 
-CREATE POLICY "Main role leads can create roles in own tenant" ON public.tenant_roles
+DROP POLICY IF EXISTS "Main role leads can create roles in own tenant" ON "public".tenant_roles;
+CREATE POLICY "Main role leads can create roles in own tenant" ON "public".tenant_roles
     FOR INSERT TO authenticated WITH CHECK (
         tenant_id IS NOT NULL
         AND EXISTS (
@@ -52,15 +55,18 @@ CREATE TABLE IF NOT EXISTS public.role_assignments (
 
 ALTER TABLE public.role_assignments ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own assignments" ON public.role_assignments
+DROP POLICY IF EXISTS "Users can view own assignments" ON "public".role_assignments;
+CREATE POLICY "Users can view own assignments" ON "public".role_assignments
     FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
-CREATE POLICY "Superadmins/employees can manage all assignments" ON public.role_assignments
+DROP POLICY IF EXISTS "Superadmins/employees can manage all assignments" ON "public".role_assignments;
+CREATE POLICY "Superadmins/employees can manage all assignments" ON "public".role_assignments
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('superadmin', 'employee'))
     );
 
-CREATE POLICY "Main role leads can view assignments in own tenant" ON public.role_assignments
+DROP POLICY IF EXISTS "Main role leads can view assignments in own tenant" ON "public".role_assignments;
+CREATE POLICY "Main role leads can view assignments in own tenant" ON "public".role_assignments
     FOR SELECT TO authenticated USING (
         tenant_id IS NOT NULL
         AND EXISTS (
@@ -98,15 +104,18 @@ CREATE TABLE IF NOT EXISTS public.orders (
 
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own orders" ON public.orders
+DROP POLICY IF EXISTS "Users can view own orders" ON "public".orders;
+CREATE POLICY "Users can view own orders" ON "public".orders
     FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can create own orders" ON public.orders
+DROP POLICY IF EXISTS "Users can create own orders" ON "public".orders;
+CREATE POLICY "Users can create own orders" ON "public".orders
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
 -- Moved after order_items table creation below
 
-CREATE POLICY "Superadmins and employees can view all orders" ON public.orders
+DROP POLICY IF EXISTS "Superadmins and employees can view all orders" ON "public".orders;
+CREATE POLICY "Superadmins and employees can view all orders" ON "public".orders
     FOR SELECT TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('superadmin', 'employee'))
     );
@@ -129,15 +138,18 @@ CREATE TABLE IF NOT EXISTS public.order_items (
 
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own order items" ON public.order_items
+DROP POLICY IF EXISTS "Users can view own order items" ON "public".order_items;
+CREATE POLICY "Users can view own order items" ON "public".order_items
     FOR SELECT TO authenticated USING (
         EXISTS (SELECT 1 FROM public.orders WHERE id = order_items.order_id AND user_id = auth.uid())
     );
 
-CREATE POLICY "Vendors can view items from their products" ON public.order_items
+DROP POLICY IF EXISTS "Vendors can view items from their products" ON "public".order_items;
+CREATE POLICY "Vendors can view items from their products" ON "public".order_items
     FOR SELECT TO authenticated USING (vendor_id = auth.uid());
 
-CREATE POLICY "Superadmins can view all items" ON public.order_items
+DROP POLICY IF EXISTS "Superadmins can view all items" ON "public".order_items;
+CREATE POLICY "Superadmins can view all items" ON "public".order_items
     FOR SELECT TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('superadmin', 'employee'))
     );
@@ -145,7 +157,8 @@ CREATE POLICY "Superadmins can view all items" ON public.order_items
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON public.order_items(order_id);
 
 -- Vendors policy for orders table (must be after order_items creation)
-CREATE POLICY "Vendors can view orders for their items" ON public.orders
+DROP POLICY IF EXISTS "Vendors can view orders for their items" ON "public".orders;
+CREATE POLICY "Vendors can view orders for their items" ON "public".orders
     FOR SELECT TO authenticated USING (
         EXISTS (
             SELECT 1 FROM public.order_items oi
@@ -179,15 +192,18 @@ CREATE TABLE IF NOT EXISTS public.deliveries (
 
 ALTER TABLE public.deliveries ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own deliveries" ON public.deliveries
+DROP POLICY IF EXISTS "Users can view own deliveries" ON "public".deliveries;
+CREATE POLICY "Users can view own deliveries" ON "public".deliveries
     FOR SELECT TO authenticated USING (
         EXISTS (SELECT 1 FROM public.orders WHERE id = deliveries.order_id AND user_id = auth.uid())
     );
 
-CREATE POLICY "Drivers can view assigned deliveries" ON public.deliveries
+DROP POLICY IF EXISTS "Drivers can view assigned deliveries" ON "public".deliveries;
+CREATE POLICY "Drivers can view assigned deliveries" ON "public".deliveries
     FOR SELECT TO authenticated USING (driver_id = auth.uid());
 
-CREATE POLICY "Superadmins can manage deliveries" ON public.deliveries
+DROP POLICY IF EXISTS "Superadmins can manage deliveries" ON "public".deliveries;
+CREATE POLICY "Superadmins can manage deliveries" ON "public".deliveries
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('superadmin', 'employee'))
     );
@@ -218,13 +234,16 @@ CREATE TABLE IF NOT EXISTS public.writer_applications (
 
 ALTER TABLE public.writer_applications ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own application" ON public.writer_applications
+DROP POLICY IF EXISTS "Users can view own application" ON "public".writer_applications;
+CREATE POLICY "Users can view own application" ON "public".writer_applications
     FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert own application" ON public.writer_applications
+DROP POLICY IF EXISTS "Users can insert own application" ON "public".writer_applications;
+CREATE POLICY "Users can insert own application" ON "public".writer_applications
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Superadmins and employees can manage applications" ON public.writer_applications
+DROP POLICY IF EXISTS "Superadmins and employees can manage applications" ON "public".writer_applications;
+CREATE POLICY "Superadmins and employees can manage applications" ON "public".writer_applications
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('superadmin', 'employee'))
     );
@@ -308,13 +327,16 @@ CREATE TABLE IF NOT EXISTS public.church_leads (
 
 ALTER TABLE public.church_leads ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own referrals" ON public.church_leads
+DROP POLICY IF EXISTS "Users can view own referrals" ON "public".church_leads;
+CREATE POLICY "Users can view own referrals" ON "public".church_leads
     FOR SELECT TO authenticated USING (referred_by_user_id = auth.uid());
 
-CREATE POLICY "Users can create referrals" ON public.church_leads
+DROP POLICY IF EXISTS "Users can create referrals" ON "public".church_leads;
+CREATE POLICY "Users can create referrals" ON "public".church_leads
     FOR INSERT TO authenticated WITH CHECK (auth.uid() = referred_by_user_id);
 
-CREATE POLICY "Superadmins and employees can manage all leads" ON public.church_leads
+DROP POLICY IF EXISTS "Superadmins and employees can manage all leads" ON "public".church_leads;
+CREATE POLICY "Superadmins and employees can manage all leads" ON "public".church_leads
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('superadmin', 'employee'))
     );
@@ -340,10 +362,12 @@ CREATE TABLE IF NOT EXISTS public.referrals (
 
 ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own referrals" ON public.referrals
+DROP POLICY IF EXISTS "Users can view own referrals" ON "public".referrals;
+CREATE POLICY "Users can view own referrals" ON "public".referrals
     FOR SELECT TO authenticated USING (referrer_id = auth.uid());
 
-CREATE POLICY "Users can create referrals" ON public.referrals
+DROP POLICY IF EXISTS "Users can create referrals" ON "public".referrals;
+CREATE POLICY "Users can create referrals" ON "public".referrals
     FOR INSERT TO authenticated WITH CHECK (referrer_id = auth.uid());
 
 CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON public.referrals(referrer_id);
@@ -363,10 +387,12 @@ CREATE TABLE IF NOT EXISTS public.user_purchases (
 
 ALTER TABLE public.user_purchases ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own purchases" ON public.user_purchases
+DROP POLICY IF EXISTS "Users can view own purchases" ON "public".user_purchases;
+CREATE POLICY "Users can view own purchases" ON "public".user_purchases
     FOR SELECT TO authenticated USING (user_id = auth.uid());
 
-CREATE POLICY "Superadmins can view all purchases" ON public.user_purchases
+DROP POLICY IF EXISTS "Superadmins can view all purchases" ON "public".user_purchases;
+CREATE POLICY "Superadmins can view all purchases" ON "public".user_purchases
     FOR SELECT TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('superadmin', 'employee'))
     );

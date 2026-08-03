@@ -17,7 +17,7 @@ class _OnboardingManagerScreenState extends ConsumerState<OnboardingManagerScree
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
-  String _selectedRole = 'writer'; // 'writer', 'rider', 'driver', 'employee', 'usher', 'event_organizer'
+  String _selectedRole = 'writer'; // 'writer', 'rider', 'driver', 'coa_employee', 'usher', 'event_organizer'
   bool _isSubmitting = false;
   Map<String, dynamic>? _lastOnboarded;
 
@@ -27,7 +27,7 @@ class _OnboardingManagerScreenState extends ConsumerState<OnboardingManagerScree
     {'id': 'rider', 'label': 'Rider', 'icon': LucideIcons.bike, 'desc': 'Delivery personnel'},
     {'id': 'driver', 'label': 'Driver', 'icon': LucideIcons.car, 'desc': 'Transport driver'},
     {'id': 'event_organizer', 'label': 'Event Organizer', 'icon': LucideIcons.calendarDays, 'desc': 'Can create & manage events'},
-    {'id': 'employee', 'label': 'COA Employee', 'icon': LucideIcons.briefcase, 'desc': 'Global app operations'},
+    {'id': 'coa_employee', 'label': 'COA Employee', 'icon': LucideIcons.briefcase, 'desc': 'Global app operations'},
     {'id': 'usher', 'label': 'Church Usher', 'icon': LucideIcons.userCheck, 'desc': 'Service reporting & finance'},
   ];
 

@@ -40,7 +40,7 @@ class _WithdrawalApprovalScreenState extends ConsumerState<WithdrawalApprovalScr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Payout Queue"),
         actions: [

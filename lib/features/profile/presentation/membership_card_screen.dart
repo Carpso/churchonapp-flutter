@@ -21,42 +21,52 @@ class MembershipCardScreen extends ConsumerWidget {
         elevation: 0,
         foregroundColor: Colors.black,
       ),
-      body: Center(
-        child: profileAsync.when(
-          data: (profile) {
-            final name = profile?.name ?? "Believer";
-            final memberId = profile?.membershipId ?? "COA-PENDING";
-            
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildCard(context, tenant, name, memberId),
-                  const SizedBox(height: 50),
-                  const Text("SHOW THIS QR FOR CHECK-IN", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
-                  const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30)),
-                    child: QrCodeWithLogo(
-                      data: memberId,
-                      size: 200,
-                      logoSize: 40,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  Text(
-                    "This ID identifies you as a verified member of ${tenant?.name ?? 'the church'}.",
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12, color: Colors.black54),
-                  ),
-                ],
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: profileAsync.when(
+                  data: (profile) {
+                    final name = profile?.name ?? "Believer";
+                    final memberId = profile?.membershipId ?? "COA-PENDING";
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildCard(context, tenant, name, memberId),
+                          const SizedBox(height: 32),
+                          const Text("SHOW THIS QR FOR CHECK-IN", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30)),
+                            child: QrCodeWithLogo(
+                              data: memberId,
+                              size: 170,
+                              logoSize: 34,
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+                          Text(
+                            "This ID identifies you as a verified member of ${tenant?.name ?? 'the church'}.",
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 12, color: Colors.black54),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, s) => Center(child: Text("Error: $e")),
+                ),
               ),
             );
           },
-          loading: () => const CircularProgressIndicator(),
-          error: (e, s) => Text("Error: $e"),
         ),
       ),
     );

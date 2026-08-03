@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
@@ -49,11 +50,12 @@ class HomeDailyVerse extends ConsumerWidget {
                 IconButton(
                   icon: const Icon(LucideIcons.share2, color: Colors.white70, size: 18),
                   onPressed: () {
+                    Clipboard.setData(ClipboardData(text: '"${verse.text}" — ${verse.reference}'));
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: const Text("Daily verse copied to clipboard!"), backgroundColor: Colors.indigo.shade700, behavior: SnackBarBehavior.floating),
                     );
                   },
-                  constraints: const BoxConstraints(),
+                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                   padding: EdgeInsets.zero,
                 ),
               ],
@@ -71,7 +73,7 @@ class HomeDailyVerse extends ConsumerWidget {
       loading: () => Container(
         height: 140,
         width: double.infinity,
-        decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
+        decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(24)),
         child: const Center(child: ShimmerLoader.rectangular(width: double.infinity, height: 140)),
       ),
       error: (err, stack) => const SizedBox.shrink(),

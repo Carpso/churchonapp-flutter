@@ -39,17 +39,17 @@ class _MinistryManagementScreenState extends ConsumerState<MinistryManagementScr
   Widget build(BuildContext context) {
     final tenant = ref.watch(currentTenantProvider);
     if (tenant == null) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFFFFAEB),
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(child: Text('Select a church first')),
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Ministry Management'),
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         foregroundColor: Colors.black87,
         actions: [
@@ -210,8 +210,8 @@ class _MinistryManagementScreenState extends ConsumerState<MinistryManagementScr
           builder: (context, setSheetState) {
             return Container(
               height: MediaQuery.of(context).size.height * 0.85,
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFFAEB),
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
               ),
               child: Column(

@@ -62,8 +62,7 @@ BEGIN
     WHERE p.id = v_user_id
       AND p.role IN ('pastor', 'bishop', 'church_admin', 'leader')
       AND (
-        p.tenant_id = c.tenant_id
-        OR c.pastor_id = v_user_id
+        p.tenant_id = c.tenant_id::text
         OR c.id = p_church_id
       )
   );
@@ -202,7 +201,7 @@ CREATE POLICY "Service reports select policy"
     OR (church_id IS NOT NULL AND public.is_church_pastor(church_id))
     OR EXISTS (
       SELECT 1 FROM public.profiles p 
-      WHERE p.id = auth.uid() AND p.tenant_id = service_reports.tenant_id
+      WHERE p.id = auth.uid() AND p.tenant_id = service_reports.tenant_id::text
     )
   );
 
@@ -212,10 +211,23 @@ CREATE POLICY "Service reports insert policy"
   WITH CHECK (
     public.is_super_admin()
     OR (church_id IS NOT NULL AND public.is_church_pastor(church_id))
-    OR auth.uid() = created_by
   );
 
 -- 3.4 TITHES TABLE
+CREATE TABLE IF NOT EXISTS public.tithes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  church_id UUID,
+  tenant_id UUID,
+  amount NUMERIC(12,2) NOT NULL,
+  payment_method TEXT DEFAULT 'mobile_money',
+  transaction_ref TEXT,
+  notes TEXT,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 ALTER TABLE public.tithes ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
@@ -476,7 +488,7 @@ BEGIN
   -- 3. Idempotent Insert into Wallet Transactions / Ledger
   SELECT EXISTS (
     SELECT 1 FROM public.wallet_transactions
-    WHERE reference_id = p_reference_id OR (metadata->>'tithe_id') = v_tithe_record.id::text
+    WHERE reference_id = p_reference_id
   ) INTO v_transaction_exists;
 
   IF NOT v_transaction_exists THEN
@@ -487,7 +499,6 @@ BEGIN
       category,
       reference_id,
       description,
-      status,
       created_at
     )
     VALUES (
@@ -497,7 +508,6 @@ BEGIN
       'tithe',
       p_reference_id,
       COALESCE(p_notes, 'Tithe Payment'),
-      'completed',
       NOW()
     );
   END IF;

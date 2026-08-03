@@ -19,7 +19,7 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
 
   Future<void> _pickDocument() async {
     try {
-      final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 1920, maxHeight: 1920);
       if (file != null && mounted) {
         setState(() => _idFilePath = file.path);
       }
@@ -34,7 +34,7 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
 
   Future<void> _takeSelfie() async {
     try {
-      final file = await _picker.pickImage(source: ImageSource.camera, imageQuality: 80);
+      final file = await _picker.pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 512, maxHeight: 512);
       if (file != null && mounted) {
         setState(() => _selfiePath = file.path);
       }

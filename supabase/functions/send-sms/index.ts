@@ -1,10 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { checkRateLimit } from "../_shared/rate-limit.ts"
+import { getCorsHeaders } from "../_shared/cors.ts"
 
 const AT_API_URL = 'https://api.africastalking.com/version1/messaging'
 const SMS_CREDIT_COST = 1 // 1 SMS = 1 credit
@@ -25,6 +22,7 @@ function formatPhone(phone: string): string {
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"))
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -48,6 +46,14 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 401,
     })
+  }
+
+  const { allowed } = await checkRateLimit(supabase, user.id, "send_sms", 5, 1);
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {

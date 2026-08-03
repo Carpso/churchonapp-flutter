@@ -36,7 +36,7 @@ class _UniversalSearchScreenState extends State<UniversalSearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: TextField(
           controller: _searchController,

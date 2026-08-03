@@ -1,15 +1,22 @@
 import "https://deno.land/std@0.177.0/dotenv.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const EMAIL_FROM = Deno.env.get("EMAIL_FROM") || "Church On App <noreply@churchonapp.com>";
 
+function escapeHtml(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -139,6 +146,10 @@ Deno.serve(async (req) => {
 });
 
 function securityAlertTemplate(userName: string, eventType: string, details: string, ipAddress?: string): string {
+  const safeUser = escapeHtml(userName);
+  const safeEvent = escapeHtml(eventType);
+  const safeDetails = escapeHtml(details || 'No additional details');
+  const safeIp = ipAddress ? escapeHtml(ipAddress) : '';
   return `
     <!DOCTYPE html>
     <html>
@@ -149,12 +160,12 @@ function securityAlertTemplate(userName: string, eventType: string, details: str
           <h1 style="margin:0;font-size:20px;">⚠️ Security Alert</h1>
         </div>
         <div style="padding:20px;">
-          <p>Hello ${userName},</p>
-          <p>We detected a <strong>${eventType}</strong> on your account.</p>
+          <p>Hello ${safeUser},</p>
+          <p>We detected a <strong>${safeEvent}</strong> on your account.</p>
           <div style="background:#FEF2F2;border-left:4px solid #DC2626;padding:15px;margin:15px 0;">
-            <p style="margin:0;"><strong>Event:</strong> ${eventType}</p>
-            <p style="margin:5px 0 0;"><strong>Details:</strong> ${details || 'No additional details'}</p>
-            ${ipAddress ? `<p style="margin:5px 0 0;"><strong>IP Address:</strong> ${ipAddress}</p>` : ''}
+            <p style="margin:0;"><strong>Event:</strong> ${safeEvent}</p>
+            <p style="margin:5px 0 0;"><strong>Details:</strong> ${safeDetails}</p>
+            ${safeIp ? `<p style="margin:5px 0 0;"><strong>IP Address:</strong> ${safeIp}</p>` : ''}
           </div>
           <p>If this was you, no action is needed. If you don't recognize this activity, please change your password immediately and contact support.</p>
           <p style="color:#666;font-size:12px;">Church On App Security Team</p>

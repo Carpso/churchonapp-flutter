@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'weather_model.dart';
 
@@ -58,7 +59,9 @@ class WeatherService {
           timestamp: DateTime.now(),
         );
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('WeatherService: Error parsing weather data: $e');
+    }
 
     // Offline / Fallback Preset Data
     return WeatherData(

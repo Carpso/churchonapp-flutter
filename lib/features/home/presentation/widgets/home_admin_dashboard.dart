@@ -6,6 +6,7 @@ import 'package:church_on_app/features/admin/presentation/admin_hub_screen.dart'
 import 'package:church_on_app/features/admin/presentation/global_broadcast_screen.dart';
 import 'package:church_on_app/features/admin/presentation/member_management_screen.dart';
 import 'package:church_on_app/features/admin/presentation/event_scheduler_screen.dart';
+import 'home_section_title.dart';
 
 class HomeAdminDashboard extends ConsumerWidget {
   const HomeAdminDashboard({super.key});
@@ -25,7 +26,7 @@ class HomeAdminDashboard extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle(context, "Admin Tools"),
+        const HomeSectionTitle(title: "Admin Tools"),
         SizedBox(
           height: 44,
           child: ListView.separated(
@@ -52,19 +53,6 @@ class HomeAdminDashboard extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildSectionTitle(BuildContext context, String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 15.0),
-      child: Row(
-        children: [
-          Container(width: 4, height: 18, decoration: BoxDecoration(color: Theme.of(context).primaryColor, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(width: 10),
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        ],
-      ),
     );
   }
 }

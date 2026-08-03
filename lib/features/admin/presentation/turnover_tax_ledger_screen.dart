@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/core/config/fee_config.dart';
 import '../../../core/services/supabase_service.dart';
 
 class TaxLedgerEntry {
@@ -29,6 +30,7 @@ class TaxLedgerEntry {
 
 final turnoverTaxLedgerProvider = FutureProvider.family<List<TaxLedgerEntry>, DateTime>((ref, monthDate) async {
   final supabase = ref.read(supabaseServiceProvider);
+  final fees = await ref.read(feeConfigProvider.future);
   final startOfMonth = DateTime(monthDate.year, monthDate.month, 1);
   final endOfMonth = DateTime(monthDate.year, monthDate.month + 1, 0, 23, 59, 59);
 
@@ -46,17 +48,15 @@ final turnoverTaxLedgerProvider = FutureProvider.family<List<TaxLedgerEntry>, Da
     final category = map['category'] as String? ?? meta['category'] as String? ?? 'general';
     final status = (map['status'] as String? ?? 'completed').toLowerCase();
 
-    // Determine gross revenue vs COA platform profit cut for Zambia Turnover Tax (3%)
     double coaRevenue = 0.0;
     final c = category.toLowerCase();
     if (c == 'ride' || c == 'event' || c == 'marketplace' || c == 'bookshop' || c == 'writer' || c == 'vendor' || c == 'product') {
-      coaRevenue = amount * 0.10;
+      coaRevenue = fees.businessCut(amount);
     } else {
-      final raw = amount * 0.01;
-      coaRevenue = raw < 3.0 ? 3.0 : (raw > 50.0 ? 50.0 : raw);
+      coaRevenue = fees.platformFee(amount);
     }
 
-    final tax3Pct = coaRevenue * 0.03; // Zambia Turnover Tax rate: 3%
+    final tax3Pct = coaRevenue * 0.03;
 
     entries.add(TaxLedgerEntry(
       id: map['id']?.toString() ?? '',

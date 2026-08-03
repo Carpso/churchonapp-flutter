@@ -70,15 +70,23 @@ class AdminNavigationRegistry {
       route: "/admin/ads",
       canAccess: _isSuperadminOnly,
     ),
-    AdminTileConfig(
-      title: "Partner Tenants",
-      subtitle: "Manage partner stores, cafes & offers",
-      icon: LucideIcons.store,
-      color: Color(0xFF14B8A6),
-      route: "/admin/partners",
-      canAccess: _isSuperadminOnly,
-    ),
-  ];
+     AdminTileConfig(
+       title: "Partner Tenants",
+       subtitle: "Manage partner stores, cafes & offers",
+       icon: LucideIcons.store,
+       color: Color(0xFF14B8A6),
+       route: "/admin/partners",
+       canAccess: _isSuperadminOnly,
+     ),
+     AdminTileConfig(
+       title: "Invite Members",
+       subtitle: "Share invite link, QR & quick share options",
+       icon: LucideIcons.userPlus,
+       color: Color(0xFF3B82F6),
+       route: "/invite",
+       canAccess: _isLeadership,
+     ),
+   ];
 
   static bool _isLeadership({required bool isSuperadmin, required bool isPastor, required bool isBishop, required bool isTreasurer}) {
     return isSuperadmin || isPastor || isBishop;

@@ -6,6 +6,11 @@ class PayoutService {
 
   PayoutService(this._client);
 
+  /// Sends a payout via the lipila-payout Edge Function.
+  ///
+  /// WARNING: [amount] must ALREADY be netted via `FeeConfig.payoutNet()`
+  /// (deducts Lipila's 1.5% disbursement fee + COA's payout fee, min K3).
+  /// Never pass a raw payout amount — the recipient would be short-changed.
   Future<void> requestPayout({
     required String accountNumber,
     required double amount,

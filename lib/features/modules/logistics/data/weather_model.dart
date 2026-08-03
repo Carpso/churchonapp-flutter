@@ -238,7 +238,9 @@ class WeatherData {
           ),
         );
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('WeatherModel: Error parsing hourly forecast: $e');
+    }
 
     // Parse 5-day daily forecast
     final parsedDaily = <DailyForecast>[];
@@ -258,7 +260,9 @@ class WeatherData {
           ),
         );
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('WeatherModel: Error parsing daily forecast: $e');
+    }
 
     return WeatherData(
       temperature: temp,

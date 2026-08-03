@@ -1,14 +1,23 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 import 'package:church_on_app/features/marketplace/data/marketplace_service.dart';
 import 'package:church_on_app/features/admin/data/order_service.dart';
-import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/config/env.dart';
+import 'package:church_on_app/core/config/fee_config.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
+import 'package:church_on_app/features/give/presentation/widgets/momo_phone_input_widget.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+enum _PaymentPhase { idle, initiating, awaitingPin, succeeded, failed }
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
@@ -19,15 +28,22 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _phoneCtrl = TextEditingController();
+  final _firstNameCtrl = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   String _selectedNetwork = "MTN";
   String _paymentMethod = "mobile_money";
-  String _deliveryMethod = "delivery"; // 'delivery' or 'pickup'
+  String _deliveryMethod = "delivery";
 
   bool _isProcessing = false;
   bool _isSuccess = false;
   bool _isError = false;
   String? _errorMessage;
   String? _orderReference;
+
+  _PaymentPhase _paymentPhase = _PaymentPhase.idle;
+  String _paymentStatusMessage = '';
+  Timer? _pollTimer;
 
   final List<Map<String, dynamic>> _networks = [
     {"name": "MTN", "color": Colors.yellow, "id": "mtn", "logo": "assets/logo_mtn.png"},
@@ -43,47 +59,51 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (profile?.phoneNumber != null && profile!.phoneNumber!.isNotEmpty) {
         _phoneCtrl.text = profile.phoneNumber!;
       }
+      if (profile != null) {
+        _firstNameCtrl.text = profile.name.split(' ').first;
+        _lastNameCtrl.text = profile.name.split(' ').skip(1).join(' ');
+        final user = Supabase.instance.client.auth.currentUser;
+        _emailCtrl.text = user?.email ?? '';
+      }
     });
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _phoneCtrl.dispose();
+    _firstNameCtrl.dispose();
+    _lastNameCtrl.dispose();
+    _emailCtrl.dispose();
     super.dispose();
   }
 
-  double get _platformFee {
-    final subtotal = ref.read(cartProvider.notifier).total;
-    return subtotal * 0.05 > 3.00 ? subtotal * 0.05 : 3.00;
-  }
+  // Platform fee = 1% COA + Lipila fees (buyer pays this)
+  FeeConfig get _fees => ref.read(feeConfigProvider).value ?? FeeConfig.defaults;
+  double get _platformFee => _fees.platformFee(ref.read(cartProvider.notifier).total);
 
-  double get _deliveryFee => _deliveryMethod == 'delivery' ? 15.0 : 0.0;
+  double get _deliveryFee => _deliveryMethod == 'delivery'
+      ? widgetRemoteConfig(ref).getDouble('marketplace_delivery_fee_kwacha', 15.0)
+      : 0.0;
 
   double get _total {
     final subtotal = ref.read(cartProvider.notifier).total;
     return subtotal + _platformFee + _deliveryFee;
   }
 
-  /// Marketplace MoMo Routing: Pay seller via Lipila payout.
-  /// Priority: Seller's MoMo → Tenant's MoMo → COA Team MoMo (fallback).
   Future<void> _disburseToSeller(List<CartItem> items, double subtotal, double fee, String? tenantId) async {
     try {
       final supabase = Supabase.instance.client;
 
-      // Collect unique vendor IDs from this order
       final vendorIds = items
           .where((item) => item.product.vendorId != null && item.product.vendorId!.isNotEmpty)
           .map((item) => item.product.vendorId!)
           .toSet()
           .toList();
 
-      if (vendorIds.isEmpty) {
-        debugPrint('[Marketplace] No vendors to pay out');
-        return;
-      }
+      if (vendorIds.isEmpty) return;
 
       for (final vendorId in vendorIds) {
-        // Priority 1: Seller's MoMo phone from profiles
         String? sellerPhone;
         try {
           final profile = await supabase
@@ -93,10 +113,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               .maybeSingle();
           sellerPhone = profile?['phone_number'] as String?;
         } catch (e) {
-          debugPrint('Error fetching seller phone from profile: $e');
+          debugPrint('Error fetching seller phone: $e');
         }
 
-        // Priority 2: Tenant's treasurer MoMo
         if (sellerPhone == null || sellerPhone.isEmpty) {
           try {
             final church = await supabase
@@ -106,23 +125,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 .maybeSingle();
             sellerPhone = church?['treasurer_phone'] as String?;
           } catch (e) {
-            debugPrint('Error fetching treasurer phone from church: $e');
+            debugPrint('Error fetching treasurer phone: $e');
           }
         }
 
-        // Priority 3: COA Team MoMo (fallback)
         if (sellerPhone == null || sellerPhone.isEmpty) {
           sellerPhone = Env.coaMoMoNumber;
         }
 
-        // Calculate this vendor's share (proportional to their items' total_price)
         final vendorItemTotal = items
             .where((item) => item.product.vendorId == vendorId)
             .fold(0.0, (sum, item) => sum + (item.product.price * item.quantity));
-        final vendorShare = vendorItemTotal - (vendorItemTotal * 0.05 > 3.00 ? vendorItemTotal * 0.05 : 3.00);
+        // COA business cut deducted from seller (10%)
+        final coaCommission = _fees.businessCut(vendorItemTotal);
+        final vendorShare = vendorItemTotal - coaCommission;
         if (vendorShare <= 0) continue;
+        // Lipila disbursement fee (1.5%) deducted from the payout itself
+        final payoutAmount = _fees.payoutNet(vendorShare);
 
-        // Normalize phone to 260XXXXXXXXX format
         String phone = sellerPhone.replaceAll(RegExp(r'\D'), '');
         if (phone.startsWith('0')) phone = '260${phone.substring(1)}';
         if (phone.startsWith('9') && phone.length == 9) phone = '260$phone';
@@ -131,11 +151,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         final payoutRef = 'MKT-${DateTime.now().millisecondsSinceEpoch}-$vendorId';
         await supabase.functions.invoke('lipila-payout', body: {
           'accountNumber': phone,
-          'amount': vendorShare,
+          'amount': payoutAmount,
           'narration': 'Marketplace seller payout',
           'referenceId': payoutRef,
         });
-        debugPrint('[Marketplace] Paid K${vendorShare.toStringAsFixed(2)} to seller $vendorId via $phone');
+        debugPrint('[Marketplace] Paid K${payoutAmount.toStringAsFixed(2)} to seller $vendorId via $phone');
       }
     } catch (e) {
       debugPrint('[Marketplace] Seller disbursement failed (non-blocking): $e');
@@ -154,6 +174,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return;
     }
 
+    if (_paymentMethod == "card" && (_firstNameCtrl.text.isEmpty || _lastNameCtrl.text.isEmpty)) {
+      setState(() {
+        _isError = true;
+        _errorMessage = "First and last name are required for card payment";
+      });
+      return;
+    }
+
     setState(() {
       _isProcessing = true;
       _isError = false;
@@ -163,47 +191,256 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     try {
       final subtotal = ref.read(cartProvider.notifier).total;
       final fee = _platformFee;
-      final total = _total;
+      final total = subtotal + fee;
       final tenant = ref.read(currentTenantProvider);
-      final orderService = ref.read(orderServiceProvider);
-      final financeService = ref.read(financeServiceProvider);
-
-      String? paymentReference;
 
       if (_paymentMethod == "wallet") {
+        // Atomic wallet deduction via RPC
         final profile = ref.read(profileProvider).value;
-        if (profile == null || profile.coins < total.toInt()) {
-          throw Exception("Insufficient wallet balance. You need ${total.toInt()} coins but have ${profile?.coins ?? 0}.");
-        }
-        await financeService.logTransaction(
-          total,
-          'product',
-          'wallet_${DateTime.now().millisecondsSinceEpoch}',
-          tenantId: tenant?.id,
-        );
-        paymentReference = 'wallet_${DateTime.now().millisecondsSinceEpoch}';
-      } else {
-        String phone = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
-        if (phone.startsWith('0')) phone = '260${phone.substring(1)}';
-        if (phone.startsWith('9')) phone = '260$phone';
-        if (phone.length == 9) phone = '260$phone';
+        if (profile == null) throw Exception("Not authenticated");
 
         final supabase = Supabase.instance.client;
-
-        final lipilaResponse = await supabase.functions.invoke('lipila-collect', body: {
-          "accountNumber": phone,
-          "amount": total,
-          "narration": "Marketplace Order",
+        final result = await supabase.rpc('add_coins', params: {
+          'user_id': profile.id,
+          'amount': -(total.toInt()),
         });
 
-        if (lipilaResponse.data == null) {
-          throw Exception("Payment initiation failed");
+        if (result != null && result.toString().contains('error')) {
+          throw Exception("Insufficient wallet balance. You need ${total.toInt()} coins but have ${profile.coins}.");
         }
-        final result = lipilaResponse.data is Map
-            ? Map<String, dynamic>.from(lipilaResponse.data as Map)
-            : {};
-        paymentReference = result['reference'] as String?;
+
+        final paymentReference = 'wallet_${const Uuid().v4()}';
+        await _createOrderAndDisburse(items, subtotal, fee, tenant?.id, paymentReference);
+        return;
       }
+
+      // Card payment: initiate → redirect to 3DS page
+      if (_paymentMethod == "card") {
+        final supabase = Supabase.instance.client;
+        final referenceId = const Uuid().v4();
+
+        setState(() {
+          _paymentPhase = _PaymentPhase.initiating;
+          _paymentStatusMessage = "Connecting to card payment gateway...";
+        });
+
+        final response = await supabase.functions.invoke('lipila-card-collect', body: {
+          "amount": total,
+          "narration": "Marketplace Order",
+          "reference": referenceId,
+          "firstName": _firstNameCtrl.text.trim(),
+          "lastName": _lastNameCtrl.text.trim(),
+          "email": _emailCtrl.text.trim(),
+          "phone": _phoneCtrl.text.isNotEmpty ? _phoneCtrl.text : "",
+        });
+
+        if (response.data == null) {
+          throw Exception("Card payment initiation failed");
+        }
+
+        final data = response.data is Map
+            ? Map<String, dynamic>.from(response.data as Map)
+            : {};
+        final cardUrl = data['url'] as String?;
+
+        if (cardUrl != null && cardUrl.isNotEmpty) {
+          final uri = Uri.parse(cardUrl);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.inAppWebView);
+          }
+        }
+
+        setState(() {
+          _paymentPhase = _PaymentPhase.awaitingPin;
+          _paymentStatusMessage = "Complete card payment in the secure page, then return here.";
+        });
+
+        await _pollPaymentStatus(referenceId);
+        return;
+      }
+
+      // Mobile Money: initiate → poll → then create order
+      final supabase = Supabase.instance.client;
+      String phone = MomoPhoneInputWidget.formatPhone(_phoneCtrl.text);
+
+      final referenceId = const Uuid().v4();
+
+      setState(() {
+        _paymentPhase = _PaymentPhase.initiating;
+        _paymentStatusMessage = "Connecting to Lipila Gateway...";
+      });
+
+      final response = await supabase.functions.invoke('lipila-collect', body: {
+        "action": "initiate",
+        "accountNumber": phone,
+        "amount": total,
+        "narration": "Marketplace Order",
+        "reference": referenceId,
+      });
+
+      if (response.data == null) {
+        throw Exception("Payment initiation failed");
+      }
+
+      setState(() {
+        _paymentPhase = _PaymentPhase.awaitingPin;
+        _paymentStatusMessage = "Pushing PIN prompt to ${_phoneCtrl.text}...";
+      });
+
+      await _pollPaymentStatus(referenceId);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+          _paymentPhase = _PaymentPhase.failed;
+          _paymentStatusMessage = e.toString().replaceFirst("Exception: ", "");
+          _errorMessage = e.toString().replaceFirst("Exception: ", "");
+          _isError = true;
+        });
+      }
+    }
+  }
+
+  Future<void> _pollPaymentStatus(String referenceId) async {
+    const maxAttempts = 20;
+    int attempts = 0;
+    final completer = Completer<void>();
+
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      attempts++;
+
+      final supabase = Supabase.instance.client;
+
+      // Check DB first (fastest path via webhook)
+      try {
+        final localPayment = await supabase
+            .from('coa_payments')
+            .select('status')
+            .eq('payment_ref', referenceId)
+            .maybeSingle();
+
+        if (localPayment != null) {
+          final dbStatus = (localPayment['status'] ?? '').toString().toLowerCase();
+          if (['approved', 'completed', 'confirmed', 'settled'].contains(dbStatus)) {
+            timer.cancel();
+            if (mounted) {
+              setState(() {
+                _paymentPhase = _PaymentPhase.succeeded;
+                _paymentStatusMessage = "Payment confirmed. Creating order...";
+              });
+            }
+            if (!completer.isCompleted) completer.complete();
+            return;
+          } else if (['rejected', 'failed', 'cancelled'].contains(dbStatus)) {
+            timer.cancel();
+            if (mounted) {
+              setState(() {
+                _paymentPhase = _PaymentPhase.failed;
+                _paymentStatusMessage = "Payment was $dbStatus.";
+                _errorMessage = "Payment was $dbStatus.";
+                _isError = true;
+                _isProcessing = false;
+              });
+            }
+            if (!completer.isCompleted) completer.complete();
+            return;
+          }
+        }
+      } catch (_) {}
+
+      // Check Lipila API status
+      try {
+        final statusResponse = await supabase.functions.invoke('lipila-collect', body: {
+          "action": "status",
+          "reference": referenceId,
+        });
+
+        if (statusResponse.data != null) {
+          final statusData = statusResponse.data is Map
+              ? Map<String, dynamic>.from(statusResponse.data as Map)
+              : jsonDecode(jsonEncode(statusResponse.data)) as Map<String, dynamic>;
+
+          String status = '';
+          try {
+            status = (statusData['data']?['status'] ??
+                    statusData['data']?['data']?['status'] ??
+                    statusData['data']?['transaction']?['status'] ??
+                    statusData['status'] ??
+                    statusData['transaction']?['status'] ??
+                    '')
+                .toString()
+                .toLowerCase()
+                .trim();
+      } catch (e) {
+        debugPrint('Checkout: Error parsing payment status: $e');
+      }
+
+          if (['successful', 'paid', 'completed', 'settled', 'success', 'approved', 'accepted', 'confirmed'].contains(status)) {
+            timer.cancel();
+            if (mounted) {
+              setState(() {
+                _paymentPhase = _PaymentPhase.succeeded;
+                _paymentStatusMessage = "Payment confirmed. Creating order...";
+              });
+            }
+            if (!completer.isCompleted) completer.complete();
+            return;
+          } else if (['failed', 'cancelled', 'rejected', 'declined', 'error', 'timeout'].contains(status)) {
+            timer.cancel();
+            if (mounted) {
+              setState(() {
+                _paymentPhase = _PaymentPhase.failed;
+                _paymentStatusMessage = "Transaction was $status.";
+                _errorMessage = "Transaction was $status.";
+                _isError = true;
+                _isProcessing = false;
+              });
+            }
+            if (!completer.isCompleted) completer.complete();
+            return;
+          }
+        }
+      } catch (e) {
+        debugPrint("Error polling payment status (attempt $attempts): $e");
+      }
+
+      if (attempts >= maxAttempts) {
+        timer.cancel();
+        if (mounted) {
+          setState(() {
+            _paymentPhase = _PaymentPhase.failed;
+            _paymentStatusMessage = "Payment verification timed out. Reference: ${referenceId.substring(0, 8)}";
+            _errorMessage = "Payment could not be verified. Your money is safe — check with your provider. Ref: ${referenceId.substring(0, 8)}";
+            _isError = true;
+            _isProcessing = false;
+          });
+        }
+        if (!completer.isCompleted) completer.complete();
+      }
+    });
+
+    await completer.future;
+
+    // If payment succeeded, create the order now
+    if (_paymentPhase == _PaymentPhase.succeeded) {
+      final subtotal = ref.read(cartProvider.notifier).total;
+      final fee = _platformFee;
+      final tenant = ref.read(currentTenantProvider);
+      final items = ref.read(cartProvider);
+      await _createOrderAndDisburse(items, subtotal, fee, tenant?.id, referenceId);
+    }
+  }
+
+  Future<void> _createOrderAndDisburse(
+    List<CartItem> items,
+    double subtotal,
+    double fee,
+    String? tenantId,
+    String? paymentReference,
+  ) async {
+    try {
+      final orderService = ref.read(orderServiceProvider);
 
       final orderId = await orderService.createOrder(
         items: items.map((item) => {
@@ -218,12 +455,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         deliveryFee: _deliveryFee,
         platformFee: fee,
         paymentReference: paymentReference,
-        tenantId: tenant?.id,
+        tenantId: tenantId,
       );
 
-      // Marketplace MoMo Routing: Pay seller after order is placed
+      // Disburse to seller only AFTER order is confirmed
       if (_paymentMethod == "mobile_money") {
-        await _disburseToSeller(items, subtotal, fee, tenant?.id);
+        await _disburseToSeller(items, subtotal, fee, tenantId);
       }
 
       ref.read(cartProvider.notifier).clear();
@@ -240,7 +477,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         setState(() {
           _isProcessing = false;
           _isError = true;
-          _errorMessage = e.toString().replaceFirst("Exception: ", "");
+          _errorMessage = "Order creation failed: ${e.toString().replaceFirst('Exception: ', '')}";
         });
       }
     }
@@ -253,16 +490,109 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final profileAsync = ref.watch(profileProvider);
     final walletBalance = profileAsync.value?.coins ?? 0;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
-      appBar: AppBar(
-        title: const Text("Checkout", style: TextStyle(fontWeight: FontWeight.bold)),
-        leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft),
-          onPressed: () => context.pop(),
+    return PopScope(
+      canPop: !_isProcessing,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _isProcessing) {
+          _showCancelDialog();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          title: const Text("Checkout", style: TextStyle(fontWeight: FontWeight.bold)),
+          leading: IconButton(
+            icon: const Icon(LucideIcons.arrowLeft),
+            onPressed: _isProcessing ? null : () => context.pop(),
+          ),
+        ),
+        body: _isSuccess
+            ? _buildSuccessState()
+            : _paymentPhase != _PaymentPhase.idle && _paymentPhase != _PaymentPhase.failed
+                ? _buildPaymentStatus()
+                : _buildCheckoutContent(items, subtotal, walletBalance),
+      ),
+    );
+  }
+
+  Widget _buildPaymentStatus() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (_paymentPhase == _PaymentPhase.initiating || _paymentPhase == _PaymentPhase.awaitingPin) ...[
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: CircularProgressIndicator(strokeWidth: 4, color: Colors.blue),
+                ),
+              ),
+              const SizedBox(height: 25),
+              Text(
+                _paymentStatusMessage,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A), fontSize: 16),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                _paymentPhase == _PaymentPhase.awaitingPin
+                    ? "Please check your phone for the PIN request pop-up."
+                    : "Initializing secure payment channel...",
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+              if (_paymentPhase == _PaymentPhase.awaitingPin) ...[
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(LucideIcons.shieldCheck, size: 16, color: Color(0xFFD97706)),
+                      SizedBox(width: 8),
+                      Text(
+                        "Do NOT share your PIN with anyone",
+                        style: TextStyle(color: Color(0xFFD97706), fontWeight: FontWeight.bold, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    _pollTimer?.cancel();
+                    setState(() {
+                      _paymentPhase = _PaymentPhase.idle;
+                      _isProcessing = false;
+                    });
+                  },
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.grey),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                  child: const Text("CANCEL", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
-      body: _isSuccess ? _buildSuccessState() : _buildCheckoutContent(items, subtotal, walletBalance),
     );
   }
 
@@ -298,10 +628,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           const Icon(LucideIcons.alertCircle, color: Colors.red, size: 20),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text(
-                              _errorMessage!,
-                              style: const TextStyle(color: Colors.red, fontSize: 13),
-                            ),
+                            child: Text(_errorMessage!, style: const TextStyle(color: Colors.red, fontSize: 13)),
                           ),
                         ],
                       ),
@@ -313,6 +640,46 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ),
         _buildBottomButton(),
       ],
+    );
+  }
+
+  void _showCancelDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(LucideIcons.alertTriangle, color: Colors.orange),
+            SizedBox(width: 10),
+            Text("Payment Active"),
+          ],
+        ),
+        content: const Text(
+          "Your mobile money payment is being processed. "
+          "Leaving now may disrupt payment verification.\n\n"
+          "Are you sure you want to cancel?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("CONTINUE PAYMENT"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _pollTimer?.cancel();
+              setState(() {
+                _paymentPhase = _PaymentPhase.idle;
+                _isProcessing = false;
+              });
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text("CANCEL PAYMENT"),
+          ),
+        ],
+      ),
     );
   }
 
@@ -467,6 +834,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           ),
           const SizedBox(height: 8),
           _buildPaymentOption(
+            icon: LucideIcons.creditCard,
+            title: "Card",
+            subtitle: "Visa / Mastercard",
+            value: "card",
+          ),
+          const SizedBox(height: 8),
+          _buildPaymentOption(
             icon: LucideIcons.wallet,
             title: "Wallet",
             subtitle: "$walletBalance coins available",
@@ -526,6 +900,53 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   borderSide: BorderSide.none,
                 ),
                 prefixIcon: const Icon(LucideIcons.phone, size: 20),
+              ),
+            ),
+          ],
+          if (_paymentMethod == "card") ...[
+            const SizedBox(height: 16),
+            TextField(
+              controller: _firstNameCtrl,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                hintText: "First Name",
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.6),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon: const Icon(LucideIcons.user, size: 20),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _lastNameCtrl,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                hintText: "Last Name",
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.6),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon: const Icon(LucideIcons.user, size: 20),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                hintText: "Email (optional)",
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.6),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon: const Icon(LucideIcons.mail, size: 20),
               ),
             ),
           ],
@@ -614,8 +1035,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           const Text("Order Total", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const Divider(height: 24),
           _buildTotalRow("Subtotal", "K ${subtotal.toStringAsFixed(2)}"),
-          const SizedBox(height: 8),
-          _buildTotalRow("Platform Fee (5%)", "K ${fee.toStringAsFixed(2)}"),
+          if (fee > 0) ...[
+            const SizedBox(height: 8),
+            _buildTotalRow("Platform Fee", "K ${fee.toStringAsFixed(2)}"),
+          ],
           if (delivery > 0) ...[
             const SizedBox(height: 8),
             _buildTotalRow("Express Delivery", "K ${delivery.toStringAsFixed(2)}"),
@@ -702,10 +1125,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               child: const Icon(LucideIcons.checkCircle, color: Colors.green, size: 64),
             ),
             const SizedBox(height: 24),
-            const Text(
-              "Order Placed!",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
+            const Text("Order Placed!", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Text(
               "Your order #${_orderReference?.substring(0, 8).toUpperCase() ?? 'N/A'} has been placed successfully.",

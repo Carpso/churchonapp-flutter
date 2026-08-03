@@ -126,6 +126,7 @@ EXCEPTION WHEN others THEN NULL;
 END $$;
 
 -- 8. RECORD EVENT CHECK-IN FUNCTION
+DROP FUNCTION IF EXISTS public.record_event_checkin(UUID, UUID, UUID, TEXT);
 CREATE OR REPLACE FUNCTION public.record_event_checkin(
     p_registration_id UUID,
     p_event_id UUID,

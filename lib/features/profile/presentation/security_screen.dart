@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../../admin/data/session_service.dart';
 import '../../admin/data/login_history_service.dart';
 import '../../auth/presentation/two_factor_setup_screen.dart';
+import 'active_sessions_screen.dart';
 
 class SecurityScreen extends ConsumerStatefulWidget {
   const SecurityScreen({super.key});
@@ -17,8 +17,6 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final sessionsAsync = ref.watch(activeSessionsProvider);
-
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F0F),
       appBar: AppBar(
@@ -40,26 +38,15 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
           ]),
           const SizedBox(height: 24),
           _section("Active Sessions", [
-            ...sessionsAsync.when(
-              data: (sessions) {
-                final active = sessions.where((s) => s.isActive).toList();
-                if (active.isEmpty) {
-                  return [
-                    _buildInfo("No active sessions found", Colors.white38),
-                  ];
-                }
-                return active.map((s) => _buildSessionTile(s)).toList();
-              },
-              loading: () => [_buildInfo("Loading sessions...", Colors.white38)],
-              error: (e, _) => [_buildInfo("Error: $e", Colors.red)],
-            ),
-            const SizedBox(height: 10),
             _buildMenu(
-              LucideIcons.logOut,
-              "Logout All Devices",
-              "Sign out from all active sessions",
-              Colors.red,
-              () => _confirmLogoutAll(),
+              LucideIcons.monitor,
+              "Manage Active Sessions",
+              "View and manage all your active login sessions",
+              Colors.blueAccent,
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ActiveSessionsScreen()),
+              ),
             ),
           ]),
           const SizedBox(height: 24),
@@ -133,44 +120,6 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
     );
   }
 
-  Widget _buildSessionTile(UserSession session) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: session.isActive ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              session.isActive ? LucideIcons.wifi : LucideIcons.wifiOff,
-              color: session.isActive ? Colors.green : Colors.grey,
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(session.deviceInfo ?? "Unknown Device", style: const TextStyle(color: Colors.white, fontSize: 13)),
-                Text("${session.ipAddress ?? 'Unknown IP'} • ${_formatDate(session.lastActiveAt)}", style: const TextStyle(color: Colors.white38, fontSize: 10)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildLoginHistoryList() {
     return FutureBuilder<List<LoginRecord>>(
       future: ref.read(loginHistoryServiceProvider).getLoginHistory(),
@@ -209,34 +158,6 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
           )).toList(),
         );
       },
-    );
-  }
-
-  void _confirmLogoutAll() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-        title: const Text("Logout All Devices?", style: TextStyle(color: Colors.white)),
-        content: const Text("This will sign you out from all other active sessions.", style: TextStyle(color: Colors.white70)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await ref.read(sessionServiceProvider).logoutAllSessions();
-              ref.invalidate(activeSessionsProvider);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Logged out all other devices ✅"), backgroundColor: Colors.green),
-                );
-              }
-            },
-            child: const Text("LOGOUT ALL", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
     );
   }
 

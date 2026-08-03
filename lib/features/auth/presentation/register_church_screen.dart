@@ -8,7 +8,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/services/code_generator_service.dart';
+import '../../../core/utils/country_detection_util.dart';
 import '../../../core/services/plan_service.dart';
+import '../../../core/config/remote_config.dart';
 
 class RegisterChurchScreen extends ConsumerStatefulWidget {
   const RegisterChurchScreen({super.key});
@@ -42,10 +44,9 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
         setState(() {
           _lat = pos.latitude;
           _lng = pos.longitude;
-          _detectedCountry = placemarks.first.country ?? 'Zambia';
-          if (_detectedCountry != 'Zambia' && _detectedCountry != 'Zimbabwe') {
-             _detectedCountry = 'Zambia'; // Fallback
-          }
+          _detectedCountry = detectCountryFromPlacemark(
+            placemarks.first.country,
+          ) ?? 'Zambia';
         });
       }
     } catch (e) {
@@ -64,6 +65,17 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
       final slug = _nameController.text.toLowerCase().replaceAll(' ', '-').replaceAll(RegExp(r'[^a-z0-9-]'), '');
       final client = Supabase.instance.client;
 
+      // Check for duplicate church name
+      final existing = await client.from('tenants').select('id').ilike('name', _nameController.text.trim()).maybeSingle();
+      if (existing != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('A church with this name already exists'), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+
       final tenantRes = await client.from('tenants').insert({
         'name': _nameController.text.trim(),
         'type': 'church',
@@ -81,7 +93,9 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
         'slug': slug,
         'tenant_id': tenantId,
         'is_verified': false,
-        'subscription_ends_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+        'subscription_ends_at': DateTime.now()
+            .add(Duration(days: widgetRemoteConfig(ref).trialDurationDays))
+            .toIso8601String(),
       });
 
       await client.from('profiles').update({
@@ -209,7 +223,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
     final fee = _selectedRole == 'pastor' ? 'K 1,500' : 'K 2,000';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Register Your Church", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,

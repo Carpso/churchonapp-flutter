@@ -71,7 +71,7 @@ class _BaptismRegistryScreenState extends ConsumerState<BaptismRegistryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Baptism Registry", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.indigo,
@@ -211,7 +211,7 @@ class _BaptismRegistryScreenState extends ConsumerState<BaptismRegistryScreen> {
       builder: (context) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: Container(
-          decoration: const BoxDecoration(color: Color(0xFFFFFAEB), borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+          decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
           padding: const EdgeInsets.all(25),
           child: Column(
             mainAxisSize: MainAxisSize.min,

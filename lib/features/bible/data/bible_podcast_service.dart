@@ -91,13 +91,12 @@ class BiblePodcastService {
       final response = await _supabase.functions.invoke(
         'kael-ai',
         body: {
+          'action': 'dramatize',
           'prompt': 'Create a dramatic, cinematic narration script for the Book of $bookName from the Bible. Include vivid scene descriptions, character emotions, and atmospheric details. Format as a spoken-word script suitable for audio drama.',
-          'bookName': bookName,
-          'type': 'dramatized_content',
         },
       );
 
-      final content = response.data?['content'] ?? response.data?['text'] ?? '';
+      final content = response.data?['response'] ?? response.data?['content'] ?? response.data?['text'] ?? '';
       if (content is String && content.isNotEmpty) {
         await prefs.setString(cacheKey, content);
         return content;

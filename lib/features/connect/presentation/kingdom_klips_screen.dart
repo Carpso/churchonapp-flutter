@@ -74,7 +74,7 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> with WidgetsBind
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     } else if (state == AppLifecycleState.resumed) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
@@ -84,7 +84,7 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> with WidgetsBind
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     super.dispose();
   }
 
@@ -481,11 +481,23 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
                         final text = _commentCtrl.text.trim();
                         if (text.isNotEmpty && widget.klipId != null) {
                           try {
+                            final userId = Supabase.instance.client.auth.currentUser?.id;
+                            String? userName;
+                            if (userId != null) {
+                              final profile = await Supabase.instance.client
+                                  .from('profiles')
+                                  .select('full_name, username')
+                                  .eq('id', userId)
+                                  .maybeSingle();
+                              userName = profile != null
+                                  ? (profile['full_name'] ?? profile['username'] ?? 'User')
+                                  : 'User';
+                            }
                             await Supabase.instance.client.from('klip_comments').insert({
                               'klip_id': widget.klipId,
                               'content': text,
-                              'user_id': Supabase.instance.client.auth.currentUser?.id,
-                              'user_name': 'Member',
+                              'user_id': userId,
+                              'user_name': userName ?? 'User',
                             });
                             setModal(() => _commentsCount++);
                             _commentCtrl.clear();
@@ -665,8 +677,8 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
                       backgroundColor: Colors.transparent,
                       builder: (ctx) => Container(
                         height: MediaQuery.of(ctx).size.height * 0.85,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFFFAEB),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).scaffoldBackgroundColor,
                           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                         ),
                         child: LipilaPaymentGateway(

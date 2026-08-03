@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:church_on_app/features/transport/data/ride_history_service.dart';
+import 'package:church_on_app/core/config/fee_config.dart';
 
 class RideHistoryScreen extends ConsumerStatefulWidget {
   const RideHistoryScreen({super.key});
@@ -78,6 +79,7 @@ class _RideHistoryScreenState extends ConsumerState<RideHistoryScreen> {
 
   void _showReceiptSheet(Map<String, dynamic> ride) {
     final fare = (ride['offered_fare'] ?? ride['fare'] ?? 0.0).toDouble();
+    final cut = ref.read(feeConfigProvider).value?.businessCutPercent ?? 0.10;
     final pickup = ride['pickup_address'] ?? 'Pickup Point';
     final dest = ride['destination_address'] ?? 'Destination';
     final date = ride['created_at'] != null
@@ -190,8 +192,8 @@ class _RideHistoryScreenState extends ConsumerState<RideHistoryScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Platform Fee (10%)', style: TextStyle(color: Colors.grey)),
-                Text('K${(fare * 0.10).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text('Platform Fee (${(cut * 100).toStringAsFixed(0)}%)', style: const TextStyle(color: Colors.grey)),
+                Text('K${(fare * cut).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600)),
               ],
             ),
             const Divider(height: 24),

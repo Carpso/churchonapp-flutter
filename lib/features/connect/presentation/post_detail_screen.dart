@@ -72,7 +72,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: const Text("Post")),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.amber))
@@ -96,9 +96,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                _post!['profiles'] is Map
-                                    ? ((_post!['profiles'] as Map)['full_name'] ?? 'Member')
-                                    : 'Member',
+                                _resolvePostName(_post!['profiles'], _post!['user_id']),
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                               ),
                               Text(
@@ -159,5 +157,17 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
     return '${diff.inDays ~/ 7}w ago';
+  }
+
+  String _resolvePostName(dynamic profiles, dynamic userId) {
+    if (profiles is Map) {
+      final name = profiles['full_name'] ?? profiles['username'];
+      if (name != null && name.toString().trim().isNotEmpty) {
+        return name.toString().trim();
+      }
+    }
+    final uid = userId?.toString() ?? '';
+    if (uid.length >= 6) return 'User ${uid.substring(0, 6).toUpperCase()}';
+    return 'User';
   }
 }

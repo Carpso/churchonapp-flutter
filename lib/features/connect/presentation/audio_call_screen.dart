@@ -31,6 +31,7 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
   String _callStatus = 'Dialing…';
   int _seconds = 0;
   Timer? _timer;
+  Timer? _disconnectTimer;
   CallSession? _currentSession;
   late AnimationController _pulseAnim;
 
@@ -105,8 +106,17 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
         _attemptIceRestart();
       } else if (state == RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
         debugPrint('ICE connection disconnected, waiting for recovery...');
+        // Auto-reconnect after 10s if still disconnected
+        _disconnectTimer?.cancel();
+        _disconnectTimer = Timer(const Duration(seconds: 10), () {
+          if (_peerConnection?.iceConnectionState == RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
+            debugPrint('Still disconnected after 10s, attempting ICE restart...');
+            _attemptIceRestart();
+          }
+        });
       } else if (state == RTCIceConnectionState.RTCIceConnectionStateConnected) {
         debugPrint('ICE connection established');
+        _disconnectTimer?.cancel();
       }
     };
   }
@@ -227,6 +237,7 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
   void _endCall() async {
     setState(() => _callStatus = 'Call Ended');
     _timer?.cancel();
+    _disconnectTimer?.cancel();
     _callSubscription?.cancel();
     _candidatesSubscription?.cancel();
 
@@ -315,7 +326,7 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
                             height: 180,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: const Color(0xFF075E54)
+                              color: const Color(0xFF1A1A1A)
                                   .withValues(alpha: _pulseAnim.value * 0.25),
                             ),
                           ),
@@ -327,7 +338,7 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
                             border: Border.all(
                               color: isConnected
                                   ? Colors.greenAccent.withValues(alpha: 0.6)
-                                  : const Color(0xFF075E54).withValues(alpha: 0.5),
+                                  : const Color(0xFF1A1A1A).withValues(alpha: 0.5),
                               width: 3,
                             ),
                             image: DecorationImage(

@@ -38,7 +38,7 @@ class MoreHubScreen extends ConsumerWidget {
     final tenant = ref.watch(currentTenantProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Life & Modules", style: TextStyle(fontWeight: FontWeight.bold)),
       ),

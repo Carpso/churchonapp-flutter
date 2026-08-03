@@ -7,15 +7,10 @@ import {
 import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner@3.600.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -125,6 +120,27 @@ serve(async (req) => {
         status: 401,
       }
     );
+  }
+
+  // P2-30: Restrict path traversal and enforce user-scoped folders
+  if (body.filename && body.filename.includes("..")) {
+    return new Response(
+      JSON.stringify({ error: "Path traversal not allowed in filename" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+    );
+  }
+
+  // User-scoped folders: only the user's own subfolder is allowed
+  const userScopedFolders = ["profile", "driver-documents", "kyc"];
+  if (body.action !== "read" && body.action !== "download" && userScopedFolders.includes(body.folder)) {
+    const expectedPrefix = `${body.folder}/${userId}`;
+    const requestedKey = `${body.folder}/${body.filename}`;
+    if (!requestedKey.startsWith(expectedPrefix)) {
+      return new Response(
+        JSON.stringify({ error: `Can only upload to your own ${body.folder} folder (${expectedPrefix}/...)` }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403 }
+      );
+    }
   }
 
   if (body.action === "read" || body.action === "download") {

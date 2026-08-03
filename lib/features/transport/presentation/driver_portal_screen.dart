@@ -17,7 +17,7 @@ class DriverPortalScreen extends ConsumerWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           title: const Text("Command", style: TextStyle(fontWeight: FontWeight.bold)),
           bottom: const TabBar(

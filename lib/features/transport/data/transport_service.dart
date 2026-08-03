@@ -6,6 +6,7 @@ import 'ride_request_model.dart';
 import 'delivery_model.dart';
 import '../../../core/services/sms_service.dart';
 import '../../../core/config/env.dart';
+import '../../../core/config/fee_config.dart';
 import 'package:latlong2/latlong.dart';
 
 class RideRegistration {
@@ -161,17 +162,26 @@ class TransportService {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
-    // 1. Get ride details to find the rider_id
-    final rideRes = await _client.from('ride_requests').select('rider_id').eq('id', requestId).single();
-    final riderId = rideRes['rider_id'];
+    // Atomic accept: only succeed if ride is still pending (prevents double-book)
+    final result = await _client
+        .from('ride_requests')
+        .update({
+          'driver_id': user.id,
+          'status': 'accepted',
+        })
+        .eq('id', requestId)
+        .eq('status', 'pending')
+        .select('rider_id')
+        .maybeSingle();
 
-    // 2. Accept the ride
-    await _client.from('ride_requests').update({
-      'driver_id': user.id,
-      'status': 'accepted',
-    }).eq('id', requestId);
+    if (result == null) {
+      debugPrint("transport_service: Ride $requestId already taken by another driver");
+      return;
+    }
 
-    // 3. Notify the rider via Push
+    final riderId = result['rider_id'];
+
+    // Notify the rider via Push
     await _client.from('notifications').insert({
       'user_id': riderId,
       'title': 'Driver Found!',
@@ -226,6 +236,13 @@ class TransportService {
     });
   }
 
+  /// Business commission cut percent — read from remote FeeConfig (10% default).
+  double get _businessCutPercent =>
+      _ref.read(feeConfigProvider).value?.businessCutPercent ?? 0.10;
+
+  /// Remote fee config (Lipila 1.5% + COA 1% min K3 deducted on money out).
+  FeeConfig get _fees => _ref.read(feeConfigProvider).value ?? FeeConfig.defaults;
+
   Future<void> _settleRide(String requestId) async {
     // 1. Fetch ride details
     final res = await _client.from('ride_requests').select('rider_id, driver_id, offered_fare, escrow_held').eq('id', requestId).single();
@@ -236,7 +253,8 @@ class TransportService {
 
     if (driverId == null) return;
 
-    final platformCut = fare * 0.01;
+    final cutPercent = _businessCutPercent;
+    final platformCut = fare * cutPercent;
     final netEarning = fare - platformCut;
 
     // 2. Transfer Coins
@@ -260,7 +278,7 @@ class TransportService {
       'amount': -fare,
       'type': 'ride_payment',
       'reference_id': requestId,
-      'description': 'Payment for Ride (1% platform cut applied)',
+      'description': 'Payment for Ride (${(cutPercent * 100).toStringAsFixed(0)}% platform cut applied)',
       'platform_fee': platformCut,
     });
 
@@ -269,7 +287,7 @@ class TransportService {
       'amount': netEarning,
       'type': 'ride_earning',
       'reference_id': requestId,
-      'description': 'Earning from Ride (1% platform cut applied)',
+      'description': 'Earning from Ride (${(cutPercent * 100).toStringAsFixed(0)}% platform cut applied)',
       'platform_fee': platformCut,
     });
 
@@ -294,13 +312,14 @@ class TransportService {
         if (targetPhone.length == 9) targetPhone = '260$targetPhone';
 
         final payoutRef = "RIDE-DISB-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}";
+        final payoutAmount = _fees.payoutNet(netEarning);
 
         await _client.functions.invoke(
           'lipila-payout',
           method: HttpMethod.post,
           body: {
             'accountNumber': targetPhone,
-            'amount': netEarning,
+            'amount': payoutAmount,
             'narration': 'Ride payout $requestId',
             'referenceId': payoutRef,
           },
@@ -312,9 +331,11 @@ class TransportService {
   }
 
   Future<void> _updateUserBalance(String userId, double delta) async {
-    final res = await _client.from('profiles').select('coins').eq('id', userId).single();
-    final current = (res['coins'] as num).toDouble();
-    await _client.from('profiles').update({'coins': current + delta}).eq('id', userId);
+    // Use atomic RPC to prevent TOCTOU race conditions
+    await _client.rpc('add_coins', params: {
+      'user_id': userId,
+      'amount': delta.round(),
+    });
   }
 
   Stream<LatLng?> watchDriverLocation(String driverId) {
@@ -435,7 +456,8 @@ class TransportService {
 
     if (driverId == null) return;
 
-    final platformCut = fare * 0.01;
+    final cutPercent = _businessCutPercent;
+    final platformCut = fare * cutPercent;
     final netEarning = fare - platformCut;
 
     // Transfer Coins
@@ -457,7 +479,7 @@ class TransportService {
       'amount': -fare,
       'type': 'delivery_payment',
       'reference_id': deliveryId,
-      'description': 'Payment for Cargo: ${res['item_description']} (1% platform cut applied)',
+      'description': 'Payment for Cargo: ${res['item_description']} (${(cutPercent * 100).toStringAsFixed(0)}% platform cut applied)',
       'platform_fee': platformCut,
     });
 
@@ -466,7 +488,7 @@ class TransportService {
       'amount': netEarning,
       'type': 'delivery_earning',
       'reference_id': deliveryId,
-      'description': 'Earning from Cargo mission (1% platform cut applied)',
+      'description': 'Earning from Cargo mission (${(cutPercent * 100).toStringAsFixed(0)}% platform cut applied)',
       'platform_fee': platformCut,
     });
 
@@ -491,13 +513,14 @@ class TransportService {
         if (targetPhone.length == 9) targetPhone = '260$targetPhone';
 
         final payoutRef = "DELIV-DISB-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}";
+        final payoutAmount = _fees.payoutNet(netEarning);
 
         await _client.functions.invoke(
           'lipila-payout',
           method: HttpMethod.post,
           body: {
             'accountNumber': targetPhone,
-            'amount': netEarning,
+            'amount': payoutAmount,
             'narration': 'Delivery payout: $deliveryId',
             'referenceId': payoutRef,
           },
@@ -519,13 +542,14 @@ class TransportService {
         if (targetPhone.length == 9) targetPhone = '260$targetPhone';
 
         final payoutRef = "MARKET-RELEASE-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}";
+        final payoutAmount = _fees.payoutNet(itemPrice);
 
         await _client.functions.invoke(
           'lipila-payout',
           method: HttpMethod.post,
           body: {
             'accountNumber': targetPhone,
-            'amount': itemPrice,
+            'amount': payoutAmount,
             'narration': 'Market escrow release: ${res['item_description']}',
             'referenceId': payoutRef,
           },

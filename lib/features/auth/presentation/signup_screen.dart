@@ -90,7 +90,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(LucideIcons.arrowLeft, color: Colors.black),
@@ -125,6 +125,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 label: "Email Address",
                 icon: LucideIcons.mail,
                 keyboardType: TextInputType.emailAddress,
+                autofillHints: const [AutofillHints.email],
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Required';
                   if (!v.contains('@')) return 'Enter a valid email';
@@ -137,9 +138,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 label: "Password",
                 icon: LucideIcons.lock,
                 isPassword: true,
+                autofillHints: const [AutofillHints.password],
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Required';
-                  if (v.length < 6) return 'Min 6 characters';
+                  if (v.length < 8) return 'Min 8 characters';
+                  if (!RegExp(r'[A-Z]').hasMatch(v)) return 'Need an uppercase letter';
+                  if (!RegExp(r'[0-9]').hasMatch(v)) return 'Need a digit';
+                  if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(v)) return 'Need a special character';
                   return null;
                 },
               ),
@@ -192,6 +197,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     bool isPassword = false,
     String? Function(String?)? validator,
     TextInputType? keyboardType,
+    List<String>? autofillHints,
   }) {
     final isName = label.toLowerCase().contains('name');
     return Container(
@@ -207,6 +213,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         validator: validator,
         keyboardType: keyboardType,
         textCapitalization: isName ? TextCapitalization.words : TextCapitalization.none,
+        autofillHints: autofillHints,
         decoration: InputDecoration(
           icon: Icon(icon, color: Theme.of(context).primaryColor, size: 20),
           labelText: label,

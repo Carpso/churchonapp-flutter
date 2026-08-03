@@ -29,13 +29,16 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS membership_id TEXT;
 -- ── 4. RLS ─────────────────────────────────────────────────────
 ALTER TABLE public.generated_codes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "generated_codes_select_own" ON public.generated_codes
+DROP POLICY IF EXISTS "generated_codes_select_own" ON "public".generated_codes;
+CREATE POLICY "generated_codes_select_own" ON "public".generated_codes
   FOR SELECT USING (auth.uid() = user_id);
 
-CREATE POLICY "generated_codes_insert_own" ON public.generated_codes
+DROP POLICY IF EXISTS "generated_codes_insert_own" ON "public".generated_codes;
+CREATE POLICY "generated_codes_insert_own" ON "public".generated_codes
   FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
 
-CREATE POLICY "generated_codes_admin_all" ON public.generated_codes
+DROP POLICY IF EXISTS "generated_codes_admin_all" ON "public".generated_codes;
+CREATE POLICY "generated_codes_admin_all" ON "public".generated_codes
   FOR ALL USING (
     auth.jwt() -> 'app_metadata' -> 'role' ? 'superadmin'
     OR auth.jwt() -> 'app_metadata' -> 'role' ? 'coa_employee'

@@ -86,9 +86,9 @@ CREATE INDEX IF NOT EXISTS idx_wallet_tx_created ON wallet_transactions(created_
 
 -- 2b. events — filtered by tenant_id, date, category
 CREATE INDEX IF NOT EXISTS idx_events_tenant_id ON events(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_events_event_date ON events(event_date);
+CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
 CREATE INDEX IF NOT EXISTS idx_events_category ON events(category);
-CREATE INDEX IF NOT EXISTS idx_events_tenant_dates ON events(tenant_id, event_date DESC);
+CREATE INDEX IF NOT EXISTS idx_events_tenant_dates ON events(tenant_id, date DESC);
 
 -- 2c. sermons — filtered by church_id and is_live
 CREATE INDEX IF NOT EXISTS idx_sermons_church_id ON sermons(church_id);

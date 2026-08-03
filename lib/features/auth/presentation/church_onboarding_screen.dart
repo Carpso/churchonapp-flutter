@@ -6,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/services/code_generator_service.dart';
+import '../../../core/utils/country_detection_util.dart';
+import '../../../core/config/remote_config.dart';
 
 class ChurchOnboardingScreen extends ConsumerStatefulWidget {
   const ChurchOnboardingScreen({super.key});
@@ -51,19 +53,14 @@ class _ChurchOnboardingScreenState
     try {
       final position = await _determinePosition();
       if (mounted) {
-        setState(() {
-          _lat = position.latitude;
-          _lng = position.longitude;
-
-          // Detect country based on longitude/latitude
-          // Zambia approx: Lat -8 to -18, Lng 22 to 33
-          // Zimbabwe approx: Lat -15.5 to -22.5, Lng 25 to 33
-          if (position.latitude < -17.5 && position.longitude > 25.0) {
-            _currentCountry = "Zimbabwe";
-          } else {
-            _currentCountry = "Zambia";
-          }
-        });
+          setState(() {
+            _lat = position.latitude;
+            _lng = position.longitude;
+            _currentCountry = detectCountryFromCoordinates(
+              position.latitude,
+              position.longitude,
+            );
+          });
       }
     } catch (e) {
       debugPrint('Failed to determine position for country detection: $e');
@@ -150,9 +147,9 @@ class _ChurchOnboardingScreenState
             'treasurer_phone': _treasurerPhoneController.text,
             'logo_url': _logoUrlController.text,
             'directions': _directionsController.text,
-            'is_verified': true, // Auto-verify so trial is active instantly
+            'is_verified': false, // Require COA employee approval
             'subscription_ends_at': DateTime.now()
-                .add(const Duration(days: 30))
+                .add(Duration(days: widgetRemoteConfig(ref).trialDurationDays))
                 .toIso8601String(),
           })
           .select()
@@ -282,7 +279,7 @@ class _ChurchOnboardingScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
           "Church Onboarding",

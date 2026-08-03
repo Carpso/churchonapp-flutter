@@ -210,7 +210,7 @@ class BibleQuizService {
             .eq('id', userId)
             .maybeSingle();
         final role = profileRes?['role'] ?? 'member';
-        canSeeSuperadmin = role == 'superadmin' || role == 'employee';
+        canSeeSuperadmin = role == 'superadmin' || role == 'coa_employee';
       }
 
       var query = _client.from('quiz_questions').select();
@@ -305,8 +305,8 @@ class BibleQuizService {
         .eq('id', user.id)
         .maybeSingle();
     final role = profileRes?['role'] ?? 'member';
-    if (role != 'superadmin' && role != 'employee') {
-      throw 'Permission denied: Only Superadmins or Employees can seed questions.';
+    if (role != 'superadmin' && role != 'coa_employee') {
+      throw 'Permission denied: Only Superadmins or COA Employees can seed questions.';
     }
 
     int seeded = 0;

@@ -234,7 +234,9 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       }
       _phase = GamePhase.countdown;
     });
-    if (!_loadingError) _startCountdown();
+    if (!_loadingError) {
+      _startCountdown();
+    }
   }
 
   void _retryLoadQuestions() {
@@ -248,6 +250,8 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       if (_countdownValue <= 1) {
         t.cancel();
         setState(() => _phase = GamePhase.playing);
+        // First question: start fully visible (no slide animation needed)
+        _slideController.value = 1.0;
         _startTimer();
       } else {
         setState(() => _countdownValue--);
@@ -548,7 +552,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
               Navigator.of(ctx).pop();
               _timer?.cancel();
               _countdownTimer?.cancel();
-              if (mounted) Navigator.of(context, rootNavigator: true).pop();
+              if (mounted) Navigator.of(context).pop();
             },
             child: const Text('Quit', style: TextStyle(color: Colors.redAccent)),
           ),
@@ -769,53 +773,65 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
                   // Category + difficulty badges
                   _buildBadges(theme, q),
                   const SizedBox(height: 16),
-                  // Scripture reference
-                  if (q.scriptureReference != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        q.scriptureReference!,
-                        style: TextStyle(
-                          color: theme.primaryColor.withAlpha(180),
-                          fontSize: 13,
-                          fontStyle: FontStyle.italic,
-                        ),
+                  // Question card container
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(6),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: Colors.white.withAlpha(14)),
                       ),
-                    ),
-                  // Question text
-                  Flexible(
-                    child: SingleChildScrollView(
-                      child: Text(
-                        q.question,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w600,
-                          height: 1.4,
-                        ),
-                        textAlign: TextAlign.center,
+                      child: Column(
+                        children: [
+                          // Scripture reference
+                          if (q.scriptureReference != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                q.scriptureReference!,
+                                style: TextStyle(
+                                  color: theme.primaryColor.withAlpha(180),
+                                  fontSize: 13,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                          // Question text
+                          Expanded(
+                            child: SingleChildScrollView(
+                              child: Text(
+                                q.question,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.4,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   // Options grid
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return GridView.count(
-                          crossAxisCount: 2,
-                          childAspectRatio: constraints.maxWidth > 400 ? 2.2 : 1.6,
-                          mainAxisSpacing: 10,
-                          crossAxisSpacing: 10,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: List.generate(q.options.length, (i) {
-                            if (_eliminatedOptions.contains(i)) {
-                              return _buildEliminatedOption(theme, q.options[i], i);
-                            }
-                            return _buildOption(theme, q, i);
-                          }),
-                        );
-                      },
+                  SizedBox(
+                    height: q.options.length <= 2 ? 68 : 146,
+                    child: GridView.count(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: List.generate(q.options.length, (i) {
+                        if (_eliminatedOptions.contains(i)) {
+                          return _buildEliminatedOption(theme, q.options[i], i);
+                        }
+                        return _buildOption(theme, q, i);
+                      }),
                     ),
                   ),
                 ],

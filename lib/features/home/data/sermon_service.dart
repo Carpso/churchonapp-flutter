@@ -47,13 +47,13 @@ class SermonService {
   final SupabaseClient _client;
   SermonService(this._client);
 
-  Future<List<Sermon>> fetchLatestSermons() async {
+  Future<List<Sermon>> fetchLatestSermons({int offset = 0, int limit = 10}) async {
     try {
       final response = await _client
           .from('sermons')
           .select()
           .order('created_at', ascending: false)
-          .limit(10);
+          .range(offset, offset + limit - 1);
       
       return (response as List).map((s) => Sermon.fromMap(s)).toList();
     } catch (e) {

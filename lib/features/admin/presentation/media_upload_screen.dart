@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import '../../../core/services/r2_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -101,7 +101,7 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Media Manager"),
       ),

@@ -21,6 +21,12 @@ CREATE TABLE IF NOT EXISTS public.bookshops (
 
 ALTER TABLE public.bookshops ENABLE ROW LEVEL SECURITY;
 
+-- Ensure columns referenced by policies exist (table may predate this migration)
+ALTER TABLE IF EXISTS public.bookshops ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+ALTER TABLE IF EXISTS public.bookshops ADD COLUMN IF NOT EXISTS location TEXT;
+ALTER TABLE IF EXISTS public.bookshops ADD COLUMN IF NOT EXISTS contact TEXT;
+ALTER TABLE IF EXISTS public.bookshops ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+
 -- RLS: Anyone can view active bookshops; owners and superadmins can manage
 DO $$ BEGIN
   CREATE POLICY "bookshops_select" ON public.bookshops FOR SELECT USING (

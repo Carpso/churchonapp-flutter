@@ -33,20 +33,22 @@ CREATE TABLE IF NOT EXISTS church_storage_usage (
 -- Enable RLS
 ALTER TABLE church_storage_usage ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Churches can read own storage usage" ON church_storage_usage;
 CREATE POLICY "Churches can read own storage usage"
   ON church_storage_usage FOR SELECT
   USING (
-    auth.uid() IN (
-      SELECT user_id FROM church_members WHERE church_id = church_storage_usage.church_id
-      UNION
-      SELECT created_by FROM churches WHERE id = church_storage_usage.church_id
+    EXISTS (
+      SELECT 1 FROM profiles p
+      WHERE p.id = auth.uid() AND p.church_id = church_storage_usage.church_id
     )
   );
 
+DROP POLICY IF EXISTS "System can insert storage usage" ON church_storage_usage;
 CREATE POLICY "System can insert storage usage"
   ON church_storage_usage FOR INSERT
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "System can update storage usage" ON church_storage_usage;
 CREATE POLICY "System can update storage usage"
   ON church_storage_usage FOR UPDATE
   USING (true);
@@ -58,6 +60,7 @@ CREATE INDEX IF NOT EXISTS idx_live_streams_storage ON live_streams(storage_byte
 CREATE INDEX IF NOT EXISTS idx_live_streams_status ON live_streams(status);
 
 -- Function to get streaming usage (weekly)
+DROP FUNCTION IF EXISTS get_streaming_usage(UUID);
 CREATE OR REPLACE FUNCTION get_streaming_usage(p_church_id UUID)
 RETURNS JSONB AS $$
 DECLARE
@@ -268,7 +271,7 @@ BEGIN
   SELECT CASE WHEN is_paid THEN 10.0 ELSE 1.0 END
   INTO v_free_tier_gb
   FROM church_stream_config
-  WHERE church_id = p_churchId;
+  WHERE church_id = p_church_id;
 
   IF v_free_tier_gb IS NULL THEN
     v_free_tier_gb := 1.0;

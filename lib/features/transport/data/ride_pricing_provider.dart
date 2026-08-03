@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:church_on_app/core/config/fee_config.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
 
 class RidePricingState {
   final bool isCalculating;
@@ -25,15 +27,22 @@ class RidePricingState {
   });
 
   double get displayPrice {
-    final base = isNegotiating && offeredFare != null ? offeredFare! : estimatedPrice ?? 0;
+    final isDelivery = selectedCategory == 'marketplace' ||
+        selectedCategory == 'bookshop';
+    // Delivery fees are fixed — offers/negotiation only apply to rides.
+    final base = !isDelivery && isNegotiating && offeredFare != null
+        ? offeredFare!
+        : estimatedPrice ?? 0;
     if (discountPercent > 0) return base * (1 - discountPercent / 100);
     if (flatDiscount > 0) return (base - flatDiscount).clamp(0, base);
     return base;
   }
 
-  double get platformFee => displayPrice * 0.01 > 3.00 ? displayPrice * 0.01 : 3.00;
+  // Platform fee = 1% COA + Lipila fees (shown to rider)
+  // Business cut (10%) is deducted from driver at settlement
+  double platformFee(FeeConfig fees) => fees.platformFee(displayPrice);
 
-  double get totalPayable => displayPrice + platformFee;
+  double totalPayable(FeeConfig fees) => displayPrice + platformFee(fees);
 
   RidePricingState copyWith({
     bool? isCalculating,
@@ -62,14 +71,88 @@ class RidePricingState {
   }
 }
 
+/// Per-kilometre Carpso rate (K5/km — well-known standard rate).
+const double kCarpsoPerKmRate = 5.0;
+
+/// Delivery per-km rate benchmarked against Yango delivery (Zambia market).
+const double kDeliveryPerKmRate = 8.0;
+
+/// Average city speed used for trip-time estimates (km/h).
+const double kCarpsoCitySpeedKmh = 25.0;
+
+/// Default base fare applied when no remote config exists (K10).
+const double kCarpsoDefaultBaseFare = 10.0;
+
+/// Default delivery base fare (Yango-comparable, K15).
+const double kDeliveryDefaultBaseFare = 15.0;
+
+/// Minimum payable fare for delivery (Yango-comparable, K20).
+const double kDeliveryMinFare = 20.0;
+
+/// Weight surcharges for cargo delivery.
+const double kMediumWeightSurcharge = 5.0;
+const double kHeavyWeightSurcharge = 10.0;
+
 class RidePricingNotifier extends Notifier<RidePricingState> {
-  static const _baseFarePerKm = 5.0;
   static const _minimumTotalFare = 15.0;
-  static const _deliveryMultiplier = 1.3;
-  static const _heavyWeightSurcharge = 10.0;
 
   @override
   RidePricingState build() => const RidePricingState();
+
+  bool get _isDelivery =>
+      state.selectedCategory == 'marketplace' ||
+      state.selectedCategory == 'bookshop';
+
+  /// Base fare charged before distance — remote-configurable via
+  /// `platform_settings.ride_base_fare_kwacha`, falls back to K10.
+  /// Deliveries use a separate Yango-comparable base (K15 fallback).
+  double get _baseFare {
+    final fees = ref.read(feeConfigProvider).value;
+    if (_isDelivery) {
+      return fees?.rideDeliveryBaseFareKwacha ?? kDeliveryDefaultBaseFare;
+    }
+    return fees?.rideBaseFareKwacha ?? kCarpsoDefaultBaseFare;
+  }
+
+  double get _perKmRate =>
+      _isDelivery
+          ? (ref.read(feeConfigProvider).value?.rideDeliveryPerKmKwacha ??
+              kDeliveryPerKmRate)
+          : ref.read(remoteConfigProvider).value?.getDouble(
+                  'ride_per_km_kwacha',
+                  kCarpsoPerKmRate,
+                ) ??
+              kCarpsoPerKmRate;
+
+  double get _minFare {
+    final rc = ref.read(remoteConfigProvider).value;
+    if (_isDelivery) {
+      return rc?.getDouble('ride_delivery_min_fare_kwacha', kDeliveryMinFare) ??
+          kDeliveryMinFare;
+    }
+    return rc?.getDouble('ride_min_total_fare_kwacha', _minimumTotalFare) ??
+        _minimumTotalFare;
+  }
+
+  double get _weightSurcharge {
+    final rc = ref.read(remoteConfigProvider).value;
+    if (state.selectedWeight == 'Heavy') {
+      return rc?.getDouble('ride_heavy_weight_surcharge_kwacha', kHeavyWeightSurcharge) ??
+          kHeavyWeightSurcharge;
+    }
+    if (state.selectedWeight == 'Medium') {
+      return rc?.getDouble('ride_medium_weight_surcharge_kwacha', kMediumWeightSurcharge) ??
+          kMediumWeightSurcharge;
+    }
+    return 0;
+  }
+
+  /// Core fare formula — rides/bus: base + per-km (min K15).
+  /// Delivery: Yango-comparable base + per-km (min K20) + weight surcharge.
+  double _estimate(double distance) {
+    final price = _baseFare + distance * _perKmRate + _weightSurcharge;
+    return price < _minFare ? _minFare : price;
+  }
 
   void setCategory(String category) {
     state = state.copyWith(selectedCategory: category, clearOffer: true);
@@ -82,6 +165,8 @@ class RidePricingNotifier extends Notifier<RidePricingState> {
   }
 
   void setOffer(double offer) {
+    // Delivery fees are FIXED — only rides are negotiable.
+    if (_isDelivery) return;
     state = state.copyWith(offeredFare: offer, isNegotiating: true);
   }
 
@@ -97,18 +182,7 @@ class RidePricingNotifier extends Notifier<RidePricingState> {
 
     await Future.delayed(const Duration(milliseconds: 800));
 
-    double price = distance * _baseFarePerKm;
-    price = price < _minimumTotalFare ? _minimumTotalFare : price;
-
-    if (state.selectedCategory == 'marketplace' ||
-        state.selectedCategory == 'bookshop') {
-      price *= _deliveryMultiplier;
-      if (state.selectedWeight == 'Heavy') {
-        price += _heavyWeightSurcharge;
-      } else if (state.selectedWeight == 'Medium') {
-        price += _heavyWeightSurcharge / 2;
-      }
-    }
+    final price = _estimate(distance);
 
     state = state.copyWith(
       isCalculating: false,
@@ -119,19 +193,7 @@ class RidePricingNotifier extends Notifier<RidePricingState> {
 
   void recalculate() {
     if (state.distanceKm != null) {
-      final distance = state.distanceKm!;
-      double price = distance * _baseFarePerKm;
-      price = price < _minimumTotalFare ? _minimumTotalFare : price;
-
-      if (state.selectedCategory == 'marketplace' ||
-          state.selectedCategory == 'bookshop') {
-        price *= _deliveryMultiplier;
-        if (state.selectedWeight == 'Heavy') {
-          price += _heavyWeightSurcharge;
-        } else if (state.selectedWeight == 'Medium') {
-          price += _heavyWeightSurcharge / 2;
-        }
-      }
+      final price = _estimate(state.distanceKm!);
 
       state = state.copyWith(
         estimatedPrice: double.tryParse(price.toStringAsFixed(2)) ?? 0.0,
@@ -157,16 +219,8 @@ class RidePricingNotifier extends Notifier<RidePricingState> {
   }
 
   static double _haversineDistance(LatLng a, LatLng b) {
-    const earthRadius = 6371.0;
-    final dLat = _toRad(b.latitude - a.latitude);
-    final dLon = _toRad(b.longitude - a.longitude);
-    final a1 = (dLat / 2) * (dLat / 2);
-    final a2 = (_toRad(a.latitude)) * (_toRad(b.latitude)) * (dLon / 2) * (dLon / 2);
-    final c = 2 * 2 * (a1 + a2).clamp(0.0, 1.0);
-    return earthRadius * c;
+    return const Distance().as(LengthUnit.Kilometer, a, b);
   }
-
-  static double _toRad(double deg) => deg * (3.141592653589793 / 180.0);
 }
 
 final ridePricingProvider =

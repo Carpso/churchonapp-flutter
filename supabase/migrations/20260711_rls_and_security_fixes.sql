@@ -267,7 +267,7 @@ CREATE POLICY "Superadmins can view sms logs"
         EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('superadmin', 'employee'))
     );
 
-DROP POLICY IF EXISTS "System can insert sms logs" ON public.sms_logs;
+DROP POLICY IF EXISTS "Service can insert sms logs" ON public.sms_logs;
 CREATE POLICY "Service can insert sms logs"
     ON public.sms_logs FOR INSERT
     WITH CHECK (

@@ -51,7 +51,7 @@ class MarketplaceService {
   final SupabaseClient _client;
   MarketplaceService(this._client);
 
-  Future<List<MarketProduct>> fetchProducts({String? category, String? marketType, String? tenantId}) async {
+  Future<List<MarketProduct>> fetchProducts({String? category, String? marketType, String? tenantId, int offset = 0, int limit = 30}) async {
     var query = _client.from('marketplace_items').select('id, name, price, category, image, description, vendor_name, vendor_id, condition, market_type, is_curated').eq('status', 'active');
     
     if (tenantId != null) {
@@ -66,7 +66,7 @@ class MarketplaceService {
       query = query.eq('market_type', marketType);
     }
 
-    final data = await query.order('created_at', ascending: false);
+    final data = await query.order('created_at', ascending: false).range(offset, offset + limit - 1);
     return (data as List).map((m) => MarketProduct.fromMap(m)).toList();
   }
 

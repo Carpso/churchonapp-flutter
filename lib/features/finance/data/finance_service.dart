@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:church_on_app/core/config/fee_config.dart';
 
 class Transaction {
   final String id;
@@ -76,12 +77,15 @@ class FinanceService {
     String? tenantId,
     String? recipientPhone,
     String? recipientName,
+    String? paymentMethod,
+    FeeConfig? feeConfig,
   }) async {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
-    const cutPercent = 0.01;
-    final platformFee = amount * cutPercent > 3.0 ? amount * cutPercent : 3.0;
+    final fees = feeConfig ?? FeeConfig.defaults;
+    final isCard = paymentMethod == 'card';
+    final platformFee = fees.platformFee(amount, isCard: isCard);
 
     // Dynamic fallback for Church Giving/Offerings if recipientPhone is null
     String? finalPhone = recipientPhone;
@@ -108,6 +112,7 @@ class FinanceService {
       'platform_fee': platformFee,
       'recipient_name': finalName,
       'recipient_phone': finalPhone,
+      'payment_method': paymentMethod ?? 'momo',
     });
     
     // Also update profile coins (stewardship points)
@@ -130,17 +135,18 @@ class FinanceService {
     recipientPhone = finalPhone;
     recipientName = finalName;
 
-    // AUTOMATIC SPLIT SETTLEMENT ENGINE
-    // Automatically trigger MoMo payout via server-side edge function.
+    // AUTOMATIC SETTLEMENT ENGINE
+    // Churches/sellers receive the FULL amount — fee was already collected from the buyer on top.
     if (recipientPhone != null && recipientPhone.trim().isNotEmpty) {
       try {
-        final double payoutAmount = amount - platformFee;
         String targetPhone = recipientPhone.replaceAll(RegExp(r'\D'), '');
         if (targetPhone.startsWith('0')) targetPhone = '260${targetPhone.substring(1)}';
         if (targetPhone.startsWith('9')) targetPhone = '260$targetPhone';
         if (targetPhone.length == 9) targetPhone = '260$targetPhone';
 
         final payoutRef = const Uuid().v4();
+        // Lipila disbursement fee (1.5%) is paid out of the settled amount
+        final payoutAmount = fees.payoutNet(amount);
 
         await _client.functions.invoke(
           'lipila-payout',
@@ -148,12 +154,12 @@ class FinanceService {
           body: {
             'accountNumber': targetPhone,
             'amount': payoutAmount,
-            'narration': 'COA Settlement split: $reference',
+            'narration': 'COA Settlement: $reference',
             'referenceId': payoutRef,
           },
         );
       } catch (e) {
-        debugPrint("Automatic Payout split settlement failed for $recipientPhone: $e");
+        debugPrint("Automatic payout failed for $recipientPhone: $e");
       }
     }
   }

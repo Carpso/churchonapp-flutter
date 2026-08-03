@@ -21,15 +21,15 @@ CREATE INDEX IF NOT EXISTS idx_payment_logs_status ON public.payment_logs(status
 
 ALTER TABLE public.payment_logs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Service role full access on payment_logs"
-    ON public.payment_logs
+DROP POLICY IF EXISTS "Service role full access on payment_logs" ON "public".payment_logs;
+CREATE POLICY "Service role full access on payment_logs" ON "public".payment_logs
     FOR ALL
     TO service_role
     USING (true)
     WITH CHECK (true);
 
-CREATE POLICY "Users can view own payment logs"
-    ON public.payment_logs
+DROP POLICY IF EXISTS "Users can view own payment logs" ON "public".payment_logs;
+CREATE POLICY "Users can view own payment logs" ON "public".payment_logs
     FOR SELECT
     TO authenticated
     USING (user_id = auth.uid());

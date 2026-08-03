@@ -30,8 +30,43 @@ const String _chWorship = 'coa_worship';
 class NotificationService {
   final SupabaseClient _client;
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  final List<RealtimeChannel> _channels = [];
+  String? _listeningUserId;
+  String? _listeningTenantId;
 
   NotificationService(this._client);
+
+  // ── Cross-service burst control ─────────────────────────────────────────
+  // Content-keyed dedup window. Shared with the profile NotificationService
+  // (static) so the SAME event surfacing via multiple paths (realtime channel
+  // + notifications-table stream + FCM foreground) only shows ONCE.
+  static const _dedupWindow = Duration(seconds: 30);
+  static final Map<String, DateTime> _recentlyShown = {};
+
+  static String contentKey(String channelId, String title, String body) =>
+      '$channelId|${title.trim()}|${body.trim()}';
+
+  static bool isDuplicate(String key) {
+    final last = _recentlyShown[key];
+    return last != null && DateTime.now().difference(last) < _dedupWindow;
+  }
+
+  static void markShown(String key) {
+    _recentlyShown[key] = DateTime.now();
+    if (_recentlyShown.length > 200) {
+      final cutoff = DateTime.now().subtract(_dedupWindow * 4);
+      _recentlyShown.removeWhere((_, t) => t.isBefore(cutoff));
+    }
+  }
+
+  void stopListening() {
+    for (final ch in _channels) {
+      try { ch.unsubscribe(); } catch (_) {}
+    }
+    _channels.clear();
+    _listeningUserId = null;
+    _listeningTenantId = null;
+  }
 
   // ── Init ──────────────────────────────────────────────────────────────────
   Future<void> init() async {
@@ -349,7 +384,16 @@ class NotificationService {
   }
 
   // ── Start all Supabase Realtime listeners ─────────────────────────────────
+  /// Idempotent: repeated calls (app start + auth-restore `signedIn` event +
+  /// re-logins) with the same user/tenant are ignored. A different user/tenant
+  /// first tears down the old channels — this prevents duplicate subscriptions
+  /// that make every live event fire the local notification twice.
   void startListening(String userId, String tenantId) {
+    if (_listeningUserId == userId && _listeningTenantId == tenantId) return;
+    stopListening();
+    _listeningUserId = userId;
+    _listeningTenantId = tenantId;
+
     _listenForChatMessages(userId);
     _listenForSocialPosts(tenantId);
     _listenForPayments(userId);
@@ -370,7 +414,7 @@ class NotificationService {
 
   // ── 1. Chat messages ──────────────────────────────────────────────────────
   void _listenForChatMessages(String userId) {
-    _client
+    final ch = _client
         .channel('chat-notifications-$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -411,11 +455,12 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   // ── 2. Social posts ────────────────────────────────────────────────────────
   void _listenForSocialPosts(String tenantId) {
-    _client
+    final ch = _client
         .channel('social-posts-$tenantId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -442,11 +487,12 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   // ── 3. Payments ────────────────────────────────────────────────────────────
   void _listenForPayments(String userId) {
-    _client
+    final ch = _client
         .channel('payments-$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -473,11 +519,12 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   // ── 4. Announcements ───────────────────────────────────────────────────────
   void listenForAnnouncements(String tenantId) {
-    _client
+    final ch = _client
         .channel('announcements-$tenantId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -501,11 +548,12 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   // ── 5. Events ──────────────────────────────────────────────────────────────
   void _listenForEvents(String tenantId) {
-    _client
+    final ch = _client
         .channel('events-$tenantId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -530,11 +578,12 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   // ── 6. Prayers ─────────────────────────────────────────────────────────────
   void _listenForPrayers(String tenantId) {
-    _client
+    final ch = _client
         .channel('prayers-$tenantId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -561,11 +610,12 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   // ── 7. Testimonies ─────────────────────────────────────────────────────────
   void _listenForTestimonies(String tenantId) {
-    _client
+    final ch = _client
         .channel('testimonies-$tenantId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -592,11 +642,12 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   // ── 8. Kingdom Klips ───────────────────────────────────────────────────────
   void _listenForKlips(String tenantId) {
-    _client
+    final ch = _client
         .channel('klips-$tenantId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -621,11 +672,12 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   // ── 9. Job notifications ─────────────────────────────────────────────────────
   void _listenForJobs(String userId) {
-    _client
+    final ch = _client
         .channel('jobs-$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -652,11 +704,12 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   // ── 10. Fasting ─────────────────────────────────────────────────────────────
   void _listenForFasting(String userId) {
-    _client
+    final ch = _client
         .channel('fasting-$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -681,11 +734,12 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   // ── 11. Bible Quiz & Competitions ──────────────────────────────────────────
   void _listenForBibleQuiz(String userId, String tenantId) {
-    _client
+    final ch = _client
         .channel('quiz-competitions-$tenantId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -712,11 +766,12 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   // ── 12. Volunteer Roster Assignments ─────────────────────────────────────────
   void _listenForVolunteerAssignments(String userId) {
-    _client
+    final ch = _client
         .channel('volunteers-$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -743,11 +798,12 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   // ── 13. Bookshop & Store Orders ──────────────────────────────────────────────
   void _listenForOrders(String userId) {
-    _client
+    final ch = _client
         .channel('orders-$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -773,11 +829,12 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   // ── 14. Role & Leadership Approvals ──────────────────────────────────────────
   void _listenForRoleApprovals(String userId) {
-    _client
+    final ch = _client
         .channel('roles-$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
@@ -805,11 +862,12 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   // ── 15. Carpso Ride & Commute ──────────────────────────────────────────────────
   void _listenForRides(String userId) {
-    _client
+    final ch = _client
         .channel('rides-$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -836,11 +894,12 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   // ── 16. Worship Lyrics & Sunday Setlists ────────────────────────────────────
   void _listenForWorshipSetlists(String tenantId) {
-    _client
+    final ch = _client
         .channel('worship-setlists-$tenantId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -866,6 +925,7 @@ class NotificationService {
           },
         )
         .subscribe();
+    _channels.add(ch);
   }
 
   String _iconForChannel(String channelId) {
@@ -906,6 +966,89 @@ class NotificationService {
 
   // ── Generic show helper ────────────────────────────────────────────────────
   Future<void> _show({
+    required int id,
+    required String title,
+    required String body,
+    required String channelId,
+    required String channelName,
+    String? payload,
+    Importance importance = Importance.max,
+    Priority priority = Priority.max,
+  }) async {
+    // 1. Content-keyed dedup (30s window). The same event can arrive via
+    // multiple paths (realtime channel, notifications-table stream, FCM
+    // foreground) — only the first copy shows.
+    final key = contentKey(channelId, title, body);
+    if (isDuplicate(key)) return;
+    markShown(key);
+
+    // 2. Burst coalescing: queue per channel, flush in batches. When FCM
+    // delivers a backlog of queued pushes after the device comes back online,
+    // a burst collapses into ONE summary per channel instead of firing every
+    // message at once.
+    _pending.putIfAbsent(channelId, () => []).add(_PendingNotification(
+          title: title,
+          body: body,
+          channelName: channelName,
+          payload: payload,
+        ));
+    _scheduleFlush();
+  }
+
+  // ── Burst coalescing machinery ─────────────────────────────────────────────
+  static const _flushInterval = Duration(milliseconds: 1200);
+  final Map<String, List<_PendingNotification>> _pending = {};
+  Timer? _flushTimer;
+  bool _flushScheduled = false;
+
+  void _scheduleFlush() {
+    if (_flushScheduled) return;
+    _flushScheduled = true;
+    _flushTimer ??= Timer.periodic(_flushInterval, (_) => _flush());
+  }
+
+  Future<void> _flush() async {
+    if (_pending.isEmpty) {
+      _flushScheduled = false;
+      _flushTimer?.cancel();
+      _flushTimer = null;
+      return;
+    }
+
+    final batch = Map<String, List<_PendingNotification>>.from(_pending);
+    _pending.clear();
+
+    for (final entry in batch.entries) {
+      final items = entry.value;
+      if (items.isEmpty) continue;
+      final channelId = entry.key;
+      final last = items.last;
+
+      if (items.length == 1) {
+        await _showNow(
+          id: last.contentKey.hashCode,
+          title: last.title,
+          body: last.body,
+          channelId: channelId,
+          channelName: last.channelName,
+          payload: last.payload,
+        );
+      } else {
+        // Burst detected: one summary per channel (stable ID so repeated
+        // summaries replace each other rather than stacking).
+        await _showNow(
+          id: channelId.hashCode,
+          title: last.title,
+          body: 'You have ${items.length} new updates from ${last.channelName}.',
+          channelId: channelId,
+          channelName: last.channelName,
+          payload: last.payload,
+        );
+      }
+    }
+  }
+
+  Future<void> _showNow({
     required int id,
     required String title,
     required String body,
@@ -1188,6 +1331,22 @@ class NotificationService {
         importance: Importance.max,
         priority: Priority.max,
       );
+}
+
+class _PendingNotification {
+  final String title;
+  final String body;
+  final String channelName;
+  final String? payload;
+
+  _PendingNotification({
+    required this.title,
+    required this.body,
+    required this.channelName,
+    this.payload,
+  });
+
+  String get contentKey => '$title|${body.trim()}';
 }
 
 final notificationServiceProvider = Provider((ref) {

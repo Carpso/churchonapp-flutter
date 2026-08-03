@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import '../data/marketplace_service.dart';
 import 'product_details_screen.dart';
 import 'post_product_screen.dart';
-import '../../../core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/features/navigation/presentation/carpso_suggestion_card.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
@@ -22,6 +21,11 @@ class MarketplaceScreen extends ConsumerStatefulWidget {
 class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   late String _selectedCategory;
   String _activeTab = "shop";
+  List<MarketProduct> _products = [];
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _offset = 0;
+  static const int _limit = 30;
 
   bool _showCarpsoCard() {
     final day = DateTime.now().weekday;
@@ -32,6 +36,51 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   void initState() {
     super.initState();
     _selectedCategory = widget.initialCategory ?? "all";
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    final service = ref.read(marketplaceServiceProvider);
+    final tenant = ref.read(currentTenantProvider);
+    final batch = await service.fetchProducts(
+      category: _selectedCategory,
+      marketType: _tabs.firstWhere((t) => t['id'] == _activeTab)['marketType'] as String?,
+      tenantId: tenant?.id,
+      offset: 0,
+      limit: _limit,
+    );
+    if (mounted) {
+      setState(() {
+        _products = batch;
+        _hasMore = batch.length >= _limit;
+      });
+    }
+  }
+
+  void _loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+    try {
+      final service = ref.read(marketplaceServiceProvider);
+      final tenant = ref.read(currentTenantProvider);
+      final more = await service.fetchProducts(
+        category: _selectedCategory,
+        marketType: _tabs.firstWhere((t) => t['id'] == _activeTab)['marketType'] as String?,
+        tenantId: tenant?.id,
+        offset: _offset + _limit,
+        limit: _limit,
+      );
+      if (mounted) {
+        setState(() {
+          _offset += _limit;
+          _products = [..._products, ...more];
+          _hasMore = more.length >= _limit;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
   }
 
   final List<Map<String, dynamic>> _tabs = [
@@ -43,17 +92,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tenant = ref.watch(currentTenantProvider);
-    final filters = {
-      'category': _selectedCategory,
-      'marketType': _tabs.firstWhere((t) => t['id'] == _activeTab)['marketType'] as String?,
-      'tenantId': tenant?.id ?? '',
-    };
-    final productsAsync = ref.watch(productsProvider(filters));
     final cartItems = ref.watch(cartProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Marketplace", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
@@ -94,40 +136,49 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               ),
             ),
           Expanded(
-            child: productsAsync.when(
-              data: (products) {
-                if (products.isEmpty) {
-                  return _buildEmptyState();
-                }
-                return RefreshIndicator(
+            child: _products.isEmpty && !_isLoadingMore
+                ? _buildEmptyState()
+                : RefreshIndicator(
                   onRefresh: () async {
-                    ref.invalidate(productsProvider(filters));
+                    setState(() {
+                      _products = [];
+                      _offset = 0;
+                      _hasMore = true;
+                    });
+                    await _loadProducts();
                   },
                   child: MasonryGridView.count(
                     padding: const EdgeInsets.all(20),
                     crossAxisCount: 2,
                     mainAxisSpacing: 15,
                     crossAxisSpacing: 15,
-                    itemCount: products.length,
+                    itemCount: _products.length + (_hasMore ? 1 : 0),
                     itemBuilder: (context, index) {
-                    return _buildMarketItem(products[index]);
-                  },
+                      if (index == _products.length) {
+                        return _isLoadingMore
+                            ? const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Center(child: CircularProgressIndicator()),
+                              )
+                            : GestureDetector(
+                                onTap: _loadMore,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.3)),
+                                  ),
+                                  child: Center(
+                                    child: Text("Load More", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                              );
+                      }
+                      return _buildMarketItem(_products[index]);
+                    },
+                  ),
                 ),
-                );
-              },
-              loading: () => const ListSkeleton(),
-              error: (err, stack) => RefreshIndicator(
-                onRefresh: () async {
-                  ref.invalidate(productsProvider(filters));
-                },
-                child: ListView(
-                  children: [
-                    SizedBox(height: MediaQuery.of(context).size.height * 0.15),
-                    _buildEmptyState(),
-                  ],
-                ),
-              ),
-            ),
           ),
         ],
       ),
@@ -158,7 +209,12 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         itemBuilder: (context, index) {
           final isSelected = _activeTab == _tabs[index]['id'];
           return GestureDetector(
-            onTap: () => setState(() => _activeTab = _tabs[index]['id']!),
+            onTap: () {
+              setState(() => _activeTab = _tabs[index]['id']!);
+              _offset = 0;
+              _hasMore = true;
+              _loadProducts();
+            },
             child: Container(
               margin: const EdgeInsets.only(right: 10),
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -196,7 +252,12 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         itemBuilder: (context, index) {
           final isSelected = _selectedCategory == categories[index];
           return GestureDetector(
-            onTap: () => setState(() => _selectedCategory = categories[index]),
+            onTap: () {
+              setState(() => _selectedCategory = categories[index]);
+              _offset = 0;
+              _hasMore = true;
+              _loadProducts();
+            },
             child: Container(
               margin: const EdgeInsets.only(right: 10),
               padding: const EdgeInsets.symmetric(horizontal: 15),
@@ -314,7 +375,12 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
           Text("Try changing categories or tabs", style: TextStyle(color: Colors.grey.withValues(alpha: 0.6), fontSize: 12)),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () => setState(() { _selectedCategory = "all"; _activeTab = "shop"; }),
+            onPressed: () {
+              setState(() { _selectedCategory = "all"; _activeTab = "shop"; });
+              _offset = 0;
+              _hasMore = true;
+              _loadProducts();
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).primaryColor,
               foregroundColor: Theme.of(context).colorScheme.secondary,

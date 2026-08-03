@@ -35,7 +35,7 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Monthly Stewardship", style: TextStyle(fontWeight: FontWeight.bold)),
       ),

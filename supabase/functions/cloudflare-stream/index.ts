@@ -4,16 +4,13 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const CLOUDFLARE_ACCOUNT_ID = Deno.env.get("CLOUDFLARE_ACCOUNT_ID");
 const CLOUDFLARE_API_TOKEN = Deno.env.get("CLOUDFLARE_API_TOKEN");
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -84,8 +81,8 @@ async function createLiveInput(params: any, req: Request) {
         meta: params.meta || {},
         recording: {
           mode: "automatic",
-          requireSignedURLs: false,
-          allowedOrigins: ["*"],
+          requireSignedURLs: true,
+          allowedOrigins: ["https://churchonapp.com", "https://www.churchonapp.com", "https://app.churchonapp.com"],
         },
         rtmps: {
           enabled: true,

@@ -14,6 +14,7 @@ class AppConstants {
   static const Color surfaceWarm = Color(0xFFFFFAEB);
   static const Color accentGreen = Color(0xFF10B981);
   static const Color accentRed = Color(0xFFEF4444);
+  static const Color messagingColor = Color(0xFF1A1A1A);
 
   // Timeouts & Retry Limits
   static const Duration apiTimeout = Duration(seconds: 30);

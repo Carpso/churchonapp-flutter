@@ -1,15 +1,15 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit } from "../_shared/rate-limit.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
+// ─── Providers ─────────────────────────────────────────────────────────────
+// Primary: Google Gemini Flash (free tier, fast). Fallback: HuggingFace
+// inference (free tier — model must NOT be PRO-gated; default zephyr-7b-beta).
 const HF_API_BASE = "https://api-inference.huggingface.co/models";
-const HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.3";
+const HF_MODEL = Deno.env.get("HF_MODEL_ID") ?? "HuggingFaceH4/zephyr-7b-beta";
+const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.0-flash";
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 const KAEL_SYSTEM_PROMPT = `You are Kael, a warm, wise, and spiritually grounded AI assistant built into the Church On App — a comprehensive Christian church management platform for the Zambian (and African) market.
 
@@ -38,7 +38,7 @@ Church On App is a full-featured church management platform serving Zambian chur
 - Tithing Cards: users can generate personal tithe cards with QR codes for quick giving
 - Pledges: make and track pledge commitments
 - Giving dashboard for treasurers: see donation trends, top givers, payment logs
-- Automated payouts to churches (platform collects, disburses minus 5% fee)
+- Automated payouts to churches (platform collects, disburses minus platform fee)
 - Lipila payment gateway integration for Zambian mobile money
 
 **Media & Content**
@@ -145,64 +145,228 @@ Church On App is a full-featured church management platform serving Zambian chur
 - End with a question or invitation to engage further when appropriate
 - When the user shares personal context, acknowledge it (e.g., "I see you're a treasurer at your church — here's how to view giving reports...")`;
 
-function buildPrompt(
-  messages: Array<{ role: string; content: string }>,
+const SUMMARIZER_SYSTEM_PROMPT = `You are a sermon summarizer for Church On App (a Christian church management platform). From the sermon text provided, produce a concise, structured summary with these sections:
+1. Key Summary (2-3 sentences)
+2. 3 Main Takeaways
+3. 2 Application Steps
+4. 3 Study Questions
+Use clear headings and bullet points. Do not add commentary outside these sections.`;
+
+const DRAMATIZER_SYSTEM_PROMPT = `You are a biblical audio drama writer for Church On App. Create a dramatic, cinematic narration script for the Bible book provided. Include vivid scene descriptions, character emotions, and atmospheric details. Format as a spoken-word script suitable for audio drama. Write at least 3 paragraphs of rich narration.`;
+
+const DEFAULT_SYSTEM_PROMPT = `You are Kael, a warm, wise, and spiritually grounded AI assistant on the Church On App. Provide biblical wisdom, encouragement, and clear, actionable guidance. Keep responses concise (2-4 sentences).`;
+
+const SSE_HEADERS: Record<string, string> = {
+  "Content-Type": "text/event-stream",
+  "Cache-Control": "no-cache",
+  "Connection": "keep-alive",
+};
+
+function jsonResponse(
+  corsHeaders: Record<string, string>,
+  body: unknown,
+  status = 200,
+) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function sseErrorEvent(corsHeaders: Record<string, string>, error: string) {
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(
+        new TextEncoder().encode(
+          `data: ${JSON.stringify({ error, done: true })}\n\n`,
+        ),
+      );
+      controller.close();
+    },
+  });
+  return new Response(stream, { status: 200, headers: { ...corsHeaders, ...SSE_HEADERS } });
+}
+
+/** Simulates token streaming by emitting the full text in word chunks (SSE). */
+function sseTextStream(corsHeaders: Record<string, string>, text: string) {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      const words = text.split(/(\s+)/);
+      let buffer = "";
+      let wordIndex = 0;
+
+      const sendChunk = () => {
+        if (wordIndex >= words.length) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
+          controller.close();
+          return;
+        }
+
+        const chunkSize = 2 + Math.floor(Math.random() * 4);
+        for (let i = 0; i < chunkSize && wordIndex < words.length; i++, wordIndex++) {
+          buffer += words[wordIndex];
+        }
+
+        if (buffer.length > 0) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ chunk: buffer })}\n\n`));
+          buffer = "";
+        }
+
+        setTimeout(sendChunk, 15 + Math.random() * 25);
+      };
+
+      sendChunk();
+    },
+  });
+  return new Response(stream, { status: 200, headers: { ...corsHeaders, ...SSE_HEADERS } });
+}
+
+// ─── Prompt builders ───────────────────────────────────────────────────────
+
+function buildSystemPrompt(
+  systemPrompt: string,
   userContext: Record<string, unknown> | null,
 ): string {
-  let systemPrompt = KAEL_SYSTEM_PROMPT;
+  if (!userContext || Object.keys(userContext).length === 0) return systemPrompt;
 
-  if (userContext && Object.keys(userContext).length > 0) {
-    const name = userContext.name || "User";
-    const role = userContext.role || "member";
-    const church = userContext.church_name || "your church";
-    const streak = userContext.streak ?? 0;
-    const level = userContext.level ?? "Beginner";
+  const name = userContext.name || "User";
+  const role = userContext.role || "member";
+  const church = userContext.church_name || "your church";
+  const streak = userContext.streak ?? 0;
+  const level = userContext.level ?? "Beginner";
 
-    systemPrompt += `\n\n## Active User Context (Live App State):\n`;
-    systemPrompt += `- Context: User ${name}, Role: ${role}, Church: ${church}, Streak: ${streak} days, Quiz Level: ${level}\n`;
-    systemPrompt += `- Greet the user by name, customize your response to their role and context.\n`;
-    systemPrompt += `- Answer any questions about their personal statistics using this live context data.\n`;
-  }
+  return `${systemPrompt}\n\n## Active User Context (Live App State):\n` +
+    `- Context: User ${name}, Role: ${role}, Church: ${church}, Streak: ${streak} days, Quiz Level: ${level}\n` +
+    `- Greet the user by name, customize your response to their role and context.\n` +
+    `- Answer any questions about their personal statistics using this live context data.`;
+}
 
-  let prompt = `<s>[INST] ${systemPrompt} [/INST]</s>\n`;
+/** ChatML template (zephyr-7b-beta, Qwen2.5-Instruct etc. on HF free tier). */
+function buildChatPrompt(
+  messages: Array<{ role: string; content: string }>,
+  userContext: Record<string, unknown> | null,
+  systemPrompt: string,
+): string {
+  let prompt = `<|system|>\n${buildSystemPrompt(systemPrompt, userContext)}<|endoftext|>\n`;
 
-  // Build conversation history from messages array (excluding the last user message)
-  const history = messages.slice(0, -1);
-  for (const turn of history) {
+  for (const turn of messages) {
     if (turn.role === "user") {
-      prompt += `[INST] ${turn.content} [/INST]`;
+      prompt += `<|user|>\n${turn.content}<|endoftext|>\n`;
     } else {
-      prompt += ` ${turn.content}</s>\n`;
+      prompt += `<|assistant|>\n${turn.content}<|endoftext|>\n`;
     }
   }
-
-  // Add the last user message
-  const lastMsg = messages[messages.length - 1];
-  if (lastMsg) {
-    prompt += `[INST] ${lastMsg.content} [/INST]`;
-  }
-
+  prompt += `<|assistant|>\n`;
   return prompt;
 }
 
+function buildDirectPrompt(prompt: string, systemPrompt: string): string {
+  return `<|system|>\n${systemPrompt}<|endoftext|>\n<|user|>\n${prompt}<|endoftext|>\n<|assistant|>\n`;
+}
+
+// ─── Provider calls ────────────────────────────────────────────────────────
+
+async function callGemini(
+  apiKey: string,
+  messages: Array<{ role: string; content: string }>,
+  userContext: Record<string, unknown> | null,
+  directPrompt: string | null,
+  systemPrompt: string,
+  isChat: boolean,
+): Promise<string> {
+  const contents = isChat
+    ? messages.map((m) => ({
+        role: m.role === "user" ? "user" : "model",
+        parts: [{ text: String(m.content ?? "") }],
+      }))
+    : [{ role: "user", parts: [{ text: directPrompt ?? "" }] }];
+
+  const resp = await fetch(
+    `${GEMINI_API_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: buildSystemPrompt(systemPrompt, userContext) }] },
+        contents,
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+      }),
+    },
+  );
+
+  if (!resp.ok) {
+    throw new Error(`Gemini API error: ${resp.status} ${(await resp.text()).slice(0, 300)}`);
+  }
+
+  const data = await resp.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("Gemini returned an empty response");
+  return text.trim();
+}
+
+async function callHuggingFace(
+  messages: Array<{ role: string; content: string }>,
+  userContext: Record<string, unknown> | null,
+  directPrompt: string | null,
+  systemPrompt: string,
+  isChat: boolean,
+): Promise<string> {
+  const hfToken = Deno.env.get("HUGGINGFACE_TOKEN");
+  if (!hfToken) throw new Error("HUGGINGFACE_TOKEN not configured on server");
+
+  const prompt = isChat
+    ? buildChatPrompt(messages, userContext, systemPrompt)
+    : buildDirectPrompt(directPrompt ?? "", systemPrompt);
+
+  const hfResponse = await fetch(`${HF_API_BASE}/${HF_MODEL}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${hfToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      inputs: prompt,
+      parameters: {
+        max_new_tokens: 512,
+        temperature: 0.7,
+        top_p: 0.9,
+        do_sample: true,
+        return_full_text: false,
+      },
+      options: {
+        wait_for_model: true,
+      },
+    }),
+  });
+
+  if (!hfResponse.ok) {
+    throw new Error(`HuggingFace API error: ${hfResponse.status} ${(await hfResponse.text()).slice(0, 300)}`);
+  }
+
+  const data = await hfResponse.json();
+  const generatedText = Array.isArray(data)
+    ? (data[0] as { generated_text?: string })?.generated_text?.trim()
+    : null;
+  if (!generatedText) throw new Error("HuggingFace returned an empty response");
+  return generatedText;
+}
+
+// ─── Handler ───────────────────────────────────────────────────────────────
+
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse(corsHeaders, { error: "Method not allowed" }, 405);
   }
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
-    return new Response(JSON.stringify({ error: "Missing authorization header" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 401,
-    });
+    return jsonResponse(corsHeaders, { error: "Missing authorization header" }, 401);
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -212,186 +376,95 @@ serve(async (req) => {
   const token = authHeader.replace("Bearer ", "");
   const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
   if (authError || !user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 401,
-    });
+    return jsonResponse(corsHeaders, { error: "Unauthorized" }, 401);
+  }
+
+  const { allowed } = await checkRateLimit(supabaseAuth, user.id, "kael_ai", 10, 1);
+  if (!allowed) {
+    return jsonResponse(corsHeaders, { error: "Rate limit exceeded" }, 429);
   }
 
   try {
-    const { messages, userContext } = await req.json();
-
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return new Response(JSON.stringify({ error: "messages array is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return jsonResponse(corsHeaders, { error: "Invalid JSON body" }, 400);
     }
 
-    const hfToken = Deno.env.get("HUGGINGFACE_TOKEN");
-    if (!hfToken) {
-      return new Response(
-        JSON.stringify({
-          error: "HUGGINGFACE_TOKEN not configured on server",
-          fallback: true,
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
+    const action = typeof body.action === "string" ? body.action : "chat";
+    const messages = Array.isArray(body.messages) ? body.messages : [];
+    const userContext =
+      body.userContext && typeof body.userContext === "object" && !Array.isArray(body.userContext)
+        ? (body.userContext as Record<string, unknown>)
+        : null;
 
-    const prompt = buildPrompt(messages, userContext);
+    // Non-chat actions accept prompt/message/content directly (legacy field names).
+    const isChat =
+      action === "chat" ||
+      (typeof body.prompt !== "string" && typeof body.message !== "string" && typeof body.content !== "string");
 
-    const hfResponse = await fetch(`${HF_API_BASE}/${HF_MODEL}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${hfToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 512,
-          temperature: 0.7,
-          top_p: 0.9,
-          do_sample: true,
-          return_full_text: false,
-        },
-        options: {
-          wait_for_model: true,
-        },
-      }),
-    });
-
-    if (!hfResponse.ok) {
-      const errorText = await hfResponse.text();
-      if (
-        hfResponse.status === 503 ||
-        errorText.toLowerCase().includes("loading")
-      ) {
-        // Model is loading — return SSE error event so client can show fallback
-        const stream = new ReadableStream({
-          start(controller) {
-            controller.enqueue(
-              new TextEncoder().encode(`data: ${JSON.stringify({ error: "Model is loading, please try again", done: true })}\n\n`)
-            );
-            controller.close();
-          },
-        });
-        return new Response(stream, {
-          status: 200,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-          },
-        });
+    let directPrompt: string | null = null;
+    if (!isChat) {
+      directPrompt =
+        typeof body.prompt === "string" ? body.prompt
+        : typeof body.message === "string" ? body.message
+        : typeof body.content === "string" ? body.content
+        : null;
+      if (!directPrompt) {
+        return jsonResponse(corsHeaders, { error: "prompt/message/content is required for this action" }, 400);
       }
-      throw new Error(`HuggingFace API error: ${hfResponse.status} ${errorText}`);
+    } else if (messages.length === 0) {
+      return jsonResponse(corsHeaders, { error: "messages array is required" }, 400);
     }
 
-    // HuggingFace returns complete JSON even for non-streaming requests.
-    // We simulate streaming by chunking the response text character-by-character
-    // to give the client a real-time typing experience.
-    const data = await hfResponse.json();
-    const generatedText = Array.isArray(data)
-      ? (data[0] as { generated_text?: string })?.generated_text?.trim()
-      : null;
-
-    if (!generatedText) {
-      const stream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(
-            new TextEncoder().encode(`data: ${JSON.stringify({ error: "No response generated", done: true })}\n\n`)
-          );
-          controller.close();
-        },
-      });
-      return new Response(stream, {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          "Connection": "keep-alive",
-        },
-      });
+    let systemPrompt: string;
+    if (isChat) {
+      systemPrompt = KAEL_SYSTEM_PROMPT;
+    } else if (action === "summary") {
+      systemPrompt = SUMMARIZER_SYSTEM_PROMPT;
+    } else if (action === "dramatize") {
+      systemPrompt = DRAMATIZER_SYSTEM_PROMPT;
+    } else {
+      systemPrompt = DEFAULT_SYSTEM_PROMPT;
     }
 
-    // Stream the response in chunks for real-time UI
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      start(controller) {
-        // Send in chunks of ~3-8 words to simulate token streaming
-        const words = generatedText.split(/(\s+)/);
-        let buffer = "";
-        let wordIndex = 0;
+    // Primary provider: Gemini Flash.
+    let text: string | null = null;
+    const providerErrors: string[] = [];
+    const geminiKey = Deno.env.get("GEMINI_API_KEY");
+    if (geminiKey) {
+      try {
+        text = await callGemini(geminiKey, messages, userContext, directPrompt, systemPrompt, isChat);
+      } catch (e) {
+        providerErrors.push(e instanceof Error ? e.message : "Gemini error");
+      }
+    } else {
+      providerErrors.push("GEMINI_API_KEY not configured");
+    }
 
-        const sendChunk = () => {
-          if (wordIndex >= words.length) {
-            // Send final done event
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`)
-            );
-            controller.close();
-            return;
-          }
+    // Fallback provider: HuggingFace free-tier model.
+    if (!text) {
+      try {
+        text = await callHuggingFace(messages, userContext, directPrompt, systemPrompt, isChat);
+      } catch (e) {
+        providerErrors.push(e instanceof Error ? e.message : "HuggingFace error");
+      }
+    }
 
-          // Accumulate 2-5 words per chunk
-          const chunkSize = 2 + Math.floor(Math.random() * 4);
-          for (let i = 0; i < chunkSize && wordIndex < words.length; i++, wordIndex++) {
-            buffer += words[wordIndex];
-          }
+    if (!text) {
+      const errorMsg = `Kael providers unavailable: ${providerErrors.join(" | ")}`;
+      if (isChat) return sseErrorEvent(corsHeaders, errorMsg);
+      return jsonResponse(corsHeaders, { error: errorMsg }, 502);
+    }
 
-          if (buffer.isNotEmpty) {
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ chunk: buffer })}\n\n`)
-            );
-            buffer = "";
-          }
+    // Non-chat actions (summary, dramatize, generate) return plain JSON.
+    if (!isChat) {
+      return jsonResponse(corsHeaders, { response: text });
+    }
 
-          // Small delay between chunks for smooth streaming feel
-          setTimeout(sendChunk, 20 + Math.random() * 30);
-        };
-
-        sendChunk();
-      },
-    });
-
-    return new Response(stream, {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-      },
-    });
+    // Chat returns a simulated SSE token stream for the real-time typing UI.
+    return sseTextStream(corsHeaders, text);
   } catch (e) {
-    const stream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(
-          new TextEncoder().encode(
-            `data: ${JSON.stringify({
-              error: e instanceof Error ? e.message : "Unknown error",
-              done: true,
-            })}\n\n`
-          )
-        );
-        controller.close();
-      },
-    });
-    return new Response(stream, {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-      },
-    });
+    const errorMsg = e instanceof Error ? e.message : "Unknown error";
+    return sseErrorEvent(corsHeaders, errorMsg);
   }
 });

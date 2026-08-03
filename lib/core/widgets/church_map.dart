@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:vector_map_tiles_pmtiles/vector_map_tiles_pmtiles.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -177,8 +178,13 @@ class _ChurchMapState extends State<ChurchMap> {
                     polylines: [
                       Polyline(
                         points: widget.path!,
+                        color: theme.primaryColor.withValues(alpha: 0.3),
+                        strokeWidth: 8,
+                      ),
+                      Polyline(
+                        points: widget.path!,
                         color: theme.primaryColor,
-                        strokeWidth: 5,
+                        strokeWidth: 4,
                         borderColor: Colors.white,
                         borderStrokeWidth: 2,
                       ),
@@ -339,12 +345,12 @@ Marker buildChurchMarker({
               backgroundColor: Colors.white,
               child: ClipOval(
                 child: (logoUrl != null && logoUrl.trim().isNotEmpty)
-                    ? Image.network(
-                        logoUrl,
+                    ? CachedNetworkImage(
+                        imageUrl: logoUrl,
                         width: 40,
                         height: 40,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
+                        errorWidget: (context, url, error) {
                           return Image.asset("assets/app_logo.png", width: 40, height: 40, fit: BoxFit.cover);
                         },
                       )

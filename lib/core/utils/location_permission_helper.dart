@@ -25,7 +25,7 @@ class LocationPermissionHelper {
         builder: (ctx) => PopScope(
           canPop: false, // Prevent dismissing by system back button
           child: AlertDialog(
-            backgroundColor: const Color(0xFFFFFAEB), // Warm premium cream theme
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Warm premium cream theme
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
             title: Row(

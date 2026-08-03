@@ -1,15 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -47,6 +42,16 @@ serve(async (req) => {
     if (!allowed) {
       return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
         status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Role check: only drivers, vendors, superadmins, employees can request payouts
+    const { data: profile } = await supabase
+      .from("profiles").select("role").eq("id", user.id).maybeSingle();
+    if (!["superadmin", "coa_employee", "driver", "vendor", "bookshop_owner"].includes(profile?.role)) {
+      return new Response(JSON.stringify({ error: "Forbidden: insufficient permissions" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

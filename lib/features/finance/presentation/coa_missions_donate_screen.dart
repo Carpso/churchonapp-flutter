@@ -116,7 +116,7 @@ class _CoaMissionsDonateScreenState extends ConsumerState<CoaMissionsDonateScree
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text("Support Church On App", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
@@ -318,7 +318,7 @@ class _CoaMissionsDonateScreenState extends ConsumerState<CoaMissionsDonateScree
                   _buildInfoItem("Platform Sustainability", "Keeping Church On App free for all users"),
                   const SizedBox(height: 15),
                   const Text(
-                    "Payments are processed securely via Lipila Mobile Money (MTN/Airtel/Zamtel). A 5% platform fee is retained for transaction processing. Regulated by Bank of Zambia.",
+                    "Payments are processed securely via Lipila Mobile Money (MTN/Airtel/Zamtel). A 1% platform fee is retained for transaction processing. Regulated by Bank of Zambia.",
                     style: TextStyle(color: Colors.grey, fontSize: 11),
                     textAlign: TextAlign.center,
                   ),

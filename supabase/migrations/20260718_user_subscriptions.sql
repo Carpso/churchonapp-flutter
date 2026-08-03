@@ -49,33 +49,54 @@ ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_subscription_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feature_tiers ENABLE ROW LEVEL SECURITY;
 
-DO $ BEGIN CREATE POLICY "user_subscriptions_own" ON user_subscriptions; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR ALL USING (auth.uid() = user_id);
+DO $$
+BEGIN
+  CREATE POLICY "user_subscriptions_own" ON user_subscriptions FOR ALL USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "user_subscription_payments_own" ON user_subscription_payments; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR SELECT USING (auth.uid() = user_id);
+DO $$
+BEGIN
+  CREATE POLICY "user_subscription_payments_own" ON user_subscription_payments FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "user_subscription_payments_insert" ON user_subscription_payments; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+  CREATE POLICY "user_subscription_payments_insert" ON user_subscription_payments FOR INSERT WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "feature_tiers_select" ON feature_tiers; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR SELECT USING (true);
+DO $$
+BEGIN
+  CREATE POLICY "feature_tiers_select" ON feature_tiers FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "feature_tiers_manage" ON feature_tiers; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR ALL USING (
+DO $$
+BEGIN
+  CREATE POLICY "feature_tiers_manage" ON feature_tiers FOR ALL USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('superadmin'))
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Superadmin can manage all subscriptions
-DO $ BEGIN CREATE POLICY "superadmin_manage_subscriptions" ON user_subscriptions; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR ALL USING (
+DO $$
+BEGIN
+  CREATE POLICY "superadmin_manage_subscriptions" ON user_subscriptions FOR ALL USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'superadmin')
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "superadmin_manage_payments" ON user_subscription_payments; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR ALL USING (
+DO $$
+BEGIN
+  CREATE POLICY "superadmin_manage_payments" ON user_subscription_payments FOR ALL USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'superadmin')
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 5. RPC: Check if user has access to a feature
 CREATE OR REPLACE FUNCTION user_has_feature_access(feature_key TEXT)

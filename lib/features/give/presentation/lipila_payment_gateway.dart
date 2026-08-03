@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/finance/data/payment_state.dart';
 import 'package:church_on_app/features/give/presentation/widgets/momo_phone_input_widget.dart';
 import 'package:church_on_app/features/give/presentation/widgets/payment_status_overlay.dart';
+import 'package:church_on_app/core/config/fee_config.dart';
+
+enum PaymentMethodType { mobileMoney, card }
 
 class LipilaPaymentGateway extends ConsumerStatefulWidget {
   final double amount;
@@ -37,15 +42,34 @@ class LipilaPaymentGateway extends ConsumerStatefulWidget {
 class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
   String _selectedNetwork = "MTN";
   final _phoneCtrl = TextEditingController();
+  final _firstNameCtrl = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   String? _errorMessage;
+  PaymentMethodType _paymentMethod = PaymentMethodType.mobileMoney;
+
+  // Platform fee = COA fee + Lipila payment processor fee
+  FeeConfig get _fees => ref.read(feeConfigProvider).value ?? FeeConfig.defaults;
+  bool get _isCard => _paymentMethod == PaymentMethodType.card;
+
+  double get _platformFee => _fees.platformFee(widget.amount, isCard: _isCard);
+
+  double get _totalCharged => widget.amount + _platformFee;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final profile = ref.read(profileProvider).value;
-      if (profile?.phoneNumber != null && profile!.phoneNumber!.isNotEmpty) {
-        _phoneCtrl.text = profile.phoneNumber!;
+      final profileValue = ref.read(profileProvider).value;
+      if (profileValue != null) {
+        final phone = profileValue.phoneNumber;
+        if (phone != null && phone.isNotEmpty) {
+          _phoneCtrl.text = phone;
+        }
+        _firstNameCtrl.text = profileValue.name.split(' ').first;
+        _lastNameCtrl.text = profileValue.name.split(' ').skip(1).join(' ');
+        final user = Supabase.instance.client.auth.currentUser;
+        _emailCtrl.text = user?.email ?? '';
       }
     });
   }
@@ -53,10 +77,21 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
   @override
   void dispose() {
     _phoneCtrl.dispose();
+    _firstNameCtrl.dispose();
+    _lastNameCtrl.dispose();
+    _emailCtrl.dispose();
     super.dispose();
   }
 
   void _initiatePayment() {
+    if (_paymentMethod == PaymentMethodType.mobileMoney) {
+      _initiateMomoPayment();
+    } else {
+      _initiateCardPayment();
+    }
+  }
+
+  void _initiateMomoPayment() {
     final phoneError = MomoPhoneInputWidget.validateZambianPhone(_phoneCtrl.text);
     if (phoneError != null) {
       setState(() => _errorMessage = phoneError);
@@ -65,9 +100,27 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
     setState(() => _errorMessage = null);
     ref.read(lipilaPaymentProvider.notifier).initiatePayment(
           phone: _phoneCtrl.text,
-          amount: widget.amount,
+          amount: _totalCharged,
           description: widget.description,
           narration: widget.paymentReason,
+        );
+  }
+
+  Future<void> _initiateCardPayment() async {
+    if (_firstNameCtrl.text.isEmpty || _lastNameCtrl.text.isEmpty) {
+      setState(() => _errorMessage = "First and last name are required");
+      return;
+    }
+    setState(() => _errorMessage = null);
+
+    ref.read(lipilaPaymentProvider.notifier).initiateCardPayment(
+          amount: _totalCharged,
+          description: widget.description,
+          narration: widget.paymentReason,
+          firstName: _firstNameCtrl.text.trim(),
+          lastName: _lastNameCtrl.text.trim(),
+          email: _emailCtrl.text.trim(),
+          phone: _phoneCtrl.text.isNotEmpty ? _phoneCtrl.text : null,
         );
   }
 
@@ -89,11 +142,14 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
         widget.onComplete(true, data.referenceId);
       } else if (data.status == PaymentStatus.cancelled) {
         widget.onComplete(false, null);
+      } else if (data.status == PaymentStatus.cardRedirect && data.cardUrl != null) {
+        _launchCardUrl(data.cardUrl!);
       }
     });
 
     final isProcessing = paymentState.status == PaymentStatus.initiating ||
-        paymentState.status == PaymentStatus.awaitingPin;
+        paymentState.status == PaymentStatus.awaitingPin ||
+        paymentState.status == PaymentStatus.cardRedirect;
 
     return PopScope(
       canPop: !isProcessing,
@@ -184,15 +240,29 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
             )
           else ...[
             _buildRecipientCard(displayRecipient, displayAccount),
-            const SizedBox(height: 30),
-            MomoPhoneInputWidget(
-              controller: _phoneCtrl,
-              selectedNetwork: _selectedNetwork,
-              onNetworkChanged: (network) =>
-                  setState(() => _selectedNetwork = network),
-              error: _errorMessage,
-            ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 20),
+
+            // Payment Method Selector
+            _buildPaymentMethodSelector(),
+            const SizedBox(height: 20),
+
+            // MoMo fields
+            if (_paymentMethod == PaymentMethodType.mobileMoney) ...[
+              MomoPhoneInputWidget(
+                controller: _phoneCtrl,
+                selectedNetwork: _selectedNetwork,
+                onNetworkChanged: (network) =>
+                    setState(() => _selectedNetwork = network),
+                error: _errorMessage,
+              ),
+            ],
+
+            // Card fields
+            if (_paymentMethod == PaymentMethodType.card) ...[
+              _buildCardFields(),
+            ],
+
+            const SizedBox(height: 25),
             ElevatedButton(
               onPressed: _initiatePayment,
               style: ElevatedButton.styleFrom(
@@ -202,9 +272,11 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
                   borderRadius: BorderRadius.circular(20),
                 ),
               ),
-              child: const Text(
-                "PROCEED TO PIN PROMPT",
-                style: TextStyle(
+              child: Text(
+                _paymentMethod == PaymentMethodType.mobileMoney
+                    ? "PROCEED TO PIN PROMPT"
+                    : "PAY WITH CARD",
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -230,6 +302,185 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
   );
   }
 
+  Widget _buildPaymentMethodSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Payment Method",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _paymentMethod = PaymentMethodType.mobileMoney),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _paymentMethod == PaymentMethodType.mobileMoney
+                        ? const Color(0xFF0F172A).withValues(alpha: 0.05)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(
+                      color: _paymentMethod == PaymentMethodType.mobileMoney
+                          ? const Color(0xFF0F172A)
+                          : const Color(0xFFF1F5F9),
+                      width: _paymentMethod == PaymentMethodType.mobileMoney ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        LucideIcons.smartphone,
+                        color: _paymentMethod == PaymentMethodType.mobileMoney
+                            ? const Color(0xFF0F172A)
+                            : Colors.grey,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Mobile Money",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: _paymentMethod == PaymentMethodType.mobileMoney
+                              ? const Color(0xFF0F172A)
+                              : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _paymentMethod = PaymentMethodType.card),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _paymentMethod == PaymentMethodType.card
+                        ? const Color(0xFF0F172A).withValues(alpha: 0.05)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(
+                      color: _paymentMethod == PaymentMethodType.card
+                          ? const Color(0xFF0F172A)
+                          : const Color(0xFFF1F5F9),
+                      width: _paymentMethod == PaymentMethodType.card ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        LucideIcons.creditCard,
+                        color: _paymentMethod == PaymentMethodType.card
+                            ? const Color(0xFF0F172A)
+                            : Colors.grey,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Card",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: _paymentMethod == PaymentMethodType.card
+                              ? const Color(0xFF0F172A)
+                              : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCardFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _firstNameCtrl,
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(
+            hintText: "First Name",
+            hintStyle: const TextStyle(color: Color(0xFFCBD5E1)),
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide.none,
+            ),
+            prefixIcon: const Icon(LucideIcons.user, size: 20),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _lastNameCtrl,
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(
+            hintText: "Last Name",
+            hintStyle: const TextStyle(color: Color(0xFFCBD5E1)),
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide.none,
+            ),
+            prefixIcon: const Icon(LucideIcons.user, size: 20),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _emailCtrl,
+          keyboardType: TextInputType.emailAddress,
+          decoration: InputDecoration(
+            hintText: "Email (optional)",
+            hintStyle: const TextStyle(color: Color(0xFFCBD5E1)),
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide.none,
+            ),
+            prefixIcon: const Icon(LucideIcons.mail, size: 20),
+          ),
+        ),
+        if (_errorMessage != null && _errorMessage!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Row(
+              children: [
+                const Icon(LucideIcons.alertCircle, color: Colors.red, size: 14),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildRecipientCard(String displayRecipient, String displayAccount) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -246,6 +497,12 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
           const SizedBox(height: 8),
           _buildInfoRow("Reference:", widget.paymentReason ?? widget.description),
           const Divider(height: 30),
+          _buildInfoRow("Amount", "K${widget.amount.toStringAsFixed(2)}"),
+          if (widget.category == 'giving' || widget.category == 'donation' || widget.category == 'tithe' || widget.category == 'offering' || widget.category == 'event') ...[
+            const SizedBox(height: 4),
+            _buildInfoRow(_fees.platformFeeLabel(isCard: _isCard), "K${_platformFee.toStringAsFixed(2)}"),
+          ],
+          const Divider(height: 30),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -254,7 +511,7 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               Text(
-                "K${widget.amount.toStringAsFixed(2)}",
+                "K${_totalCharged.toStringAsFixed(2)}",
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
@@ -292,6 +549,13 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
     );
   }
 
+  Future<void> _launchCardUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.inAppWebView);
+    }
+  }
+
   void _showCancelConfirmationDialog() {
     showDialog(
       context: context,
@@ -306,7 +570,7 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
           ],
         ),
         content: const Text(
-          "Your mobile money payment PIN prompt is currently active. "
+          "Your payment is currently active. "
           "Leaving or closing now may disrupt settlement verification.\n\n"
           "Are you sure you want to cancel this transaction?",
         ),
@@ -317,9 +581,9 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context); // Close dialog
+              Navigator.pop(context);
               ref.read(lipilaPaymentProvider.notifier).cancel();
-              Navigator.pop(context); // Close sheet
+              Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,

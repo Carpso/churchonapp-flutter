@@ -7,6 +7,7 @@ import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/core/widgets/premium_confirmation_sheet.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
+import 'package:church_on_app/core/config/fee_config.dart';
 import 'giving_category_selector.dart';
 
 class GivingWidget extends ConsumerStatefulWidget {
@@ -64,7 +65,10 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
   }
 
   double get _amount => double.tryParse(_amountController.text) ?? 0.0;
-  double get _fee => _amount * 0.01 > 3.00 ? _amount * 0.01 : 3.00;
+  double get _fee {
+    final fees = ref.read(feeConfigProvider).value ?? FeeConfig.defaults;
+    return fees.platformFee(_amount);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -360,7 +364,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (ctx) => LipilaPaymentGateway(
-          amount: _amount + _fee,
+          amount: _amount,
           description: "Giving: $_selectedCategory",
           category: _selectedCategory.toLowerCase(),
           recipientName: tenant?.name ?? (widget.churchName ?? "Local Church"),

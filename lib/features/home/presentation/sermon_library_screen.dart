@@ -17,13 +17,66 @@ class SermonLibraryScreen extends ConsumerStatefulWidget {
   ConsumerState<SermonLibraryScreen> createState() => _SermonLibraryScreenState();
 }
 
-class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
+class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   String _selectedCategory = "All";
   final List<String> _categories = ["All", "Bible", "Miracles", "Faith", "Prosperity", "Healing", "Worship"];
+  List<Sermon> _sermons = [];
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _offset = 0;
+  static const int _limit = 10;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSermons();
+  }
+
+  Future<void> _loadSermons() async {
+    final service = ref.read(sermonServiceProvider);
+    final batch = await service.fetchLatestSermons();
+    if (mounted) {
+      setState(() {
+        _sermons = _filterSermons(batch);
+        _hasMore = batch.length >= _limit;
+      });
+    }
+  }
+
+  List<Sermon> _filterSermons(List<Sermon> sermons) {
+    if (_selectedCategory == "All") return sermons;
+    final keyword = _selectedCategory.toLowerCase();
+    return sermons.where((s) =>
+      s.title.toLowerCase().contains(keyword) ||
+      s.preacher.toLowerCase().contains(keyword)
+    ).toList();
+  }
+
+  void _loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+    try {
+      final service = ref.read(sermonServiceProvider);
+      final more = await service.fetchLatestSermons(offset: _offset + _limit, limit: _limit);
+      if (mounted) {
+        setState(() {
+          _offset += _limit;
+          _sermons = [..._sermons, ...more];
+          _hasMore = more.length >= _limit;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final sermonsAsync = ref.watch(latestSermonsProvider);
+    super.build(context);
     final tenant = ref.watch(currentTenantProvider);
     final liveStatus = tenant != null
         ? ref.watch(liveStatusProvider(tenant.id)).value
@@ -31,7 +84,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
     final isLive = liveStatus?.isLive ?? false;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Sermons", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
@@ -56,44 +109,55 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async {
-                ref.invalidate(latestSermonsProvider);
-                await Future.delayed(const Duration(seconds: 1));
+                setState(() {
+                  _sermons = [];
+                  _offset = 0;
+                  _hasMore = true;
+                });
+                await _loadSermons();
               },
-              child: sermonsAsync.when(
-                data: (sermons) {
-                  if (sermons.isEmpty) {
-                    return ListView(
-                      padding: const EdgeInsets.all(20),
-                      children: [
-                        const SizedBox(height: 60),
-                        const Icon(LucideIcons.mic2, size: 64, color: Colors.grey),
-                        const SizedBox(height: 16),
-                        const Center(
-                          child: Text('No sermons yet',
-                              style: TextStyle(color: Colors.grey, fontSize: 16)),
-                        ),
-                        const SizedBox(height: 8),
-                        const Center(
-                          child: Text('Check back later for new messages',
-                              style: TextStyle(color: Colors.grey, fontSize: 13)),
-                        ),
-                      ],
-                    );
-                  }
-                  return ListView.builder(
+              child: _sermons.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(LucideIcons.mic2, size: 64, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15)),
+                      const SizedBox(height: 16),
+                      Text('No sermons yet', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      Text('Check back later for new messages', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 13)),
+                    ],
+                  ),
+                )
+                  : ListView.builder(
                     padding: const EdgeInsets.all(20),
-                    itemCount: sermons.length,
+                    itemCount: _sermons.length + (_hasMore ? 1 : 0),
                     itemBuilder: (context, index) {
-                      return _buildSermonCard(sermons[index]);
+                      if (index == _sermons.length) {
+                        return _isLoadingMore
+                            ? const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Center(child: CircularProgressIndicator()),
+                              )
+                            : GestureDetector(
+                                onTap: _loadMore,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  margin: const EdgeInsets.only(top: 8),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.surface,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.3)),
+                                  ),
+                                  child: Center(
+                                    child: Text("Load More", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                              );
+                      }
+                      return _buildSermonCard(_sermons[index]);
                     },
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(
-                  child: Text('Could not load sermons',
-                      style: const TextStyle(color: Colors.grey, fontSize: 14)),
-                ),
-              ),
+                  ),
             ),
           ),
         ],
@@ -152,12 +216,15 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
         itemBuilder: (context, index) {
           final bool isSelected = _selectedCategory == _categories[index];
           return GestureDetector(
-            onTap: () => setState(() => _selectedCategory = _categories[index]),
+            onTap: () {
+              setState(() => _selectedCategory = _categories[index]);
+              _loadSermons();
+            },
             child: Container(
               margin: const EdgeInsets.only(right: 12),
               padding: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
-                color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.white,
+                color: isSelected ? Theme.of(context).colorScheme.secondary : Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: isSelected ? [BoxShadow(color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3), blurRadius: 10)] : [],
               ),
@@ -165,7 +232,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
                 child: Text(
                   _categories[index],
                   style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.grey,
+                    color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
                   ),
@@ -193,9 +260,9 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(30),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Theme.of(context).shadowColor.withValues(alpha: 0.02), blurRadius: 10)],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,17 +309,22 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      ClipOval(
-                        child: AppImage(sermon.thumbnailUrl, width: 20, height: 20, fit: BoxFit.cover),
+                      CircleAvatar(
+                        radius: 10,
+                        backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                        child: Text(
+                          sermon.preacher.isNotEmpty ? sermon.preacher[0].toUpperCase() : '?',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
+                        ),
                       ),
                       const SizedBox(width: 10),
-                      Text(sermon.preacher, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                      Text(sermon.preacher, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
                       const Spacer(),
-                      Icon(LucideIcons.clock, size: 14, color: Colors.grey),
+                      Icon(LucideIcons.clock, size: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
                       const SizedBox(width: 5),
                       Text(
                         sermon.isLive ? 'LIVE' : _formatDuration(DateTime.now().difference(sermon.createdAt)),
-                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 12),
                       ),
                     ],
                   ),

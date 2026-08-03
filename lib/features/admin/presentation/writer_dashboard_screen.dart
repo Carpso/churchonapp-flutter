@@ -68,10 +68,10 @@ class _WriterDashboardScreenState extends ConsumerState<WriterDashboardScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Writer Dashboard", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFFFAEB), foregroundColor: Colors.black87, elevation: 0,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor, foregroundColor: Colors.black87, elevation: 0,
         actions: [
           IconButton(icon: const Icon(LucideIcons.plus), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WriterStudioScreen())).then((_) => _loadDashboard())),
           IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _isLoading ? null : _loadDashboard),
@@ -136,7 +136,7 @@ class _WriterDashboardScreenState extends ConsumerState<WriterDashboardScreen> {
   }
 
   Widget _buildStatsGrid(ThemeData theme) => GridView.count(
-    shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+    physics: const NeverScrollableScrollPhysics(),
     crossAxisCount: 2, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 1.2,
     children: [
       _statCard("Published", "$_publishedCount", LucideIcons.checkCircle, Colors.green),

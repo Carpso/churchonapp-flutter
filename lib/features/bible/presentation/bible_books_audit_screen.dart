@@ -164,7 +164,6 @@ class BibleBooksAuditScreen extends ConsumerWidget {
 
   Widget _buildStatisticsGrid(BuildContext context, Map<String, dynamic> stats) {
     return GridView.count(
-      shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
       mainAxisSpacing: 12,
@@ -364,7 +363,6 @@ class BibleBooksAuditScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 8),
         GridView.builder(
-          shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,

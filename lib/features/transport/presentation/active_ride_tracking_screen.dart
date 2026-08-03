@@ -38,19 +38,32 @@ class ActiveRideTrackingScreen extends ConsumerStatefulWidget {
 }
 
 class _ActiveRideTrackingScreenState
-    extends ConsumerState<ActiveRideTrackingScreen> {
+    extends ConsumerState<ActiveRideTrackingScreen>
+    with SingleTickerProviderStateMixin {
   String _driverName = "";
   String _driverId = "";
   LatLng _driverPos = const LatLng(-15.39, 28.33);
+  LatLng? _prevDriverPos;
   StreamSubscription? _statusSub;
   StreamSubscription? _locationSub;
   String? _vehicleInfo;
+  final bool _followDriver = true;
+  late AnimationController _animController;
+  Animation<LatLng>? _driverAnim;
 
   @override
   void initState() {
     super.initState();
     _driverName = widget.driverName ?? "Driver";
     _driverId = widget.driverId ?? "";
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..addListener(() {
+        if (_driverAnim != null && mounted) {
+          setState(() => _driverPos = _driverAnim!.value);
+        }
+      });
     _initTracking();
   }
 
@@ -80,7 +93,11 @@ class _ActiveRideTrackingScreenState
         ref.read(transportServiceProvider).watchDriverLocation(driverId).listen(
       (pos) {
         if (pos != null && mounted) {
-          setState(() => _driverPos = pos);
+          _prevDriverPos = _driverPos;
+          _driverAnim = Tween<LatLng>(begin: _prevDriverPos, end: pos).animate(
+            CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
+          );
+          _animController.forward(from: 0.0);
         }
       },
     );
@@ -128,6 +145,7 @@ class _ActiveRideTrackingScreenState
 
   @override
   void dispose() {
+    _animController.dispose();
     _statusSub?.cancel();
     _locationSub?.cancel();
     super.dispose();
@@ -135,22 +153,92 @@ class _ActiveRideTrackingScreenState
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       body: Stack(
         children: [
           ChurchMap(
-            center: widget.startPos,
-            zoom: 15,
+            center: _followDriver ? _driverPos : widget.startPos,
+            zoom: 16,
             markers: [
-              buildUserMarker(point: widget.startPos),
-              buildRideMarker(
-                  point: _driverPos, color: Theme.of(context).primaryColor),
+              // User pickup marker with label
+              Marker(
+                point: widget.startPos,
+                width: 100,
+                height: 70,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                      ),
+                      child: const Text('Pickup', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(height: 2),
+                    const Icon(LucideIcons.mapPin, color: Colors.green, size: 28),
+                  ],
+                ),
+              ),
+              // Driver marker with vehicle label
+              Marker(
+                point: _driverPos,
+                width: 120,
+                height: 80,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: theme.primaryColor,
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                      ),
+                      child: Text(
+                        _vehicleInfo ?? _driverName,
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: theme.primaryColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: theme.primaryColor.withValues(alpha: 0.4), blurRadius: 12)],
+                      ),
+                      child: const Icon(LucideIcons.car, color: Colors.white, size: 18),
+                    ),
+                  ],
+                ),
+              ),
+              // Destination marker with label
               Marker(
                 point: widget.destPos,
-                width: 40,
-                height: 40,
-                child: const Icon(LucideIcons.mapPin,
-                    color: Colors.red, size: 40),
+                width: 100,
+                height: 70,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(LucideIcons.flag, color: Colors.red, size: 28),
+                    const SizedBox(height: 2),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                      ),
+                      child: const Text('Destination', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
               ),
             ],
             path: [widget.startPos, _driverPos, widget.destPos],

@@ -29,6 +29,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   String? _streamId;
   String? _rtmpUrl;
   String? _streamKey;
+  String? _hlsUrl;
   final List<String> _chatMessages = [];
   final _titleController = TextEditingController();
 
@@ -93,6 +94,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       _streamId = result.streamId;
       _rtmpUrl = result.rtmpUrl;
       _streamKey = result.streamKey;
+      _hlsUrl = result.hlsUrl;
 
       final streamingService = ref.read(liveStreamingServiceProvider);
       await streamingService.setLiveStatus(
@@ -139,7 +141,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
             SelectableText(_streamKey ?? "N/A", style: const TextStyle(fontSize: 13, fontFamily: 'monospace')),
             const SizedBox(height: 12),
             const Text("HLS URL (for viewers):", style: TextStyle(fontSize: 12, color: Colors.grey)),
-            SelectableText("https://live.churchonapp.com/stream/$_streamId", style: const TextStyle(fontSize: 13, fontFamily: 'monospace')),
+            SelectableText(_hlsUrl ?? "N/A", style: const TextStyle(fontSize: 13, fontFamily: 'monospace')),
           ],
         ),
         actions: [

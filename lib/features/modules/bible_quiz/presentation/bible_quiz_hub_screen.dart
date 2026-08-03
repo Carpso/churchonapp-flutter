@@ -6,10 +6,12 @@ import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/providers/profile_provider.dart';
 import '../../../../core/services/tenant_service.dart';
+import '../../../../core/config/remote_config.dart';
 import '../data/bible_quiz_service.dart';
 import '../data/daily_challenge_service.dart';
 import '../data/xp_service.dart';
 import 'bible_quiz_arena_screen.dart';
+import 'church_competition_lobby_screen.dart';
 import 'quiz_event_lobby_screen.dart';
 
 
@@ -25,6 +27,14 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   String _trophySubtitle = 'Weekly Global Bible Contest — Win Glory & Rewards';
   String _currentSeason = 'SEASON 2026: THE GOSPELS';
   int _weekNumber = 1;
+
+  /// Remote-configurable quiz values (`quiz_*` keys in platform_settings).
+  RemoteConfig get _rc => widgetRemoteConfig(ref);
+
+  int get _prize1 => _rc.getInt('quiz_prize_1st_kwacha', 500);
+  int get _prize2 => _rc.getInt('quiz_prize_2nd_kwacha', 300);
+  int get _prize3 => _rc.getInt('quiz_prize_3rd_kwacha', 150);
+  int get _seasonWeeks => _rc.getInt('quiz_season_weeks', 12);
 
   @override
   void initState() {
@@ -154,6 +164,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             const Text("GAME MODES", style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
             const SizedBox(height: 15),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(child: _buildModeCard("Solo Play", "Engine Generated", LucideIcons.smartphone, Colors.orangeAccent, _startSoloPlay)),
                 const SizedBox(width: 15),
@@ -162,6 +173,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             ),
             const SizedBox(height: 15),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(child: _buildModeCard("Learning Mode", "No Timer, Study", LucideIcons.bookOpen, Colors.greenAccent, _startLearningMode)),
                 const SizedBox(width: 15),
@@ -173,12 +185,11 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             const Text("P2P MULTIPLAYER ARENA", style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
             const SizedBox(height: 15),
             GridView.count(
-              shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisCount: 2,
               mainAxisSpacing: 15,
               crossAxisSpacing: 15,
-              childAspectRatio: 1.5,
+              childAspectRatio: 1.25,
               children: [
                 _buildP2PCard("Any User", "Global Match", LucideIcons.users, Colors.blueAccent, () => _startP2P("Global")),
                 _buildP2PCard("My Church", "Local Members", LucideIcons.home, Colors.greenAccent, () => _startP2P("Church")),
@@ -208,8 +219,6 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
               ),
             ),
 
-            // UPCI-style question formats (anonymized)
-            const SizedBox(height: 30),
             // Premium Events
             const SizedBox(height: 24),
             GestureDetector(
@@ -352,7 +361,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-            child: Text("Week $_weekNumber — 12 weeks remaining", style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+            child: Text("Week $_weekNumber — $_seasonWeeks weeks remaining", style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 8),
           Text(_trophySubtitle, style: const TextStyle(color: Colors.white70, fontSize: 13)),
@@ -484,12 +493,12 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15)),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  Column(children: [Text("🥇", style: TextStyle(fontSize: 28)), Text("K500", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))]),
-                  Column(children: [Text("🥈", style: TextStyle(fontSize: 28)), Text("K300", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))]),
-                  Column(children: [Text("🥉", style: TextStyle(fontSize: 28)), Text("K150", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))]),
+                  Column(children: [const Text("🥇", style: TextStyle(fontSize: 28)), Text("K$_prize1", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))]),
+                  Column(children: [const Text("🥈", style: TextStyle(fontSize: 28)), Text("K$_prize2", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))]),
+                  Column(children: [const Text("🥉", style: TextStyle(fontSize: 28)), Text("K$_prize3", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))]),
                 ],
               ),
             ),
@@ -604,51 +613,99 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   }
 
   void _showJoinLiveModal() {
+    final pinCtrl = TextEditingController();
+    var isVerifying = false;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => Container(
-        padding: EdgeInsets.only(left: 25, right: 25, top: 30, bottom: MediaQuery.of(context).viewInsets.bottom + 30),
-        decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(LucideIcons.radioTower, color: Colors.white, size: 50),
-            const SizedBox(height: 15),
-            const Text("Enter Match PIN", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
-            const Text("Join a live tournament hosted by a church.", style: TextStyle(color: Colors.white54)),
-            const SizedBox(height: 30),
-            TextField(
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 32, letterSpacing: 10, fontWeight: FontWeight.w900),
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                hintText: "000000",
-                hintStyle: const TextStyle(color: Colors.white24),
-                filled: true,
-                fillColor: Colors.black26,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => Container(
+          padding: EdgeInsets.only(left: 25, right: 25, top: 30, bottom: MediaQuery.of(context).viewInsets.bottom + 30),
+          decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(LucideIcons.radioTower, color: Colors.white, size: 50),
+              const SizedBox(height: 15),
+              const Text("Enter Match PIN", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+              const Text("Join a live tournament hosted by a church.", style: TextStyle(color: Colors.white54)),
+              const SizedBox(height: 30),
+              TextField(
+                controller: pinCtrl,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 32, letterSpacing: 10, fontWeight: FontWeight.w900),
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: InputDecoration(
+                  hintText: "000000",
+                  hintStyle: const TextStyle(color: Colors.white24),
+                  filled: true,
+                  fillColor: Colors.black26,
+                  counterText: "",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                ),
               ),
-            ),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2575FC),
-                minimumSize: const Size(double.infinity, 60),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              ),
-              child: const Text("ENTER ARENA", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
-            )
-          ],
+              const SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: isVerifying
+                    ? null
+                    : () async {
+                        final pin = pinCtrl.text.trim();
+                        if (pin.length != 6) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Please enter a valid 6-digit PIN"), backgroundColor: Colors.orange),
+                            );
+                          }
+                          return;
+                        }
+                        setSheetState(() => isVerifying = true);
+                        final compId = await ref
+                            .read(bibleQuizServiceProvider)
+                            .verifyCompetitionPin(pin);
+                        if (!context.mounted) return;
+                        if (compId != null) {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ChurchCompetitionLobbyScreen(
+                                competitionId: compId,
+                              ),
+                            ),
+                          );
+                        } else {
+                          setSheetState(() => isVerifying = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Invalid or expired PIN. Please check and try again."),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2575FC),
+                  minimumSize: const Size(double.infinity, 60),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                ),
+                child: Text(
+                  isVerifying ? "VERIFYING..." : "ENTER ARENA",
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+                ),
+              )
+            ],
+          ),
         ),
-      )
+      ),
     );
   }
 
   void _showLeaseModal() {
     bool isUsd = false;
+    final leaseFee = _rc.getDouble('quiz_lease_fee_kwacha', 1500.0);
+    final leaseFeeUsd = _rc.getDouble('quiz_lease_fee_usd', 50.0);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -693,7 +750,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                             const Text("Premium Event Pass", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                             const Text("1 Live Event • Active Leaderboard • Custom Questions", style: TextStyle(color: Colors.grey, fontSize: 11)),
                             const SizedBox(height: 5),
-                            Text(isUsd ? "\$ 50.00 USD" : "K 1,500.00 ZMW", style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.blue, fontSize: 18)),
+                            Text(isUsd ? "\$ ${leaseFeeUsd.toStringAsFixed(2)} USD" : "K ${leaseFee.toStringAsFixed(2)} ZMW", style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.blue, fontSize: 18)),
                           ],
                         ),
                       )
@@ -853,7 +910,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       builder: (context) => Consumer(
         builder: (context, ref, child) {
           final leaderboardAsync = ref.watch(quizLeaderboardProvider);
-          final top3 = ['K500', 'K300', 'K150'];
+          final top3 = ['K$_prize1', 'K$_prize2', 'K$_prize3'];
           return Container(
             height: MediaQuery.of(context).size.height * 0.75,
             padding: const EdgeInsets.all(25),
@@ -866,12 +923,12 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                 const Icon(LucideIcons.trophy, color: Colors.amber, size: 36),
                 const SizedBox(height: 6),
                 Text("$_trophyTitle — Week $_weekNumber", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                const Text("Weekly rewards: K500 | K300 | K150", style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.w600)),
+                Text("Weekly rewards: K$_prize1 | K$_prize2 | K$_prize3", style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
-                  child: const Text("Lasts 12 weeks — New winners every Monday!", style: TextStyle(color: Colors.amber, fontSize: 10)),
+                  child: Text("Lasts $_seasonWeeks weeks — New winners every Monday!", style: const TextStyle(color: Colors.amber, fontSize: 10)),
                 ),
                 const SizedBox(height: 16),
                 Expanded(

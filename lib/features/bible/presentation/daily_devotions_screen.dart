@@ -19,7 +19,7 @@ class _DailyDevotionsScreenState extends ConsumerState<DailyDevotionsScreen> {
     final devotionsAsync = ref.watch(devotionsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Daily Devotions'),
       ),
@@ -63,55 +63,58 @@ class _DailyDevotionsScreenState extends ConsumerState<DailyDevotionsScreen> {
               ? devotions.sublist(1)
               : devotions;
 
+          final items = <Widget>[];
+          if (todayDevotion != null) {
+            items.add(_buildTodayCard(todayDevotion));
+            items.add(const SizedBox(height: 28));
+            items.add(Row(
+              children: [
+                const Icon(LucideIcons.clock, size: 14, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text(
+                  'Past Devotions',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ));
+            items.add(const SizedBox(height: 12));
+          }
+          items.addAll(pastDevotions.map((d) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _buildPastDevotionCard(d),
+          )));
+          if (pastDevotions.isEmpty) {
+            items.add(Padding(
+              padding: const EdgeInsets.only(top: 40),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(LucideIcons.bookOpen, size: 40, color: Colors.grey[300]),
+                    const SizedBox(height: 10),
+                    Text(
+                      'No devotions yet',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ));
+          }
+
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(devotionsProvider);
               await ref.read(devotionsProvider.future);
             },
             color: Colors.amber,
-            child: ListView(
+            child: ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-              children: [
-                if (todayDevotion != null) ...[
-                  _buildTodayCard(todayDevotion),
-                  const SizedBox(height: 28),
-                  Row(
-                    children: [
-                      const Icon(LucideIcons.clock, size: 14, color: Colors.grey),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Past Devotions',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                ...pastDevotions.map((d) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _buildPastDevotionCard(d),
-                )),
-                if (pastDevotions.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 40),
-                    child: Center(
-                      child: Column(
-                        children: [
-                          Icon(LucideIcons.bookOpen, size: 40, color: Colors.grey[300]),
-                          const SizedBox(height: 10),
-                          Text(
-                            'No devotions yet',
-                            style: TextStyle(color: Colors.grey[500], fontSize: 14),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
+              itemCount: items.length,
+              itemBuilder: (context, index) => items[index],
             ),
           );
         },

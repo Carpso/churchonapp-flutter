@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/widgets/shimmer_loader.dart';
+import '../../../core/widgets/error_retry_widget.dart';
 
 class MultiCurrencyWalletScreen extends ConsumerWidget {
   const MultiCurrencyWalletScreen({super.key});
@@ -12,20 +13,23 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
     final profileAsync = ref.watch(profileProvider);
     return profileAsync.when(
       data: (profile) => _buildScreen(context, profile),
-      loading: () => const Scaffold(
-        backgroundColor: Color(0xFFFFFAEB),
+      loading: () => Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: ListSkeleton(count: 4),
       ),
       error: (e, st) => Scaffold(
-        backgroundColor: Color(0xFFFFFAEB),
-        body: Center(child: Text('Error loading profile: $e')),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: ErrorRetryWidget(
+          message: "Failed to load profile",
+          onRetry: () => ref.invalidate(profileProvider),
+        ),
       ),
     );
   }
 
   Widget _buildScreen(BuildContext context, UserProfile? profile) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Multi-Wallet", style: TextStyle(fontWeight: FontWeight.bold)),
       ),

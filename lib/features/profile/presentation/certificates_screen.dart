@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -169,7 +169,7 @@ class CertificatesScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  ...categoryCerts.map((cert) => _CertificateCard(cert: cert)),
+                  ...categoryCerts.map((cert) => _CertificateCard(cert: cert, userName: ref.watch(profileProvider).value?.name ?? 'Believer')),
                 ],
               );
             },
@@ -202,8 +202,9 @@ class CertificatesScreen extends ConsumerWidget {
 
 class _CertificateCard extends StatelessWidget {
   final Certificate cert;
+  final String userName;
 
-  const _CertificateCard({required this.cert});
+  const _CertificateCard({required this.cert, required this.userName});
 
   Color _categoryColor(String category) {
     switch (category) {
@@ -285,7 +286,7 @@ class _CertificateCard extends StatelessWidget {
               ),
               pw.SizedBox(height: 16),
               pw.Text(
-                'Believer',
+                userName,
                 style: pw.TextStyle(fontSize: 28, fontWeight: pw.FontWeight.bold),
               ),
               pw.SizedBox(height: 16),

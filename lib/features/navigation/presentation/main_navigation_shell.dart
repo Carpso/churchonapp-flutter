@@ -9,6 +9,8 @@ import '../../transport/data/location_tracker_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/admin/presentation/lockdown_overlay.dart';
 import 'package:church_on_app/core/widgets/global_media_player.dart';
+import 'package:church_on_app/core/services/session_guard_service.dart';
+import 'package:church_on_app/core/services/offline_service.dart';
 
 import 'package:go_router/go_router.dart';
 
@@ -41,6 +43,18 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(profileNotificationServiceProvider).init();
+      // Activate session guard (5-minute inactivity lockout)
+      ref.read(sessionGuardProvider).startMonitoring(
+        onTimeout: () {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Session expired due to inactivity'), backgroundColor: Colors.orange),
+            );
+          }
+        },
+      );
+      // Activate offline write queue
+      ref.read(offlineServiceProvider).startAutoSync();
     });
   }
 
@@ -134,7 +148,7 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
         bottomNavigationBar: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
-          height: isVisible ? 80 : 0,
+          height: isVisible ? 80 + MediaQuery.of(context).padding.bottom : 0,
           decoration: const BoxDecoration(),
           clipBehavior: Clip.hardEdge,
           child: BottomAppBar(

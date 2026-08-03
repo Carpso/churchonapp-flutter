@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
@@ -27,7 +28,7 @@ class HomeNews extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     children: [
-                      Container(width: 4, height: 16, decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(2))),
+                      Container(width: 4, height: 16, decoration: BoxDecoration(color: Theme.of(context).primaryColor, borderRadius: BorderRadius.circular(2))),
                       const SizedBox(width: 8),
                       const Text("Writers", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     ],
@@ -60,7 +61,16 @@ class HomeNews extends ConsumerWidget {
               ),
             )),
           ),
-          error: (_, __) => const SizedBox.shrink(),
+          error: (_, __) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                Icon(LucideIcons.newspaper, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
+                const SizedBox(width: 8),
+                Text("Could not load church news", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12)),
+              ],
+            ),
+          ),
         ),
         publicNewsAsync.when(
           data: (news) {
@@ -84,7 +94,29 @@ class HomeNews extends ConsumerWidget {
               ],
             );
           },
-          loading: () => const SizedBox.shrink(),
+          loading: () => Column(
+            children: List.generate(2, (i) => Padding(
+              padding: const EdgeInsets.only(bottom: 15),
+              child: Row(
+                children: [
+                  const ShimmerLoader.rectangular(width: 100, height: 100),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ShimmerLoader.rectangular(width: 60, height: 10),
+                        const SizedBox(height: 8),
+                        ShimmerLoader.rectangular(height: 14),
+                        const SizedBox(height: 6),
+                        ShimmerLoader.rectangular(width: 80, height: 10),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )),
+          ),
           error: (e, s) => ErrorRetryWidget(
             message: "Failed to load news",
             onRetry: () => ref.invalidate(publicNewsProvider),
@@ -98,9 +130,9 @@ class HomeNews extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Theme.of(context).shadowColor.withValues(alpha: 0.02), blurRadius: 10)],
       ),
       child: InkWell(
         onTap: () {
@@ -125,12 +157,12 @@ class HomeNews extends ConsumerWidget {
                   children: [
                     Text(
                       article.source.toUpperCase(),
-                      style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                      style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1),
                     ),
                     const SizedBox(height: 4),
                     Text(article.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 4),
-                    Text(article.pubDate, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+                    Text(article.pubDate, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10)),
                   ],
                 ),
               ),

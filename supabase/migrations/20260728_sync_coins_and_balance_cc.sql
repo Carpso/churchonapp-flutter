@@ -1,5 +1,6 @@
 -- Recreate add_coins and deduct_coins to sync both 'coins' and 'balance_cc' columns
 
+DROP FUNCTION IF EXISTS public.add_coins(UUID, INTEGER);
 CREATE OR REPLACE FUNCTION public.add_coins(user_id UUID, amount INTEGER)
 RETURNS VOID
 SET search_path = public

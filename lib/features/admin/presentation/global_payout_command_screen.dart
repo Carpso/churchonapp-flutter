@@ -30,13 +30,70 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
   }
 
   void _executePayout(Map<String, dynamic> request) async {
+    final name = request['profiles']?['full_name'] ?? 'Unknown';
+    final amount = (request['amount'] as num).toDouble();
+    final phone = request['mobile_number'] ?? '';
+    final network = request['network'] ?? '';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Confirm Payout", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Send payout to:", style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
+            const SizedBox(height: 8),
+            Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 4),
+            Text("$network • $phone", style: const TextStyle(color: Colors.white38, fontSize: 12)),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.greenAccent.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(LucideIcons.banknote, color: Colors.greenAccent, size: 18),
+                  const SizedBox(width: 8),
+                  Text("K ${amount.toStringAsFixed(2)}", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.w900, fontSize: 18)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("CANCEL", style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.greenAccent,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text("SETTLE NOW", style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     setState(() => _isLoading = true);
     
     final result = await ref.read(adminServiceProvider).executeLipilaPayout(
       userId: request['user_id'],
-      amount: (request['amount'] as num).toDouble(),
-      phone: request['mobile_number'],
-      network: request['network'],
+      amount: amount,
+      phone: phone,
+      network: network,
     );
 
     if (result['success']) {
@@ -44,7 +101,7 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
       await _loadRequests();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Lipila Payout Successful. Ref: ${result['reference']}")),
+          SnackBar(content: Text("Lipila Payout Successful. Ref: ${result['reference']}"), backgroundColor: Colors.green),
         );
       }
     } else {

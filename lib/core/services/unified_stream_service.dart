@@ -258,7 +258,7 @@ class UnifiedStreamService {
   Future<void> endStream(String streamId) async {
     final stream = await _client
         .from('live_streams')
-        .select('streaming_backend, cloudflare_stream_id, church_id')
+        .select('streaming_backend, cloudflare_stream_id, church_id, started_at')
         .eq('id', streamId)
         .single();
 
@@ -271,6 +271,22 @@ class UnifiedStreamService {
           'input_id': stream['cloudflare_stream_id'],
         },
       );
+    }
+
+    // BUG-3: Record streaming minutes for usage tracking / cost control
+    if (stream['started_at'] != null && stream['church_id'] != null) {
+      try {
+        final startedAt = DateTime.parse(stream['started_at']);
+        final minutes = DateTime.now().difference(startedAt).inMinutes;
+        if (minutes > 0) {
+          await _client.rpc('record_streaming_minutes', params: {
+            'p_church_id': stream['church_id'],
+            'p_minutes': minutes,
+          });
+        }
+      } catch (e) {
+        debugPrint('[Stream] Failed to record streaming minutes: $e');
+      }
     }
 
     // Update status

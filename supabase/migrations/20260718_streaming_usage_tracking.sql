@@ -17,21 +17,28 @@ CREATE TABLE IF NOT EXISTS streaming_usage (
 -- RLS
 ALTER TABLE streaming_usage ENABLE ROW LEVEL SECURITY;
 
-DO $ BEGIN CREATE POLICY "streaming_usage_church" ON streaming_usage; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR ALL USING (
+DO $$
+BEGIN
+  CREATE POLICY "streaming_usage_church" ON streaming_usage FOR ALL USING (
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid()
       AND church_id = streaming_usage.church_id
     )
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "streaming_usage_superadmin" ON streaming_usage; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR ALL USING (
+DO $$
+BEGIN
+  CREATE POLICY "streaming_usage_superadmin" ON streaming_usage FOR ALL USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'superadmin')
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Function to get or create current week usage
+DROP FUNCTION IF EXISTS get_streaming_usage(UUID);
 CREATE OR REPLACE FUNCTION get_streaming_usage(p_church_id UUID)
 RETURNS TABLE(
   minutes_used NUMERIC,

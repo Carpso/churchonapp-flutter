@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -128,10 +129,10 @@ class _VendorDashboardScreenState extends ConsumerState<VendorDashboardScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Vendor Dashboard", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         actions: [
           IconButton(
@@ -203,7 +204,6 @@ class _VendorDashboardScreenState extends ConsumerState<VendorDashboardScreen> {
 
   Widget _buildStatsGrid(Map<String, dynamic> stats) {
     return GridView.count(
-      shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
       mainAxisSpacing: 15,
@@ -296,12 +296,12 @@ class _VendorDashboardScreenState extends ConsumerState<VendorDashboardScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              product['image'] ?? 'https://via.placeholder.com/60',
+            child: CachedNetworkImage(
+              imageUrl: product['image'] ?? 'https://via.placeholder.com/60',
               width: 60,
               height: 60,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorWidget: (_, __, ___) => Container(
                 width: 60,
                 height: 60,
                 color: Colors.grey.shade200,

@@ -88,7 +88,7 @@ class _WorshipLyricsScreenState extends State<WorshipLyricsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Worship Lyrics", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.teal,

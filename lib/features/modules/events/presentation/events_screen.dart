@@ -5,8 +5,9 @@ import 'business_meetings_screen.dart';
 import 'package:church_on_app/features/events/data/event_service.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 
 import 'widgets/discover_tab.dart';
 import 'widgets/my_tickets_tab.dart';
@@ -67,7 +68,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Events Hub", style: TextStyle(fontWeight: FontWeight.bold)),
         bottom: TabBar(
@@ -140,12 +141,14 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
     if (!_isPaid) return 0.0;
     if (_eventType == "Conference") return 0.0;
     final price = double.tryParse(_priceCtrl.text) ?? 0.0;
-    return price * 0.06;
+    final percent =
+        widgetRemoteConfig(ref).getDouble('event_commission_percent', 0.10);
+    return price * percent;
   }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70, maxWidth: 1080, maxHeight: 1080);
     if (pickedFile != null) {
       setState(() => _imageFile = File(pickedFile.path));
     }
@@ -511,7 +514,17 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.file(_imageFile!, height: 100, width: 200, fit: BoxFit.cover),
+                          // cacheWidth downsamples at decode (camera photos are
+                          // huge) — Google Play flags full-size decodes.
+                          child: Image.file(
+                            _imageFile!,
+                            height: 100,
+                            width: 200,
+                            fit: BoxFit.cover,
+                            cacheWidth:
+                                (200 * MediaQuery.devicePixelRatioOf(context))
+                                    .round(),
+                          ),
                         ),
                         const SizedBox(height: 10),
                         const Text("Change Banner", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),

@@ -102,7 +102,7 @@ class _CameraSettingsScreenState extends ConsumerState<CameraSettingsScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Camera Settings'),
       ),
@@ -293,8 +293,8 @@ class _CameraSettingsScreenState extends ConsumerState<CameraSettingsScreen> {
                     children: [
                       Icon(
                         isSelected
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_unchecked,
+                            ? LucideIcons.circleDot
+                            : LucideIcons.circle,
                         color: isSelected
                             ? theme.primaryColor
                             : Colors.grey,

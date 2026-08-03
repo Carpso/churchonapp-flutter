@@ -132,7 +132,7 @@ class RoleHierarchyService {
 
     final callerRole = callerProfile?['role'] as String? ?? 'member';
     final callerTenantId = callerProfile?['tenant_id'] as String?;
-    final isSuper = callerRole == 'superadmin' || callerRole == 'employee';
+    final isSuper = callerRole == 'superadmin' || callerRole == 'coa_employee';
 
     final targetProfile = await _supabase.client
         .from('profiles')
@@ -155,7 +155,12 @@ class RoleHierarchyService {
       }
     }
 
-    final effectiveTenantId = tenantId ?? callerTenantId;
+    final effectiveTenantId = isSuper ? (tenantId ?? callerTenantId) : callerTenantId;
+
+    // Non-superadmins cannot assign platform-level roles
+    if (!isSuper && ['superadmin', 'coa_employee'].contains(roleName)) {
+      throw Exception("Security Exception: Only COA management can assign platform-level roles.");
+    }
 
     await _supabase.client.from('role_assignments').insert({
       'user_id': userId,
@@ -169,7 +174,7 @@ class RoleHierarchyService {
         .client
         .from('profiles')
         .select('id')
-        .inFilter('role', ['superadmin', 'employee']);
+        .inFilter('role', ['superadmin', 'coa_employee']);
 
     if (admins.isNotEmpty) {
       for (final admin in admins as List) {
@@ -187,16 +192,41 @@ class RoleHierarchyService {
   }
 
   Future<void> approveRole(String assignmentId) async {
+    final currentUser = _supabase.client.auth.currentUser;
+    if (currentUser == null) throw Exception("Not authenticated");
+
+    // Authorization check — only superadmins/coa_employees or the original assigner can approve
+    final callerProfile = await _supabase.client
+        .from('profiles')
+        .select('role')
+        .eq('id', currentUser.id)
+        .maybeSingle();
+    final callerRole = callerProfile?['role'] as String? ?? 'member';
+    final isSuper = callerRole == 'superadmin' || callerRole == 'coa_employee';
+
+    final assignment = await _supabase.client
+        .from('role_assignments')
+        .select('user_id, role_name, assigned_by, status')
+        .eq('id', assignmentId)
+        .maybeSingle();
+
+    if (assignment == null) throw Exception("Assignment not found");
+    if (assignment['status'] != 'pending') throw Exception("Assignment already processed");
+
+    if (!isSuper && assignment['assigned_by'] != currentUser.id) {
+      throw Exception("Security Exception: Only COA management or the original assigner can approve role assignments.");
+    }
+
+    // Non-superadmins cannot approve platform-level roles
+    if (!isSuper && ['superadmin', 'coa_employee'].contains(assignment['role_name'])) {
+      throw Exception("Security Exception: Only COA management can approve platform-level roles.");
+    }
+
     await _supabase.client.from('role_assignments').update({
       'status': 'approved',
       'approved_at': DateTime.now().toUtc().toIso8601String(),
     }).eq('id', assignmentId);
 
-    final assignment = await _supabase.client
-        .from('role_assignments')
-        .select('user_id, role_name')
-        .eq('id', assignmentId)
-        .single();
     await _supabase.client.from('profiles').update({
       'role': assignment['role_name'],
     }).eq('id', assignment['user_id']);
@@ -244,10 +274,41 @@ class RoleHierarchyService {
   }) async {
     final currentUser = _supabase.client.auth.currentUser;
     if (currentUser == null) throw Exception("Not authenticated");
+
+    // CRITICAL: Authorization check — only superadmins and coa_employees can elevate
+    final callerProfile = await _supabase.client
+        .from('profiles')
+        .select('role, tenant_id')
+        .eq('id', currentUser.id)
+        .maybeSingle();
+    final callerRole = callerProfile?['role'] as String? ?? 'member';
+    final callerTenantId = callerProfile?['tenant_id'] as String?;
+    final isSuper = callerRole == 'superadmin' || callerRole == 'coa_employee';
+
+    if (!isSuper) {
+      // Tenant leaders can only elevate within their own tenant
+      if (callerTenantId == null || callerTenantId.isEmpty) {
+        throw Exception("Security Exception: You must belong to a church to elevate roles.");
+      }
+      final targetProfile = await _supabase.client
+          .from('profiles')
+          .select('tenant_id')
+          .eq('id', userId)
+          .maybeSingle();
+      if (targetProfile == null) throw Exception("Target user not found");
+      if (targetProfile['tenant_id'] != callerTenantId) {
+        throw Exception("Security Exception: Cannot elevate users from another tenant.");
+      }
+      // Non-superadmins cannot elevate to coa_employee or superadmin
+      if (['superadmin', 'coa_employee'].contains(roleName)) {
+        throw Exception("Security Exception: Only COA management can assign platform-level roles.");
+      }
+    }
+
     await _supabase.client.from('role_assignments').insert({
       'user_id': userId,
       'role_name': roleName,
-      'tenant_id': tenantId,
+      'tenant_id': tenantId ?? callerTenantId,
       'assigned_by': currentUser.id,
       'status': 'approved',
       'approved_at': DateTime.now().toUtc().toIso8601String(),

@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
+import 'home_section_title.dart';
 import 'package:church_on_app/features/home/data/sermon_service.dart';
 import 'package:church_on_app/features/home/presentation/sermon_player_screen.dart';
 
@@ -17,10 +18,25 @@ class HomeLatestSermon extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle(context, "Latest Sermon"),
+        const HomeSectionTitle(title: "Latest Sermon"),
         sermonsAsync.when(
           data: (sermons) {
-            if (sermons.isEmpty) return const Text("No sermons available.");
+            if (sermons.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  children: [
+                    Icon(LucideIcons.mic2, size: 40, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2)),
+                    const SizedBox(height: 10),
+                    Text("No sermons yet", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 13)),
+                  ],
+                ),
+              );
+            }
             final sermon = sermons.first;
             return GestureDetector(
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SermonPlayerScreen(sermon: sermon))),
@@ -46,7 +62,7 @@ class HomeLatestSermon extends ConsumerWidget {
                         children: [
                           Text(sermon.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 5),
-                          Text("${sermon.preacher} • Latest Sunday", style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                          Text("${sermon.preacher} • Latest Sunday", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 13)),
                         ],
                       ),
                     ),
@@ -82,16 +98,4 @@ class HomeLatestSermon extends ConsumerWidget {
     );
   }
 
-  Widget _buildSectionTitle(BuildContext context, String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 15.0),
-      child: Row(
-        children: [
-          Container(width: 4, height: 18, decoration: BoxDecoration(color: Theme.of(context).primaryColor, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(width: 10),
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
 }

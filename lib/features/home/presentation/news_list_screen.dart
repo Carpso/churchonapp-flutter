@@ -15,6 +15,35 @@ class NewsListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final publicNewsAsync = ref.watch(publicNewsProvider);
     final kingdomNewsAsync = ref.watch(newsStreamProvider);
+    final newsSections = <Widget>[
+      kingdomNewsAsync.when(
+        data: (news) => _buildSection(context, "Writers", news),
+        loading: () => _buildNewsSkeleton(),
+        error: (_, __) => const SizedBox.shrink(),
+      ),
+      const SizedBox(height: 8),
+      publicNewsAsync.when(
+        data: (news) => _buildSection(context, "Global Christian News", news),
+        loading: () => _buildNewsSkeleton(),
+        error: (e, s) => Padding(
+          padding: const EdgeInsets.all(20),
+          child: Center(
+            child: Column(
+              children: [
+                const Icon(LucideIcons.alertCircle, color: Colors.grey, size: 40),
+                const SizedBox(height: 10),
+                Text("Could not load news: $e", style: const TextStyle(color: Colors.grey)),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(publicNewsProvider),
+                  child: const Text("RETRY"),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -30,37 +59,10 @@ class NewsListScreen extends ConsumerWidget {
           ref.invalidate(publicNewsProvider);
           ref.invalidate(newsStreamProvider);
         },
-        child: ListView(
+        child: ListView.builder(
           padding: const EdgeInsets.all(20),
-          children: [
-            kingdomNewsAsync.when(
-              data: (news) => _buildSection(context, "Writers", news),
-              loading: () => _buildNewsSkeleton(),
-              error: (_, __) => const SizedBox.shrink(),
-            ),
-            const SizedBox(height: 8),
-            publicNewsAsync.when(
-              data: (news) => _buildSection(context, "Global Christian News", news),
-              loading: () => _buildNewsSkeleton(),
-              error: (e, s) => Padding(
-                padding: const EdgeInsets.all(20),
-                child: Center(
-                  child: Column(
-                    children: [
-                      const Icon(LucideIcons.alertCircle, color: Colors.grey, size: 40),
-                      const SizedBox(height: 10),
-                      Text("Could not load news: $e", style: const TextStyle(color: Colors.grey)),
-                      const SizedBox(height: 10),
-                      ElevatedButton(
-                        onPressed: () => ref.invalidate(publicNewsProvider),
-                        child: const Text("RETRY"),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
+          itemCount: newsSections.length,
+          itemBuilder: (context, index) => newsSections[index],
         ),
       ),
     );

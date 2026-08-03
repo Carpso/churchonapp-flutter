@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS public.whatsapp_config (
 
 ALTER TABLE public.whatsapp_config ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY whatsapp_config_all ON public.whatsapp_config FOR ALL USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "whatsapp_config_all" ON "public".whatsapp_config;
+CREATE POLICY "whatsapp_config_all" ON "public".whatsapp_config FOR ALL USING (auth.uid() IS NOT NULL);
 
 INSERT INTO public.whatsapp_config (is_enabled) VALUES (false) ON CONFLICT DO NOTHING;
 

@@ -5,6 +5,8 @@ import 'package:church_on_app/features/events/data/event_service.dart';
 import 'package:church_on_app/features/give/presentation/lipila_payment_gateway.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/features/finance/data/finance_service.dart';
 
 class EventsListScreen extends ConsumerWidget {
   const EventsListScreen({super.key});
@@ -14,7 +16,7 @@ class EventsListScreen extends ConsumerWidget {
     final eventsAsync = ref.watch(eventsStreamProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Events", style: TextStyle(fontWeight: FontWeight.bold)),
       ),
@@ -145,19 +147,7 @@ class EventsListScreen extends ConsumerWidget {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, 'back'), child: const Text("BACK")),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => LipilaPaymentGateway(
-                amount: event.ticketPrice,
-                description: "Ticket: ${event.title}",
-                onComplete: (success, txId) {
-                  Navigator.pop(context);
-                  if (success && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment successful! Ticket reserved.")));
-                  }
-                },
-              )));
-            },
+            onPressed: () => Navigator.pop(context, 'pay'),
             child: const Text("PAY VIA MOBILE MONEY", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
           ),
           ElevatedButton(onPressed: () => Navigator.pop(context, 'reserve'), child: const Text("YES, RESERVE")),
@@ -165,7 +155,40 @@ class EventsListScreen extends ConsumerWidget {
       ),
     );
 
-    if (action == 'reserve') {
+    if (action == 'pay' && context.mounted) {
+      final tenant = ref.read(currentTenantProvider);
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => LipilaPaymentGateway(
+          amount: event.ticketPrice,
+          description: "Ticket: ${event.title}",
+          category: "event",
+          recipientName: tenant?.name ?? "Church On App",
+          recipientAccount: tenant?.treasurerPhone,
+          paymentReason: "Ticket: ${event.title}",
+          onComplete: (success, txId) async {
+            Navigator.pop(context);
+            if (success && txId != null && context.mounted) {
+              try {
+                await ref.read(eventServiceProvider).registerForEvent(event.id);
+                await ref.read(financeServiceProvider).logTransaction(
+                  event.ticketPrice, 'event', txId, tenantId: tenant?.id,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment successful! Ticket purchased.")));
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Payment received but registration failed: $e")));
+                }
+              }
+            }
+          },
+        ),
+      );
+    } else if (action == 'reserve') {
       final service = ref.read(eventServiceProvider);
       await service.registerForEvent(event.id);
       if (context.mounted) {

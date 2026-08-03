@@ -62,7 +62,9 @@ class BibleService {
           final List versesJson = json.decode(cachedData);
           return versesJson.map((v) => BibleVerse.fromJson(v)).toList();
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('BibleService: Cache fallback failed: $e');
+      }
       // Fallback to offline asset
       try {
         final jsonString = await rootBundle.loadString('assets/offline_bible_data.json');

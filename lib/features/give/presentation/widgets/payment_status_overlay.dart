@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-enum PaymentStatus { idle, initiating, awaitingPin, succeeded, failed, cancelled }
+enum PaymentStatus { idle, initiating, awaitingPin, succeeded, failed, cancelled, cardRedirect }
 
 class PaymentStatusOverlay extends StatefulWidget {
   final PaymentStatus status;
@@ -48,7 +48,8 @@ class _PaymentStatusOverlayState extends State<PaymentStatusOverlay>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
     if (widget.status == PaymentStatus.initiating ||
-        widget.status == PaymentStatus.awaitingPin) {
+        widget.status == PaymentStatus.awaitingPin ||
+        widget.status == PaymentStatus.cardRedirect) {
       _pulseController.repeat(reverse: true);
     }
   }
@@ -57,7 +58,8 @@ class _PaymentStatusOverlayState extends State<PaymentStatusOverlay>
   void didUpdateWidget(covariant PaymentStatusOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.status == PaymentStatus.initiating ||
-        widget.status == PaymentStatus.awaitingPin) {
+        widget.status == PaymentStatus.awaitingPin ||
+        widget.status == PaymentStatus.cardRedirect) {
       if (!_pulseController.isAnimating) {
         _pulseController.repeat(reverse: true);
       }
@@ -78,6 +80,7 @@ class _PaymentStatusOverlayState extends State<PaymentStatusOverlay>
     switch (widget.status) {
       case PaymentStatus.initiating:
       case PaymentStatus.awaitingPin:
+      case PaymentStatus.cardRedirect:
         return _buildProcessingState();
       case PaymentStatus.succeeded:
         return _buildSuccessState();
@@ -128,7 +131,9 @@ class _PaymentStatusOverlayState extends State<PaymentStatusOverlay>
           Text(
             widget.status == PaymentStatus.awaitingPin
                 ? "Please check your phone for the PIN request pop-up."
-                : "Initializing secure payment channel...",
+                : widget.status == PaymentStatus.cardRedirect
+                    ? "You will be redirected to complete card payment. After payment, return here."
+                    : "Initializing secure payment channel...",
             style: const TextStyle(color: Colors.grey, fontSize: 12),
             textAlign: TextAlign.center,
           ),

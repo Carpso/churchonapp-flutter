@@ -73,7 +73,7 @@ class ChatInputWidget extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(13),
                 decoration: const BoxDecoration(
-                  color: Color(0xFF075E54),
+                  color: Color(0xFF1A1A1A),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -113,7 +113,7 @@ class StickerPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Stickers', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF075E54))),
+          const Text('Stickers', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1A1A1A))),
           const SizedBox(height: 10),
           Expanded(
             child: GridView.builder(
@@ -164,7 +164,7 @@ class ReplyPreviewWidget extends StatelessWidget {
             width: 3,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFF075E54),
+              color: const Color(0xFF1A1A1A),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -175,7 +175,7 @@ class ReplyPreviewWidget extends StatelessWidget {
               children: [
                 Text(
                   'Replying to $senderName',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF075E54)),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1A1A1A)),
                 ),
                 Text(
                   text,

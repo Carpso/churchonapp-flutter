@@ -6,7 +6,7 @@
 -- Add unique constraint on payment_ref to prevent duplicate submissions
 DO $$ BEGIN
     ALTER TABLE coa_payments ADD CONSTRAINT coa_payments_payment_ref_unique UNIQUE (payment_ref);
-EXCEPTION WHEN duplicate_table OR duplicate_column THEN
+EXCEPTION WHEN duplicate_table OR duplicate_object THEN
     NULL;
 END $$;
 

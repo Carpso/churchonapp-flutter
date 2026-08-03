@@ -84,7 +84,7 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB), // Warm premium background
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Warm premium background
       appBar: AppBar(
         title: Text(
           "SUPPORT & GUIDES",
@@ -793,7 +793,7 @@ class _GuideExpansionTileState extends State<_GuideExpansionTile> {
           leading: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: _isExpanded ? Colors.amber.withValues(alpha: 0.1) : const Color(0xFFFFFAEB),
+              color: _isExpanded ? Colors.amber.withValues(alpha: 0.1) : Theme.of(context).scaffoldBackgroundColor,
               shape: BoxShape.circle,
             ),
             child: Icon(widget.icon, color: _isExpanded ? Colors.amber : Colors.black87, size: 20),

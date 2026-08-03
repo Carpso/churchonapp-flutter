@@ -61,7 +61,9 @@ class RecommendationEngineService {
           );
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('RecommendationEngine: Error fetching sermon recs: $e');
+    }
 
     // Add high-value fallback recommendations
     if (list.isEmpty) {

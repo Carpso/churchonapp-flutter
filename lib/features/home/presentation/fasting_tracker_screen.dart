@@ -25,7 +25,7 @@ class _FastingTrackerScreenState extends ConsumerState<FastingTrackerScreen> wit
   Duration _timeLeft = Duration.zero;
   double _percentComplete = 0.0;
 
-  final List<String> _fastTypes = ["Daniel Fast", "Partial Fast", "Full Water Fast", "Esther Fast (Dry)"];
+  final List<String> _fastTypes = ["Daniel Fast", "Partial Fast", "Full Water Fast", "Esther Fast (Dry)", "Tech Fast"];
   final List<Map<String, String>> _scriptures = [
     {"ref": "Isaiah 58:6", "text": "Is not this the fast that I have chosen? to loose the bands of wickedness, to undo the heavy burdens..."},
     {"ref": "Matthew 6:16", "text": "Moreover when ye fast, be not, as the hypocrites, of a sad countenance..."},
@@ -237,9 +237,9 @@ class _FastingTrackerScreenState extends ConsumerState<FastingTrackerScreen> wit
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          title: const Text("Spiritual Fasting Tracker", style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text("Fasting Tracker", style: TextStyle(fontWeight: FontWeight.bold)),
           backgroundColor: Colors.brown,
           foregroundColor: Colors.white,
         ),
@@ -248,7 +248,7 @@ class _FastingTrackerScreenState extends ConsumerState<FastingTrackerScreen> wit
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Spiritual Fasting Tracker", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.brown,

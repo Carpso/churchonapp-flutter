@@ -237,7 +237,7 @@ class _EventHostDashboardScreenState extends State<EventHostDashboardScreen> {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           title: Text("${widget.eventTitle} Host Console", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           bottom: const TabBar(
@@ -314,7 +314,7 @@ class _EventHostDashboardScreenState extends State<EventHostDashboardScreen> {
                 }
                 final list = snapshot.data ?? [];
                 return Scaffold(
-                  backgroundColor: const Color(0xFFFFFAEB),
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                   body: list.isEmpty
                       ? const Center(
                           child: Text("No shared materials yet. Upload one below!", style: TextStyle(color: Colors.grey)),

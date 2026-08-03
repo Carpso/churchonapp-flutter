@@ -68,10 +68,10 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Rider Dashboard", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFFFAEB), foregroundColor: Colors.black87, elevation: 0,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor, foregroundColor: Colors.black87, elevation: 0,
         actions: [IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _isLoading ? null : _loadDashboard)],
       ),
       body: _isLoading ? _buildShimmer() : _error != null ? _buildError()

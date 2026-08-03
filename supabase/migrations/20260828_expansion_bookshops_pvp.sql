@@ -26,7 +26,7 @@ CREATE POLICY "bookshops_select" ON public.bookshops FOR SELECT USING (
   OR auth.jwt() -> 'app_metadata' -> 'role' ? 'coa_employee'
   OR (church_id IS NOT NULL AND EXISTS (
     SELECT 1 FROM public.churches c WHERE c.id = church_id AND c.tenant_id IN (
-      SELECT tenant_id FROM public.profiles WHERE id = auth.uid()
+      SELECT tenant_id::uuid FROM public.profiles WHERE id = auth.uid() AND tenant_id IS NOT NULL
     )
   ))
 );
@@ -44,7 +44,7 @@ CREATE POLICY "bookshops_update" ON public.bookshops FOR UPDATE USING (
   OR auth.jwt() -> 'app_metadata' -> 'role' ? 'coa_employee'
   OR (church_id IS NOT NULL AND EXISTS (
     SELECT 1 FROM public.churches c WHERE c.id = church_id AND c.tenant_id IN (
-      SELECT tenant_id FROM public.profiles WHERE id = auth.uid()
+      SELECT tenant_id::uuid FROM public.profiles WHERE id = auth.uid() AND tenant_id IS NOT NULL
     )
   ))
 );

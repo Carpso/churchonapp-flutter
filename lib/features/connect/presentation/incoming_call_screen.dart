@@ -48,7 +48,7 @@ class IncomingCallScreen extends ConsumerWidget {
                 const Spacer(flex: 2),
                 CircleAvatar(
                   radius: 70,
-                  backgroundColor: const Color(0xFF075E54),
+                  backgroundColor: const Color(0xFF1A1A1A),
                   child: Text(
                     'C',
                     style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold),

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'church_invite_screen.dart';
 import 'finance_dashboard_screen.dart';
 import 'member_management_screen.dart';
 import 'service_report_screen.dart';
@@ -42,6 +43,11 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
     final profile = ref.read(profileProvider).value;
     if (profile == null) { setState(() { _isLoading = false; _error = "Profile not found"; }); return; }
 
+    final tenantId = profile.tenantId;
+    if (tenantId == null || tenantId.isEmpty) {
+      setState(() { _isLoading = false; _error = "Not assigned to a church"; }); return;
+    }
+
     final now = DateTime.now();
     final firstOfMonth = DateTime(now.year, now.month, 1);
     final firstOfLastMonth = DateTime(now.year, now.month - 1, 1);
@@ -49,36 +55,41 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
     try {
       final client = Supabase.instance.client;
 
+      // Scope all queries to bishop's own tenant
       final tenantsRes = await client
           .from('tenants')
           .select('id, name, created_at')
-          .eq('type', 'church');
+          .eq('id', tenantId);
 
       final attThisMonth = await client
           .from('attendance_logs')
           .select('id, tenant_id')
+          .eq('tenant_id', tenantId)
           .gte('created_at', firstOfMonth.toIso8601String());
 
       final attLastMonth = await client
           .from('attendance_logs')
           .select('id')
+          .eq('tenant_id', tenantId)
           .gte('created_at', firstOfLastMonth.toIso8601String())
           .lt('created_at', firstOfMonth.toIso8601String());
 
       final txsRes = await client
           .from('transactions')
           .select('amount, type')
+          .eq('tenant_id', tenantId)
           .inFilter('type', ['tithe', 'giving'])
           .gte('created_at', firstOfMonth.toIso8601String());
 
       final profilesRes = await client
           .from('profiles')
           .select('tenant_id')
-          .not('tenant_id', 'is', null);
+          .eq('tenant_id', tenantId);
 
       final missionsRes = await client
           .from('missions')
           .select('id, title, status')
+          .eq('tenant_id', tenantId)
           .limit(5);
 
       double tithes = 0, giving = 0;
@@ -122,10 +133,10 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
     final headerTitle = isApostle ? "Network Oversight" : "Apostolic Oversight";
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black87,
         elevation: 0,
         actions: [IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _isLoading ? null : _loadDashboard)],
@@ -247,13 +258,14 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                           if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
                         }
                       }
-                    }
-                  }),
-                ]),
-              ),
-            ),
-    );
-  }
+                     }
+                   }),
+                   _quickAction(theme, LucideIcons.userPlus, "Invite Members", "Share invite link, QR & quick share", Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchInviteScreen()))),
+                 ]),
+               ),
+             ),
+     );
+   }
 
   Widget _buildShimmer() => SingleChildScrollView(
     padding: const EdgeInsets.all(25),
@@ -298,7 +310,7 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
   Widget _buildStatsGrid(ThemeData theme) {
     final currency = NumberFormat.currency(symbol: 'K ', decimalDigits: 0);
     return GridView.count(
-      shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+      physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 1.2,
       children: [
         _statCard("Branches", "$_branchCount", LucideIcons.building, Colors.indigo),

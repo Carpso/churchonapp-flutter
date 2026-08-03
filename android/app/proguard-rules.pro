@@ -1,12 +1,12 @@
 # ============================================================
 # R8 FULL OPTIMIZATION — Church On App
 # ============================================================
-# Optimization passes (higher = more aggressive shrinking)
+# Aggressive optimization for maximum performance and size reduction
 -optimizationpasses 5
--overloadaggressively
 -allowaccessmodification
+-overloadaggressively
 -mergeinterfacesaggressively
--repackageclasses 'coa'
+-repackageclasses ''
 
 # Keep Flutter engine classes (required for runtime)
 -keep class io.flutter.app.** { *; }
@@ -186,3 +186,64 @@
 # ============================================================
 -keep class javax.crypto.** { *; }
 -keep class android.security.** { *; }
+
+# ============================================================
+# GEOLOCATOR / MAPLIBRE / LOCATION SERVICES
+# ============================================================
+-keep class com.google.android.gms.location.** { *; }
+-keep class com.baseflow.geolocator.** { *; }
+-dontwarn com.baseflow.geolocator.**
+
+# ============================================================
+# IMAGE PICKER / CAMERA
+# ============================================================
+-keep class io.flutter.plugins.imagepicker.** { *; }
+-keep class io.flutter.plugins.camera.** { *; }
+
+# ============================================================
+# SHARE PLUS / URL LAUNCHER
+# ============================================================
+-keep class io.flutter.plugins.share.** { *; }
+-keep class io.flutter.plugins.urllauncher.** { *; }
+
+# ============================================================
+# SHARED PREFERENCES / SECURE STORAGE
+# ============================================================
+-keep class io.flutter.plugins.sharedpreferences.** { *; }
+-keep class io.flutter.plugins.fluttersecurestorage.** { *; }
+
+# ============================================================
+# CONNECTIVITY / DEVICE INFO / PACKAGE INFO
+# ============================================================
+-keep class io.flutter.plugins.connectivityplus.** { *; }
+-keep class io.flutter.plugins.deviceinfo.** { *; }
+-keep class io.flutter.plugins.packageinfo.** { *; }
+
+# ============================================================
+# GOOGLE SIGN IN / PASSKEYS
+# ============================================================
+-keep class com.google.android.gms.auth.** { *; }
+-keep class com.google.android.gms.common.** { *; }
+
+# ============================================================
+# LOCAL NOTIFICATIONS / WAKELOCK
+# ============================================================
+-keep class com.dexterous.flutterlocalnotifications.** { *; }
+-keep class io.flutter.plugins.wakelock.** { *; }
+
+# ============================================================
+# PDF / PRINTING
+# ============================================================
+-keep class io.flutter.plugins.printing.** { *; }
+-dontwarn io.flutter.plugins.printing.**
+
+# ============================================================
+# MOBILE SCANNER / QR
+# ============================================================
+-keep class io.flutter.plugins.mobilescanner.** { *; }
+
+# ============================================================
+# LINT: Strip unused code aggressively
+# ============================================================
+-allowaccessmodification
+-repackageclasses ''

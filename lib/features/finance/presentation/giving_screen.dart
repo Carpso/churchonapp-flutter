@@ -6,10 +6,12 @@ import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/core/widgets/premium_confirmation_sheet.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/core/config/fee_config.dart';
 import 'tithe_history_screen.dart';
 import 'lipila_payment_gateway.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'widgets/giving_category_selector.dart';
+import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 
 class GivingScreen extends ConsumerStatefulWidget {
   const GivingScreen({super.key});
@@ -18,7 +20,10 @@ class GivingScreen extends ConsumerStatefulWidget {
   ConsumerState<GivingScreen> createState() => _GivingScreenState();
 }
 
-class _GivingScreenState extends ConsumerState<GivingScreen> {
+class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final _formKey = GlobalKey<FormState>();
   String _selectedCategory = "Tithe";
   final TextEditingController _amountController = TextEditingController();
@@ -33,11 +38,12 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final profileAsync = ref.watch(profileProvider);
     return profileAsync.when(
       data: (profile) => _buildScreen(context, profile),
       loading: () => Scaffold(
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -52,15 +58,18 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
         ),
       ),
       error: (e, st) => Scaffold(
-        backgroundColor: const Color(0xFFFFFAEB),
-        body: Center(child: Text('Error loading profile: $e')),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: ErrorRetryWidget(
+          message: "Failed to load profile",
+          onRetry: () => ref.invalidate(profileProvider),
+        ),
       ),
     );
   }
 
   Widget _buildScreen(BuildContext context, UserProfile? profile) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Giving", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
@@ -94,7 +103,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
             const SizedBox(height: 40),
             ElevatedButton(
               onPressed: () {
-                if (!_formKey.currentState!.validate()) return;
+                if (_formKey.currentState == null || !_formKey.currentState!.validate()) return;
                 final amount = double.tryParse(_amountController.text) ?? 0.0;
 
                 showModalBottomSheet(
@@ -103,9 +112,8 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
                   backgroundColor: Colors.transparent,
                   builder: (context) {
                     final tenant = ref.read(currentTenantProvider);
-                    final fee = amount * 0.01 > 3.00 ? amount * 0.01 : 3.00;
                     return LipilaPaymentGateway(
-                      amount: amount + fee,
+                      amount: amount,
                       description: "Giving: $_selectedCategory",
                       category: _selectedCategory.toLowerCase(),
                       recipientName: tenant?.name ?? "Local Church",
@@ -113,11 +121,11 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
                       paymentReason: "$_selectedCategory Support",
                       onComplete: (success, txId) async {
                         Navigator.pop(context);
-                        if (success) {
+                        if (success && txId != null) {
                           await ref.read(financeServiceProvider).logTransaction(
                             amount,
                             _selectedCategory.toLowerCase(),
-                            txId!,
+                            txId,
                             tenantId: tenant?.id,
                             recipientPhone: tenant?.treasurerPhone,
                             recipientName: tenant?.name,
@@ -134,7 +142,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
                 minimumSize: const Size(double.infinity, 60),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               ),
-              child: const Text("PROCEED TO SECURE PAYMENT", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+              child: Text("PROCEED TO SECURE PAYMENT", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSecondary)),
             ),
           ],
         ),
@@ -218,7 +226,6 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
         const Text("More Ways to Give", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 15),
         GridView.builder(
-          shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
@@ -251,7 +258,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center),
-                    Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 9), textAlign: TextAlign.center),
+                    Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 9), textAlign: TextAlign.center),
                   ],
                 ),
               ),
@@ -260,6 +267,11 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
         ),
       ],
     );
+  }
+
+  double _calculateFee(double amount) {
+    final fees = ref.read(feeConfigProvider).value ?? FeeConfig.defaults;
+    return fees.platformFee(amount);
   }
 
   Widget _buildAmountInput() {
@@ -272,7 +284,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Enter Amount (K)", style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+          Text("Enter Amount (K)", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           TextFormField(
             controller: _amountController,
@@ -295,12 +307,12 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
             const SizedBox(height: 10),
             Row(
               children: [
-                const Icon(LucideIcons.info, size: 12, color: Colors.blue),
+                Icon(LucideIcons.info, size: 12, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 5),
                 Flexible(
                   child: Text(
-                    "+ Platform Fee (K${(() { final amt = double.tryParse(_amountController.text); if (amt == null) return '3.00'; final fee = amt * 0.01 > 3.00 ? amt * 0.01 : 3.00; return fee.toStringAsFixed(2); })()})",
-                    style: const TextStyle(color: Colors.blue, fontSize: 10),
+                    "+ Platform Fee (K${(() { final amt = double.tryParse(_amountController.text); if (amt == null) return '3.00'; return _calculateFee(amt).toStringAsFixed(2); })()})",
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 10),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -321,14 +333,12 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
         const SizedBox(height: 15),
         _buildPaymentOption("Mobile Money", LucideIcons.smartphone, true),
         const SizedBox(height: 10),
-        _buildPaymentOption("Church Wallet", LucideIcons.wallet, false),
-        const SizedBox(height: 10),
         _buildPaymentOption("Credit/Debit Card", LucideIcons.creditCard, false),
       ],
     );
   }
 
-  Widget _buildPaymentOption(String title, IconData icon, bool isSelected) {
+  Widget _buildPaymentOption(String title, IconData icon, bool isSelected, {bool isComingSoon = false}) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -338,11 +348,18 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: Theme.of(context).primaryColor, size: 24),
+          Icon(icon, color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), size: 24),
           const SizedBox(width: 15),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
           const Spacer(),
-          if (isSelected) const Icon(LucideIcons.checkCircle, color: Colors.green, size: 20),
+          if (isComingSoon)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+              child: const Text("SOON", style: TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.bold)),
+            )
+          else if (isSelected)
+            const Icon(LucideIcons.checkCircle, color: Colors.green, size: 20),
         ],
       ),
     );

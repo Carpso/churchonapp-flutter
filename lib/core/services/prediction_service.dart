@@ -92,7 +92,9 @@ class PredictionService {
         if (streakRes != null) {
           streak = (streakRes['current_streak'] as num?)?.toInt() ?? 3;
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('PredictionService: Error fetching streak: $e');
+      }
 
       return SpiritualPrediction.fromProfileData(
         streakDays: streak,
@@ -154,69 +156,64 @@ class SpiritualPredictorCard extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Expanded(
-                  child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        LucideIcons.sparkles,
-                        color: Color(0xFFFDE047),
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Flexible(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'AI Spiritual Momentum',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                          ),
-                          Text(
-                            'Personalized Growth Forecast',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                Container(
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFDE047).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFDE047).withValues(alpha: 0.5)),
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
                   ),
-                  child: Text(
-                    pred.momentumLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFFFDE047),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
-                    ),
+                  child: const Icon(
+                    LucideIcons.sparkles,
+                    color: Color(0xFFFDE047),
+                    size: 20,
                   ),
                 ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Spiritual Momentum',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      Text(
+                        'Personalized Growth Forecast',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFDE047).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFDE047).withValues(alpha: 0.5)),
+                ),
+                child: Text(
+                  pred.momentumLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFFDE047),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 20),
             Row(

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,7 +41,7 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
   bool _showStickers = false;
   bool _isSending = false;
 
-  static const Color _appBarColor = Color(0xFF075E54);
+  static const Color _appBarColor = Color(0xFF1A1A1A);
 
   @override
   void initState() {
@@ -189,7 +189,7 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
 
   Future<void> _pickAndSendImage() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70, maxWidth: 1080, maxHeight: 1080);
     if (picked != null && mounted) {
       final file = File(picked.path);
       final fileName = 'chat_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -262,7 +262,7 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
                 stream: messagesStream,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: Color(0xFF075E54)));
+                    return const Center(child: CircularProgressIndicator(color: Color(0xFF1A1A1A)));
                   }
                   final messages = snapshot.data ?? [];
 
@@ -329,7 +329,11 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
         IconButton(
           icon: const Icon(LucideIcons.video, color: Colors.white, size: 22),
           tooltip: widget.isGroup ? 'Group Video Call' : 'Video Call',
-          onPressed: _startAudioCall,
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Video calling coming soon!"), backgroundColor: Colors.orange),
+            );
+          },
         ),
         IconButton(
           icon: const Icon(LucideIcons.phone, color: Colors.white, size: 22),
@@ -392,10 +396,10 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF075E54).withValues(alpha: 0.08),
+              color: const Color(0xFF1A1A1A).withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
-            child: const Icon(LucideIcons.messageSquare, size: 60, color: Color(0xFF075E54)),
+            child: const Icon(LucideIcons.messageSquare, size: 60, color: Color(0xFF1A1A1A)),
           ),
           const SizedBox(height: 20),
           Text(
@@ -448,7 +452,7 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
             ),
             const Divider(height: 30),
             ListTile(
-              leading: const Icon(LucideIcons.reply, color: Color(0xFF075E54)),
+              leading: const Icon(LucideIcons.reply, color: Color(0xFF1A1A1A)),
               title: const Text("Reply"),
               onTap: () {
                 Navigator.pop(ctx);
@@ -479,7 +483,7 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
       child: CircleAvatar(
         radius: 22,
         backgroundColor: msg.reaction == emoji
-            ? const Color(0xFF075E54).withValues(alpha: 0.15)
+            ? const Color(0xFF1A1A1A).withValues(alpha: 0.15)
             : Colors.grey.shade100,
         child: Text(emoji, style: const TextStyle(fontSize: 22)),
       ),
@@ -505,7 +509,7 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text("Replying to ${msg.senderName}", style: const TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF075E54),
+        backgroundColor: const Color(0xFF1A1A1A),
         duration: const Duration(seconds: 2),
       ),
     );

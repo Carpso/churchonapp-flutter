@@ -5,6 +5,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:church_on_app/features/transport/data/ride_pricing_provider.dart';
 import 'package:church_on_app/features/transport/data/transport_service.dart';
 import 'package:church_on_app/features/admin/data/promo_service.dart';
+import 'package:church_on_app/core/config/fee_config.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
 
 class VehicleSelectionSheet extends ConsumerStatefulWidget {
   final LatLng pickupLatLng;
@@ -110,6 +112,47 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
                 ? 'Book Delivery'
                 : 'Personal Transport';
 
+    final fees = ref.watch(feeConfigProvider).value ?? FeeConfig.defaults;
+    final isDelivery = pricing.selectedCategory == 'marketplace' ||
+        pricing.selectedCategory == 'bookshop';
+    final baseFare = isDelivery
+        ? fees.rideDeliveryBaseFareKwacha
+        : fees.rideBaseFareKwacha;
+    final perKmRate = isDelivery
+        ? (fees.rideDeliveryPerKmKwacha > 0
+            ? fees.rideDeliveryPerKmKwacha
+            : kDeliveryPerKmRate)
+        : (ref
+                .read(remoteConfigProvider)
+                .value
+                ?.getDouble('ride_per_km_kwacha', kCarpsoPerKmRate) ??
+            kCarpsoPerKmRate);
+    final distance = pricing.distanceKm;
+    final citySpeed = ref
+            .read(remoteConfigProvider)
+            .value
+            ?.getDouble('ride_avg_city_speed_kmh', kCarpsoCitySpeedKmh) ??
+        kCarpsoCitySpeedKmh;
+    final tripMinutes = distance != null
+        ? (distance / citySpeed * 60).ceil()
+        : null;
+
+    final driversAsync = ref.watch(activeDriversStreamProvider);
+    double? nearestDriverKm;
+    if (distance != null) {
+      final drivers = driversAsync.value ?? const [];
+      for (final d in drivers) {
+        final dKm = const Distance()
+            .as(LengthUnit.Kilometer, widget.pickupLatLng, LatLng(d.lat, d.lng));
+        if (nearestDriverKm == null || dKm < nearestDriverKm) {
+          nearestDriverKm = dKm;
+        }
+      }
+    }
+    final driverPickupMinutes = nearestDriverKm != null
+        ? (nearestDriverKm / 30.0 * 60).ceil()
+        : null;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -119,93 +162,95 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "ESTIMATED FARE",
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    pricing.selectedCategory == 'bus'
-                        ? "Shared Bus Route Ride"
-                        : (pricing.selectedCategory == 'marketplace' ||
-                                pricing.selectedCategory == 'bookshop')
-                            ? "Cargo Delivery"
-                            : "Standard Carpso Ride",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                  Text(
-                    desc,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  if (pricing.distanceKm != null) ...[
-                    const SizedBox(height: 4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      "K5/km × ${pricing.distanceKm!.toStringAsFixed(1)} km",
+                      "ESTIMATED FARE",
                       style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         fontSize: 10,
-                        color: theme.primaryColor.withValues(alpha: 0.6),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      pricing.selectedCategory == 'bus'
+                          ? "Shared Bus Route Ride"
+                          : (pricing.selectedCategory == 'marketplace' ||
+                                  pricing.selectedCategory == 'bookshop')
+                              ? "Cargo Delivery"
+                              : "Standard Carpso Ride",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      desc,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
-                ],
+                ),
               ),
+              const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    formatZmw(pricing.totalPayable),
+                    formatZmw(pricing.totalPayable(fees)),
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 26,
                       fontWeight: FontWeight.w900,
-                      color: const Color(0xFFFFD700),
+                      color: theme.primaryColor,
                     ),
                   ),
                   Text(
-                    "Base K${pricing.distanceKm != null ? (pricing.distanceKm! * 5).toStringAsFixed(1) : '?'} + ${formatZmw(pricing.platformFee)} fee (1%)",
+                    "incl. platform fee",
                     style: TextStyle(
                       fontSize: 10,
-                      color: const Color(0xFFFFD700).withValues(alpha: 0.7),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
                 ],
               ),
             ],
           ),
-          if (pricing.distanceKm != null) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Icon(LucideIcons.ruler, size: 12, color: theme.primaryColor),
-                const SizedBox(width: 4),
-                Text(
-                  "${pricing.distanceKm!.toStringAsFixed(1)} km",
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                  ),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _infoChip(theme, "Base K${baseFare.toStringAsFixed(0)}", LucideIcons.tag),
+              if (distance != null)
+                _infoChip(theme,
+                    "K${perKmRate.toStringAsFixed(0)}/km × ${distance.toStringAsFixed(1)} km",
+                    LucideIcons.ruler),
+              if (isDelivery)
+                _infoChip(theme, "Fixed fare · No negotiation", LucideIcons.lock)
+              else
+                _infoChip(theme, "Negotiable with driver", LucideIcons.messageSquare),
+              if (tripMinutes != null)
+                _infoChip(theme, "~$tripMinutes min trip", LucideIcons.clock),
+              if (driverPickupMinutes != null)
+                _infoChip(theme, "Nearest driver ~$driverPickupMinutes min away",
+                    LucideIcons.navigation),
+            ],
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Icon(LucideIcons.sparkles, color: theme.primaryColor, size: 14),
@@ -244,11 +289,37 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
                 child: const Text("Apply", style: TextStyle(fontWeight: FontWeight.bold)),
               ),
               filled: true,
-              fillColor: Colors.grey.shade50,
+              fillColor: theme.colorScheme.surfaceContainerHighest,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
             controller: _promoCodeController,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoChip(ThemeData theme, String label, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.primaryColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: theme.primaryColor),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: theme.primaryColor.withValues(alpha: 0.9),
+            ),
           ),
         ],
       ),
@@ -272,16 +343,16 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
               ? null
               : () => _showDriverSelection(context, ref, drivers, isDelivery, theme),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFFFD700),
+            backgroundColor: theme.primaryColor,
             minimumSize: const Size(double.infinity, 65),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
             elevation: 8,
-            shadowColor: const Color(0xFFFFD700).withValues(alpha: 0.5),
+            shadowColor: theme.primaryColor.withValues(alpha: 0.5),
           ),
           child: Text(
             isDelivery ? "REQUEST CARGO DELIVERY" : "REQUEST CARPSO RIDE",
             style: TextStyle(
-              color: Colors.black,
+              color: theme.colorScheme.onPrimary,
               fontWeight: FontWeight.w900,
               fontSize: 14,
               letterSpacing: 1.5,
@@ -400,8 +471,8 @@ class _DriverListContent extends StatelessWidget {
                     trailing: ElevatedButton(
                       onPressed: () => onDriverSelected(driver.userId),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFD700),
-                        foregroundColor: Colors.black,
+                        backgroundColor: theme.primaryColor,
+                        foregroundColor: theme.colorScheme.onPrimary,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),

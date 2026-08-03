@@ -78,40 +78,52 @@ ALTER TABLE quiz_season_rewards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quiz_weekly_scores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE church_quiz_leases ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "quiz_seasons_select" ON quiz_seasons FOR SELECT USING (true);
-CREATE POLICY "quiz_seasons_insert" ON quiz_seasons FOR INSERT WITH CHECK (
+DROP POLICY IF EXISTS "quiz_seasons_select" ON "quiz_seasons";
+CREATE POLICY "quiz_seasons_select" ON "quiz_seasons" FOR SELECT USING (true);
+DROP POLICY IF EXISTS "quiz_seasons_insert" ON "quiz_seasons";
+CREATE POLICY "quiz_seasons_insert" ON "quiz_seasons" FOR INSERT WITH CHECK (
   EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('superadmin','admin'))
 );
-CREATE POLICY "quiz_seasons_update" ON quiz_seasons FOR UPDATE USING (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('superadmin','admin'))
-);
-
-CREATE POLICY "quiz_season_rewards_select" ON quiz_season_rewards FOR SELECT USING (true);
-CREATE POLICY "quiz_season_rewards_insert" ON quiz_season_rewards FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('superadmin','admin'))
-);
-CREATE POLICY "quiz_season_rewards_update" ON quiz_season_rewards FOR UPDATE USING (
+DROP POLICY IF EXISTS "quiz_seasons_update" ON "quiz_seasons";
+CREATE POLICY "quiz_seasons_update" ON "quiz_seasons" FOR UPDATE USING (
   EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('superadmin','admin'))
 );
 
-CREATE POLICY "quiz_weekly_scores_select" ON quiz_weekly_scores FOR SELECT USING (true);
-CREATE POLICY "quiz_weekly_scores_upsert" ON quiz_weekly_scores FOR INSERT WITH CHECK (
+DROP POLICY IF EXISTS "quiz_season_rewards_select" ON "quiz_season_rewards";
+CREATE POLICY "quiz_season_rewards_select" ON "quiz_season_rewards" FOR SELECT USING (true);
+DROP POLICY IF EXISTS "quiz_season_rewards_insert" ON "quiz_season_rewards";
+CREATE POLICY "quiz_season_rewards_insert" ON "quiz_season_rewards" FOR INSERT WITH CHECK (
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('superadmin','admin'))
+);
+DROP POLICY IF EXISTS "quiz_season_rewards_update" ON "quiz_season_rewards";
+CREATE POLICY "quiz_season_rewards_update" ON "quiz_season_rewards" FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('superadmin','admin'))
+);
+
+DROP POLICY IF EXISTS "quiz_weekly_scores_select" ON "quiz_weekly_scores";
+CREATE POLICY "quiz_weekly_scores_select" ON "quiz_weekly_scores" FOR SELECT USING (true);
+DROP POLICY IF EXISTS "quiz_weekly_scores_upsert" ON "quiz_weekly_scores";
+CREATE POLICY "quiz_weekly_scores_upsert" ON "quiz_weekly_scores" FOR INSERT WITH CHECK (
   auth.uid() = user_id
 );
-CREATE POLICY "quiz_weekly_scores_update" ON quiz_weekly_scores FOR UPDATE USING (
+DROP POLICY IF EXISTS "quiz_weekly_scores_update" ON "quiz_weekly_scores";
+CREATE POLICY "quiz_weekly_scores_update" ON "quiz_weekly_scores" FOR UPDATE USING (
   auth.uid() = user_id
 );
 
 -- Church lease: church admins see their own lease, superadmin sees all
-CREATE POLICY "church_quiz_leases_select" ON church_quiz_leases FOR SELECT USING (
+DROP POLICY IF EXISTS "church_quiz_leases_select" ON "church_quiz_leases";
+CREATE POLICY "church_quiz_leases_select" ON "church_quiz_leases" FOR SELECT USING (
   church_id::text = (SELECT tenant_id::text FROM profiles WHERE id = auth.uid())
   OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'superadmin')
 );
-CREATE POLICY "church_quiz_leases_insert" ON church_quiz_leases FOR INSERT WITH CHECK (
+DROP POLICY IF EXISTS "church_quiz_leases_insert" ON "church_quiz_leases";
+CREATE POLICY "church_quiz_leases_insert" ON "church_quiz_leases" FOR INSERT WITH CHECK (
   church_id::text = (SELECT tenant_id::text FROM profiles WHERE id = auth.uid())
   AND EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('superadmin','admin','pastor','bishop'))
 );
-CREATE POLICY "church_quiz_leases_update" ON church_quiz_leases FOR UPDATE USING (
+DROP POLICY IF EXISTS "church_quiz_leases_update" ON "church_quiz_leases";
+CREATE POLICY "church_quiz_leases_update" ON "church_quiz_leases" FOR UPDATE USING (
   church_id::text = (SELECT tenant_id::text FROM profiles WHERE id = auth.uid())
   AND EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('superadmin','admin','pastor','bishop'))
 );
@@ -131,6 +143,7 @@ AS $$
 $$;
 
 -- Function to create or renew a quiz lease after payment
+DROP FUNCTION IF EXISTS activate_quiz_lease(UUID, TEXT, INTEGER);
 CREATE OR REPLACE FUNCTION activate_quiz_lease(
   p_church_id UUID,
   p_payment_reference TEXT,

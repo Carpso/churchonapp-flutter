@@ -77,7 +77,7 @@ class _FeatureRequestScreenState extends ConsumerState<FeatureRequestScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           'SUGGEST A FEATURE',
@@ -194,7 +194,7 @@ class _FeatureRequestScreenState extends ConsumerState<FeatureRequestScreen> {
             hintText: hint,
             hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
             filled: true,
-            fillColor: const Color(0xFFFFFAEB),
+            fillColor: Theme.of(context).scaffoldBackgroundColor,
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide:
@@ -228,7 +228,7 @@ class _FeatureRequestScreenState extends ConsumerState<FeatureRequestScreen> {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFFFFFAEB),
+            color: Theme.of(context).scaffoldBackgroundColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
           ),

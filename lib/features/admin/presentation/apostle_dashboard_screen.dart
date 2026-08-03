@@ -94,7 +94,6 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
                   ),
                   const SizedBox(height: 15),
                   GridView.count(
-                    shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     crossAxisCount: 2,
                     mainAxisSpacing: 15,

@@ -11,7 +11,7 @@ class AboutScreen extends StatelessWidget {
       backgroundColor: const Color(0xFF0F0F0F),
       appBar: AppBar(
         backgroundColor: Colors.black,
-        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
+        leading: IconButton(icon: const Icon(LucideIcons.arrowLeft, color: Colors.white), onPressed: () => Navigator.pop(context)),
         title: const Text("About", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(

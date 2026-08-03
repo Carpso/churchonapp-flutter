@@ -3,14 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:church_on_app/core/config/fee_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geocoding/geocoding.dart';
 import 'dart:async';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
-import 'package:church_on_app/features/navigation/presentation/carpso_suggestion_card.dart';
+import 'package:geolocator/geolocator.dart';
 import '../data/transport_service.dart';
 import '../data/ride_pricing_provider.dart';
 import 'active_ride_tracking_screen.dart';
@@ -34,6 +35,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
   LatLng? _pickupLatLng;
   LatLng? _destLatLng;
   StreamSubscription? _acceptanceSub;
+  bool _isLocating = false;
 
   @override
   void initState() {
@@ -42,7 +44,62 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(ridePricingProvider.notifier).setCategory(initialCategory);
       _loadPreferences();
+      _detectCurrentLocation();
     });
+  }
+
+  /// Smart pickup: auto-detect the rider's GPS location and reverse-geocode
+  /// it into a readable address so the pickup is pre-filled.
+  Future<void> _detectCurrentLocation() async {
+    if (_pickupLatLng != null || _isLocating) return;
+    setState(() => _isLocating = true);
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+      if (!mounted) return;
+      final point = LatLng(pos.latitude, pos.longitude);
+      var label = '${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}';
+      try {
+        final places = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+        if (places.isNotEmpty) {
+          final p = places.first;
+          final street = [p.street, p.subLocality].where((s) => s != null && s.isNotEmpty).join(', ');
+          final area = [p.locality, p.subAdministrativeArea].where((s) => s != null && s.isNotEmpty).join(', ');
+          label = [street, area].where((s) => s.isNotEmpty).join(', ');
+          if (label.isEmpty) {
+            label = p.name ?? label;
+          }
+        }
+      } catch (e) {
+        debugPrint('Reverse geocode failed (using coords): $e');
+      }
+      if (!mounted) return;
+      setState(() {
+        _pickupLatLng = point;
+        _pickupController.text = label;
+        if (_pinModeFor == 'pickup') _pinModeFor = null;
+      });
+      if (_pickupLatLng != null && _destLatLng != null) {
+        ref.read(ridePricingProvider.notifier).calculatePrice(_pickupLatLng!, _destLatLng!);
+      }
+    } catch (e) {
+      debugPrint('Location detection failed: $e');
+    } finally {
+      if (mounted) setState(() => _isLocating = false);
+    }
   }
 
   Future<void> _loadPreferences() async {
@@ -179,12 +236,16 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text("Set $targetText",
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16)),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: theme.colorScheme.onSurface)),
                       const SizedBox(height: 4),
                       Text(coordText,
-                          style: const TextStyle(
-                              color: Colors.grey, fontSize: 13),
+                          style: TextStyle(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.5),
+                              fontSize: 13),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                     ],
@@ -207,8 +268,8 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                       });
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFD700),
-                foregroundColor: Colors.black,
+                backgroundColor: theme.primaryColor,
+                foregroundColor: theme.colorScheme.onPrimary,
                 minimumSize: const Size(double.infinity, 56),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18)),
@@ -288,10 +349,12 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
 
   Widget _buildBottomSheet(RidePricingState pricing) {
     final theme = Theme.of(context);
+    final screenH = MediaQuery.of(context).size.height;
+    final sheetH = (screenH * 0.65).clamp(400.0, screenH - 120.0);
     return Align(
       alignment: Alignment.bottomCenter,
       child: Container(
-        height: MediaQuery.of(context).size.height * 0.65,
+        height: sheetH,
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius:
@@ -302,64 +365,68 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                 blurRadius: 20)
           ],
         ),
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 15),
-              width: 50,
-              height: 5,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 25),
-                child: Column(
-                  children: [
-                    _buildCategoryToggle(pricing),
-                    const SizedBox(height: 15),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: PickupDropoffInputs(
-                          pickupController: _pickupController,
-                          dropoffController: _dropoffController,
-                          itemDescController: _itemDescController,
-                          selectedCategory: pricing.selectedCategory,
-                          selectedWeight: pricing.selectedWeight,
-                          pinModeFor: _pinModeFor,
-                          onWeightChanged: (w) => ref
-                              .read(ridePricingProvider.notifier)
-                              .setWeight(w),
-                          onPickupTap: () =>
-                              setState(() => _pinModeFor = 'pickup'),
-                          onDropoffTap: () =>
-                              setState(() => _pinModeFor = 'destination'),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    if (pricing.estimatedPrice != null)
-                      VehicleSelectionSheet(
-                        pickupLatLng:
-                            _pickupLatLng ?? const LatLng(-15.3875, 28.3228),
-                        destLatLng:
-                            _destLatLng ?? const LatLng(-15.395, 28.35),
-                        onRequestRide: () => _handleRidePayment(),
-                        onDriverSelected: (driverId) =>
-                            _listenForAcceptance(driverId),
-                      ),
-                    const Padding(
-                      padding: EdgeInsets.only(top: 8),
-                      child: CarpsoSuggestionCard(contextType: 'general'),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
+        child: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 15),
+                width: 50,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 25),
+                  child: Column(
+                    children: [
+                      _buildCategoryToggle(pricing),
+                      const SizedBox(height: 15),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              PickupDropoffInputs(
+                                pickupController: _pickupController,
+                                dropoffController: _dropoffController,
+                                itemDescController: _itemDescController,
+                                selectedCategory: pricing.selectedCategory,
+                                selectedWeight: pricing.selectedWeight,
+                                pinModeFor: _pinModeFor,
+                                onWeightChanged: (w) => ref
+                                    .read(ridePricingProvider.notifier)
+                                    .setWeight(w),
+                                onPickupTap: () =>
+                                    setState(() => _pinModeFor = 'pickup'),
+                                onDropoffTap: () =>
+                                    setState(() => _pinModeFor = 'destination'),
+                                onUseMyLocation: _detectCurrentLocation,
+                                isLocating: _isLocating,
+                              ),
+                              const SizedBox(height: 10),
+                              if (pricing.estimatedPrice != null)
+                                VehicleSelectionSheet(
+                                  pickupLatLng:
+                                      _pickupLatLng ?? const LatLng(-15.3875, 28.3228),
+                                  destLatLng:
+                                      _destLatLng ?? const LatLng(-15.395, 28.35),
+                                  onRequestRide: () => _handleRidePayment(),
+                                  onDriverSelected: (driverId) =>
+                                      _listenForAcceptance(driverId),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -441,35 +508,74 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
     );
   }
 
-  void _handleRidePayment() {
-    final pricing = ref.read(ridePricingProvider);
-    if (pricing.estimatedPrice == null) return;
+  bool _isRequesting = false;
 
-    final fare = pricing.totalPayable;
+  Future<void> _handleRidePayment() async {
+    final pricing = ref.read(ridePricingProvider);
+    if (pricing.estimatedPrice == null || _isRequesting) return;
+
+    final fare = pricing.totalPayable(ref.read(feeConfigProvider).value ?? FeeConfig.defaults);
     final pickup = _pickupLatLng ?? const LatLng(-15.3875, 28.3228);
     final dest = _destLatLng ?? const LatLng(-15.395, 28.35);
     final isDelivery = pricing.selectedCategory == 'marketplace' ||
         pricing.selectedCategory == 'bookshop';
 
-    if (isDelivery) {
-      ref.read(transportServiceProvider).requestDelivery(
-            pickup: pickup,
-            dest: dest,
-            desc: _itemDescController.text,
-            category: pricing.selectedCategory,
-            weight: pricing.selectedWeight,
-            fare: fare,
-          );
-    } else {
-      ref.read(transportServiceProvider).requestRide(pickup, dest, fare);
+    setState(() => _isRequesting = true);
+    try {
+      String? requestId;
+      if (isDelivery) {
+        requestId = await ref.read(transportServiceProvider).requestDelivery(
+              pickup: pickup,
+              dest: dest,
+              desc: _itemDescController.text,
+              category: pricing.selectedCategory,
+              weight: pricing.selectedWeight,
+              fare: fare,
+            );
+      } else {
+        requestId = await ref.read(transportServiceProvider).requestRide(pickup, dest, fare);
+      }
+
+      if (!mounted) return;
+      if (requestId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Could not request a ride. Please sign in and try again."),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      _listenForAcceptance(requestId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isDelivery
+                ? "Delivery requested! Waiting for a courier to confirm..."
+                : "Ride requested! Waiting for a driver to confirm...",
+          ),
+          backgroundColor: Theme.of(context).primaryColor,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Ride request failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to request ride: $e"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isRequesting = false);
     }
   }
 
-  void _listenForAcceptance(String driverId) {
+  void _listenForAcceptance([String? expectedRequestId]) {
     _acceptanceSub?.cancel();
     final service = ref.read(transportServiceProvider);
     _acceptanceSub = service.getMyRideRequestStream().listen((ride) {
-      if (ride != null && ride.status == 'accepted' && mounted) {
+      final matches = expectedRequestId == null || ride?.id == expectedRequestId;
+      if (ride != null && matches && ride.status == 'accepted' && mounted) {
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -591,14 +697,14 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                         right: 0,
                         child: Container(
                           padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFFFD700),
+                          decoration: BoxDecoration(
+                            color: theme.primaryColor,
                             shape: BoxShape.circle,
                             border: Border.fromBorderSide(BorderSide(
-                                color: Colors.white, width: 2)),
+                                color: theme.colorScheme.onPrimary, width: 2)),
                           ),
-                          child: const Icon(Icons.verified,
-                              color: Colors.black, size: 16),
+                          child: Icon(Icons.verified,
+                              color: theme.colorScheme.onPrimary, size: 16),
                         ),
                       ),
                     Positioned(
@@ -612,8 +718,8 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                             color: theme.primaryColor,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(LucideIcons.camera,
-                              color: Colors.white, size: 16),
+                          child: Icon(LucideIcons.camera,
+                              color: theme.colorScheme.onPrimary, size: 16),
                         ),
                       ),
                     ),
@@ -631,8 +737,8 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                               color: theme.colorScheme.onSurface)),
                       if (isVerified) ...[
                         const SizedBox(width: 6),
-                        const Icon(Icons.verified,
-                            color: Color(0xFFFFD700), size: 18),
+                        Icon(Icons.verified,
+                            color: theme.primaryColor, size: 18),
                       ],
                     ],
                   ),
@@ -649,9 +755,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
-                      color: isVerified
-                          ? const Color(0xFFFFD700).withValues(alpha: 0.1)
-                          : Colors.green.withValues(alpha: 0.1),
+                      color: theme.primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -660,18 +764,14 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                         Icon(
                             isVerified
                                 ? Icons.verified
-                                : LucideIcons.star,
+                                : LucideIcons.shieldCheck,
                             size: 14,
-                            color: isVerified
-                                ? const Color(0xFFFFD700)
-                                : Colors.green),
+                            color: theme.primaryColor),
                         const SizedBox(width: 6),
                         Text(
-                            isVerified ? "Verified" : "4.8 Rating",
+                            isVerified ? "Verified Rider" : "Church Member",
                             style: TextStyle(
-                                color: isVerified
-                                    ? const Color(0xFFFFD700)
-                                    : Colors.green,
+                                color: theme.primaryColor,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12)),
                       ],
@@ -679,13 +779,24 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                   ),
                 ),
                 const SizedBox(height: 25),
-                _buildProfileStatRow("Total Carpso Rides", "--"),
-                _buildProfileStatRow(
-                    "Carpso Rides This Month", "--"),
-                _buildProfileStatRow(
-                    "Favorite Route", "--"),
-                _buildProfileStatRow(
-                    "Member Since", "--"),
+                FutureBuilder<Map<String, String>>(
+                  future: _loadRiderStats(),
+                  builder: (context, snapshot) {
+                    final stats = snapshot.data ?? const {};
+                    return Column(
+                      children: [
+                        _buildProfileStatRow("Total Carpso Rides",
+                            stats['total'] ?? "--"),
+                        _buildProfileStatRow("Carpso Rides This Month",
+                            stats['month'] ?? "--"),
+                        _buildProfileStatRow("Favorite Route",
+                            stats['route'] ?? "--"),
+                        _buildProfileStatRow("Member Since",
+                            stats['since'] ?? "--"),
+                      ],
+                    );
+                  },
+                ),
                 const SizedBox(height: 20),
                 Divider(
                     color: theme.colorScheme.onSurface
@@ -763,6 +874,47 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
     );
   }
 
+  Future<Map<String, String>> _loadRiderStats() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return const {};
+    try {
+      final client = Supabase.instance.client;
+      final now = DateTime.now();
+      final monthStart = DateTime(now.year, now.month, 1).toIso8601String();
+
+      final completed = await client
+          .from('ride_requests')
+          .select('id')
+          .eq('rider_id', user.id)
+          .eq('status', 'completed');
+      final month = await client
+          .from('ride_requests')
+          .select('id')
+          .eq('rider_id', user.id)
+          .gte('created_at', monthStart);
+
+      final profile = await client
+          .from('profiles')
+          .select('created_at')
+          .eq('id', user.id)
+          .maybeSingle();
+      final created = DateTime.tryParse(profile?['created_at']?.toString() ?? '');
+      final since = created != null
+          ? '${created.month}/${created.year}'
+          : '--';
+
+      return {
+        'total': completed.length.toString(),
+        'month': month.length.toString(),
+        'route': '--',
+        'since': since,
+      };
+    } catch (e) {
+      debugPrint('Error loading rider stats: $e');
+      return const {};
+    }
+  }
+
   bool _prefGospelMusic = true;
   bool _prefQuietRide = false;
   bool _prefAcOn = false;
@@ -806,33 +958,44 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
               const SizedBox(height: 10),
               Text("Customize your travel settings with drivers.",
                   style: TextStyle(
-                      color: Colors.grey.shade600, fontSize: 13)),
+                      color: theme.colorScheme.onSurface
+                          .withValues(alpha: 0.6),
+                      fontSize: 13)),
               const SizedBox(height: 20),
               SwitchListTile(
-                activeThumbColor: const Color(0xFFFFD700),
-                title: const Text("Prefer Gospel Music / Sermons"),
-                subtitle: const Text(
-                    "Drivers will try to play uplifting audio"),
+                activeThumbColor: theme.primaryColor,
+                title: Text("Prefer Gospel Music / Sermons",
+                    style: TextStyle(color: theme.colorScheme.onSurface)),
+                subtitle: Text("Drivers will try to play uplifting audio",
+                    style: TextStyle(
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.5))),
                 value: _prefGospelMusic,
                 onChanged: (v) {
                   setSheetState(() => _prefGospelMusic = v);
                 },
               ),
               SwitchListTile(
-                activeThumbColor: const Color(0xFFFFD700),
-                title: const Text("Quiet / Silent Ride"),
-                subtitle:
-                    const Text("Drivers will minimize conversation"),
+                activeThumbColor: theme.primaryColor,
+                title: Text("Quiet / Silent Ride",
+                    style: TextStyle(color: theme.colorScheme.onSurface)),
+                subtitle: Text("Drivers will minimize conversation",
+                    style: TextStyle(
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.5))),
                 value: _prefQuietRide,
                 onChanged: (v) {
                   setSheetState(() => _prefQuietRide = v);
                 },
               ),
               SwitchListTile(
-                activeThumbColor: const Color(0xFFFFD700),
-                title: const Text("Air Conditioning (AC)"),
-                subtitle:
-                    const Text("Request temperature control"),
+                activeThumbColor: theme.primaryColor,
+                title: Text("Air Conditioning (AC)",
+                    style: TextStyle(color: theme.colorScheme.onSurface)),
+                subtitle: Text("Request temperature control",
+                    style: TextStyle(
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.5))),
                 value: _prefAcOn,
                 onChanged: (v) {
                   setSheetState(() => _prefAcOn = v);
@@ -845,8 +1008,8 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                   Navigator.pop(context);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFD700),
-                  foregroundColor: Colors.black,
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: theme.colorScheme.onPrimary,
                   minimumSize: const Size(double.infinity, 56),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18)),
@@ -861,8 +1024,27 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
     );
   }
 
-  void _showSafetySettingsSheet() {
+  void _showSafetySettingsSheet() async {
     final theme = Theme.of(context);
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      try {
+        final data = await Supabase.instance.client
+            .from('profiles')
+            .select('emergency_contact_name, emergency_contact_phone')
+            .eq('id', user.id)
+            .maybeSingle();
+        if (data != null && mounted) {
+          _emergencyNameCtrl.text =
+              data['emergency_contact_name']?.toString() ?? '';
+          _emergencyPhoneCtrl.text =
+              data['emergency_contact_phone']?.toString() ?? '';
+        }
+      } catch (e) {
+        debugPrint('Error loading emergency contact: $e');
+      }
+    }
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -902,7 +1084,9 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
               Text(
                   "Add a trusted contact to share ride tracking details automatically.",
                   style: TextStyle(
-                      color: Colors.grey.shade600, fontSize: 13)),
+                      color: theme.colorScheme.onSurface
+                          .withValues(alpha: 0.6),
+                      fontSize: 13)),
               const SizedBox(height: 20),
               TextField(
                 controller: _emergencyNameCtrl,
@@ -926,18 +1110,10 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
               ),
               const SizedBox(height: 25),
               ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text(
-                            "Emergency Contact saved successfully!"),
-                        backgroundColor: Colors.green),
-                  );
-                },
+                onPressed: _saveEmergencyContact,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFD700),
-                  foregroundColor: Colors.black,
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: theme.colorScheme.onPrimary,
                   minimumSize: const Size(double.infinity, 56),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18)),
@@ -952,6 +1128,33 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
     );
   }
 
+  Future<void> _saveEmergencyContact() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    try {
+      await Supabase.instance.client.from('profiles').update({
+        'emergency_contact_name': _emergencyNameCtrl.text.trim(),
+        'emergency_contact_phone': _emergencyPhoneCtrl.text.trim(),
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', user.id);
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text("Emergency Contact saved successfully!"),
+              backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      debugPrint('Failed to save emergency contact: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to save: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   void _showHelpSupportSheet() {
     final theme = Theme.of(context);
     final faqs = [
@@ -961,7 +1164,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
       },
       {
         "q": "How does pricing work?",
-        "a": "Pricing is based on distance with a recommended fair value. Drivers and riders can negotiate final coin amounts."
+        "a": "Rides: K10 base + K5/km — you can negotiate the final fare with your driver. Deliveries: fixed Yango-comparable rate (K15 base + K8/km) — no negotiation, the price shown is final."
       },
       {
         "q": "Is it safe?",
@@ -1008,21 +1211,24 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15),
-                          side: BorderSide(color: Colors.grey.shade100),
+                          side: BorderSide(
+                              color: theme.colorScheme.outlineVariant),
                         ),
                         margin: const EdgeInsets.only(bottom: 10),
                         child: ExpansionTile(
                           shape: const Border(),
                           title: Text(faq['q']!,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 13)),
+                                  fontSize: 13,
+                                  color: theme.colorScheme.onSurface)),
                           children: [
                             Padding(
                               padding: const EdgeInsets.all(16.0),
                               child: Text(faq['a']!,
                                   style: TextStyle(
-                                      color: Colors.grey.shade600,
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.6),
                                       fontSize: 12)),
                             )
                           ],
@@ -1032,20 +1238,14 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                   ElevatedButton.icon(
                     onPressed: () {
                       Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text(
-                                "Opening COA Team support..."),
-                            backgroundColor: Colors.amber),
-                      );
                       // Navigate to support hub for COA Team contact
                       context.push('/support');
                     },
                     icon: const Icon(LucideIcons.headphones),
                     label: const Text("CONTACT COA TEAM"),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFD700),
-                      foregroundColor: Colors.black,
+                      backgroundColor: theme.primaryColor,
+                      foregroundColor: theme.colorScheme.onPrimary,
                       minimumSize: const Size(double.infinity, 56),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(18)),
@@ -1063,7 +1263,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
   void _pickCarpsoAvatar() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
-        source: ImageSource.gallery, imageQuality: 70);
+        source: ImageSource.gallery, imageQuality: 70, maxWidth: 512, maxHeight: 512);
     if (picked == null) return;
 
     try {

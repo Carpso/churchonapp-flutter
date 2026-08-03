@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
+import 'package:church_on_app/core/config/env.dart';
 
 class AiChatMessage {
   final String id;
@@ -34,6 +36,8 @@ class AiChatService {
 
   AiChatService(this._client);
 
+  static const _errorPrefix = 'Sorry, I encountered an error';
+
   Stream<List<AiChatMessage>> getMessagesStream(String sessionId) {
     return _client
         .from('ai_chat_messages')
@@ -59,112 +63,8 @@ class AiChatService {
   ///
   /// Returns a [Stream<String>] of text chunks as they arrive from the Edge Function.
   /// The full accumulated response is saved to the database when the stream completes.
-  Stream<String> sendMessageStreaming(String sessionId, String content) async* {
-    // 1. Save user message to DB
-    await _client.from('ai_chat_messages').insert({
-      'session_id': sessionId,
-      'role': 'user',
-      'content': content,
-    });
-
-    // 2. Fetch last 10 messages for conversation history
-    final history = await _fetchMessageHistory(sessionId, limit: 10);
-
-    // 3. Fetch user context for personalized responses
-    final userContext = await _fetchUserContext();
-
-    // 4. Call the Edge Function via supabase.functions.invoke()
-    String fullResponse = '';
-    try {
-      final result = await _client.functions.invoke('kael-ai', body: {
-        'messages': history,
-        'userContext': userContext,
-        'systemPrompt': 'You are Kael, a deeply knowledgeable, warm, and inspiring AI assistant on Church On App. Provide biblical wisdom, encouragement, clear formatting, and actionable guidance. Never repeat the user question or echo generic greetings.',
-      });
-      if (result.data is Map<String, dynamic>) {
-        final data = result.data as Map<String, dynamic>;
-        if (data.containsKey('error')) {
-          fullResponse = 'Sorry, I encountered an error: ${data['error']}';
-        } else {
-          fullResponse = data['response'] as String? ?? data['reply'] as String? ?? jsonEncode(result.data);
-        }
-      } else if (result.data is List<int>) {
-        // Raw bytes (e.g. SSE from Edge Function)
-        final raw = utf8.decode(result.data as List<int>);
-        fullResponse = _parseSseResponse(raw);
-      } else if (result.data is String) {
-        fullResponse = result.data as String;
-      } else {
-        fullResponse = result.data?.toString() ?? 'No response from Kael';
-      }
-    } catch (e) {
-      fullResponse = 'Sorry, I encountered an error: $e';
-    }
-
-    // Clean echoed query / repeated greetings
-    fullResponse = _cleanResponse(fullResponse, content);
-    yield fullResponse;
-
-    // 5. Save the clean assistant response to DB
-    if (fullResponse.isNotEmpty) {
-      await _client.from('ai_chat_messages').insert({
-        'session_id': sessionId,
-        'role': 'assistant',
-        'content': fullResponse,
-      });
-    }
-  }
-
-  /// Parses SSE (text/event-stream) response and extracts the full text.
-  /// Handles both `data: {"chunk": "..."}` and `data: {"response": "..."}` formats.
-  static String _parseSseResponse(String raw) {
-    if (raw.trim().isEmpty) return '';
-    final buffer = StringBuffer();
-    for (final line in raw.split('\n')) {
-      final trimmed = line.trim();
-      if (!trimmed.startsWith('data: ')) continue;
-      final jsonStr = trimmed.substring(6).trim();
-      if (jsonStr.isEmpty) continue;
-      try {
-        final payload = jsonDecode(jsonStr) as Map<String, dynamic>?;
-        if (payload == null) continue;
-        if (payload['done'] == true) break;
-        final chunk = payload['chunk'] as String? ?? payload['response'] as String? ?? payload['reply'] as String?;
-        if (chunk != null && chunk.isNotEmpty) buffer.write(chunk);
-      } catch (_) {
-        // If not JSON, treat the entire data line as the response text
-        buffer.write(jsonStr);
-      }
-    }
-    return buffer.toString();
-  }
-
-  static String _cleanResponse(String text, String userContent) {
-    if (text.isEmpty) return "I'm here to assist you with any spiritual guidance, scripture study, or church activities!";
-    
-    var cleaned = text;
-
-    // 1. Remove echoed prompt / user content if returned at start
-    final trimmedUser = userContent.trim();
-    if (trimmedUser.isNotEmpty && cleaned.toLowerCase().startsWith(trimmedUser.toLowerCase())) {
-      cleaned = cleaned.substring(trimmedUser.length).trim();
-    }
-
-    // 2. Strip repeated system phrases / greeting prompts
-    final patterns = [
-      RegExp(r'^(hello!?\s*)?ask kael anything:?\s*', caseSensitive: false),
-      RegExp(r'^user query:?\s*.*?\n', caseSensitive: false),
-      RegExp(r'^system prompt:?\s*.*?\n', caseSensitive: false),
-      RegExp(r'^kael:?\s*', caseSensitive: false),
-    ];
-
-    for (final pattern in patterns) {
-      cleaned = cleaned.replaceFirst(pattern, '').trim();
-    }
-
-    if (cleaned.startsWith(':')) cleaned = cleaned.substring(1).trim();
-
-    return cleaned.isNotEmpty ? cleaned : "I'm here to assist you with any spiritual guidance, scripture study, or church activities!";
+  Stream<String> sendMessageStreaming(String sessionId, String content) {
+    return _send(sessionId, content, insertUserMessage: true);
   }
 
   /// Legacy non-streaming send — calls streaming internally and accumulates.
@@ -175,6 +75,7 @@ class AiChatService {
   }
 
   /// Re-fetches the last assistant message for regeneration.
+  /// Does NOT duplicate the user message — it reuses the last user row.
   Stream<String> regenerateStreaming(String sessionId) async* {
     // Find and delete the last assistant message
     final lastMsg = await _client
@@ -202,8 +103,226 @@ class AiChatService {
 
     if (lastUserMsg == null) return;
 
-    // Re-send using the streaming pipeline
-    yield* sendMessageStreaming(sessionId, lastUserMsg['content'] as String);
+    // Re-send using the streaming pipeline without re-inserting the user row
+    yield* _send(sessionId, lastUserMsg['content'] as String, insertUserMessage: false);
+  }
+
+  Stream<String> _send(
+    String sessionId,
+    String content, {
+    required bool insertUserMessage,
+  }) async* {
+    if (insertUserMessage) {
+      await _client.from('ai_chat_messages').insert({
+        'session_id': sessionId,
+        'role': 'user',
+        'content': content,
+      });
+    }
+
+    // Fetch last 10 messages for conversation history (error rows excluded)
+    final history = await _fetchMessageHistory(sessionId, limit: 10);
+
+    // Fetch user context for personalized responses
+    final userContext = await _fetchUserContext();
+
+    String fullResponse = '';
+    var isError = false;
+    try {
+      var isFirstChunk = true;
+      await for (final rawChunk in _streamKael(history, userContext)) {
+        var chunk = rawChunk;
+        if (isFirstChunk) {
+          chunk = _cleanResponse(chunk, content, allowFallback: false);
+          isFirstChunk = false;
+        }
+        chunk = _stripMarkers(chunk);
+        if (chunk.isEmpty) continue;
+        fullResponse += chunk;
+        yield chunk;
+      }
+      if (fullResponse.trim().isEmpty) {
+        fullResponse = "I'm here to assist you with any spiritual guidance, scripture study, or church activities!";
+        yield fullResponse;
+      }
+      if (fullResponse.startsWith(_errorPrefix)) isError = true;
+    } catch (e) {
+      debugPrint('[Kael] request failed: $e');
+      fullResponse = '$_errorPrefix: $e';
+      isError = true;
+      yield fullResponse;
+    }
+
+    // Save the clean assistant response to DB (never persist error text)
+    if (!isError && fullResponse.trim().isNotEmpty) {
+      await _client.from('ai_chat_messages').insert({
+        'session_id': sessionId,
+        'role': 'assistant',
+        'content': fullResponse.trim(),
+      });
+    }
+  }
+
+  /// Streams Kael's reply from the Edge Function.
+  ///
+  /// Primary path: true SSE streaming over raw HTTP (incremental chunks, no
+  /// 60s functions.invoke timeout). Fallback: buffered functions.invoke.
+  Stream<String> _streamKael(
+    List<Map<String, String>> history,
+    Map<String, dynamic>? userContext,
+  ) async* {
+    try {
+      final token = _client.auth.currentSession?.accessToken;
+      if (token != null) {
+        final uri = Uri.parse('${Env.supabaseUrl}/functions/v1/kael-ai');
+        final httpClient = http.Client();
+        try {
+          final request = http.Request('POST', uri)
+            ..headers.addAll({
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+              'Accept': 'text/event-stream',
+            })
+            ..body = jsonEncode({
+              'messages': history,
+              'userContext': userContext,
+              'action': 'chat',
+            });
+
+          final streamed = await httpClient.send(request);
+          if (streamed.statusCode == 200) {
+            var handled = false;
+            await for (final line in streamed.stream
+                .transform(utf8.decoder)
+                .transform(const LineSplitter())) {
+              final trimmed = line.trim();
+              if (!trimmed.startsWith('data: ')) continue;
+              final jsonStr = trimmed.substring(6).trim();
+              if (jsonStr.isEmpty) continue;
+              Map<String, dynamic>? payload;
+              try {
+                payload = jsonDecode(jsonStr) as Map<String, dynamic>;
+              } catch (_) {
+                continue;
+              }
+              handled = true;
+              if (payload['done'] == true) break;
+              if (payload['error'] != null) {
+                yield '$_errorPrefix: ${payload['error']}';
+                return;
+              }
+              final chunk = payload['chunk'] as String? ?? payload['response'] as String?;
+              if (chunk != null && chunk.isNotEmpty) yield chunk;
+            }
+            if (handled) return;
+          } else {
+            debugPrint('[Kael] SSE HTTP ${streamed.statusCode}, falling back to invoke');
+          }
+        } finally {
+          httpClient.close();
+        }
+      }
+    } catch (e) {
+      debugPrint('[Kael] SSE streaming failed, falling back to invoke: $e');
+    }
+
+    // Buffered fallback — same contract, parsed from a single response.
+    try {
+      final result = await _client.functions.invoke('kael-ai', body: {
+        'messages': history,
+        'userContext': userContext,
+        'action': 'chat',
+      });
+      final parsed = _parseInvokeResult(result.data);
+      if (parsed.isNotEmpty) yield parsed;
+    } catch (e) {
+      throw Exception('$_errorPrefix: $e');
+    }
+  }
+
+  /// Parses a buffered functions.invoke result (Map JSON, SSE bytes, or String).
+  static String _parseInvokeResult(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      if (data.containsKey('error')) {
+        return '$_errorPrefix: ${data['error']}';
+      }
+      final text = data['response'] as String? ?? data['reply'] as String?;
+      return (text == null || text.isEmpty) ? '' : text;
+    }
+    if (data is List<int>) {
+      return _parseSseResponse(utf8.decode(data));
+    }
+    if (data is String) return data;
+    return data?.toString() ?? '';
+  }
+
+  /// Parses SSE (text/event-stream) response and extracts the full text.
+  /// Handles both `data: {"chunk": "..."}` and `data: {"response": "..."}` formats.
+  static String _parseSseResponse(String raw) {
+    if (raw.trim().isEmpty) return '';
+    final buffer = StringBuffer();
+    for (final line in raw.split('\n')) {
+      final trimmed = line.trim();
+      if (!trimmed.startsWith('data: ')) continue;
+      final jsonStr = trimmed.substring(6).trim();
+      if (jsonStr.isEmpty) continue;
+      try {
+        final payload = jsonDecode(jsonStr) as Map<String, dynamic>?;
+        if (payload == null) continue;
+        if (payload['done'] == true) break;
+        final chunk = payload['chunk'] as String? ?? payload['response'] as String? ?? payload['reply'] as String?;
+        if (chunk != null && chunk.isNotEmpty) buffer.write(chunk);
+      } catch (_) {
+        // If not JSON, treat the entire data line as the response text
+        buffer.write(jsonStr);
+      }
+    }
+    return buffer.toString();
+  }
+
+  static const _markerPatterns = [
+    '[INST]', '[/INST]', '<s>', '</s>', '<|system|>', '<|user|>', '<|assistant|>', '<|endoftext|>',
+  ];
+
+  static String _stripMarkers(String text) {
+    var cleaned = text;
+    for (final marker in _markerPatterns) {
+      cleaned = cleaned.replaceAll(marker, '');
+    }
+    return cleaned;
+  }
+
+  /// Strips leading echoes / prompt artifacts from the first streamed chunk.
+  static String _cleanResponse(String text, String userContent, {bool allowFallback = true}) {
+    if (text.trim().isEmpty) {
+      return allowFallback
+          ? "I'm here to assist you with any spiritual guidance, scripture study, or church activities!"
+          : '';
+    }
+
+    var cleaned = text;
+
+    // 1. Remove echoed prompt / user content if returned at start
+    final trimmedUser = userContent.trim();
+    if (trimmedUser.isNotEmpty && cleaned.toLowerCase().startsWith(trimmedUser.toLowerCase())) {
+      cleaned = cleaned.substring(trimmedUser.length).trim();
+    }
+
+    // 2. Strip repeated system phrases / greeting prompts
+    final patterns = [
+      RegExp(r'^(hello!?\s*)?ask kael anything:?\s*', caseSensitive: false),
+      RegExp(r'^user query:?\s*.*?\n', caseSensitive: false),
+      RegExp(r'^system prompt:?\s*.*?\n', caseSensitive: false),
+      RegExp(r'^kael:?\s*', caseSensitive: false),
+    ];
+
+    for (final pattern in patterns) {
+      cleaned = cleaned.replaceFirst(pattern, '').trim();
+    }
+
+    if (cleaned.startsWith(':')) cleaned = cleaned.substring(1).trim();
+
+    return cleaned;
   }
 
   Future<List<Map<String, String>>> _fetchMessageHistory(String sessionId, {int limit = 10}) async {
@@ -214,13 +333,16 @@ class AiChatService {
         .order('created_at', ascending: false)
         .limit(limit);
 
-    // Reverse so oldest first (chronological order for LLM)
+    // Reverse so oldest first (chronological order for LLM), excluding error rows
     final reversed = messages.reversed.toList();
 
-    return reversed.map((m) => {
-      'role': m['role'] as String,
-      'content': m['content'] as String,
-    }).toList();
+    return reversed
+        .where((m) => !((m['content'] as String? ?? '').startsWith(_errorPrefix)))
+        .map((m) => {
+              'role': m['role'] as String,
+              'content': m['content'] as String,
+            })
+        .toList();
   }
 
   Future<Map<String, dynamic>?> _fetchUserContext() async {
@@ -230,20 +352,27 @@ class AiChatService {
     try {
       final profile = await _client
           .from('profiles')
-          .select('full_name, role, coins, level')
+          .select('full_name, role, coins, level, tenant_id')
           .eq('id', user.id)
           .maybeSingle();
 
       if (profile == null) return null;
 
-      // Fetch church name from tenant
+      // Fetch church name from the user's OWN tenant (never the first tenant in the table)
       String? churchName;
-      final tenantRes = await _client
-          .from('tenants')
-          .select('name')
-          .limit(1)
-          .maybeSingle();
-      churchName = tenantRes?['name'] as String?;
+      final tenantId = profile['tenant_id'];
+      if (tenantId != null) {
+        try {
+          final tenantRes = await _client
+              .from('tenants')
+              .select('name')
+              .eq('id', tenantId)
+              .maybeSingle();
+          churchName = tenantRes?['name'] as String?;
+        } catch (e) {
+          debugPrint('[Kael] Tenant lookup failed (tenant_id may be text): $e');
+        }
+      }
 
       // Fetch quiz streak
       int streak = 0;
@@ -271,8 +400,6 @@ class AiChatService {
       return null;
     }
   }
-
-
 }
 
 final aiChatServiceProvider = Provider((ref) {

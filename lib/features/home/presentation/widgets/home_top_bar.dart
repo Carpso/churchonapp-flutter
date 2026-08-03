@@ -73,8 +73,8 @@ class HomeTopBar extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(
-                minWidth: 36,
-                minHeight: 36,
+                minWidth: 44,
+                minHeight: 44,
               ),
             ),
           ),
@@ -96,8 +96,8 @@ class HomeTopBar extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(
-                minWidth: 36,
-                minHeight: 36,
+                minWidth: 44,
+                minHeight: 44,
               ),
             ),
           ),
@@ -121,14 +121,18 @@ class HomeTopBar extends StatelessWidget {
       builder: (context, ref, _) {
         final weatherAsync = ref.watch(weatherDataProvider);
 
-        final chipGradient = weatherAsync.when(
-          data: (w) => w.theme.chipGradient,
-          loading: () => const LinearGradient(
-            colors: [Color(0xFF1E88E5), Color(0xFFFFB300)],
-          ),
-          error: (_, __) => const LinearGradient(
-            colors: [Color(0xFF1E88E5), Color(0xFFFFB300)],
-          ),
+        // Solid weather-appropriate background colors (no gradients)
+        final chipBgColor = weatherAsync.when(
+          data: (w) {
+            if (w.isNight) return const Color(0xFF1E1B4B);
+            if (w.isRainy) return const Color(0xFF334155);
+            if (w.isHot) return const Color(0xFFDC2626);
+            if (w.weatherCode == 3) return const Color(0xFF475569);
+            if (w.weatherCode >= 51 && w.weatherCode <= 67) return const Color(0xFF2563EB);
+            return const Color(0xFF0369A1); // Clear sky
+          },
+          loading: () => const Color(0xFF0369A1),
+          error: (_, __) => const Color(0xFF64748B),
         );
 
         return Semantics(
@@ -144,13 +148,13 @@ class HomeTopBar extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                gradient: chipGradient,
+                color: chipBgColor,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
@@ -203,12 +207,12 @@ class HomeTopBar extends StatelessWidget {
                 error: (_, __) => const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(LucideIcons.cloud, color: Colors.white, size: 14),
+                    Icon(LucideIcons.cloudOff, color: Colors.white70, size: 14),
                     SizedBox(width: 4),
                     Text(
-                      "28°C Clear",
+                      "Weather unavailable",
                       style: TextStyle(
-                        color: Colors.white,
+                        color: Colors.white70,
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
                       ),
@@ -240,7 +244,7 @@ class HomeTopBar extends StatelessWidget {
             ),
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
           ),
         );
         return ref

@@ -16,7 +16,7 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS early_bird_discount NUMERIC(5,2) DEF
 
 -- Create event_checkins table for scan history
 CREATE TABLE IF NOT EXISTS event_checkins (
-  id UUID PRIMARY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   registration_id UUID NOT NULL REFERENCES event_registrations(id) ON DELETE CASCADE,
   scanned_by UUID NOT NULL REFERENCES profiles(id),
@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS event_checkins (
 ALTER TABLE event_checkins ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies for event_checkins
+DROP POLICY IF EXISTS "Authenticated users can read checkins for their events" ON event_checkins;
 CREATE POLICY "Authenticated users can read checkins for their events"
   ON event_checkins FOR SELECT
   USING (
@@ -40,12 +41,14 @@ CREATE POLICY "Authenticated users can read checkins for their events"
     )
   );
 
+DROP POLICY IF EXISTS "Event organizers can insert checkins" ON event_checkins;
 CREATE POLICY "Event organizers can insert checkins"
   ON event_checkins FOR INSERT
   WITH CHECK (
     auth.uid() = scanned_by
   );
 
+DROP POLICY IF EXISTS "Event organizers can update checkins" ON event_checkins;
 CREATE POLICY "Event organizers can update checkins"
   ON event_checkins FOR UPDATE
   USING (
@@ -60,6 +63,7 @@ CREATE INDEX IF NOT EXISTS idx_event_registrations_ticket_code ON event_registra
 CREATE INDEX IF NOT EXISTS idx_event_registrations_ticket_type ON event_registrations(ticket_type);
 
 -- Function to generate unique ticket code
+DROP FUNCTION IF EXISTS generate_ticket_code(UUID, UUID);
 CREATE OR REPLACE FUNCTION generate_ticket_code(event_id UUID, user_id UUID)
 RETURNS TEXT AS $$
 BEGIN
@@ -68,6 +72,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function to check event capacity
+DROP FUNCTION IF EXISTS check_event_capacity(UUID);
 CREATE OR REPLACE FUNCTION check_event_capacity(p_event_id UUID)
 RETURNS TABLE(can_register BOOLEAN, current_count BIGINT, max_cap INTEGER) AS $$
 BEGIN
@@ -84,6 +89,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function to record check-in
+DROP FUNCTION IF EXISTS record_event_checkin(UUID, UUID, UUID, TEXT);
 CREATE OR REPLACE FUNCTION record_event_checkin(
   p_event_id UUID,
   p_registration_id UUID,
@@ -118,6 +124,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function to get event check-in stats
+DROP FUNCTION IF EXISTS get_event_checkin_stats(UUID);
 CREATE OR REPLACE FUNCTION get_event_checkin_stats(p_event_id UUID)
 RETURNS JSONB AS $$
 DECLARE

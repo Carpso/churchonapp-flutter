@@ -53,7 +53,7 @@ class SosAlertService {
     // Notify all superadmins and employees via FCM
     try {
       List<Map<String, dynamic>> admins = [];
-      for (final role in ['superadmin', 'employee', 'coa_employee']) {
+      for (final role in ['superadmin', 'coa_employee']) {
         final batch = await _client
             .from('profiles')
             .select('id, phone_number')

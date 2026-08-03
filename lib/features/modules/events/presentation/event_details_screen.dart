@@ -11,6 +11,7 @@ import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 import 'package:church_on_app/core/widgets/premium_confirmation_sheet.dart';
 import 'package:church_on_app/features/navigation/presentation/carpso_suggestion_card.dart';
+import 'package:church_on_app/core/config/fee_config.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'event_host_dashboard.dart';
@@ -233,13 +234,26 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Total (Inc. MoMo Fee)", style: TextStyle(color: Colors.grey, fontSize: 10)),
+                const Text("Ticket Price", style: TextStyle(color: Colors.grey, fontSize: 10)),
                 Text(
                   isFree 
                       ? "FREE" 
-                      : "K${(event['price'] * 1.0 + (event['price'] * 0.05 > 3.00 ? event['price'] * 0.05 : 3.00)).toStringAsFixed(2)}", 
+                      : "K${(event['price'] * 1.0).toStringAsFixed(2)}", 
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)
                 ),
+                if (!isFree) ...[
+                  const SizedBox(height: 2),
+                  Builder(
+                    builder: (ctx) {
+                      final fees = ref.read(feeConfigProvider).value ?? FeeConfig.defaults;
+                      final pf = fees.platformFee(event['price'] * 1.0);
+                      return Text(
+                        "Platform Fee: K${pf.toStringAsFixed(2)}",
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 9),
+                      );
+                    },
+                  ),
+                ],
               ],
             ),
             const SizedBox(width: 20),
@@ -267,7 +281,6 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                       });
                   } else {
                     final double ticketPrice = event['price'] * 1.0;
-                    final double fee = ticketPrice * 0.05 > 3.00 ? ticketPrice * 0.05 : 3.00;
                     final tenant = ref.read(currentTenantProvider);
                     final String directMomo = (event['organizer_momo_phone']?.toString() ?? '').trim();
                     final String destinationAccount = directMomo.isNotEmpty 
@@ -285,7 +298,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                       isDismissible: true,
                       enableDrag: true,
                       builder: (context) => LipilaPaymentGateway(
-                        amount: ticketPrice + fee, 
+                        amount: ticketPrice, 
                         description: "Ticket: ${event['title']}",
                         category: "event",
                         recipientName: destinationName,

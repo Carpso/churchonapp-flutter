@@ -15,7 +15,7 @@ class PayoutRequestScreen extends ConsumerWidget {
     return profileAsync.when(
       data: (profile) => _buildScreen(context, profile),
       loading: () => Scaffold(
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -35,7 +35,7 @@ class PayoutRequestScreen extends ConsumerWidget {
         ),
       ),
       error: (e, st) => Scaffold(
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(child: Text('Error: $e')),
       ),
     );
@@ -45,7 +45,7 @@ class PayoutRequestScreen extends ConsumerWidget {
     final balance = profile?.coins ?? 0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Church Coins", style: TextStyle(fontWeight: FontWeight.bold)),
       ),

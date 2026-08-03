@@ -2,13 +2,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SignJWT, importPKCS8 } from "npm:jose@5.9.6";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -60,6 +57,20 @@ serve(async (req) => {
 
     for (const targetUserId of targetUserIds) {
       try {
+        // Skip duplicates: if an identical UNREAD notification already exists
+        // for this user within the last 5 minutes, don't double-send.
+        const { data: existing } = await supabase
+          .from("notifications")
+          .select("id")
+          .eq("user_id", targetUserId)
+          .eq("title", title)
+          .eq("body", body)
+          .eq("is_read", false)
+          .gte("created_at", new Date(Date.now() - 5 * 60 * 1000).toISOString())
+          .limit(1);
+
+        if (existing && existing.length > 0) continue;
+
         const { data: profile } = await supabase
           .from("profiles")
           .select("fcm_token")
@@ -102,6 +113,13 @@ serve(async (req) => {
                       },
                       data: data ?? {},
                       android: {
+                        // Collapse key + TTL stop the offline flood: while the
+                        // device is offline FCM queues pushes, then delivers
+                        // them ALL at once on reconnect. With a per-type
+                        // collapse key only the LATEST queued message per type
+                        // is delivered, and nothing older than the TTL is kept.
+                        collapseKey: data?.type ?? "general",
+                        ttl: "43200s",
                         priority: "high",
                         notification: {
                           color: "#FFDA03",
@@ -112,6 +130,10 @@ serve(async (req) => {
                         },
                       },
                       apns: {
+                        headers: {
+                          "apns-collapse-id": data?.type ?? "general",
+                          "apns-expiration": "43200",
+                        },
                         payload: {
                           aps: {
                             "mutable-content": 1,
@@ -148,6 +170,8 @@ serve(async (req) => {
                       ...(notifImage ? { image: notifImage } : {}),
                     },
                     data: data ?? {},
+                    collapse_key: data?.type ?? "general",
+                    time_to_live: 43200,
                     android: { priority: "high" },
                   }),
                 });

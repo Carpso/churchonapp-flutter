@@ -5,6 +5,7 @@
 -- ============================================================
 -- Replace get_streaming_usage
 -- ============================================================
+DROP FUNCTION IF EXISTS get_streaming_usage(UUID);
 CREATE OR REPLACE FUNCTION get_streaming_usage(p_church_id UUID)
 RETURNS TABLE(
   minutes_used NUMERIC,
@@ -58,6 +59,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ============================================================
 -- Replace record_streaming_minutes
 -- ============================================================
+DROP FUNCTION IF EXISTS record_streaming_minutes(UUID, NUMERIC, INTEGER);
 CREATE OR REPLACE FUNCTION record_streaming_minutes(
   p_church_id UUID,
   p_minutes NUMERIC,
@@ -88,12 +90,11 @@ BEGIN
 
   INSERT INTO streaming_usage (church_id, week_start, minutes_used, minutes_limit, stream_count, peak_viewers)
   VALUES (p_church_id, v_week_start, p_minutes, v_limit, 1, p_peak_viewers)
-  ON CONFLICT (church_id, v_week_start) DO UPDATE SET
+  ON CONFLICT (church_id, week_start) DO UPDATE SET
     minutes_used = streaming_usage.minutes_used + p_minutes,
     stream_count = streaming_usage.stream_count + 1,
     peak_viewers = GREATEST(streaming_usage.peak_viewers, p_peak_viewers),
-    updated_at = now()
-  RETURNING;
+    updated_at = now();
 
   RETURN jsonb_build_object(
     'total_minutes_used', COALESCE(v_total_used + p_minutes, p_minutes),

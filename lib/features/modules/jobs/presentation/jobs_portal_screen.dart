@@ -13,7 +13,7 @@ class JobsPortalScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final jobsAsync = ref.watch(jobsPortalProvider);
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Jobs & Volunteering", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [

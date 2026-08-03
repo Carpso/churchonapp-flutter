@@ -16,5 +16,6 @@ CREATE TABLE IF NOT EXISTS public.church_bus_routes (
 
 ALTER TABLE public.church_bus_routes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "church_bus_routes_select" ON public.church_bus_routes
+DROP POLICY IF EXISTS "church_bus_routes_select" ON "public".church_bus_routes;
+CREATE POLICY "church_bus_routes_select" ON "public".church_bus_routes
   FOR SELECT USING (true);

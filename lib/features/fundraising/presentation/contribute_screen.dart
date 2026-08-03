@@ -73,7 +73,7 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> with Single
     final venture = _venture;
     if (_loadError) {
       return Scaffold(
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(title: const Text('Contribute')),
         body: Center(
           child: Column(
@@ -106,7 +106,7 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> with Single
     if (_isSuccess) return _buildSuccessScreen(theme);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Contribute'),
       ),
@@ -377,7 +377,7 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> with Single
 
   Widget _buildSuccessScreen(ThemeData theme) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Contribution Sent'),
         leading: IconButton(

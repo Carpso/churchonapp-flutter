@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
+import 'package:church_on_app/core/config/fee_config.dart';
 
 class DriverEarningsScreen extends ConsumerStatefulWidget {
   const DriverEarningsScreen({super.key});
@@ -48,7 +49,8 @@ class _DriverEarningsScreenState extends ConsumerState<DriverEarningsScreen> {
 
       for (var r in rides) {
         final fare = (r['offered_fare'] ?? r['fare'] ?? 0.0).toDouble();
-        final netFare = fare * 0.90; // 90% goes to driver
+        final fees = ref.read(feeConfigProvider).value ?? FeeConfig.defaults;
+        final netFare = fare - fees.businessCut(fare);
         total += netFare;
         completed++;
 
@@ -239,7 +241,8 @@ class _DriverEarningsScreenState extends ConsumerState<DriverEarningsScreen> {
                 else
                   ..._earningsHistory.map((ride) {
                     final fare = (ride['offered_fare'] ?? ride['fare'] ?? 0.0).toDouble();
-                    final net = fare * 0.90;
+                    final cut = ref.read(feeConfigProvider).value?.businessCutPercent ?? 0.10;
+                    final net = fare - fare * cut;
                     final date = ride['created_at'] != null ? ride['created_at'].toString().split('T')[0] : 'N/A';
 
                     return Card(
@@ -251,7 +254,7 @@ class _DriverEarningsScreenState extends ConsumerState<DriverEarningsScreen> {
                           child: const Icon(LucideIcons.check, color: Colors.green, size: 18),
                         ),
                         title: Text('Trip Fare: K${fare.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Date: $date • Platform Fee: K${(fare * 0.10).toStringAsFixed(2)}'),
+                        subtitle: Text('Date: $date • Platform Fee: K${(fare * cut).toStringAsFixed(2)}'),
                         trailing: Text(
                           '+K${net.toStringAsFixed(2)}',
                           style: GoogleFonts.plusJakartaSans(

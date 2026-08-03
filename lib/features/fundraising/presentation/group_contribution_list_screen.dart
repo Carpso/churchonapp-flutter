@@ -20,7 +20,7 @@ class GroupContributionListScreen extends ConsumerWidget {
     final canCreate = profile?.isAdminOrHigher == true;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Group Giving", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [

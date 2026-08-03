@@ -73,5 +73,18 @@
 	<string>Church On App accesses your photo library to let you choose existing photos for your profile, posts, and verification documents.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Church On App may use your microphone for voice messages and audio recordings.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>db.churchonapp.com</key>
+			<dict>
+				<key>NSExceptionRequiresForwardSecrecy</key>
+				<false/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 </dict>
 </plist>

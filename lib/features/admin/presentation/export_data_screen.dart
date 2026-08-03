@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -40,7 +40,7 @@ class _ExportDataScreenState extends ConsumerState<ExportDataScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Export Data', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
@@ -167,10 +167,10 @@ class _ExportDataScreenState extends ConsumerState<ExportDataScreen> {
       });
 
       final csvPath = '${dir.path}/$title.csv';
-      File(csvPath).writeAsStringSync(await _exportService.exportToCsv(rows, columns));
+      await File(csvPath).writeAsString(await _exportService.exportToCsv(rows, columns));
 
       final jsonPath = '${dir.path}/$title.json';
-      File(jsonPath).writeAsStringSync(await _exportService.exportToJson(rows));
+      await File(jsonPath).writeAsString(await _exportService.exportToJson(rows));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e')));

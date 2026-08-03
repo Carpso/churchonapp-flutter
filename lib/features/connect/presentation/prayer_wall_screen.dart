@@ -94,7 +94,7 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
     final prayersAsync = ref.watch(prayerStreamProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Prayer Wall", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
@@ -160,7 +160,7 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
           Row(
             children: [
               CircleAvatar(
-                backgroundColor: const Color(0xFF075E54),
+                backgroundColor: const Color(0xFF1A1A1A),
                 backgroundImage: (prayer.userPhoto != null && prayer.userPhoto!.isNotEmpty)
                     ? CachedNetworkImageProvider(prayer.userPhoto!)
                     : null,

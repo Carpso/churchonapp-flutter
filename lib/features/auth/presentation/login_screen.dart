@@ -106,7 +106,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final authState = ref.watch(authProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -122,13 +122,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 10),
                   Text("Sign in to continue your spiritual journey.", style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
                   const SizedBox(height: 40),
-                  _buildTextField(controller: _emailController, label: "Email Address", icon: LucideIcons.mail, keyboardType: TextInputType.emailAddress, validator: (v) {
+                  _buildTextField(controller: _emailController, label: "Email Address", icon: LucideIcons.mail, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Required';
-                    if (!v.contains('@') && v.replaceAll(RegExp(r'\D'), '').length < 10) return 'Enter a valid email or phone';
+                    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                    final phoneClean = v.replaceAll(RegExp(r'\D'), '');
+                    final isPhone = phoneClean.length >= 9 && phoneClean.length <= 12;
+                    if (!emailRegex.hasMatch(v) && !isPhone) return 'Enter a valid email or phone';
                     return null;
                   }),
                   const SizedBox(height: 20),
-                  _buildTextField(controller: _passwordController, label: "Password", icon: LucideIcons.lock, isPassword: true, validator: (v) {
+                  _buildTextField(controller: _passwordController, label: "Password", icon: LucideIcons.lock, isPassword: true, autofillHints: const [AutofillHints.password], validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Required';
                     if (v.length < 6) return 'Min 6 characters';
                     return null;
@@ -225,7 +228,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _buildTextField({required TextEditingController controller, required String label, required IconData icon, bool isPassword = false, String? Function(String?)? validator, TextInputType? keyboardType}) {
+  Widget _buildTextField({required TextEditingController controller, required String label, required IconData icon, bool isPassword = false, String? Function(String?)? validator, TextInputType? keyboardType, List<String>? autofillHints}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)]),
@@ -234,6 +237,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         obscureText: isPassword && !_isPasswordVisible,
         validator: validator,
         keyboardType: keyboardType,
+        autofillHints: autofillHints,
         decoration: InputDecoration(
           icon: Icon(icon, color: Theme.of(context).primaryColor, size: 20),
           labelText: label,

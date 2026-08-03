@@ -67,7 +67,6 @@ class LogisticsDashboardScreen extends ConsumerWidget {
 
   Widget _buildHighlightGrid(ThemeData theme, AdminStats stats) {
     return GridView.count(
-      shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
       crossAxisSpacing: 15,

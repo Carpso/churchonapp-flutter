@@ -22,7 +22,7 @@ class HomeSmartReminder extends StatelessWidget {
               children: [
                 Text("Find Your Spiritual Home", style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
                 const SizedBox(height: 5),
-                const Text("Connect with a church family today.", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                Text("Connect with a church family today.", style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
               ],
             ),
           ),

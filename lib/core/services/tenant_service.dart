@@ -96,7 +96,7 @@ class Tenant {
       ),
       surfaceColor: _parseColor(
         map['surface_color']?.toString(),
-        const Color(0xFFFFFAEB),
+        const Color(0xFFFFFAEB), // TODO: replace with Theme.of(context).scaffoldBackgroundColor when context is available
       ),
       fontFamily: map['font_family']?.toString() ?? 'Plus Jakarta Sans',
       darkMode: map['dark_mode']?.toString() ?? 'light',
@@ -405,6 +405,24 @@ class CurrentTenantNotifier extends Notifier<Tenant?> {
           await Supabase.instance.client
               .from('profiles')
               .update({'tenant_id': tenant.id})
+              .eq('id', user.id);
+
+          // DERIVE ROLE FROM role_assignments FOR NEW TENANT
+          // Prevents role carryover: a pastor in Tenant1 is NOT a pastor in Tenant2
+          // unless Tenant2 explicitly assigns them that role
+          final assignment = await Supabase.instance.client
+              .from('role_assignments')
+              .select('role_name')
+              .eq('user_id', user.id)
+              .eq('tenant_id', tenant.id)
+              .eq('status', 'approved')
+              .order('created_at', ascending: false)
+              .maybeSingle();
+
+          final assignedRole = assignment?['role_name'] as String? ?? 'member';
+          await Supabase.instance.client
+              .from('profiles')
+              .update({'role': assignedRole})
               .eq('id', user.id);
         } catch (e) {
           debugPrint('Error updating profile tenant_id on setTenant: $e');

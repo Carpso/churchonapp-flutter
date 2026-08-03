@@ -20,7 +20,7 @@ class _PastorsCornerScreenState extends ConsumerState<PastorsCornerScreen> {
     final messagesAsync = ref.watch(pastorMessagesProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Pastor's Corner"),
       ),

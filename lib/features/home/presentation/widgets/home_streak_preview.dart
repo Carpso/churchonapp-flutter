@@ -18,9 +18,9 @@ class HomeStreakPreview extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: streak >= 30 ? Colors.amber.shade50 : Colors.white,
+          color: streak >= 30 ? Theme.of(context).primaryColor.withValues(alpha: 0.08) : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: streak >= 7 ? Colors.amber.withValues(alpha: 0.3) : Colors.grey.shade200),
+          border: Border.all(color: streak >= 7 ? Colors.amber.withValues(alpha: 0.3) : Theme.of(context).dividerColor),
         ),
         child: Row(
           children: [
@@ -38,11 +38,11 @@ class HomeStreakPreview extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("Study Streak", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 14, color: Theme.of(context).colorScheme.secondary)),
-                  Text(streak > 0 ? "You're on a $streak-day streak! 🔥" : "Start your study streak today", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                  Text(streak > 0 ? "You're on a $streak-day streak! 🔥" : "Start your study streak today", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
                 ],
               ),
             ),
-            Icon(LucideIcons.chevronRight, color: Colors.grey.shade400, size: 18),
+            Icon(LucideIcons.chevronRight, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3), size: 18),
           ],
         ),
       ),

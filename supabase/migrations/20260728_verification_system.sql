@@ -14,18 +14,18 @@ CREATE TABLE IF NOT EXISTS verification_requests (
 
 ALTER TABLE verification_requests ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can insert own requests"
-  ON verification_requests FOR INSERT
+DROP POLICY IF EXISTS "Users can insert own requests" ON "verification_requests";
+CREATE POLICY "Users can insert own requests" ON "verification_requests" FOR INSERT
   TO authenticated
   WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can view own requests"
-  ON verification_requests FOR SELECT
+DROP POLICY IF EXISTS "Users can view own requests" ON "verification_requests";
+CREATE POLICY "Users can view own requests" ON "verification_requests" FOR SELECT
   TO authenticated
   USING (auth.uid() = user_id);
 
-CREATE POLICY "Employees can view all requests"
-  ON verification_requests FOR SELECT
+DROP POLICY IF EXISTS "Employees can view all requests" ON "verification_requests";
+CREATE POLICY "Employees can view all requests" ON "verification_requests" FOR SELECT
   TO authenticated
   USING (
     EXISTS (
@@ -35,8 +35,8 @@ CREATE POLICY "Employees can view all requests"
     )
   );
 
-CREATE POLICY "Employees can update requests"
-  ON verification_requests FOR UPDATE
+DROP POLICY IF EXISTS "Employees can update requests" ON "verification_requests";
+CREATE POLICY "Employees can update requests" ON "verification_requests" FOR UPDATE
   TO authenticated
   USING (
     EXISTS (

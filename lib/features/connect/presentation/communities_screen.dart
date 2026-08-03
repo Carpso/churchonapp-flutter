@@ -47,7 +47,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
     final groupsAsync = ref.watch(communityGroupsProvider);
 
     return Container(
-      color: const Color(0xFFFFFAEB),
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
@@ -126,7 +126,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
               child: Center(
                 child: Padding(
                   padding: EdgeInsets.all(30),
-                  child: CircularProgressIndicator(color: Color(0xFF075E54)),
+                  child: CircularProgressIndicator(color: Color(0xFF1A1A1A)),
                 ),
               ),
             )
@@ -168,11 +168,11 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: const Color(0xFF075E54),
+        color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF075E54).withValues(alpha: 0.35),
+            color: const Color(0xFF1A1A1A).withValues(alpha: 0.35),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -335,7 +335,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
                       Text(
                         '$memberCount members',
                         style: const TextStyle(
-                            color: Color(0xFF075E54), fontSize: 11, fontWeight: FontWeight.w600),
+                            color: Color(0xFF1A1A1A), fontSize: 11, fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -350,7 +350,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
   }
 
   Widget _buildMemberTile(BuildContext context, Map<String, dynamic> member) {
-    final name = member['full_name'] as String? ?? 'Member';
+    final name = member['full_name'] as String? ?? member['username'] as String? ?? 'User';
     final id = member['id'] as String? ?? '';
     final avatar = member['avatar_url'] as String?;
     final role = member['role'] as String? ?? 'member';
@@ -381,7 +381,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
               children: [
                 CircleAvatar(
                   radius: 24,
-                  backgroundColor: const Color(0xFF075E54),
+                  backgroundColor: const Color(0xFF1A1A1A),
                   backgroundImage: avatar != null && avatar.isNotEmpty
                       ? CachedNetworkImageProvider(avatar)
                       : null,
@@ -423,7 +423,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
             ),
             Row(
               children: [
-                _buildQuickAction(LucideIcons.phone, const Color(0xFF075E54), () {
+                _buildQuickAction(LucideIcons.phone, const Color(0xFF1A1A1A), () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(

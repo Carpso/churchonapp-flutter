@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -308,8 +309,8 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(episode.thumbnailUrl, width: 45, height: 45, fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(width: 45, height: 45, color: Colors.grey[800]),
+                  child: CachedNetworkImage(imageUrl: episode.thumbnailUrl, width: 45, height: 45, fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => Container(width: 45, height: 45, color: Colors.grey[800]),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -451,8 +452,8 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(15),
-              child: Image.network(episode.thumbnailUrl, width: 60, height: 60, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(width: 60, height: 60, color: Colors.grey[800]),
+              child: CachedNetworkImage(imageUrl: episode.thumbnailUrl, width: 60, height: 60, fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => Container(width: 60, height: 60, color: Colors.grey[800]),
               ),
             ),
             const SizedBox(width: 15),

@@ -85,7 +85,7 @@ class SystemDocsScreen extends ConsumerWidget {
       data: (profile) {
         if (profile == null || !profile.isAdminOrHigher) {
           return Scaffold(
-            backgroundColor: const Color(0xFFFFFAEB),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             appBar: AppBar(
               title: const Text('System Documentation'),
               backgroundColor: Colors.transparent,
@@ -109,12 +109,12 @@ class SystemDocsScreen extends ConsumerWidget {
         }
         return _DocListScreen();
       },
-      loading: () => const Scaffold(
-        backgroundColor: Color(0xFFFFFAEB),
+      loading: () => Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => Scaffold(
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(child: Text('Error: $e')),
       ),
     );
@@ -125,7 +125,7 @@ class _DocListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           'SYSTEM DOCUMENTATION',
@@ -189,7 +189,7 @@ class _DocCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFFAEB),
+                color: Theme.of(context).scaffoldBackgroundColor,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(section.icon, color: Colors.black87, size: 24),
@@ -237,7 +237,7 @@ class _DocDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           section.title.toUpperCase(),

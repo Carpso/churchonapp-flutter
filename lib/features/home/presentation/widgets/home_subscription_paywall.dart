@@ -4,6 +4,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/plan_service.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/services/platform_settings_service.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
 
 class HomeSubscriptionPaywall extends ConsumerStatefulWidget {
   final Tenant tenant;
@@ -21,14 +23,23 @@ class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywal
     final isTrial = tenant.isInTrialPeriod;
     final effectivePlan = tenant.effectivePlan;
 
+    // Plan prices are remote-configurable (platform_settings).
+    final settings = ref.watch(platformSettingsProvider).value;
+    final onboardingFee =
+        settings?.onboardingFee ?? PlanLimits.onboardingFeeKwacha;
+    final goldMonthly = settings?.goldMonthlyFee ??
+        PlanLimits.forPlan(TenantPlan.gold).monthlyPriceKwacha;
+    final platinumMonthly = settings?.platinumMonthlyFee ??
+        PlanLimits.forPlan(TenantPlan.platinum).monthlyPriceKwacha;
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(vertical: 20),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.red.shade50.withValues(alpha: 0.95),
+        color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.red.shade200, width: 1.5),
+        border: Border.all(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -52,7 +63,7 @@ class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywal
           ),
           if (!onboardingPaid) ...[
             const SizedBox(height: 12),
-            _buildPlanComparison(),
+            _buildPlanComparison(onboardingFee, goldMonthly, platinumMonthly),
           ],
           const SizedBox(height: 20),
           SizedBox(
@@ -63,7 +74,7 @@ class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywal
               icon: const Icon(LucideIcons.creditCard, color: Colors.white),
               label: Text(
                 !onboardingPaid
-                    ? "Pay Onboarding Fee (K${PlanLimits.onboardingFeeKwacha.toStringAsFixed(0)})"
+                    ? "Pay Onboarding Fee (K${onboardingFee.toStringAsFixed(0)})"
                     : "Choose Your Plan",
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
               ),
@@ -93,11 +104,16 @@ class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywal
   }
 
   String _message(bool onboardingPaid, bool isTrial, TenantPlan plan) {
+    final settings = ref.read(platformSettingsProvider).value;
+    final onboardingFee =
+        settings?.onboardingFee ?? PlanLimits.onboardingFeeKwacha;
+    final platinumMonthly = settings?.platinumMonthlyFee ??
+        PlanLimits.forPlan(TenantPlan.platinum).monthlyPriceKwacha;
     if (!onboardingPaid && isTrial) {
-      return "Your 30-day Silver trial ends ${widget.tenant.subscriptionEndsAt != null ? 'on ${widget.tenant.subscriptionEndsAt!.toLocal().toString().split(' ')[0]}' : 'soon'}. After trial, pay K${PlanLimits.onboardingFeeKwacha.toStringAsFixed(0)} once to unlock 30 days free Platinum — or continue on Silver for free.";
+      return "Your 30-day Silver trial ends ${widget.tenant.subscriptionEndsAt != null ? 'on ${widget.tenant.subscriptionEndsAt!.toLocal().toString().split(' ')[0]}' : 'soon'}. After trial, pay K${onboardingFee.toStringAsFixed(0)} once to unlock 30 days free Platinum — or continue on Silver for free.";
     }
     if (!onboardingPaid) {
-      return "Your trial has ended. Pay a one-time fee of K${PlanLimits.onboardingFeeKwacha.toStringAsFixed(0)} to unlock 30 days of Platinum (worth K500/mo), or continue on the free Silver plan with basic features.";
+      return "Your trial has ended. Pay a one-time fee of K${onboardingFee.toStringAsFixed(0)} to unlock 30 days of Platinum (worth K${platinumMonthly.toStringAsFixed(0)}/mo), or continue on the free Silver plan with basic features.";
     }
     if (plan == TenantPlan.platinum && !_isAfterPromotion()) {
       return "You're enjoying a free Platinum upgrade after onboarding! This runs until ${_promotionEndStr()}. After that, choose your monthly plan or switch to free Silver.";
@@ -105,20 +121,20 @@ class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywal
     return "Pick a monthly plan that fits your church. Stay on Silver for free, or upgrade for more features.";
   }
 
-  Widget _buildPlanComparison() {
+  Widget _buildPlanComparison(double onboardingFee, double goldMonthly, double platinumMonthly) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.5),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
           _planRow("Silver", "K0/mo", "100 members • 10 events • 1GB", Colors.grey),
           const Divider(height: 16),
-          _planRow("Gold", "K100/mo", "500 members • 50 events • 10GB", Colors.amber),
+          _planRow("Gold", "K${goldMonthly.toStringAsFixed(0)}/mo", "500 members • 50 events • 10GB", Colors.amber),
           const Divider(height: 16),
-          _planRow("Platinum", "K500/mo", "Unlimited members • Host quizzes • Priority", Colors.blueAccent),
+          _planRow("Platinum", "K${platinumMonthly.toStringAsFixed(0)}/mo", "Unlimited members • Host quizzes • Priority", Colors.blueAccent),
         ],
       ),
     );
@@ -132,21 +148,28 @@ class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywal
         Text("$name ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
         Text(price, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: color)),
         const Spacer(),
-        Text(desc, style: const TextStyle(fontSize: 10, color: Colors.black54)),
+        Text(desc, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
       ],
     );
   }
 
   void _payOnboarding() {
+    final settings = ref.read(platformSettingsProvider).value;
+    final onboardingFee =
+        settings?.onboardingFee ?? PlanLimits.onboardingFeeKwacha;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _OnboardingPaymentSheet(tenant: widget.tenant, onComplete: (success) {
-        if (success && mounted) {
-          ref.read(currentTenantProvider.notifier).loadTenant();
-        }
-      }),
+      builder: (ctx) => _OnboardingPaymentSheet(
+        tenant: widget.tenant,
+        onboardingFee: onboardingFee,
+        onComplete: (success) {
+          if (success && mounted) {
+            ref.read(currentTenantProvider.notifier).loadTenant();
+          }
+        },
+      ),
     );
   }
 
@@ -165,8 +188,13 @@ class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywal
 
 class _OnboardingPaymentSheet extends StatefulWidget {
   final Tenant tenant;
+  final double onboardingFee;
   final ValueChanged<bool> onComplete;
-  const _OnboardingPaymentSheet({required this.tenant, required this.onComplete});
+  const _OnboardingPaymentSheet({
+    required this.tenant,
+    required this.onboardingFee,
+    required this.onComplete,
+  });
 
   @override
   State<_OnboardingPaymentSheet> createState() => _OnboardingPaymentSheetState();
@@ -177,38 +205,39 @@ class _OnboardingPaymentSheetState extends State<_OnboardingPaymentSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final onboardingFee = widget.onboardingFee;
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: Theme.of(context).dividerColor, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 20),
           const Icon(LucideIcons.wallet, size: 48, color: Colors.blueAccent),
           const SizedBox(height: 12),
-          const Text("Onboarding Fee", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+          Text("Onboarding Fee", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Theme.of(context).colorScheme.onSurface)),
           const SizedBox(height: 8),
-          Text("K${PlanLimits.onboardingFeeKwacha.toStringAsFixed(0)} — one-time payment\nUnlock 30 days of Platinum + full access", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600, height: 1.5)),
+          Text("K${onboardingFee.toStringAsFixed(0)} — one-time payment\nUnlock 30 days of Platinum + full access", textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), height: 1.5)),
           const SizedBox(height: 24),
-          Text("Send K${PlanLimits.onboardingFeeKwacha.toStringAsFixed(0)} to:", style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text("Send K${onboardingFee.toStringAsFixed(0)} to:", style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
-            child: const Column(
+            decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+            child: Column(
               children: [
-                Text("Superadmin MoMo", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                Text("0976847775", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.blue)),
-                Text("Zamtel / Airtel / MTN", style: TextStyle(fontSize: 11, color: Colors.grey)),
+                Text("Superadmin MoMo", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                const Text("0976847775", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.blue)),
+                Text("Zamtel / Airtel / MTN", style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
               ],
             ),
           ),
           const SizedBox(height: 12),
-          Text("After sending, the Superadmin will verify and activate your account.", style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+          Text("After sending, the Superadmin will verify and activate your account.", style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
@@ -258,6 +287,11 @@ class _PlanSelectionScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tenant = ref.watch(currentTenantProvider);
+    final settings = ref.watch(platformSettingsProvider).value;
+    final goldMonthly = settings?.goldMonthlyFee ??
+        PlanLimits.forPlan(TenantPlan.gold).monthlyPriceKwacha;
+    final platinumMonthly = settings?.platinumMonthlyFee ??
+        PlanLimits.forPlan(TenantPlan.platinum).monthlyPriceKwacha;
     return Scaffold(
       appBar: AppBar(title: const Text("Choose Your Plan")),
       body: ListView(
@@ -275,12 +309,14 @@ class _PlanSelectionScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           _PlanCard(
             plan: TenantPlan.gold,
+            priceOverride: goldMonthly,
             isCurrent: tenant?.effectivePlan == TenantPlan.gold,
             onSelect: () => _selectPlan(context, ref, TenantPlan.gold),
           ),
           const SizedBox(height: 16),
           _PlanCard(
             plan: TenantPlan.platinum,
+            priceOverride: platinumMonthly,
             isCurrent: tenant?.effectivePlan == TenantPlan.platinum,
             onSelect: () => _selectPlan(context, ref, TenantPlan.platinum),
           ),
@@ -325,7 +361,12 @@ class _PlanSelectionScreen extends ConsumerWidget {
 
       // For Gold/Platinum, show Lipila payment sheet
       if (context.mounted) Navigator.pop(context);
-      final price = PlanLimits.forPlan(plan).monthlyPriceKwacha;
+      final settings = ref.read(platformSettingsProvider).value;
+      final price = plan == TenantPlan.gold
+          ? (settings?.goldMonthlyFee ??
+              PlanLimits.forPlan(TenantPlan.gold).monthlyPriceKwacha)
+          : (settings?.platinumMonthlyFee ??
+              PlanLimits.forPlan(TenantPlan.platinum).monthlyPriceKwacha);
       final planName = PlanLimits.forPlan(plan).label;
 
       showModalBottomSheet(
@@ -334,29 +375,29 @@ class _PlanSelectionScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         builder: (ctx) => Container(
           padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          decoration: BoxDecoration(
+            color: Theme.of(ctx).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: Theme.of(ctx).dividerColor, borderRadius: BorderRadius.circular(2))),
               const SizedBox(height: 20),
-              Text("Subscribe to $planName", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              Text("Subscribe to $planName", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Theme.of(ctx).colorScheme.onSurface)),
               const SizedBox(height: 8),
-              Text("Pay K$price/mo via mobile money", style: TextStyle(color: Colors.grey.shade600)),
+              Text("Pay K$price/mo via mobile money", style: TextStyle(color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.6))),
               const SizedBox(height: 16),
-              Text("Send K$price to:", style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text("Send K$price to:", style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(ctx).colorScheme.onSurface)),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
-                child: const Column(
+                decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+                child: Column(
                   children: [
-                    Text("Superadmin MoMo", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    Text("0976847775", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.blue)),
-                    Text("Zamtel / Airtel / MTN", style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    Text("Superadmin MoMo", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Theme.of(ctx).colorScheme.onSurface)),
+                    const Text("0976847775", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.blue)),
+                    Text("Zamtel / Airtel / MTN", style: TextStyle(fontSize: 11, color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.5))),
                   ],
                 ),
               ),
@@ -367,9 +408,13 @@ class _PlanSelectionScreen extends ConsumerWidget {
                 child: ElevatedButton(
                   onPressed: () async {
                     try {
+                      final extendDays = widgetRemoteConfig(ref)
+                          .getInt('subscription_manual_payment_days', 30);
                       await client.from('churches').update({
                         'plan': planName.toLowerCase(),
-                        'subscription_ends_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+                        'subscription_ends_at': DateTime.now()
+                            .add(Duration(days: extendDays))
+                            .toIso8601String(),
                       }).eq('id', tenantId);
                       if (ctx.mounted) Navigator.pop(ctx);
                       if (context.mounted) Navigator.pop(context);
@@ -412,8 +457,14 @@ class _PlanCard extends StatelessWidget {
   final TenantPlan plan;
   final bool isCurrent;
   final VoidCallback onSelect;
+  final double? priceOverride;
 
-  const _PlanCard({required this.plan, required this.isCurrent, required this.onSelect});
+  const _PlanCard({
+    required this.plan,
+    required this.isCurrent,
+    required this.onSelect,
+    this.priceOverride,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -423,13 +474,16 @@ class _PlanCard extends StatelessWidget {
         : plan == TenantPlan.gold
             ? Colors.amber
             : Colors.blueAccent;
+    final priceDisplay = priceOverride != null
+        ? 'K${priceOverride!.toStringAsFixed(0)}/mo'
+        : limits.priceDisplay;
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isCurrent ? color.withValues(alpha: 0.08) : Colors.white,
+        color: isCurrent ? color.withValues(alpha: 0.08) : Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isCurrent ? color : Colors.grey.shade200, width: isCurrent ? 2 : 1),
+        border: Border.all(color: isCurrent ? color : Theme.of(context).dividerColor, width: isCurrent ? 2 : 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,7 +492,7 @@ class _PlanCard extends StatelessWidget {
             children: [
               Text(limits.label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: color)),
               const Spacer(),
-              Text(limits.priceDisplay, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: color)),
+              Text(priceDisplay, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: color)),
             ],
           ),
           if (plan == TenantPlan.platinum)
@@ -456,14 +510,14 @@ class _PlanCard extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 12),
-          _featureRow("Members", limits.isUnlimited ? "Unlimited" : "${limits.maxMembers} max"),
-          _featureRow("Live Streaming", limits.isSilverSharedPool ? "Shared pool" : "${limits.liveStreamMinutesPerMonth ~/ 60} hrs/mo"),
-          _featureRow("Events/mo", limits.isUnlimited ? "Unlimited" : "${limits.eventsPerMonth}"),
-          _featureRow("Media Storage", "${limits.mediaStorageGb} GB"),
-          _featureRow("Kael AI Queries", limits.isUnlimited ? "Unlimited" : "${limits.kaelAiQueriesPerMonth}/mo"),
-          _featureRow("Marketplace Listings", limits.isUnlimited ? "Unlimited" : "${limits.marketplaceListingsPerMonth}/mo"),
-          _featureRow("Support", limits.supportLevel),
-          _featureRow("Platform Fee", "1% (min K3)"),
+          _featureRow(context, "Members", limits.isUnlimited ? "Unlimited" : "${limits.maxMembers} max"),
+          _featureRow(context, "Live Streaming", limits.isSilverSharedPool ? "Shared pool" : "${limits.liveStreamMinutesPerMonth ~/ 60} hrs/mo"),
+          _featureRow(context, "Events/mo", limits.isUnlimited ? "Unlimited" : "${limits.eventsPerMonth}"),
+          _featureRow(context, "Media Storage", "${limits.mediaStorageGb} GB"),
+          _featureRow(context, "Kael AI Queries", limits.isUnlimited ? "Unlimited" : "${limits.kaelAiQueriesPerMonth}/mo"),
+          _featureRow(context, "Marketplace Listings", limits.isUnlimited ? "Unlimited" : "${limits.marketplaceListingsPerMonth}/mo"),
+          _featureRow(context, "Support", limits.supportLevel),
+          _featureRow(context, "Platform Fee", "1% COA + Lipila (1.5% MoMo / 2.5% Card)"),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -485,16 +539,16 @@ class _PlanCard extends StatelessWidget {
     );
   }
 
-  Widget _featureRow(String label, String value) {
+  Widget _featureRow(BuildContext context, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: Row(
         children: [
           Icon(LucideIcons.check, size: 12, color: Colors.green),
           const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+          Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
         ],
       ),
     );

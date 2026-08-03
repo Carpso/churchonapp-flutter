@@ -83,10 +83,10 @@ class _MinistryScheduleScreenState extends ConsumerState<MinistryScheduleScreen>
         : <MinistryScheduleEntry>[];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Ministry Schedule'),
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         foregroundColor: Colors.black87,
         leading: IconButton(
@@ -405,8 +405,8 @@ class _MinistryScheduleScreenState extends ConsumerState<MinistryScheduleScreen>
           builder: (context, setSheetState) {
             return Container(
               height: MediaQuery.of(context).size.height * 0.75,
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFFAEB),
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
               ),
               child: Column(

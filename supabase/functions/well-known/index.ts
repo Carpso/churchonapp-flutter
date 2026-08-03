@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { getCorsHeaders } from "../_shared/cors.ts"
 
 const assetlinks = [
   {
@@ -21,10 +22,7 @@ serve(async (req) => {
   const url = new URL(req.url);
   const path = url.pathname;
 
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  };
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
 
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {

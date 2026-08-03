@@ -25,7 +25,7 @@ class AdminService {
             .maybeSingle();
 
         final role = callerProfile?['role'] as String? ?? 'member';
-        final isSuper = role == 'superadmin' || role == 'employee';
+        final isSuper = role == 'superadmin' || role == 'coa_employee';
 
         if (!isSuper) {
           // Non-superadmins are strictly restricted to their own tenant
@@ -186,51 +186,86 @@ class AdminService {
     await _client.from('payout_requests').update({'status': status}).eq('id', payoutId);
   }
 
-  /// Automatically approves and processes payouts for authorized workers and employees.
-  Future<int> automateWorkerPayouts() async {
-    // 1. Fetch pending requests with profile roles
+  /// Validates a single payout request (checks role eligibility + sufficient balance).
+  /// Does NOT auto-process — admin must explicitly approve each request.
+  Future<Map<String, dynamic>> validatePayoutRequest(String payoutId) async {
     final res = await _client.from('payout_requests')
-        .select('*, profiles(role, coins)')
-        .eq('status', 'pending');
-    
-    final requests = List<Map<String, dynamic>>.from(res);
-    int processedCount = 0;
+        .select('*, profiles(role, coins, full_name)')
+        .eq('id', payoutId)
+        .maybeSingle();
 
-    // 2. Roles eligible for Auto-Payout
-    final authorizedRoles = ['superadmin', 'employee', 'pastor', 'bishop', 'usher', 'writer', 'driver', 'rider'];
+    if (res == null) return {'valid': false, 'error': 'Request not found'};
+    if (res['status'] != 'pending') return {'valid': false, 'error': 'Already ${res['status']}'};
 
-    for (var req in requests) {
-      final role = req['profiles']['role'] as String?;
-      final amount = (req['amount'] as num).toDouble();
-      final coins = (req['profiles']['coins'] as num).toDouble();
+    final role = res['profiles']?['role'] as String?;
+    final amount = (res['amount'] as num).toDouble();
+    final coins = (res['profiles']?['coins'] as num?)?.toDouble() ?? 0.0;
+    final name = res['profiles']?['full_name'] as String? ?? 'Unknown';
 
-      if (authorizedRoles.contains(role) && coins >= amount) {
-        // 3. Process the payout
-        await processPayout(req['id'], 'processed');
-        
-        // 4. Update the profile balance (Settle the coins)
-        await _client.from('profiles')
-            .update({'coins': coins - amount})
-            .eq('id', req['user_id']);
-            
-        // 5. Log internal settlement
-        await _client.from('wallet_transactions').insert({
-          'user_id': req['user_id'],
-          'amount': -amount,
-          'type': 'payout_settlement',
-          'reference_id': req['id'],
-          'description': 'Automated Payout: $role',
-        });
-
-        processedCount++;
-      }
+    final authorizedRoles = ['superadmin', 'coa_employee', 'pastor', 'bishop', 'usher', 'writer', 'driver', 'rider'];
+    if (!authorizedRoles.contains(role)) {
+      return {'valid': false, 'error': 'Role "$role" not authorized for payout'};
     }
-    return processedCount;
+    if (coins < amount) {
+      return {'valid': false, 'error': 'Insufficient balance (${coins.toStringAsFixed(0)} CC < ${amount.toStringAsFixed(0)} CC)'};
+    }
+
+    return {
+      'valid': true,
+      'name': name,
+      'role': role,
+      'amount': amount,
+      'coins': coins,
+    };
   }
 
-  /// Automatically fetches and processes payouts for all authorized roles.
-  Future<void> triggerGlobalWorkerPayouts() async {
-    await automateWorkerPayouts();
+  /// Processes a single payout request after explicit admin approval.
+  /// Validates role + balance, deducts coins, logs settlement.
+  Future<void> approveAndProcessPayout(String payoutId) async {
+    final validation = await validatePayoutRequest(payoutId);
+    if (!validation['valid']) throw Exception(validation['error']);
+
+    final res = await _client.from('payout_requests')
+        .select('user_id, amount')
+        .eq('id', payoutId)
+        .single();
+
+    final userId = res['user_id'] as String;
+    final amount = (res['amount'] as num).toDouble();
+    final coins = validation['coins'] as double;
+    final role = validation['role'] as String;
+
+    // Process the payout
+    await processPayout(payoutId, 'processed');
+
+    // Deduct coins
+    await _client.from('profiles')
+        .update({'coins': coins - amount})
+        .eq('id', userId);
+
+    // Log settlement
+    await _client.from('wallet_transactions').insert({
+      'user_id': userId,
+      'amount': -amount,
+      'type': 'payout_settlement',
+      'reference_id': payoutId,
+      'description': 'Approved Payout: $role',
+    });
+  }
+
+  /// Validates all pending payout requests (returns validation results per request).
+  Future<List<Map<String, dynamic>>> validateAllPendingPayouts() async {
+    final res = await _client.from('payout_requests')
+        .select('id')
+        .eq('status', 'pending');
+    final requests = List<Map<String, dynamic>>.from(res);
+
+    final results = <Map<String, dynamic>>[];
+    for (var req in requests) {
+      final validation = await validatePayoutRequest(req['id']);
+      results.add({...validation, 'payout_id': req['id']});
+    }
+    return results;
   }
 
   /// Verifies a driver's payout status and settles any pending balance discrepancies.

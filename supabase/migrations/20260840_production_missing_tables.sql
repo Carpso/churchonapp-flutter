@@ -236,9 +236,12 @@ CREATE TABLE IF NOT EXISTS public.service_reports (
 
 ALTER TABLE public.service_reports ENABLE ROW LEVEL SECURITY;
 
+-- Ensure columns referenced below exist (table may predate this migration)
+ALTER TABLE IF EXISTS public.service_reports ADD COLUMN IF NOT EXISTS service_date DATE;
+
 DO $$ BEGIN
   CREATE POLICY "service_reports_select" ON public.service_reports FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND (role IN ('superadmin', 'employee', 'pastor', 'bishop', 'treasurer') OR tenant_id = service_reports.tenant_id))
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND (role IN ('superadmin', 'employee', 'pastor', 'bishop', 'treasurer') OR tenant_id = service_reports.tenant_id::text))
   );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
@@ -351,7 +354,7 @@ ALTER TABLE public.volunteer_schedules ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
   CREATE POLICY "volunteer_schedules_select" ON public.volunteer_schedules FOR SELECT USING (
     auth.uid() = user_id OR
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND (role IN ('superadmin', 'employee', 'pastor', 'bishop') OR tenant_id = volunteer_schedules.tenant_id))
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND (role IN ('superadmin', 'employee', 'pastor', 'bishop') OR tenant_id = volunteer_schedules.tenant_id::text))
   );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
@@ -383,6 +386,9 @@ CREATE TABLE IF NOT EXISTS public.worship_lyrics (
 );
 
 ALTER TABLE public.worship_lyrics ENABLE ROW LEVEL SECURITY;
+
+-- Ensure columns referenced below exist (table may predate this migration)
+ALTER TABLE IF EXISTS public.worship_lyrics ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'praise';
 
 DO $$ BEGIN
   CREATE POLICY "worship_lyrics_select" ON public.worship_lyrics FOR SELECT USING (true);
@@ -417,7 +423,7 @@ ALTER TABLE public.event_rsvps ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
   CREATE POLICY "event_rsvps_select" ON public.event_rsvps FOR SELECT USING (
     auth.uid() = user_id OR
-    EXISTS (SELECT 1 FROM public.events WHERE id = event_rsvps.event_id AND (created_by = auth.uid() OR tenant_id IN (SELECT tenant_id FROM public.profiles WHERE id = auth.uid())))
+    EXISTS (SELECT 1 FROM public.events WHERE id = event_rsvps.event_id AND (created_by = auth.uid() OR tenant_id::text IN (SELECT tenant_id FROM public.profiles WHERE id = auth.uid())))
   );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
@@ -465,6 +471,9 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
 
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
+-- Ensure column referenced by index exists (table may predate this migration)
+ALTER TABLE IF EXISTS public.audit_logs ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+
 DO $$ BEGIN
   CREATE POLICY "audit_logs_select" ON public.audit_logs FOR SELECT USING (
     EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('superadmin', 'employee'))
@@ -491,6 +500,8 @@ ALTER TABLE IF EXISTS public.churches ADD COLUMN IF NOT EXISTS social_links JSON
 
 -- ── 16. ENABLE REALTIME FOR KEY TABLES ─────────────────────────
 DO $$
+DECLARE
+  tbl TEXT;
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
     -- Add tables to realtime for live updates

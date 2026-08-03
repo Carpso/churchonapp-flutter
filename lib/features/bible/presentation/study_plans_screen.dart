@@ -14,7 +14,7 @@ class StudyPlansScreen extends ConsumerWidget {
     final plansAsync = ref.watch(readingPlansProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Study Plans", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.indigo,
@@ -161,8 +161,8 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFFFFAEB),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
       padding: const EdgeInsets.all(25),
@@ -178,7 +178,6 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
           const SizedBox(height: 15),
           Flexible(
             child: ListView.builder(
-              shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _plan.totalDays,
               itemBuilder: (context, idx) {

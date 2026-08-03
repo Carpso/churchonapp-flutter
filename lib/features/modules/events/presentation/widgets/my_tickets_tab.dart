@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:church_on_app/features/events/data/event_service.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
+import 'package:church_on_app/features/modules/events/presentation/ticket_detail_screen.dart';
 
 class MyTicketsTab extends ConsumerWidget {
   final VoidCallback onBrowseEvents;
@@ -55,46 +56,52 @@ class MyTicketsTab extends ConsumerWidget {
   }
 
   Widget _buildSimpleTicketCard(BuildContext context, ChurchEvent event) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => TicketDetailScreen(event: event)),
       ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: CachedNetworkImage(
-              imageUrl: event.imageUrl,
-              width: 60,
-              height: 60,
-              memCacheWidth: 120,
-              memCacheHeight: 120,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(width: 60, height: 60, color: Colors.grey.shade200),
-              errorWidget: (context, url, error) => Container(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 15),
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: CachedNetworkImage(
+                imageUrl: event.imageUrl,
                 width: 60,
                 height: 60,
-                color: Colors.grey.shade200,
-                child: const Icon(Icons.event, color: Colors.grey),
+                memCacheWidth: 120,
+                memCacheHeight: 120,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(width: 60, height: 60, color: Colors.grey.shade200),
+                errorWidget: (context, url, error) => Container(
+                  width: 60,
+                  height: 60,
+                  color: Colors.grey.shade200,
+                  child: const Icon(Icons.event, color: Colors.grey),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(event.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(DateFormat.yMMMd().format(event.date), style: const TextStyle(color: Colors.grey, fontSize: 12)),
-              ],
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(event.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(DateFormat.yMMMd().format(event.date), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
             ),
-          ),
-          const Icon(LucideIcons.qrCode, color: Colors.blueAccent),
-        ],
+            const Icon(LucideIcons.chevronRight, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }

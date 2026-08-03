@@ -71,7 +71,7 @@ class _TechFastBlockerState extends ConsumerState<TechFastBlocker> {
         _timeLeft = schedule.endTime.difference(now);
 
         return Scaffold(
-          backgroundColor: const Color(0xFFFFFAEB),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           body: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(32),

@@ -39,7 +39,7 @@ class _FundraisingListScreenState extends ConsumerState<FundraisingListScreen> w
     final tenantId = tenant?.id;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Fundraising'),
         bottom: TabBar(

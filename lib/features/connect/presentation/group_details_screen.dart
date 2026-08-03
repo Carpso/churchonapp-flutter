@@ -56,7 +56,7 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
     final groupId = widget.group['groupId'] as String? ?? widget.group['id'] as String? ?? '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
@@ -165,7 +165,7 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
                 icon: const Icon(LucideIcons.send, size: 18, color: Colors.white),
                 label: const Text("OPEN CHAT"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF075E54),
+                  backgroundColor: const Color(0xFF1A1A1A),
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 55),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -204,24 +204,24 @@ class _MembersList extends ConsumerWidget {
               final m = members[index];
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: const Color(0xFF075E54),
+                  backgroundColor: const Color(0xFF1A1A1A),
                   backgroundImage: m['avatar_url'] != null && (m['avatar_url'] as String).isNotEmpty
                       ? CachedNetworkImageProvider(m['avatar_url'] as String)
                       : null,
                   child: m['avatar_url'] == null || (m['avatar_url'] as String).isEmpty
                       ? Text(
-                          ((m['user_name'] as String?)?.isNotEmpty == true ? (m['user_name'] as String)[0] : 'M').toUpperCase(),
+                          ((m['user_name'] as String?)?.isNotEmpty == true ? (m['user_name'] as String)[0] : 'U').toUpperCase(),
                           style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                         )
                       : null,
                 ),
-                title: Text(m['user_name'] ?? 'Member', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                title: Text(m['user_name'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 subtitle: Text("Active in chat", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                trailing: const Icon(LucideIcons.messageCircle, color: Color(0xFF075E54), size: 18),
+                trailing: const Icon(LucideIcons.messageCircle, color: Color(0xFF1A1A1A), size: 18),
                 onTap: () {
                   Navigator.push(context, MaterialPageRoute(
                     builder: (_) => ChatMessengerScreen(
-                      userName: m['user_name'] ?? 'Member',
+                      userName: m['user_name'] ?? 'User',
                       userAvatar: m['avatar_url'] ?? '',
                       receiverId: m['user_id'] ?? '',
                     ),

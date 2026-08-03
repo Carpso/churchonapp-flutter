@@ -17,7 +17,7 @@ class ReferralSystemScreen extends ConsumerWidget {
     final historyAsync = ref.watch(referralHistoryProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Referral Program", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF0F172A),

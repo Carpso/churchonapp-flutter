@@ -13,7 +13,7 @@ class GivingHistoryScreen extends ConsumerWidget {
     final transactionsAsync = ref.watch(transactionsStreamProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Stewardship History"),
       ),

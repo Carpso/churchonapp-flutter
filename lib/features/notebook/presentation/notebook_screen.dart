@@ -281,31 +281,33 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   }
 
   Widget _buildEditorView() {
-    return ListView(
+    final editorItems = <Widget>[
+      TextField(
+        controller: _titleCtrl,
+        style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.bold),
+        decoration: const InputDecoration(hintText: "Untitled Entry", border: InputBorder.none, hintStyle: TextStyle(color: Colors.black12)),
+      ),
+      TextField(
+        controller: _topicCtrl,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.amber),
+        decoration: const InputDecoration(hintText: "ADD TOPIC", border: InputBorder.none, hintStyle: TextStyle(color: Colors.black12, fontSize: 12)),
+      ),
+      const Divider(height: 40),
+      TextField(
+        controller: _contentCtrl,
+        maxLines: null,
+        style: const TextStyle(fontSize: 18, height: 1.6),
+        decoration: const InputDecoration(
+          hintText: "Write what the Spirit is saying...\nUse {{answer}} to create blanks for study.",
+          border: InputBorder.none,
+          hintStyle: TextStyle(color: Colors.black12),
+        ),
+      ),
+    ];
+    return ListView.builder(
       padding: EdgeInsets.fromLTRB(25, 25, 25, MediaQuery.of(context).viewInsets.bottom + 100),
-      children: [
-        TextField(
-          controller: _titleCtrl,
-          style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.bold),
-          decoration: const InputDecoration(hintText: "Untitled Entry", border: InputBorder.none, hintStyle: TextStyle(color: Colors.black12)),
-        ),
-        TextField(
-          controller: _topicCtrl,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.amber),
-          decoration: const InputDecoration(hintText: "ADD TOPIC", border: InputBorder.none, hintStyle: TextStyle(color: Colors.black12, fontSize: 12)),
-        ),
-        const Divider(height: 40),
-        TextField(
-          controller: _contentCtrl,
-          maxLines: null,
-          style: const TextStyle(fontSize: 18, height: 1.6),
-          decoration: const InputDecoration(
-            hintText: "Write what the Spirit is saying...\nUse {{answer}} to create blanks for study.",
-            border: InputBorder.none,
-            hintStyle: TextStyle(color: Colors.black12),
-          ),
-        ),
-      ],
+      itemCount: editorItems.length,
+      itemBuilder: (context, index) => editorItems[index],
     );
   }
 

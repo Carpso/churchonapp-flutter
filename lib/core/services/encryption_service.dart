@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
@@ -26,11 +26,11 @@ class EncryptionService {
     return Uint8List.fromList(List<int>.generate(_ivLength, (_) => random.nextInt(256)));
   }
 
-  static EncryptedDocument encryptFile(File file, String userSecret) {
+  static Future<EncryptedDocument> encryptFile(File file, String userSecret) async {
     final salt = _generateSalt();
     final iv = _generateIv();
     final key = deriveKey(userSecret, salt);
-    final fileBytes = file.readAsBytesSync();
+    final fileBytes = await file.readAsBytes();
 
     final encrypter = encrypt.Encrypter(encrypt.AES(encrypt.Key(key), mode: encrypt.AESMode.cbc));
     final encrypted = encrypter.encryptBytes(fileBytes, iv: encrypt.IV(iv));

@@ -12,7 +12,7 @@ class LandingScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -335,7 +335,7 @@ class LandingScreen extends ConsumerWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: const Color(0xFFFFFAEB), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: BorderRadius.circular(20)),
             child: Icon(icon, color: const Color(0xFFFFCC00), size: 32),
           ),
           const SizedBox(height: 30),
@@ -376,7 +376,7 @@ class LandingScreen extends ConsumerWidget {
   Widget _buildPricing(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 120),
-      color: const Color(0xFFFFFAEB),
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: Column(
         children: [
           Text("CHURCH PROMO 🚀", style: TextStyle(letterSpacing: 2, color: Colors.blue[800], fontWeight: FontWeight.bold, fontSize: 12)),
@@ -396,17 +396,17 @@ class LandingScreen extends ConsumerWidget {
               ),
               _pricingCard(
                 "Bookshops", "K0", "onboarding",
-                ["Digital Storefront", "Inventory Management", "Secure Payments", "5% Promo Commission"],
+                ["Digital Storefront", "Inventory Management", "Secure Payments", "10% Commission"],
                 onTap: () => context.go('/signup'),
               ),
               _pricingCard(
                 "Vendors", "K0", "onboarding",
-                ["Sell Goods & Services", "Integrated Delivery", "Instant Payouts", "5% Promo Commission"],
+                ["Sell Goods & Services", "Integrated Delivery", "Instant Payouts", "10% Commission"],
                 onTap: () => context.go('/signup'),
               ),
               _pricingCard(
                 "Drivers", "K0", "onboarding",
-                ["Flexible Hours", "In-App Navigation", "Instant Payouts", "5% Service Fee"],
+                ["Flexible Hours", "In-App Navigation", "Instant Payouts", "10% Commission"],
                 onTap: () => context.go('/signup'),
               ),
             ],

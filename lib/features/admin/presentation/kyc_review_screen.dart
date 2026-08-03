@@ -35,7 +35,7 @@ final pendingKycProvider = FutureProvider<List<KycApplication>>((ref) async {
       .select('id, full_name, avatar_url, tenant_id, kyc_status, created_at')
       .eq('kyc_status', 'pending');
 
-  if (currentUser != null && !currentUser.isSuperadmin && currentUser.role != 'employee' && currentUser.tenantId != null) {
+  if (currentUser != null && !currentUser.isSuperadmin && currentUser.role != 'coa_employee' && currentUser.tenantId != null) {
     query.eq('tenant_id', currentUser.tenantId!);
   }
 

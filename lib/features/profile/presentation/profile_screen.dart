@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -44,6 +43,8 @@ import '../../modules/bible_quiz/data/bible_quiz_service.dart';
 import '../../transport/presentation/driver_portal_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'security_screen.dart';
+import 'camera_settings_screen.dart';
+import 'emergency_contacts_screen.dart';
 import 'role_onboarding_screen.dart';
 import 'writer_application_screen.dart';
 import 'church_referral_screen.dart';
@@ -55,17 +56,26 @@ import 'package:church_on_app/features/admin/presentation/pastor_dashboard_scree
 import '../../finance/presentation/coa_missions_donate_screen.dart';
 import '../../marketplace/presentation/bookshop_onboarding_screen.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   final String? userId;
   const ProfileScreen({super.key, this.userId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
     final profileAsync = ref.watch(profileProvider);
     final tenant = ref.watch(currentTenantProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F0F), // Deep premium black
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: profileAsync.when(
         data: (profile) {
           if (profile == null) {
@@ -73,17 +83,17 @@ class ProfileScreen extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(LucideIcons.userX, size: 80, color: Colors.white24),
+                  Icon(LucideIcons.userX, size: 80, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.25)),
                   const SizedBox(height: 24),
-                  const Text("PROFILE NOT FOUND", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white, letterSpacing: 1.5)),
+                  Text("PROFILE NOT FOUND", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Theme.of(context).colorScheme.onSurface, letterSpacing: 1.5)),
                   const SizedBox(height: 12),
-                  const Text("Please sign in to access your account.", style: TextStyle(color: Colors.white38, fontSize: 13)),
+                  Text("Please sign in to access your account.", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 13)),
                   const SizedBox(height: 32),
                   ElevatedButton(
                     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen())),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFD700),
-                      foregroundColor: Colors.black,
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       minimumSize: const Size(200, 56),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                     ),
@@ -126,7 +136,7 @@ class ProfileScreen extends ConsumerWidget {
             ],
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator(color: Colors.amber)),
+        loading: () => Center(child: CircularProgressIndicator(color: Theme.of(context).primaryColor)),
         error: (e, st) => ErrorRetryWidget(
           message: "Failed to load profile",
           onRetry: () => ref.invalidate(profileProvider),
@@ -237,7 +247,7 @@ class ProfileScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                Text(tenant?.name ?? "Global Member", style: const TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                Text(tenant?.name ?? "Church On App Member", style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -265,9 +275,9 @@ class ProfileScreen extends ConsumerWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         children: [
@@ -277,11 +287,11 @@ class ProfileScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("WALLET", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white24, letterSpacing: 2)),
+                    Text("WALLET", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), letterSpacing: 2)),
                     const SizedBox(height: 8),
-                    Text("$coins CC", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.amber)),
+                    Text("$coins CC", style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Theme.of(context).primaryColor)),
                     const SizedBox(height: 4),
-                    Text(walletId, style: const TextStyle(fontSize: 11, color: Colors.white10, fontWeight: FontWeight.bold)),
+                    Text(walletId, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4), fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -340,7 +350,7 @@ class ProfileScreen extends ConsumerWidget {
                 }
               }
             }),
-            _buildWalletAction(context, LucideIcons.gift, "REWARDS", () => _showRewardsDialog(context, profile)),
+            _buildWalletAction(context, LucideIcons.gift, "REWARDS", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardsScreen()))),
             _buildWalletAction(context, LucideIcons.shieldCheck, "IDENTITY", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KycVerificationScreen()))),
           ],
         ),
@@ -349,7 +359,6 @@ class ProfileScreen extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _buildWalletAction(context, LucideIcons.shoppingCart, "BUY CC", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BuyCoinsScreen()))),
-            _buildWalletAction(context, LucideIcons.badgePercent, "REDEEM", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PartnerRedemptionScreen()))),
             _buildWalletAction(context, LucideIcons.coins, "MY CC", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PayoutRequestScreen()))),
           ],
         ),
@@ -364,11 +373,14 @@ class ProfileScreen extends ConsumerWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), shape: BoxShape.circle),
-            child: Icon(icon, color: Colors.white, size: 20),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Theme.of(context).colorScheme.onSurface, size: 20),
           ),
           const SizedBox(height: 8),
-          Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.white38, letterSpacing: 1)),
+          Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55), letterSpacing: 1)),
         ],
       ),
     );
@@ -379,9 +391,9 @@ class ProfileScreen extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 20.0),
       child: Row(
         children: [
-          Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white70, letterSpacing: 2.5)),
+          Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), letterSpacing: 2.5)),
           const Spacer(),
-          const Icon(LucideIcons.chevronRight, size: 14, color: Colors.white24),
+          Icon(LucideIcons.chevronRight, size: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
         ],
       ),
     );
@@ -444,27 +456,28 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   Widget _buildPremiumItem(BuildContext context, IconData icon, String title, {bool isDestructive = false, bool isHighlighted = false, String? trailing, VoidCallback? onTap}) {
+    final scheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: isHighlighted ? Colors.amber.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.03),
+          color: isHighlighted ? scheme.primary.withValues(alpha: 0.08) : scheme.surface,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: isHighlighted ? Colors.amber.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.05)),
+          border: Border.all(color: isHighlighted ? scheme.primary.withValues(alpha: 0.3) : scheme.outlineVariant.withValues(alpha: 0.5)),
         ),
         child: Row(
           children: [
-            Icon(icon, color: isDestructive ? Colors.redAccent : (isHighlighted ? Colors.amber : Colors.white70), size: 20),
+            Icon(icon, color: isDestructive ? scheme.error : (isHighlighted ? scheme.primary : scheme.onSurface.withValues(alpha: 0.7)), size: 20),
             const SizedBox(width: 16),
             Expanded(
-              child: Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDestructive ? Colors.redAccent : Colors.white)),
+              child: Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDestructive ? scheme.error : scheme.onSurface)),
             ),
-            if (trailing != null) 
-              Text(trailing, style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1))
+            if (trailing != null)
+              Text(trailing, style: TextStyle(color: scheme.primary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1))
             else
-              const Icon(LucideIcons.chevronRight, size: 16, color: Colors.white12),
+              Icon(LucideIcons.chevronRight, size: 16, color: scheme.onSurface.withValues(alpha: 0.15)),
           ],
         ),
       ),
@@ -473,26 +486,27 @@ class ProfileScreen extends ConsumerWidget {
 
   Widget _buildWorkModeToggle(BuildContext context, WidgetRef ref, UserProfile profile) {
     final mode = profile.isWorkMode;
+    final scheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => ref.read(profileProvider.notifier).toggleWorkMode(),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: mode ? Colors.green.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.05),
+          color: mode ? Colors.green.withValues(alpha: 0.1) : scheme.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: mode ? Colors.green.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.1)),
+          border: Border.all(color: mode ? Colors.green.withValues(alpha: 0.4) : scheme.outlineVariant.withValues(alpha: 0.5)),
         ),
         child: Column(
           children: [
-            Icon(mode ? LucideIcons.zap : LucideIcons.zapOff, color: mode ? Colors.green : Colors.white24, size: 22),
+            Icon(mode ? LucideIcons.zap : LucideIcons.zapOff, color: mode ? Colors.green : scheme.onSurface.withValues(alpha: 0.3), size: 22),
             const SizedBox(height: 6),
-            Text(mode ? "ON DUTY" : "OFF DUTY", style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: mode ? Colors.green : Colors.white24)),
+            Text(mode ? "ON DUTY" : "OFF DUTY", style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: mode ? Colors.green : scheme.onSurface.withValues(alpha: 0.3))),
             if (mode) ...[
               const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DriverPortalScreen())),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.amber,
+                  backgroundColor: scheme.primary,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -518,7 +532,7 @@ class ProfileScreen extends ConsumerWidget {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 1.5),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 1.2),
       itemCount: assets.length,
       itemBuilder: (context, index) {
         return GestureDetector(
@@ -543,21 +557,21 @@ class ProfileScreen extends ConsumerWidget {
             }
           },
           child: Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.03),
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(assets[index]['icon'] as IconData, color: Colors.amber, size: 24),
-                const SizedBox(height: 12),
-                Text(assets[index]['title'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Icon(assets[index]['icon'] as IconData, color: Theme.of(context).primaryColor, size: 24),
+                const SizedBox(height: 10),
+                Text(assets[index]['title'] as String, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Theme.of(context).colorScheme.onSurface), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 2),
-                Text(assets[index]['count'] as String, style: const TextStyle(color: Colors.white38, fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(assets[index]['count'] as String, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 10, height: 1.3), maxLines: 2, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -572,7 +586,7 @@ class ProfileScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(32),
       ),
       child: Column(
@@ -580,13 +594,13 @@ class ProfileScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildDashboardMetric("Attendance", "85%", LucideIcons.calendarCheck, Colors.blueAccent),
+              _buildDashboardMetric(context, "Church", (profile.tenantId ?? '').isNotEmpty ? 'Active' : '--', LucideIcons.building, Colors.blueAccent),
               quizRankAsync.when(
-                data: (rank) => _buildDashboardMetric("Quiz Rank", rank, LucideIcons.trophy, Colors.amber),
-                loading: () => _buildDashboardMetric("Quiz Rank", "#--", LucideIcons.trophy, Colors.amber),
-                error: (e, st) => _buildDashboardMetric("Quiz Rank", "#--", LucideIcons.trophy, Colors.amber),
+                data: (rank) => _buildDashboardMetric(context, "Quiz Rank", rank, LucideIcons.trophy, Colors.amber),
+                loading: () => _buildDashboardMetric(context, "Quiz Rank", "#--", LucideIcons.trophy, Colors.amber),
+                error: (e, st) => _buildDashboardMetric(context, "Quiz Rank", "#--", LucideIcons.trophy, Colors.amber),
               ),
-              _buildDashboardMetric("Tokens", "${profile.coins}", LucideIcons.zap, Colors.purpleAccent),
+              _buildDashboardMetric(context, "Tokens", "${profile.coins}", LucideIcons.zap, Colors.purpleAccent),
             ],
           ),
           const SizedBox(height: 32),
@@ -603,17 +617,17 @@ class ProfileScreen extends ConsumerWidget {
                       const FlSpot(0, 3), const FlSpot(1, 1), const FlSpot(2, 4), const FlSpot(3, 2), const FlSpot(4, 5), const FlSpot(5, 3), const FlSpot(6, 4),
                     ],
                     isCurved: true,
-                    color: Colors.amber,
+                    color: Theme.of(context).primaryColor,
                     barWidth: 4,
                     dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(show: true, color: Colors.amber.withValues(alpha: 0.1)),
+                    belowBarData: BarAreaData(show: true, color: Theme.of(context).primaryColor.withValues(alpha: 0.1)),
                   ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
-          const Text("SPIRITUAL GROWTH INDEX", style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.white10, letterSpacing: 3)),
+          Text("SPIRITUAL GROWTH INDEX", style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), letterSpacing: 3)),
           const SizedBox(height: 24),
           const SpiritualPredictorCard(),
         ],
@@ -621,13 +635,13 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDashboardMetric(String label, String value, IconData icon, Color color) {
+  Widget _buildDashboardMetric(BuildContext context, String label, String value, IconData icon, Color color) {
     return Column(
       children: [
         Icon(icon, color: color, size: 22),
         const SizedBox(height: 8),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.white)),
-        Text(label.toUpperCase(), style: const TextStyle(fontSize: 8, color: Colors.white24, fontWeight: FontWeight.bold, letterSpacing: 1)),
+        Text(value, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Theme.of(context).colorScheme.onSurface)),
+        Text(label.toUpperCase(), style: TextStyle(fontSize: 8, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontWeight: FontWeight.bold, letterSpacing: 1)),
       ],
     );
   }
@@ -669,22 +683,23 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   void _showLogoutConfirmation(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: scheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        title: const Text("SIGN OUT?", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-        content: const Text("Are you sure you want to exit your session?", style: TextStyle(color: Colors.white60)),
+        title: Text("SIGN OUT?", style: TextStyle(color: scheme.onSurface, fontWeight: FontWeight.w900)),
+        content: Text("Are you sure you want to exit your session?", style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.6))),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text("CANCEL", style: TextStyle(color: Colors.white24))),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text("CANCEL", style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.3)))),
           ElevatedButton(
             onPressed: () async {
               Navigator.of(ctx).pop();
               await ref.read(authProvider.notifier).signOut();
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: scheme.error, foregroundColor: scheme.onError),
             child: const Text("LOGOUT"),
           ),
         ],
@@ -699,28 +714,11 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  void _showRewardsDialog(BuildContext context, UserProfile profile) {
-    showDialog(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-          title: const Row(children: [Icon(LucideIcons.gift, color: Colors.amber), SizedBox(width: 10), Text("Rewards", style: TextStyle(color: Colors.white))]),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const ListTile(leading: Icon(LucideIcons.star, color: Colors.amber), title: Text("Welcome Bonus", style: TextStyle(color: Colors.white)), subtitle: Text("500 Coins", style: TextStyle(color: Colors.white38)), dense: true),
-              ListTile(leading: const Icon(LucideIcons.flame, color: Colors.red), title: Text("${profile.streakCount}-Day Streak", style: const TextStyle(color: Colors.white)), subtitle: const Text("Streak Bonus", style: TextStyle(color: Colors.white38)), dense: true),
-            ],
-          ),
-          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text("CLOSE"))],
-        ));
-  }
-
   void _showSecuritySettings(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: scheme.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
       builder: (_) => Padding(
         padding: const EdgeInsets.all(32),
@@ -728,7 +726,7 @@ class ProfileScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("SECURITY", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 2)),
+            Text("SECURITY", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: scheme.onSurface, letterSpacing: 2)),
             const SizedBox(height: 24),
             _buildActionItem(LucideIcons.lock, "Change Password", onTap: () {
               Navigator.pop(context);
@@ -746,6 +744,14 @@ class ProfileScreen extends ConsumerWidget {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const SecurityScreen()));
             }),
+            _buildActionItem(LucideIcons.camera, "Camera Settings", onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const CameraSettingsScreen()));
+            }),
+            _buildActionItem(LucideIcons.phone, "Emergency Contacts", onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const EmergencyContactsScreen()));
+            }),
             const SizedBox(height: 24),
           ],
         ),
@@ -754,25 +760,26 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   void _showChangePasswordDialog(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final passwordCtrl = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: scheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-        title: const Text("Change Password", style: TextStyle(color: Colors.white)),
+        title: Text("Change Password", style: TextStyle(color: scheme.onSurface)),
         content: TextField(
           controller: passwordCtrl,
           obscureText: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
+          style: TextStyle(color: scheme.onSurface),
+          decoration: InputDecoration(
             hintText: "Enter new password...",
-            hintStyle: TextStyle(color: Colors.white30),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+            hintStyle: TextStyle(color: scheme.onSurface.withValues(alpha: 0.3)),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: scheme.onSurface.withValues(alpha: 0.24))),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(color: Colors.white24))),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("CANCEL", style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.3)))),
           ElevatedButton(
             onPressed: () async {
               if (passwordCtrl.text.length < 6) {
@@ -789,7 +796,7 @@ class ProfileScreen extends ConsumerWidget {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black),
+            style: ElevatedButton.styleFrom(backgroundColor: scheme.primary, foregroundColor: scheme.onPrimary),
             child: const Text("UPDATE"),
           ),
         ],
@@ -798,30 +805,48 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   void _showPrivacyModeDialog(BuildContext context) {
-    bool isPrivacyEnabled = false;
+    final profileAsync = ref.read(profileProvider);
+    final currentPrivacy = profileAsync.value?.isWorkMode ?? false;
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
+          final scheme = Theme.of(context).colorScheme;
           return AlertDialog(
-            backgroundColor: const Color(0xFF1A1A1A),
+            backgroundColor: scheme.surface,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-            title: const Text("Privacy Mode", style: TextStyle(color: Colors.white)),
+            title: Text("Privacy Mode", style: TextStyle(color: scheme.onSurface)),
             content: SwitchListTile(
-              title: const Text("Go Anonymous", style: TextStyle(color: Colors.white, fontSize: 14)),
-              subtitle: const Text("Hide your presence status in communities", style: TextStyle(color: Colors.white54, fontSize: 11)),
-              activeThumbColor: Colors.amber,
-              value: isPrivacyEnabled,
-              onChanged: (val) {
-                setDialogState(() => isPrivacyEnabled = val);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(val ? "Presence set to Anonymous!" : "Presence set to Public!"),
-                  backgroundColor: val ? Colors.indigo : Colors.grey,
-                ));
+              title: Text("Go Anonymous", style: TextStyle(color: scheme.onSurface, fontSize: 14)),
+              subtitle: Text("Hide your presence status in communities", style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
+              activeThumbColor: scheme.primary,
+              value: currentPrivacy,
+              onChanged: (val) async {
+                try {
+                  final user = Supabase.instance.client.auth.currentUser;
+                  if (user == null) return;
+                  await Supabase.instance.client.from('profiles').update({
+                    'is_work_mode': val,
+                  }).eq('id', user.id);
+                  ref.invalidate(profileProvider);
+                  setDialogState(() {});
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(val ? "Presence set to Anonymous!" : "Presence set to Public!"),
+                      backgroundColor: val ? Colors.indigo : Colors.grey,
+                    ));
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text("Failed to update: $e"), backgroundColor: Colors.red,
+                    ));
+                  }
+                }
               },
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text("CLOSE", style: TextStyle(color: Colors.amber))),
+              TextButton(onPressed: () => Navigator.pop(context), child: Text("CLOSE", style: TextStyle(color: scheme.primary))),
             ],
           );
         }
@@ -830,29 +855,20 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   Widget _buildActionItem(IconData icon, String title, {VoidCallback? onTap}) {
+    final scheme = Theme.of(context).colorScheme;
     return ListTile(
-      leading: Icon(icon, color: Colors.white70),
-      title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      trailing: const Icon(LucideIcons.chevronRight, color: Colors.white10),
+      leading: Icon(icon, color: scheme.onSurface.withValues(alpha: 0.7)),
+      title: Text(title, style: TextStyle(color: scheme.onSurface, fontWeight: FontWeight.bold)),
+      trailing: Icon(LucideIcons.chevronRight, color: scheme.onSurface.withValues(alpha: 0.15)),
       onTap: onTap,
     );
   }
 
   void _pickAvatar(BuildContext context, WidgetRef ref, UserProfile profile) async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-    if (picked == null) return;
-
     try {
-      final file = File(picked.path);
-      final fileName = "avatar_${DateTime.now().millisecondsSinceEpoch}.jpg";
       final r2 = R2Service(Supabase.instance.client);
-      final url = await r2.uploadFile(file, "avatars/$fileName");
-
-      await Supabase.instance.client.from('profiles').update({
-        'avatar_url': url,
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', profile.id);
+      final url = await r2.uploadAvatar(ImageSource.gallery);
+      if (url == null) return;
 
       ref.invalidate(profileProvider);
       if (context.mounted) {
@@ -863,7 +879,7 @@ class ProfileScreen extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Upload failed: $e"), backgroundColor: Colors.red),
+          SnackBar(content: Text("Failed to update: $e"), backgroundColor: Colors.red),
         );
       }
     }

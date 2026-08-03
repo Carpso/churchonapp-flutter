@@ -54,7 +54,7 @@ class _CreateFundraisingScreenState extends ConsumerState<CreateFundraisingScree
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('New Fundraising Venture'),
       ),
@@ -613,7 +613,7 @@ class _CreateFundraisingScreenState extends ConsumerState<CreateFundraisingScree
         ),
       );
       if (source == null) return;
-      final picked = await _picker.pickImage(source: source, imageQuality: 80);
+      final picked = await _picker.pickImage(source: source, imageQuality: 80, maxWidth: 1080, maxHeight: 1080);
       if (picked != null) {
         setState(() {
           _selectedImage = File(picked.path);
@@ -649,7 +649,7 @@ class _CreateFundraisingScreenState extends ConsumerState<CreateFundraisingScree
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFFAEB),
+              color: Theme.of(context).scaffoldBackgroundColor,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(icon, size: 32, color: const Color(0xFFFFB300)),

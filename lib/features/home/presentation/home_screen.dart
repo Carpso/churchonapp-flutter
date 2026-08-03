@@ -5,7 +5,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
-import 'package:church_on_app/core/services/notification_service.dart';
 import 'package:church_on_app/core/services/recommendation_engine_service.dart';
 import 'package:church_on_app/core/services/app_update_service.dart';
 import 'package:church_on_app/core/services/birthday_service.dart';
@@ -53,15 +52,14 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final tenant = ref.read(currentTenantProvider);
-      if (tenant != null) {
-        ref.read(notificationServiceProvider).listenForAnnouncements(tenant.id);
-      }
       _showWelcomeOverlay();
       _initPostAuthServices();
     });
@@ -118,7 +116,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 12),
             Text(
               "Find help anytime from Profile > Support & Guides",
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11),
             ),
           ],
         ),
@@ -126,8 +124,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.amber,
-              foregroundColor: Colors.black,
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: const Text("GET STARTED", style: TextStyle(fontWeight: FontWeight.bold)),
@@ -157,7 +155,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                Text(desc, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                Text(desc, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
               ],
             ),
           ),
@@ -168,6 +166,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final tenant = ref.watch(currentTenantProvider);
     final isExpired = tenant != null && tenant.isSubscriptionExpired;
 
@@ -230,13 +229,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             const HomeEventTimeline(),
                             const SizedBox(height: 30),
                             const HomeSectionTitle(title: "News"),
-                            const Padding(
-                              padding: EdgeInsets.only(left: 10, bottom: 15),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 10, bottom: 15),
                               child: Text(
                                 "Disclaimer: Church On App is not affiliated with any news providers. All content belongs to respective owners.",
                                 style: TextStyle(
                                     fontSize: 9,
-                                    color: Colors.grey,
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
                                     fontStyle: FontStyle.italic),
                               ),
                             ),
@@ -251,13 +250,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       floatingActionButton: FloatingActionButton(
         heroTag: null,
+        tooltip: 'Create new post',
         onPressed: () => Navigator.push(
             context,
             MaterialPageRoute(
                 builder: (context) => const CreateSocialPostScreen())),
         backgroundColor: Theme.of(context).primaryColor,
         child:
-            Icon(LucideIcons.plus, color: Theme.of(context).colorScheme.secondary),
+            Icon(LucideIcons.plus, color: Theme.of(context).colorScheme.onPrimary),
       ),
     );
   }

@@ -63,26 +63,71 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
         'color': _color,
       };
 
+      // Upload documents to R2 storage
+      String? vehiclePhotoUrl;
+      String? licensePhotoUrl;
+      String? idPhotoUrl;
+
+      Future<String?> uploadToR2(String filePath, String folder) async {
+        try {
+          final ext = filePath.split('.').last;
+          final fileName = '$userId-${DateTime.now().millisecondsSinceEpoch}.$ext';
+          final key = '$folder/$fileName';
+
+          final response = await client.functions.invoke('r2-sign', body: {
+            'action': 'write',
+            'folder': folder,
+            'filename': fileName,
+            'contentType': 'image/$ext',
+          });
+
+          if (response.data == null) return null;
+          final data = response.data as Map<String, dynamic>;
+          final uploadUrl = data['signedUrl'] as String?;
+          if (uploadUrl == null) return null;
+
+          await client.functions.invoke('r2-sign', body: {
+            'action': 'read',
+            'key': key,
+          });
+
+          return key;
+        } catch (e) {
+          debugPrint('R2 upload failed for $folder: $e');
+          return null;
+        }
+      }
+
+      if (_vehiclePhotoPath != null) {
+        vehiclePhotoUrl = await uploadToR2(_vehiclePhotoPath!, 'driver-documents');
+      }
+      if (_licensePhotoPath != null) {
+        licensePhotoUrl = await uploadToR2(_licensePhotoPath!, 'driver-documents');
+      }
+      if (_idPhotoPath != null) {
+        idPhotoUrl = await uploadToR2(_idPhotoPath!, 'driver-documents');
+      }
+
       await client.from('ride_registrations').upsert({
         'user_id': userId,
         'lat': -15.39,
         'lng': 28.33,
         'type': 'driver',
-        'status': 'available',
+        'status': 'pending_verification',
         'vehicle_info': vehicleInfo,
         'payout_operator': _payoutOperator,
         'payout_number': _payoutNumber,
         'full_name': _fullName,
         'pre_registered_phone': _phone,
         'email': _email,
-        'vehicle_photo': _vehiclePhotoPath,
-        'license_photo': _licensePhotoPath,
-        'id_photo': _idPhotoPath,
+        'vehicle_photo': vehiclePhotoUrl ?? _vehiclePhotoPath,
+        'license_photo': licensePhotoUrl ?? _licensePhotoPath,
+        'id_photo': idPhotoUrl ?? _idPhotoPath,
         'tenant_id': tenantId,
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Application Submitted Successfully!')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Application Submitted Successfully! You will be notified once verified.')));
         Navigator.pop(context);
       }
     } catch (e) {
@@ -97,7 +142,7 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
   Future<void> _pickDocument(String type) async {
     try {
       final picker = ImagePicker();
-      final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 1080, maxHeight: 1080);
       if (picked == null) return;
 
       setState(() {

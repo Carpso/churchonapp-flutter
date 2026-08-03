@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,7 +57,7 @@ class KycService {
 
     final userSecret = _deriveEncryptionKey(user.id);
     final file = File(filePath);
-    final encrypted = EncryptionService.encryptFile(file, userSecret);
+    final encrypted = await EncryptionService.encryptFile(file, userSecret);
 
     final tempDir = Directory.systemTemp;
     final encryptedFile = File('${tempDir.path}/enc_${DateTime.now().millisecondsSinceEpoch}.enc');
@@ -87,7 +87,7 @@ class KycService {
 
     final userSecret = _deriveEncryptionKey(user.id);
     final file = File(filePath);
-    final encrypted = EncryptionService.encryptFile(file, userSecret);
+    final encrypted = await EncryptionService.encryptFile(file, userSecret);
 
     final tempDir = Directory.systemTemp;
     final encryptedFile = File('${tempDir.path}/enc_selfie_${DateTime.now().millisecondsSinceEpoch}.enc');

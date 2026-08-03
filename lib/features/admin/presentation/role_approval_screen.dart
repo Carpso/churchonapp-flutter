@@ -81,7 +81,7 @@ class RoleApprovalScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: null,
-              items: 'superadmin,employee,admin,pastor,bishop,prophet,apostle,bookshop_owner,driver,rider,writer,leader,vendor,usher,merchant'
+              items: 'superadmin,coa_employee,admin,pastor,bishop,prophet,apostle,bookshop_owner,driver,rider,writer,leader,vendor,usher,merchant'
                   .split(',').map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
               onChanged: (v) => roleC.text = v ?? '',
               decoration: const InputDecoration(labelText: 'Role'),

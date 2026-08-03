@@ -20,20 +20,26 @@ CREATE TABLE IF NOT EXISTS payment_retry_queue (
 );
 
 -- Index for efficient queue processing
-CREATE INDEX idx_payment_retry_queue_pending
+CREATE INDEX IF NOT EXISTS idx_payment_retry_queue_pending
   ON payment_retry_queue (status, next_retry_at)
   WHERE status = 'pending';
 
 -- RLS
 ALTER TABLE payment_retry_queue ENABLE ROW LEVEL SECURITY;
 
-DO $ BEGIN CREATE POLICY "payment_retry_queue_own" ON payment_retry_queue; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR ALL USING (auth.uid() = user_id);
+DO $$
+BEGIN
+  CREATE POLICY "payment_retry_queue_own" ON payment_retry_queue FOR ALL USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "payment_retry_queue_admin" ON payment_retry_queue; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR ALL USING (
+DO $$
+BEGIN
+  CREATE POLICY "payment_retry_queue_admin" ON payment_retry_queue FOR ALL USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('superadmin', 'admin'))
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Auto-set user_id on insert
 CREATE OR REPLACE FUNCTION set_payment_retry_user_id()
@@ -46,7 +52,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER on_payment_retry_insert
+DROP TRIGGER IF EXISTS "on_payment_retry_insert" ON "payment_retry_queue";
+CREATE TRIGGER "on_payment_retry_insert"
   BEFORE INSERT ON payment_retry_queue
   FOR EACH ROW
   EXECUTE FUNCTION set_payment_retry_user_id();

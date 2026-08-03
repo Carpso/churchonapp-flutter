@@ -11,29 +11,41 @@ CREATE TABLE IF NOT EXISTS emergency_contacts (
 
 ALTER TABLE emergency_contacts ENABLE ROW LEVEL SECURITY;
 
-DO $ BEGIN CREATE POLICY "emergency_contacts_select" ON emergency_contacts; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR SELECT USING (
+DO $$
+BEGIN
+  CREATE POLICY "emergency_contacts_select" ON emergency_contacts FOR SELECT USING (
     tenant_id IS NULL
     OR tenant_id = (
       SELECT id FROM churches
       WHERE id = emergency_contacts.tenant_id
     )
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "emergency_contacts_insert" ON emergency_contacts; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR INSERT WITH CHECK (
+DO $$
+BEGIN
+  CREATE POLICY "emergency_contacts_insert" ON emergency_contacts FOR INSERT WITH CHECK (
     auth.jwt() ->> 'role' IN ('superadmin', 'admin', 'employee', 'coa_employee')
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "emergency_contacts_update" ON emergency_contacts; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR UPDATE USING (
+DO $$
+BEGIN
+  CREATE POLICY "emergency_contacts_update" ON emergency_contacts FOR UPDATE USING (
     auth.jwt() ->> 'role' IN ('superadmin', 'admin', 'employee', 'coa_employee')
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DO $ BEGIN CREATE POLICY "emergency_contacts_delete" ON emergency_contacts; EXCEPTION WHEN duplicate_object THEN NULL; END $;
-  FOR DELETE USING (
+DO $$
+BEGIN
+  CREATE POLICY "emergency_contacts_delete" ON emergency_contacts FOR DELETE USING (
     auth.jwt() ->> 'role' IN ('superadmin', 'admin', 'employee', 'coa_employee')
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Insert default global emergency contacts
 INSERT INTO emergency_contacts (name, phone, icon, category, sort_order) VALUES

@@ -109,7 +109,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
     ref.watch(streakServiceProvider);
 
     return Scaffold(
-      backgroundColor: isDarkTheme ? const Color(0xFF121212) : const Color(0xFFFFFAEB),
+      backgroundColor: isDarkTheme ? const Color(0xFF121212) : Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: GestureDetector(
           onTap: _showBookSelector,
@@ -357,15 +357,19 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
             ),
           ),
           Expanded(
-            child: ListView(
+            child: ListView.builder(
               padding: const EdgeInsets.all(20),
-              children: [
-                _buildStudySection("CROSS REFERENCES", ["Psalm 23:1", "Isaiah 40:11", "1 Peter 2:25"]),
-                const SizedBox(height: 30),
-                _buildStudySection("COMMENTARY", ["Matthew Henry: The Lord is my shepherd...", "Spurgeon: A song of holy confidence..."]),
-                const SizedBox(height: 30),
-                _buildStudySection("GREEK ANALYSIS", ["Strong's G4165 (Poimainō) - To act as a shepherd, to tend a flock."]),
-              ],
+              itemCount: 5,
+              itemBuilder: (context, index) {
+                switch (index) {
+                  case 0: return _buildStudySection("CROSS REFERENCES", ["Psalm 23:1", "Isaiah 40:11", "1 Peter 2:25"]);
+                  case 1: return const SizedBox(height: 30);
+                  case 2: return _buildStudySection("COMMENTARY", ["Matthew Henry: The Lord is my shepherd...", "Spurgeon: A song of holy confidence..."]);
+                  case 3: return const SizedBox(height: 30);
+                  case 4: return _buildStudySection("GREEK ANALYSIS", ["Strong's G4165 (Poimainō) - To act as a shepherd, to tend a flock."]);
+                  default: return const SizedBox.shrink();
+                }
+              },
             ),
           ),
         ],

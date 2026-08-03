@@ -20,13 +20,15 @@ CREATE INDEX IF NOT EXISTS idx_security_events_created ON public.security_events
 
 ALTER TABLE public.security_events ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "security_events_admin_all" ON public.security_events
+DROP POLICY IF EXISTS "security_events_admin_all" ON "public".security_events;
+CREATE POLICY "security_events_admin_all" ON "public".security_events
   FOR ALL USING (
     auth.jwt() -> 'app_metadata' -> 'role' ? 'superadmin'
     OR auth.jwt() -> 'app_metadata' -> 'role' ? 'coa_employee'
   );
 
-CREATE POLICY "security_events_insert_auth" ON public.security_events
+DROP POLICY IF EXISTS "security_events_insert_auth" ON "public".security_events;
+CREATE POLICY "security_events_insert_auth" ON "public".security_events
   FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
 -- ── 2. WhatsApp Configuration (superadmin-managed) ─────────
@@ -45,12 +47,14 @@ CREATE TABLE IF NOT EXISTS public.whatsapp_config (
 
 ALTER TABLE public.whatsapp_config ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "whatsapp_config_superadmin_all" ON public.whatsapp_config
+DROP POLICY IF EXISTS "whatsapp_config_superadmin_all" ON "public".whatsapp_config;
+CREATE POLICY "whatsapp_config_superadmin_all" ON "public".whatsapp_config
   FOR ALL USING (
     auth.jwt() -> 'app_metadata' -> 'role' ? 'superadmin'
   );
 
-CREATE POLICY "whatsapp_config_read_auth" ON public.whatsapp_config
+DROP POLICY IF EXISTS "whatsapp_config_read_auth" ON "public".whatsapp_config;
+CREATE POLICY "whatsapp_config_read_auth" ON "public".whatsapp_config
   FOR SELECT USING (auth.uid() IS NOT NULL);
 
 -- Seed default config
@@ -69,7 +73,8 @@ CREATE TABLE IF NOT EXISTS public.whatsapp_templates (
 
 ALTER TABLE public.whatsapp_templates ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "whatsapp_templates_superadmin_all" ON public.whatsapp_templates
+DROP POLICY IF EXISTS "whatsapp_templates_superadmin_all" ON "public".whatsapp_templates;
+CREATE POLICY "whatsapp_templates_superadmin_all" ON "public".whatsapp_templates
   FOR ALL USING (
     auth.jwt() -> 'app_metadata' -> 'role' ? 'superadmin'
   );
@@ -92,7 +97,8 @@ CREATE INDEX IF NOT EXISTS idx_email_logs_status ON public.email_logs(status);
 
 ALTER TABLE public.email_logs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "email_logs_admin_read" ON public.email_logs
+DROP POLICY IF EXISTS "email_logs_admin_read" ON "public".email_logs;
+CREATE POLICY "email_logs_admin_read" ON "public".email_logs
   FOR SELECT USING (
     auth.jwt() -> 'app_metadata' -> 'role' ? 'superadmin'
     OR auth.jwt() -> 'app_metadata' -> 'role' ? 'coa_employee'

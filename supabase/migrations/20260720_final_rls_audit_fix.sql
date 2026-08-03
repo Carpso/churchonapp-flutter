@@ -7,25 +7,25 @@
 -- =============================================================================
 
 -- 1a. Notifications — only insert for self
-DROP POLICY IF EXISTS "System can insert notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Users can insert own notifications" ON public.notifications;
 CREATE POLICY "Users can insert own notifications"
     ON public.notifications FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
 -- 1b. Wallet transactions — only insert for own user_id
-DROP POLICY IF EXISTS "System can insert wallet transactions" ON public.wallet_transactions;
+DROP POLICY IF EXISTS "Users can insert own wallet transactions" ON public.wallet_transactions;
 CREATE POLICY "Users can insert own wallet transactions"
     ON public.wallet_transactions FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
 -- 1c. Service reports — only insert with own reporter_id
-DROP POLICY IF EXISTS "Pastors can submit service reports" ON public.service_reports;
+DROP POLICY IF EXISTS "Authenticated users can submit service reports" ON public.service_reports;
 CREATE POLICY "Authenticated users can submit service reports"
     ON public.service_reports FOR INSERT
     WITH CHECK (auth.uid() = reporter_id);
 
 -- 1d. Pastor reports — only insert with own pastor_id
-DROP POLICY IF EXISTS "Pastors can submit pastor reports" ON public.pastor_reports;
+DROP POLICY IF EXISTS "Authenticated users can submit pastor reports" ON public.pastor_reports;
 CREATE POLICY "Authenticated users can submit pastor reports"
     ON public.pastor_reports FOR INSERT
     WITH CHECK (auth.uid() = pastor_id);
@@ -35,19 +35,19 @@ CREATE POLICY "Authenticated users can submit pastor reports"
 -- =============================================================================
 
 -- 2a. Fundraising contributions — add contributor_id check
-DROP POLICY IF EXISTS "Authenticated users can contribute" ON public.fundraising_contributions;
+DROP POLICY IF EXISTS "Users can contribute" ON public.fundraising_contributions;
 CREATE POLICY "Users can contribute"
     ON public.fundraising_contributions FOR INSERT
     WITH CHECK (auth.uid() = contributor_id);
 
 -- 2b. Group contribution members — add user_id check
-DROP POLICY IF EXISTS "Authenticated users can join groups" ON public.group_contribution_members;
+DROP POLICY IF EXISTS "Users can join groups" ON public.group_contribution_members;
 CREATE POLICY "Users can join groups"
     ON public.group_contribution_members FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
 -- 2c. Group contribution payments — add user_id check via member subquery
-DROP POLICY IF EXISTS "Authenticated users can contribute to groups" ON public.group_contribution_payments;
+DROP POLICY IF EXISTS "Users can contribute to groups" ON public.group_contribution_payments;
 CREATE POLICY "Users can contribute to groups"
     ON public.group_contribution_payments FOR INSERT
     WITH CHECK (
@@ -305,6 +305,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 4m. add_coins (20260702_user_activities_2fa_coins.sql)
+DROP FUNCTION IF EXISTS public.add_coins(UUID, INTEGER);
 CREATE OR REPLACE FUNCTION public.add_coins(user_id UUID, amount INTEGER)
 RETURNS VOID
 SET search_path = public

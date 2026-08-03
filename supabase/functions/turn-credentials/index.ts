@@ -1,14 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { getCorsHeaders } from "../_shared/cors.ts"
 
 const TURN_SERVER_URL = Deno.env.get("TURN_SERVER_URL") || "turn:turn.churchonapp.com:3478"
 const TURN_SECRET = Deno.env.get("TURN_SECRET")
 
 serve(async (req) => {
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  }
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"))
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })

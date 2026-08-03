@@ -26,7 +26,7 @@ CREATE POLICY "Users can view their church competitions" ON public.church_quiz_c
   FOR SELECT USING (
     created_by = auth.uid()
     OR church_id IN (
-      SELECT tenant_id::text FROM public.profiles WHERE id = auth.uid()
+      SELECT tenant_id::uuid FROM public.profiles WHERE id = auth.uid() AND tenant_id IS NOT NULL
     )
   );
 
@@ -37,7 +37,7 @@ CREATE POLICY "Users can create competitions" ON public.church_quiz_competitions
     auth.uid() IS NOT NULL
     AND (
       church_id IN (
-        SELECT tenant_id::text FROM public.profiles WHERE id = auth.uid()
+        SELECT tenant_id::uuid FROM public.profiles WHERE id = auth.uid() AND tenant_id IS NOT NULL
       )
     )
   );

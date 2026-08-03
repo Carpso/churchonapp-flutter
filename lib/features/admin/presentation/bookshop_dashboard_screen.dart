@@ -142,10 +142,10 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAEB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Bookshop Dashboard", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFFFAEB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black87,
         elevation: 0,
         actions: [
@@ -217,7 +217,7 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
   Widget _buildStatsGrid(ThemeData theme) {
     final currency = NumberFormat.currency(symbol: 'K ', decimalDigits: 0);
     return GridView.count(
-      shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+      physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 1.2,
       children: [
         _statCard("Products", "$_totalProducts", LucideIcons.package, Colors.orange),

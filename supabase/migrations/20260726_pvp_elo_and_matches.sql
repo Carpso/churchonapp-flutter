@@ -168,7 +168,7 @@ BEGIN
     v_burn_share := v_wager_pot - v_winner_share;
 
     -- Award winner (90% of pot)
-    UPDATE profiles SET coins = coins + v_winner_share WHERE id = v_match.wager_amount > 0 AND id = v_match.winner_id;
+    UPDATE profiles SET coins = coins + v_winner_share WHERE id = v_match.winner_id;
 
     -- Log winner coin addition
     INSERT INTO coin_redemptions (user_id, amount, redemption_type, description, status)
@@ -217,7 +217,7 @@ BEGIN
   UPDATE profiles SET coins = coins - p_amount WHERE id = p_user_id;
 
   INSERT INTO coin_redemptions (user_id, amount, redemption_type, description, status)
-  VALUES (v_user_id, p_amount, 'pvp_wager', 'PvP wager entry', 'completed');
+  VALUES (p_user_id, p_amount, 'pvp_wager', 'PvP wager entry', 'completed');
 
   RETURN jsonb_build_object('success', true, 'new_balance', v_current_coins - p_amount);
 END;

@@ -15,11 +15,11 @@ export async function checkRateLimit(
 
     if (error) {
       console.error("Rate limit check failed:", error);
-      return { allowed: true, remaining: -1 };
+      return { allowed: false, remaining: 0 };
     }
 
     return { allowed: data as boolean, remaining: maxRequests - 1 };
   } catch {
-    return { allowed: true, remaining: -1 };
+    return { allowed: false, remaining: 0 };
   }
 }
