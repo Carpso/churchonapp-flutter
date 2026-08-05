@@ -117,11 +117,6 @@ class CommunityService {
     final user = _client.auth.currentUser;
     if (user == null) return false;
     try {
-      final profile = await _client
-          .from('profiles')
-          .select('id, full_name, tenant_id, avatar_url')
-          .eq('id', user.id)
-          .single();
       final existing = await _client
           .from('community_group_members')
           .select('id')
@@ -132,9 +127,6 @@ class CommunityService {
       await _client.from('community_group_members').insert({
         'group_id': groupId,
         'user_id': user.id,
-        'user_name': profile['full_name'] ?? 'Member',
-        'avatar_url': profile['avatar_url'],
-        'tenant_id': profile['tenant_id'],
       });
       return true;
     } catch (e) {

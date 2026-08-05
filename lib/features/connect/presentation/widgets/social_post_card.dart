@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -34,26 +35,36 @@ class SocialPostCard extends StatelessWidget {
             padding: const EdgeInsets.all(15),
             child: Row(
               children: [
-                post.userAvatar != null && post.userAvatar!.isNotEmpty
-                    ? ClipOval(child: CachedNetworkImage(imageUrl: post.userAvatar!, width: 40, height: 40, memCacheWidth: 80, memCacheHeight: 80, fit: BoxFit.cover, placeholder: (_, __) => CircleAvatar(radius: 20, backgroundColor: Colors.grey[200]), errorWidget: (_, __, ___) => CircleAvatar(radius: 20, backgroundColor: Colors.grey[300], child: Text((post.userName != null && post.userName!.trim().isNotEmpty) ? post.userName!.trim()[0].toUpperCase() : 'M', style: const TextStyle(fontWeight: FontWeight.bold)))))
-                    : CircleAvatar(
-                        radius: 20,
-                        child: Text(
-                          (post.userName != null && post.userName!.trim().isNotEmpty) ? post.userName!.trim()[0].toUpperCase() : 'M',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(post.userName ?? "User", style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Text(
-                        formatTimeAgo(post.createdAt),
-                        style: const TextStyle(color: Colors.grey, fontSize: 10),
-                      ),
-                    ],
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => context.push('/profile-by-id/${post.userId}'),
+                    child: Row(
+                      children: [
+                        post.userAvatar != null && post.userAvatar!.isNotEmpty
+                            ? ClipOval(child: CachedNetworkImage(imageUrl: post.userAvatar!, width: 40, height: 40, memCacheWidth: 80, memCacheHeight: 80, fit: BoxFit.cover, placeholder: (_, __) => CircleAvatar(radius: 20, backgroundColor: Colors.grey[200]), errorWidget: (_, __, ___) => CircleAvatar(radius: 20, backgroundColor: Colors.grey[300], child: Text((post.userName != null && post.userName!.trim().isNotEmpty) ? post.userName!.trim()[0].toUpperCase() : 'M', style: const TextStyle(fontWeight: FontWeight.bold)))))
+                            : CircleAvatar(
+                                radius: 20,
+                                child: Text(
+                                  (post.userName != null && post.userName!.trim().isNotEmpty) ? post.userName!.trim()[0].toUpperCase() : 'M',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(post.userName ?? "User", style: const TextStyle(fontWeight: FontWeight.bold)),
+                              Text(
+                                formatTimeAgo(post.createdAt),
+                                style: const TextStyle(color: Colors.grey, fontSize: 10),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const Icon(LucideIcons.moreHorizontal),

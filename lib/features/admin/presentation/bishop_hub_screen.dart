@@ -87,7 +87,7 @@ class BishopHubScreen extends ConsumerWidget {
           CircleAvatar(
             radius: 35,
             backgroundColor: Colors.white24,
-            child: Text(profile.name[0], style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+            child: Text(profile.name.isNotEmpty ? profile.name[0] : 'B', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
           ),
           const SizedBox(width: 20),
           Expanded(

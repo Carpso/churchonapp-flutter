@@ -198,7 +198,7 @@ class _InterchurchNetworkScreenState extends ConsumerState<InterchurchNetworkScr
   void _showChurchOptions(BuildContext context, ConnectedChurch church) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
       builder: (ctx) => Padding(
         padding: const EdgeInsets.all(24),

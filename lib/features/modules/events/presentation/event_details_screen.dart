@@ -29,12 +29,14 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    bool isFree = widget.event['price'] == 0;
+    final priceText = widget.event['price']?.toString() ?? '';
+    final price = double.tryParse(priceText) ?? 0;
+    bool isFree = price <= 0;
     final currentUser = Supabase.instance.client.auth.currentUser;
     final event = widget.event;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
@@ -42,7 +44,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               background: AppImage(
-                (event['cover'] != null && (event['cover'] as String).isNotEmpty)
+                (event['cover'] != null && (event['cover'] as String?)?.isNotEmpty == true)
                     ? event['cover']
                     : "",
                 fit: BoxFit.cover,
@@ -53,8 +55,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                 icon: const Icon(LucideIcons.share2), 
                 onPressed: () {
                   SharePlus.instance.share(ShareParams(
-                    text: "Join us at ${event['title']}! Location: ${event['location']}, Date: ${event['date']}. Details: https://churchonapp.com/events/${event['id']}",
-                    subject: event['title'],
+                    text: "Join us at ${event['title'] ?? 'this event'}! Location: ${event['location'] ?? 'TBA'}, Date: ${event['date'] ?? 'TBA'}. Details: https://churchonapp.com/events/${event['id']}",
+                    subject: event['title']?.toString() ?? 'Church On App Event',
                   ));
                 }
               ),
@@ -74,19 +76,19 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                       child: Text((event['type'] ?? 'Event').toUpperCase(), style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(height: 15),
-                    Text(event['title'], style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w900, height: 1.2)),
+                    Text(event['title']?.toString() ?? 'Event', style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w900, height: 1.2)),
                     const SizedBox(height: 25),
-                    _buildInfoTile(LucideIcons.calendar, "Date & Time", "${event['date']}${event['time'] != null ? ' • ${event['time']}' : ''}${event['end_date'] != null && (event['end_date'] as String).isNotEmpty ? ' to ${event['end_date']}' : ''}"),
-                    _buildInfoTile(LucideIcons.mapPin, "Location", event['location']),
-                    _buildInfoTile(LucideIcons.banknote, "Admission", isFree ? "Free Entry" : "K${event['price']} per person"),
-                    if (event['speakers'] != null && (event['speakers'] as String).isNotEmpty)
-                      _buildInfoTile(LucideIcons.mic, "Guest Speakers", event['speakers']),
+                    _buildInfoTile(LucideIcons.calendar, "Date & Time", "${event['date'] ?? ''}${event['time'] != null ? ' • ${event['time']}' : ''}${event['end_date'] != null && (event['end_date'] as String?)?.isNotEmpty == true ? ' to ${event['end_date']}' : ''}"),
+                    _buildInfoTile(LucideIcons.mapPin, "Location", (event['location'] as String?) ?? 'TBA'),
+                    _buildInfoTile(LucideIcons.banknote, "Admission", isFree ? "Free Entry" : "K$price per person"),
+                    if (event['speakers'] != null && (event['speakers'] as String?)?.isNotEmpty == true)
+                      _buildInfoTile(LucideIcons.mic, "Guest Speakers", (event['speakers'] as String?) ?? ''),
                     const Divider(height: 50),
                     const Text("About the Event", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 15),
                     Text(
                       event['description'] ?? "Join us for an incredible experience as we gather to worship, learn, and grow together. This event is designed to bring the community closer to God through inspired messages and powerful fellowship.",
-                      style: const TextStyle(fontSize: 16, height: 1.6, color: Colors.black87),
+                      style: TextStyle(fontSize: 16, height: 1.6, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.85)),
                     ),
                     const SizedBox(height: 16),
                     const CarpsoSuggestionCard(contextType: 'event'),

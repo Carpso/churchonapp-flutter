@@ -93,7 +93,7 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
       final currentUserId = client.auth.currentUser?.id;
 
       final members = await client
-          .from('group_members')
+          .from('community_group_members')
           .select('user_id, profiles(id, full_name, avatar_url)')
           .eq('group_id', widget.groupId);
 

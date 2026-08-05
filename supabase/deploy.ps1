@@ -183,6 +183,7 @@ $migrations = @(
     "20260855_lipila_fee_rates.sql"
     "20260856_coa_payout_fee.sql"
     "20260857_ai_chat_tables.sql"
+    "20260858_giving_settlement_fix.sql"
 )
 
 foreach ($m in $migrations) {
@@ -211,6 +212,7 @@ $functions = @(
     "bible-study-notify"
     "send-sms"
     "lipila-collect"
+    "lipila-card-collect"
     "lipila-webhook"
     "lipila-settle"
     "lipila-payout"

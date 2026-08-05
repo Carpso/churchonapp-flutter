@@ -37,7 +37,7 @@ class _TierCard extends StatelessWidget {
               Text(name, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16)),
               const Spacer(),
               Text(price, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 20)),
-              Text(period, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+              Text(period, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12)),
             ],
           ),
           const SizedBox(height: 12),
@@ -47,7 +47,7 @@ class _TierCard extends StatelessWidget {
               children: [
                 Icon(Icons.check_circle, color: color, size: 14),
                 const SizedBox(width: 8),
-                Text(f, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+                Text(f, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), fontSize: 12)),
               ],
             ),
           )),

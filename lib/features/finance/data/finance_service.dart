@@ -156,6 +156,7 @@ class FinanceService {
             'amount': payoutAmount,
             'narration': 'COA Settlement: $reference',
             'referenceId': payoutRef,
+            'reference': reference,
           },
         );
       } catch (e) {

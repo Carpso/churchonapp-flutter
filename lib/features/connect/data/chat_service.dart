@@ -112,7 +112,7 @@ class ChatService {
     return _client
         .from('messages')
         .stream(primaryKey: ['id'])
-        .eq('group_id', groupId)
+        .eq('community_group_id', groupId)
         .order('created_at', ascending: false)
         .asyncMap((data) async {
           final senderIds = data.map((m) => m['sender_id'] as String).toSet().toList();
@@ -154,8 +154,8 @@ class ChatService {
       await _client.from('messages').insert({
         'sender_id': user.id,
         'user_id': user.id,
-        'group_id': groupId,
-        'conversation_id': 'group_$groupId',
+        'community_group_id': groupId,
+        'conversation_id': 'community_group_$groupId',
         'content': content,
         'media_url': mediaUrl,
         'media_type': mediaType ?? 'text',
@@ -170,7 +170,7 @@ class ChatService {
       try {
         await _client.from('messages').insert({
           'sender_id': user.id,
-          'group_id': groupId,
+          'community_group_id': groupId,
           'content': content,
           'media_url': mediaUrl,
           'media_type': mediaType ?? 'text',
@@ -270,7 +270,7 @@ class ChatService {
   Future<List<Map<String, dynamic>>> fetchGroupMembers(String groupId, {int limit = 5}) async {
     try {
       final res = await _client
-          .from('group_members')
+          .from('community_group_members')
           .select('user_id, profiles(id, full_name, avatar_url)')
           .eq('group_id', groupId)
           .limit(limit);

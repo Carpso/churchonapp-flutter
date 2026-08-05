@@ -133,7 +133,7 @@ class _TestimoniesScreenState extends ConsumerState<TestimoniesScreen> {
           ),
           const SizedBox(height: 15),
           Text(testimony.content, style: const TextStyle(fontSize: 15, height: 1.5)),
-          if (testimony.imageUrl != null) ...[
+          if (testimony.imageUrl != null && testimony.imageUrl!.isNotEmpty) ...[
             const SizedBox(height: 15),
             ClipRRect(
               borderRadius: BorderRadius.circular(15),

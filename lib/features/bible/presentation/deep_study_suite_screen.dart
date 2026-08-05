@@ -524,9 +524,9 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
           final isSelected = settings.preferredTranslation == t['code'];
           return ListTile(
             leading: Icon(isSelected ? LucideIcons.checkCircle : LucideIcons.circle, color: isSelected ? Colors.blue : Colors.grey),
-            title: Text(t['label']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            title: Text(t['label']?.toString() ?? 'Translation', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             onTap: () async {
-              await notifier.setTranslation(t['code']!);
+              await notifier.setTranslation(t['code']?.toString() ?? '');
               setModalState(() {});
               if (!mounted) return;
               Navigator.pop(context);
@@ -842,7 +842,7 @@ class _VerseMemoryScreenState extends ConsumerState<_VerseMemoryScreen> {
               ],
             ),
             const SizedBox(height: 40),
-            Text(verse['ref']!, style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white)),
+            Text(verse['ref']?.toString() ?? '', style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white)),
             const SizedBox(height: 10),
             const Text("Can you recite this verse?", style: TextStyle(color: Colors.white54)),
             const SizedBox(height: 40),
@@ -858,7 +858,7 @@ class _VerseMemoryScreenState extends ConsumerState<_VerseMemoryScreen> {
                   border: Border.all(color: _showVerse ? Colors.amber.withValues(alpha: 0.5) : Colors.white12),
                 ),
                 child: _showVerse
-                  ? Text(verse['text']!, style: const TextStyle(color: Colors.white, fontSize: 18, height: 1.6, fontStyle: FontStyle.italic), textAlign: TextAlign.center)
+                  ? Text(verse['text']?.toString() ?? '', style: const TextStyle(color: Colors.white, fontSize: 18, height: 1.6, fontStyle: FontStyle.italic), textAlign: TextAlign.center)
                   : const Column(children: [
                       Icon(LucideIcons.eye, color: Colors.white54, size: 40),
                       SizedBox(height: 10),
@@ -1037,11 +1037,11 @@ class _ScriptureSearchScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(r['ref']!, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo.shade700)),
+              Text(r['ref']?.toString() ?? '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo.shade700)),
               const SizedBox(height: 5),
-              Text(r['text']!, style: const TextStyle(fontSize: 14, height: 1.5, color: Colors.black87)),
+              Text(r['text']?.toString() ?? '', style: const TextStyle(fontSize: 14, height: 1.5, color: Colors.black87)),
               const SizedBox(height: 8),
-              Text(r['book']!, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+              Text(r['book']?.toString() ?? '', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
             ],
           ),
         )).toList(),

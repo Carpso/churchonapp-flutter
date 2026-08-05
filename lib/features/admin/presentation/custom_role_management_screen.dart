@@ -292,7 +292,7 @@ class _CustomRoleManagementScreenState extends ConsumerState<CustomRoleManagemen
                         decoration: const InputDecoration(labelText: 'Select Role'),
                         items: roles.map((r) => DropdownMenuItem(
                           value: r['role_name'],
-                          child: Text(r['display_name']!),
+                          child: Text(r['display_name']?.toString() ?? 'Role'),
                         )).toList(),
                         onChanged: (v) => setDialogState(() => selectedRole = v),
                       ),

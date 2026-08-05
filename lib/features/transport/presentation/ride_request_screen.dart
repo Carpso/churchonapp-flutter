@@ -1217,7 +1217,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                         margin: const EdgeInsets.only(bottom: 10),
                         child: ExpansionTile(
                           shape: const Border(),
-                          title: Text(faq['q']!,
+                          title: Text(faq['q']?.toString() ?? 'Question',
                               style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
@@ -1225,7 +1225,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                           children: [
                             Padding(
                               padding: const EdgeInsets.all(16.0),
-                              child: Text(faq['a']!,
+                              child: Text(faq['a']?.toString() ?? '',
                                   style: TextStyle(
                                       color: theme.colorScheme.onSurface
                                           .withValues(alpha: 0.6),

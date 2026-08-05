@@ -469,11 +469,11 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 c.userAvatar != null && c.userAvatar!.isNotEmpty
-                                    ? ClipOval(child: CachedNetworkImage(imageUrl: c.userAvatar!, width: 36, height: 36, memCacheWidth: 72, memCacheHeight: 72, fit: BoxFit.cover, placeholder: (_, __) => CircleAvatar(radius: 18, backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest), errorWidget: (_, __, ___) => CircleAvatar(radius: 18, backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest, child: Text((c.userName ?? 'M')[0]))))
+                                    ? ClipOval(child: CachedNetworkImage(imageUrl: c.userAvatar!, width: 36, height: 36, memCacheWidth: 72, memCacheHeight: 72, fit: BoxFit.cover, placeholder: (_, __) => CircleAvatar(radius: 18, backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest), errorWidget: (_, __, ___) => CircleAvatar(radius: 18, backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest, child: Text((c.userName ?? '').isNotEmpty ? c.userName![0] : 'M'))))
                                     : CircleAvatar(
                                         radius: 18,
                                         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                        child: Text((c.userName ?? 'M')[0]),
+                                        child: Text((c.userName ?? '').isNotEmpty ? c.userName![0] : 'M'),
                                       ),
                                 const SizedBox(width: 12),
                                 Expanded(

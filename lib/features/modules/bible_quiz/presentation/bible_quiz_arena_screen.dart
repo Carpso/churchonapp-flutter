@@ -76,6 +76,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
 
   bool _loadingTimedOut = false;
   bool _loadingError = false;
+  bool _isQuitting = false;
 
   // Rematch state
   bool _rematchRequested = false;
@@ -516,7 +517,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     final theme = Theme.of(context);
 
     return PopScope(
-      canPop: _phase == GamePhase.matchmaking,
+      canPop: _phase == GamePhase.matchmaking || _isQuitting,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && _phase != GamePhase.matchmaking) {
           _showQuitConfirm(theme);
@@ -550,8 +551,10 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
+              _isQuitting = true;
               _timer?.cancel();
               _countdownTimer?.cancel();
+              _pvpService?.disconnect();
               if (mounted) Navigator.of(context).pop();
             },
             child: const Text('Quit', style: TextStyle(color: Colors.redAccent)),

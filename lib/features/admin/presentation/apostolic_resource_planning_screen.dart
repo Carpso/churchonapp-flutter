@@ -122,7 +122,7 @@ class _ApostolicResourcePlanningScreenState extends ConsumerState<ApostolicResou
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(n['type'], style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(n['type']?.toString() ?? 'Needs', style: const TextStyle(fontWeight: FontWeight.bold)),
               Text("Qty: ${n['quantity']}", style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.w900)),
             ],
           ),
@@ -132,7 +132,7 @@ class _ApostolicResourcePlanningScreenState extends ConsumerState<ApostolicResou
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(color: Colors.blueAccent.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(10)),
           child: Text(
-            prediction['prophetic_justification'],
+            prediction['prophetic_justification']?.toString() ?? '',
             style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.black87),
           ),
         ),

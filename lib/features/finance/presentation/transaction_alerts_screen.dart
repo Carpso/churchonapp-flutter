@@ -22,7 +22,7 @@ class TransactionAlertsScreen extends ConsumerWidget {
     final alerts = ref.watch(tenantAlertsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F0),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Transaction Alerts"),
         centerTitle: true,

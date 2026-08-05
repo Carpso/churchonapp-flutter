@@ -630,7 +630,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                     const Text("Translation"),
                     DropdownButton<String>(
                       value: selectedTranslation,
-                      items: translations.map((t) => DropdownMenuItem(value: t['id'], child: Text(t['name']!))).toList(),
+                      items: translations.map((t) => DropdownMenuItem(value: t['id'], child: Text(t['name']?.toString() ?? 'Translation'))).toList(),
                       onChanged: (v) {
                         if (v != null) {
                           setState(() => selectedTranslation = v);

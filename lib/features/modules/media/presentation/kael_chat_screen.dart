@@ -16,6 +16,7 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String? _sessionId;
+  String? _initError;
   bool _isLoading = false;
   bool _isStreaming = false;
   String _streamingBuffer = '';
@@ -65,7 +66,10 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
       });
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _initError = e.toString();
+        });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     }
@@ -225,7 +229,9 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.amber))
-          : Column(
+          : _sessionId == null
+              ? _buildInitError()
+              : Column(
               children: [
                 Expanded(
                   child: StreamBuilder<List<AiChatMessage>>(
@@ -461,6 +467,48 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
           ),
         );
       },
+    );
+  }
+
+  Widget _buildInitError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(LucideIcons.alertCircle, size: 48, color: Colors.white24),
+            const SizedBox(height: 16),
+            const Text(
+              "Couldn't start a chat session",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _initError ?? 'Please try again.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white38),
+            ),
+            const SizedBox(height: 20),
+            OutlinedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _initError = null;
+                  _isLoading = true;
+                });
+                _initSession();
+              },
+              icon: const Icon(LucideIcons.refreshCw, size: 16),
+              label: const Text('Retry'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.amber,
+                side: const BorderSide(color: Colors.amber),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

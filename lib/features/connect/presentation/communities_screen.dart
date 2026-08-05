@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
@@ -356,16 +357,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
     final role = member['role'] as String? ?? 'member';
 
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ChatMessengerScreen(
-            userName: name,
-            userAvatar: avatar ?? '',
-            receiverId: id,
-          ),
-        ),
-      ),
+      onTap: () => context.push('/profile-by-id/$id'),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(

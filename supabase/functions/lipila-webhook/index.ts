@@ -157,15 +157,16 @@ async function processWebhook(payload: LipilaWebhookPayload): Promise<Response> 
   }
 
   // ── IDEMPOTENCY CHECK ──────────────────────────────────
+  const newStatus = mapLipilaStatus(payload.status);
+
   const existing = await supabase
     .from("coa_payments")
-    .select("id, status")
+    .select("id, status, webhook_idempotency")
     .eq("payment_ref", reference)
     .maybeSingle();
 
   if (existing?.data) {
     const currentStatus = (existing.data.status || "").toLowerCase();
-    const newStatus = mapLipilaStatus(payload.status);
     if (currentStatus === newStatus) {
       console.log(
         `[Webhook] Idempotent — already ${currentStatus} for ref=${reference}`,
@@ -181,8 +182,30 @@ async function processWebhook(payload: LipilaWebhookPayload): Promise<Response> 
     }
   }
 
+  // Stronger dedup: the same Lipila reference delivered twice with the same
+  // status must be processed exactly once, regardless of the internal ref.
+  if (idempotencyKey) {
+    const { data: byKey } = await supabase
+      .from("coa_payments")
+      .select("id, status")
+      .eq("webhook_idempotency", idempotencyKey)
+      .maybeSingle();
+    if (byKey && (byKey.status || "").toLowerCase() === newStatus) {
+      console.log(
+        `[Webhook] Idempotent (webhook_idempotency) — already ${newStatus} for key=${idempotencyKey}`,
+      );
+      return new Response(
+        JSON.stringify({
+          status: "already_processed",
+          payment_id: byKey.id,
+          previous_status: byKey.status,
+        }),
+        { headers: { "Content-Type": "application/json" } },
+      );
+    }
+  }
+
   // ── MAP STATUS ─────────────────────────────────────────
-  const newStatus = mapLipilaStatus(payload.status);
   const statusMessage =
     newStatus === "settled"
       ? "Payment completed and settled"
@@ -199,6 +222,7 @@ async function processWebhook(payload: LipilaWebhookPayload): Promise<Response> 
   if (newStatus === "settled") {
     updateData.settled_at = new Date().toISOString();
   }
+  if (idempotencyKey) updateData.webhook_idempotency = idempotencyKey;
   if (payload.amount) updateData.amount = payload.amount;
   if (payload.accountNumber) updateData.phone_number = payload.accountNumber;
   if (payload.paymentType) updateData.network = payload.paymentType;
@@ -258,6 +282,7 @@ async function processWebhook(payload: LipilaWebhookPayload): Promise<Response> 
         amount: payload.amount || 0,
         status: newStatus,
         settled_at: newStatus === "settled" ? new Date().toISOString() : null,
+        webhook_idempotency: idempotencyKey || null,
         phone_number: payload.accountNumber || null,
         network: payload.paymentType || null,
       })
@@ -338,8 +363,13 @@ serve(async (req: Request) => {
   }
 
   // ── AUTH CHECK (HMAC signature required) ───────────────
-  // Lipila sends the signature in the `webhook-signature` header (NOT x-webhook-signature)
-  const signature = req.headers.get("webhook-signature") || "";
+  // Lipila sends the signature in `webhook-signature` (standard webhooks
+  // convention). Accept `x-webhook-signature` as a fallback for providers
+  // that prefix the header. Header lookups are case-insensitive.
+  const signature =
+    req.headers.get("webhook-signature") ||
+    req.headers.get("x-webhook-signature") ||
+    "";
 
   if (!signature) {
     console.warn(`[Webhook] Missing webhook-signature header from IP: ${clientIp}`);

@@ -189,7 +189,7 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text("Create $_postType", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         actions: [
@@ -211,13 +211,15 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
                   builder: (context) {
                     final avatarUrl = profile?.avatarUrl;
                     final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+                    final name = profile?.name ?? 'K';
+                    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'K';
                     return CircleAvatar(
                       backgroundColor: const Color(0xFF1A1A1A),
                       backgroundImage: hasAvatar ? CachedNetworkImageProvider(avatarUrl) : null,
                       child: hasAvatar
                           ? null
                           : Text(
-                              (profile?.name ?? 'K')[0].toUpperCase(),
+                              initial,
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                             ),
                     );

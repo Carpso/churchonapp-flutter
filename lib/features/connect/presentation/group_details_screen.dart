@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -53,7 +54,10 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final memberCount = widget.group['count'] as int? ?? 0;
-    final groupId = widget.group['groupId'] as String? ?? widget.group['id'] as String? ?? '';
+    final groupId = widget.group['id'] as String? ?? widget.group['groupId'] as String? ?? '';
+    final groupTitle = widget.group['title'] as String? ?? 'Community';
+    final groupSubtitle = widget.group['subtitle'] as String? ?? '';
+    final groupImage = widget.group['image'] as String? ?? '';
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -66,7 +70,7 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  AppImage(widget.group['image'], fit: BoxFit.cover),
+                  AppImage(groupImage, fit: BoxFit.cover),
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -83,7 +87,7 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(widget.group['title'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 28)),
+                        Text(groupTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 28)),
                         const SizedBox(height: 6),
                         Row(
                           children: [
@@ -111,7 +115,7 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
                 children: [
                   const Text("About", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
-                  Text(widget.group['subtitle'], style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87)),
+                  Text(groupSubtitle, style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87)),
                   const SizedBox(height: 30),
                   Row(
                     children: [
@@ -155,8 +159,8 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
                 onPressed: () {
                   Navigator.push(context, MaterialPageRoute(
                     builder: (_) => ChatMessengerScreen(
-                      userName: widget.group['title'],
-                      userAvatar: widget.group['image'],
+                      userName: groupTitle,
+                      userAvatar: groupImage,
                       groupId: groupId,
                       isGroup: true,
                     ),
@@ -202,30 +206,38 @@ class _MembersList extends ConsumerWidget {
           delegate: SliverChildBuilderDelegate(
             (context, index) {
               final m = members[index];
+              final profile = m['profiles'] as Map<String, dynamic>?;
+              final avatarUrl = profile?['avatar_url'] as String? ?? '';
+              final name = profile?['full_name'] as String? ?? 'User';
               return ListTile(
                 leading: CircleAvatar(
                   backgroundColor: const Color(0xFF1A1A1A),
-                  backgroundImage: m['avatar_url'] != null && (m['avatar_url'] as String).isNotEmpty
-                      ? CachedNetworkImageProvider(m['avatar_url'] as String)
+                  backgroundImage: avatarUrl.isNotEmpty
+                      ? CachedNetworkImageProvider(avatarUrl)
                       : null,
-                  child: m['avatar_url'] == null || (m['avatar_url'] as String).isEmpty
+                  child: avatarUrl.isEmpty
                       ? Text(
-                          ((m['user_name'] as String?)?.isNotEmpty == true ? (m['user_name'] as String)[0] : 'U').toUpperCase(),
+                          name.isNotEmpty ? name[0].toUpperCase() : 'U',
                           style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                         )
                       : null,
                 ),
-                title: Text(m['user_name'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 subtitle: Text("Active in chat", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                trailing: const Icon(LucideIcons.messageCircle, color: Color(0xFF1A1A1A), size: 18),
+                trailing: IconButton(
+                  icon: const Icon(LucideIcons.messageCircle, color: Color(0xFF1A1A1A), size: 18),
+                  onPressed: () {
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => ChatMessengerScreen(
+                        userName: name,
+                        userAvatar: avatarUrl,
+                        receiverId: m['user_id'] ?? '',
+                      ),
+                    ));
+                  },
+                ),
                 onTap: () {
-                  Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => ChatMessengerScreen(
-                      userName: m['user_name'] ?? 'User',
-                      userAvatar: m['avatar_url'] ?? '',
-                      receiverId: m['user_id'] ?? '',
-                    ),
-                  ));
+                  context.push('/profile-by-id/${m['user_id']}');
                 },
               );
             },
@@ -258,7 +270,7 @@ final _groupMembersProvider = FutureProvider.family<List<Map<String, dynamic>>, 
   try {
     final res = await client
         .from('community_group_members')
-        .select('user_id, user_name, avatar_url')
+        .select('user_id, profiles(id, full_name, avatar_url)')
         .eq('group_id', groupId)
         .limit(50);
     return List<Map<String, dynamic>>.from(res);

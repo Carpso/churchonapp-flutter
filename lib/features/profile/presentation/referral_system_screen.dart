@@ -226,7 +226,7 @@ class ReferralSystemScreen extends ConsumerWidget {
             radius: 20,
             backgroundColor: isVerified ? Colors.green.shade100 : Colors.orange.shade100,
             child: Text(
-              displayName.substring(0, 1).toUpperCase(),
+              displayName.isNotEmpty ? displayName.substring(0, 1).toUpperCase() : 'R',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: isVerified ? Colors.green.shade700 : Colors.orange.shade700,

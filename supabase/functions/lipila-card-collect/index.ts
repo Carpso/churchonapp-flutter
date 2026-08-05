@@ -95,7 +95,6 @@ serve(async (req: Request) => {
         "x-api-key": apiKey,
         "Content-Type": "application/json",
         "accept": "application/json",
-        "callbackUrl": callbackUrl,
       },
       body: JSON.stringify({
         customerInfo: {
@@ -115,6 +114,7 @@ serve(async (req: Request) => {
           accountNumber: accountNumber,
           currency: "ZMW",
           backUrl: "https://churchonapp.com/payment-complete",
+          callbackUrl,
           referenceData: narration ?? "Card payment via COA",
         },
       }),

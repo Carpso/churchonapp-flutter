@@ -152,6 +152,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         await supabase.functions.invoke('lipila-payout', body: {
           'accountNumber': phone,
           'amount': payoutAmount,
+          'grossAmount': vendorShare,
           'narration': 'Marketplace seller payout',
           'referenceId': payoutRef,
         });

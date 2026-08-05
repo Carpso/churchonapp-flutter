@@ -320,6 +320,7 @@ class TransportService {
           body: {
             'accountNumber': targetPhone,
             'amount': payoutAmount,
+            'grossAmount': netEarning,
             'narration': 'Ride payout $requestId',
             'referenceId': payoutRef,
           },
@@ -521,6 +522,7 @@ class TransportService {
           body: {
             'accountNumber': targetPhone,
             'amount': payoutAmount,
+            'grossAmount': netEarning,
             'narration': 'Delivery payout: $deliveryId',
             'referenceId': payoutRef,
           },
@@ -550,6 +552,7 @@ class TransportService {
           body: {
             'accountNumber': targetPhone,
             'amount': payoutAmount,
+            'grossAmount': itemPrice,
             'narration': 'Market escrow release: ${res['item_description']}',
             'referenceId': payoutRef,
           },

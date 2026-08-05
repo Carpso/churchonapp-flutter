@@ -24,6 +24,7 @@ class _RoleOnboardingScreenState extends ConsumerState<RoleOnboardingScreen> {
 
   Future<void> _loadProgress() async {
     final status = await ref.read(roleOnboardingServiceProvider).getOnboardingStatus(widget.role);
+    if (!mounted) return;
     if (status != null && !status.isCompleted) {
       setState(() => _currentStep = status.step - 1);
     }

@@ -216,7 +216,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
       (LucideIcons.coins, "Fundraising", "Active campaigns", '/fundraising', Colors.orange),
       (LucideIcons.users, "Group Giving", "Give together", '/fundraising/groups', Colors.blue),
       (LucideIcons.scrollText, "My Pledges", "Track promises", '/my-pledges', Colors.purple),
-      (LucideIcons.history, "Giving History", "All transactions", '/giving/history', Colors.teal),
+      (LucideIcons.history, "Giving History", "All transactions", '/giving-history', Colors.teal),
       (LucideIcons.wallet, "Wallet", "Manage funds", '/wallet', Colors.green),
     ];
 
