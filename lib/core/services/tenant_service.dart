@@ -10,7 +10,7 @@ class Tenant {
   final String? organizationId;
   final String name;
   final String type;
-  final String? shortName;
+
   final String? logoUrl;
   final Color primaryColor;
   final Color accentColor;
@@ -36,7 +36,7 @@ class Tenant {
     this.organizationId,
     required this.name,
     this.type = 'church',
-    this.shortName,
+
     this.logoUrl,
     required this.primaryColor,
     required this.accentColor,
@@ -91,7 +91,6 @@ class Tenant {
       organizationId: map['organization_id']?.toString(),
       name: (map['name'] ?? 'Church On App').toString().trim(),
       type: map['type']?.toString() ?? 'church',
-      shortName: map['short_name']?.toString(),
       logoUrl: (map['logo_url'] ?? map['logo'])?.toString(),
       primaryColor: _parseColor(
         map['primary_color']?.toString(),
@@ -224,7 +223,7 @@ class TenantService {
       final data = await _client
           .from('churches')
           .select(
-            'id, slug, name, short_name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
+            'id, slug, name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
           )
           .eq('slug', slug.toLowerCase())
           .maybeSingle();
@@ -262,7 +261,7 @@ class TenantService {
           final churchData = await _client
               .from('churches')
               .select(
-                'id, slug, name, short_name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
+                'id, slug, name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
               )
               .eq('id', id)
               .maybeSingle();
@@ -279,7 +278,7 @@ class TenantService {
       final data = await _client
           .from('churches')
           .select(
-            'id, slug, name, short_name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
+            'id, slug, name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
           )
           .eq('id', id)
           .maybeSingle();
@@ -321,7 +320,7 @@ class TenantService {
             final church = await _client
                 .from('churches')
                 .select(
-                  'id, slug, name, short_name, logo_url, primary_color, latitude, longitude, address, country, is_verified, subscription_ends_at',
+                  'id, slug, name, logo_url, primary_color, latitude, longitude, address, country, is_verified, subscription_ends_at',
                 )
                 .eq('id', tenant['id'])
                 .maybeSingle();
@@ -383,7 +382,7 @@ class TenantService {
       final data = await _client
           .from('churches')
           .select(
-            'id, slug, name, short_name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
+            'id, slug, name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
           )
           .not('latitude', 'is', null);
 

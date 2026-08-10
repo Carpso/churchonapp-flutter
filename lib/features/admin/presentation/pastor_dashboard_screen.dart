@@ -433,7 +433,10 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
   Widget _buildSummaryRow(ThemeData theme) {
     final currencyFormat = NumberFormat.compactCurrency(symbol: 'K ', decimalDigits: 1);
     final attGrowth = _calcGrowth(_attendanceCount, _lastMonthAttendance);
-    final givingGrowth = _calcGrowth(_givingTotal.round(), _lastMonthGiving.round());
+    final givingGrowth = _calcGrowth(
+      _givingTotal.isFinite ? _givingTotal.round() : 0,
+      _lastMonthGiving.isFinite ? _lastMonthGiving.round() : 0,
+    );
 
     return GridView.count(
       physics: const NeverScrollableScrollPhysics(),

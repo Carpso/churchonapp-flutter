@@ -114,8 +114,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+    return Theme(
+      data: AppTheme.getTheme(null),
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -291,6 +293,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

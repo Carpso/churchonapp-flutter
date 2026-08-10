@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'
+  if (dart.library.html) 'package:church_on_app/core/services/messaging_stub.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
 import 'package:church_on_app/core/services/notification_service.dart';
@@ -12,7 +12,6 @@ class FcmService {
   FcmService(this.ref);
 
   Future<void> init() async {
-    await Firebase.initializeApp();
     final messaging = FirebaseMessaging.instance;
 
     await messaging.requestPermission(

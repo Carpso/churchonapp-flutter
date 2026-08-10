@@ -13,8 +13,8 @@ enabled = false
 
 [auth]
 enabled = true
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["churchonapp://callback", "https://churchonapp.com/auth/callback"]
+site_url = "https://churchonapp.com"
+additional_redirect_urls = ["churchonapp://callback", "https://churchonapp.com/auth/callback", "https://churchonapp.com", "https://churchonapp.pages.dev"]
 jwt_expiry = 3600
 enable_signup = true
 
@@ -30,6 +30,12 @@ policy = "per_worker"
 
 [analytics]
 enabled = false
+
+[vector]
+enabled = false
+max_buckets = 10
+max_indexes = 5
+[vector.buckets]
 
 [experimental]
 orioledb_version = ""

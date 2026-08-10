@@ -453,6 +453,9 @@ Widget _buildScreen(UserProfile profile) {
               _buildAction(LucideIcons.userCheck, "Role Approvals", "Approve or elevate user roles", Colors.teal, () {
                 context.push('/role-approvals');
               }),
+              _buildAction(LucideIcons.mapPin, "Expansion Leads", "Churches requesting to be added next", Colors.amber, () {
+                context.push('/expansion-leads');
+              }),
               _buildAction(LucideIcons.penTool, "Writer Approvals", "Approve writer applications", Colors.indigo, () {
                 context.push('/writer-approvals');
               }),

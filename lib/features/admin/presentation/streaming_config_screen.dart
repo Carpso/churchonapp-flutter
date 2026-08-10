@@ -375,6 +375,12 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
     );
   }
 
+  int _computeDivisions(double min, double max) {
+    if (min <= 0 || !(max - min).isFinite) return 2;
+    final d = ((max - min) / min).round().clamp(2, 50);
+    return d;
+  }
+
   Widget _buildSlider(String label, double value, double min, double max, String display, ValueChanged<double> onChanged, {int? divisions}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -390,7 +396,7 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
           value: value.clamp(min, max),
           min: min,
           max: max,
-          divisions: divisions ?? ((max - min) / min).round().clamp(2, 50),
+          divisions: divisions ?? _computeDivisions(min, max),
           onChanged: onChanged,
           activeColor: Theme.of(context).primaryColor,
         ),

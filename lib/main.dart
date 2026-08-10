@@ -9,7 +9,8 @@ import 'core/services/notification_service.dart';
 import 'core/services/fcm_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart'
+  if (dart.library.html) 'package:church_on_app/core/services/crashlytics_stub.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
@@ -41,23 +42,6 @@ import 'core/services/wake_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Firebase first (required for Crashlytics)
-  await Firebase.initializeApp();
-
-  // Wire Flutter errors to Crashlytics
-  FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.presentError(details);
-    FirebaseCrashlytics.instance.recordFlutterFatalError(details);
-    debugPrint('FlutterError: ${details.exception}');
-  };
-  
-  PlatformDispatcher.instance.onError = (error, stack) {
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    debugPrint('Global Dispatcher Error: $error');
-    debugPrint('Stack: $stack');
-    return true; 
-  };
 
   ErrorWidget.builder = (FlutterErrorDetails details) {
     FirebaseCrashlytics.instance.recordFlutterError(details);
@@ -67,13 +51,32 @@ void main() async {
   // Capture async errors outside the Flutter framework
   runZonedGuarded<Future<void>>(() async {
     debugPrint('Starting services initialization...');
-    
+
     // 1. Environment MUST be loaded first
     try {
       await dotenv.load(fileName: '.env');
       debugPrint('Environment loaded.');
     } catch (e) {
       debugPrint('Error loading .env file: $e');
+    }
+
+    // 2. Initialize Firebase
+    try {
+      await Firebase.initializeApp();
+      debugPrint('Firebase initialized.');
+      FlutterError.onError = (FlutterErrorDetails details) {
+        FlutterError.presentError(details);
+        FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+        debugPrint('FlutterError: ${details.exception}');
+      };
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        debugPrint('Global Dispatcher Error: $error');
+        debugPrint('Stack: $stack');
+        return true;
+      };
+    } catch (e) {
+      debugPrint('Firebase init error (non-fatal): $e');
     }
     
     if (Env.supabaseUrl.isEmpty) {
@@ -230,6 +233,7 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
     final notifService = container.read(notificationServiceProvider);
     await notifService.init();
 
+    if (!kIsWeb) {
       if (mounted) {
         final permitted = await showNotificationPermissionDialog(context);
         if (permitted) {
@@ -237,13 +241,13 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
             final fcm = FcmService(ref);
             await fcm.init();
             fcmInstance = fcm;
-            // Wake screen for important notifications
             WakeService.wakeScreen();
           } catch (e) {
             debugPrint('FCM init skipped: $e');
           }
         }
       }
+    }
 
     // Start Realtime listeners once the user is authenticated
     final user = Supabase.instance.client.auth.currentUser;

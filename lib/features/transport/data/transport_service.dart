@@ -370,9 +370,10 @@ class TransportService {
 
   Future<void> _updateUserBalance(String userId, double delta) async {
     // Use atomic RPC to prevent TOCTOU race conditions
+    final amount = delta.isFinite ? delta.round() : 0;
     await _client.rpc('add_coins', params: {
       'user_id': userId,
-      'amount': delta.round(),
+      'amount': amount,
     });
   }
 

@@ -49,6 +49,7 @@ import 'package:church_on_app/features/profile/presentation/privacy_policy_scree
 import 'package:church_on_app/features/profile/presentation/terms_of_service_screen.dart';
 import 'package:church_on_app/features/profile/presentation/about_screen.dart';
 import 'package:church_on_app/features/support/presentation/support_hub_screen.dart';
+import 'package:church_on_app/features/admin/presentation/expansion_leads_screen.dart';
 import 'package:church_on_app/features/admin/presentation/emergency_shutdown_screen.dart';
 import 'package:church_on_app/features/admin/presentation/ad_management_screen.dart';
 import 'package:church_on_app/features/admin/presentation/report_creator_screen.dart';
@@ -301,7 +302,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             route == '/database-setup' ||
             route == '/emergency-shutdown' ||
             route == '/ads' ||
-            route == '/platform-ads') {
+            route == '/platform-ads' ||
+            route == '/expansion-leads') {
           return user.isEmployee;
         }
 
@@ -788,6 +790,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           final profile = state.extra as UserProfile;
           return RoleQuickActions(profile: profile);
         },
+      ),
+      GoRoute(
+        path: '/expansion-leads',
+        builder: (context, state) => const ExpansionLeadsScreen(),
       ),
       GoRoute(
         path: '/service-report',

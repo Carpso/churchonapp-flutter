@@ -92,3 +92,15 @@ android/build/
 site_release.zip
 FINAL_MASTER_BACKEND_SYNC.sql
 
+
+# Build artifacts & temp files
+site_release.zip
+*.mp4
+diagnostics/
+tmpclaude-*
+all_dart_files.txt
+temp_*.txt
+run_output.txt
+analyze_output.txt
+*.pdf
+0

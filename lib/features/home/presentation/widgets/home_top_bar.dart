@@ -108,8 +108,7 @@ class HomeTopBar extends StatelessWidget {
 
   String _abbreviateChurchName(Tenant? tenant) {
     if (tenant == null) return '';
-    final shortName = tenant.shortName;
-    if (shortName != null && shortName.trim().isNotEmpty) return shortName.trim();
+
     final name = tenant.name.trim();
     if (name.isEmpty) return 'Church';
     if (name.length <= 12) return name;
@@ -173,7 +172,7 @@ class HomeTopBar extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        "${weather.temperature.round()}°C $label",
+                        "${weather.temperature.isFinite ? weather.temperature.round() : 0}°C $label",
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,

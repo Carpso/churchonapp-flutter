@@ -29,7 +29,8 @@ class XpService {
   }
 
   static int xpForLevel(int level) {
-    return (pow((level - 1) / 0.6, 1.0 / 0.6) * 100).round();
+    final value = pow((level - 1) / 0.6, 1.0 / 0.6) * 100;
+    return value.isFinite ? value.round() : 2147483647;
   }
 
   static int xpToNextLevel(int currentXp, int currentLevel) {

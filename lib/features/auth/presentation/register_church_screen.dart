@@ -253,7 +253,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final fee = _selectedRole == 'pastor' ? 'K 1,500' : 'K 2,000';
+    final fee = _selectedRole == 'pastor' ? 'K 500' : 'K 1,000';
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,

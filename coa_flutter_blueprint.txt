@@ -1480,3 +1480,61 @@ To keep resource consumption low while remaining fully reactive, a great setup o
 [ Condition Met ]   ? State: PENDING_PAYOUT    ? Trigger Lipila Disbursement API
                                    ?
 [ Payout Clears ]   ? Lipila Webhook / Res  ? State: PAID_OUT
+================================================================================
+UPDATE (2026-08-10): Enterprise Hardening, Web Launch & Fixes
+================================================================================
+SESSION WORK COMPLETED:
+
+FIREBASE PROJECT CLEANUP:
+  - Restored "Church On App Android" (com.churchonapp.churchonapp) from DELETED.
+  - Registered correct SHA-1 (46BDAED912391CD34CBA330EF05DF1B6EC8AE1A4) and
+    SHA-256 (FB57B43902E7B93A48506915BE9767C24CA5DDEF7732A59A679768CF2FA67BDA).
+  - DELETED stale Android app com.churchonapp.app (1:45750098887:android:160913593e1c8a139217e2).
+  - DELETED duplicate web app 1:45750098887:web:46345dc91a838e1b9217e2.
+  - Corrected web Firebase config in web/index.html with real web appId
+    (1:45750098887:web:2e4259493139c6719217e2) and apiKey.
+  - Remaining apps: Android com.churchonapp.churchonapp, Web (2e425949...), iOS.
+
+GOOGLE SIGN-IN FIXES:
+  - Android origin_mismatch FIXED (SHA restored + registered).
+  - Web localhost redirect FIXED: Supabase site_url localhost -> https://churchonapp.com,
+    redirect URLs added, config pushed via supabase config push.
+
+SUPABASE:
+  - Migration 20260877_expansion_leads_rls.sql APPLIED: expansion_leads RLS grants
+    superadmin/employee/coa_employee full manage + anonymous submit.
+
+WHITE SCREEN FIXES (web):
+  - Firebase crashlytics auto-init crash fixed via conditional stubs
+    (crashlytics_stub.dart, messaging_stub.dart) on web.
+  - churches.short_name column error fixed (removed from all queries + model).
+  - Infinity.round() hardening across money.dart, transport, dashboard, xp, weather.
+
+WEBSITE (landing_screen.dart):
+  - Footer links fixed: /events/0->/events, /klips/0->/kingdom-klips, Bible Quiz->/quiz.
+  - Feature cards: sunflower yellow gradient backgrounds (0xFFFFDA03).
+  - Pricing cards: fixed price/period overlap (now stacked, not Row) + alignment.
+  - "Join Ecosystem" button -> /register-church.
+  - Phone mockup: app icon grid background + logo + slogan overlay.
+  - Login/signup screens forced to sunflower yellow brand theme (AppTheme.getTheme(null)).
+  - All sunset yellow (0xFFFFB800) replaced with sunflower yellow (0xFFFFDA03).
+
+CHURCH DISCOVERY (select_church_screen.dart):
+  - Fetch nearby Christian churches from OpenStreetMap Overpass API (no API key).
+  - Unregistered churches shown on map + list with animated logo/triangle pins.
+  - Tapping unregistered church shows "Not Yet Available" dialog.
+  - Registered churches still highlighted; "Registered only" toggle filters.
+
+CHURCH COMMUTE:
+  - Server-side filtering, pull-to-refresh, loading states, error handling,
+    removed hardcoded "4.9 Verified Steward", sunflower yellow theming.
+
+CLEANUP:
+  - Removed tmpclaude-* temp files, diagnostics/ logs, site_release.zip (104MB),
+    media_playback.mp4, PDFs, church_on_app.iml, stray .log files.
+  - .gitignore extended for build artifacts & temp patterns.
+
+DEPLOYMENT:
+  - Web deployed to Cloudflare Pages (churchonapp.com) via wrangler pages deploy.
+  - Verified 0 exceptions on load, main.dart.js hash matches live.
+================================================================================

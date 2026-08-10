@@ -21,7 +21,7 @@ class _FeatureTogglesScreenState extends ConsumerState<FeatureTogglesScreen> {
       _FeatureItem('Tithes & Offerings', 'giving_tithes', 'Digital giving via Mobile Money', LucideIcons.banknote, true),
       _FeatureItem('Missions Giving', 'giving_missions', 'Missions and outreach donations', LucideIcons.globe, true),
       _FeatureItem('Building Fund', 'giving_building', 'Building fund contributions', LucideIcons.home, true),
-      _FeatureItem('Pledges', 'giving_pledges', 'Pledge commitments and tracking', LucideIcons.handshake, true),
+      _FeatureItem('Pledges', 'giving_pledges', 'Pledge commitments and tracking', LucideIcons.heartHandshake, true),
       _FeatureItem('QR Payment', 'giving_qr', 'QR code payment for quick giving', LucideIcons.qrCode, true),
       _FeatureItem('Card Payments', 'giving_card', 'Credit/Debit card via Lipila', LucideIcons.creditCard, false),
       _FeatureItem('Church Wallet', 'giving_wallet', 'Church treasury wallet management', LucideIcons.wallet, true),

@@ -265,6 +265,7 @@ class SuperAdminDashboard extends ConsumerWidget {
       _tile(context, theme, LucideIcons.puzzle, "Integrations", "Configure third-party integrations", Colors.cyan, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IntegrationsScreen()))),
       _tile(context, theme, LucideIcons.dollarSign, "Subscription Pricing", "Configure subscription tiers and pricing", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionPricingScreen()))),
       _tile(context, theme, LucideIcons.database, "Database Setup", "Migration and schema management tools", Colors.blueGrey, () => context.push('/database-setup')),
+      _tile(context, theme, LucideIcons.mapPin, "Expansion Leads", "Churches requesting to be added next", Colors.amber, () => context.push('/expansion-leads')),
       _tile(context, theme, LucideIcons.fileDown, "Export Data", "Export platform data to CSV/PDF/Excel", Colors.brown, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExportDataScreen()))),
       const SizedBox(height: 12),
       Text("Governance & Security", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red.shade700)),

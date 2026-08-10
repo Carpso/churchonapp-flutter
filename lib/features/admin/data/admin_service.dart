@@ -178,11 +178,11 @@ class AdminService {
   }
 
   Future<List<Map<String, dynamic>>> getPayoutRequests({String? tenantId}) async {
-    var query = _client.from('payout_requests').select('*, profiles(full_name)').order('created_at', ascending: false);
+    var builder = _client.from('payout_requests').select('*, profiles(full_name)');
     if (tenantId != null) {
-      query = query.eq('tenant_id', tenantId);
+      builder = builder.eq('tenant_id', tenantId);
     }
-    final res = await query;
+    final res = await builder.order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(res);
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/widgets/profile_avatar.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/services/coins_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';

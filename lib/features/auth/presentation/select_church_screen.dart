@@ -5,6 +5,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:church_on_app/core/utils/country_detection_util.dart';
 import 'package:church_on_app/core/widgets/church_map.dart';
 import 'package:go_router/go_router.dart';
@@ -50,7 +52,10 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
     await _fetchTenants();
     _getUserLocation()
         .then((_) {
-          if (mounted) _fetchTenants();
+          if (mounted) {
+            _fetchTenants();
+            _fetchNearbyChurches();
+          }
         })
         .catchError((e) {
           debugPrint('Error loading user location: $e');
@@ -177,6 +182,110 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
         return matchesQuery;
       }).toList();
     });
+  }
+
+  /// Fetch nearby churches (including unregistered ones) from OpenStreetMap
+  /// Overpass API so users can see real churches around them even if they
+  /// haven't joined Church On App yet. Tapping an unregistered church shows
+  /// the "Not Yet Available" dialog.
+  Future<void> _fetchNearbyChurches() async {
+    final pos = _currentPosition;
+    if (pos == null) return;
+    try {
+      final bbox = '${pos.latitude - 0.5},${pos.longitude - 0.5},'
+          '${pos.latitude + 0.5},${pos.longitude + 0.5}';
+      final query = '''
+        [out:json][timeout:15];
+        (
+          node["amenity"="place_of_worship"]["religion"="christian"]($bbox);
+          way["amenity"="place_of_worship"]["religion"="christian"]($bbox);
+        );
+        out center 100;
+      ''';
+      final uri = Uri.parse(
+        'https://overpass-api.de/api/interpreter?data=${Uri.encodeQueryComponent(query)}',
+      );
+      final res = await http.get(uri).timeout(const Duration(seconds: 15));
+      if (res.statusCode != 200) {
+        debugPrint('Overpass returned ${res.statusCode}');
+        return;
+      }
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final elements = (data['elements'] as List? ?? []);
+      if (elements.isEmpty) return;
+
+      final registeredKeys = _tenants
+          .where((t) => t['_registered'] == true)
+          .map((t) {
+            final lat = _parseDouble(t['latitude']);
+            final lng = _parseDouble(t['longitude']);
+            return lat != null && lng != null ? (lat, lng) : null;
+          })
+          .whereType<(double, double)>()
+          .toSet();
+
+      final nearby = <Map<String, dynamic>>[];
+      for (final el in elements) {
+        final double lat;
+        final double lng;
+        if (el['lat'] != null) {
+          lat = (el['lat'] as num).toDouble();
+          lng = (el['lon'] as num).toDouble();
+        } else {
+          final c = el['center'];
+          if (c == null) continue;
+          lat = (c['lat'] as num).toDouble();
+          lng = (c['lon'] as num).toDouble();
+        }
+        // Skip points already represented by a registered church
+        bool tooClose = false;
+        for (final r in registeredKeys) {
+          if ((r.$1 - lat).abs() < 0.004 && (r.$2 - lng).abs() < 0.004) {
+            tooClose = true;
+            break;
+          }
+        }
+        if (tooClose) continue;
+        final tags = el['tags'] as Map<String, dynamic>? ?? {};
+        final name = tags['name']?.toString();
+        if (name == null || name.trim().isEmpty) continue;
+        nearby.add({
+          'id': 'osm_${el['id']}',
+          'name': name,
+          'type': 'church',
+          'latitude': lat,
+          'longitude': lng,
+          'address': tags['addr:street']?.toString() ?? '',
+          'country': _currentCountry,
+          'logo_url': null,
+          '_registered': false,
+          '_osm': true,
+        });
+      }
+      if (nearby.isEmpty || !mounted) return;
+
+      setState(() {
+        final existingIds = _tenants.map((t) => t['id']).toSet();
+        _tenants.addAll(
+          nearby.where((n) => !existingIds.contains(n['id'])),
+        );
+        final query2 = _searchController.text;
+        _filteredTenants = _tenants.where((c) {
+          final country = (c['country'] ?? '').toString().toLowerCase();
+          final matchesCountry = country.contains(_currentCountry.toLowerCase());
+          if (!matchesCountry) return false;
+          final name = (c['name'] ?? '').toString().toLowerCase();
+          final address = (c['address'] ?? '').toString().toLowerCase();
+          final matchesQuery = query2.isEmpty ||
+              name.contains(query2.toLowerCase()) ||
+              address.contains(query2.toLowerCase());
+          if (_showOnlyRegistered) return matchesQuery && c['_registered'] == true;
+          return matchesQuery;
+        }).toList();
+      });
+    } catch (e) {
+      debugPrint('Error fetching nearby churches: $e');
+    }
   }
 
   @override

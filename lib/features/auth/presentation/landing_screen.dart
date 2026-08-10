@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/expansion_service.dart';
-import '../../../core/widgets/app_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class LandingScreen extends ConsumerWidget {
@@ -44,7 +43,7 @@ class LandingScreen extends ConsumerWidget {
                 width: 40,
                 height: 40,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFFFD700),
+                  color: Color(0xFFFFDA03),
                   shape: BoxShape.circle,
                 ),
                 child: Padding(
@@ -70,7 +69,7 @@ class LandingScreen extends ConsumerWidget {
               const SizedBox(width: 10),
               _buildSmallButton("Member Login", () => context.go('/login')),
               const SizedBox(width: 10),
-              _buildSmallButton("Join Ecosystem", () => context.go('/select-church'), isPrimary: true),
+              _buildSmallButton("Join Ecosystem", () => context.go('/register-church'), isPrimary: true),
             ],
           ),
         ],
@@ -145,6 +144,13 @@ class LandingScreen extends ConsumerWidget {
   }
 
   Widget _buildPhoneMockup(BuildContext context) {
+    const appIcons = <IconData>[
+      Icons.menu_book, Icons.play_circle, Icons.wallet, Icons.calendar_today,
+      Icons.store, Icons.quiz, Icons.directions_car, Icons.radio,
+      Icons.forum, Icons.edit_note, Icons.dashboard, Icons.volunteer_activism,
+      Icons.people, Icons.notifications, Icons.music_note, Icons.map,
+      Icons.videocam, Icons.church, Icons.local_shipping, Icons.favorite,
+    ];
     return Center(
       child: Container(
         width: 320,
@@ -154,52 +160,107 @@ class LandingScreen extends ConsumerWidget {
           borderRadius: BorderRadius.circular(50),
           border: Border.all(color: Colors.white10, width: 8),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 100,
-              spreadRadius: 10,
-            ),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 100, spreadRadius: 10),
           ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(42),
           child: Stack(
+            fit: StackFit.expand,
             children: [
-                Opacity(
-                  opacity: 0.4,
-                  child: AppImage("",
-                    width: double.infinity,
-                    height: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              Center(
+              Container(
+                color: const Color(0xFF141414),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 20)
-                        ],
-                      ),
-                      child: Image.asset("assets/app_logo.png", width: 80, height: 80, errorBuilder: (c,e,s) => const Icon(Icons.church, size: 40)),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      "Church On App",
-                      style: GoogleFonts.plusJakartaSans(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
+                    const SizedBox(height: 34),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: Text(
+                        "Church On App",
+                        style: GoogleFonts.plusJakartaSans(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text("Faith Meets Innovation", style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 1.5)),
+                    const SizedBox(height: 14),
+                    Expanded(
+                      child: GridView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 4,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 0.82,
+                        ),
+                        itemCount: appIcons.length,
+                        itemBuilder: (context, i) {
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  appIcons[i],
+                                  color: const Color(0xFFFFDA03),
+                                  size: 26,
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  'App ${i + 1}',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.5),
+                                    fontSize: 9,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ],
+                ),
+              ),
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFDA03),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [BoxShadow(color: const Color(0xFFFFDA03).withValues(alpha: 0.4), blurRadius: 24)],
+                        ),
+                        child: Image.asset("assets/app_logo.png", width: 64, height: 64, errorBuilder: (c, e, s) => const Icon(Icons.church, size: 40)),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        "Church On App",
+                        style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        "Connecting Churches Through Technology",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 1.2, height: 1.5),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -302,16 +363,26 @@ class LandingScreen extends ConsumerWidget {
           Text("CHURCH OPERATING SYSTEM", style: TextStyle(letterSpacing: 2, color: Colors.blue[800], fontWeight: FontWeight.bold, fontSize: 12)),
           const SizedBox(height: 20),
           Text("Uniting the Faithful.", style: GoogleFonts.plusJakartaSans(fontSize: 48, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 15),
+          Text("Everything your church needs—in one digital ecosystem.", style: TextStyle(fontSize: 18, color: Colors.black45, height: 1.5)),
           const SizedBox(height: 80),
           Wrap(
             spacing: 30,
             runSpacing: 30,
             alignment: WrapAlignment.center,
             children: [
-              _featureCard(context, Icons.radio, "Radio", "Broadcasting the word 24/7 across the continent."),
-              _featureCard(context, Icons.calendar_today, "Events & Calendars", "Never miss a conference or a local fellowship again."),
-              _featureCard(context, Icons.volunteer_activism, "Charity & Missions", "Organize giving for those who need it most."),
-              _featureCard(context, Icons.dashboard, "Church Micro-sites", "Every branch gets its own digital home within the app."),
+              _featureCard(context, Icons.menu_book, "Holy Bible", "Read, study, and memorize Scripture with multiple translations and audio."),
+              _featureCard(context, Icons.play_circle, "Sermons & Media", "Live streaming, recorded sermons, and worship lyrics in one place."),
+              _featureCard(context, Icons.wallet, "Digital Giving", "Tithes, offerings, and fundraising via MTN, Airtel, and Zamtel mobile money."),
+              _featureCard(context, Icons.calendar_today, "Events & Calendars", "Never miss a conference or fellowship again—with ticketing and check-in."),
+              _featureCard(context, Icons.store, "Marketplace", "Buy and sell within your church community—books, crafts, and more."),
+              _featureCard(context, Icons.quiz, "Bible Quiz", "Compete in Scripture knowledge challenges with your church and beyond."),
+              _featureCard(context, Icons.directions_car, "Ride Sharing", "Carpso Ride—safe, affordable church commutes, deliveries, and SOS."),
+              _featureCard(context, Icons.radio, "Kingdom Radio", "Broadcasting the Word 24/7 with worship music across the continent."),
+              _featureCard(context, Icons.forum, "Community", "Prayer wall, chat, Klips, testimonies, and pastor-led small groups."),
+              _featureCard(context, Icons.edit_note, "Notebook", "Sermon notes, personal journaling, and AI-powered study tools."),
+              _featureCard(context, Icons.dashboard, "Church Micro-sites", "Every branch gets its own digital home with website builder."),
+              _featureCard(context, Icons.volunteer_activism, "Charity & Missions", "Organize giving and track impact for those who need it most."),
             ],
           ),
         ],
@@ -324,10 +395,15 @@ class LandingScreen extends ConsumerWidget {
       width: 350,
       padding: const EdgeInsets.all(40),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFF9E3), Color(0xFFFFF0C2)],
+        ),
         borderRadius: BorderRadius.circular(40),
+        border: Border.all(color: const Color(0xFFFFDA03).withValues(alpha: 0.4)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 40, offset: const Offset(0, 20)),
+          BoxShadow(color: const Color(0xFFFFDA03).withValues(alpha: 0.15), blurRadius: 40, offset: const Offset(0, 20)),
         ],
       ),
       child: Column(
@@ -335,13 +411,13 @@ class LandingScreen extends ConsumerWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: BorderRadius.circular(20)),
-            child: Icon(icon, color: const Color(0xFFFFCC00), size: 32),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+            child: Icon(icon, color: const Color(0xFFFFB800), size: 32),
           ),
           const SizedBox(height: 30),
-          Text(title, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 24)),
+          Text(title, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 24, color: const Color(0xFF1A1A1A))),
           const SizedBox(height: 15),
-          Text(desc, style: const TextStyle(color: Colors.black45, fontSize: 16, height: 1.6)),
+          Text(desc, style: const TextStyle(color: Color(0xFF5A5240), fontSize: 16, height: 1.6)),
         ],
       ),
     );
@@ -366,7 +442,7 @@ class LandingScreen extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 60),
       child: Column(
         children: [
-          Text(val, style: GoogleFonts.plusJakartaSans(fontSize: 48, fontWeight: FontWeight.w900, color: const Color(0xFFFFB800))),
+          Text(val, style: GoogleFonts.plusJakartaSans(fontSize: 48, fontWeight: FontWeight.w900, color: const Color(0xFFFFDA03))),
           Text(label, style: const TextStyle(color: Colors.black26, fontWeight: FontWeight.bold, fontSize: 14)),
         ],
       ),
@@ -389,7 +465,7 @@ class LandingScreen extends ConsumerWidget {
             alignment: WrapAlignment.center,
             children: [
               _pricingCard(
-                "Churches", "Free - K500/mo", "/setup",
+                "Churches", "K500/mo", "Free setup",
                 ["Free Silver plan forever", "Gold K100/mo • Platinum K500/mo", "One-time K500 onboarding fee", "Digital Tithes & Offerings"],
                 isFeatured: true,
                 onTap: () => context.go('/register-church'),
@@ -432,11 +508,12 @@ class LandingScreen extends ConsumerWidget {
         children: [
           Text(title, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: isFeatured ? Colors.white : Colors.black)),
           const SizedBox(height: 15),
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(price, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 32, color: isFeatured ? const Color(0xFFFFD700) : Colors.black)),
-              const SizedBox(width: 4),
-              Text(period, style: TextStyle(fontSize: 12, color: isFeatured ? Colors.white54 : Colors.black45, fontWeight: FontWeight.bold)),
+              Text(price, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 32, height: 1.1, color: isFeatured ? const Color(0xFFFFDA03) : Colors.black)),
+              const SizedBox(height: 4),
+              Text(period, style: TextStyle(fontSize: 13, color: isFeatured ? Colors.white70 : Colors.black45, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 30),
@@ -444,7 +521,7 @@ class LandingScreen extends ConsumerWidget {
             padding: const EdgeInsets.only(bottom: 12),
             child: Row(
               children: [
-                Icon(Icons.check_circle, size: 16, color: isFeatured ? const Color(0xFFFFD700) : Colors.green),
+                Icon(Icons.check_circle, size: 16, color: isFeatured ? const Color(0xFFFFDA03) : Colors.green),
                 const SizedBox(width: 10),
                 Expanded(child: Text(f, style: TextStyle(fontSize: 13, color: isFeatured ? Colors.white70 : Colors.black87))),
               ],
@@ -456,7 +533,7 @@ class LandingScreen extends ConsumerWidget {
             child: ElevatedButton(
               onPressed: onTap,
               style: ElevatedButton.styleFrom(
-                backgroundColor: isFeatured ? const Color(0xFFFFD700) : Colors.black,
+                backgroundColor: isFeatured ? const Color(0xFFFFDA03) : Colors.black,
                 foregroundColor: isFeatured ? Colors.black : Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -537,9 +614,9 @@ class LandingScreen extends ConsumerWidget {
                     children: [
                       _footerHeading("Features"),
                       _footerLink("Sermons & Teachings", onTap: () => context.push('/sermons')),
-                      _footerLink("Events & Calendars", onTap: () => context.push('/events/0')),
-                      _footerLink("Klips", onTap: () => context.push('/klips/0')),
-                      _footerLink("Bible Quiz", onTap: () => {}),
+                      _footerLink("Events & Calendars", onTap: () => context.push('/events')),
+                      _footerLink("Klips", onTap: () => context.push('/kingdom-klips')),
+                      _footerLink("Bible Quiz", onTap: () => context.push('/quiz')),
                       _footerLink("Carpso Ride", onTap: () => context.push('/ride')),
                       _footerLink("Jobs Portal", onTap: () => context.push('/jobs')),
                     ],
@@ -614,7 +691,7 @@ class LandingScreen extends ConsumerWidget {
     return ElevatedButton(
       onPressed: onTap,
       style: ElevatedButton.styleFrom(
-        backgroundColor: isPrimary ? const Color(0xFFFFD700) : Colors.transparent,
+        backgroundColor: isPrimary ? const Color(0xFFFFDA03) : Colors.transparent,
         foregroundColor: Colors.black,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
