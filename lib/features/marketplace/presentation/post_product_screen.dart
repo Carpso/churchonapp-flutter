@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../data/marketplace_service.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/profile_provider.dart';
+import '../../../core/services/tenant_service.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/services/r2_service.dart';
 import 'package:universal_io/io.dart';
@@ -90,7 +91,10 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
         'vendor_name': profile?.name ?? "Citizen",
       };
 
-      await ref.read(marketplaceServiceProvider).postProduct(productData);
+      await ref.read(marketplaceServiceProvider).postProduct(
+        productData,
+        tenantId: ref.read(currentTenantProvider)?.id,
+      );
       ref.invalidate(productsProvider);
 
       if (mounted) {

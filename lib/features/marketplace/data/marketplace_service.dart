@@ -70,9 +70,10 @@ class MarketplaceService {
     return (data as List).map((m) => MarketProduct.fromMap(m)).toList();
   }
 
-  Future<void> postProduct(Map<String, dynamic> productData) async {
+  Future<void> postProduct(Map<String, dynamic> productData, {String? tenantId}) async {
     await _client.from('marketplace_items').insert({
       ...productData,
+      if (tenantId != null) 'tenant_id': tenantId,
       'status': 'active',
       'created_at': DateTime.now().toIso8601String(),
     });

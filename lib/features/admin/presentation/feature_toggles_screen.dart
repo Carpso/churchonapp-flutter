@@ -14,7 +14,6 @@ class FeatureTogglesScreen extends ConsumerStatefulWidget {
 
 class _FeatureTogglesScreenState extends ConsumerState<FeatureTogglesScreen> {
   String _search = '';
-  String? _selectedTenantId;
 
   static final _featureGroups = <String, List<_FeatureItem>>{
     '💰 Giving & Finance': [
