@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:go_router/go_router.dart';
+import 'package:church_on_app/core/theme/app_theme.dart';
 import '../../admin/data/login_history_service.dart';
-import '../../auth/presentation/two_factor_setup_screen.dart';
-import 'active_sessions_screen.dart';
 
 class SecurityScreen extends ConsumerStatefulWidget {
   const SecurityScreen({super.key});
@@ -17,77 +17,80 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F0F),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
-        title: const Text("Security & Privacy", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        leading: IconButton(icon: Icon(Icons.arrow_back, color: scheme.onSurface), onPressed: () => context.pop()),
+        title: Text("Security & Privacy", style: TextStyle(color: scheme.onSurface, fontWeight: FontWeight.bold)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          _section("Two-Factor Authentication", [
+          _section(theme, "Two-Factor Authentication", [
             _buildMenu(
+              theme,
               LucideIcons.shield,
               "Setup 2FA",
               "Protect your account with TOTP authentication",
-              Colors.amber,
-              () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TwoFactorSetupScreen())),
+              theme.primaryColor,
+              () => context.push('/two-factor-setup'),
             ),
           ]),
           const SizedBox(height: 24),
-          _section("Active Sessions", [
+          _section(theme, "Active Sessions", [
             _buildMenu(
+              theme,
               LucideIcons.monitor,
               "Manage Active Sessions",
               "View and manage all your active login sessions",
-              Colors.blueAccent,
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ActiveSessionsScreen()),
-              ),
+              scheme.info,
+              () => context.push('/active-sessions'),
             ),
           ]),
           const SizedBox(height: 24),
-          _section("Login History", [
+          _section(theme, "Login History", [
             _buildMenu(
+              theme,
               LucideIcons.clock,
               _showLoginHistory ? "Hide Login History" : "View Login History",
-              "Recent login attempts on your account",
-              Colors.blueGrey,
+              "Check your recent sign-in activity",
+              scheme.neutral,
               () => setState(() => _showLoginHistory = !_showLoginHistory),
             ),
-            if (_showLoginHistory) _buildLoginHistoryList(),
+            if (_showLoginHistory) _buildLoginHistoryList(theme),
           ]),
         ],
       ),
     );
   }
 
-  Widget _section(String title, List<Widget> children) {
+  Widget _section(ThemeData theme, String title, List<Widget> children) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 12, left: 4),
-          child: Text(title, style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+          child: Text(title, style: TextStyle(color: theme.primaryColor, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
         ),
         ...children,
       ],
     );
   }
 
-  Widget _buildMenu(IconData icon, String title, String subtitle, Color color, VoidCallback onTap) {
+  Widget _buildMenu(ThemeData theme, IconData icon, String title, String subtitle, Color color, VoidCallback onTap) {
+    final scheme = theme.colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.03),
+          color: scheme.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: scheme.onSurface.withValues(alpha: 0.05)),
         ),
         child: Row(
           children: [
@@ -101,56 +104,57 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                  Text(title, style: TextStyle(color: scheme.onSurface, fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(subtitle, style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.4), fontSize: 11)),
                 ],
               ),
             ),
-            const Icon(LucideIcons.chevronRight, color: Colors.white24, size: 16),
+            Icon(LucideIcons.chevronRight, color: scheme.onSurface.withValues(alpha: 0.2), size: 16),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInfo(String text, Color color) {
+  Widget _buildInfo(ThemeData theme, String text, Color color) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Text(text, style: TextStyle(color: color, fontSize: 13)),
     );
   }
 
-  Widget _buildLoginHistoryList() {
+  Widget _buildLoginHistoryList(ThemeData theme) {
+    final scheme = theme.colorScheme;
     return FutureBuilder<List<LoginRecord>>(
       future: ref.read(loginHistoryServiceProvider).getLoginHistory(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return _buildInfo("Loading...", Colors.white38);
+          return _buildInfo(theme, "Loading...", scheme.onSurface.withValues(alpha: 0.4));
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return _buildInfo("No login history yet", Colors.white38);
+          return _buildInfo(theme, "No login history yet", scheme.onSurface.withValues(alpha: 0.4));
         }
         return Column(
           children: snapshot.data!.map((record) => Container(
             margin: const EdgeInsets.only(bottom: 6),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.02),
+              color: scheme.surface,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+              border: Border.all(color: scheme.onSurface.withValues(alpha: 0.05)),
             ),
             child: Row(
               children: [
                 Icon(
                   record.status == 'success' ? LucideIcons.checkCircle : LucideIcons.xCircle,
-                  color: record.status == 'success' ? Colors.green : Colors.red,
+                  color: record.status == 'success' ? scheme.success : scheme.error,
                   size: 14,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     "${record.ipAddress ?? 'Unknown IP'} • ${_formatDate(record.createdAt)}",
-                    style: const TextStyle(color: Colors.white54, fontSize: 11),
+                    style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5), fontSize: 11),
                   ),
                 ),
               ],

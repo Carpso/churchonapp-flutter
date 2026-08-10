@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -106,7 +108,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
           ),
           );
         },
-        loading: () => Center(child: CircularProgressIndicator(color: theme.primaryColor)),
+        loading: () => const _FinanceDashboardShimmer(),
         error: (err, st) => Center(child: Text("Error loading financial reports: $err")),
       ),
     );
@@ -117,9 +119,13 @@ class FinanceDashboardScreen extends ConsumerWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF334155)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20)],
+        boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,9 +136,16 @@ class FinanceDashboardScreen extends ConsumerWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("TREASURY", style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                  const Text("TREASURY", style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                   const SizedBox(height: 5),
-                  Text("K ${total.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900)),
+                  Flexible(
+                    child: Text(
+                      "K ${NumberFormat.compactCurrency(symbol: '', decimalDigits: 1).format(total)}",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
+                    ),
+                  ),
                 ],
               ),
               Container(
@@ -148,9 +161,9 @@ class FinanceDashboardScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildMiniStat("This Month", "K ${monthly.toInt()}", LucideIcons.trendingUp, Colors.green),
-              _buildMiniStat("Tithes", "K ${tithes.toInt()}", LucideIcons.heart, Colors.purple),
-              _buildMiniStat("Offerings", "K ${offerings.toInt()}", LucideIcons.coins, Colors.orange),
+              _buildMiniStat("This Month", "K ${NumberFormat.compact().format(monthly)}", LucideIcons.trendingUp, Colors.greenAccent),
+              _buildMiniStat("Tithes", "K ${NumberFormat.compact().format(tithes)}", LucideIcons.heart, Colors.pinkAccent),
+              _buildMiniStat("Offerings", "K ${NumberFormat.compact().format(offerings)}", LucideIcons.coins, Colors.amberAccent),
             ],
           ),
         ],
@@ -167,7 +180,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-            Text(label, style: const TextStyle(color: Colors.white54, fontSize: 9)),
+            Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
           ],
         ),
       ],
@@ -247,7 +260,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
               title: 'Tithe (${(tithes/total*100).toStringAsFixed(0)}%)',
               color: Colors.green,
               radius: 50,
-              titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+              titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           if (offerings > 0)
             PieChartSectionData(
@@ -255,7 +268,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
               title: 'Offering (${(offerings/total*100).toStringAsFixed(0)}%)',
               color: Colors.orange,
               radius: 50,
-              titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+              titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           if (events > 0)
             PieChartSectionData(
@@ -263,7 +276,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
               title: 'Events (${(events/total*100).toStringAsFixed(0)}%)',
               color: Colors.purple,
               radius: 50,
-              titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+              titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           if (products > 0)
             PieChartSectionData(
@@ -271,7 +284,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
               title: 'Market (${(products/total*100).toStringAsFixed(0)}%)',
               color: Colors.blue,
               radius: 50,
-              titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+              titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
             ),
         ],
         centerSpaceRadius: 40,
@@ -302,11 +315,44 @@ class FinanceDashboardScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: theme.colorScheme.onSurface)),
-                Text(time, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10)),
+                Text(time, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
               ],
             ),
           ),
           Text(amount, style: TextStyle(fontWeight: FontWeight.w900, color: color, fontSize: 14)),
+        ],
+      ),
+    );
+  }
+}
+
+class _FinanceDashboardShimmer extends StatelessWidget {
+  const _FinanceDashboardShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(25),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ShimmerLoader.rectangular(height: 150, width: double.infinity),
+          const SizedBox(height: 30),
+          const ShimmerLoader.rectangular(height: 18, width: 180),
+          const SizedBox(height: 20),
+          const ShimmerLoader.rectangular(height: 200, width: double.infinity),
+          const SizedBox(height: 20),
+          const ShimmerLoader.rectangular(height: 200, width: double.infinity),
+          const SizedBox(height: 30),
+          const ShimmerLoader.rectangular(height: 18, width: 140),
+          const SizedBox(height: 15),
+          ...List.generate(
+            3,
+            (_) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: ShimmerLoader.rectangular(height: 70),
+            ),
+          ),
         ],
       ),
     );

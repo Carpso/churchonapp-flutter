@@ -93,7 +93,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
               Navigator.push(context, MaterialPageRoute(builder: (context) => const DeepStudySuiteScreen()));
             },
             style: TextButton.styleFrom(foregroundColor: Theme.of(context).primaryColor), 
-            child: const Text("Deep Study", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+            child: const Text("Deep Study", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
           ),
           IconButton(
             icon: const Icon(LucideIcons.search), 
@@ -186,7 +186,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
-              child: const Text("LIVE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+              child: const Text("LIVE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -295,7 +295,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
                     margin: const EdgeInsets.all(12),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(8)),
-                    child: const Text("NEW", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 8)),
+                    child: const Text("NEW", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
                   ),
               ],
             ),
@@ -314,7 +314,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
                         backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
                         child: Text(
                           sermon.preacher.isNotEmpty ? sermon.preacher[0].toUpperCase() : '?',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
                         ),
                       ),
                       const SizedBox(width: 10),

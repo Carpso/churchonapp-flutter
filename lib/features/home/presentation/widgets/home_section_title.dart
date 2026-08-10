@@ -27,7 +27,14 @@ class HomeSectionTitle extends StatelessWidget {
               behavior: HitTestBehavior.opaque,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Text(trailing!, style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 10, fontWeight: FontWeight.w900)),
+                child: Text(
+                  trailing!,
+                  style: TextStyle(
+                    color: Theme.of(context).primaryColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
               ),
             ),
         ],

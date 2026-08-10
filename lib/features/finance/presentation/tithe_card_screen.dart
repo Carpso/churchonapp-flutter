@@ -235,7 +235,7 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
                       SizedBox(width: 4),
                       Text(
                         "DIGITAL TITHE CARD",
-                        style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1),
+                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
                       ),
                     ],
                   ),
@@ -282,7 +282,7 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
                       "LIFETIME TITHES",
                       style: TextStyle(
                         color: primaryColor.computeLuminance() > 0.5 ? Colors.black54 : Colors.white60,
-                        fontSize: 9,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1,
                       ),
@@ -395,7 +395,7 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
                   frequency.toUpperCase(),
                   style: TextStyle(
                     color: _frequencyColor(frequency),
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -415,7 +415,7 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
           const SizedBox(height: 6),
           Text(
             "Annual Tithing Progress (${titheCount % 52} of 52 weeks)",
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
           ),
         ],
       ),
@@ -427,7 +427,7 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 9, fontWeight: FontWeight.bold)),
+          Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text(
             value,
@@ -571,7 +571,7 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
                   isConfirmed ? "Confirmed" : "Pending",
                   style: TextStyle(
                     color: isConfirmed ? Colors.green : Colors.orange,
-                    fontSize: 9,
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

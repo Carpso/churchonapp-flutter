@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/call_service.dart';
 
 class AudioCallScreen extends ConsumerStatefulWidget {
@@ -43,20 +44,26 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
   int _iceRestartCount = 0;
   static const int _maxIceRestarts = 3;
 
-  static const Map<String, dynamic> _iceServers = {
+  Map<String, dynamic> _iceServers = {
     'iceServers': [
       {'urls': 'stun:stun.l.google.com:19302'},
       {'urls': 'stun:stun1.l.google.com:19302'},
-      {'urls': 'stun:stun2.l.google.com:19302'},
-      {'urls': 'stun:stun3.l.google.com:19302'},
-      {'urls': 'stun:stun4.l.google.com:19302'},
-      {
-        'urls': 'turn:turn.anyfirewall.com:3478',
-        'username': '',
-        'credential': '',
-      },
     ],
   };
+
+  Future<void> _loadTurnCredentials() async {
+    try {
+      final res = await Supabase.instance.client.functions.invoke('turn-credentials');
+      final data = res.data as Map<String, dynamic>?;
+      if (data != null && data['iceServers'] != null) {
+        setState(() {
+          _iceServers = Map<String, dynamic>.from(data);
+        });
+      }
+    } catch (e) {
+      debugPrint('TURN credentials fetch failed, using STUN-only: $e');
+    }
+  }
 
   @override
   void initState() {
@@ -64,6 +71,7 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
     _currentSession = widget.callSession;
     _isCaller = _currentSession == null && widget.recipientId != null;
     _callStatus = _currentSession != null ? 'Ringing…' : 'Dialing…';
+    _loadTurnCredentials();
 
     _pulseAnim = AnimationController(
       vsync: this,
@@ -508,7 +516,7 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
             child: Center(child: Icon(icon, color: isActive ? activeColor : Colors.white, size: 22)),
           ),
           const SizedBox(height: 6),
-          Text(label, style: TextStyle(color: isActive ? activeColor : Colors.white54, fontSize: 10)),
+          Text(label, style: TextStyle(color: isActive ? activeColor : Colors.white54, fontSize: 11)),
         ],
       ),
     );

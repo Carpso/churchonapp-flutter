@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/qr_code_with_logo.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/widgets/app_error_view.dart';
 
 class MembershipCardScreen extends ConsumerWidget {
   const MembershipCardScreen({super.key});
@@ -62,7 +63,7 @@ class MembershipCardScreen extends ConsumerWidget {
                     );
                   },
                   loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (e, s) => Center(child: Text("Error: $e")),
+                  error: (e, s) => AppErrorView(error: e),
                 ),
               ),
             );
@@ -107,7 +108,7 @@ class MembershipCardScreen extends ConsumerWidget {
                 const Spacer(),
                 Text(name.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
                 const SizedBox(height: 5),
-                Text("MEMBER ID: $memberId", style: TextStyle(color: const Color(0xFFFFD700).withValues(alpha: 0.8), fontSize: 10, fontWeight: FontWeight.bold)),
+                Text("MEMBER ID: $memberId", style: TextStyle(color: const Color(0xFFFFD700).withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 15),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -115,14 +116,14 @@ class MembershipCardScreen extends ConsumerWidget {
                     const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("MEMBER SINCE", style: TextStyle(color: Colors.white54, fontSize: 8)),
+                        Text("MEMBER SINCE", style: TextStyle(color: Colors.white54, fontSize: 11)),
                         Text("JAN 2024", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                       ],
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(10)),
-                      child: const Text("VERIFIED", style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                      child: const Text("VERIFIED", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),

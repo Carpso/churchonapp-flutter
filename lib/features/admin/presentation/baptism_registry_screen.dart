@@ -123,7 +123,7 @@ class _BaptismRegistryScreenState extends ConsumerState<BaptismRegistryScreen> {
                 ),
                 child: Text(
                   record.status.toUpperCase(),
-                  style: TextStyle(color: isVerified ? Colors.green : Colors.amber.shade900, fontWeight: FontWeight.bold, fontSize: 10),
+                  style: TextStyle(color: isVerified ? Colors.green : Colors.amber.shade900, fontWeight: FontWeight.bold, fontSize: 11),
                 ),
               ),
             ],

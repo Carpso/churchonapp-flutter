@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:church_on_app/core/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -92,14 +93,14 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
             fontWeight: FontWeight.w900,
             fontSize: 14,
             letterSpacing: 2,
-            color: Colors.black87,
+            color: theme.colorScheme.onSurface,
           ),
         ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft, color: Colors.black87),
+          icon: Icon(LucideIcons.arrowLeft, color: theme.colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -138,7 +139,7 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
           style: GoogleFonts.plusJakartaSans(
             fontSize: 26,
             fontWeight: FontWeight.w900,
-            color: Colors.black87,
+            color: theme.colorScheme.onSurface,
             letterSpacing: -0.5,
           ),
         ),
@@ -146,7 +147,7 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
         Text(
           "Learn how to navigate tithing, quiz arenas, live audio feeds, and transport modules step-by-step.",
           style: GoogleFonts.inter(
-            color: Colors.grey.shade600,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             fontSize: 13,
             height: 1.5,
           ),
@@ -177,6 +178,7 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
   }
 
   Widget _buildCategoryChip(String categoryName, IconData icon) {
+    final theme = Theme.of(context);
     final isSelected = _selectedCategory == categoryName;
     return GestureDetector(
       onTap: () {
@@ -189,16 +191,16 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
         margin: const EdgeInsets.only(right: 12),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.black : Colors.white,
+          color: isSelected ? theme.colorScheme.onSurface : theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? Colors.black : Colors.black.withValues(alpha: 0.05),
+            color: isSelected ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withValues(alpha: 0.05),
             width: 1.5,
           ),
           boxShadow: [
             if (isSelected)
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
+                color: theme.shadowColor.withValues(alpha: 0.1),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -209,7 +211,7 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
             Icon(
               icon,
               size: 16,
-              color: isSelected ? const Color(0xFFFFD700) : Colors.black54,
+              color: isSelected ? theme.primaryColor : theme.colorScheme.onSurface.withValues(alpha: 0.54),
             ),
             const SizedBox(width: 8),
             Text(
@@ -217,7 +219,7 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
               style: GoogleFonts.plusJakartaSans(
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
-                color: isSelected ? Colors.white : Colors.black87,
+                color: isSelected ? theme.colorScheme.surface : theme.colorScheme.onSurface,
               ),
             ),
           ],
@@ -456,7 +458,7 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
           style: GoogleFonts.plusJakartaSans(
             fontSize: 26,
             fontWeight: FontWeight.w900,
-            color: Colors.black87,
+            color: theme.colorScheme.onSurface,
             letterSpacing: -0.5,
           ),
         ),
@@ -464,32 +466,32 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
         Text(
           "Submit a technical ticket. Our administrative and IT teams review inquiries within 24 hours.",
           style: GoogleFonts.inter(
-            color: Colors.grey.shade600,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             fontSize: 13,
             height: 1.5,
           ),
         ),
         const SizedBox(height: 30),
         
-        _buildTextField("Subject", _subjectController, "e.g. Daily coins reward not accumulating"),
+        _buildTextField(theme, "Subject", _subjectController, "e.g. Daily coins reward not accumulating"),
         const SizedBox(height: 20),
-        _buildTextField("Description", _descriptionController, "Please describe the problem in detail...", maxLines: 5),
+        _buildTextField(theme, "Description", _descriptionController, "Please describe the problem in detail...", maxLines: 5),
         const SizedBox(height: 30),
         
         ElevatedButton(
           onPressed: _isSubmitting ? null : _submitTicket,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black,
-            foregroundColor: Colors.white,
+            backgroundColor: theme.colorScheme.onSurface,
+            foregroundColor: theme.colorScheme.surface,
             minimumSize: const Size(double.infinity, 60),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             elevation: 0,
           ),
           child: _isSubmitting 
-            ? const SizedBox(
+            ? SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(color: Color(0xFFFFD700), strokeWidth: 2),
+                child: CircularProgressIndicator(color: theme.primaryColor, strokeWidth: 2),
               )
             : Text(
                 "SUBMIT SUPPORT TICKET", 
@@ -500,40 +502,40 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
         const SizedBox(height: 40),
         Text(
           "YOUR PREVIOUS TICKETS", 
-          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 11, color: Colors.grey.shade500, letterSpacing: 2),
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5), letterSpacing: 2),
         ),
         const SizedBox(height: 15),
-        _buildTicketsList(),
+        _buildTicketsList(theme),
         const SizedBox(height: 40),
       ],
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, String hint, {int maxLines = 1}) {
+  Widget _buildTextField(ThemeData theme, String label, TextEditingController controller, String hint, {int maxLines = 1}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label, 
-          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 13, color: theme.colorScheme.onSurface),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
           maxLines: maxLines,
-          style: GoogleFonts.inter(fontSize: 14, color: Colors.black87),
+          style: GoogleFonts.inter(fontSize: 14, color: theme.colorScheme.onSurface),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+            hintStyle: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.3), fontSize: 13),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: theme.colorScheme.surface,
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.05), width: 1),
+              borderSide: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.05), width: 1),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFFFFD700), width: 2),
+              borderSide: BorderSide(color: theme.primaryColor, width: 2),
             ),
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           ),
@@ -542,7 +544,7 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
     );
   }
 
-  Widget _buildTicketsList() {
+  Widget _buildTicketsList(ThemeData theme) {
     final client = Supabase.instance.client;
     final user = client.auth.currentUser;
     if (user == null) {
@@ -550,17 +552,17 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
         padding: const EdgeInsets.all(30),
         width: double.infinity,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+          border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.05)),
         ),
         child: Column(
           children: [
-            const Icon(LucideIcons.userCheck, color: Colors.grey, size: 40),
+            Icon(LucideIcons.userCheck, color: theme.colorScheme.onSurface.withValues(alpha: 0.3), size: 40),
             const SizedBox(height: 10),
             Text(
               "Please log in to see tickets.", 
-              style: GoogleFonts.inter(color: Colors.grey, fontSize: 13),
+              style: GoogleFonts.inter(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 13),
             ),
           ],
         ),
@@ -571,24 +573,24 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
       stream: client.from('tickets').stream(primaryKey: ['id']).eq('user_id', user.id).order('created_at'),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Colors.amber));
+          return Center(child: CircularProgressIndicator(color: theme.primaryColor));
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return Container(
             padding: const EdgeInsets.all(30),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+              border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.05)),
             ),
             child: Column(
               children: [
-                const Icon(LucideIcons.ticket, color: Colors.grey, size: 36),
+                Icon(LucideIcons.ticket, color: theme.colorScheme.onSurface.withValues(alpha: 0.3), size: 36),
                 const SizedBox(height: 10),
                 Text(
                   "No active support tickets found", 
-                  style: GoogleFonts.inter(color: Colors.grey, fontSize: 13),
+                  style: GoogleFonts.inter(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 13),
                 ),
               ],
             ),
@@ -597,23 +599,23 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
 
         final tickets = snapshot.data!;
         return Column(
-          children: tickets.map((t) => _buildTicketItem(t)).toList(),
+          children: tickets.map((t) => _buildTicketItem(theme, t)).toList(),
         );
       },
     );
   }
 
-  Widget _buildTicketItem(Map<String, dynamic> ticket) {
+  Widget _buildTicketItem(ThemeData theme, Map<String, dynamic> ticket) {
     final status = ticket['status'] ?? 'open';
-    final color = status == 'open' ? Colors.blue : (status == 'resolved' ? Colors.green : Colors.orange);
+    final color = StatusColor.fromString(context, status);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
+        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.04)),
       ),
       child: Row(
         children: [
@@ -629,17 +631,17 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
               children: [
                 Text(
                   ticket['subject'] ?? 'No Subject', 
-                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 13, color: theme.colorScheme.onSurface),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   status.toUpperCase(), 
-                  style: GoogleFonts.plusJakartaSans(color: color, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1),
+                  style: GoogleFonts.plusJakartaSans(color: color, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1),
                 ),
               ],
             ),
           ),
-          const Icon(LucideIcons.chevronRight, color: Colors.grey, size: 14),
+          Icon(LucideIcons.chevronRight, color: theme.colorScheme.onSurface.withValues(alpha: 0.2), size: 14),
         ],
       ),
     );
@@ -658,15 +660,16 @@ class _CustomSlidingTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       height: 56,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: theme.shadowColor.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -686,7 +689,7 @@ class _CustomSlidingTabBar extends StatelessWidget {
                 bottom: 0,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFD700), // Gold highlight
+                    color: theme.primaryColor, // Gold highlight
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
@@ -703,7 +706,7 @@ class _CustomSlidingTabBar extends StatelessWidget {
                           style: GoogleFonts.plusJakartaSans(
                             fontWeight: FontWeight.w900,
                             fontSize: 11,
-                            color: selectedIndex == 0 ? Colors.black : Colors.grey,
+                            color: selectedIndex == 0 ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface.withValues(alpha: 0.5),
                             letterSpacing: 1,
                           ),
                         ),
@@ -720,7 +723,7 @@ class _CustomSlidingTabBar extends StatelessWidget {
                           style: GoogleFonts.plusJakartaSans(
                             fontWeight: FontWeight.w900,
                             fontSize: 11,
-                            color: selectedIndex == 1 ? Colors.black : Colors.grey,
+                            color: selectedIndex == 1 ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface.withValues(alpha: 0.5),
                             letterSpacing: 1,
                           ),
                         ),
@@ -768,15 +771,15 @@ class _GuideExpansionTileState extends State<_GuideExpansionTile> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: _isExpanded ? Colors.amber.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.05),
+          color: _isExpanded ? theme.primaryColor.withValues(alpha: 0.5) : theme.colorScheme.onSurface.withValues(alpha: 0.05),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: theme.shadowColor.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -793,17 +796,17 @@ class _GuideExpansionTileState extends State<_GuideExpansionTile> {
           leading: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: _isExpanded ? Colors.amber.withValues(alpha: 0.1) : Theme.of(context).scaffoldBackgroundColor,
+              color: _isExpanded ? theme.primaryColor.withValues(alpha: 0.1) : theme.scaffoldBackgroundColor,
               shape: BoxShape.circle,
             ),
-            child: Icon(widget.icon, color: _isExpanded ? Colors.amber : Colors.black87, size: 20),
+            child: Icon(widget.icon, color: _isExpanded ? theme.primaryColor : theme.colorScheme.onSurface, size: 20),
           ),
           title: Text(
             widget.title,
             style: GoogleFonts.plusJakartaSans(
               fontWeight: FontWeight.bold,
               fontSize: 14,
-              color: Colors.black87,
+              color: theme.colorScheme.onSurface,
             ),
           ),
           subtitle: !_isExpanded
@@ -811,12 +814,12 @@ class _GuideExpansionTileState extends State<_GuideExpansionTile> {
                   widget.description,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(fontSize: 11, color: Colors.grey),
+                  style: GoogleFonts.inter(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                 )
               : null,
           trailing: Icon(
             _isExpanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-            color: _isExpanded ? Colors.amber : Colors.grey,
+            color: _isExpanded ? theme.primaryColor : theme.colorScheme.onSurface.withValues(alpha: 0.3),
             size: 16,
           ),
           children: [
@@ -832,7 +835,7 @@ class _GuideExpansionTileState extends State<_GuideExpansionTile> {
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       height: 1.5,
-                      color: Colors.grey.shade700,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                     ),
                   ),
                   const SizedBox(height: 15),
@@ -848,8 +851,8 @@ class _GuideExpansionTileState extends State<_GuideExpansionTile> {
                             margin: const EdgeInsets.only(top: 2),
                             width: 20,
                             height: 20,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFFFD700),
+                            decoration: BoxDecoration(
+                              color: theme.primaryColor,
                               shape: BoxShape.circle,
                             ),
                             alignment: Alignment.center,
@@ -857,8 +860,8 @@ class _GuideExpansionTileState extends State<_GuideExpansionTile> {
                               "${idx + 1}",
                               style: GoogleFonts.plusJakartaSans(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                                color: Colors.black,
+                                fontSize: 11,
+                                color: theme.colorScheme.onPrimary,
                               ),
                             ),
                           ),
@@ -867,8 +870,8 @@ class _GuideExpansionTileState extends State<_GuideExpansionTile> {
                             child: Text(
                               step,
                               style: GoogleFonts.inter(
-                                fontSize: 12.5,
-                                color: Colors.black87,
+                                fontSize: 13,
+                                color: theme.colorScheme.onSurface,
                                 height: 1.4,
                               ),
                             ),
@@ -884,8 +887,8 @@ class _GuideExpansionTileState extends State<_GuideExpansionTile> {
                       child: ElevatedButton(
                         onPressed: widget.onActionPressed,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          foregroundColor: Colors.white,
+                          backgroundColor: theme.colorScheme.onSurface,
+                          foregroundColor: theme.colorScheme.surface,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),

@@ -448,7 +448,7 @@ class _EventTicketScannerScreenState extends State<EventTicketScannerScreen> {
       children: [
         Text(value, style: TextStyle(color: color, fontSize: 28, fontWeight: FontWeight.bold)),
         SizedBox(height: 4),
-        Text(label, style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+        Text(label, style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
       ],
     );
   }

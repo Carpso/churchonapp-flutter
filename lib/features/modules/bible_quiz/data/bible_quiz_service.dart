@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/config/env.dart';
+import '../../../../core/services/tenant_service.dart';
 
 class QuizQuestion {
   final String id;
@@ -496,7 +497,8 @@ class BibleQuizService {
   }
 
   Future<Map<String, dynamic>?> createChurchCompetition({
-    required String tenantId,
+    String? tenantId,
+    String? organizationId,
     required String title,
     required DateTime date,
     required int questionCount,
@@ -507,6 +509,7 @@ class BibleQuizService {
       final pinCode = (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString();
       final data = await _client.from('church_competitions').insert({
         'tenant_id': tenantId,
+        'organization_id': organizationId,
         'title': title,
         'scheduled_for': date.toIso8601String(),
         'question_count': questionCount,
@@ -531,7 +534,8 @@ class ChurchQuizCompetition {
   final int questionCount;
   final String? difficulty;
   final double entryFee;
-  final String tenantId;
+  final String? tenantId;
+  final String? organizationId;
   final String status;
 
   ChurchQuizCompetition({
@@ -542,7 +546,8 @@ class ChurchQuizCompetition {
     required this.questionCount,
     this.difficulty,
     this.entryFee = 0.0,
-    required this.tenantId,
+    this.tenantId,
+    this.organizationId,
     this.status = 'scheduled',
   });
 
@@ -560,7 +565,8 @@ class ChurchQuizCompetition {
       questionCount: map['question_count'] ?? 10,
       difficulty: map['difficulty'],
       entryFee: (map['entry_fee'] as num?)?.toDouble() ?? 0.0,
-      tenantId: map['tenant_id']?.toString() ?? '',
+      tenantId: map['tenant_id']?.toString(),
+      organizationId: map['organization_id']?.toString(),
       status: map['status']?.toString() ?? 'scheduled',
     );
   }
@@ -572,18 +578,17 @@ final quizLeaderboardProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final client = Supabase.instance.client;
   try {
-    final res = await client
+    final tenantId = ref.read(currentTenantProvider)?.id;
+    final base = client
         .from('profiles')
-        .select('full_name, id, coins')
-        .order('coins', ascending: false)
-        .limit(10);
+        .select('full_name, id, coins');
+    final query = tenantId != null
+        ? base.eq('tenant_id', tenantId)
+        : base;
+    final res = await query.order('coins', ascending: false).limit(10);
     return List<Map<String, dynamic>>.from(res);
   } catch (_) {
-    return [
-      {"full_name": "Deacon James", "coins": 12500},
-      {"full_name": "Sister Mary", "coins": 9800},
-      {"full_name": "Bro. Peter", "coins": 7500},
-    ];
+    return [];
   }
 });
 

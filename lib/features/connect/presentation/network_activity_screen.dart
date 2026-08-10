@@ -127,7 +127,7 @@ class NetworkActivityScreen extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                          child: Text(typeLabel, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold)),
+                          child: Text(typeLabel, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
                         ),
                         const Spacer(),
                         Text(_formatTime(activity.createdAt), style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),

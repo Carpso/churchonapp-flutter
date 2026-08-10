@@ -136,7 +136,7 @@ class _NotebookScreenState extends ConsumerState<NotebookScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                child: Text(note.topic!.toUpperCase(), style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                child: Text(note.topic!.toUpperCase(), style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
               ),
             const SizedBox(height: 8),
             Text(note.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
@@ -271,7 +271,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         actions: [
           TextButton(
             onPressed: () => setState(() => _isInteractive = !_isInteractive),
-            child: Text(_isInteractive ? "EDIT MODE" : "FILL-IN MODE", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+            child: Text(_isInteractive ? "EDIT MODE" : "FILL-IN MODE", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
           ),
           IconButton(icon: const Icon(LucideIcons.check, color: Colors.green), onPressed: _finalizeSave),
         ],

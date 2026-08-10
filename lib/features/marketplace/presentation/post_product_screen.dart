@@ -215,7 +215,7 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
                   : const Text("PUBLISH LISTING", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
               ),
               const SizedBox(height: 20),
-              const Center(child: Text("All listings undergo automated safety checks.", style: TextStyle(color: Colors.grey, fontSize: 10))),
+              const Center(child: Text("All listings undergo automated safety checks.", style: TextStyle(color: Colors.grey, fontSize: 11))),
             ],
           ),
         ),
@@ -344,7 +344,7 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
             children: [
               Icon(icon, color: isSelected ? Colors.white : Colors.grey, size: 20),
               const SizedBox(height: 5),
-              Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
             ],
           ),
         ),

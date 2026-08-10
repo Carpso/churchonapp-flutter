@@ -7,6 +7,7 @@ import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/core/widgets/premium_confirmation_sheet.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/config/fee_config.dart';
+import 'package:church_on_app/core/utils/money.dart';
 import 'tithe_history_screen.dart';
 import 'lipila_payment_gateway.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
@@ -76,7 +77,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
           TextButton.icon(
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TitheHistoryScreen())),
             icon: const Icon(LucideIcons.history, size: 16),
-            label: const Text("HISTORY", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+            label: const Text("HISTORY", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -99,37 +100,43 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
               child: _buildAmountInput(),
             ),
             const SizedBox(height: 40),
-            _buildPaymentMethods(),
-            const SizedBox(height: 40),
-            ElevatedButton(
+            FilledButton(
               onPressed: () {
-                if (_formKey.currentState == null || !_formKey.currentState!.validate()) return;
+                if (_formKey.currentState == null ||
+                    !_formKey.currentState!.validate()) {
+                  return;
+                }
                 final amount = double.tryParse(_amountController.text) ?? 0.0;
 
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
                   backgroundColor: Colors.transparent,
-                  builder: (context) {
+                  builder: (sheetCtx) {
                     final tenant = ref.read(currentTenantProvider);
                     return LipilaPaymentGateway(
                       amount: amount,
-                      description: "Giving: $_selectedCategory",
+                      description: 'Giving: $_selectedCategory',
                       category: _selectedCategory.toLowerCase(),
-                      recipientName: tenant?.name ?? "Local Church",
-                      recipientAccount: tenant?.treasurerPhone ?? "CHURCH-OFFICIAL-AC",
-                      paymentReason: "$_selectedCategory Support",
+                      recipientName: tenant?.name ?? 'Local Church',
+                      recipientAccount:
+                          tenant?.treasurerPhone ?? 'CHURCH-OFFICIAL-AC',
+                      paymentReason: '$_selectedCategory Support',
                       onComplete: (success, txId) async {
-                        Navigator.pop(context);
+                        Navigator.pop(sheetCtx);
                         if (success && txId != null) {
-                          await ref.read(financeServiceProvider).logTransaction(
-                            amount,
-                            _selectedCategory.toLowerCase(),
-                            txId,
-                            tenantId: tenant?.id,
-                            recipientPhone: tenant?.treasurerPhone,
-                            recipientName: tenant?.name,
-                          );
+                          await ref
+                              .read(financeServiceProvider)
+                              .logTransaction(
+                                amount,
+                                _selectedCategory.toLowerCase(),
+                                txId,
+                                tenantId: tenant?.id,
+                                recipientPhone: tenant?.treasurerPhone,
+                                recipientName: tenant?.name,
+                              );
+                          ref.invalidate(transactionsStreamProvider);
+                          ref.invalidate(profileProvider);
                           if (mounted) _showSuccessSheet(txId);
                         }
                       },
@@ -137,12 +144,10 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
                   },
                 );
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.secondary,
-                minimumSize: const Size(double.infinity, 60),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 56),
               ),
-              child: Text("PROCEED TO SECURE PAYMENT", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSecondary)),
+              child: const Text('PROCEED TO SECURE PAYMENT'),
             ),
           ],
         ),
@@ -153,12 +158,13 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
   void _showSuccessSheet(String txId) {
     PremiumConfirmationSheet.show(
       context: context,
-      title: "Transaction Successful!",
-      subtitle: "Your seed has been received.",
-      message: "God bless your faithfulness. Your giving of K${_amountController.text} has been processed securely.",
+      title: 'Transaction Successful!',
+      subtitle: 'Your seed has been received.',
+      message:
+          'God bless your faithfulness. Your giving of ${formatKwacha(double.tryParse(_amountController.text) ?? 0)} has been processed securely.',
       referenceId: txId,
       type: ConfirmationType.success,
-      primaryLabel: "AMEN",
+      primaryLabel: 'AMEN',
     );
   }
 
@@ -183,7 +189,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("STEWARDSHIP REWARDS", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          const Text("STEWARDSHIP REWARDS", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           const SizedBox(height: 15),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -191,15 +197,15 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("K ${balanceZmw.toInt()}", style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
-                  const Text("ZMW BALANCE", style: TextStyle(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.bold)),
+                  Text(formatKwacha(balanceZmw), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+                  const Text("ZMW BALANCE", style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold)),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text("${balanceCc.toInt()} CC", style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
-                  const Text("REWARDS CC", style: TextStyle(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.bold)),
+                  const Text("REWARDS CC", style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold)),
                 ],
               ),
             ],
@@ -225,20 +231,15 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
       children: [
         const Text("More Ways to Give", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 15),
-        GridView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.0,
-          ),
-          itemCount: features.length,
-          itemBuilder: (context, index) {
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: List.generate(features.length, (index) {
             final (icon, title, subtitle, route, color) = features[index];
             return GestureDetector(
               onTap: () => context.push(route),
               child: Container(
+                width: MediaQuery.of(context).size.width / 3 - 16,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surface,
@@ -246,7 +247,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
                   border: Border.all(color: color.withValues(alpha: 0.2)),
                 ),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       padding: const EdgeInsets.all(10),
@@ -258,12 +259,12 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
                     ),
                     const SizedBox(height: 8),
                     Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center),
-                    Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 9), textAlign: TextAlign.center),
+                    Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11), textAlign: TextAlign.center),
                   ],
                 ),
               ),
             );
-          },
+          }),
         ),
       ],
     );
@@ -312,7 +313,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
                 Flexible(
                   child: Text(
                     "+ Platform Fee (K${(() { final amt = double.tryParse(_amountController.text); if (amt == null) return '3.00'; return _calculateFee(amt).toStringAsFixed(2); })()})",
-                    style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 10),
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 11),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -320,46 +321,6 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
               ],
             )
           ]
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaymentMethods() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("Select Method", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 15),
-        _buildPaymentOption("Mobile Money", LucideIcons.smartphone, true),
-        const SizedBox(height: 10),
-        _buildPaymentOption("Credit/Debit Card", LucideIcons.creditCard, false),
-      ],
-    );
-  }
-
-  Widget _buildPaymentOption(String title, IconData icon, bool isSelected, {bool isComingSoon = false}) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isSelected ? Theme.of(context).primaryColor : Colors.transparent, width: 2),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), size: 24),
-          const SizedBox(width: 15),
-          Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
-          const Spacer(),
-          if (isComingSoon)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-              child: const Text("SOON", style: TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.bold)),
-            )
-          else if (isSelected)
-            const Icon(LucideIcons.checkCircle, color: Colors.green, size: 20),
         ],
       ),
     );

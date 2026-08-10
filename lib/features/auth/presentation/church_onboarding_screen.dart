@@ -162,6 +162,16 @@ class _ChurchOnboardingScreenState
             .from('profiles')
             .update({'tenant_id': tenantId, 'role': 'pastor'})
             .eq('id', user.id);
+
+        // Audit trail
+        await supabase.from('role_assignments').insert({
+          'user_id': user.id,
+          'role_name': 'pastor',
+          'tenant_id': tenantId,
+          'assigned_by': user.id,
+          'status': 'approved',
+          'created_at': DateTime.now().toIso8601String(),
+        });
       }
 
       // Step 4: Generate invite code
@@ -514,14 +524,14 @@ class _ChurchOnboardingScreenState
                   Text(
                     "AUTO-VERIFICATION ENABLED",
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1,
                     ),
                   ),
                   Text(
                     "Cloud Multi-Tenant Isolation Secure",
-                    style: TextStyle(fontSize: 10, color: Colors.grey),
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                 ],
               ),

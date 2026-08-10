@@ -126,7 +126,7 @@ class _TestimoniesScreenState extends ConsumerState<TestimoniesScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(testimony.userName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text(DateFormat.yMMMd().format(testimony.createdAt), style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                  Text(DateFormat.yMMMd().format(testimony.createdAt), style: const TextStyle(color: Colors.grey, fontSize: 11)),
                 ],
               ),
             ],
@@ -147,7 +147,7 @@ class _TestimoniesScreenState extends ConsumerState<TestimoniesScreen> {
                 ref.read(testimonyServiceProvider).praiseTestimony(testimony.id, testimony.praisedBy);
               }),
               const SizedBox(width: 15),
-              Text("${testimony.praiseCount} PRAISES", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+              Text("${testimony.praiseCount} PRAISES", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
             ],
           ),
         ],
@@ -165,7 +165,7 @@ class _TestimoniesScreenState extends ConsumerState<TestimoniesScreen> {
           children: [
             Icon(icon, color: color, size: 14),
             const SizedBox(width: 8),
-            Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+            Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
       ),

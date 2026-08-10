@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/providers/profile_provider.dart';
 import '../../../../core/services/tenant_service.dart';
 import '../../../../core/config/remote_config.dart';
+import 'package:church_on_app/core/widgets/coa_payment_sheet.dart';
 import '../data/bible_quiz_service.dart';
 import '../data/daily_challenge_service.dart';
 import '../data/xp_service.dart';
@@ -27,6 +28,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   String _trophySubtitle = 'Weekly Global Bible Contest — Win Glory & Rewards';
   String _currentSeason = 'SEASON 2026: THE GOSPELS';
   int _weekNumber = 1;
+  bool _isConnecting = false;
+  String? _connectingMode;
 
   /// Remote-configurable quiz values (`quiz_*` keys in platform_settings).
   RemoteConfig get _rc => widgetRemoteConfig(ref);
@@ -65,7 +68,18 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
     }
   }
 
-  void _startP2P(String mode) {
+  void _startP2P(String mode) async {
+    setState(() {
+      _isConnecting = true;
+      _connectingMode = mode;
+    });
+
+    // Intentional delay for "Connecting..." state polish
+    await Future.delayed(const Duration(milliseconds: 1500));
+    
+    if (!mounted) return;
+    setState(() => _isConnecting = false);
+    
     Navigator.push(context, MaterialPageRoute(builder: (context) => BibleQuizArenaScreen(mode: mode)));
   }
 
@@ -134,7 +148,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(10)),
-                        child: const Text("WORLD-CLASS STANDARD", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                        child: const Text("WORLD-CLASS STANDARD", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
                       ),
                       const Spacer(),
                       const Icon(LucideIcons.globe, color: Colors.white70, size: 20),
@@ -191,10 +205,10 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
               crossAxisSpacing: 15,
               childAspectRatio: 1.25,
               children: [
-                _buildP2PCard("Any User", "Global Match", LucideIcons.users, Colors.blueAccent, () => _startP2P("Global")),
-                _buildP2PCard("My Church", "Local Members", LucideIcons.home, Colors.greenAccent, () => _startP2P("Church")),
-                _buildP2PCard("Random", "Instant Play", LucideIcons.shuffle, Colors.purpleAccent, () => _startP2P("Random")),
-                _buildP2PCard("Any COA User", "Public Match", LucideIcons.globe, Colors.pinkAccent, () => _startP2P("Any COA")),
+                _buildP2PCard("Any User", "Global Match", LucideIcons.users, Colors.blueAccent, "Global"),
+                _buildP2PCard("My Church", "Local Members", LucideIcons.home, Colors.greenAccent, "Church"),
+                _buildP2PCard("Random", "Instant Play", LucideIcons.shuffle, Colors.purpleAccent, "Random"),
+                _buildP2PCard("Any COA User", "Public Match", LucideIcons.globe, Colors.pinkAccent, "Any COA"),
               ],
             ),
             const SizedBox(height: 15),
@@ -220,6 +234,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             ),
 
             // Premium Events
+            const SizedBox(height: 24),
+            _buildOrganizationQuizSection(ref),
             const SizedBox(height: 24),
             GestureDetector(
               onTap: () {
@@ -351,7 +367,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(10)),
-                child: Text(_currentSeason, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                child: Text(_currentSeason, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -513,26 +529,38 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
     );
   }
 
-  Widget _buildP2PCard(String title, String subtitle, IconData icon, Color iconColor, VoidCallback onTap) {
+  Widget _buildP2PCard(String title, String subtitle, IconData icon, Color iconColor, String mode) {
+    final isThisConnecting = _isConnecting && _connectingMode == mode;
+    
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
+      onTap: _isConnecting ? null : () => _startP2P(mode),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.15),
+          color: isThisConnecting ? Colors.blue.withValues(alpha: 0.3) : iconColor.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: iconColor.withValues(alpha: 0.25)),
+          border: Border.all(color: isThisConnecting ? Colors.blue : iconColor.withValues(alpha: 0.25), width: isThisConnecting ? 2 : 1),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: iconColor, size: 20),
-            const SizedBox(height: 10),
-            Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-            Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 10)),
-          ],
-        ),
+        child: isThisConnecting 
+          ? const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                SizedBox(height: 10),
+                Text("Connecting...", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: iconColor, size: 20),
+                const SizedBox(height: 10),
+                Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+              ],
+            ),
       ),
     );
   }
@@ -724,11 +752,11 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text("ZMW", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                        const Text("ZMW", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
                         Switch(value: isUsd, activeThumbColor: Colors.green, onChanged: (v) => setState(() => isUsd = v)),
                         const Padding(
                           padding: EdgeInsets.only(right: 4),
-                          child: Text("USD", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                          child: Text("USD", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
                         ),
                       ],
                     )
@@ -761,7 +789,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                 ElevatedButton(
                   onPressed: () {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Processing Lease Payment...")));
+                    _payQuizLease(leaseFee, leaseFeeUsd, isUsd);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
@@ -928,7 +956,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
-                  child: Text("Lasts $_seasonWeeks weeks — New winners every Monday!", style: const TextStyle(color: Colors.amber, fontSize: 10)),
+                  child: Text("Lasts $_seasonWeeks weeks — New winners every Monday!", style: const TextStyle(color: Colors.amber, fontSize: 11)),
                 ),
                 const SizedBox(height: 16),
                 Expanded(
@@ -1006,6 +1034,83 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
               ],
             ),
           );
+        },
+      ),
+    );
+  }
+
+  Widget _buildOrganizationQuizSection(WidgetRef ref) {
+    final profile = ref.watch(profileProvider).value;
+    if (profile?.organizationId == null) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("NETWORK-WIDE COMPETITIONS", style: TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
+        const SizedBox(height: 15),
+        FutureBuilder<List<Map<String, dynamic>>>(
+          future: Supabase.instance.client
+              .from('church_competitions')
+              .select()
+              .eq('organization_id', profile!.organizationId!),
+          builder: (context, snapshot) {
+            final comps = snapshot.data ?? [];
+            if (comps.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Center(
+                  child: Text("No national competitions scheduled",
+                      style: TextStyle(color: Colors.white24, fontSize: 12)),
+                ),
+              );
+            }
+            return Column(
+              children: comps.map((c) {
+                final comp = ChurchQuizCompetition.fromMap(c);
+                return _buildActionTile(
+                  comp.title,
+                  "National Final • Join with PIN",
+                  LucideIcons.crown,
+                  Colors.amber,
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChurchCompetitionLobbyScreen(
+                        competitionId: comp.id,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  void _payQuizLease(double amountZmw, double amountUsd, bool isUsd) {
+    final amount = isUsd ? amountUsd : amountZmw;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => CoaPaymentSheet(
+        serviceType: 'quiz_lease',
+        amount: amount,
+        serviceLabel: 'Quiz Engine Lease',
+        description: 'Pay ${isUsd ? "\$${amountUsd.toStringAsFixed(2)} USD" : "K${amountZmw.toStringAsFixed(2)} ZMW"} to unlock the Quiz Engine for your church.',
+        onComplete: (paymentId, paymentRef) {
+          if (ctx.mounted) {
+            ScaffoldMessenger.of(ctx).showSnackBar(
+              const SnackBar(content: Text('Quiz Engine leased! Create events from the Events tab.'), backgroundColor: Colors.green),
+            );
+          }
         },
       ),
     );

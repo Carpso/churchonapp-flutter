@@ -95,7 +95,7 @@ class LogisticsDashboardScreen extends ConsumerWidget {
           Icon(icon, color: color, size: 20),
           const Spacer(),
           Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: theme.colorScheme.onSurface)),
-          Text(label, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          Text(label, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
         ],
       ),
     );
@@ -170,7 +170,7 @@ class LogisticsDashboardScreen extends ConsumerWidget {
     return Column(
       children: [
         Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10)),
+        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11)),
       ],
     );
   }

@@ -116,7 +116,7 @@ class GroupContributionListScreen extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
-                      child: const Text("Closed", style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+                      child: const Text("Closed", style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold)),
                     ),
                 ],
               ),

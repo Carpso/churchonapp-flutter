@@ -183,8 +183,24 @@ $migrations = @(
     "20260855_lipila_fee_rates.sql"
     "20260856_coa_payout_fee.sql"
     "20260857_ai_chat_tables.sql"
-    "20260858_giving_settlement_fix.sql"
-)
+     "20260858_giving_settlement_fix.sql"
+     "20260859_production_hardening.sql"
+     "20260860_organization_church_member_counts.sql"
+     "20260861_data_import_system.sql"
+     "20260863_service_reporting_enhancements.sql"
+     "20260865_coa_payment_stats_rpc.sql"
+     "20260866_kael_warm_cron.sql"
+     "20260867_backfill_role_assignments.sql"
+     "20260868_carpso_negotiation.sql"
+     "20260869_chat_tenant_scoping.sql"
+     "20260870_settlement_cron_phones_sms.sql"
+     "20260871_intertenant_events.sql"
+     "20260872_local_bible_versions.sql"
+     "20260873_public_domain_english_bibles.sql"
+     "20260874_kids_progress_rpc.sql"
+     "20260875_kids_audio_stories.sql"
+     "20260876_engagement_analytics.sql"
+ )
 
 foreach ($m in $migrations) {
     $path = "supabase\migrations\$m"
@@ -206,6 +222,24 @@ Write-Host "  Done." -ForegroundColor Green
 # ─── Step 2: Deploy Edge Functions ─────────────────────────────────────
 Write-Host ""
 Write-Host "[2/5] Deploying Edge Functions..." -ForegroundColor Yellow
+# NOTE: All functions deploy with --no-verify-jwt because:
+#   (a) webhook functions (lipila-webhook, whatsapp-webhook) receive
+#       untrusted POSTs with signature-based auth, not JWTs.
+#   (b) All authenticated functions verify their own JWT via
+#       supabase.auth.getUser(token) + role/profile check — they do not
+#       rely on the gateway-level JWT verification.
+# Per-function auth status:
+#   JWT self-checked + role gate   : cloudflare-stream, data-import, export-church-data,
+#                                     export-user-data, delete-account, database-backup,
+#                                     migrate-coa-payments, kael-ai, r2-sign, send-sms,
+#                                     buy-sms-credits, create-bookshop, lipila-collect,
+#                                     lipila-card-collect, lipila-payout, lipila-settle,
+#                                     push-notifications, bible-study-notify, send-birthday-email,
+#                                     send-email, send-security-alert, new-member-notify,
+#                                     generate-quiz-batch (advisory), whatsapp-send,
+#                                     turn-credentials, migrate-to-r2
+#   HMAC/webhook-signature auth    : lipila-webhook (HMAC-SHA256), whatsapp-webhook (HMAC-SHA256)
+#   No auth (well-known)           : well-known
 
 $functions = @(
     "push-notifications"
@@ -226,10 +260,19 @@ $functions = @(
     "migrate-to-r2"
     "migrate-coa-payments"
     "kael-ai"
-    "turn-credentials"
-    "well-known"
-    "generate-quiz-batch"
-)
+     "turn-credentials"
+     "well-known"
+     "generate-quiz-batch"
+     "data-import"
+     "send-email"
+     "send-security-alert"
+     "buy-sms-credits"
+     "create-bookshop"
+     "whatsapp-send"
+     "whatsapp-webhook"
+     "new-member-notify"
+     "hf-keep-warm"
+ )
 
 foreach ($f in $functions) {
     $path = "supabase\functions\$f"

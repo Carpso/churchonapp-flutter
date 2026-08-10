@@ -196,7 +196,7 @@ class ChatBubble extends StatelessWidget {
                             const Spacer(),
                             Text(
                               time,
-                              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                             ),
                             if (isMe) ...[
                               const SizedBox(width: 4),

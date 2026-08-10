@@ -1,7 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:church_on_app/core/config/fee_config.dart';
-import 'package:church_on_app/core/config/remote_config.dart';
 
 class RidePricingState {
   final bool isCalculating;
@@ -38,11 +36,10 @@ class RidePricingState {
     return base;
   }
 
-  // Platform fee = 1% COA + Lipila fees (shown to rider)
-  // Business cut (10%) is deducted from driver at settlement
-  double platformFee(FeeConfig fees) => fees.platformFee(displayPrice);
+  // Processing fee: COA 1% min K3 + Lipila K0.48
+  double get processingFeeAmount => processingFee(displayPrice);
 
-  double totalPayable(FeeConfig fees) => displayPrice + platformFee(fees);
+  double get totalPayable => displayPrice + processingFeeAmount;
 
   RidePricingState copyWith({
     bool? isCalculating,
@@ -71,31 +68,32 @@ class RidePricingState {
   }
 }
 
-/// Per-kilometre Carpso rate (K5/km — well-known standard rate).
-const double kCarpsoPerKmRate = 5.0;
-
-/// Delivery per-km rate benchmarked against Yango delivery (Zambia market).
-const double kDeliveryPerKmRate = 8.0;
+/// Per-kilometre Carpso rate — K10/km for rides, K5/km for delivery.
+const double kCarpsoPerKmRate = 10.0;
+const double kDeliveryPerKmRate = 5.0;
 
 /// Average city speed used for trip-time estimates (km/h).
 const double kCarpsoCitySpeedKmh = 25.0;
 
-/// Default base fare applied when no remote config exists (K10).
-const double kCarpsoDefaultBaseFare = 10.0;
+/// Base fare: K15 ride, K7.50 delivery.
+const double kCarpsoDefaultBaseFare = 15.0;
+const double kDeliveryDefaultBaseFare = 7.50;
 
-/// Default delivery base fare (Yango-comparable, K15).
-const double kDeliveryDefaultBaseFare = 15.0;
-
-/// Minimum payable fare for delivery (Yango-comparable, K20).
-const double kDeliveryMinFare = 20.0;
+/// Minimum total fare (subtotal before processing fee): K30 for both.
+const double kRideMinFare = 30.0;
+const double kDeliveryMinFare = 30.0;
 
 /// Weight surcharges for cargo delivery.
-const double kMediumWeightSurcharge = 5.0;
-const double kHeavyWeightSurcharge = 10.0;
+const double kMediumWeightSurcharge = 10.0;
+const double kHeavyWeightSurcharge = 20.0;
+
+/// Processing fee: COA 1% (min K3) + Lipila flat K0.48.
+double processingFee(double amount) {
+  final coa = amount * 0.01;
+  return (coa < 3.0 ? 3.0 : coa) + 0.48;
+}
 
 class RidePricingNotifier extends Notifier<RidePricingState> {
-  static const _minimumTotalFare = 15.0;
-
   @override
   RidePricingState build() => const RidePricingState();
 
@@ -103,52 +101,23 @@ class RidePricingNotifier extends Notifier<RidePricingState> {
       state.selectedCategory == 'marketplace' ||
       state.selectedCategory == 'bookshop';
 
-  /// Base fare charged before distance — remote-configurable via
-  /// `platform_settings.ride_base_fare_kwacha`, falls back to K10.
-  /// Deliveries use a separate Yango-comparable base (K15 fallback).
   double get _baseFare {
-    final fees = ref.read(feeConfigProvider).value;
-    if (_isDelivery) {
-      return fees?.rideDeliveryBaseFareKwacha ?? kDeliveryDefaultBaseFare;
-    }
-    return fees?.rideBaseFareKwacha ?? kCarpsoDefaultBaseFare;
+    if (_isDelivery) return kDeliveryDefaultBaseFare;
+    return kCarpsoDefaultBaseFare;
   }
 
-  double get _perKmRate =>
-      _isDelivery
-          ? (ref.read(feeConfigProvider).value?.rideDeliveryPerKmKwacha ??
-              kDeliveryPerKmRate)
-          : ref.read(remoteConfigProvider).value?.getDouble(
-                  'ride_per_km_kwacha',
-                  kCarpsoPerKmRate,
-                ) ??
-              kCarpsoPerKmRate;
+  double get _perKmRate => _isDelivery ? kDeliveryPerKmRate : kCarpsoPerKmRate;
 
-  double get _minFare {
-    final rc = ref.read(remoteConfigProvider).value;
-    if (_isDelivery) {
-      return rc?.getDouble('ride_delivery_min_fare_kwacha', kDeliveryMinFare) ??
-          kDeliveryMinFare;
-    }
-    return rc?.getDouble('ride_min_total_fare_kwacha', _minimumTotalFare) ??
-        _minimumTotalFare;
-  }
+  double get _minFare => _isDelivery ? kDeliveryMinFare : kRideMinFare;
 
   double get _weightSurcharge {
-    final rc = ref.read(remoteConfigProvider).value;
-    if (state.selectedWeight == 'Heavy') {
-      return rc?.getDouble('ride_heavy_weight_surcharge_kwacha', kHeavyWeightSurcharge) ??
-          kHeavyWeightSurcharge;
-    }
-    if (state.selectedWeight == 'Medium') {
-      return rc?.getDouble('ride_medium_weight_surcharge_kwacha', kMediumWeightSurcharge) ??
-          kMediumWeightSurcharge;
-    }
+    if (state.selectedWeight == 'Heavy') return kHeavyWeightSurcharge;
+    if (state.selectedWeight == 'Medium') return kMediumWeightSurcharge;
     return 0;
   }
 
-  /// Core fare formula — rides/bus: base + per-km (min K15).
-  /// Delivery: Yango-comparable base + per-km (min K20) + weight surcharge.
+  /// Core fare formula: base + per-km (min K30) + weight surcharge.
+  /// Ride: K15 base + K10/km. Delivery: K7.50 base + K5/km.
   double _estimate(double distance) {
     final price = _baseFare + distance * _perKmRate + _weightSurcharge;
     return price < _minFare ? _minFare : price;

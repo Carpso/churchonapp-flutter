@@ -161,7 +161,7 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
   Widget _buildInputLabel(String label) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10, left: 5),
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1.2, color: Colors.grey)),
+      child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1.2, color: Colors.grey)),
     );
   }
 
@@ -203,7 +203,7 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
                   style: TextStyle(
                     color: isSelected ? Colors.white : Colors.grey,
                     fontWeight: FontWeight.bold,
-                    fontSize: 10,
+                    fontSize: 11,
                   ),
                 ),
               ),

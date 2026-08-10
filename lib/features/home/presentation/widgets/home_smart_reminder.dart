@@ -32,7 +32,14 @@ class HomeSmartReminder extends StatelessWidget {
               backgroundColor: Theme.of(context).primaryColor,
               padding: const EdgeInsets.symmetric(horizontal: 20),
             ),
-            child: Text("START SEARCH", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.secondary)),
+            child: Text(
+              "START SEARCH",
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+            ),
           ),
         ],
       ),

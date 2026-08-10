@@ -91,7 +91,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
               borderRadius: BorderRadius.circular(5),
             ),
             child: const Center(
-              child: Text("LIVE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+              child: Text("LIVE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
             ),
           ),
         ],
@@ -135,7 +135,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         ),
-                        child: const Text("GIVE", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10)),
+                        child: const Text("GIVE", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
                       ),
                     ],
                   ),
@@ -183,7 +183,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("LATEST ANNOUNCEMENT", style: TextStyle(color: Colors.amber, fontSize: 9, fontWeight: FontWeight.bold)),
+                    Text("LATEST ANNOUNCEMENT", style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
                     Text(latest.title, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
                   ],
                 ),
@@ -222,7 +222,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))),
-      error: (e, _) => Center(child: Text("Chat unavailable", style: const TextStyle(color: Colors.red, fontSize: 10))),
+      error: (e, _) => Center(child: Text("Chat unavailable", style: const TextStyle(color: Colors.red, fontSize: 11))),
     );
   }
 

@@ -109,7 +109,7 @@ class _EmployeeManagementScreenState extends ConsumerState<EmployeeManagementScr
       decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [Icon(icon, color: color, size: 12), const SizedBox(width: 4), Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold))],
+        children: [Icon(icon, color: color, size: 12), const SizedBox(width: 4), Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold))],
       ),
     );
   }
@@ -251,7 +251,7 @@ class _EmployeeManagementScreenState extends ConsumerState<EmployeeManagementScr
     return Column(
       children: [
         Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
-        Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 9)),
+        Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
       ],
     );
   }

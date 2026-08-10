@@ -100,7 +100,7 @@ abstract class KingdomGameEngineState<T extends KingdomGameEngine> extends State
           ),
           SizedBox(height: 8),
           Text("+50 Church Coins Earned", style: TextStyle(color: Colors.white70, fontSize: 12)),
-          Text("(In-app activity points, no cash value)", style: TextStyle(color: Colors.white38, fontSize: 8)),
+          Text("(In-app activity points, no cash value)", style: TextStyle(color: Colors.white38, fontSize: 11)),
         ],
       ),
     );
@@ -214,8 +214,8 @@ class _EmojiChallengeState extends KingdomGameEngineState<EmojiChallengeGame> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("SURVIVAL", style: TextStyle(color: Colors.amber.withValues(alpha: 0.7), fontSize: 10, fontWeight: FontWeight.bold)),
-            Text("${_index + 1}/${_data.length}", style: const TextStyle(color: Colors.white70, fontSize: 10)),
+            Text("SURVIVAL", style: TextStyle(color: Colors.amber.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.bold)),
+            Text("${_index + 1}/${_data.length}", style: const TextStyle(color: Colors.white70, fontSize: 11)),
           ],
         ),
         const SizedBox(height: 8),
@@ -244,7 +244,7 @@ class _EmojiChallengeState extends KingdomGameEngineState<EmojiChallengeGame> {
       ),
       child: Column(
         children: [
-          const Text("DECODE THE REVELATION", style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+          const Text("DECODE THE REVELATION", style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
           const SizedBox(height: 20),
           Text(_data[_index]['emojis'], style: const TextStyle(fontSize: 70, shadows: [Shadow(color: Colors.amber, blurRadius: 20)])),
         ],
@@ -382,7 +382,7 @@ class _GospelKeysState extends KingdomGameEngineState<GospelKeysGame> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("GOSPEL RHYTHM", style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                    const Text("GOSPEL RHYTHM", style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2)),
                     Text(score.toString(), style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
                   ],
                 ),
@@ -494,7 +494,7 @@ class _DavidsSlingState extends KingdomGameEngineState<DavidsSlingGame> {
                 children: [
                    Icon(LucideIcons.shield, size: 100, color: Colors.brown),
                    SizedBox(height: 10),
-                   Text("FAITH SHIELD ACTIVE", style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                   Text("FAITH SHIELD ACTIVE", style: TextStyle(color: Colors.white24, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2)),
                 ],
               ),
             ),
@@ -515,7 +515,7 @@ class _DavidsSlingState extends KingdomGameEngineState<DavidsSlingGame> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text("GIANTS SLAIN", style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                const Text("GIANTS SLAIN", style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2)),
                 Text("$_h / 10", style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
               ],
             ),
@@ -544,7 +544,7 @@ class _DavidsSlingState extends KingdomGameEngineState<DavidsSlingGame> {
               child: const Icon(LucideIcons.flame, size: 60, color: Colors.orange),
             ),
             const SizedBox(height: 5),
-            const Text("GOLIATH", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+            const Text("GOLIATH", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -730,7 +730,7 @@ class _JerichoBreakerState extends KingdomGameEngineState<JerichoBreakerGame> {
   Widget _buildHPBar() {
     return Column(
       children: [
-        const Text("WALL STABILITY", style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2)),
+        const Text("WALL STABILITY", style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2)),
         const SizedBox(height: 15),
         Container(
           width: 250,

@@ -121,7 +121,7 @@ class FastingHistoryScreen extends ConsumerWidget {
         children: [
           Text(value, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+          Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
         ],
       ),
     );
@@ -199,7 +199,7 @@ class FastingHistoryScreen extends ConsumerWidget {
             child: Text(
               isCompleted ? "COMPLETED" : (isActive ? "ACTIVE" : "ENDED"),
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: isCompleted ? Colors.green : (isActive ? Colors.orange : Colors.red),
               ),
@@ -267,7 +267,7 @@ class FastingHistoryScreen extends ConsumerWidget {
             child: Text(
               isCompleted ? "COMPLETED" : "ACTIVE",
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: isCompleted ? Colors.green : Colors.indigo,
               ),

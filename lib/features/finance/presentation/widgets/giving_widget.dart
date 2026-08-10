@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/services/coa_payment_service.dart';
 import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/core/widgets/premium_confirmation_sheet.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
@@ -159,7 +161,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
             "STEWARDSHIP REWARDS",
             style: TextStyle(
               color: _readableOn(primary),
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
@@ -183,7 +185,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
                     "ZMW BALANCE",
                     style: TextStyle(
                       color: _readableOn(primary).withValues(alpha: 0.6),
-                      fontSize: 9,
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -204,7 +206,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
                     "REWARDS CC",
                     style: TextStyle(
                       color: _readableOn(primary).withValues(alpha: 0.6),
-                      fontSize: 9,
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -276,7 +278,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
                 const SizedBox(width: 5),
                 Text(
                   "+ MoMo Transaction Fee (K${_fee.toStringAsFixed(2)})",
-                  style: const TextStyle(color: Colors.blue, fontSize: 10),
+                  style: const TextStyle(color: Colors.blue, fontSize: 11),
                 ),
               ],
             ),
@@ -300,13 +302,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
           title: "Mobile Money",
           isSelected: true,
           primary: primary,
-        ),
-        const SizedBox(height: 10),
-        _PaymentOption(
-          icon: LucideIcons.wallet,
-          title: "Church Wallet",
-          isSelected: false,
-          primary: primary,
+          onTap: null,
         ),
         const SizedBox(height: 10),
         _PaymentOption(
@@ -314,6 +310,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
           title: "Credit/Debit Card",
           isSelected: false,
           primary: primary,
+          onTap: _startCardPayment,
         ),
       ],
     );
@@ -368,8 +365,12 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
           description: "Giving: $_selectedCategory",
           category: _selectedCategory.toLowerCase(),
           recipientName: tenant?.name ?? (widget.churchName ?? "Local Church"),
-          recipientAccount: tenant?.treasurerPhone ?? "CHURCH-OFFICIAL-AC",
-          paymentReason: "$_selectedCategory Support",
+          recipientAccount: _selectedCategory == 'Tithe'
+              ? (tenant?.pastorPhone ?? tenant?.treasurerPhone ?? "CHURCH-OFFICIAL-AC")
+              : (tenant?.treasurerPhone ?? tenant?.contactPhone ?? "CHURCH-OFFICIAL-AC"),
+          paymentReason: _selectedCategory == 'Tithe'
+              ? "$_selectedCategory — sent to Pastor"
+              : "$_selectedCategory Support",
           onComplete: (success, txId) async {
             Navigator.pop(ctx);
             if (success && txId != null) {
@@ -409,6 +410,40 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
   Color _readableOn(Color bg) {
     return bg.computeLuminance() > 0.5 ? Colors.black : Colors.white;
   }
+
+  Future<void> _startCardPayment() async {
+    if (_amount <= 0) {
+      PremiumToast.showWarning(context, "Please enter a valid amount.");
+      return;
+    }
+    setState(() => _isProcessing = true);
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      final res = await Supabase.instance.client.functions.invoke('lipila-card-collect', body: {
+        'amount': _amount,
+        'narration': 'Giving: $_selectedCategory via Church On App',
+        'firstName': 'User',
+        'lastName': 'COA',
+        'phone': user?.phone ?? '',
+        'email': user?.email ?? '',
+      });
+      final data = res.data as Map<String, dynamic>?;
+      final url = data?['url'] as String?;
+      if (url != null) {
+        final paymentRef = data!['reference'] as String? ?? '';
+        await ref.read(coaPaymentServiceProvider).submitPayment(serviceType: _selectedCategory, amount: _amount, paymentRef: paymentRef);
+        if (mounted) {
+          PremiumToast.showSuccess(context, "Card payment link ready. Complete on Lipila's page.");
+        }
+      } else {
+        throw Exception(data?['error'] ?? 'Card payment failed');
+      }
+    } catch (e) {
+      if (mounted) PremiumToast.showError(context, "Card error: $e");
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
 }
 
 class _PaymentOption extends StatelessWidget {
@@ -416,17 +451,19 @@ class _PaymentOption extends StatelessWidget {
   final String title;
   final bool isSelected;
   final Color primary;
+  final VoidCallback? onTap;
 
   const _PaymentOption({
     required this.icon,
     required this.title,
     required this.isSelected,
     required this.primary,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final child = Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -447,5 +484,7 @@ class _PaymentOption extends StatelessWidget {
         ],
       ),
     );
+    if (onTap != null) return GestureDetector(onTap: onTap, child: child);
+    return child;
   }
 }

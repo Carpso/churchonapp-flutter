@@ -619,7 +619,7 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(color: const Color(0xFFFFD700), borderRadius: BorderRadius.circular(4)),
-                      child: const Text('KLIP', style: TextStyle(color: Colors.black, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                      child: const Text('KLIP', style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
                     ),
                   ],
                 ),

@@ -290,7 +290,7 @@ class _EventHostDashboardScreenState extends State<EventHostDashboardScreen> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text("Gate Pass", style: TextStyle(fontSize: 10, color: Colors.grey)),
+                            const Text("Gate Pass", style: TextStyle(fontSize: 11, color: Colors.grey)),
                             Checkbox(
                               value: isCheckedIn,
                               activeColor: Colors.green,

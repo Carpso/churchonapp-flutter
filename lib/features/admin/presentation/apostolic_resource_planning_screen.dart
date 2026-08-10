@@ -115,7 +115,7 @@ class _ApostolicResourcePlanningScreenState extends ConsumerState<ApostolicResou
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("AI PREDICTED NEEDS (NXT 3 MO)", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+        const Text("AI PREDICTED NEEDS (NXT 3 MO)", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
         const SizedBox(height: 15),
         ...needs.map((n) => Padding(
           padding: const EdgeInsets.only(bottom: 8),

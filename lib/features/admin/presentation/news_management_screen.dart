@@ -217,7 +217,7 @@ class _NewsManagementScreenState extends ConsumerState<NewsManagementScreen> {
   Widget _buildFieldLabel(String label) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, left: 5),
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1.2, color: Colors.grey)),
+      child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1.2, color: Colors.grey)),
     );
   }
 
@@ -367,7 +367,7 @@ class _NewsManagementScreenState extends ConsumerState<NewsManagementScreen> {
                   isPublished ? 'Published' : 'Draft',
                   style: TextStyle(
                     color: isPublished ? Colors.green : Colors.orange,
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

@@ -208,7 +208,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
               children: [
                 Icon(LucideIcons.shieldCheck, color: Colors.green, size: 16),
                 const SizedBox(width: 8),
-                const Text("Secured by Mobile Money Payment Protocol", style: TextStyle(color: Colors.grey, fontSize: 10)),
+                const Text("Secured by Mobile Money Payment Protocol", style: TextStyle(color: Colors.grey, fontSize: 11)),
               ],
             )
           ],

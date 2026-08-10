@@ -144,7 +144,7 @@ class _TechFastBlockerState extends ConsumerState<TechFastBlocker> {
                         const Text(
                           "TIME REMAINING",
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
                             color: Colors.grey,
                             letterSpacing: 1,

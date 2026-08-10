@@ -36,22 +36,123 @@ serve(async (req) => {
     });
   }
 
+  // SECURITY: only church leadership may manage stream infrastructure
+  // (create/delete live inputs, WHIP ingest, video deletion, analytics).
+  // Viewers consume HLS directly and never invoke this function.
+  const { data: profile, error: profileError } = await supabaseAuth
+    .from("profiles")
+    .select("role, tenant_id, organization_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    return new Response(JSON.stringify({ error: "User profile not found" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 403,
+    });
+  }
+
+  const leadershipRoles = ["superadmin", "coa_employee", "bishop", "general_secretary", "pastor", "admin"];
+  if (!leadershipRoles.includes(profile.role)) {
+    return new Response(JSON.stringify({ error: "Insufficient role", role: profile.role }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 403,
+    });
+  }
+
   try {
     const { action, ...params } = await req.json();
 
     switch (action) {
-      case "create_live_input":
+      case "create_live_input": {
+        const churchId = params?.meta?.church_id;
+        if (!churchId) {
+          return new Response(
+            JSON.stringify({ error: "meta.church_id is required for create_live_input" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        // Ownership: leaders may only create streams for their own church
+        // unless they are a superadmin / COA employee (network oversight).
+        const isSuper = ["superadmin", "coa_employee"].includes(profile.role);
+        if (!isSuper && churchId !== profile.tenant_id) {
+          return new Response(
+            JSON.stringify({ error: "Cannot create streams for another church" }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
         return await createLiveInput(params, req);
-      case "delete_live_input":
+      }
+      case "delete_live_input": {
+        const inputId = params?.input_id;
+        if (!inputId) {
+          return new Response(
+            JSON.stringify({ error: "input_id is required for delete_live_input" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        const ok = await ownsStream(supabaseAuth, inputId, profile);
+        if (!ok) {
+          return new Response(
+            JSON.stringify({ error: "Not authorized to delete this stream" }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
         return await deleteLiveInput(params);
+      }
       case "get_live_input":
         return await getLiveInput(params);
       case "get_analytics":
         return await getAnalytics(params);
-      case "list_videos":
-        return await listVideos(req);
-      case "whip_offer":
+      case "list_videos": {
+        // Tenant-scoped: return only streams belonging to the caller's church
+        // (or all if superadmin/employee). Avoids the unbounded account-wide list.
+        const isSuper = ["superadmin", "coa_employee"].includes(profile.role);
+        let query = supabaseAuth.from("live_streams").select("*").order("started_at", { ascending: false });
+        if (!isSuper) query = query.eq("church_id", profile.tenant_id);
+        const { data: churchStreams, error: listErr } = await query;
+        if (listErr) {
+          return new Response(JSON.stringify({ error: listErr.message }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify(churchStreams ?? []), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      case "create_signed_url": {
+        const key = Deno.env.get("CLOUDFLARE_STREAM_SIGNING_KEY");
+        if (!key) {
+          return new Response(JSON.stringify({ error: "CLOUDFLARE_STREAM_SIGNING_KEY not configured" }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const videoId = params?.video_id;
+        if (!videoId) {
+          return new Response(JSON.stringify({ error: "video_id is required" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return await createSignedUrl(params, key, corsHeaders);
+      }
+      case "whip_offer": {
+        // WHIP ingestion must reference a live input the caller owns.
+        const inputId = params?.input_id;
+        if (!inputId) {
+          return new Response(
+            JSON.stringify({ error: "input_id is required for whip_offer" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        const ok = await ownsStream(supabaseAuth, inputId, profile);
+        if (!ok) {
+          return new Response(
+            JSON.stringify({ error: "Not authorized to ingest to this stream" }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
         return await whipOffer(params, req);
+      }
       case "delete_video":
         return await deleteVideo(params);
       default:
@@ -67,6 +168,24 @@ serve(async (req) => {
     );
   }
 });
+
+// Returns true if the authenticated leader owns the given Cloudflare stream
+// input (or is a superadmin / COA employee with network oversight).
+async function ownsStream(supabase: any, cloudflareStreamId: string, profile: any): Promise<boolean> {
+  const isSuper = ["superadmin", "coa_employee"].includes(profile.role);
+  if (isSuper) return true;
+  try {
+    const { data, error } = await supabase
+      .from("live_streams")
+      .select("church_id")
+      .eq("cloudflare_stream_id", cloudflareStreamId)
+      .maybeSingle();
+    if (error) return false;
+    return data?.church_id === profile.tenant_id;
+  } catch {
+    return false;
+  }
+}
 
 async function createLiveInput(params: any, req: Request) {
   const response = await fetch(
@@ -160,31 +279,48 @@ async function getAnalytics(params: any) {
   const data = await response.json();
 
   return new Response(
-    JSON.stringify(data.result || {}),
+    JSON.stringify(data),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 }
 
-async function listVideos(req: Request) {
-  const url = new URL(req.url);
-  const page = url.searchParams.get("page") || "1";
-  const perPage = url.searchParams.get("per_page") || "20";
+// Generate a signed URL for VOD playback. Uses Cloudflare Stream's
+// signing key (SHA-256 HMAC). Token is valid for [expiresIn] hours (default 24).
+// Requires CLOUDFLARE_STREAM_SIGNING_KEY env var.
+async function createSignedUrl(params: any, signingKey: string, corsHeaders: Record<string, string>) {
+  const videoId = params?.video_id;
+  const expiresIn = params?.expires_in_hours ?? 24;
 
-  const response = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream?search=&page=${page}&per_page=${perPage}`,
-    {
-      headers: {
-        Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}`,
-      },
-    }
+  const msInHour = 3600000;
+  const expires = Math.floor(Date.now() / 1000) + expiresIn * 3600;
+  const data = videoId + expires.toString();
+
+  const encoder = new TextEncoder();
+  const keyBuf = encoder.encode(signingKey);
+  const dataBuf = encoder.encode(data);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw", keyBuf, { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
   );
+  const sig = await crypto.subtle.sign("HMAC", cryptoKey, dataBuf);
+  const sigBytes = new Uint8Array(sig);
 
-  const data = await response.json();
+  // Token = base64url(byte[0..7] + signature)
+  const tokenBytes = new Uint8Array(8 + sigBytes.length);
+  tokenBytes.set(sigBytes.slice(0, 8), 0);
+  tokenBytes.set(sigBytes, 8);
 
-  return new Response(
-    JSON.stringify(data.result),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-  );
+  let token = "";
+  for (const b of tokenBytes) {
+    token += String.fromCharCode(b);
+  }
+  token = btoa(token).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+
+  const signedUrl = `https://cloudflarestream.com/${videoId}/manifest/video.m3u8?token=${token}&expires=${expires}`;
+
+  return new Response(JSON.stringify({ url: signedUrl, expires }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
 // WebRTC WHIP (WebRTC HTTP Ingestion Protocol) for phone camera streaming

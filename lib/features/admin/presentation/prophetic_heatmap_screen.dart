@@ -80,7 +80,7 @@ class PropheticHeatmapScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("GROWTH INTENSITY", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.white)),
+            const Text("GROWTH INTENSITY", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.white)),
             const SizedBox(height: 10),
             _buildLegendItem("High Density", Colors.red),
             _buildLegendItem("Active Missions", Colors.orange),
@@ -98,7 +98,7 @@ class PropheticHeatmapScreen extends ConsumerWidget {
         children: [
           Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontSize: 10, color: Colors.white70)),
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.white70)),
         ],
       ),
     );

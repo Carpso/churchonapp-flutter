@@ -392,7 +392,7 @@ class _StationCard extends StatelessWidget {
                               color: Colors.amber.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: const Text("PRIVATE", style: TextStyle(color: Colors.amber, fontSize: 9, fontWeight: FontWeight.bold)),
+                            child: const Text("PRIVATE", style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
                           ),
                       ],
                     ),

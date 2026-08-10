@@ -60,7 +60,14 @@ class HomeSparkleGrid extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(prod.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          Text("K${prod.price.toStringAsFixed(2)}", style: TextStyle(fontSize: 10, color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                          Text(
+                      "K${prod.price.toStringAsFixed(2)}",
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                         ],
                       ),
                     ),

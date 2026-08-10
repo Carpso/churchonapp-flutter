@@ -137,7 +137,7 @@ class MyLibraryScreen extends ConsumerWidget {
                     "READ",
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 10,
+                      fontSize: 11,
                       color: Theme.of(context).colorScheme.secondary,
                     ),
                   ),

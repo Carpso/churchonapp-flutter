@@ -482,6 +482,69 @@ The in-app help system lives at `lib/features/support/presentation/support_hub_s
 - Guides show numbered steps and have action buttons that navigate to the relevant screen
 - To add a new guide: add a new `_GuideExpansionTile` in the `_buildCategoryGuides()` method
 
+## How To: Use the Data Import System
+
+The enterprise data-import system allows church leadership to bulk-import members, transactions, events, ministries, and service reports from CSV, JSON, or documents via kael-ai extraction.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `lib/features/data_import/data/data_import_service.dart` | Service with CSV parser, entity-column presets, ChMS presets (Breeze/PlanningCenter/RockRMS/MTNbank), and Edge Function calls |
+| `lib/features/data_import/data/data_import_provider.dart` | Riverpod 3 Notifier (`DataImportNotifier`) + `importTenantIdProvider` + `isImporterAllowedProvider` |
+| `lib/features/data_import/presentation/data_import_screen.dart` | 3-tab UI: CSV/JSON paste + mapping editor → import; Document extraction via kael-ai; Results |
+| `supabase/functions/data-import/index.ts` | Edge Function: leadership-role-gated, column-mapping engine, per-row upsert via service-role client, audit logging, document extraction via kael-ai |
+| `supabase/migrations/20260861_data_import_system.sql` | Tables: `import_templates`, `data_imports`, `import_errors` + tenant-scoped RLS + `sp_validate_import_columns` RPC |
+
+### Key Rules
+
+| Rule | Reasoning |
+|------|-----------|
+| Only leadership roles (pastor/bishop/admin/superadmin/employee) can import | Prevents unauthorized data injection |
+| tenant_id is force-overwritten server-side | Prevents tenant-hopping (writing members to another church) |
+| Sensitive columns (role, coins, balances) blocked by `sp_validate_import_columns` | Prevents role/coin escalation via import |
+| 5000-row max per import batch | Safety limit — split larger files |
+| Mapping convention: `targetColumn:sourceField` (one per line) | Matches the Edge Function's mapping engine |
+| Column names are validated against `information_schema.columns` server-side | SQL-injection prevention via identifier allowlist |
+
+### How To: Add a New Entity for Import
+
+1. Add the table name to `allowedEntities` in `supabase/functions/data-import/index.ts`
+2. Add its column set to `DataImportService.columnsFor` in `data_import_service.dart`
+3. Add the table name to `allowed_entities` in `sp_validate_import_columns` (migration)
+4. The entity table must have a `tenant_id` column (tenant-scoped)
+
+### How To: Add a New ChMS Preset (e.g., ChurchSuite, Elvanto)
+
+1. Add the mapping to `DataImportService.presetMappings` in `data_import_service.dart`
+2. The preset is a `Map<sourceField, targetColumn>` — e.g., `'First Name': 'full_name'`
+3. Users select presets from the dropdown in the import screen
+
+## How To: Use Tenant Reporting (P5)
+
+Enterprise service reporting with per-church and organization-wide aggregation.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `lib/features/admin/data/reporting_service.dart` | `ServiceReport` model (attendance, offering, visitors, salvations, online viewers, ministries) + `ReportingService` with `getServiceSummary()`, `getOrganizationServiceSummary()` |
+| `supabase/migrations/20260863_service_reporting_enhancements.sql` | Added `service_date`, `visitors`, `salvations`, `online_viewers`, `ministries_active`, `notes` columns to `service_reports` + 2 SECURITY DEFINER RPCs |
+
+### RPCs
+
+| RPC | Arguments | Returns |
+|-----|-----------|---------|
+| `get_church_service_summary` | `p_tenant_id UUID` | service_count, attendance, offering, visitors, salvations, online_viewers (current month) |
+| `get_organization_service_summary` | `p_org_id UUID` | churches, service_count, attendance, offering, visitors, salvations, online_viewers (current month, org-wide) |
+
+### How To: Add a New Report Metric
+
+1. Add the column to `service_reports` via a new migration with `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
+2. Update `ServiceReport` model in `reporting_service.dart` (add field + fromMap + submitReport insert)
+3. Update the aggregating RPCs (`get_church_service_summary`, `get_organization_service_summary`) to include the new metric in their `SELECT` and `jsonb_build_object` returns
+4. Update the dashboard widget that displays the summary
+
 ## Architecture
 
 ### Multi-Tenant Architecture (Churches + Bookshops)
@@ -571,8 +634,8 @@ Manual Edge Function deployment:
 supabase functions deploy <name> --no-verify-jwt
 ```
 
-Edge Functions (21 total):
-`bible-study-notify`, `cloudflare-stream`, `database-backup`, `delete-account`, `export-church-data`, `export-user-data`, `kael-ai`, `lipila-collect`, `lipila-payout`, `lipila-settle`, `lipila-webhook`, `migrate-coa-payments`, `migrate-to-r2`, `new-member-notify`, `push-notifications`, `r2-sign`, `send-birthday-email`, `send-sms`, `turn-credentials`, `well-known`
+Edge Functions (29 total):
+`bible-study-notify`, `buy-sms-credits`, `cloudflare-stream`, `create-bookshop`, `data-import`, `database-backup`, `delete-account`, `export-church-data`, `export-user-data`, `generate-quiz-batch`, `kael-ai`, `lipila-card-collect`, `lipila-collect`, `lipila-payout`, `lipila-settle`, `lipila-webhook`, `migrate-coa-payments`, `migrate-to-r2`, `new-member-notify`, `push-notifications`, `r2-sign`, `send-birthday-email`, `send-email`, `send-security-alert`, `send-sms`, `turn-credentials`, `well-known`, `whatsapp-send`, `whatsapp-webhook`
 
 ### 3. Deploy Web to Cloudflare Pages
 
@@ -717,3 +780,11 @@ flutter analyze --no-fatal-infos --no-fatal-warnings
   - **Cross-tenant RLS leaks FIXED**: Migration `20260843` drops `USING (true)` SELECT policies on `social_posts`, `sermons`, `events`, `live_chat_messages`, `marketplace_items` and replaces with tenant-scoped policies: `tenant_id::text IN (SELECT tenant_id FROM profiles WHERE id = auth.uid())`. Also drops `Anyone can view marketplace items` policy. Adds superadmin override policy for `social_posts`. Adds quiz_results policies (own data only). Adds `coa_payments` columns (`webhook_idempotency`, `phone_number`, `network`, `settled_at`) + unique constraint + indexes.
   - **Quiz feature gating FIXED**: Added subscription check in `app_router.dart` redirect (routes `/quiz/*` redirected to home when subscription expired) and in `BibleQuizHubScreen.build()` (shows lock screen when subscription expired).
 - **`flutter analyze` result**: 0 issues found (no errors, no warnings).
+- **Session 2026-08-10 — Enterprise Hardening**:
+  - **cloudflare-stream Edge Function hardened**: Added leadership-role gate (only `superadmin/coa_employee/bishop/general_secretary/pastor/admin` may create/delete live inputs or WHIP-ingest). Added tenant-ownership enforcement: `create_live_input` validates `meta.church_id` matches caller's tenant; `delete_live_input` and `whip_offer` verify ownership via `live_streams.cloudflare_stream_id ↔ church_id`. Superadmins/COA employees bypass ownership for network oversight. Added `ownsStream()` helper.
+  - **Apostle dashboard unbounded scan eliminated (FIX 11)**: `apostle_dashboard_screen.dart` replaced full `profiles.select('tenant_id')` table scan with bounded org-scoped RPC `get_organization_church_member_counts(p_org_id)`. Added fallback `.limit(50)` for apostles without an org. Migration `20260860_organization_church_member_counts.sql`.
+  - **Universal Data Import System**: 3 new tables (`import_templates`, `data_imports`, `import_errors`) with tenant-scoped RLS + `sp_validate_import_columns` RPC (server-side column blocklist prevents role/coins escalation during imports). Edge Function `data-import` — leadership-gated CSV/JSON/document import with column-mapping engine, per-row service-role upsert with audit trail, kael-ai document extraction. Dart service `data_import_service.dart` with RFC-4180 CSV parser, entity presets (Breeze/PlanningCenter/RockRMS/MTNbank), Riverpod 3 provider, and 3-tab import screen. Migration `20260861_data_import_system.sql`.
+  - **Enterprise Tenant Reporting (P5)**: Added `service_date`, `visitors`, `salvations`, `online_viewers`, `ministries_active`, `notes` columns to `service_reports`. Created `get_church_service_summary(p_tenant_id)` and `get_organization_service_summary(p_org_id)` RPCs (SECURITY DEFINER, REVOKE FROM anon). Extended `ServiceReport` model and `ReportingService` with summary methods. Migration `20260863_service_reporting_enhancements.sql`.
+  - **Deploy wiring**: All 29 Edge Functions now listed in `deploy.ps1` (added `send-email`, `send-security-alert`, `buy-sms-credits`, `create-bookshop`, `whatsapp-send`, `whatsapp-webhook`, `new-member-notify`, `data-import`). 3 new migrations (`20260860`, `20260861`, `20260863`) added to migration list. Deploy list now 152+ migrations.
+  - **flutter analyze**: 0 errors, 0 warnings across lib/. 3 info-level items only (all in data_import module).
+  - **Docs**: README.md (v1.0.0+252, updated features, project structure, security, Edge Function count), AGENTS.md (data import how-to, tenant reporting how-to, Edge Funcion list, session notes).

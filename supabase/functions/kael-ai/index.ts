@@ -3,13 +3,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
-// ─── Providers ─────────────────────────────────────────────────────────────
-// Primary: Google Gemini Flash (free tier, fast). Fallback: HuggingFace
-// inference (free tier — model must NOT be PRO-gated; default zephyr-7b-beta).
+// ─── Provider ──────────────────────────────────────────────────────────────
+// HuggingFace free-tier inference. Model override via HF_MODEL_ID env var.
+// Default: Qwen2.5-1.5B-Instruct — 1.5B params, fast, strong reasoning, free.
 const HF_API_BASE = "https://api-inference.huggingface.co/models";
-const HF_MODEL = Deno.env.get("HF_MODEL_ID") ?? "HuggingFaceH4/zephyr-7b-beta";
-const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.0-flash";
-const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const HF_MODEL = Deno.env.get("HF_MODEL_ID") ?? "Qwen/Qwen2.5-1.5B-Instruct";
 
 const KAEL_SYSTEM_PROMPT = `You are Kael, a warm, wise, and spiritually grounded AI assistant built into the Church On App — a comprehensive Christian church management platform for the Zambian (and African) market.
 
@@ -88,8 +86,11 @@ Church On App is a full-featured church management platform serving Zambian chur
 - Church Coins rewards system: earn by reading Bible, winning quizzes, referrals
 
 **Multi-Tenant Architecture**
-- Each church (tenant) has its own scoped data via tenant_id
-- Users belong to a church via profiles.tenant_id
+- TWO tenant types: **churches** and **bookshops** — both first-class on the platform
+- Each church has its own scoped data via tenant_id
+- Bookshops are fully independent tenants with their own team roles: bookshop_owner, store_manager, assistant, cashier. They onboard independently, manage inventory, sell products, process orders — just like churches manage members and events
+- Users belong to a church or bookshop via profiles.tenant_id
+- Organization-level oversight: bishops/apostles manage multiple churches under one organization_id
 - Themes are tenant-customizable (primary color, logo, font)
 
 ### User Roles (with their access levels)
@@ -155,6 +156,52 @@ Use clear headings and bullet points. Do not add commentary outside these sectio
 const DRAMATIZER_SYSTEM_PROMPT = `You are a biblical audio drama writer for Church On App. Create a dramatic, cinematic narration script for the Bible book provided. Include vivid scene descriptions, character emotions, and atmospheric details. Format as a spoken-word script suitable for audio drama. Write at least 3 paragraphs of rich narration.`;
 
 const DEFAULT_SYSTEM_PROMPT = `You are Kael, a warm, wise, and spiritually grounded AI assistant on the Church On App. Provide biblical wisdom, encouragement, and clear, actionable guidance. Keep responses concise (2-4 sentences).`;
+
+const EXEGESIS_PROMPT = `You are a biblical exegesis scholar on Church On App. For the provided Bible passage, produce a scholarly exegesis with:
+1. Historical Context (who wrote it, to whom, when, why)
+2. Cultural Background (customs, geography, politics of the time)
+3. Literary Analysis (genre, structure, key literary devices)
+4. Original Language Insights (key Hebrew/Greek words and their meanings)
+5. Theological Significance (what this passage reveals about God)
+6. Contemporary Application (how this applies to believers today)
+Use clear headings and be thorough but accessible to a general Christian audience.`;
+
+const CONCORDANCE_PROMPT = `You are a Bible concordance assistant on Church On App. For the provided word or topic, produce:
+1. Definition (clear, concise meaning)
+2. Hebrew/Greek originals with Strong's numbers where known
+3. Key occurrences (5-7 most significant Bible verses using this word)
+4. Related words and synonyms in Scripture
+5. Theological themes connected to this word
+Format with clear headings. Be comprehensive but concise.`;
+
+const CROSS_REF_PROMPT = `You are a cross-reference scholar on Church On App. For the provided verse or passage, find and explain 5-7 connected verses across Scripture. For each:
+1. The referenced verse (book chapter:verse)
+2. Brief explanation of the connection (1 sentence)
+3. How it deepens understanding of the original passage
+Group by theme (prophecy, parallel passage, doctrinal connection, historical reference).`;
+
+const CHAPTER_SUMMARY_PROMPT = `You are a Bible chapter guide on Church On App. For the provided Bible chapter, produce:
+1. Chapter Overview (2-3 sentence summary)
+2. Key Verse (the most significant verse in the chapter — quote it)
+3. 3 Main Events/Teachings (what happens/taught)
+4. Characters & People (who appears, their role)
+5. Key Themes (3-5 theological themes)
+6. Memory Verse Suggestion (best verse to memorize)
+7. Discussion Questions (3 thought-provoking questions for group study)
+Use clear headings. Be thorough and accessible.`;
+
+const VOICE_SEARCH_PROMPT = `You are a Bible voice-search engine on Church On App. The user has spoken a query like "play the story of Joseph" or "find verses about peace" or "Genesis chapter 1". Your task: return a JSON object mapping the query to a specific Bible reference. Output ONLY valid JSON with this structure:
+{
+  "book": "Genesis",
+  "chapter": 1,
+  "verse": null,
+  "query_type": "book_chapter"
+}
+Where query_type is one of: "book", "book_chapter", "book_chapter_verse", "topic", "story", or "unknown".
+If the user asks about a story (e.g. "David and Goliath"), find the primary reference.
+If the user asks about a topic (e.g. "verses about love"), suggest a key verse.
+If you cannot determine a valid reference, set query_type to "unknown" and suggest a close match in a "suggestion" field.
+DO NOT output anything other than the JSON object.`;
 
 const SSE_HEADERS: Record<string, string> = {
   "Content-Type": "text/event-stream",
@@ -242,68 +289,30 @@ function buildSystemPrompt(
     `- Answer any questions about their personal statistics using this live context data.`;
 }
 
-/** ChatML template (zephyr-7b-beta, Qwen2.5-Instruct etc. on HF free tier). */
+/** Qwen2.5-Instruct chat format. */
 function buildChatPrompt(
   messages: Array<{ role: string; content: string }>,
   userContext: Record<string, unknown> | null,
   systemPrompt: string,
 ): string {
-  let prompt = `<|system|>\n${buildSystemPrompt(systemPrompt, userContext)}<|endoftext|>\n`;
+  let prompt = `<|im_start|>system\n${buildSystemPrompt(systemPrompt, userContext)}<|im_end|>\n`;
 
   for (const turn of messages) {
     if (turn.role === "user") {
-      prompt += `<|user|>\n${turn.content}<|endoftext|>\n`;
+      prompt += `<|im_start|>user\n${turn.content}<|im_end|>\n`;
     } else {
-      prompt += `<|assistant|>\n${turn.content}<|endoftext|>\n`;
+      prompt += `<|im_start|>assistant\n${turn.content}<|im_end|>\n`;
     }
   }
-  prompt += `<|assistant|>\n`;
+  prompt += `<|im_start|>assistant\n`;
   return prompt;
 }
 
 function buildDirectPrompt(prompt: string, systemPrompt: string): string {
-  return `<|system|>\n${systemPrompt}<|endoftext|>\n<|user|>\n${prompt}<|endoftext|>\n<|assistant|>\n`;
+  return `<|im_start|>system\n${systemPrompt}<|im_end|>\n<|im_start|>user\n${prompt}<|im_end|>\n<|im_start|>assistant\n`;
 }
 
 // ─── Provider calls ────────────────────────────────────────────────────────
-
-async function callGemini(
-  apiKey: string,
-  messages: Array<{ role: string; content: string }>,
-  userContext: Record<string, unknown> | null,
-  directPrompt: string | null,
-  systemPrompt: string,
-  isChat: boolean,
-): Promise<string> {
-  const contents = isChat
-    ? messages.map((m) => ({
-        role: m.role === "user" ? "user" : "model",
-        parts: [{ text: String(m.content ?? "") }],
-      }))
-    : [{ role: "user", parts: [{ text: directPrompt ?? "" }] }];
-
-  const resp = await fetch(
-    `${GEMINI_API_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: buildSystemPrompt(systemPrompt, userContext) }] },
-        contents,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
-      }),
-    },
-  );
-
-  if (!resp.ok) {
-    throw new Error(`Gemini API error: ${resp.status} ${(await resp.text()).slice(0, 300)}`);
-  }
-
-  const data = await resp.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Gemini returned an empty response");
-  return text.trim();
-}
 
 async function callHuggingFace(
   messages: Array<{ role: string; content: string }>,
@@ -313,42 +322,65 @@ async function callHuggingFace(
   isChat: boolean,
 ): Promise<string> {
   const hfToken = Deno.env.get("HUGGINGFACE_TOKEN");
-  if (!hfToken) throw new Error("HUGGINGFACE_TOKEN not configured on server");
+  if (!hfToken) throw new Error("HUGGINGFACE_TOKEN not configured");
 
   const prompt = isChat
     ? buildChatPrompt(messages, userContext, systemPrompt)
     : buildDirectPrompt(directPrompt ?? "", systemPrompt);
 
-  const hfResponse = await fetch(`${HF_API_BASE}/${HF_MODEL}`, {
+  // First attempt: fast (model should be warm from cron).
+  // If model is loading (503), retry with wait_for_model: true and longer timeout.
+  let hfResponse = await fetch(`${HF_API_BASE}/${HF_MODEL}`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${hfToken}`,
       "Content-Type": "application/json",
     },
+    signal: AbortSignal.timeout(30_000),
     body: JSON.stringify({
       inputs: prompt,
-      parameters: {
-        max_new_tokens: 512,
-        temperature: 0.7,
-        top_p: 0.9,
-        do_sample: true,
-        return_full_text: false,
-      },
-      options: {
-        wait_for_model: true,
-      },
+      parameters: { max_new_tokens: 512, temperature: 0.7, top_p: 0.9, do_sample: true, return_full_text: false },
+      options: { wait_for_model: false },
     }),
   });
 
+  // Cold-start: model is loading → wait for it
+  if (hfResponse.status === 503) {
+    hfResponse = await fetch(`${HF_API_BASE}/${HF_MODEL}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${hfToken}`,
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(90_000),
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: { max_new_tokens: 512, temperature: 0.7, top_p: 0.9, do_sample: true, return_full_text: false },
+        options: { wait_for_model: true },
+      }),
+    });
+  }
+
   if (!hfResponse.ok) {
-    throw new Error(`HuggingFace API error: ${hfResponse.status} ${(await hfResponse.text()).slice(0, 300)}`);
+    const errBody = await hfResponse.text().catch(() => "");
+    throw new Error(`HuggingFace error ${hfResponse.status}: ${errBody.slice(0, 200)}`);
   }
 
   const data = await hfResponse.json();
-  const generatedText = Array.isArray(data)
+  let generatedText = Array.isArray(data)
     ? (data[0] as { generated_text?: string })?.generated_text?.trim()
     : null;
-  if (!generatedText) throw new Error("HuggingFace returned an empty response");
+
+  if (!generatedText) throw new Error("HuggingFace returned empty response");
+
+  // Strip Qwen format tokens if the model echoes them
+  generatedText = generatedText
+    .replace(/<\|im_start\|>[\s\S]*?<\|im_end\|>/g, "")
+    .replace(/<\|im_start\|>/g, "")
+    .replace(/<\|im_end\|>/g, "")
+    .trim();
+
+  if (!generatedText) throw new Error("HuggingFace returned only tokens — model may need warm-up");
   return generatedText;
 }
 
@@ -419,39 +451,35 @@ serve(async (req) => {
     let systemPrompt: string;
     if (isChat) {
       systemPrompt = KAEL_SYSTEM_PROMPT;
-    } else if (action === "summary") {
+    } else if (action === "summary" || action === "summarize") {
       systemPrompt = SUMMARIZER_SYSTEM_PROMPT;
     } else if (action === "dramatize") {
       systemPrompt = DRAMATIZER_SYSTEM_PROMPT;
+    } else if (action === "exegesis") {
+      systemPrompt = EXEGESIS_PROMPT;
+    } else if (action === "concordance") {
+      systemPrompt = CONCORDANCE_PROMPT;
+    } else if (action === "cross_ref") {
+      systemPrompt = CROSS_REF_PROMPT;
+    } else if (action === "chapter_summary") {
+      systemPrompt = CHAPTER_SUMMARY_PROMPT;
+    } else if (action === "voice_search") {
+      systemPrompt = VOICE_SEARCH_PROMPT;
     } else {
       systemPrompt = DEFAULT_SYSTEM_PROMPT;
     }
 
-    // Primary provider: Gemini Flash.
+    // Provider: HuggingFace free-tier inference (no Gemini charges).
     let text: string | null = null;
-    const providerErrors: string[] = [];
-    const geminiKey = Deno.env.get("GEMINI_API_KEY");
-    if (geminiKey) {
-      try {
-        text = await callGemini(geminiKey, messages, userContext, directPrompt, systemPrompt, isChat);
-      } catch (e) {
-        providerErrors.push(e instanceof Error ? e.message : "Gemini error");
-      }
-    } else {
-      providerErrors.push("GEMINI_API_KEY not configured");
-    }
-
-    // Fallback provider: HuggingFace free-tier model.
-    if (!text) {
-      try {
-        text = await callHuggingFace(messages, userContext, directPrompt, systemPrompt, isChat);
-      } catch (e) {
-        providerErrors.push(e instanceof Error ? e.message : "HuggingFace error");
-      }
+    let providerError = "";
+    try {
+      text = await callHuggingFace(messages, userContext, directPrompt, systemPrompt, isChat);
+    } catch (e) {
+      providerError = e instanceof Error ? e.message : "HuggingFace error";
     }
 
     if (!text) {
-      const errorMsg = `Kael providers unavailable: ${providerErrors.join(" | ")}`;
+      const errorMsg = `Kael unavailable: ${providerError || "empty response"}`;
       if (isChat) return sseErrorEvent(corsHeaders, errorMsg);
       return jsonResponse(corsHeaders, { error: errorMsg }, 502);
     }

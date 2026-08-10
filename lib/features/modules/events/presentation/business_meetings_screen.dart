@@ -51,7 +51,7 @@ class _BusinessMeetingsScreenState extends ConsumerState<BusinessMeetingsScreen>
               children: [
                 Icon(LucideIcons.lock, color: Colors.greenAccent, size: 10),
                 SizedBox(width: 5),
-                Text("End-to-End Encrypted", style: TextStyle(color: Colors.white54, fontSize: 10)),
+                Text("End-to-End Encrypted", style: TextStyle(color: Colors.white54, fontSize: 11)),
               ],
             ),
           ],
@@ -125,7 +125,7 @@ class _BusinessMeetingsScreenState extends ConsumerState<BusinessMeetingsScreen>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10)),
-              child: Text(name, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+              child: Text(name, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
             ),
           ),
           if (isMe && _isMuted)

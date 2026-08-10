@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'coa_employee_dashboard.dart';
@@ -10,22 +11,19 @@ import 'event_scheduler_screen.dart';
 import 'logistics_dashboard_screen.dart';
 import 'withdrawal_approval_screen.dart';
 import 'global_payout_command_screen.dart';
+import 'wallet_command_centre_screen.dart';
+import 'feature_toggles_screen.dart';
+import 'platform_analytics_screen.dart';
 import 'zambian_payroll_screen.dart';
 import 'zambian_compliance_dashboard.dart';
 import 'employee_management_screen.dart';
 import 'payroll_processing_screen.dart';
 import 'payroll_reports_screen.dart';
-import 'ad_management_screen.dart';
-import 'manage_partners_screen.dart';
-import 'role_approval_screen.dart';
-import 'writer_approval_screen.dart';
 import 'kyc_review_screen.dart';
 import 'carpso_driver_approval_screen.dart';
 import 'driver_simulation_hub_screen.dart';
 import 'export_data_screen.dart';
-import 'database_setup_screen.dart';
 import 'live_viewer_heatmap_screen.dart';
-import 'emergency_shutdown_screen.dart';
 import 'kingdom_ai_moderator_screen.dart';
 import 'promo_campaign_screen.dart';
 import 'reward_management_screen.dart';
@@ -124,7 +122,7 @@ class SuperAdminDashboard extends ConsumerWidget {
               const SizedBox(height: 12),
               Text("Could not load stats", style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
-              Text(e.toString(), style: const TextStyle(color: Colors.grey, fontSize: 10), textAlign: TextAlign.center),
+              Text(e.toString(), style: const TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
             ],
           ),
         )),
@@ -192,15 +190,16 @@ class SuperAdminDashboard extends ConsumerWidget {
     return Column(
       children: [
         Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22)),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10)),
+        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
       ],
     );
   }
 
   Widget _buildStatsGrid(ThemeData theme, _SuperStats stats) {
-    final currencyFormat = NumberFormat.currency(symbol: 'K ', decimalDigits: 0);
+    final currencyFormat = NumberFormat.compactCurrency(symbol: 'K ', decimalDigits: 1);
     return GridView.count(
       physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
       crossAxisCount: 2,
       mainAxisSpacing: 15,
       crossAxisSpacing: 15,
@@ -218,7 +217,7 @@ class SuperAdminDashboard extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
       ),
@@ -229,7 +228,7 @@ class SuperAdminDashboard extends ConsumerWidget {
           Icon(icon, color: color, size: 22),
           const Spacer(),
           Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: theme.colorScheme.onSurface)),
-          Text(label, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10)),
+          Text(label, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
         ],
       ),
     );
@@ -244,15 +243,16 @@ class SuperAdminDashboard extends ConsumerWidget {
       _tile(context, theme, LucideIcons.truck, "Logistics Command", "Monitor real-time rides, cargo & couriers", Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LogisticsDashboardScreen()))),
       _tile(context, theme, LucideIcons.creditCard, "Payout Settlement", "Approve and process Mobile Money payouts", Colors.blueGrey, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WithdrawalApprovalScreen()))),
       _tile(context, theme, LucideIcons.send, "Global Payout Command", "Execute Lipila settlements (MTN/Airtel)", Colors.greenAccent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GlobalPayoutCommandScreen()))),
+      _tile(context, theme, LucideIcons.wallet, "Wallet Command Centre", "Carpso 68907 — collections, disbursements, activity log", Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletCommandCentreScreen()))),
       _tile(context, theme, LucideIcons.users, "Employee Management", "Add staff, set salaries, manage departments", Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmployeeManagementScreen()))),
       _tile(context, theme, LucideIcons.calculator, "Payroll Processing", "Process monthly payroll with PAYE, NAPSA, NHIMA", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PayrollProcessingScreen()))),
       _tile(context, theme, LucideIcons.barChart3, "Payroll Reports", "Annual summaries, remittance schedules, compliance", Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PayrollReportsScreen()))),
       _tile(context, theme, LucideIcons.fileSpreadsheet, "Zambian Statutory Payroll", "Calculate NHIMA, NAPSA, & PAYE deductions", Colors.blueGrey, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ZambianPayrollScreen()))),
       _tile(context, theme, LucideIcons.clipboardCheck, "Zambian Compliance Dashboard", "ZRA, NAPSA, NHIMA, ECZ — full statutory view", Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ZambianComplianceDashboard()))),
-      _tile(context, theme, LucideIcons.megaphone, "Ad Campaigns", "Manage platform ads and promotions", Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdManagementScreen()))),
-      _tile(context, theme, LucideIcons.store, "Partner Management", "Manage partner tenants for coin redemption", Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManagePartnersScreen()))),
-      _tile(context, theme, LucideIcons.userCheck, "Role Approvals", "Approve or elevate user roles", Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RoleApprovalScreen()))),
-      _tile(context, theme, LucideIcons.penTool, "Writer Approvals", "Approve writer applications", Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WriterApprovalScreen()))),
+      _tile(context, theme, LucideIcons.megaphone, "Ad Campaigns", "Manage platform ads and promotions", Colors.orange, () => context.push('/ads')),
+      _tile(context, theme, LucideIcons.store, "Partner Management", "Manage partner tenants for coin redemption", Colors.teal, () => context.push('/manage-partners')),
+      _tile(context, theme, LucideIcons.userCheck, "Role Approvals", "Approve or elevate user roles", Colors.purple, () => context.push('/role-approvals')),
+      _tile(context, theme, LucideIcons.penTool, "Writer Approvals", "Approve writer applications", Colors.indigo, () => context.push('/writer-approvals')),
       _tile(context, theme, LucideIcons.shieldCheck, "KYC Review", "Verify user identity documents", Colors.deepOrange, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KycReviewScreen()))),
       _tile(context, theme, LucideIcons.car, "Carpso Driver Approvals", "Approve driver applications for Carpso Ride", Colors.deepPurple, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CarpsoDriverApprovalScreen()))),
       _tile(context, theme, LucideIcons.gift, "Promo Campaigns", "Discount codes, coin bonuses & promotions", Colors.pink, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PromoCampaignScreen()))),
@@ -260,9 +260,11 @@ class SuperAdminDashboard extends ConsumerWidget {
       _tile(context, theme, LucideIcons.map, "Member Live Heatmap", "See where members are watching from", Colors.redAccent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LiveViewerHeatmapScreen()))),
       _tile(context, theme, LucideIcons.shieldCheck, "AI Moderator", "AI Gatekeeper for social testimonies", Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KingdomAIModeratorScreen()))),
       _tile(context, theme, LucideIcons.satellite, "GPS Driver Simulator", "Test live tracking & logistics matching", Colors.orangeAccent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DriverSimulationHubScreen()))),
+      _tile(context, theme, LucideIcons.slidersHorizontal, "Feature Toggles", "Enable/disable 45+ features per tenant", Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FeatureTogglesScreen()))),
+      _tile(context, theme, LucideIcons.trendingUp, "Engagement Analytics", "Bible audio, podcast, Kids Zone & quiz metrics", Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PlatformAnalyticsScreen()))),
       _tile(context, theme, LucideIcons.puzzle, "Integrations", "Configure third-party integrations", Colors.cyan, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IntegrationsScreen()))),
       _tile(context, theme, LucideIcons.dollarSign, "Subscription Pricing", "Configure subscription tiers and pricing", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionPricingScreen()))),
-      _tile(context, theme, LucideIcons.database, "Database Setup", "Migration and schema management tools", Colors.blueGrey, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DatabaseSetupScreen()))),
+      _tile(context, theme, LucideIcons.database, "Database Setup", "Migration and schema management tools", Colors.blueGrey, () => context.push('/database-setup')),
       _tile(context, theme, LucideIcons.fileDown, "Export Data", "Export platform data to CSV/PDF/Excel", Colors.brown, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExportDataScreen()))),
       const SizedBox(height: 12),
       Text("Governance & Security", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red.shade700)),
@@ -277,7 +279,24 @@ class SuperAdminDashboard extends ConsumerWidget {
     return Column(
       children: [
         _tile(context, theme, LucideIcons.shieldOff, "Emergency Shutdown", "Immediately disable all platform services", Colors.red, () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const EmergencyShutdownScreen()));
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Emergency Shutdown'),
+              content: const Text('This will immediately disable ALL platform services. Are you sure?'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCEL')),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    context.push('/shutdown');
+                  },
+                  style: FilledButton.styleFrom(backgroundColor: theme.colorScheme.error),
+                  child: const Text('CONFIRM SHUTDOWN'),
+                ),
+              ],
+            ),
+          );
         }),
       ],
     );

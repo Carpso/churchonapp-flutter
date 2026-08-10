@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/providers/profile_provider.dart';
+import '../../../core/widgets/app_error_view.dart';
 import '../../../core/services/coa_payment_service.dart';
 import '../../../core/services/plan_service.dart';
 import '../../../core/config/fee_config.dart';
@@ -132,11 +133,21 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
       await _audit.logChurchAction(action: 'approve', churchId: church['id'], churchName: church['name']?.toString());
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Approved ${church['name']}!"), backgroundColor: Colors.green));
+        showAppSnackBar(
+          context,
+          "Approved ${church['name']}!",
+          status: AppStatus.success,
+        );
         _loadStats();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
+        );
+      }
     }
   }
 
@@ -146,11 +157,21 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
       await client.from('churches').delete().eq('id', church['id']);
       await _audit.logChurchAction(action: 'reject', churchId: church['id'], churchName: church['name']?.toString());
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Rejected ${church['name']}"), backgroundColor: Colors.red));
+        showAppSnackBar(
+          context,
+          "Rejected ${church['name']}",
+          status: AppStatus.error,
+        );
         _loadStats();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
+        );
+      }
     }
   }
 
@@ -183,11 +204,21 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
       }).eq('id', church['id']);
       await _audit.logPaymentAction(action: 'approve_payment', paymentId: church['id'], churchName: church['name']?.toString());
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Approved payment for ${church['name']}"), backgroundColor: Colors.green));
+        showAppSnackBar(
+          context,
+          "Approved payment for ${church['name']}",
+          status: AppStatus.success,
+        );
         _loadStats();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
+        );
+      }
     }
   }
 
@@ -197,11 +228,21 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
       await client.from('churches').update({'payment_reference': null, 'payment_submitted_at': null}).eq('id', church['id']);
       await _audit.logPaymentAction(action: 'reject_payment', paymentId: church['id'], churchName: church['name']?.toString());
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Rejected payment for ${church['name']}"), backgroundColor: Colors.red));
+        showAppSnackBar(
+          context,
+          "Rejected payment for ${church['name']}",
+          status: AppStatus.error,
+        );
         _loadStats();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
+        );
+      }
     }
   }
 
@@ -209,11 +250,21 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
     try {
       final ok = await ref.read(coaPaymentServiceProvider).approvePayment(payment.id, profile.id);
       if (ok && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Approved ${payment.serviceType} payment"), backgroundColor: Colors.green));
+        showAppSnackBar(
+          context,
+          "Approved ${payment.serviceType} payment",
+          status: AppStatus.success,
+        );
         _loadStats();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
+        );
+      }
     }
   }
 
@@ -221,11 +272,21 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
     try {
       final ok = await ref.read(coaPaymentServiceProvider).rejectPayment(payment.id);
       if (ok && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Rejected ${payment.serviceType} payment"), backgroundColor: Colors.orange));
+        showAppSnackBar(
+          context,
+          "Rejected ${payment.serviceType} payment",
+          status: AppStatus.warning,
+        );
         _loadStats();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
+        );
+      }
     }
   }
 
@@ -239,8 +300,8 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
         }
         return _buildScreen(profile);
       },
-      loading: () => Scaffold(body: const Center(child: _CoaShimmerPlaceholder())),
-      error: (e, st) => Scaffold(body: Center(child: Text('Error: $e'))),
+      loading: () => const Scaffold(body: Center(child: _CoaShimmerPlaceholder())),
+      error: (e, st) => Scaffold(body: AppErrorView(error: e, onRetry: _loadStats)),
     );
   }
 
@@ -270,16 +331,16 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
         children: [
           Container(
             padding: const EdgeInsets.all(3),
-            decoration: const BoxDecoration(
-              color: Colors.white24,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onPrimary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: CircleAvatar(
               radius: 28,
-              backgroundColor: Colors.white.withValues(alpha: 0.1),
+              backgroundColor: theme.colorScheme.onPrimary.withValues(alpha: 0.05),
               backgroundImage: profile.avatarUrl != null ? CachedNetworkImageProvider(profile.avatarUrl!) : null,
               child: profile.avatarUrl == null
-                  ? const Icon(LucideIcons.user, size: 24, color: Colors.white)
+                  ? Icon(LucideIcons.user, size: 24, color: theme.colorScheme.onPrimary)
                   : null,
             ),
           ),
@@ -320,7 +381,7 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
                         profile.role.toUpperCase(),
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 9,
+                          fontSize: 11,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.8,
                         ),
@@ -345,7 +406,15 @@ Widget _buildScreen(UserProfile profile) {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text("COA Employee Console", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-            const Text("COA TEAM", style: TextStyle(color: Colors.teal, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+            Text(
+              "COA TEAM",
+              style: TextStyle(
+                color: theme.colorScheme.primary,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+              ),
+            ),
           ],
         ),
         backgroundColor: theme.colorScheme.surface,
@@ -438,7 +507,15 @@ const SizedBox(height: 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("PLATFORM REVENUE BREAKDOWN", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+          Text(
+            "PLATFORM REVENUE BREAKDOWN",
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.1,
+            ),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -490,8 +567,21 @@ const SizedBox(height: 40),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 13, fontWeight: FontWeight.bold)),
-              Text(description, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10)),
+              Text(
+                label,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                description,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  fontSize: 11,
+                ),
+              ),
             ],
           ),
         ),
@@ -529,7 +619,14 @@ const SizedBox(height: 40),
             ),
             const SizedBox(height: 16),
             Text(value, style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 22, fontWeight: FontWeight.w900)),
-            Text(label, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -768,7 +865,13 @@ class _EmployeeAuditLogScreen extends ConsumerWidget {
                     Text(action, style: TextStyle(color: theme.colorScheme.primary, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
                     const SizedBox(height: 4),
                     Text(entity, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
-                    Text("$adminEmail • ${createdAt.isNotEmpty ? createdAt.substring(0, 19).replaceAll('T', ' ') : ''}", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 9)),
+                    Text(
+                      "$adminEmail • ${createdAt.isNotEmpty ? createdAt.substring(0, 19).replaceAll('T', ' ') : ''}",
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                        fontSize: 11,
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -776,7 +879,7 @@ class _EmployeeAuditLogScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: _CoaShimmerPlaceholder()),
-        error: (e, st) => Center(child: Text("Error: $e", style: TextStyle(color: theme.colorScheme.error))),
+        error: (e, st) => AppErrorView(error: e, onRetry: () => ref.invalidate(auditLogStreamProvider)),
       ),
     );
   }
@@ -787,9 +890,10 @@ class _CoaShimmerPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
+      baseColor: isDark ? Colors.grey[800]! : Colors.grey[300]!,
+      highlightColor: isDark ? Colors.grey[700]! : Colors.grey[100]!,
       child: Padding(
         padding: const EdgeInsets.all(25),
         child: Column(
@@ -799,7 +903,7 @@ class _CoaShimmerPlaceholder extends StatelessWidget {
             child: Container(
               height: i == 0 ? 120 : 80,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(20),
               ),
             ),

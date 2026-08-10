@@ -387,14 +387,14 @@ class BibleBooksAuditScreen extends ConsumerWidget {
                     book.abbreviation,
                     style: TextStyle(
                       color: color,
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     book.name,
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500),
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
                     textAlign: TextAlign.center,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -402,7 +402,7 @@ class BibleBooksAuditScreen extends ConsumerWidget {
                   const SizedBox(height: 2),
                   Text(
                     '${book.chapters} ch',
-                    style: TextStyle(color: Colors.white38, fontSize: 8),
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
                   ),
                 ],
               ),
@@ -550,7 +550,7 @@ class BibleBooksDetailScreen extends ConsumerWidget {
                     ),
                     child: Text(
                       book.abbreviation,
-                      style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -568,7 +568,7 @@ class BibleBooksDetailScreen extends ConsumerWidget {
                     ),
                     child: Text(
                       '${book.chapters} ch',
-                      style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -588,7 +588,7 @@ class BibleBooksDetailScreen extends ConsumerWidget {
                       color: Colors.white.withAlpha(10),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text(alt, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+                    child: Text(alt, style: const TextStyle(color: Colors.white38, fontSize: 11)),
                   )).toList(),
                 ),
               ],

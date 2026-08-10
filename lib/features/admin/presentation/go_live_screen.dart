@@ -94,7 +94,7 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("VPS CONFIGURATION", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1.5, color: Colors.grey)),
+                const Text("VPS CONFIGURATION", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1.5, color: Colors.grey)),
                 const SizedBox(height: 15),
                 _buildInput("Stream Title", _titleController, LucideIcons.type),
                 const SizedBox(height: 15),

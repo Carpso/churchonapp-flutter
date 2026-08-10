@@ -146,7 +146,7 @@ class _SosAlertsManagementScreenState extends ConsumerState<SosAlertsManagementS
                   ),
                   child: Text(
                     status.toString().toUpperCase(),
-                    style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 10),
+                    style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11),
                   ),
                 ),
                 Text(

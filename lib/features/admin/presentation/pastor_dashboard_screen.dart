@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/core/widgets/app_error_view.dart';
 import 'package:church_on_app/features/admin/presentation/widgets/pastor_telemetry_widget.dart';
 import 'church_invite_screen.dart';
 import 'global_broadcast_screen.dart';
@@ -36,6 +37,10 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
   int _lastMonthAttendance = 0;
   double _givingTotal = 0.0;
   double _lastMonthGiving = 0.0;
+  double _totalTithes = 0.0;
+  double _totalOfferings = 0.0;
+  bool _isMonthVerified = false;
+  bool _isVerifying = false;
   List<Map<String, dynamic>> _recentMembers = [];
   List<Map<String, dynamic>> _upcomingEvents = [];
 
@@ -59,38 +64,48 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
     final firstOfLastMonth = DateTime(now.year, now.month - 1, 1);
 
     try {
-      final memberRes = await Supabase.instance.client
+      final client = Supabase.instance.client;
+
+      // Check if current month is verified
+      final verification = await client
+          .from('local_monthly_verifications')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('month_year', DateFormat('yyyy-MM-01').format(now))
+          .maybeSingle();
+
+      final memberRes = await client
           .from('profiles')
           .select('id, created_at')
           .eq('tenant_id', tenantId);
 
-      final sermonRes = await Supabase.instance.client
+      final sermonRes = await client
           .from('klips')
           .select('id')
           .eq('tenant_id', tenantId)
           .gte('created_at', firstOfMonth.toIso8601String());
 
-      final attThisMonth = await Supabase.instance.client
+      final attThisMonth = await client
           .from('attendance_logs')
           .select('id')
           .eq('tenant_id', tenantId)
           .gte('created_at', firstOfMonth.toIso8601String());
 
-      final attLastMonth = await Supabase.instance.client
+      final attLastMonth = await client
           .from('attendance_logs')
           .select('id')
           .eq('tenant_id', tenantId)
           .gte('created_at', firstOfLastMonth.toIso8601String())
           .lt('created_at', firstOfMonth.toIso8601String());
 
-      final givingRes = await Supabase.instance.client
+      final givingRes = await client
           .from('transactions')
-          .select('amount')
+          .select('amount, type')
           .eq('tenant_id', tenantId)
           .inFilter('type', ['giving', 'tithe', 'offering'])
           .gte('created_at', firstOfMonth.toIso8601String());
 
-      final givingLastRes = await Supabase.instance.client
+      final givingLastRes = await client
           .from('transactions')
           .select('amount')
           .eq('tenant_id', tenantId)
@@ -98,14 +113,14 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           .gte('created_at', firstOfLastMonth.toIso8601String())
           .lt('created_at', firstOfMonth.toIso8601String());
 
-      final recentMembersRes = await Supabase.instance.client
+      final recentMembersRes = await client
           .from('profiles')
           .select('id, full_name, role, avatar_url')
           .eq('tenant_id', tenantId)
           .order('created_at', ascending: false)
           .limit(5);
 
-      final eventsRes = await Supabase.instance.client
+      final eventsRes = await client
           .from('events')
           .select('id, title, date, location')
           .eq('tenant_id', tenantId)
@@ -113,12 +128,14 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           .order('date', ascending: true)
           .limit(5);
 
-      final members = (memberRes as List);
-
-      double totalGiving = 0;
+      double totalGiving = 0, tithes = 0, offerings = 0;
       for (final item in givingRes) {
-        totalGiving += (item['amount'] as num?)?.toDouble() ?? 0;
+        final amt = (item['amount'] as num?)?.toDouble() ?? 0;
+        totalGiving += amt;
+        if (item['type'] == 'tithe') tithes += amt;
+        if (item['type'] == 'offering') offerings += amt;
       }
+      
       double lastGiving = 0;
       for (final item in givingLastRes) {
         lastGiving += (item['amount'] as num?)?.toDouble() ?? 0;
@@ -126,12 +143,15 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
 
       if (mounted) {
         setState(() {
-          _memberCount = members.length;
+          _memberCount = (memberRes as List).length;
           _sermonCount = (sermonRes as List).length;
           _attendanceCount = (attThisMonth as List).length;
           _lastMonthAttendance = (attLastMonth as List).length;
           _givingTotal = totalGiving;
+          _totalTithes = tithes;
+          _totalOfferings = offerings;
           _lastMonthGiving = lastGiving;
+          _isMonthVerified = verification != null;
           _recentMembers = List<Map<String, dynamic>>.from(recentMembersRes);
           _upcomingEvents = List<Map<String, dynamic>>.from(eventsRes);
           _isLoading = false;
@@ -149,14 +169,17 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
     final profileAsync = ref.watch(profileProvider);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Pastor Dashboard", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        foregroundColor: Colors.black87,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        foregroundColor: theme.colorScheme.onSurface,
         elevation: 0,
         actions: [
-          IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _isLoading ? null : _loadDashboard),
+          IconButton(
+            icon: const Icon(LucideIcons.refreshCw),
+            onPressed: _isLoading ? null : _loadDashboard,
+          ),
         ],
       ),
       body: profileAsync.when(
@@ -165,14 +188,14 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           return _buildBody(theme);
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text("Error: $e")),
+        error: (e, _) => AppErrorView(error: e, onRetry: _loadDashboard),
       ),
     );
   }
 
   Widget _buildBody(ThemeData theme) {
     if (_isLoading) return _buildShimmer();
-    if (_error != null) return _buildError(theme);
+    if (_error != null) return AppErrorView(error: _error, onRetry: _loadDashboard);
 
     return RefreshIndicator(
       onRefresh: _loadDashboard,
@@ -183,13 +206,15 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildWelcomeHeader(theme),
+            const SizedBox(height: 20),
+            if (!_isMonthVerified) _buildVerificationBanner(theme),
             const SizedBox(height: 25),
             _buildSummaryRow(theme),
             const SizedBox(height: 25),
             PastorTelemetryWidget(
-              totalTithes: _givingTotal * 0.6,
-              totalOfferings: _givingTotal * 0.3,
-              totalPledges: _givingTotal * 0.1,
+              totalTithes: _totalTithes,
+              totalOfferings: _totalOfferings,
+              totalPledges: _givingTotal - _totalTithes - _totalOfferings,
               activeMembersCount: _memberCount,
               averageAttendance: _attendanceCount,
             ),
@@ -211,6 +236,125 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
       ),
     );
   }
+
+  Widget _buildVerificationBanner(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(LucideIcons.alertTriangle, color: Colors.amber, size: 18),
+              const SizedBox(width: 10),
+              const Expanded(child: Text("Monthly Reports Pending Sign-off", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+              TextButton(
+                onPressed: _showMonthlySignOff,
+                child: const Text("SIGN OFF", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, color: Colors.amber)),
+              ),
+            ],
+          ),
+          const Text("Monthly metrics must be verified locally before network-wide aggregation.", style: TextStyle(color: Colors.grey, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+
+  void _showMonthlySignOff() async {
+    final now = DateTime.now();
+    final monthLabel = DateFormat('MMMM yyyy').format(now);
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(30),
+        decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Monthly Verification: $monthLabel", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 10),
+            const Text("I confirm that the following totals for this assembly are accurate and audited.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+            const SizedBox(height: 25),
+            _signOffMetric("Total Attendance", "$_attendanceCount"),
+            _signOffMetric("Total Tithes", "K ${NumberFormat.decimalPattern().format(_totalTithes)}"),
+            _signOffMetric("Total Offerings", "K ${NumberFormat.decimalPattern().format(_totalOfferings)}"),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: _isVerifying
+                  ? null
+                  : () async {
+                      if (_isVerifying) return;
+                      final messenger = ScaffoldMessenger.of(context);
+                      final navigator = Navigator.of(context);
+                      setState(() => _isVerifying = true);
+                      final profile = ref.read(profileProvider).value;
+                      if (profile == null) {
+                        setState(() => _isVerifying = false);
+                        return;
+                      }
+                      try {
+                        // LOCK: upsert an immutable snapshot row. The
+                        // UNIQUE(tenant_id, month_year) constraint is the
+                        // lock — once written, the month cannot be
+                        // re-verified or edited by another session.
+                        final monthKey = DateFormat('yyyy-MM-01').format(now);
+                        await Supabase.instance.client
+                            .from('local_monthly_verifications')
+                            .upsert({
+                          'tenant_id': profile.tenantId,
+                          'month_year': monthKey,
+                          'verified_by': profile.id,
+                          'total_attendance': _attendanceCount,
+                          'total_tithes': _totalTithes,
+                          'total_offerings': _totalOfferings,
+                        }, onConflict: 'tenant_id,month_year');
+                        navigator.pop();
+                        await _loadDashboard();
+                        if (mounted) {
+                          messenger.showSnackBar(const SnackBar(content: Text("Monthly data verified, signed off & locked! 🚀"), backgroundColor: Colors.green));
+                        }
+                      } catch (e) {
+                        debugPrint('Sign-off error: $e');
+                        if (mounted) setState(() => _isVerifying = false);
+                        messenger.showSnackBar(const SnackBar(content: Text("Sign-off failed — please retry."), backgroundColor: Colors.red));
+                      }
+                    },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, minimumSize: const Size(double.infinity, 60), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+              child: _isVerifying
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                    )
+                  : const Text("AUDIT & SIGN OFF", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _signOffMetric(String label, String val) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Text(val, style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.blue, fontSize: 15)),
+      ],
+    ),
+  );
 
   Widget _buildShimmer() {
     return SingleChildScrollView(
@@ -242,28 +386,6 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
     );
   }
 
-  Widget _buildError(ThemeData theme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.wifiOff, size: 48, color: Colors.grey.shade300),
-            const SizedBox(height: 12),
-            Text("Could not load dashboard", style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: _loadDashboard,
-              icon: const Icon(LucideIcons.refreshCw, size: 16),
-              label: const Text("Retry"),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildWelcomeHeader(ThemeData theme) {
     final now = DateTime.now();
     final hour = now.hour;
@@ -272,8 +394,8 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [const Color(0xFF1A1A1A), const Color(0xFF128C7E)],
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1A1A1A), Color(0xFF128C7E)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -287,7 +409,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(greeting, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
-                Text("Pastor Dashboard", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22)),
+                const Text("Pastor Dashboard", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22)),
                 const SizedBox(height: 6),
                 Text("$_memberCount members • $_sermonCount sermons this month", style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
               ],
@@ -309,7 +431,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
   }
 
   Widget _buildSummaryRow(ThemeData theme) {
-    final currencyFormat = NumberFormat.currency(symbol: 'K ', decimalDigits: 0);
+    final currencyFormat = NumberFormat.compactCurrency(symbol: 'K ', decimalDigits: 1);
     final attGrowth = _calcGrowth(_attendanceCount, _lastMonthAttendance);
     final givingGrowth = _calcGrowth(_givingTotal.round(), _lastMonthGiving.round());
 
@@ -332,7 +454,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
       ),
@@ -356,7 +478,14 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
                     children: [
                       Icon(growth >= 0 ? LucideIcons.trendingUp : LucideIcons.trendingDown, size: 10, color: growth >= 0 ? Colors.green : Colors.red),
                       const SizedBox(width: 2),
-                      Text("${growth >= 0 ? '+' : ''}${growth.toStringAsFixed(0)}%", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: growth >= 0 ? Colors.green : Colors.red)),
+                      Text(
+                        "${growth >= 0 ? '+' : ''}${growth.toStringAsFixed(0)}%",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: growth >= 0 ? Colors.green : Colors.red,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -364,7 +493,13 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           ),
           const Spacer(),
           Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: theme.colorScheme.onSurface)),
-          Text(label, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 10)),
+          Text(
+            label,
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              fontSize: 11,
+            ),
+          ),
         ],
       ),
     );
@@ -383,9 +518,15 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(15),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
+              boxShadow: [
+                BoxShadow(
+                  color: theme.colorScheme.shadow.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Row(
               children: [
@@ -435,9 +576,15 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(15),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
+              boxShadow: [
+                BoxShadow(
+                  color: theme.colorScheme.shadow.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Row(
               children: [
@@ -454,7 +601,14 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
                       Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: theme.colorScheme.onSurface)),
                       const SizedBox(height: 3),
                       Text(formattedDate, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
-                      if (location.isNotEmpty) Text(location, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 10)),
+                      if (location.isNotEmpty)
+                        Text(
+                          location,
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                            fontSize: 11,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -501,9 +655,15 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+              color: theme.colorScheme.shadow.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -533,7 +693,10 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Center(child: Text(message, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4)))),
     );
   }

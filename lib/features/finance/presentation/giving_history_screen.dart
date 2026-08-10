@@ -44,7 +44,7 @@ class GivingHistoryScreen extends ConsumerWidget {
                           "ANNUAL CONTRIBUTIONS ($currentYear)",
                           style: const TextStyle(
                             color: Colors.white54,
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.2,
                           ),

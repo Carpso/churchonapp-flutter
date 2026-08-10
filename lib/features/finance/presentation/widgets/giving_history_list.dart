@@ -118,7 +118,7 @@ class GivingHistoryList extends ConsumerWidget {
                   item.status.toUpperCase(),
                   style: TextStyle(
                     color: item.status == 'completed' ? Colors.green : Colors.orange,
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

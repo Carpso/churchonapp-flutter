@@ -189,7 +189,7 @@ class _PayrollReportsScreenState extends ConsumerState<PayrollReportsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.w600, fontSize: bold ? 14 : 13, color: theme.colorScheme.onSurface)),
-                Text(note, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10)),
+                Text(note, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
               ],
             ),
           ),

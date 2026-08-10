@@ -130,7 +130,7 @@ class _OnboardingQuickStartState extends ConsumerState<OnboardingQuickStart> {
                     child: const Text(
                       'GET STARTED',
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),

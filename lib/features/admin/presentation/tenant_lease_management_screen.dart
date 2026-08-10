@@ -188,7 +188,7 @@ class _TenantLeaseManagementScreenState extends ConsumerState<TenantLeaseManagem
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(10)),
-              child: Text(type, style: TextStyle(fontSize: 9, color: Colors.grey.shade600)),
+              child: Text(type, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
             ),
           ]),
           if (formattedDate.isNotEmpty) Padding(
@@ -215,7 +215,7 @@ class _TenantLeaseManagementScreenState extends ConsumerState<TenantLeaseManagem
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+          Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
         ]),
       ),
     );

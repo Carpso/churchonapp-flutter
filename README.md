@@ -2,15 +2,17 @@
 
 A comprehensive church management and community platform built with Flutter, connecting congregations through digital giving, marketplace, media, events, and more.
 
-**v1.0.0+249 | Flutter 3.35.1 | Dart 3.x | 0 errors, 0 warnings**
+**v1.0.0+252 → 1.0.0 | Flutter 3.35.1 | 0 errors, 0 warnings | August 2026**
 
 ## Features
 
 - **Auth & Profiles** — Email/Google authentication with role-based access (member, admin, pastor, bishop, superadmin)
 - **Digital Giving** — Mobile money payments via Lipila gateway (MTN/Airtel/Zamtel), tithe tracking, QR giving, wallet coins
 - **Marketplace** — Multi-vendor marketplace with cart, checkout, and order management
-- **Media & Streaming** — Sermon uploads (R2), live streaming studio (YouTube), Kingdom Radio
+- **Media & Streaming** — Sermon uploads (R2), live streaming studio (Cloudflare Stream RTMP/HLS with role-gated access), Kingdom Radio
 - **Bible Study** — Reading plans, verse of the day, deep study suite, memory verses; NKJV/NLT translations, full-text search, verse notes/bookmarks, cross-references, AI-powered chapter summaries via Kael
+- **Data Import** — Enterprise-grade CSV/JSON import system with column mapping, entity presets (Breeze/PlanningCenter/RockRMS/MTN-bank), leadership-only role gate, document extraction via kael-ai, per-row error audit trail, and tenant-scoped import logs
+- **Enterprise Reporting** — Church service reports (attendance, offering, visitors, salvations, online viewers, ministries participation), organization-wide service aggregation feeds bishop/apostle dashboards, month-over-month trends
 - **Events** — Service scheduling, conference management, event ticketing
 - **Logistics** — Ride & delivery requests with real-time GPS tracking, driver portal
 - **Games** — Bible Quiz arena (multiplayer), trivia games
@@ -58,12 +60,13 @@ lib/
     theme/           # App theme, colors, typography
     utils/           # Connectivity, DB seeder, platform settings
     widgets/         # Shared widgets (church map, error boundary, QR, etc.)
-  features/
-    admin/           # 60+ screens: dashboards, member mgmt, broadcast, payroll
-    auth/            # Login, signup, onboarding, church selection
-    bible/           # Bible reader, verse service, reading plans
-    connect/         # Social feed, prayer wall, chat, calls, testimonies
-    disciple/        # Discipleship tracking & mentorship
+   features/
+     admin/           # 60+ screens: dashboards, member mgmt, broadcast, payroll
+     auth/            # Login, signup, onboarding, church selection
+     bible/           # Bible reader, verse service, reading plans
+     connect/         # Social feed, prayer wall, chat, calls, testimonies
+     data_import/     # CSV/JSON/document import, column mapping, entity presets
+     disciple/        # Discipleship tracking & mentorship
     events/          # Event scheduling & management
     finance/         # Giving, wallet, Lipila gateway, payouts
     home/            # Main dashboard, live stream, news, announcements
@@ -132,7 +135,7 @@ The KJV Bible text (31,102 verses) was originally a single 7.3MB SQL file that e
 
 ### Migration Health
 
-All migrations apply cleanly — **0 failures** across the full deploy list (148 applied, 18 skipped by design: 6 deleted empty placeholders, 11 KJV seed batches already applied, 1 neutralized seed file). Latest migration `20260803_133358_bible_nkjv_nlt_smart_features.sql` adds NKJV/NLT translations, `bible_chapters` table, full-text search on `bible_verses`, reading plans, verse notes, cross-references, and AI-powered chapter summaries.
+All migrations apply cleanly — **0 failures** across the full deploy list (152+ applied). Latest additions: `20260861_data_import_system.sql` (import tables + validation RPC), `20260863_service_reporting_enhancements.sql` (enterprise reporting fields + org-level aggregation RPCs).
 
 ### Deployment
 
@@ -159,15 +162,17 @@ supabase functions deploy kael-ai --no-verify-jwt
 
 - **Package**: com.churchonapp.churchonapp
 - **Supabase**: Self-hosted or managed project
-- **Edge Functions**: Push notifications, webhook handlers
+- **Edge Functions**: 28 Edge Functions (push notifications, payments, AI, streaming management, data import, SMS, email, WhatsApp, export tools, database backup)
 - **Storage**: Cloudflare R2 for media uploads
 
 ## Security
 
 - API keys loaded from `.env`, never hardcoded in source
 - All database queries go through Supabase Row Level Security (RLS)
-- Role-based access control enforced server-side
-- Input validation on all forms
+- Role-based access control enforced server-side on all Edge Functions
+- Cloudflare Stream management role-gated (leadership only) with tenant-ownership enforcement
+- Data import restricted to leadership roles with column allowlist + tenant scoping
+- Input validation on all forms; server-side column blocklist prevents role/coins escalation during imports
 - Catch blocks log errors instead of swallowing them silently
 - Payout failures logged with full context for debugging
 

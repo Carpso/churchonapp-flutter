@@ -415,7 +415,7 @@ class _BibleStudyListScreenState extends ConsumerState<BibleStudyListScreen> {
                             Wrap(
                               spacing: 6,
                               children: word.usageVerses.map((v) => Chip(
-                                label: Text(v, style: const TextStyle(fontSize: 10)),
+                                label: Text(v, style: const TextStyle(fontSize: 11)),
                                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 visualDensity: VisualDensity.compact,
                               )).toList(),

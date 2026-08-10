@@ -42,10 +42,10 @@ class NewsDetailScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                        child: Text(article.source.toUpperCase(), style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+                        child: Text(article.source.toUpperCase(), style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                       const SizedBox(width: 10),
-                      Text(article.pubDate, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                      Text(article.pubDate, style: const TextStyle(color: Colors.grey, fontSize: 11)),
                     ],
                   ),
                   const SizedBox(height: 20),

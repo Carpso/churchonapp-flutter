@@ -120,7 +120,7 @@ class DiscoverTab extends ConsumerWidget {
                         children: [
                           Icon(LucideIcons.globe, size: 12, color: Colors.blue),
                           SizedBox(width: 4),
-                          Text("Interchurch", style: TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold)),
+                          Text("Interchurch", style: TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
                         ],
                       )
                     ],

@@ -133,7 +133,7 @@ class _KingdomAIModeratorScreenState extends ConsumerState<KingdomAIModeratorScr
                   children: [
                     Text(post.userName ?? "Member", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     Text(isModerated ? "Prophetic Analysis Complete" : "Pending Apostolic Review", 
-                         style: TextStyle(color: isModerated ? Colors.green : Colors.orange, fontSize: 10, fontWeight: FontWeight.bold)),
+                         style: TextStyle(color: isModerated ? Colors.green : Colors.orange, fontSize: 11, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -141,7 +141,7 @@ class _KingdomAIModeratorScreenState extends ConsumerState<KingdomAIModeratorScr
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                  child: Text(category.toUpperCase(), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 10)),
+                  child: Text(category.toUpperCase(), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 11)),
                 ),
             ],
           ),

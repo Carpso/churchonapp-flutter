@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/widgets/app_error_view.dart';
 import '../../profile/data/referral_service.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
@@ -62,8 +63,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           }
 
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Account created successfully!"), backgroundColor: Colors.green),
+            showAppSnackBar(
+              context,
+              "Account created successfully!",
+              status: AppStatus.success,
             );
             context.go('/');
           }
@@ -71,8 +74,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
         );
       }
     }
@@ -93,7 +98,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft, color: Colors.black),
+          icon: Icon(LucideIcons.arrowLeft, color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -160,9 +165,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 onPressed: _handleSignup,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   minimumSize: const Size(double.infinity, 60),
                 ),
-                child: const Text("CREATE ACCOUNT", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black)),
+                child: const Text("CREATE ACCOUNT", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
               const SizedBox(height: 30),
               Center(
@@ -203,9 +209,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.02), blurRadius: 10)],
       ),
       child: TextFormField(
         controller: controller,

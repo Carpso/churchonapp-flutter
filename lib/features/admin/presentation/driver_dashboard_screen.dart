@@ -204,7 +204,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
 
   Widget _bannerStat(String value, String label) => Column(children: [
     Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-    Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10)),
+    Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
   ]);
 
   Widget _buildStatsGrid(ThemeData theme) => GridView.count(
@@ -229,10 +229,10 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
           Column(children: [Icon(LucideIcons.wallet, color: Colors.green), const SizedBox(height: 6),
             Text(currency.format(_totalEarnings), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-            Text("Total Earned", style: TextStyle(color: Colors.grey.shade500, fontSize: 10))]),
+            Text("Total Earned", style: TextStyle(color: Colors.grey.shade500, fontSize: 11))]),
           Column(children: [Icon(LucideIcons.calendar, color: Colors.blue), const SizedBox(height: 6),
             Text(currency.format(_monthEarnings), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-            Text("This Month", style: TextStyle(color: Colors.grey.shade500, fontSize: 10))]),
+            Text("This Month", style: TextStyle(color: Colors.grey.shade500, fontSize: 11))]),
         ]),
       ]),
     );
@@ -244,7 +244,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
       Icon(icon, color: color, size: 20), const Spacer(),
       Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-      Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+      Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
     ]),
   );
 

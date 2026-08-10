@@ -205,16 +205,16 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                 _filteredTenants.map((tenant) {
                   final lat = _parseDouble(tenant['latitude']) ?? -15.3875;
                   final lng = _parseDouble(tenant['longitude']) ?? 28.3228;
+                  final isBookshop = tenant['type'] == 'bookshop';
                   final isRegistered = tenant['_registered'] == true;
                   return buildChurchMarker(
                     point: LatLng(lat, lng),
                     name: tenant['name'] ?? 'Tenant',
                     color: isRegistered
-                        ? Theme.of(context).primaryColor
-                        : Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withValues(alpha: 0.5),
+                        ? (isBookshop ? Colors.blue : Theme.of(context).primaryColor)
+                        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                     logoUrl: tenant['logo_url'],
+                    isBookshop: isBookshop,
                     onTap: () {
                       if (isRegistered) {
                         _selectTenant(tenant);
@@ -312,7 +312,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "Select Church or Tenant",
+                              "Select Tenant",
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -379,7 +379,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                                             "✱",
                                             style: TextStyle(
                                               color: theme.primaryColor,
-                                              fontSize: 8,
+                                              fontSize: 11,
                                             ),
                                           ),
                                         ],
@@ -734,7 +734,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                         child: Text(
                           isBookshop ? 'Bookshop' : 'Church',
                           style: TextStyle(
-                            fontSize: 9,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
                             color: isBookshop ? Colors.blue : Colors.green,
                           ),
@@ -748,7 +748,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                       child: Text(
                         "${(((tenant['_distance'] as num).toDouble()) / 1000).toStringAsFixed(1)} km away",
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 11,
                           color: theme.primaryColor,
                           fontWeight: FontWeight.bold,
                         ),
@@ -791,7 +791,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                   child: Text(
                     "Pending",
                     style: TextStyle(
-                      fontSize: 9,
+                      fontSize: 11,
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                       fontWeight: FontWeight.bold,
                     ),

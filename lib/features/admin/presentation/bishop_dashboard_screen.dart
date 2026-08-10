@@ -5,12 +5,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/core/widgets/app_error_view.dart';
 import 'church_invite_screen.dart';
 import 'finance_dashboard_screen.dart';
 import 'member_management_screen.dart';
 import 'service_report_screen.dart';
 import 'live_viewer_heatmap_screen.dart';
-import 'package:church_on_app/features/admin/data/role_hierarchy_service.dart';
+import 'package:church_on_app/features/admin/data/organization_service.dart';
 
 class BishopDashboardScreen extends ConsumerStatefulWidget {
   const BishopDashboardScreen({super.key});
@@ -26,10 +27,9 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
   int _totalAttendance = 0;
   int _lastMonthAttendance = 0;
   double _totalTithes = 0;
-  double _totalGiving = 0;
   int _totalMembers = 0;
-  int _missionsActive = 0;
   List<Map<String, dynamic>> _branches = [];
+  List<HierarchyNode> _presbyteries = [];
   List<Map<String, dynamic>> _missions = [];
 
   @override
@@ -41,83 +41,93 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
   Future<void> _loadDashboard() async {
     setState(() => _isLoading = true);
     final profile = ref.read(profileProvider).value;
-    if (profile == null) { setState(() { _isLoading = false; _error = "Profile not found"; }); return; }
-
-    final tenantId = profile.tenantId;
-    if (tenantId == null || tenantId.isEmpty) {
-      setState(() { _isLoading = false; _error = "Not assigned to a church"; }); return;
+    if (profile == null) {
+      setState(() {
+        _isLoading = false;
+        _error = "Profile not found";
+      });
+      return;
     }
 
-    final now = DateTime.now();
-    final firstOfMonth = DateTime(now.year, now.month, 1);
-    final firstOfLastMonth = DateTime(now.year, now.month - 1, 1);
+    final tenantId = profile.tenantId;
+    final orgId = profile.organizationId;
 
+    if (tenantId == null && orgId == null) {
+      setState(() {
+        _isLoading = false;
+        _error = "No oversight jurisdiction assigned";
+      });
+      return;
+    }
     try {
       final client = Supabase.instance.client;
+      final orgSvc = ref.read(organizationServiceProvider);
 
-      // Scope all queries to bishop's own tenant
-      final tenantsRes = await client
-          .from('tenants')
-          .select('id, name, created_at')
-          .eq('id', tenantId);
+      if (orgId != null && orgId.isNotEmpty) {
+        // GLOBAL EXECUTIVE MODE: Aggregate stats across entire organization (server-side RPC)
+        final stats = await orgSvc.getOrganizationStats(orgId);
 
-      final attThisMonth = await client
-          .from('attendance_logs')
-          .select('id, tenant_id')
-          .eq('tenant_id', tenantId)
-          .gte('created_at', firstOfMonth.toIso8601String());
+        // Hierarchy nodes (Presbyteries) — bounded tree lookup
+        final nodes = await orgSvc.getOrganizationNodes(orgId);
+        final presbyteries = nodes.where((n) => n.parentNodeId != null && n.tenantId == null).toList();
 
-      final attLastMonth = await client
-          .from('attendance_logs')
-          .select('id')
-          .eq('tenant_id', tenantId)
-          .gte('created_at', firstOfLastMonth.toIso8601String())
-          .lt('created_at', firstOfMonth.toIso8601String());
+        // Bounded branches list (top 50, newest first) — avoids unbounded fetch + IN-clause
+        final branchesRes = await client
+            .from('churches')
+            .select('id, name, created_at')
+            .eq('organization_id', orgId)
+            .order('created_at', ascending: false)
+            .limit(50);
 
-      final txsRes = await client
-          .from('transactions')
-          .select('amount, type')
-          .eq('tenant_id', tenantId)
-          .inFilter('type', ['tithe', 'giving'])
-          .gte('created_at', firstOfMonth.toIso8601String());
+        // Network-wide missions via single server-side RPC (replaces client IN-clause scan)
+        final missionsRes = await orgSvc.getOrganizationMissions(orgId);
 
-      final profilesRes = await client
-          .from('profiles')
-          .select('tenant_id')
-          .eq('tenant_id', tenantId);
+        if (mounted) {
+          setState(() {
+            _branchCount = (stats['branches'] as num?)?.toInt() ?? 0;
+            _totalAttendance = (stats['members'] as num?)?.toInt() ?? 0;
+            _totalTithes = (stats['monthly_giving'] as num?)?.toDouble() ?? 0;
+            _totalMembers = (stats['members'] as num?)?.toInt() ?? 0;
+            _branches = List<Map<String, dynamic>>.from(branchesRes as List);
+            _missions = missionsRes;
+            _presbyteries = presbyteries;
+            _isLoading = false;
+            _error = null;
+          });
+        }
+      } else {
+        // LOCAL BISHOP MODE: Single tenant oversight
+        // Single server-side call replaces 4 parallel unbounded scans (attendance x2,
+        // transactions, profiles) and a broken last-month attendance query.
+        final stats = await orgSvc.getChurchMonthlyStats(tenantId!);
 
-      final missionsRes = await client
-          .from('missions')
-          .select('id, title, status')
-          .eq('tenant_id', tenantId)
-          .limit(5);
+        // Bounded branch list (just this church)
+        final branchesRes = await client
+            .from('tenants')
+            .select('id, name, created_at')
+            .eq('id', tenantId);
 
-      double tithes = 0, giving = 0;
-      for (final t in txsRes) {
-        final amount = (t['amount'] as num?)?.toDouble() ?? 0;
-        if (t['type'] == 'tithe') { tithes += amount; } else { giving += amount; }
-      }
+        // Bounded missions list
+        final missionsRes = await client
+            .from('missions')
+            .select('id, title, status')
+            .eq('tenant_id', tenantId)
+            .order('created_at', ascending: false)
+            .limit(5);
 
-      final branches = (tenantsRes as List).map((t) => t as Map<String, dynamic>).toList();
-      final memberSet = <String>{};
-      for (final p in profilesRes) {
-        final tid = p['tenant_id']?.toString();
-        if (tid != null) memberSet.add(tid);
-      }
-
-      if (mounted) {
-        setState(() {
-          _branchCount = branches.length;
-          _totalAttendance = (attThisMonth as List).length;
-          _lastMonthAttendance = (attLastMonth as List).length;
-          _totalTithes = tithes;
-          _totalGiving = giving;
-          _totalMembers = memberSet.length;
-          _branches = branches;
-          _missions = List<Map<String, dynamic>>.from(missionsRes);
-          _missionsActive = missionsRes.where((m) => m['status'] == 'active').length;
-          _isLoading = false; _error = null;
-        });
+        if (mounted) {
+          setState(() {
+            _branchCount = (branchesRes as List).length;
+            _totalAttendance = (stats['attendance_mtd'] as num?)?.toInt() ?? 0;
+            _lastMonthAttendance = (stats['attendance_previous'] as num?)?.toInt() ?? 0;
+            _totalTithes = (stats['tithes_mtd'] as num?)?.toDouble() ?? 0;
+            _totalMembers = (stats['members'] as num?)?.toInt() ?? 0;
+            _branches = List<Map<String, dynamic>>.from(branchesRes);
+            _missions = List<Map<String, dynamic>>.from(missionsRes);
+            _isLoading = false;
+            _error = null;
+          });
+        }
       }
     } catch (e) {
       if (mounted) setState(() { _isLoading = false; _error = e.toString(); });
@@ -127,22 +137,31 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final role = ref.read(profileProvider).value?.role ?? '';
+    final profile = ref.read(profileProvider).value;
+    final role = profile?.role ?? '';
     final isApostle = role == 'apostle';
     final title = isApostle ? "Apostle Dashboard" : "Bishop Dashboard";
     final headerTitle = isApostle ? "Network Oversight" : "Apostolic Oversight";
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        foregroundColor: Colors.black87,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        foregroundColor: theme.colorScheme.onSurface,
         elevation: 0,
-        actions: [IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _isLoading ? null : _loadDashboard)],
+        actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.refreshCw),
+            onPressed: _isLoading ? null : _loadDashboard,
+          ),
+        ],
       ),
-      body: _isLoading ? _buildShimmer() : _error != null ? _buildError()
-          : RefreshIndicator(
+      body: _isLoading
+          ? _buildShimmer()
+          : _error != null
+              ? _buildErrorView()
+              : RefreshIndicator(
               onRefresh: _loadDashboard,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -152,6 +171,12 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                   const SizedBox(height: 25),
                   _buildStatsGrid(theme),
                   const SizedBox(height: 35),
+                  if (_presbyteries.isNotEmpty) ...[
+                    Text("Regional Presbyteries", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                    const SizedBox(height: 15),
+                    ..._presbyteries.map((p) => _buildPresbyteryRow(theme, p)),
+                    const SizedBox(height: 35),
+                  ],
                   Text("All Branches", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                   const SizedBox(height: 15),
                   ..._branchCount > 0 ? _branches.map((b) => _buildBranchRow(theme, b, context)) : [_emptyCard(theme, "No branches found")],
@@ -168,104 +193,13 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                   _quickAction(theme, LucideIcons.map, "Map", "Geographic view of all branches", Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LiveViewerHeatmapScreen()))),
                   _quickAction(theme, LucideIcons.barChart3, "Central Treasury", "Multi-branch financial oversight", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FinanceDashboardScreen()))),
                   _quickAction(theme, LucideIcons.users, "Clergy Management", "Manage pastors and ministry leaders", Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MemberManagementScreen()))),
-                  _quickAction(theme, LucideIcons.userPlus, "Create Department Leader", "Assign a member as department leader or assistant", Colors.deepOrange, () async {
-                    final nameCtrl = TextEditingController();
-                    final roleCtrl = TextEditingController(text: 'department_leader');
-                    String elevatedRole = 'department_leader';
-
-                    final result = await showDialog<Map<String, String>>(
-                      context: context,
-                      builder: (ctx) => StatefulBuilder(
-                        builder: (ctx, setDialogState) => AlertDialog(
-                          title: const Text("Create Department Leader"),
-                          content: SingleChildScrollView(
-                            child: Column(mainAxisSize: MainAxisSize.min, children: [
-                              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "User ID (UUID)", hintText: "Paste the user's ID")),
-                              const SizedBox(height: 12),
-                              DropdownButtonFormField<String>(
-                                initialValue: elevatedRole,
-                                items: ['department_leader', 'assistant', 'usher', 'treasurer', 'worship_leader', 'praise_team_leader'].map((r) => DropdownMenuItem(value: r, child: Text(r.replaceAll('_', ' ')))).toList(),
-                                onChanged: (v) {
-                                  setDialogState(() => elevatedRole = v ?? 'department_leader');
-                                  roleCtrl.text = v ?? 'department_leader';
-                                },
-                                decoration: const InputDecoration(labelText: "Role", hintText: "Select department role"),
-                              ),
-                              const SizedBox(height: 12),
-                              const Text("For pastor or bishop elevation, use the Role Approval workflow instead.", style: TextStyle(fontSize: 11, color: Colors.grey)),
-                            ]),
-                          ),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
-                            ElevatedButton(onPressed: () => Navigator.pop(ctx, {'userId': nameCtrl.text.trim(), 'role': elevatedRole}), child: const Text("Assign")),
-                          ],
-                        ),
-                      ),
-                    );
-                    if (result != null) {
-                      final uid = result['userId'];
-                      final role = result['role'];
-                      if (uid != null && uid.isNotEmpty && role != null && role.isNotEmpty) {
-                        final svc = ref.read(roleHierarchyServiceProvider);
-                        try {
-                          await svc.elevateRole(userId: uid, roleName: role);
-                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$role assigned successfully!"), backgroundColor: Colors.green));
-                        } catch (e) {
-                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
-                        }
-                      }
-                    }
-                  }),
-                  _quickAction(theme, LucideIcons.flag, "Request Pastor/Bishop Elevation", "Submit a pending approval request for higher role", Colors.indigo, () async {
-                    final nameCtrl = TextEditingController();
-                    String targetRole = 'pastor';
-
-                    final result = await showDialog<Map<String, String>>(
-                      context: context,
-                      builder: (ctx) => StatefulBuilder(
-                        builder: (ctx, setDialogState) => AlertDialog(
-                          title: const Text("Request Role Elevation"),
-                          content: SingleChildScrollView(
-                            child: Column(mainAxisSize: MainAxisSize.min, children: [
-                              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "User ID (UUID)", hintText: "Paste the user's ID")),
-                              const SizedBox(height: 12),
-                              DropdownButtonFormField<String>(
-                                initialValue: targetRole,
-                                items: ['pastor', 'bishop'].map((r) => DropdownMenuItem(value: r, child: Text(r.toUpperCase()))).toList(),
-                                onChanged: (v) => setDialogState(() => targetRole = v ?? 'pastor'),
-                                decoration: const InputDecoration(labelText: "Target Role", hintText: "Select role to request"),
-                              ),
-                              const SizedBox(height: 12),
-                              const Text("This will create a pending approval request for COA/superadmin review.", style: TextStyle(fontSize: 11, color: Colors.grey)),
-                            ]),
-                          ),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
-                            ElevatedButton(onPressed: () => Navigator.pop(ctx, {'userId': nameCtrl.text.trim(), 'role': targetRole}), child: const Text("Submit Request")),
-                          ],
-                        ),
-                      ),
-                    );
-                    if (result != null) {
-                      final uid = result['userId'];
-                      final role = result['role'];
-                      if (uid != null && uid.isNotEmpty && role != null && role.isNotEmpty) {
-                        final svc = ref.read(roleHierarchyServiceProvider);
-                        try {
-                          await svc.assignRole(userId: uid, roleName: role);
-                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Approval request submitted for $role!"), backgroundColor: Colors.blue));
-                        } catch (e) {
-                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
-                        }
-                      }
-                     }
-                   }),
-                   _quickAction(theme, LucideIcons.userPlus, "Invite Members", "Share invite link, QR & quick share", Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchInviteScreen()))),
-                 ]),
-               ),
-             ),
-     );
-   }
+                  _quickAction(theme, LucideIcons.userPlus, "Invite Members", "Share invite link, QR & quick share", Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchInviteScreen()))),
+                  const SizedBox(height: 100),
+                ]),
+              ),
+            ),
+    );
+  }
 
   Widget _buildShimmer() => SingleChildScrollView(
     padding: const EdgeInsets.all(25),
@@ -274,52 +208,183 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
       const SizedBox(height: 20), Row(children: [Expanded(child: ShimmerLoader.rectangular(height: 100)), const SizedBox(width: 12), Expanded(child: ShimmerLoader.rectangular(height: 100))]),
       const SizedBox(height: 12), Row(children: [Expanded(child: ShimmerLoader.rectangular(height: 100)), const SizedBox(width: 12), Expanded(child: ShimmerLoader.rectangular(height: 100))]),
       const SizedBox(height: 12), Row(children: [Expanded(child: ShimmerLoader.rectangular(height: 100)), const SizedBox(width: 12), Expanded(child: ShimmerLoader.rectangular(height: 100))]),
-      const SizedBox(height: 25), ShimmerLoader.rectangular(height: 18, width: 120),
-      const SizedBox(height: 15), ...List.generate(3, (_) => Padding(padding: const EdgeInsets.only(bottom: 10), child: ShimmerLoader.rectangular(height: 70))),
     ]),
   );
 
-  Widget _buildError() => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-    Icon(LucideIcons.wifiOff, size: 48, color: Colors.grey.shade300),
-    const SizedBox(height: 12), Text("Could not load", style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
-    const SizedBox(height: 20), ElevatedButton.icon(onPressed: _loadDashboard, icon: const Icon(LucideIcons.refreshCw, size: 16), label: const Text("Retry")),
-  ]));
+  Widget _buildErrorView() => AppErrorView(error: _error, onRetry: _loadDashboard);
 
   Widget _buildHeader(ThemeData theme, String headerTitle) {
     final attGrowth = _lastMonthAttendance > 0 ? ((_totalAttendance - _lastMonthAttendance) / _lastMonthAttendance * 100).round() : 0;
     return Container(
-      width: double.infinity, padding: const EdgeInsets.all(22),
+      width: double.infinity, padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Colors.purple.shade800, Colors.purple.shade500], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.purple.shade200.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
+        gradient: LinearGradient(colors: [theme.primaryColor, theme.primaryColor.withValues(alpha: 0.7)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [BoxShadow(color: theme.primaryColor.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)), child: const Icon(LucideIcons.globe, color: Colors.white, size: 28)),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(headerTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
-            Text("$_branchCount branches • $attGrowth% growth", style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
-          ])),
-        ]),
+      child: Row(children: [
+        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)), child: const Icon(LucideIcons.globe, color: Colors.white, size: 30)),
+        const SizedBox(width: 16),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(headerTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22)),
+          Text("$_branchCount branches • $attGrowth% growth", style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13, fontWeight: FontWeight.w500)),
+        ])),
       ]),
     );
   }
 
   Widget _buildStatsGrid(ThemeData theme) {
-    final currency = NumberFormat.currency(symbol: 'K ', decimalDigits: 0);
+    final currency = NumberFormat.compactCurrency(symbol: 'K');
     return GridView.count(
       physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
       crossAxisCount: 2, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 1.2,
       children: [
         _statCard("Branches", "$_branchCount", LucideIcons.building, Colors.indigo),
         _statCard("Attendance", _formatCompact(_totalAttendance), LucideIcons.calendarCheck, Colors.green),
         _statCard("Tithes (MTD)", currency.format(_totalTithes), LucideIcons.church, Colors.purple),
-        _statCard("Giving (MTD)", currency.format(_totalGiving), LucideIcons.heart, Colors.red),
         _statCard("Total Members", _formatCompact(_totalMembers), LucideIcons.users, Colors.blue),
-        _statCard("Missions", "$_missionsActive", LucideIcons.map, Colors.amber),
       ],
+    );
+  }
+
+  Widget _statCard(String label, String value, IconData icon, Color color) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const Spacer(),
+          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+          Text(label, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPresbyteryRow(ThemeData theme, HierarchyNode p) {
+    return GestureDetector(
+      onTap: () => _showPresbyteryDrilldown(p),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: theme.primaryColor.withValues(alpha: 0.1)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: theme.primaryColor.withValues(alpha: 0.1), shape: BoxShape.circle),
+              child: Icon(LucideIcons.map, color: theme.primaryColor, size: 20),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: ref.read(organizationServiceProvider).getNodeAggregatedStats(p.id),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const SizedBox.shrink();
+                      final stats = snapshot.data!;
+                      return Text(
+                        "${stats['branches']} branches • K${NumberFormat.compact().format(stats['giving'])} MTD",
+                        style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            Icon(LucideIcons.chevronRight, size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPresbyteryDrilldown(HierarchyNode p) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
+        child: Column(
+          children: [
+            Container(margin: const EdgeInsets.all(15), height: 5, width: 40, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
+            Padding(
+              padding: const EdgeInsets.all(25),
+              child: Row(
+                children: [
+                  Icon(LucideIcons.map, color: Theme.of(context).primaryColor),
+                  const SizedBox(width: 15),
+                  Text(p.name.toUpperCase(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+                ],
+              ),
+            ),
+            Expanded(
+              child: FutureBuilder<List<HierarchyNode>>(
+                future: ref.read(organizationServiceProvider).getChildrenNodes(p.id),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                  final branches = snapshot.data ?? [];
+                  if (branches.isEmpty) return const Center(child: Text("No branches found in this presbytery."));
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 25),
+                    itemCount: branches.length,
+                    itemBuilder: (context, index) {
+                      final b = branches[index];
+                      return ListTile(
+                        leading: const Icon(LucideIcons.church, size: 18),
+                        title: Text(b.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: const Text("Verified Branch"),
+                        trailing: const Icon(LucideIcons.chevronRight, size: 16),
+                        onTap: () {
+                          // TODO: Detailed branch view
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBranchRow(ThemeData theme, Map<String, dynamic> branch, BuildContext context) {
+    final name = branch['name'] as String? ?? 'Unnamed';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8)],
+      ),
+      child: Row(
+        children: [
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: theme.primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)), child: Icon(LucideIcons.church, color: theme.primaryColor, size: 18)),
+          const SizedBox(width: 14),
+          Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+          Icon(LucideIcons.chevronRight, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+        ],
+      ),
     );
   }
 
@@ -327,47 +392,20 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
     final title = mission['title'] as String? ?? 'Unnamed Mission';
     final status = mission['status'] as String? ?? 'unknown';
     return Container(
-      margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8)]),
-      child: Row(children: [
-        Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(LucideIcons.map, color: Colors.amber, size: 18)),
-        const SizedBox(width: 14),
-        Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: status == 'active' ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(status, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: status == 'active' ? Colors.green : Colors.grey)),
-        ),
-      ]),
-    );
-  }
-
-  Widget _statCard(String label, String value, IconData icon, Color color) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))]),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-      Icon(icon, color: color, size: 20), const Spacer(),
-      Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-      Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
-    ]),
-  );
-
-  Widget _buildBranchRow(ThemeData theme, Map<String, dynamic> branch, BuildContext context) {
-    final name = branch['name'] as String? ?? 'Unnamed';
-    return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ServiceReportScreen())),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8)]),
-        child: Row(children: [
-          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.purple.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(LucideIcons.church, color: Colors.purple, size: 18)),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8)]),
+      child: Row(
+        children: [
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(LucideIcons.map, color: Colors.amber, size: 18)),
           const SizedBox(width: 14),
-          Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-          Icon(LucideIcons.chevronRight, size: 16, color: Colors.grey.shade400),
-        ]),
+          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: status == 'active' ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+            child: Text(status.toUpperCase(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: status == 'active' ? Colors.green : Colors.grey)),
+          ),
+        ],
       ),
     );
   }
@@ -376,23 +414,23 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
     onTap: onTap,
     child: Container(
       margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10)]),
+      decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)]),
       child: Row(children: [
         Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: color, size: 22)),
         const SizedBox(width: 16),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+          Text(subtitle, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
         ])),
-        Icon(LucideIcons.chevronRight, size: 18, color: Colors.grey.shade300),
+        Icon(LucideIcons.chevronRight, size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
       ]),
     ),
   );
 
   Widget _emptyCard(ThemeData theme, String msg) => Container(
     width: double.infinity, padding: const EdgeInsets.all(25),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-    child: Center(child: Text(msg, style: TextStyle(color: Colors.grey.shade400))),
+    decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(20)),
+    child: Center(child: Text(msg, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4)))),
   );
 
   String _formatCompact(int n) => n >= 1000 ? '${(n / 1000).toStringAsFixed(1)}k' : n.toString();

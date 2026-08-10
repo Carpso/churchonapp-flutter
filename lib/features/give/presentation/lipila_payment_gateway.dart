@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -11,8 +10,9 @@ import 'package:church_on_app/features/finance/data/payment_state.dart';
 import 'package:church_on_app/features/give/presentation/widgets/momo_phone_input_widget.dart';
 import 'package:church_on_app/features/give/presentation/widgets/payment_status_overlay.dart';
 import 'package:church_on_app/core/config/fee_config.dart';
+import 'package:church_on_app/core/utils/money.dart';
 
-enum PaymentMethodType { mobileMoney, card }
+enum _PayMethod { mobileMoney, card }
 
 class LipilaPaymentGateway extends ConsumerStatefulWidget {
   final double amount;
@@ -40,20 +40,17 @@ class LipilaPaymentGateway extends ConsumerStatefulWidget {
 }
 
 class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
-  String _selectedNetwork = "MTN";
+  String _selectedNetwork = 'MTN';
   final _phoneCtrl = TextEditingController();
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   String? _errorMessage;
-  PaymentMethodType _paymentMethod = PaymentMethodType.mobileMoney;
+  _PayMethod _method = _PayMethod.mobileMoney;
 
-  // Platform fee = COA fee + Lipila payment processor fee
   FeeConfig get _fees => ref.read(feeConfigProvider).value ?? FeeConfig.defaults;
-  bool get _isCard => _paymentMethod == PaymentMethodType.card;
-
+  bool get _isCard => _method == _PayMethod.card;
   double get _platformFee => _fees.platformFee(widget.amount, isCard: _isCard);
-
   double get _totalCharged => widget.amount + _platformFee;
 
   @override
@@ -67,7 +64,8 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
           _phoneCtrl.text = phone;
         }
         _firstNameCtrl.text = profileValue.name.split(' ').first;
-        _lastNameCtrl.text = profileValue.name.split(' ').skip(1).join(' ');
+        _lastNameCtrl.text =
+            profileValue.name.split(' ').skip(1).join(' ');
         final user = Supabase.instance.client.auth.currentUser;
         _emailCtrl.text = user?.email ?? '';
       }
@@ -84,7 +82,7 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
   }
 
   void _initiatePayment() {
-    if (_paymentMethod == PaymentMethodType.mobileMoney) {
+    if (_method == _PayMethod.mobileMoney) {
       _initiateMomoPayment();
     } else {
       _initiateCardPayment();
@@ -92,7 +90,8 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
   }
 
   void _initiateMomoPayment() {
-    final phoneError = MomoPhoneInputWidget.validateZambianPhone(_phoneCtrl.text);
+    final phoneError =
+        MomoPhoneInputWidget.validateZambianPhone(_phoneCtrl.text);
     if (phoneError != null) {
       setState(() => _errorMessage = phoneError);
       return;
@@ -108,11 +107,10 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
 
   Future<void> _initiateCardPayment() async {
     if (_firstNameCtrl.text.isEmpty || _lastNameCtrl.text.isEmpty) {
-      setState(() => _errorMessage = "First and last name are required");
+      setState(() => _errorMessage = 'First and last name are required');
       return;
     }
     setState(() => _errorMessage = null);
-
     ref.read(lipilaPaymentProvider.notifier).initiateCardPayment(
           amount: _totalCharged,
           description: widget.description,
@@ -126,41 +124,42 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final tenant = ref.watch(currentTenantProvider);
     final paymentAsync = ref.watch(lipilaPaymentProvider);
     final paymentState = paymentAsync.value ?? const LipilaPaymentState();
     final displayRecipient =
-        widget.recipientName ?? tenant?.name ?? "Church On App";
-    final displayAccount = widget.recipientAccount ??
-        tenant?.treasurerPhone ??
-        "Merchant ID: 68907";
+        widget.recipientName ?? tenant?.name ?? 'Church On App';
+    final displayAccount =
+        widget.recipientAccount ?? tenant?.treasurerPhone ?? 'Merchant ID: 68907';
+    final isProcessing = paymentState.status == PaymentStatus.initiating ||
+        paymentState.status == PaymentStatus.awaitingPin ||
+        paymentState.status == PaymentStatus.cardRedirect;
 
-    ref.listen<AsyncValue<LipilaPaymentState>>(lipilaPaymentProvider, (prev, next) {
+    ref.listen<AsyncValue<LipilaPaymentState>>(lipilaPaymentProvider,
+        (prev, next) {
       final data = next.value;
       if (data == null) return;
       if (data.status == PaymentStatus.succeeded) {
         widget.onComplete(true, data.referenceId);
       } else if (data.status == PaymentStatus.cancelled) {
         widget.onComplete(false, null);
-      } else if (data.status == PaymentStatus.cardRedirect && data.cardUrl != null) {
+      } else if (data.status == PaymentStatus.cardRedirect &&
+          data.cardUrl != null) {
         _launchCardUrl(data.cardUrl!);
       }
     });
-
-    final isProcessing = paymentState.status == PaymentStatus.initiating ||
-        paymentState.status == PaymentStatus.awaitingPin ||
-        paymentState.status == PaymentStatus.cardRedirect;
 
     return PopScope(
       canPop: !isProcessing,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        _showCancelConfirmationDialog();
+        _showCancelConfirmationDialog(theme);
       },
       child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
         ),
         padding: EdgeInsets.only(
           left: 25,
@@ -176,17 +175,14 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "Secure Settlement",
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  'Secure Settlement',
+                  style: theme.textTheme.titleLarge,
                 ),
                 IconButton(
                   icon: const Icon(LucideIcons.x),
                   onPressed: () {
                     if (isProcessing) {
-                      _showCancelConfirmationDialog();
+                      _showCancelConfirmationDialog(theme);
                     } else {
                       ref.read(lipilaPaymentProvider.notifier).reset();
                       Navigator.pop(context);
@@ -196,265 +192,199 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
               ],
             ),
             const SizedBox(height: 20),
-
-          if (paymentState.status == PaymentStatus.succeeded)
-            PaymentStatusOverlay(
-              status: paymentState.status,
-              statusMessage: paymentState.statusMessage,
-              amount: widget.amount,
-              referenceId: paymentState.referenceId,
-              recipientName: displayRecipient,
-              onContinue: () {
-                ref.read(lipilaPaymentProvider.notifier).reset();
-                widget.onComplete(true, paymentState.referenceId);
-              },
-            )
-          else if (paymentState.status == PaymentStatus.failed)
-            PaymentStatusOverlay(
-              status: paymentState.status,
-              statusMessage: paymentState.statusMessage,
-              errorMessage: paymentState.errorMessage,
-              amount: widget.amount,
-              onRetry: () {
-                ref.read(lipilaPaymentProvider.notifier).reset();
-                _initiatePayment();
-              },
-            )
-          else if (paymentState.status == PaymentStatus.cancelled)
-            PaymentStatusOverlay(
-              status: paymentState.status,
-              statusMessage: paymentState.statusMessage,
-              amount: widget.amount,
-              onRetry: () {
-                ref.read(lipilaPaymentProvider.notifier).reset();
-              },
-            )
-          else if (paymentState.status == PaymentStatus.initiating ||
-              paymentState.status == PaymentStatus.awaitingPin)
-            PaymentStatusOverlay(
-              status: paymentState.status,
-              statusMessage: paymentState.statusMessage,
-              amount: widget.amount,
-              onCancel: () =>
-                  ref.read(lipilaPaymentProvider.notifier).cancel(),
-            )
-          else ...[
-            _buildRecipientCard(displayRecipient, displayAccount),
-            const SizedBox(height: 20),
-
-            // Payment Method Selector
-            _buildPaymentMethodSelector(),
-            const SizedBox(height: 20),
-
-            // MoMo fields
-            if (_paymentMethod == PaymentMethodType.mobileMoney) ...[
-              MomoPhoneInputWidget(
-                controller: _phoneCtrl,
-                selectedNetwork: _selectedNetwork,
-                onNetworkChanged: (network) =>
-                    setState(() => _selectedNetwork = network),
-                error: _errorMessage,
-              ),
-            ],
-
-            // Card fields
-            if (_paymentMethod == PaymentMethodType.card) ...[
-              _buildCardFields(),
-            ],
-
-            const SizedBox(height: 25),
-            ElevatedButton(
-              onPressed: _initiatePayment,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0F172A),
-                minimumSize: const Size(double.infinity, 65),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+            if (paymentState.status == PaymentStatus.succeeded)
+              PaymentStatusOverlay(
+                status: paymentState.status,
+                statusMessage: paymentState.statusMessage,
+                amount: widget.amount,
+                referenceId: paymentState.referenceId,
+                recipientName: displayRecipient,
+                onContinue: () {
+                  ref.read(lipilaPaymentProvider.notifier).reset();
+                  widget.onComplete(true, paymentState.referenceId);
+                },
+              )
+            else if (paymentState.status == PaymentStatus.failed)
+              PaymentStatusOverlay(
+                status: paymentState.status,
+                statusMessage: paymentState.statusMessage,
+                errorMessage: paymentState.errorMessage,
+                amount: widget.amount,
+                onRetry: () {
+                  ref.read(lipilaPaymentProvider.notifier).reset();
+                  _initiatePayment();
+                },
+              )
+            else if (paymentState.status == PaymentStatus.cancelled)
+              PaymentStatusOverlay(
+                status: paymentState.status,
+                statusMessage: paymentState.statusMessage,
+                amount: widget.amount,
+                onRetry: () {
+                  ref.read(lipilaPaymentProvider.notifier).reset();
+                },
+              )
+            else if (isProcessing)
+              PaymentStatusOverlay(
+                status: paymentState.status,
+                statusMessage: paymentState.statusMessage,
+                amount: widget.amount,
+                onCancel: () =>
+                    ref.read(lipilaPaymentProvider.notifier).cancel(),
+              )
+            else ...[
+              _buildRecipientCard(theme, displayRecipient, displayAccount),
+              const SizedBox(height: 20),
+              _buildMethodToggle(theme),
+              const SizedBox(height: 20),
+              if (_method == _PayMethod.mobileMoney)
+                MomoPhoneInputWidget(
+                  controller: _phoneCtrl,
+                  selectedNetwork: _selectedNetwork,
+                  onNetworkChanged: (n) => setState(() => _selectedNetwork = n),
+                  error: _errorMessage,
+                ),
+              if (_method == _PayMethod.card) _buildCardFields(theme),
+              const SizedBox(height: 20),
+              _buildFeePreview(theme),
+              const SizedBox(height: 25),
+              FilledButton(
+                onPressed: isProcessing ? null : _initiatePayment,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 56),
+                ),
+                child: Text(
+                  _isCard ? 'Pay with Card' : 'Proceed to PIN Prompt',
                 ),
               ),
+            ],
+            const SizedBox(height: 20),
+            Center(
               child: Text(
-                _paymentMethod == PaymentMethodType.mobileMoney
-                    ? "PROCEED TO PIN PROMPT"
-                    : "PAY WITH CARD",
-                style: const TextStyle(
-                  color: Colors.white,
+                'Regulated by Bank of Zambia via Lipila',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  fontSize: 16,
                 ),
               ),
             ),
           ],
-
-          const SizedBox(height: 20),
-          const Center(
-            child: Text(
-              "Regulated by Bank of Zambia via Lipila",
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
-    ),
-  );
-  }
-
-  Widget _buildPaymentMethodSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Payment Method",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _paymentMethod = PaymentMethodType.mobileMoney),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: _paymentMethod == PaymentMethodType.mobileMoney
-                        ? const Color(0xFF0F172A).withValues(alpha: 0.05)
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(
-                      color: _paymentMethod == PaymentMethodType.mobileMoney
-                          ? const Color(0xFF0F172A)
-                          : const Color(0xFFF1F5F9),
-                      width: _paymentMethod == PaymentMethodType.mobileMoney ? 2 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        LucideIcons.smartphone,
-                        color: _paymentMethod == PaymentMethodType.mobileMoney
-                            ? const Color(0xFF0F172A)
-                            : Colors.grey,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "Mobile Money",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: _paymentMethod == PaymentMethodType.mobileMoney
-                              ? const Color(0xFF0F172A)
-                              : Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _paymentMethod = PaymentMethodType.card),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: _paymentMethod == PaymentMethodType.card
-                        ? const Color(0xFF0F172A).withValues(alpha: 0.05)
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(
-                      color: _paymentMethod == PaymentMethodType.card
-                          ? const Color(0xFF0F172A)
-                          : const Color(0xFFF1F5F9),
-                      width: _paymentMethod == PaymentMethodType.card ? 2 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        LucideIcons.creditCard,
-                        color: _paymentMethod == PaymentMethodType.card
-                            ? const Color(0xFF0F172A)
-                            : Colors.grey,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "Card",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: _paymentMethod == PaymentMethodType.card
-                              ? const Color(0xFF0F172A)
-                              : Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 
-  Widget _buildCardFields() {
+  Widget _buildMethodToggle(ThemeData theme) {
+    return SegmentedButton<_PayMethod>(
+      segments: const [
+        ButtonSegment(
+          value: _PayMethod.mobileMoney,
+          icon: Icon(LucideIcons.smartphone, size: 18),
+          label: Text('Mobile Money'),
+        ),
+        ButtonSegment(
+          value: _PayMethod.card,
+          icon: Icon(LucideIcons.creditCard, size: 18),
+          label: Text('Card'),
+        ),
+      ],
+      selected: {_method},
+      onSelectionChanged: (s) => setState(() => _method = s.first),
+    );
+  }
+
+  Widget _buildFeePreview(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.1),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Amount',
+                  style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+              Text(formatKwacha(widget.amount),
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+            ],
+          ),
+          if (widget.category == 'giving' ||
+              widget.category == 'donation' ||
+              widget.category == 'tithe' ||
+              widget.category == 'offering' ||
+              widget.category == 'event' ||
+              widget.category == 'top_up') ...[
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                    _fees.platformFeeLabel(
+                        isCard: _method == _PayMethod.card),
+                    style: TextStyle(
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                        fontSize: 12)),
+                Text('+${formatKwacha(_platformFee)}',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.5))),
+              ],
+            ),
+          ],
+          const Divider(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Total',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
+              Text(formatKwacha(_totalCharged),
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: theme.colorScheme.primary)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardFields(ThemeData theme) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextField(
           controller: _firstNameCtrl,
           textCapitalization: TextCapitalization.words,
-          decoration: InputDecoration(
-            hintText: "First Name",
-            hintStyle: const TextStyle(color: Color(0xFFCBD5E1)),
-            filled: true,
-            fillColor: const Color(0xFFF8FAFC),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: BorderSide.none,
-            ),
-            prefixIcon: const Icon(LucideIcons.user, size: 20),
+          decoration: const InputDecoration(
+            labelText: 'First Name',
+            prefixIcon: Icon(LucideIcons.user, size: 20),
           ),
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _lastNameCtrl,
           textCapitalization: TextCapitalization.words,
-          decoration: InputDecoration(
-            hintText: "Last Name",
-            hintStyle: const TextStyle(color: Color(0xFFCBD5E1)),
-            filled: true,
-            fillColor: const Color(0xFFF8FAFC),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: BorderSide.none,
-            ),
-            prefixIcon: const Icon(LucideIcons.user, size: 20),
+          decoration: const InputDecoration(
+            labelText: 'Last Name',
+            prefixIcon: Icon(LucideIcons.user, size: 20),
           ),
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _emailCtrl,
           keyboardType: TextInputType.emailAddress,
-          decoration: InputDecoration(
-            hintText: "Email (optional)",
-            hintStyle: const TextStyle(color: Color(0xFFCBD5E1)),
-            filled: true,
-            fillColor: const Color(0xFFF8FAFC),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: BorderSide.none,
-            ),
-            prefixIcon: const Icon(LucideIcons.mail, size: 20),
+          decoration: const InputDecoration(
+            labelText: 'Email (optional)',
+            prefixIcon: Icon(LucideIcons.mail, size: 20),
           ),
         ),
         if (_errorMessage != null && _errorMessage!.isNotEmpty)
@@ -462,13 +392,14 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
             padding: const EdgeInsets.only(top: 10),
             child: Row(
               children: [
-                const Icon(LucideIcons.alertCircle, color: Colors.red, size: 14),
+                Icon(LucideIcons.alertCircle,
+                    color: theme.colorScheme.error, size: 14),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     _errorMessage!,
-                    style: const TextStyle(
-                      color: Colors.red,
+                    style: TextStyle(
+                      color: theme.colorScheme.error,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
@@ -481,58 +412,40 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
     );
   }
 
-  Widget _buildRecipientCard(String displayRecipient, String displayAccount) {
+  Widget _buildRecipientCard(
+      ThemeData theme, String displayRecipient, String displayAccount) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.blue.withValues(alpha: 0.1)),
+        border: Border.all(
+            color: theme.colorScheme.primary.withValues(alpha: 0.1)),
       ),
       child: Column(
         children: [
-          _buildInfoRow("Paying To:", displayRecipient, isTitle: true),
+          _buildInfoRow(theme, 'Paying To:', displayRecipient, isTitle: true),
           const SizedBox(height: 8),
-          _buildInfoRow("Settlement A/C:", displayAccount),
+          _buildInfoRow(theme, 'Settlement A/C:', displayAccount),
           const SizedBox(height: 8),
-          _buildInfoRow("Reference:", widget.paymentReason ?? widget.description),
-          const Divider(height: 30),
-          _buildInfoRow("Amount", "K${widget.amount.toStringAsFixed(2)}"),
-          if (widget.category == 'giving' || widget.category == 'donation' || widget.category == 'tithe' || widget.category == 'offering' || widget.category == 'event') ...[
-            const SizedBox(height: 4),
-            _buildInfoRow(_fees.platformFeeLabel(isCard: _isCard), "K${_platformFee.toStringAsFixed(2)}"),
-          ],
-          const Divider(height: 30),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "Total (Inc. Fees)",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                "K${_totalCharged.toStringAsFixed(2)}",
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.blue,
-                ),
-              ),
-            ],
-          ),
+          _buildInfoRow(theme, 'Reference:',
+              widget.paymentReason ?? widget.description),
         ],
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value, {bool isTitle = false}) {
+  Widget _buildInfoRow(ThemeData theme, String label, String value,
+      {bool isTitle = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(color: Colors.grey, fontSize: 12),
+          style: TextStyle(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              fontSize: 12),
         ),
         const SizedBox(width: 15),
         Expanded(
@@ -556,40 +469,40 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
     }
   }
 
-  void _showCancelConfirmationDialog() {
+  void _showCancelConfirmationDialog(ThemeData theme) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
             Icon(LucideIcons.alertTriangle, color: Colors.orange),
             SizedBox(width: 10),
-            Text("Transaction Active"),
+            Text('Transaction Active'),
           ],
         ),
         content: const Text(
-          "Your payment is currently active. "
-          "Leaving or closing now may disrupt settlement verification.\n\n"
-          "Are you sure you want to cancel this transaction?",
+          'Your payment is currently active. '
+          'Leaving or closing now may disrupt settlement verification.\n\n'
+          'Are you sure you want to cancel this transaction?',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("CONTINUE TRANSACTION"),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('CONTINUE TRANSACTION'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(ctx);
               ref.read(lipilaPaymentProvider.notifier).cancel();
               Navigator.pop(context);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.error,
             ),
-            child: const Text("ABORT TRANSACTION"),
+            child: const Text('ABORT TRANSACTION'),
           ),
         ],
       ),

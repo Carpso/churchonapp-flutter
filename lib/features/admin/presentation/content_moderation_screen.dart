@@ -158,7 +158,7 @@ class _ContentModerationScreenState extends ConsumerState<ContentModerationScree
               Icon(type == 'prayer' ? LucideIcons.hand : LucideIcons.messageSquare, size: 16, color: Colors.amber.shade600),
               const SizedBox(width: 8),
               Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-              Text(date, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+              Text(date, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
             ]),
             if (content.isNotEmpty) Padding(
               padding: const EdgeInsets.only(top: 8),

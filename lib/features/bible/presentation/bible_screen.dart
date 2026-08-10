@@ -1,15 +1,20 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/bible_service.dart';
 import '../data/bible_books_service.dart';
 import '../data/bible_book_model.dart';
 import '../data/bible_translations.dart';
 import '../data/biblical_atlas_data.dart';
 import '../data/audio_bible_service.dart';
+import '../data/bible_verse_service.dart';
 import '../data/streak_service.dart';
 import '../../notebook/presentation/notebook_screen.dart';
-import 'bible_podcast_screen.dart';
+import 'bible_audio_player.dart';
 import 'study_plans_screen.dart';
 import '../../bible_study/presentation/bible_study_list_screen.dart';
 import 'scripture_memory_screen.dart';
@@ -87,6 +92,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
   bool isDarkTheme = false;
   int _activeBottomTab = 0;
   int _bookSelectorTab = 0;
+  bool _showAudioPlayer = false;
   final Set<String> _highlightedVerses = {};
 
   int get _maxChapter {
@@ -136,6 +142,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           IconButton(icon: const Icon(LucideIcons.map), onPressed: _showBiblicalAtlas, tooltip: "Biblical Atlas"),
           IconButton(icon: const Icon(LucideIcons.type), onPressed: _showAppearanceSettings),
           IconButton(icon: const Icon(LucideIcons.search), onPressed: _showSearchDialog),
+          IconButton(icon: const Icon(LucideIcons.mic, color: Colors.amber), onPressed: _voiceSearch, tooltip: 'Voice Search'),
         ],
       ),
       body: Row(
@@ -167,9 +174,12 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                 Text("$selectedBook $selectedChapter", style: const TextStyle(color: Colors.grey)),
                 const SizedBox(height: 15),
                 ElevatedButton(
-                  onPressed: () => setState(() {}),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
-                  child: const Text("RETRY", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                  onPressed: () => ref.invalidate(bibleChapterProvider({
+                    'translation': selectedTranslation,
+                    'book': selectedBook,
+                    'chapter': selectedChapter,
+                  })),
+                  child: const Text("RETRY"),
                 ),
               ],
             ),
@@ -203,6 +213,15 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                 ],
               ),
             ),
+            // Audio player — toggled from Audio tab
+            if (_showAudioPlayer)
+              BibleAudioPlayer(
+                bookName: selectedBook,
+                bookAbbrev: kjvBookAbbrevs[selectedBook] ?? selectedBook.toLowerCase(),
+                chapter: selectedChapter,
+                totalChapters: _maxChapter,
+                onChapterChange: (ch) => setState(() => selectedChapter = ch),
+              ),
             Expanded(
               child: ListView.builder(
                 controller: _verseScrollController,
@@ -285,6 +304,28 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
   }
 
   void _showVerseActions(BibleVerse verse) {
+    final reference = "$selectedBook ${verse.chapter}:${verse.verse}";
+    final fullText = "${verse.text}\n— $reference";
+
+    void saveNote(String label, {bool isBookmark = false, bool isFavorite = false, String? noteText}) async {
+      final messenger = ScaffoldMessenger.of(context);
+      final bookOrder = _bookOrderFor(selectedBook);
+      if (bookOrder == null) {
+        messenger.showSnackBar(SnackBar(content: Text("$label saved locally"), backgroundColor: Colors.orange, duration: const Duration(seconds: 1)));
+        return;
+      }
+      final service = ref.read(bibleVerseServiceProvider);
+      await service.addVerseNote(
+        bookId: bookOrder,
+        chapter: verse.chapter,
+        verse: verse.verse,
+        note: noteText ?? '',
+        isBookmark: isBookmark,
+        isFavorite: isFavorite,
+      );
+      messenger.showSnackBar(SnackBar(content: Text("$label saved"), backgroundColor: Colors.green, duration: const Duration(seconds: 1)));
+    }
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
@@ -294,7 +335,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("$selectedBook ${verse.chapter}:${verse.verse}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(reference, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 5),
             Text(verse.text, style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
             const SizedBox(height: 20),
@@ -302,11 +343,23 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               spacing: 10,
               runSpacing: 10,
               children: [
-                _actionChip(LucideIcons.highlighter, "Highlight", Colors.amber),
-                _actionChip(LucideIcons.copy, "Copy", Colors.blue),
-                _actionChip(LucideIcons.share2, "Share", Colors.green),
-                _actionChip(LucideIcons.bookmark, "Bookmark", Colors.purple),
-                _actionChip(LucideIcons.pencil, "Note", Colors.orange),
+                _actionChip(LucideIcons.highlighter, "Highlight", Colors.amber, onTap: () {
+                  saveNote("Highlight", isBookmark: true);
+                }),
+                _actionChip(LucideIcons.copy, "Copy", Colors.blue, onTap: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  await Clipboard.setData(ClipboardData(text: fullText));
+                  messenger.showSnackBar(const SnackBar(content: Text("Verse copied")));
+                }),
+                _actionChip(LucideIcons.share2, "Share", Colors.green, onTap: () {
+                  SharePlus.instance.share(ShareParams(text: fullText));
+                }),
+                _actionChip(LucideIcons.bookmark, "Bookmark", Colors.purple, onTap: () {
+                  saveNote("Bookmark", isBookmark: true);
+                }),
+                _actionChip(LucideIcons.pencil, "Note", Colors.orange, onTap: () {
+                  _showNoteDialog(reference, verse.text, saveNote);
+                }),
               ],
             ),
             const SizedBox(height: 20),
@@ -316,11 +369,48 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
     );
   }
 
-  Widget _actionChip(IconData icon, String label, Color color) {
+  int? _bookOrderFor(String bookName) {
+    try {
+      return _allBooks.firstWhere((b) => b.name == bookName).bookOrder;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _showNoteDialog(String reference, String verseText, void Function(String label, {bool isBookmark, bool isFavorite, String? noteText}) saveNote) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("Add Note — $reference"),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 3,
+          decoration: const InputDecoration(hintText: "Your note..."),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isEmpty) return;
+              Navigator.pop(context);
+              Navigator.pop(context);
+              saveNote("Note", noteText: text);
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionChip(IconData icon, String label, Color color, {required VoidCallback onTap}) {
     return GestureDetector(
       onTap: () {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$label applied!"), backgroundColor: color, duration: const Duration(seconds: 1)));
+        Future.microtask(onTap);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -381,7 +471,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.amber)),
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.amber)),
         const SizedBox(height: 10),
         ...items.map((i) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
@@ -420,8 +510,9 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Share $selectedBook $selectedChapter"), backgroundColor: Colors.green, duration: const Duration(seconds: 1)),
                   );
-                case 3: // Audio
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const BiblePodcastScreen()));
+                case 3: // Audio — inline chapter player
+                  setState(() => _showAudioPlayer = !_showAudioPlayer);
+                  break;
                 case 4: // Study
                   setState(() => isStudyPaneOpen = !isStudyPaneOpen);
               }
@@ -491,7 +582,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                     ),
                     title: Text(loc.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text(loc.era, style: const TextStyle(fontSize: 12)),
-                    trailing: Text('${loc.latitude.toStringAsFixed(2)}, ${loc.longitude.toStringAsFixed(2)}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                    trailing: Text('${loc.latitude.toStringAsFixed(2)}, ${loc.longitude.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                   );
                 },
               ),
@@ -582,7 +673,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                         child: Text(
                           book,
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 11,
                             color: isSelected
                               ? Colors.black
                               : (isDarkTheme ? Colors.white : const Color(0xFF1A1A2E)),
@@ -673,27 +764,17 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
   void _showSearchDialog() {
     showDialog(
       context: context,
-      builder: (_) {
-        final controller = TextEditingController();
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-          title: const Text("Search Scripture"),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(hintText: "Enter a book name...", icon: Icon(LucideIcons.search)),
-            onSubmitted: (value) {
-              Navigator.pop(context);
-              final match = _allBooks.where((b) => b.name.toLowerCase().contains(value.toLowerCase())).firstOrNull;
-              if (match != null) {
-                setState(() { selectedBook = match.name; selectedChapter = 1; });
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Book not found"), backgroundColor: Colors.red));
-              }
-            },
-          ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL"))],
-        );
-      },
+      builder: (_) => _ScriptureSearchDialog(
+        onSubmitted: (value) {
+          final match = _allBooks.where((b) => b.name.toLowerCase().contains(value.toLowerCase())).firstOrNull;
+          if (match != null) {
+            setState(() { selectedBook = match.name; selectedChapter = 1; });
+          } else {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Book not found"), backgroundColor: Colors.red));
+          }
+        },
+      ),
     );
   }
 
@@ -805,5 +886,79 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
     );
   }
 
+  Future<void> _voiceSearch() async {
+    final query = await showDialog<String>(context: context, builder: (ctx) {
+      final ctrl = TextEditingController();
+      return AlertDialog(
+        title: const Text('Bible Voice Search'),
+        content: TextField(controller: ctrl, autofocus: true, decoration: const InputDecoration(hintText: 'e.g. play the story of Joseph, Genesis 1')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Search')),
+        ],
+      );
+    });
+    if (query == null || query.isEmpty) return;
+    try {
+      final res = await Supabase.instance.client.functions.invoke('kael-ai', body: {'action': 'voice_search', 'prompt': query});
+      final text = (res.data as Map?)?['response']?.toString() ?? '';
+      final json = _tryParseJson(text);
+      if (json == null) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not understand.'))); return; }
+      final book = json['book'] as String?;
+      final chapter = json['chapter'] as int?;
+      if (book != null && chapter != null && mounted) {
+        setState(() { selectedBook = book; selectedChapter = chapter; });
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(json['suggestion'] ?? 'No matching passage.')));
+      }
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Search failed. Try again.')));
+    }
+  }
+
+  Map<String, dynamic>? _tryParseJson(String text) {
+    try {
+      final start = text.indexOf('{');
+      final end = text.lastIndexOf('}');
+      if (start >= 0 && end > start) return Map<String, dynamic>.from(jsonDecode(text.substring(start, end + 1)));
+      return jsonDecode(text);
+    } catch (_) { return null; }
+  }
+
+}
+
+class _ScriptureSearchDialog extends StatefulWidget {
+  final ValueChanged<String> onSubmitted;
+  const _ScriptureSearchDialog({required this.onSubmitted});
+
+  @override
+  State<_ScriptureSearchDialog> createState() => _ScriptureSearchDialogState();
+}
+
+class _ScriptureSearchDialogState extends State<_ScriptureSearchDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+      title: const Text("Search Scripture"),
+      content: TextField(
+        controller: _controller,
+        decoration: const InputDecoration(hintText: "Enter a book name...", icon: Icon(LucideIcons.search)),
+        onSubmitted: (value) {
+          Navigator.pop(context);
+          widget.onSubmitted(value);
+        },
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL"))],
+    );
+  }
 }
 

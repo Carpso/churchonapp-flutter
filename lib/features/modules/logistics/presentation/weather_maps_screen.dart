@@ -340,7 +340,7 @@ class WeatherMapsScreen extends ConsumerWidget {
                     children: [
                       Text(
                         h.time,
-                        style: const TextStyle(color: Colors.white70, fontSize: 10),
+                        style: const TextStyle(color: Colors.white70, fontSize: 11),
                       ),
                       Text(
                         WeatherService.weatherEmoji(h.weatherCode),
@@ -592,7 +592,7 @@ class WeatherMapsScreen extends ConsumerWidget {
           children: [
             Icon(icon, color: color, size: 14),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+            Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -691,8 +691,8 @@ class WeatherMapsScreen extends ConsumerWidget {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(a.road, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                Text(a.status, style: const TextStyle(color: Colors.white70, fontSize: 8)),
+                                Text(a.road, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                Text(a.status, style: const TextStyle(color: Colors.white70, fontSize: 11)),
                               ],
                             ),
                           ),
@@ -754,7 +754,7 @@ class WeatherMapsScreen extends ConsumerWidget {
             decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
             child: Text(
               zone.status,
-              style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w900),
+              style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w900),
             ),
           ),
         ],
@@ -836,7 +836,7 @@ class _WeatherStat extends StatelessWidget {
       Icon(icon, color: Colors.white70, size: 20),
       const SizedBox(height: 5),
       Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-      Text(subLabel, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+      Text(subLabel, style: const TextStyle(color: Colors.white54, fontSize: 11)),
     ]);
   }
 }

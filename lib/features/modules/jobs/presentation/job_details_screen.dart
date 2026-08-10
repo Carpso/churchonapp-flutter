@@ -147,7 +147,7 @@ class JobDetailsScreen extends ConsumerWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: onTap != null ? Theme.of(context).primaryColor : null, decoration: onTap != null ? TextDecoration.underline : null)),
               ],
             ),

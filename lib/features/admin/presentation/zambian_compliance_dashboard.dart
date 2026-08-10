@@ -76,7 +76,7 @@ final complianceObligationsProvider = FutureProvider.family<List<ComplianceOblig
 
     final profilesRes = await client.from('profiles').select('id').eq('is_work_mode', true);
     employeeCount = profilesRes.length;
-  } catch (_) {}
+  } catch (e) { debugPrint('Compliance dashboard error: $e'); }
 
   final obligations = <ComplianceObligation>[];
 
@@ -519,7 +519,7 @@ class _ZambianComplianceDashboardState extends ConsumerState<ZambianComplianceDa
                       ),
                       child: Text(
                         '${summary.applicableCount}/${summary.totalObligations}',
-                        style: TextStyle(color: selected ? Colors.black : Colors.white54, fontSize: 9, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: selected ? Colors.black : Colors.white54, fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -625,7 +625,7 @@ class _ZambianComplianceDashboardState extends ConsumerState<ZambianComplianceDa
                   children: [
                     Icon(statusIcon, color: statusColor, size: 12),
                     const SizedBox(width: 4),
-                    Text(statusLabel, style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.bold)),
+                    Text(statusLabel, style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -646,7 +646,7 @@ class _ZambianComplianceDashboardState extends ConsumerState<ZambianComplianceDa
                   const Icon(LucideIcons.info, color: Colors.blueAccent, size: 12),
                   const SizedBox(width: 6),
                   Expanded(
-                    child: Text(obligation.exemptionNote, style: const TextStyle(color: Colors.blueAccent, fontSize: 10)),
+                    child: Text(obligation.exemptionNote, style: const TextStyle(color: Colors.blueAccent, fontSize: 11)),
                   ),
                 ],
               ),

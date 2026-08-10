@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/payment_reliability_service.dart';
 import 'package:church_on_app/features/give/presentation/widgets/payment_status_overlay.dart';
 import 'package:church_on_app/features/give/presentation/widgets/momo_phone_input_widget.dart';
@@ -59,11 +60,26 @@ class LipilaPaymentState {
 
 class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
   Timer? _pollTimer;
+  bool _isPollingInFlight = false;
 
   @override
   Future<LipilaPaymentState> build() async {
     ref.onDispose(_cancelPolling);
     return const LipilaPaymentState();
+  }
+
+  Map<String, dynamic> _buildMetadata({String? referenceId}) {
+    final profile = ref.read(profileProvider).value;
+    final user = Supabase.instance.client.auth.currentUser;
+    final organizationId = profile?.organizationId;
+    final tenantId = profile?.tenantId;
+    return {
+      if (user != null) 'user_id': user.id,
+      if (organizationId != null && organizationId.isNotEmpty) 'organization_id': organizationId,
+      if (tenantId != null && tenantId.isNotEmpty) 'tenant_id': tenantId,
+      if (tenantId != null && tenantId.isNotEmpty) 'branch_id': tenantId,
+      if (referenceId != null) 'reference_id': referenceId,
+    };
   }
 
   void _cancelPolling() {
@@ -81,6 +97,7 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
     state = const AsyncData(LipilaPaymentState(
       status: PaymentStatus.cancelled,
       statusMessage: "Payment cancelled. Tap retry to try again.",
+      isCancelled: true,
     ));
   }
 
@@ -124,13 +141,16 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
       final formattedPhone = MomoPhoneInputWidget.formatPhone(phone);
       final String referenceId = const Uuid().v4();
 
-      final response = await client.functions.invoke('lipila-collect', body: {
-        "action": "initiate",
-        "accountNumber": formattedPhone,
-        "amount": amount,
-        "narration": narration ?? description,
-        "reference": referenceId,
-      });
+      final response = await client.functions
+          .invoke('lipila-collect', body: {
+            "action": "initiate",
+            "accountNumber": formattedPhone,
+            "amount": amount,
+            "narration": narration ?? description,
+            "reference": referenceId,
+            "metadata": _buildMetadata(referenceId: referenceId),
+          })
+          .timeout(const Duration(seconds: 30));
 
       if (response.data == null) {
         throw Exception(response.status != 200
@@ -194,15 +214,18 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
     try {
       final String referenceId = const Uuid().v4();
 
-      final response = await client.functions.invoke('lipila-card-collect', body: {
-        "amount": amount,
-        "narration": narration ?? description,
-        "reference": referenceId,
-        "firstName": firstName,
-        "lastName": lastName,
-        "email": email ?? "",
-        "phone": phone ?? "",
-      });
+      final response = await client.functions
+          .invoke('lipila-card-collect', body: {
+            "amount": amount,
+            "narration": narration ?? description,
+            "reference": referenceId,
+            "firstName": firstName,
+            "lastName": lastName,
+            "email": email ?? "",
+            "phone": phone ?? "",
+            "metadata": _buildMetadata(referenceId: referenceId),
+          })
+          .timeout(const Duration(seconds: 30));
 
       if (response.data == null) {
         throw Exception(response.status != 200
@@ -281,10 +304,16 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
     }
 
     _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      // Skip this tick if the previous iteration is still awaiting a response,
+      // so overlapping polls can never race on shared state.
+      if (_isPollingInFlight) return;
+      _isPollingInFlight = true;
+
       attempts++;
 
       if (state.value?.isCancelled == true) {
         timer.cancel();
+        _isPollingInFlight = false;
         return;
       }
 
@@ -315,6 +344,7 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
                 referenceId: referenceId,
               ),
             );
+            _isPollingInFlight = false;
             return;
           } else if (dbStatus == 'rejected' || dbStatus == 'failed' || dbStatus == 'cancelled') {
             timer.cancel();
@@ -325,6 +355,7 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
                 statusMessage: "Payment $dbStatus.",
               ),
             );
+            _isPollingInFlight = false;
             return;
           }
         }
@@ -333,10 +364,12 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
       }
 
       try {
-        final statusResponse = await client.functions.invoke('lipila-collect', body: {
-          "action": "status",
-          "reference": referenceId,
-        });
+        final statusResponse = await client.functions
+            .invoke('lipila-collect', body: {
+              "action": "status",
+              "reference": referenceId,
+            })
+            .timeout(const Duration(seconds: 15));
 
         if (statusResponse.data != null) {
           final statusData = statusResponse.data is Map
@@ -376,6 +409,7 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
                 referenceId: referenceId,
               ),
             );
+            _isPollingInFlight = false;
             return;
           } else if (status == 'failed' ||
               status == 'cancelled' ||
@@ -391,6 +425,7 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
                 statusMessage: "Transaction $status. Tap retry to try again.",
               ),
             );
+            _isPollingInFlight = false;
             return;
           }
         }
@@ -416,6 +451,7 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
                 referenceId: referenceId,
               ),
             );
+            _isPollingInFlight = false;
             return;
           } else if (dbStatus == 'rejected' || dbStatus == 'failed' || dbStatus == 'cancelled') {
             timer.cancel();
@@ -426,6 +462,7 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
                 statusMessage: "Payment $dbStatus.",
               ),
             );
+            _isPollingInFlight = false;
             return;
           }
         }
@@ -451,6 +488,8 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
           ),
         );
       }
+
+      _isPollingInFlight = false;
     });
   }
 }

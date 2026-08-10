@@ -173,7 +173,7 @@ Venue: ${_venueController.text}
                                   ),
                                   child: Text(
                                     _selectedCategory.toUpperCase(),
-                                    style: TextStyle(color: accentColor, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1.1),
+                                    style: TextStyle(color: accentColor, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1.1),
                                   ),
                                 ),
                                 Image.asset(
@@ -202,7 +202,7 @@ Venue: ${_venueController.text}
                                 const SizedBox(height: 8),
                                 Text(
                                   "FEATURING:",
-                                  style: TextStyle(fontSize: 9, color: accentColor, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                                  style: TextStyle(fontSize: 11, color: accentColor, fontWeight: FontWeight.bold, letterSpacing: 1.0),
                                 ),
                                 Text(
                                   _speakerController.text,

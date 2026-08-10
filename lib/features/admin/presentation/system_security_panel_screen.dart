@@ -224,7 +224,7 @@ class _SystemSecurityPanelScreenState extends ConsumerState<SystemSecurityPanelS
               Icon(LucideIcons.circle, size: 8, color: Colors.teal.shade400),
               const SizedBox(width: 10),
               Expanded(child: Text(a['action'] as String? ?? '', style: const TextStyle(fontSize: 12))),
-              Text(_formatDate(a['created_at']?.toString() ?? ''), style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+              Text(_formatDate(a['created_at']?.toString() ?? ''), style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
             ]),
           )),
         ],
@@ -249,10 +249,10 @@ class _SystemSecurityPanelScreenState extends ConsumerState<SystemSecurityPanelS
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(action, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-              Text(entity, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+              Text(entity, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
             ],
           )),
-          Text(date, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+          Text(date, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
         ]),
       );
     }).toList();
@@ -282,10 +282,10 @@ class _SystemSecurityPanelScreenState extends ConsumerState<SystemSecurityPanelS
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(type, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-              Text(severity, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+              Text(severity, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
             ],
           )),
-          Text(eventDate, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+          Text(eventDate, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -293,7 +293,7 @@ class _SystemSecurityPanelScreenState extends ConsumerState<SystemSecurityPanelS
               color: severity == 'critical' ? Colors.red.withValues(alpha: 0.1) : severity == 'warning' ? Colors.amber.withValues(alpha: 0.1) : Colors.blue.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Text(severity, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: severity == 'critical' ? Colors.red : severity == 'warning' ? Colors.amber.shade800 : Colors.blue)),
+            child: Text(severity, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: severity == 'critical' ? Colors.red : severity == 'warning' ? Colors.amber.shade800 : Colors.blue)),
           ),
         ]),
       );

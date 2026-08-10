@@ -129,7 +129,7 @@ class _KingdomGameArenaScreenState extends ConsumerState<KingdomGameArenaScreen>
   Widget _buildDifficultySelector() {
     return Column(
       children: [
-        const Text("SELECT DIFFICULTY", style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+        const Text("SELECT DIFFICULTY", style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
         const SizedBox(height: 15),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,

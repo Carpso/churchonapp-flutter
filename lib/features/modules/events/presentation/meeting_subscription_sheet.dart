@@ -135,7 +135,7 @@ class _MeetingSubscriptionSheetState extends ConsumerState<MeetingSubscriptionSh
                 color: selected ? Colors.amber : Colors.white12,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(badge, style: TextStyle(color: selected ? Colors.black : Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+              child: Text(badge, style: TextStyle(color: selected ? Colors.black : Colors.white54, fontSize: 11, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 12),
             Text(price, style: TextStyle(color: selected ? Colors.amber : Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),

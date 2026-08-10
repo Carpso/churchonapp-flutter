@@ -44,7 +44,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           PageView.builder(
@@ -102,7 +102,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             right: 20,
             child: TextButton(
               onPressed: _onFinish,
-              child: const Text("SKIP", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+              child: Text(
+                "SKIP",
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
         ],

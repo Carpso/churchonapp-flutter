@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:intl/intl.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/core/widgets/app_error_view.dart';
 import 'package:church_on_app/features/admin/presentation/bishop_heatmap_screen.dart';
 import 'package:church_on_app/features/admin/presentation/finance_dashboard_screen.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
@@ -21,11 +23,13 @@ class BishopHubScreen extends ConsumerWidget {
         return _buildScreen(context, ref, profile);
       },
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, st) => Scaffold(body: Center(child: Text('Error: $e'))),
+      error: (e, st) => Scaffold(body: AppErrorView(error: e.toString(), onRetry: () => ref.invalidate(profileProvider))),
     );
   }
 
   Widget _buildScreen(BuildContext context, WidgetRef ref, UserProfile profile) {
+    final statsAsync = ref.watch(bishopCommandHubStatsProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -35,46 +39,79 @@ class BishopHubScreen extends ConsumerWidget {
         elevation: 0,
         centerTitle: true,
       ),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _buildExecutiveProfile(profile)),
-          SliverPadding(
-            padding: const EdgeInsets.all(20),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 15,
-                mainAxisSpacing: 15,
-                childAspectRatio: 1.5,
-              ),
-              delegate: SliverChildListDelegate([
-                _buildActionCard(context, LucideIcons.church, "Ministries & Branches", Colors.blue),
-                _buildActionCard(context, LucideIcons.map, "Map", Colors.green, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BishopHeatmapScreen()))),
-                _buildActionCard(context, LucideIcons.fileText, "Pastor Reports", Colors.purple),
-                _buildActionCard(context, LucideIcons.banknote, "Central Treasury", Colors.orange, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FinanceDashboardScreen()))),
-              ]),
-            ),
-          ),
-          const SliverPadding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            sliver: SliverToBoxAdapter(
-              child: Text("Secure Leadership Memos", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ),
-          ),
-          _buildPrivateMemoList(ref),
-          const SliverPadding(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            sliver: SliverToBoxAdapter(
-              child: Text("Managed Church Branches", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ),
-          ),
-          _buildActivityList(context, ref),
-        ],
+      body: statsAsync.when(
+        data: (stats) => _buildDashboard(context, ref, profile, stats),
+        loading: () => const _BishopHubShimmer(),
+        error: (e, st) => AppErrorView(
+          error: e,
+          onRetry: () => ref.invalidate(bishopCommandHubStatsProvider),
+        ),
       ),
     );
   }
 
-  Widget _buildExecutiveProfile(UserProfile profile) {
+  Widget _buildDashboard(
+    BuildContext context,
+    WidgetRef ref,
+    UserProfile profile,
+    BishopCommandHubStats stats,
+  ) {
+    final currency = NumberFormat.compactCurrency(symbol: 'K ');
+
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(child: _buildExecutiveProfile(context, ref, profile, stats, currency)),
+        SliverPadding(
+          padding: const EdgeInsets.all(20),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              childAspectRatio: 1.5,
+            ),
+            delegate: SliverChildListDelegate([
+              _buildActionCard(context, LucideIcons.church, "Ministries & Branches", Colors.blue),
+              _buildActionCard(context, LucideIcons.map, "Map", Colors.green, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BishopHeatmapScreen()))),
+              _buildActionCard(context, LucideIcons.fileText, "Pastor Reports", Colors.purple),
+              _buildActionCard(context, LucideIcons.banknote, "Central Treasury", Colors.orange, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FinanceDashboardScreen()))),
+            ]),
+          ),
+        ),
+        if (stats.presbyteries.isNotEmpty) ...[
+          const SliverPadding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            sliver: SliverToBoxAdapter(
+              child: Text("Network Aggregation", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+          ),
+          _buildPresbyteryList(ref, stats),
+        ],
+        const SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverToBoxAdapter(
+            child: Text("Secure Leadership Memos", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+        ),
+        _buildPrivateMemoList(ref),
+        const SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          sliver: SliverToBoxAdapter(
+            child: Text("Managed Church Branches", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+        ),
+        _buildActivityList(context, ref, profile),
+      ],
+    );
+  }
+
+  Widget _buildExecutiveProfile(
+    BuildContext context,
+    WidgetRef ref,
+    UserProfile profile,
+    BishopCommandHubStats stats,
+    NumberFormat currency,
+  ) {
     return Container(
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(25),
@@ -82,32 +119,115 @@ class BishopHubScreen extends ConsumerWidget {
         color: const Color(0xFF0F172A),
         borderRadius: BorderRadius.circular(30),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 35,
-            backgroundColor: Colors.white24,
-            child: Text(profile.name.isNotEmpty ? profile.name[0] : 'B', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(profile.name, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                Text(profile.role.toUpperCase(), style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                const SizedBox(height: 10),
-                const Row(
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 35,
+                backgroundColor: Colors.white24,
+                child: Text(profile.name.isNotEmpty ? profile.name[0] : 'B', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(LucideIcons.globe, color: Colors.white54, size: 12),
-                    SizedBox(width: 5),
-                    Text("Global Jurisdiction", style: TextStyle(color: Colors.white54, fontSize: 11)),
+                    Text(profile.name, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text(profile.role.toUpperCase(), style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    const SizedBox(height: 10),
+                    const Row(
+                      children: [
+                        Icon(LucideIcons.globe, color: Colors.white54, size: 12),
+                        SizedBox(width: 5),
+                        Flexible(child: Text("Global Jurisdiction", style: TextStyle(color: Colors.white54, fontSize: 11))),
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const Divider(color: Colors.white12),
+          const SizedBox(height: 15),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildMiniStat("Branches", "${stats.branches}", LucideIcons.building),
+              _buildMiniStat("Members", _formatCompact(stats.members), LucideIcons.users),
+              _buildMiniStat("Giving (MTD)", currency.format(stats.monthlyGiving), LucideIcons.banknote),
+              _buildMiniStat("Live", "${stats.activeStreams}", LucideIcons.radio),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMiniStat(String label, String value, IconData icon) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: Colors.white54, size: 14),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+      ],
+    );
+  }
+
+  Widget _buildPresbyteryList(WidgetRef ref, BishopCommandHubStats stats) {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final node = stats.presbyteries[index];
+            final nodeStatsAsync = ref.watch(nodeAggregatedStatsProvider(node.id));
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFF1F5F9)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), shape: BoxShape.circle),
+                    child: const Icon(LucideIcons.map, color: Colors.blue, size: 18),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(node.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        const SizedBox(height: 3),
+                        nodeStatsAsync.when(
+                          data: (stats) => Text(
+                            "${stats['branches']} branches • ${stats['attendance']} attendance • K${NumberFormat.compact().format(stats['giving'])} MTD",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.grey, fontSize: 11),
+                          ),
+                          loading: () => const ShimmerLoader.rectangular(height: 12, width: 200),
+                          error: (e, st) => const Text("Stats unavailable", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(LucideIcons.chevronRight, size: 16),
+                ],
+              ),
+            );
+          },
+          childCount: stats.presbyteries.length,
+        ),
       ),
     );
   }
@@ -171,16 +291,26 @@ class BishopHubScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildActivityList(BuildContext context, WidgetRef ref) {
+  Widget _buildActivityList(BuildContext context, WidgetRef ref, UserProfile profile) {
+    final orgId = profile.organizationId;
+    if (orgId == null || orgId.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: Text("No organization assigned. Contact central administration.", style: TextStyle(color: Colors.grey, fontSize: 12)),
+        ),
+      );
+    }
+
+    final churchesAsync = ref.watch(bishopLinkedChurchesProvider(orgId));
+
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Column(
           children: [
-            StreamBuilder<List<Tenant>>(
-              stream: ref.read(organizationServiceProvider).streamLinkedChurches('default_org'),
-              builder: (context, snapshot) {
-                final churches = snapshot.data ?? [];
+            churchesAsync.when(
+              data: (churches) {
                 if (churches.isEmpty) {
                   return const Text("No branches linked yet.", style: TextStyle(color: Colors.grey, fontSize: 12));
                 }
@@ -199,12 +329,17 @@ class BishopHubScreen extends ConsumerWidget {
                         ),
                       ),
                       title: Text(church.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: const Text("Active Branch • Fully Synced", style: TextStyle(fontSize: 10, color: Colors.green)),
+                      subtitle: const Text("Active Branch • Fully Synced", style: TextStyle(fontSize: 11, color: Colors.green)),
                       trailing: const Icon(LucideIcons.chevronRight, size: 16),
                     );
                   },
                 );
               },
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: ShimmerLoader.rectangular(height: 60),
+              ),
+              error: (e, st) => Text("Failed to load branches: $e", style: const TextStyle(color: Colors.grey, fontSize: 11)),
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
@@ -219,7 +354,7 @@ class BishopHubScreen extends ConsumerWidget {
                       "• Pastor/Leader Name\n"
                       "• Location\n"
                       "• Organization ID\n\n"
-                      "An invitation token will be generated and sent to the branch leader's email."
+                      "An invitation token will be generated and sent to the branch leader's email.",
                     ),
                     actions: [
                       TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CLOSE")),
@@ -242,5 +377,46 @@ class BishopHubScreen extends ConsumerWidget {
       ),
     );
   }
+
+  String _formatCompact(int n) => n >= 1000 ? '${(n / 1000).toStringAsFixed(1)}k' : n.toString();
 }
 
+class _BishopHubShimmer extends StatelessWidget {
+  const _BishopHubShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        const ShimmerLoader.rectangular(height: 140, width: double.infinity),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(child: ShimmerLoader.rectangular(height: 90)),
+            const SizedBox(width: 12),
+            Expanded(child: ShimmerLoader.rectangular(height: 90)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: ShimmerLoader.rectangular(height: 90)),
+            const SizedBox(width: 12),
+            Expanded(child: ShimmerLoader.rectangular(height: 90)),
+          ],
+        ),
+        const SizedBox(height: 25),
+        const ShimmerLoader.rectangular(height: 16, width: 160),
+        const SizedBox(height: 15),
+        ...List.generate(
+          3,
+          (_) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: ShimmerLoader.rectangular(height: 60),
+          ),
+        ),
+      ],
+    );
+  }
+}

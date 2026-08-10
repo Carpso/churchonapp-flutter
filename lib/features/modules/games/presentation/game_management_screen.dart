@@ -236,7 +236,7 @@ class GameManagementScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: const Text('ACTIVE',
-                  style: TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                  style: TextStyle(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.bold)),
             )
           else
             Container(
@@ -246,7 +246,7 @@ class GameManagementScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: const Text('COMING SOON',
-                  style: TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                  style: TextStyle(color: Colors.orangeAccent, fontSize: 11, fontWeight: FontWeight.bold)),
             ),
           const SizedBox(width: 8),
           Switch(

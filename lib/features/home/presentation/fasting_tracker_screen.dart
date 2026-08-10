@@ -371,7 +371,7 @@ class _FastingTrackerScreenState extends ConsumerState<FastingTrackerScreen> wit
               ),
               Column(
                 children: [
-                  const Text("TIME REMAINING", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)),
+                  const Text("TIME REMAINING", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Text(_formatDuration(_timeLeft), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
                   const SizedBox(height: 5),

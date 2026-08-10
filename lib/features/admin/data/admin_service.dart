@@ -177,8 +177,12 @@ class AdminService {
     });
   }
 
-  Future<List<Map<String, dynamic>>> getPayoutRequests() async {
-    final res = await _client.from('payout_requests').select('*, profiles(full_name)').order('created_at', ascending: false);
+  Future<List<Map<String, dynamic>>> getPayoutRequests({String? tenantId}) async {
+    var query = _client.from('payout_requests').select('*, profiles(full_name)').order('created_at', ascending: false);
+    if (tenantId != null) {
+      query = query.eq('tenant_id', tenantId);
+    }
+    final res = await query;
     return List<Map<String, dynamic>>.from(res);
   }
 
@@ -340,7 +344,6 @@ class AdminService {
     required String phone,
     required String network,
   }) async {
-    // 1. Log the attempt
     final insertRes = await _client.from('lenco_payouts').insert({
       'user_id': userId,
       'amount': amount,
@@ -350,16 +353,24 @@ class AdminService {
     }).select().single();
 
     try {
-      // In a real production environment, this would call http.post to Lipila Payout API
-      // For this high-fidelity protocol, we simulate the Lipila Settlement success
-      final reference = "LIPILA-PAY-${DateTime.now().millisecondsSinceEpoch}";
-      
-      await _client.from('lenco_payouts').update({
-        'status': 'successful',
-        'lenco_reference': reference,
-      }).eq('id', insertRes['id']);
+      final result = await _client.functions.invoke('lipila-payout', body: {
+        'payout_id': insertRes['id'],
+        'amount': amount,
+        'phone': phone,
+        'network': network,
+        'user_id': userId,
+      });
 
-      return {'success': true, 'reference': reference};
+      final data = result.data as Map<String, dynamic>?;
+      if (data?['success'] == true) {
+        await _client.from('lenco_payouts').update({
+          'status': 'successful',
+          'lenco_reference': data!['reference'] ?? '',
+        }).eq('id', insertRes['id']);
+        return {'success': true, 'reference': data['reference'] ?? ''};
+      } else {
+        throw Exception(data?['error'] ?? 'Lipila payout rejected');
+      }
     } catch (e) {
       await _client.from('lenco_payouts').update({
         'status': 'failed',

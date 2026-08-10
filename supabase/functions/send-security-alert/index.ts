@@ -1,4 +1,3 @@
-import "https://deno.land/std@0.177.0/dotenv.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
@@ -26,6 +25,25 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 401,
+    });
+  }
+
+  // Role gate: only superadmin / coa_employee may trigger security alerts
+  const { data: profile, error: profileError } = await supabaseAuth
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profileError || !profile) {
+    return new Response(JSON.stringify({ error: "User profile not found" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 403,
+    });
+  }
+  if (profile.role !== "superadmin" && profile.role !== "coa_employee") {
+    return new Response(JSON.stringify({ error: "Insufficient role", role: profile.role }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 403,
     });
   }
 

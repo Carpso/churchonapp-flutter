@@ -62,7 +62,7 @@ class TitheHistoryScreen extends ConsumerWidget {
                   children: [
                     const Text("History Tracking", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     if (isPastor)
-                      const Text("PASTOR VIEW", style: TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold)),
+                      const Text("PASTOR VIEW", style: TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 const SizedBox(height: 15),
@@ -111,11 +111,11 @@ class TitheHistoryScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           const SizedBox(height: 10),
           Text("K ${amount.toStringAsFixed(2)}", style: TextStyle(color: color, fontSize: 28, fontWeight: FontWeight.w900)),
           const SizedBox(height: 10),
-          Text("Total giving to date", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          Text("Total giving to date", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
         ],
       ),
     );
@@ -151,7 +151,7 @@ class TitheHistoryScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text("K ${amount.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
-              Text(status, style: TextStyle(color: status == 'COMPLETED' ? Colors.blue : Colors.orange, fontSize: 9, fontWeight: FontWeight.bold)),
+              Text(status, style: TextStyle(color: status == 'COMPLETED' ? Colors.blue : Colors.orange, fontSize: 11, fontWeight: FontWeight.bold)),
             ],
           ),
         ],

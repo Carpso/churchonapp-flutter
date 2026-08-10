@@ -550,7 +550,7 @@ class _MemberDirectoryScreenState
                   child: Text(
                     _formatRole(role),
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: _roleColor(role),
                     ),
@@ -561,7 +561,7 @@ class _MemberDirectoryScreenState
                   Text(
                     'Joined $joined',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 11,
                       color: theme.colorScheme.onSurface
                           .withValues(alpha: 0.4),
                     ),

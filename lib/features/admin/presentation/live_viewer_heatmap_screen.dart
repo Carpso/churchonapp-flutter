@@ -85,7 +85,7 @@ class _LiveViewerHeatmapScreenState extends State<LiveViewerHeatmapScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text("342 Members Live Now", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          Text("Concentrated in Lusaka Central & Woodlands", style: TextStyle(color: Colors.white70, fontSize: 10)),
+                          Text("Concentrated in Lusaka Central & Woodlands", style: TextStyle(color: Colors.white70, fontSize: 11)),
                         ],
                       ),
                     ),
@@ -107,7 +107,7 @@ class _LiveViewerHeatmapScreenState extends State<LiveViewerHeatmapScreen> {
                   children: [
                     CircleAvatar(radius: 4, backgroundColor: Colors.red),
                     SizedBox(width: 8),
-                    Text("LIVE HEAT", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                    Text("LIVE HEAT", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),

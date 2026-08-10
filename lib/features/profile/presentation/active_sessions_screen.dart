@@ -229,7 +229,7 @@ class _ActiveSessionsScreenState extends ConsumerState<ActiveSessionsScreen> {
             text,
             style: TextStyle(
               color: color,
-              fontSize: 9,
+              fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.5,
             ),

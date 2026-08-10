@@ -152,7 +152,7 @@ class _WriterDashboardScreenState extends ConsumerState<WriterDashboardScreen> {
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
       Icon(icon, color: color, size: 20), const Spacer(),
       Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-      Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+      Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
     ]),
   );
 
@@ -166,12 +166,12 @@ class _WriterDashboardScreenState extends ConsumerState<WriterDashboardScreen> {
       child: Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          Text("$views views", style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+          Text("$views views", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
         ])),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(color: status == 'published' ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-          child: Text(status, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: status == 'published' ? Colors.green : Colors.orange)),
+          child: Text(status, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: status == 'published' ? Colors.green : Colors.orange)),
         ),
       ]),
     );

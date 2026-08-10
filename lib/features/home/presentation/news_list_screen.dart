@@ -146,7 +146,7 @@ class NewsListScreen extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      Text(article.source.toUpperCase(), style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                      Text(article.source.toUpperCase(), style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
                       const Spacer(),
                       IconButton(
                         icon: const Icon(LucideIcons.share2, size: 16),
@@ -162,7 +162,7 @@ class NewsListScreen extends ConsumerWidget {
                   const SizedBox(height: 6),
                   Text(article.description, style: const TextStyle(color: Colors.grey, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 6),
-                  Text(article.pubDate, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+                  Text(article.pubDate, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
                 ],
               ),
             ),

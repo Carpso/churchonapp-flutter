@@ -131,7 +131,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(item.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                            const Text("ENTERPRISE MODULE", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                            const Text("ENTERPRISE MODULE", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
                           ],
                         ),
                       ),
@@ -150,7 +150,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                     },
                   ),
                   const SizedBox(height: 20),
-                  const Text("API SECRET KEY / CLIENT ID", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  const Text("API SECRET KEY / CLIENT ID", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
                   const SizedBox(height: 8),
                   TextField(
                     controller: keyCtrl,
@@ -164,7 +164,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text("WEBHOOK CALLBACK URL", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  const Text("WEBHOOK CALLBACK URL", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
                   const SizedBox(height: 8),
                   TextField(
                     controller: webhookCtrl,
@@ -280,7 +280,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                                     item.enabled ? "ACTIVE" : "INACTIVE",
                                     style: TextStyle(
                                       color: item.enabled ? Colors.green : Colors.grey,
-                                      fontSize: 9,
+                                      fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),

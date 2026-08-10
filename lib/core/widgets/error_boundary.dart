@@ -53,7 +53,7 @@ class CustomErrorBoundary extends StatelessWidget {
                 width: double.infinity,
                 child: SelectableText(
                   errorDetails.exceptionAsString(),
-                  style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4), fontFamily: "monospace"),
+                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4), fontFamily: "monospace"),
                 ),
               ),
               const SizedBox(height: 8),
@@ -63,7 +63,7 @@ class CustomErrorBoundary extends StatelessWidget {
                 width: double.infinity,
                 child: SelectableText(
                   errorDetails.stack.toString(),
-                  style: TextStyle(fontSize: 8, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3), fontFamily: "monospace"),
+                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3), fontFamily: "monospace"),
                   maxLines: 8,
                 ),
               ),

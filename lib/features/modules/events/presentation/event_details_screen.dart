@@ -73,7 +73,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                      child: Text((event['type'] ?? 'Event').toUpperCase(), style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                      child: Text((event['type'] ?? 'Event').toUpperCase(), style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 11, fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(height: 15),
                     Text(event['title']?.toString() ?? 'Event', style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w900, height: 1.2)),
@@ -236,22 +236,23 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Ticket Price", style: TextStyle(color: Colors.grey, fontSize: 10)),
+                const Text("Ticket Price", style: TextStyle(color: Colors.grey, fontSize: 11)),
                 Text(
-                  isFree 
-                      ? "FREE" 
-                      : "K${(event['price'] * 1.0).toStringAsFixed(2)}", 
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)
+                  isFree
+                      ? "FREE"
+                      : "K${(double.tryParse(event['price'].toString()) ?? 0).toStringAsFixed(2)}",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface),
                 ),
                 if (!isFree) ...[
                   const SizedBox(height: 2),
                   Builder(
                     builder: (ctx) {
                       final fees = ref.read(feeConfigProvider).value ?? FeeConfig.defaults;
-                      final pf = fees.platformFee(event['price'] * 1.0);
+                      final price = double.tryParse(event['price'].toString()) ?? 0;
+                      final pf = fees.platformFee(price);
                       return Text(
                         "Platform Fee: K${pf.toStringAsFixed(2)}",
-                        style: TextStyle(color: Colors.grey.shade500, fontSize: 9),
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
                       );
                     },
                   ),

@@ -355,6 +355,8 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                                         version: QrVersions.auto,
                                         size: 120,
                                         backgroundColor: Colors.white,
+                                        embeddedImage: const AssetImage('assets/app_icon.png'),
+                                        embeddedImageStyle: QrEmbeddedImageStyle(size: Size(28, 28)),
                                         eyeStyle: QrEyeStyle(
                                           eyeShape: QrEyeShape.square,
                                           color: Theme.of(context).primaryColor,
@@ -369,7 +371,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                                     const SizedBox(height: 8),
                                     Text(
                                       _ticketId ?? event.id,
-                                      style: TextStyle(fontSize: 9, color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+                                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.bold),
                                     ),
                                   ],
                                 ),

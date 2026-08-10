@@ -226,7 +226,7 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
                           minimumSize: const Size(60, 30),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        child: const Text("READ", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                        child: const Text("READ", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       )
                       : null,
                 );

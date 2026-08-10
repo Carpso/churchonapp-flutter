@@ -89,7 +89,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
           child: Column(
             children: [
               Text("DEEP STUDY", style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-              Text("THEOLOGICAL SUITE", style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 3, color: Colors.indigo)),
+              Text("THEOLOGICAL SUITE", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 3, color: Colors.indigo)),
               const SizedBox(height: 15),
               _buildSearchBar(),
             ],
@@ -150,7 +150,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text("Bible Reader", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  Text(_translationLabel(settings.preferredTranslation), style: TextStyle(color: Colors.white70, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                  Text(_translationLabel(settings.preferredTranslation), style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2)),
                 ],
               ),
             ],
@@ -161,7 +161,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
             style: TextStyle(color: Colors.white, fontSize: 18, fontStyle: FontStyle.italic, fontWeight: FontWeight.w300),
           ),
           const SizedBox(height: 10),
-          const Text("— PSALM 119:11", style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2)),
+          const Text("— PSALM 119:11", style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2)),
         ],
       ),
     );
@@ -233,7 +233,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
           const SizedBox(height: 10),
           Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           const SizedBox(height: 2),
-          Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 8, fontWeight: FontWeight.bold)),
+          Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -281,9 +281,9 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
                       children: [
                         Icon(tierIcon, color: tierColor, size: 12),
                         const SizedBox(width: 4),
-                        Text(tier, style: TextStyle(color: tierColor, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                        Text(tier, style: TextStyle(color: tierColor, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
                         const SizedBox(width: 8),
-                        Text("• ${streak}d streak", style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                        Text("• ${streak}d streak", style: const TextStyle(color: Colors.white54, fontSize: 11)),
                       ],
                     ),
                   ],
@@ -313,7 +313,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
                       : Icon(LucideIcons.circle, size: 12, color: Colors.white24),
                   ),
                   const SizedBox(height: 4),
-                  Text(dayName, style: TextStyle(fontSize: 8, color: isToday ? Colors.amber : Colors.white38, fontWeight: isToday ? FontWeight.bold : FontWeight.normal)),
+                  Text(dayName, style: TextStyle(fontSize: 11, color: isToday ? Colors.amber : Colors.white38, fontWeight: isToday ? FontWeight.bold : FontWeight.normal)),
                 ],
               );
             }),
@@ -611,12 +611,12 @@ class _ExegesisScreenState extends State<_ExegesisScreen> {
             children: [
               Row(
                 children: [
-                  Text("WORD STUDY", style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.blue)),
+                  Text("WORD STUDY", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.blue)),
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                    child: Text(translationLabel, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blue)),
+                    child: Text(translationLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue)),
                   ),
                 ],
               ),
@@ -631,7 +631,7 @@ class _ExegesisScreenState extends State<_ExegesisScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              Text("POPULAR STUDIES", style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.grey)),
+              Text("POPULAR STUDIES", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.grey)),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8, runSpacing: 8,
@@ -671,7 +671,7 @@ class _ExegesisScreenState extends State<_ExegesisScreen> {
           Row(
             children: [
               Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: isGreek ? Colors.blue.withValues(alpha: 0.1) : Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                child: Text(isGreek ? "GREEK" : "HEBREW", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: isGreek ? Colors.blue : Colors.amber, letterSpacing: 1)),
+                child: Text(isGreek ? "GREEK" : "HEBREW", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: isGreek ? Colors.blue : Colors.amber, letterSpacing: 1)),
               ),
               const Spacer(),
               Text(data['transliteration'] ?? '', style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
@@ -682,15 +682,15 @@ class _ExegesisScreenState extends State<_ExegesisScreen> {
           const SizedBox(height: 5),
           Center(child: Text(word.toUpperCase(), style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 3, color: Colors.grey))),
           const Divider(height: 30),
-          const Text("MEANING", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1, color: Colors.grey)),
+          const Text("MEANING", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1, color: Colors.grey)),
           const SizedBox(height: 8),
           Text(data['meaning'] ?? '', style: const TextStyle(fontSize: 15, height: 1.5)),
           const SizedBox(height: 15),
-          const Text("KEY PASSAGES", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1, color: Colors.grey)),
+          const Text("KEY PASSAGES", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1, color: Colors.grey)),
           const SizedBox(height: 8),
           Text(data['usage'] ?? '', style: TextStyle(fontSize: 14, color: Colors.blue.shade700, fontWeight: FontWeight.w500)),
           const SizedBox(height: 15),
-          const Text("ROOT", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1, color: Colors.grey)),
+          const Text("ROOT", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1, color: Colors.grey)),
           const SizedBox(height: 8),
           Text(data['root'] ?? '', style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic)),
         ],
@@ -773,7 +773,7 @@ class _BiblicalAtlasScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                  child: Text(loc['era'] as String, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.amber)),
+                  child: Text(loc['era'] as String, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber)),
                 ),
               ],
             ),

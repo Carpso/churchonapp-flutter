@@ -7,7 +7,6 @@ import 'package:church_on_app/core/providers/audio_provider.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
-import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'dart:math' as math;
 
 class RadioScreen extends ConsumerStatefulWidget {
@@ -124,7 +123,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
             ),
           ),
           const SizedBox(width: 8),
-          Text(playing ? "LIVE STREAMING" : "OFFLINE", style: TextStyle(color: playing ? Colors.red : Colors.grey, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+          Text(playing ? "LIVE STREAMING" : "OFFLINE", style: TextStyle(color: playing ? Colors.red : Colors.grey, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
         ],
       ),
     );
@@ -185,7 +184,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
             child: Text(
               track.toUpperCase(),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+              style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2),
             ),
           ),
         ],
@@ -337,12 +336,12 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("FREQUENCIES", style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2)),
+              const Text("FREQUENCIES", style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2)),
               if (profile?.isSuperadmin == true || profile?.role == 'coa_employee')
                 TextButton.icon(
                   onPressed: () => _showAddStationDialog(),
                   icon: const Icon(LucideIcons.plus, size: 14, color: Colors.amber),
-                  label: const Text("ADD FREQUENCY", style: TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+                  label: const Text("ADD FREQUENCY", style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
             ],
           ),
@@ -402,7 +401,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
                           const SizedBox(height: 5),
                           Text(
                             station.isPrivate ? "PRIVATE" : station.location, 
-                            style: TextStyle(color: isCurrent ? Colors.black54 : Colors.white38, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: isCurrent ? Colors.black54 : Colors.white38, fontSize: 11, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -411,15 +410,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
                 },
               );
             },
-            loading: () => Center(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(3, (i) => Padding(
-                  padding: const EdgeInsets.only(right: 15),
-                  child: ShimmerLoader.rectangular(width: 160, height: 180),
-                )),
-              ),
-            ),
+             loading: () => const Center(child: CircularProgressIndicator()),
             error: (err, stack) => Center(child: Text("Error: $err", style: const TextStyle(color: Colors.red))),
           ),
         ),
@@ -439,7 +430,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
       child: const Text(
         "COA Radio provides a sovereign gateway to high-fidelity spiritual broadcasts from across Zambia. Content provided by third-party partners.",
         textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.white30, fontSize: 10, height: 1.5),
+        style: TextStyle(color: Colors.white30, fontSize: 11, height: 1.5),
       ),
     );
   }

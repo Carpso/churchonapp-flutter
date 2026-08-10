@@ -316,7 +316,7 @@ class _RideHistoryScreenState extends ConsumerState<RideHistoryScreen> {
                                     style: TextStyle(
                                       color: _statusColor(status),
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 10,
+                                      fontSize: 11,
                                     ),
                                   ),
                                 ),

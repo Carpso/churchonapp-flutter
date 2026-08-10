@@ -55,7 +55,7 @@ class KingdomGamesHubScreen extends ConsumerWidget {
               children: [
                 const Icon(LucideIcons.trophy, color: Colors.amber, size: 30),
                 const SizedBox(width: 10),
-                Text("SEASON 1 OPEN", style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                Text("SEASON 1 OPEN", style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
               ],
             ),
             const SizedBox(height: 15),

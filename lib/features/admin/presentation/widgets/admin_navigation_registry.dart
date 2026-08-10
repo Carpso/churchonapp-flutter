@@ -35,7 +35,7 @@ class AdminNavigationRegistry {
       subtitle: "Tithes, offerings, payouts & ledger",
       icon: LucideIcons.wallet,
       color: Color(0xFF10B981),
-      route: "/admin/giving-reports",
+      route: "/financial-report",
       canAccess: _isFinancialOrLeadership,
     ),
     AdminTileConfig(

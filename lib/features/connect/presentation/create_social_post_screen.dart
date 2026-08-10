@@ -230,7 +230,7 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(profile?.name ?? "Partner", style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text("Posting to public feed", style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+                    Text("Posting to public feed", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
                   ],
                 ),
               ],
@@ -261,7 +261,7 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: isSelected ? Colors.black : Colors.grey.shade600,
-                            fontSize: 10,
+                            fontSize: 11,
                             letterSpacing: 0.5,
                           ),
                         ),

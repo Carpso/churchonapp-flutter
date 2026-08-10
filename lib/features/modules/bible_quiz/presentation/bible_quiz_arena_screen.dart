@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/bible_quiz_service.dart';
 import '../data/pvp_service.dart';
@@ -11,7 +12,7 @@ import '../data/quiz_event_service.dart';
 import '../../../../core/providers/profile_provider.dart';
 import 'bible_quiz_results_screen.dart';
 
-enum GamePhase { matchmaking, countdown, playing, answering, feedback, review, finished }
+enum GamePhase { matchmaking, vsReveal, countdown, playing, answering, feedback, review, finished }
 
 class BibleQuizArenaScreen extends ConsumerStatefulWidget {
   final String mode;
@@ -36,7 +37,7 @@ class BibleQuizArenaScreen extends ConsumerStatefulWidget {
 }
 
 class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late final BibleQuizService _service;
   PvPService? _pvpService;
 
@@ -68,8 +69,16 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
 
+  // VS Reveal Animations
+  late AnimationController _vsController;
+  late Animation<double> _vsScaleAnimation;
+  late Animation<Offset> _player1SlideAnimation;
+  late Animation<Offset> _player2SlideAnimation;
+
   int _opponentScore = 0;
   PvPMatch? _pvpMatch;
+  Map<String, dynamic>? _p1Profile;
+  Map<String, dynamic>? _p2Profile;
 
   // Anti-cheat: track if app was backgrounded during a question
   bool _wasBackgroundedDuringQuestion = false;
@@ -90,6 +99,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     if (widget.mode != 'Solo') {
       _pvpService = PvPService();
     }
+    
     _slideController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 350),
@@ -98,6 +108,20 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       begin: const Offset(1, 0),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
+
+    _vsController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _vsScaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _vsController, curve: const Interval(0.4, 1.0, curve: Curves.elasticOut)),
+    );
+    _player1SlideAnimation = Tween<Offset>(begin: const Offset(-1.5, 0), end: Offset.zero).animate(
+      CurvedAnimation(parent: _vsController, curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic)),
+    );
+    _player2SlideAnimation = Tween<Offset>(begin: const Offset(1.5, 0), end: Offset.zero).animate(
+      CurvedAnimation(parent: _vsController, curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic)),
+    );
 
     _loadQuestions();
   }
@@ -108,6 +132,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     _timer?.cancel();
     _countdownTimer?.cancel();
     _slideController.dispose();
+    _vsController.dispose();
     try {
       _pvpService?.disconnect();
     } catch (e) {
@@ -144,6 +169,25 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       points: q.points,
       isSuperadminOnly: q.isSuperadminOnly,
     );
+  }
+
+  Future<Map<String, dynamic>?> _fetchPlayerDetail(String userId) async {
+    try {
+      final res = await Supabase.instance.client
+          .from('profiles')
+          .select('full_name, avatar_url, tenant_id, churches(name)')
+          .eq('id', userId)
+          .maybeSingle();
+      if (res == null) return null;
+      return {
+        'name': res['full_name'] ?? 'Believer',
+        'avatar': res['avatar_url'] ?? '',
+        'church': (res['churches'] as Map?)?['name'] ?? 'Independent',
+      };
+    } catch (e) {
+      debugPrint('Error fetching player detail: $e');
+      return null;
+    }
   }
 
   Future<void> _loadQuestions() async {
@@ -186,6 +230,12 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
           final score = payload['score'] as int? ?? 0;
           setState(() => _opponentScore = score);
         };
+
+        // Fetch profiles for VS reveal
+        _p1Profile = await _fetchPlayerDetail(_pvpMatch!.player1Id);
+        if (_pvpMatch!.player2Id != null) {
+          _p2Profile = await _fetchPlayerDetail(_pvpMatch!.player2Id!);
+        }
       } catch (e) {
         debugPrint('[PvP] Match setup failed: $e');
         if (mounted) {
@@ -233,11 +283,29 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
         _answers.add(null);
         _responseTimesMs.add(0);
       }
-      _phase = GamePhase.countdown;
+      
+      if (widget.mode != 'Solo') {
+        _phase = GamePhase.vsReveal;
+      } else {
+        _phase = GamePhase.countdown;
+      }
     });
+
     if (!_loadingError) {
-      _startCountdown();
+      if (_phase == GamePhase.vsReveal) {
+        _startVsReveal();
+      } else {
+        _startCountdown();
+      }
     }
+  }
+
+  void _startVsReveal() async {
+    _vsController.forward();
+    await Future.delayed(const Duration(seconds: 4)); // 3s delay + animation time
+    if (!mounted) return;
+    setState(() => _phase = GamePhase.countdown);
+    _startCountdown();
   }
 
   void _retryLoadQuestions() {
@@ -366,7 +434,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       _currentIndex++;
       _selectedAnswer = null;
       _phase = GamePhase.playing;
-      _timerMs = 15000;
+      _timerMs = widget.timePerQuestionSec * 1000;
     });
 
     _slideController.forward();
@@ -421,12 +489,12 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     if (_timeFreezeUsed) return;
     _timeFreezeUsed = true;
     _powerUpsUsed++;
-    _timerMs = 15000;
+    _timerMs = widget.timePerQuestionSec * 1000;
     setState(() {});
   }
 
   Color _timerColor() {
-    final ratio = _timerMs / 15000;
+    final ratio = _timerMs / (widget.timePerQuestionSec * 1000);
     if (ratio > 0.5) return Colors.greenAccent;
     if (ratio > 0.25) return Colors.orangeAccent;
     return Colors.redAccent;
@@ -568,6 +636,8 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     switch (_phase) {
       case GamePhase.matchmaking:
         return _buildMatchmaking(theme);
+      case GamePhase.vsReveal:
+        return _buildVsReveal(theme);
       case GamePhase.countdown:
         return _buildCountdown(theme);
       case GamePhase.playing:
@@ -579,6 +649,105 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       case GamePhase.review:
         return _buildReview(theme);
     }
+  }
+
+  Widget _buildVsReveal(ThemeData theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text(
+            "MATCH FOUND!",
+            style: TextStyle(color: Colors.amberAccent, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 2),
+          ),
+          const SizedBox(height: 40),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Column(
+                  children: [
+                    SlideTransition(
+                      position: _player1SlideAnimation,
+                      child: _vsPlayerCard(theme, _p1Profile, true),
+                    ),
+                    const SizedBox(height: 60),
+                    SlideTransition(
+                      position: _player2SlideAnimation,
+                      child: _vsPlayerCard(theme, _p2Profile, false),
+                    ),
+                  ],
+                ),
+                ScaleTransition(
+                  scale: _vsScaleAnimation,
+                  child: Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: Colors.amber,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(color: Colors.amber.withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 5),
+                      ],
+                    ),
+                    child: const Text("VS", style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 22)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _vsPlayerCard(ThemeData theme, Map<String, dynamic>? profile, bool isTop) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        children: [
+          if (!isTop) const Spacer(),
+          if (isTop) ...[
+            _avatarCircle(profile?['avatar']),
+            const SizedBox(width: 15),
+          ],
+          Column(
+            crossAxisAlignment: isTop ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+            children: [
+              Text(profile?['name'] ?? 'Loading...', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+              Text(profile?['church'] ?? 'Independent', style: TextStyle(color: theme.primaryColor.withValues(alpha: 0.7), fontSize: 12)),
+            ],
+          ),
+          if (!isTop) ...[
+            const SizedBox(width: 15),
+            _avatarCircle(profile?['avatar']),
+          ],
+          if (isTop) const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  Widget _avatarCircle(String? url) {
+    return Container(
+      width: 60, height: 60,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.amber, width: 2),
+        image: url != null && url.isNotEmpty
+            ? DecorationImage(image: NetworkImage(url), fit: BoxFit.cover)
+            : null,
+      ),
+      child: url == null || url.isEmpty
+          ? const Icon(LucideIcons.user, color: Colors.white24, size: 30)
+          : null,
+    );
   }
 
   Widget _buildMatchmaking(ThemeData theme) {
@@ -765,78 +934,71 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
         // Top bar: progress + score + streak + timer
         _buildTopBar(theme, progress),
         const SizedBox(height: 8),
-        // Question card
+        // Question area
         Expanded(
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SlideTransition(
+              position: _slideAnimation,
               child: Column(
                 children: [
                   // Category + difficulty badges
                   _buildBadges(theme, q),
                   const SizedBox(height: 16),
                   // Question card container
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(6),
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: Colors.white.withAlpha(14)),
-                      ),
-                      child: Column(
-                        children: [
-                          // Scripture reference
-                          if (q.scriptureReference != null)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Text(
-                                q.scriptureReference!,
-                                style: TextStyle(
-                                  color: theme.primaryColor.withAlpha(180),
-                                  fontSize: 13,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ),
-                          // Question text
-                          Expanded(
-                            child: SingleChildScrollView(
-                              child: Text(
-                                q.question,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.4,
-                                ),
-                                textAlign: TextAlign.center,
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                    ),
+                    child: Column(
+                      children: [
+                        // Scripture reference
+                        if (q.scriptureReference != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Text(
+                              q.scriptureReference!,
+                              style: TextStyle(
+                                color: theme.primaryColor.withValues(alpha: 0.8),
+                                fontSize: 13,
+                                fontStyle: FontStyle.italic,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
-                        ],
-                      ),
+                        // Question text
+                        Text(
+                          q.question,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            height: 1.5,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  // Options grid
-                  SizedBox(
-                    height: q.options.length <= 2 ? 68 : 146,
-                    child: GridView.count(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: List.generate(q.options.length, (i) {
-                        if (_eliminatedOptions.contains(i)) {
-                          return _buildEliminatedOption(theme, q.options[i], i);
-                        }
-                        return _buildOption(theme, q, i);
-                      }),
-                    ),
+                  const SizedBox(height: 24),
+                  // Options grid/list
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: q.options.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, i) {
+                      if (_eliminatedOptions.contains(i)) {
+                        return _buildEliminatedOption(theme, q.options[i], i);
+                      }
+                      return _buildOption(theme, q, i);
+                    },
                   ),
+                  const SizedBox(height: 100), // Spacing for powerups at bottom
                 ],
               ),
             ),
@@ -850,84 +1012,51 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   }
 
   Widget _buildTopBar(ThemeData theme, double progress) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1117),
+        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
+      ),
       child: Column(
         children: [
-          // Exit + question counter + opponent (P2P)
           Row(
             children: [
               // Exit button
               GestureDetector(
                 onTap: () => _showQuitConfirm(theme),
                 child: Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(15),
-                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(LucideIcons.x, color: Colors.white54, size: 20),
+                  child: const Icon(LucideIcons.x, color: Colors.white70, size: 18),
                 ),
               ),
               const Spacer(),
-              // Question counter
-              Flexible(
-                child: Text(
-                  '${_currentIndex + 1} / ${_questions.length}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 14),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+              _topStat(LucideIcons.helpCircle, '${_currentIndex + 1}/${_questions.length}', Colors.white54),
               if (widget.mode != 'Solo') ...[
-                const SizedBox(width: 16),
-                // Opponent score
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(LucideIcons.user, size: 14, color: Colors.orangeAccent),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$_opponentScore',
-                      style: const TextStyle(
-                        color: Colors.orangeAccent,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+                const SizedBox(width: 20),
+                _topStat(LucideIcons.user, '$_opponentScore', Colors.orangeAccent),
               ],
               const Spacer(),
               // Score
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(LucideIcons.star, size: 16, color: theme.primaryColor),
-                  const SizedBox(width: 4),
-                  Text(
-                    '$_score',
-                    style: TextStyle(
-                      color: theme.primaryColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
+              _topStat(LucideIcons.star, '$_score', theme.primaryColor),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 15),
           // Progress bar
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
               value: progress,
-              backgroundColor: Colors.white.withAlpha(20),
+              backgroundColor: Colors.white.withValues(alpha: 0.05),
               valueColor: AlwaysStoppedAnimation(theme.primaryColor),
-              minHeight: 4,
+              minHeight: 6,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           // Timer + Streak
           Row(
             children: [
@@ -939,19 +1068,19 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
                       width: 24,
                       height: 24,
                       child: CircularProgressIndicator(
-                        value: _timerMs / 15000,
+                        value: (_timerMs / (widget.timePerQuestionSec * 1000)).clamp(0.0, 1.0),
                         strokeWidth: 3,
                         color: _timerColor(),
-                        backgroundColor: Colors.white.withAlpha(15),
+                        backgroundColor: Colors.white.withValues(alpha: 0.1),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Text(
                       '${(_timerMs / 1000).toStringAsFixed(1)}s',
                       style: TextStyle(
                         color: _timerColor(),
                         fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ],
@@ -959,24 +1088,32 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
               ),
               // Streak indicator
               if (_streak >= 2)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _streak >= 5 ? LucideIcons.zap : LucideIcons.trendingUp,
-                      size: 16,
-                      color: _streak >= 5 ? Colors.orangeAccent : Colors.greenAccent,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${_streak}x',
-                      style: TextStyle(
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (_streak >= 5 ? Colors.orangeAccent : Colors.greenAccent).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: (_streak >= 5 ? Colors.orangeAccent : Colors.greenAccent).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _streak >= 5 ? LucideIcons.zap : LucideIcons.trendingUp,
+                        size: 14,
                         color: _streak >= 5 ? Colors.orangeAccent : Colors.greenAccent,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 6),
+                      Text(
+                        '${_streak}x STREAK',
+                        style: TextStyle(
+                          color: _streak >= 5 ? Colors.orangeAccent : Colors.greenAccent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
             ],
           ),
@@ -989,24 +1126,42 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _badge(q.category, theme.primaryColor, theme),
-        const SizedBox(width: 8),
-        _badge(q.difficulty, _difficultyColor(q.difficulty), theme),
+        _badge(q.category.toUpperCase(), theme.primaryColor, theme),
+        const SizedBox(width: 10),
+        _badge(q.difficulty.toUpperCase(), _difficultyColor(q.difficulty), theme),
       ],
+    );
+  }
+
+  Widget _topStat(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 15),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
+        ],
+      ),
     );
   }
 
   Widget _badge(String text, Color color, ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withAlpha(30),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withAlpha(80)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         text,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1),
       ),
     );
   }
@@ -1031,65 +1186,52 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     final bool isSelected = _selectedAnswer == i;
     final bool isDisabled = _phase != GamePhase.playing;
 
-    Color bgColor = Colors.white.withAlpha(10);
-    Color borderColor = Colors.white.withAlpha(25);
+    Color bgColor = Colors.white.withValues(alpha: 0.05);
+    Color borderColor = Colors.white.withValues(alpha: 0.1);
     Color textColor = Colors.white;
 
     if (isCorrect) {
-      bgColor = Colors.greenAccent.withAlpha(30);
+      bgColor = Colors.greenAccent.withValues(alpha: 0.2);
       borderColor = Colors.greenAccent;
       textColor = Colors.greenAccent;
     } else if (isWrong) {
-      bgColor = Colors.redAccent.withAlpha(30);
+      bgColor = Colors.redAccent.withValues(alpha: 0.2);
       borderColor = Colors.redAccent;
       textColor = Colors.redAccent;
     } else if (isSelected && isRevealingAnswer) {
-      bgColor = Colors.orangeAccent.withAlpha(30);
+      bgColor = Colors.orangeAccent.withValues(alpha: 0.2);
       borderColor = Colors.orangeAccent;
     }
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 48),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: borderColor),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: isDisabled ? null : () => _selectAnswer(i),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (isCorrect)
-                      const Icon(LucideIcons.checkCircle, size: 16, color: Colors.greenAccent)
-                    else if (isWrong)
-                      const Icon(LucideIcons.xCircle, size: 16, color: Colors.redAccent),
-                    if (isCorrect || isWrong) const SizedBox(width: 6),
-                    Flexible(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          q.options[i],
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 14,
-                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                          ),
-                        ),
-                      ),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 2),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: isDisabled ? null : () => _selectAnswer(i),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    q.options[i],
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 15,
+                      fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
                     ),
-                  ],
+                  ),
                 ),
-              ),
+                if (isCorrect) const Icon(LucideIcons.checkCircle, size: 20, color: Colors.greenAccent),
+                if (isWrong) const Icon(LucideIcons.xCircle, size: 20, color: Colors.redAccent),
+              ],
             ),
           ),
         ),
@@ -1183,7 +1325,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
             Text(
               label,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 color: used ? Colors.white38 : Colors.white70,
               ),
             ),

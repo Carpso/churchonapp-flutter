@@ -6,6 +6,8 @@ import 'package:church_on_app/core/services/plan_service.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/services/platform_settings_service.dart';
 import 'package:church_on_app/core/config/remote_config.dart';
+import 'package:church_on_app/core/widgets/app_error_view.dart';
+import 'package:church_on_app/core/utils/money.dart';
 
 class HomeSubscriptionPaywall extends ConsumerStatefulWidget {
   final Tenant tenant;
@@ -16,6 +18,8 @@ class HomeSubscriptionPaywall extends ConsumerStatefulWidget {
 }
 
 class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywall> {
+  String get _momoNumber => widgetRemoteConfig(ref).getString('coa_payment_momo', '0976847775');
+
   @override
   Widget build(BuildContext context) {
     final tenant = widget.tenant;
@@ -46,12 +50,12 @@ class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywal
         children: [
           Row(
             children: [
-              Icon(LucideIcons.alertTriangle, color: Colors.red.shade700, size: 28),
+              Icon(LucideIcons.alertTriangle, color: Theme.of(context).colorScheme.error, size: 28),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   _title(onboardingPaid, isTrial),
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red.shade900),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onErrorContainer),
                 ),
               ),
             ],
@@ -59,7 +63,7 @@ class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywal
           const SizedBox(height: 16),
           Text(
             _message(onboardingPaid, isTrial, effectivePlan),
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade800, height: 1.5),
+            style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface, height: 1.5),
           ),
           if (!onboardingPaid) ...[
             const SizedBox(height: 12),
@@ -71,15 +75,15 @@ class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywal
             height: 56,
             child: ElevatedButton.icon(
               onPressed: !onboardingPaid ? _payOnboarding : _choosePlan,
-              icon: const Icon(LucideIcons.creditCard, color: Colors.white),
+              icon: const Icon(LucideIcons.creditCard),
               label: Text(
                 !onboardingPaid
-                    ? "Pay Onboarding Fee (K${onboardingFee.toStringAsFixed(0)})"
-                    : "Choose Your Plan",
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    ? 'Pay Onboarding Fee (${formatKwacha(onboardingFee)})'
+                    : 'Choose Your Plan',
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade700,
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
@@ -89,7 +93,7 @@ class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywal
             width: double.infinity,
             child: TextButton(
               onPressed: () => ref.read(currentTenantProvider.notifier).setTenant(null),
-              child: const Text("SELECT ANOTHER CHURCH", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 12)),
+              child: const Text("SELECT ANOTHER CHURCH"),
             ),
           ),
         ],
@@ -148,7 +152,13 @@ class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywal
         Text("$name ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
         Text(price, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: color)),
         const Spacer(),
-        Text(desc, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
+        Text(
+          desc,
+          style: TextStyle(
+            fontSize: 11,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+          ),
+        ),
       ],
     );
   }
@@ -164,6 +174,7 @@ class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywal
       builder: (ctx) => _OnboardingPaymentSheet(
         tenant: widget.tenant,
         onboardingFee: onboardingFee,
+        momoNumber: _momoNumber,
         onComplete: (success) {
           if (success && mounted) {
             ref.read(currentTenantProvider.notifier).loadTenant();
@@ -189,10 +200,12 @@ class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywal
 class _OnboardingPaymentSheet extends StatefulWidget {
   final Tenant tenant;
   final double onboardingFee;
+  final String momoNumber;
   final ValueChanged<bool> onComplete;
   const _OnboardingPaymentSheet({
     required this.tenant,
     required this.onboardingFee,
+    required this.momoNumber,
     required this.onComplete,
   });
 
@@ -231,8 +244,8 @@ class _OnboardingPaymentSheetState extends State<_OnboardingPaymentSheet> {
             child: Column(
               children: [
                 Text("Superadmin MoMo", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-                const Text("0976847775", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.blue)),
-                Text("Zamtel / Airtel / MTN", style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
+                  Text(widget.momoNumber, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.primary)),
+                 Text("Zamtel / Airtel / MTN", style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
               ],
             ),
           ),
@@ -243,11 +256,15 @@ class _OnboardingPaymentSheetState extends State<_OnboardingPaymentSheet> {
             width: double.infinity,
             height: 56,
             child: ElevatedButton(
-              onPressed: _loading ? null : _submitPaymentRef,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade700, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+               onPressed: _loading ? null : _submitPaymentRef,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
               child: _loading
-                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text("I'VE SENT THE PAYMENT", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                  ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Theme.of(context).colorScheme.onPrimary, strokeWidth: 2))
+                  : const Text("I'VE SENT THE PAYMENT"),
             ),
           ),
           const SizedBox(height: 10),
@@ -265,15 +282,21 @@ class _OnboardingPaymentSheetState extends State<_OnboardingPaymentSheet> {
         'payment_submitted_at': DateTime.now().toIso8601String(),
       }).eq('id', widget.tenant.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Payment notification sent! Superadmin will verify shortly."), backgroundColor: Colors.green),
+        showAppSnackBar(
+          context,
+          "Payment notification sent! Superadmin will verify shortly.",
+          status: AppStatus.success,
         );
         Navigator.pop(context);
         widget.onComplete(true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -299,7 +322,8 @@ class _PlanSelectionScreen extends ConsumerWidget {
         children: [
           const Text("Plans", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
           const SizedBox(height: 8),
-          Text("All plans include full features at different usage levels. SMS credits purchased separately.", style: TextStyle(color: Colors.grey.shade600)),
+          Text("All plans include full features at different usage levels. SMS credits purchased separately.",
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
           const SizedBox(height: 24),
           _PlanCard(
             plan: TenantPlan.silver,
@@ -350,10 +374,10 @@ class _PlanSelectionScreen extends ConsumerWidget {
           Navigator.pop(context);
         }
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text("Downgraded to Silver plan"),
-                backgroundColor: Colors.grey),
+          showAppSnackBar(
+            context,
+            "Downgraded to Silver plan",
+            status: AppStatus.info,
           );
         }
         return;
@@ -368,6 +392,7 @@ class _PlanSelectionScreen extends ConsumerWidget {
           : (settings?.platinumMonthlyFee ??
               PlanLimits.forPlan(TenantPlan.platinum).monthlyPriceKwacha);
       final planName = PlanLimits.forPlan(plan).label;
+      final momo = widgetRemoteConfig(ref).getString('coa_payment_momo', '0976847775');
 
       showModalBottomSheet(
         context: context,
@@ -395,8 +420,8 @@ class _PlanSelectionScreen extends ConsumerWidget {
                 decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
                 child: Column(
                   children: [
-                    Text("Superadmin MoMo", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Theme.of(ctx).colorScheme.onSurface)),
-                    const Text("0976847775", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.blue)),
+                     Text("Superadmin MoMo", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Theme.of(ctx).colorScheme.onSurface)),
+                     Text(momo, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Theme.of(ctx).colorScheme.primary)),
                     Text("Zamtel / Airtel / MTN", style: TextStyle(fontSize: 11, color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.5))),
                   ],
                 ),
@@ -419,24 +444,29 @@ class _PlanSelectionScreen extends ConsumerWidget {
                       if (ctx.mounted) Navigator.pop(ctx);
                       if (context.mounted) Navigator.pop(context);
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Subscribed to $planName! 🎉"), backgroundColor: Colors.green),
+                        showAppSnackBar(
+                          context,
+                          "Subscribed to $planName! 🎉",
+                          status: AppStatus.success,
                         );
                       }
                     } catch (e) {
                       if (ctx.mounted) Navigator.pop(ctx);
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+                        showAppSnackBar(
+                          context,
+                          AppErrorView.friendlyMessage(e),
+                          status: AppStatus.error,
                         );
                       }
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: plan == TenantPlan.gold ? Colors.amber.shade700 : Colors.blueAccent,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                     backgroundColor: Theme.of(ctx).colorScheme.primary,
+                     foregroundColor: Theme.of(ctx).colorScheme.onPrimary,
+                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text("CONFIRM & SUBSCRIBE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                  child: const Text("CONFIRM & SUBSCRIBE"),
                 ),
               ),
               const SizedBox(height: 10),
@@ -447,7 +477,11 @@ class _PlanSelectionScreen extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
+        );
       }
     }
   }
@@ -505,7 +539,14 @@ class _PlanCard extends StatelessWidget {
                 children: [
                   Icon(LucideIcons.trophy, size: 12, color: Colors.blue.shade700),
                   const SizedBox(width: 4),
-                  Text("Quiz hosting included • K250 leasing available", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
+                  Text(
+                     "Quiz hosting included",
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -517,7 +558,7 @@ class _PlanCard extends StatelessWidget {
           _featureRow(context, "Kael AI Queries", limits.isUnlimited ? "Unlimited" : "${limits.kaelAiQueriesPerMonth}/mo"),
           _featureRow(context, "Marketplace Listings", limits.isUnlimited ? "Unlimited" : "${limits.marketplaceListingsPerMonth}/mo"),
           _featureRow(context, "Support", limits.supportLevel),
-          _featureRow(context, "Platform Fee", "1% COA + Lipila (1.5% MoMo / 2.5% Card)"),
+          _featureRow(context, "Platform Fee", "COA + Lipila fees apply"),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -529,8 +570,7 @@ class _PlanCard extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               child: Text(
-                isCurrent ? "Current Plan" : plan == TenantPlan.silver ? "Stay Free" : "Subscribe K${limits.monthlyPriceKwacha}/mo",
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                 isCurrent ? "Current Plan" : plan == TenantPlan.silver ? "Stay Free" : "Subscribe ${priceOverride != null ? formatKwacha(priceOverride!) : limits.priceDisplay}/mo",
               ),
             ),
           ),

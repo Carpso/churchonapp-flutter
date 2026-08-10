@@ -166,7 +166,7 @@ class _PastorBishopReportScreenState extends ConsumerState<PastorBishopReportScr
     return Column(
       children: [
         Text(val, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 10)),
+        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
       ],
     );
   }

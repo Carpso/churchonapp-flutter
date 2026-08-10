@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -322,60 +323,145 @@ Marker buildChurchMarker({
   required Color color,
   String? logoUrl,
   VoidCallback? onTap,
+  bool isBookshop = false,
+  bool animated = true,
 }) {
-  final themeColor = color;
   return Marker(
     point: point,
     width: 100,
-    height: 100,
-    child: GestureDetector(
+    height: 120,
+    child: _AnimatedPin(
+      name: name,
+      color: isBookshop ? Colors.blue : color,
+      logoUrl: logoUrl,
+      isBookshop: isBookshop,
+      animated: animated,
       onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10)],
-              border: Border.all(color: themeColor, width: 2),
-            ),
-            child: CircleAvatar(
-              radius: 20,
-              backgroundColor: Colors.white,
-              child: ClipOval(
-                child: (logoUrl != null && logoUrl.trim().isNotEmpty)
-                    ? CachedNetworkImage(
-                        imageUrl: logoUrl,
-                        width: 40,
-                        height: 40,
-                        fit: BoxFit.cover,
-                        errorWidget: (context, url, error) {
-                          return Image.asset("assets/app_logo.png", width: 40, height: 40, fit: BoxFit.cover);
-                        },
-                      )
-                    : Image.asset("assets/app_logo.png", width: 40, height: 40, fit: BoxFit.cover),
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.8),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              name,
-              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
     ),
   );
+}
+
+class _AnimatedPin extends StatefulWidget {
+  final String name;
+  final Color color;
+  final String? logoUrl;
+  final bool isBookshop;
+  final bool animated;
+  final VoidCallback? onTap;
+
+  const _AnimatedPin({required this.name, required this.color, this.logoUrl, this.isBookshop = false, this.animated = true, this.onTap});
+
+  @override
+  State<_AnimatedPin> createState() => _AnimatedPinState();
+}
+
+class _AnimatedPinState extends State<_AnimatedPin> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _bounce;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.animated) {
+      _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+      _bounce = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
+      _ctrl.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (widget.animated) _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bounceOffset = widget.animated ? _bounce.value * 6 : 0.0;
+
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Transform.translate(
+        offset: Offset(0, -bounceOffset),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Pin head — round container with logo/icon
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: widget.color.withValues(alpha: 0.4), blurRadius: 12, offset: const Offset(0, 4))],
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      border: Border.all(color: widget.color, width: 2.5),
+                    ),
+                    child: ClipOval(
+                      child: (widget.logoUrl != null && widget.logoUrl!.trim().isNotEmpty)
+                          ? CachedNetworkImage(imageUrl: widget.logoUrl!, width: 40, height: 40, fit: BoxFit.cover,
+                              errorWidget: (_, __, ___) => _fallbackIcon())
+                          : _fallbackIcon(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Pin triangle pointer
+            Transform.translate(
+              offset: const Offset(0, -3),
+              child: CustomPaint(
+                size: const Size(16, 10),
+                painter: _PinTrianglePainter(widget.color),
+              ),
+            ),
+            // Name label
+            Container(
+              margin: const EdgeInsets.only(top: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(widget.name, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _fallbackIcon() {
+    return Container(
+      color: widget.color.withValues(alpha: 0.1),
+      child: Icon(widget.isBookshop ? LucideIcons.store : LucideIcons.church, color: widget.color, size: 24),
+    );
+  }
+}
+
+class _PinTrianglePainter extends CustomPainter {
+  final Color color;
+  _PinTrianglePainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    final p = ui.Path();
+    p.moveTo(size.width / 2, size.height);
+    p.lineTo(2, 0);
+    p.lineTo(size.width - 2, 0);
+    p.close();
+    canvas.drawPath(p, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 Marker buildRideMarker({required LatLng point, Color? color}) {
@@ -455,7 +541,7 @@ Marker buildCarpsoDestinationMarker({required LatLng point, required String labe
           ),
           child: Text(
             label,
-            style: const TextStyle(color: Color(0xFFFFD700), fontSize: 8, fontWeight: FontWeight.bold),
+            style: const TextStyle(color: Color(0xFFFFD700), fontSize: 11, fontWeight: FontWeight.bold),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -492,7 +578,7 @@ Marker buildBusStopMarker({required LatLng point, required String name, Color? c
           ),
           child: Text(
             name,
-            style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

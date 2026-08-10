@@ -52,7 +52,14 @@ class HomePromoCarousel extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(8)),
-                    child: const Text("SPECIAL OFFER", style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.w900)),
+                    child: const Text(
+                      "SPECIAL OFFER",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   const Text("Ministry Books - 20% Off", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),

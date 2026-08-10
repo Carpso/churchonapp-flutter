@@ -1,4 +1,3 @@
-import "https://deno.land/std@0.177.0/dotenv.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
@@ -42,6 +41,22 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Per-type role gate (not blanket):
+  //   user-triggered types → any authenticated user
+  //   church-level types    → leadership (bishop/pastor/admin/superadmin/coa_employee)
+  //   admin-only types       → superadmin / coa_employee only
+  const { data: profile, error: profileError } = await supabaseAuth
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  const role = profile?.role ?? "member";
+  const isLeadership = ["superadmin", "coa_employee", "bishop", "pastor", "admin"].includes(role);
+  const isSuper = role === "superadmin" || role === "coa_employee";
+
+  // Gate will be applied per-type inside the switch block; store for reference.
+  // (profile fetch shared for logging; type-specific gating below)
+
   if (!RESEND_API_KEY) {
     return new Response(JSON.stringify({ success: false, error: "RESEND_API_KEY not configured" }), {
       status: 500,
@@ -52,6 +67,21 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const { type, to, userName, ...data } = body;
+
+    // Per-type role gate — only reject types that require higher privilege.
+    // Types not listed (or with empty gate) are open to any authenticated user.
+    const typeGates: Record<string, string[]> = {
+      security_alert: ["superadmin", "coa_employee"],
+      church_approval: ["superadmin", "coa_employee", "bishop", "pastor", "admin"],
+      subscription_warning: ["superadmin", "coa_employee", "bishop", "pastor", "admin"],
+    };
+    const gate = typeGates[type];
+    if (gate && gate.length > 0 && !gate.includes(role)) {
+      return new Response(JSON.stringify({ success: false, error: `Email type "${type}" requires higher role (${gate.join(", ")}). Your role: ${role}` }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     let subject = "";
     let html = "";

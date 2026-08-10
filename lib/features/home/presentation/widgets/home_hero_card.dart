@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/core/widgets/app_error_view.dart';
 
 import 'package:church_on_app/features/finance/presentation/giving_screen.dart';
 import 'package:church_on_app/features/connect/presentation/prayer_wall_screen.dart';
@@ -28,8 +29,12 @@ class HomeHeroCard extends ConsumerWidget {
     final bool isLive = liveStatus?.isLive ?? false;
     final String title = isLive
         ? (liveStatus?.title ?? "Live Service")
-        : (tenant != null ? "${tenant.name} Experience" : "Join our Sunday Experience");
-    final String subtitle = isLive ? "WE ARE LIVE NOW" : (tenant != null ? "GLORY TO GOD" : "SABBATH MORNING");
+        : (tenant != null
+              ? "${tenant.name} Experience"
+              : "Join our Sunday Experience");
+    final String subtitle = isLive
+        ? "WE ARE LIVE NOW"
+        : (tenant != null ? "GLORY TO GOD" : "SUNDAY MORNING");
     final String timeLabel = isLive
         ? "${liveStatus?.viewerCount ?? 0} watching"
         : (tenant != null ? "Next Service: Sunday 09:00" : "Starts in 45 mins");
@@ -51,7 +56,10 @@ class HomeHeroCard extends ConsumerWidget {
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
-                colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
+                colors: [
+                  Colors.black.withValues(alpha: 0.8),
+                  Colors.transparent,
+                ],
               ),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
@@ -62,13 +70,41 @@ class HomeHeroCard extends ConsumerWidget {
                 if (isLive)
                   Container(
                     margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(5)),
-                    child: const Text("LIVE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 8)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: const Text(
+                      "LIVE",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                    ),
                   ),
-                Text(subtitle, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
+                ),
                 const SizedBox(height: 5),
-                Text(title, style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 15),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -84,18 +120,35 @@ class HomeHeroCard extends ConsumerWidget {
                 const SizedBox(height: 15),
                 Row(
                   children: [
-                    Icon(isLive ? LucideIcons.users : LucideIcons.clock, color: Colors.white70, size: 14),
+                    Icon(
+                      isLive ? LucideIcons.users : LucideIcons.clock,
+                      color: Colors.white70,
+                      size: 14,
+                    ),
                     const SizedBox(width: 5),
-                    Text(timeLabel, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                    Text(
+                      timeLabel,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
                     const Spacer(),
                     GestureDetector(
                       onTap: () {
                         final streamUrl = liveStatus?.streamUrl;
-                        if (isLive && streamUrl != null && streamUrl.isNotEmpty) {
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => LiveStreamScreen(
-                            streamUrl: streamUrl,
-                            title: liveStatus?.title ?? "Live Service",
-                          )));
+                        if (isLive &&
+                            streamUrl != null &&
+                            streamUrl.isNotEmpty) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => LiveStreamScreen(
+                                streamUrl: streamUrl,
+                                title: liveStatus?.title ?? "Live Service",
+                              ),
+                            ),
+                          );
                         } else {
                           if (tenant == null) {
                             context.push('/select-church');
@@ -105,17 +158,24 @@ class HomeHeroCard extends ConsumerWidget {
                         }
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
-                          color: isLive ? Theme.of(context).primaryColor : Colors.white24,
+                          color: isLive
+                              ? Theme.of(context).primaryColor
+                              : Colors.white24,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           isLive ? "JOIN LIVE" : "SCHEDULE",
                           style: TextStyle(
                             fontWeight: FontWeight.w900,
-                            fontSize: 10,
-                            color: isLive ? Theme.of(context).colorScheme.secondary : Colors.white,
+                            fontSize: 11,
+                            color: isLive
+                                ? Theme.of(context).colorScheme.secondary
+                                : Colors.white,
                           ),
                         ),
                       ),
@@ -130,11 +190,17 @@ class HomeHeroCard extends ConsumerWidget {
     );
   }
 
-  void _showServiceSchedule(BuildContext context, WidgetRef ref, Tenant tenant) {
+  void _showServiceSchedule(
+    BuildContext context,
+    WidgetRef ref,
+    Tenant tenant,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
       builder: (context) => _ServiceScheduleSheet(tenant: tenant, ref: ref),
     );
   }
@@ -168,21 +234,48 @@ class HomeHeroCard extends ConsumerWidget {
         child: ElevatedButton.icon(
           onPressed: () {
             if (label == "Giving") {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const GivingScreen()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const GivingScreen()),
+              );
             } else if (label == "Prayer") {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const PrayerWallScreen()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PrayerWallScreen(),
+                ),
+              );
             } else if (label == "Notes") {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const SermonNotesScreen()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SermonNotesScreen(),
+                ),
+              );
             } else if (label == "Lyrics") {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const WorshipLyricsScreen()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const WorshipLyricsScreen(),
+                ),
+              );
             }
           },
           icon: Icon(icon, color: Colors.white, size: 14),
-          label: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+          label: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.white12,
             elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
           ),
         ),
       ),
@@ -196,7 +289,8 @@ class _ServiceScheduleSheet extends ConsumerStatefulWidget {
   const _ServiceScheduleSheet({required this.tenant, required this.ref});
 
   @override
-  ConsumerState<_ServiceScheduleSheet> createState() => _ServiceScheduleSheetState();
+  ConsumerState<_ServiceScheduleSheet> createState() =>
+      _ServiceScheduleSheetState();
 }
 
 class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
@@ -230,28 +324,62 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(widget.tenant.name, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 18), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(
+                      widget.tenant.name,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 4),
-                    const Text("WEEKLY SERVICE SCHEDULE", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.5)),
+                    const Text(
+                      "WEEKLY SERVICE SCHEDULE",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              IconButton(icon: const Icon(Icons.close, color: Colors.grey), onPressed: () => Navigator.pop(context)),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.grey),
+                onPressed: () => Navigator.pop(context),
+              ),
             ],
           ),
           const Divider(height: 30),
-          _buildScheduleRow("Sunday Main Service", "09:00 AM - 11:30 AM", "Main worship experience, sermon, and holy communion.", () {
-            _titleCtrl.text = "Sunday Main Service";
-            setState(() => _showScheduler = true);
-          }),
-          _buildScheduleRow("Wednesday Midweek", "06:00 PM - 07:30 PM", "Bible study, interactive teaching, and community prayers.", () {
-            _titleCtrl.text = "Wednesday Midweek Service";
-            setState(() => _showScheduler = true);
-          }),
-          _buildScheduleRow("Friday Deliverance", "06:00 PM - 08:00 PM", "Intercession, prayer fortress, and prophetic ministry.", () {
-            _titleCtrl.text = "Friday Deliverance Service";
-            setState(() => _showScheduler = true);
-          }),
+          _buildScheduleRow(
+            "Sunday Main Service",
+            "09:00 AM - 11:30 AM",
+            "Main worship experience, sermon, and holy communion.",
+            () {
+              _titleCtrl.text = "Sunday Main Service";
+              setState(() => _showScheduler = true);
+            },
+          ),
+          _buildScheduleRow(
+            "Wednesday Midweek",
+            "06:00 PM - 07:30 PM",
+            "Bible study, interactive teaching, and community prayers.",
+            () {
+              _titleCtrl.text = "Wednesday Midweek Service";
+              setState(() => _showScheduler = true);
+            },
+          ),
+          _buildScheduleRow(
+            "Friday Deliverance",
+            "06:00 PM - 08:00 PM",
+            "Intercession, prayer fortress, and prophetic ministry.",
+            () {
+              _titleCtrl.text = "Friday Deliverance Service";
+              setState(() => _showScheduler = true);
+            },
+          ),
           const SizedBox(height: 10),
           Center(
             child: TextButton.icon(
@@ -260,22 +388,33 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
                 _descCtrl.clear();
                 setState(() => _showScheduler = !_showScheduler);
               },
-              icon: Icon(_showScheduler ? LucideIcons.chevronUp : LucideIcons.plus, size: 16),
+              icon: Icon(
+                _showScheduler ? LucideIcons.chevronUp : LucideIcons.plus,
+                size: 16,
+              ),
               label: Text(_showScheduler ? "HIDE" : "SCHEDULE NEW EVENT"),
-              style: TextButton.styleFrom(foregroundColor: Colors.amber.shade700),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.amber.shade700,
+              ),
             ),
           ),
           if (_showScheduler) ...[
             const Divider(height: 20),
             TextField(
               controller: _titleCtrl,
-              decoration: const InputDecoration(labelText: "Event Title", border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: "Event Title",
+                border: OutlineInputBorder(),
+              ),
               style: const TextStyle(fontSize: 14),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _descCtrl,
-              decoration: const InputDecoration(labelText: "Description (optional)", border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: "Description (optional)",
+                border: OutlineInputBorder(),
+              ),
               maxLines: 2,
               style: const TextStyle(fontSize: 14),
             ),
@@ -301,7 +440,10 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () async {
-                      final time = await showTimePicker(context: context, initialTime: _startTime);
+                      final time = await showTimePicker(
+                        context: context,
+                        initialTime: _startTime,
+                      );
                       if (time != null) setState(() => _startTime = time);
                     },
                     icon: const Icon(LucideIcons.clock, size: 14),
@@ -312,7 +454,10 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () async {
-                      final time = await showTimePicker(context: context, initialTime: _endTime);
+                      final time = await showTimePicker(
+                        context: context,
+                        initialTime: _endTime,
+                      );
                       if (time != null) setState(() => _endTime = time);
                     },
                     icon: const Icon(LucideIcons.clock, size: 14),
@@ -332,8 +477,18 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: _saving
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text("SAVE EVENT", style: TextStyle(fontWeight: FontWeight.bold)),
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        "SAVE EVENT",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
               ),
             ),
           ],
@@ -346,8 +501,20 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
     if (_titleCtrl.text.trim().isEmpty) return;
     setState(() => _saving = true);
     try {
-      final start = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, _startTime.hour, _startTime.minute);
-      final end = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, _endTime.hour, _endTime.minute);
+      final start = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _startTime.hour,
+        _startTime.minute,
+      );
+      final end = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _endTime.hour,
+        _endTime.minute,
+      );
       await Supabase.instance.client.from('events').insert({
         'tenant_id': widget.tenant.id,
         'title': _titleCtrl.text.trim(),
@@ -358,19 +525,32 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
         'status': 'scheduled',
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Event scheduled!")));
+        showAppSnackBar(
+          context,
+          "Event scheduled!",
+          status: AppStatus.success,
+        );
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  Widget _buildScheduleRow(String title, String time, String description, VoidCallback onTap) {
+  Widget _buildScheduleRow(
+    String title,
+    String time,
+    String description,
+    VoidCallback onTap,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Row(
@@ -378,8 +558,15 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), shape: BoxShape.circle),
-            child: Icon(LucideIcons.clock, size: 16, color: Theme.of(context).primaryColor),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              LucideIcons.clock,
+              size: 16,
+              color: Theme.of(context).primaryColor,
+            ),
           ),
           const SizedBox(width: 15),
           Expanded(
@@ -389,21 +576,44 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Theme.of(context).colorScheme.onSurface)),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
                     GestureDetector(
                       onTap: onTap,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                          color: Theme.of(
+                            context,
+                          ).primaryColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(LucideIcons.bell, size: 10, color: Theme.of(context).primaryColor),
+                            Icon(
+                              LucideIcons.bell,
+                              size: 10,
+                              color: Theme.of(context).primaryColor,
+                            ),
                             const SizedBox(width: 3),
-                            Text("SET", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
+                            Text(
+                              "SET",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).primaryColor,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -411,9 +621,24 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
                   ],
                 ),
                 const SizedBox(height: 3),
-                Text(time, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Theme.of(context).primaryColor)),
+                Text(
+                  time,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
                 const SizedBox(height: 3),
-                Text(description, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
               ],
             ),
           ),

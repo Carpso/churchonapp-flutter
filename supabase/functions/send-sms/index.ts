@@ -106,28 +106,44 @@ serve(async (req) => {
       })
     }
 
-    // Send via Africa's Talking
+    // Send via Africa's Talking — try custom sender ID first, fallback to default
     const atUsername = Deno.env.get('AFRICASTALKING_USERNAME') ?? ''
     const atApiKey = Deno.env.get('AFRICASTALKING_API_KEY') ?? ''
-    const atFrom = Deno.env.get('AFRICASTALKING_FROM') ?? 'COA'
+    const customFrom = Deno.env.get('AFRICASTALKING_FROM') ?? 'CARPSO' // pending approval
+    const defaultFrom = '' // Africa's Talking auto-assigns shortcode when empty
 
     const formattedPhones = phone_numbers.map(formatPhone)
-    const atResponse = await fetch(AT_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'apiKey': atApiKey,
-        'Accept': 'application/json',
-      },
-      body: new URLSearchParams({
-        username: atUsername,
-        to: formattedPhones.join(','),
-        message: message,
-        from: atFrom,
-      }),
-    })
 
-    const atResult = await atResponse.json()
+    async function sendAT(fromId: string) {
+      return fetch(AT_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'apiKey': atApiKey,
+          'Accept': 'application/json',
+        },
+        body: new URLSearchParams({
+          username: atUsername,
+          to: formattedPhones.join(','),
+          message: message,
+          ...(fromId ? { from: fromId } : {}),
+        }),
+      })
+    }
+
+    // First attempt with custom sender ID (CARPSO)
+    let atResponse = await sendAT(customFrom)
+    let atResult = await atResponse.json()
+
+    // If sender rejected, retry with Africa's Talking default shortcode
+    const senderRejected = atResult?.SMSMessageData?.Recipients?.every((r: any) =>
+      r.status === 'InvalidSender' || r.status === 'Failed'
+    )
+    if (senderRejected) {
+      atResponse = await sendAT(defaultFrom)
+      atResult = await atResponse.json()
+      console.log('CARPSO sender ID pending approval — used Africa\'s Talking default shortcode')
+    }
 
     // Log to sms_logs
     const successCount = atResult?.SMSMessageData?.Recipients?.filter((r: any) => r.status === 'Success').length ?? 0

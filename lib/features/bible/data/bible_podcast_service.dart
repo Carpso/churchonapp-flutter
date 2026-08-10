@@ -1,8 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'bible_books.dart';
-import '../../../core/services/r2_service.dart';
+import '../presentation/bible_audio_player.dart' show kjvBookAbbrevs;
 
 class BiblePodcastEpisode {
   final String id;
@@ -12,6 +10,7 @@ class BiblePodcastEpisode {
   final String thumbnailUrl;
   final String audioUrl;
   final String? description;
+  final bool hasAudio;
 
   BiblePodcastEpisode({
     required this.id,
@@ -21,90 +20,69 @@ class BiblePodcastEpisode {
     required this.thumbnailUrl,
     required this.audioUrl,
     this.description,
+    this.hasAudio = false,
   });
 }
 
 class BiblePodcastService {
   BiblePodcastService();
 
-  final SupabaseClient _supabase = Supabase.instance.client;
-
-  final List<String> _thumbnails = [
-    '',
-    '',
-    '',
-    '',
-    '',
-  ];
-
-  final Map<String, String> _bookSubtitles = {
-    'Genesis': 'The Beginning of All Things',
-    'Exodus': 'The Great Deliverance',
-    'Leviticus': 'Holiness and Law',
-    'Numbers': 'Wandering in the Wilderness',
-    'Deuteronomy': 'The Law Repeated',
-    'Joshua': 'Possessing the Land',
-    'Judges': 'Cycles of Deliverance',
-    'Ruth': 'A Story of Redemption',
-    'Psalms': 'Songs of the Heart',
-    'Proverbs': 'Wisdom for Life',
-    'Matthew': 'The Promised King',
-    'John': 'The Word Made Flesh',
-    'Acts': 'The Church Empowered',
-    'Romans': 'The Power of the Gospel',
-    'Revelation': 'The Ultimate Victory',
+  // Books with LibriVox dramatized recordings
+  static const _booksWithAudio = {
+    'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy',
+    'Joshua', 'Judges', 'Ruth', '1 Samuel', '2 Samuel',
+    '1 Kings', '2 Kings', '1 Chronicles', '2 Chronicles',
+    'Ezra', 'Nehemiah', 'Esther', 'Job', 'Psalms', 'Proverbs',
+    'Ecclesiastes', 'Song of Solomon', 'Isaiah', 'Jeremiah',
+    'Lamentations', 'Ezekiel', 'Daniel', 'Hosea', 'Joel',
+    'Amos', 'Obadiah', 'Jonah', 'Micah', 'Nahum', 'Habakkuk',
+    'Zephaniah', 'Haggai', 'Zechariah', 'Malachi',
+    'Matthew', 'Mark', 'Luke', 'John', 'Acts', 'Romans',
+    '1 Corinthians', '2 Corinthians', 'Galatians', 'Ephesians',
+    'Philippians', 'Colossians', '1 Thessalonians', '2 Thessalonians',
+    '1 Timothy', '2 Timothy', 'Titus', 'Philemon', 'Hebrews',
+    'James', '1 Peter', '2 Peter', '1 John', '2 John', '3 John',
+    'Jude', 'Revelation',
   };
 
-  String _getAudioUrl(String bookName, int index) {
-    final slug = bookName.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
-    return 'https://${R2Service.publicDomain}/bible-audio/$slug.wav';
+  String _getAudioUrl(String bookName) {
+    final abbrev = kjvBookAbbrevs[bookName] ?? bookName.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '_');
+    return 'https://archive.org/download/kjv_librivox/${abbrev}_01_kjv.mp3';
   }
+
+  bool _hasAudio(String book) => _booksWithAudio.contains(book);
+
+  static const _bookSubtitles = {
+    'Genesis': 'The Beginning of All Things', 'Exodus': 'The Great Deliverance',
+    'Leviticus': 'Holiness and Law', 'Numbers': 'Wandering in the Wilderness',
+    'Deuteronomy': 'The Law Repeated', 'Joshua': 'Possessing the Land',
+    'Judges': 'Cycles of Deliverance', 'Ruth': 'A Story of Redemption',
+    'Psalms': 'Songs of the Heart', 'Proverbs': 'Wisdom for Life',
+    'Matthew': 'The Promised King', 'John': 'The Word Made Flesh',
+    'Acts': 'The Church Empowered', 'Romans': 'The Power of the Gospel',
+    'Revelation': 'The Ultimate Victory',
+  };
 
   List<BiblePodcastEpisode> getAllEpisodes() {
     return bibleBooks.asMap().entries.map((entry) {
       final index = entry.key;
       final book = entry.value;
       final subtitle = _bookSubtitles[book] ?? 'Deep Dive into the Word';
+      final available = _hasAudio(book);
 
-      final audioUrl = _getAudioUrl(book, index);
       return BiblePodcastEpisode(
         id: 'ep_${index + 1}',
-        title: '$book: $subtitle',
+        title: available ? '$book — Dramatized Audio' : '$book: $subtitle',
         book: book,
-        duration: '${15 + (index % 45)}:00',
-        thumbnailUrl: _thumbnails[index % _thumbnails.length],
-        audioUrl: audioUrl,
-        description: 'Explore the profound truths and historical context of the Book of $book in this comprehensive audio study.',
+        duration: available ? '~${3 + (index % 15)}:00' : 'TTS Only',
+        thumbnailUrl: '', // Placeholder — Bible book art coming soon
+        audioUrl: available ? _getAudioUrl(book) : '',
+        description: available
+            ? 'Dramatized reading of the Book of $book by LibriVox volunteers. Chapter-by-chapter audio narration with character voices.'
+            : 'Audio recording not yet available for $book. Use Text-to-Speech (Read Aloud) or stream chapter audio from the Bible reader.',
+        hasAudio: available,
       );
     }).toList();
-  }
-
-  Future<String> generateDramatizedContent(String bookName) async {
-    final prefs = await SharedPreferences.getInstance();
-    final cacheKey = 'dramatized_$bookName';
-    final cached = prefs.getString(cacheKey);
-    if (cached != null && cached.isNotEmpty) {
-      return cached;
-    }
-
-    try {
-      final response = await _supabase.functions.invoke(
-        'kael-ai',
-        body: {
-          'action': 'dramatize',
-          'prompt': 'Create a dramatic, cinematic narration script for the Book of $bookName from the Bible. Include vivid scene descriptions, character emotions, and atmospheric details. Format as a spoken-word script suitable for audio drama.',
-        },
-      );
-
-      final content = response.data?['response'] ?? response.data?['content'] ?? response.data?['text'] ?? '';
-      if (content is String && content.isNotEmpty) {
-        await prefs.setString(cacheKey, content);
-        return content;
-      }
-      return '';
-    } catch (e) {
-      return '';
-    }
   }
 }
 

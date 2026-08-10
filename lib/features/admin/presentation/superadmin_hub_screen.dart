@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/tenant_service.dart';
 import '../../../core/providers/profile_provider.dart';
+import '../../../core/widgets/app_error_view.dart';
 import '../../../core/utils/db_seeder.dart';
 import '../../../core/services/platform_settings_service.dart';
 import '../../../core/services/plan_service.dart';
@@ -167,15 +168,19 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Approved ${church['name']}! 30-day Silver trial started ✅"), backgroundColor: Colors.green),
+        showAppSnackBar(
+          context,
+          "Approved ${church['name']}! 30-day Silver trial started ✅",
+          status: AppStatus.success,
         );
         _loadStats();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
         );
       }
     }
@@ -193,15 +198,19 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Rejected and deleted ${church['name']}"), backgroundColor: Colors.red),
+        showAppSnackBar(
+          context,
+          "Rejected and deleted ${church['name']}",
+          status: AppStatus.error,
         );
         _loadStats();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
         );
       }
     }
@@ -324,15 +333,19 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Onboarding approved for ${church['name']}! Platinum active until ${platinumUntil.toLocal().toString().split(' ')[0]} 🚀"), backgroundColor: Colors.green),
+        showAppSnackBar(
+          context,
+          "Onboarding approved for ${church['name']}! Platinum active until ${platinumUntil.toLocal().toString().split(' ')[0]} 🚀",
+          status: AppStatus.success,
         );
         _loadStats();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
         );
       }
     }
@@ -353,15 +366,19 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Rejected payment reference for ${church['name']}"), backgroundColor: Colors.red),
+        showAppSnackBar(
+          context,
+          "Rejected payment reference for ${church['name']}",
+          status: AppStatus.error,
         );
         _loadStats();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
         );
       }
     }
@@ -466,14 +483,18 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       );
       ref.invalidate(platformSettingsProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Platform rates updated successfully! 🚀"), backgroundColor: Colors.green),
+        showAppSnackBar(
+          context,
+          "Platform rates updated successfully! 🚀",
+          status: AppStatus.success,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to update rates: $e"), backgroundColor: Colors.red),
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
         );
       }
     } finally {
@@ -498,14 +519,18 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       );
       ref.invalidate(platformSettingsProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("COA MoMo numbers updated! ✅"), backgroundColor: Colors.green),
+        showAppSnackBar(
+          context,
+          "COA MoMo numbers updated! ✅",
+          status: AppStatus.success,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to update MoMo: $e"), backgroundColor: Colors.red),
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
         );
       }
     } finally {
@@ -620,7 +645,27 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
     'Game Arena',
     'Events Management',
     'Giving & Tithes',
-    'Bible Quiz'
+    'Bible Quiz',
+    'Live Streaming',
+    'Sermon Library',
+    'Kingdom Klips',
+    'Direct Chat',
+    'Community Chat',
+    'Audio/Video Calls',
+    'SMS Broadcasts',
+    'Carpso Ride',
+    'Cargo Delivery',
+    'Bible Reader',
+    'Bible Study Plans',
+    'Kael Bible Tools',
+    'QR Check-in',
+    'Event Ticketing',
+    'Attendance Scanner',
+    'Finance Dashboard',
+    'Service Reports',
+    'Data Import',
+    'Bookshop',
+    'Inter-Tenant Events',
   ];
 
   @override
@@ -649,8 +694,8 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (e, st) => Scaffold(
-        backgroundColor: Color(0xFF0F172A),
-        body: Center(child: Text('Error: $e')),
+        backgroundColor: const Color(0xFF0F172A),
+        body: AppErrorView(error: e, onRetry: _loadStats),
       ),
     );
   }
@@ -705,10 +750,10 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
                 ref.invalidate(membersProvider);
                 ref.invalidate(eventsStreamProvider);
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data sync triggered!")));
+                showAppSnackBar(context, "Data sync triggered!", status: AppStatus.success);
               } catch (e) {
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Sync failed: $e"), backgroundColor: Colors.red));
+                showAppSnackBar(context, AppErrorView.friendlyMessage(e), status: AppStatus.error);
               }
             }),
             _buildGlobalAction(LucideIcons.shieldAlert, "Emergency Lockdown", "Instantly disable app for maintenance", Colors.red, () {
@@ -719,20 +764,20 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.clear();
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Local cache cleared!")));
+                showAppSnackBar(context, "Local cache cleared!", status: AppStatus.warning);
               } catch (e) {
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Clear failed: $e"), backgroundColor: Colors.red));
+                showAppSnackBar(context, AppErrorView.friendlyMessage(e), status: AppStatus.error);
               }
             }),
             _buildGlobalAction(LucideIcons.sparkles, "Seed Mock Data", "Populate all tables with demo data", Colors.green, () async {
               try {
                 await DbSeeder.seedAll();
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mock data seeded successfully! ✅")));
+                showAppSnackBar(context, "Mock data seeded successfully! ✅", status: AppStatus.success);
               } catch (e) {
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Seeding failed: $e"), backgroundColor: Colors.red));
+                showAppSnackBar(context, AppErrorView.friendlyMessage(e), status: AppStatus.error);
               }
             }),
             _buildGlobalAction(LucideIcons.hardDrive, "Create System Backup", "Download snapshot of database schema and settings", Colors.purple, () => _performBackup()),
@@ -808,9 +853,21 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
                   final svc = ref.read(roleHierarchyServiceProvider);
                   try {
                     await svc.assignRole(userId: uid, roleName: role, tenantId: tenantId);
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Staff role requested: $role for tenant $tenantId"), backgroundColor: Colors.green));
+                    if (context.mounted) {
+                      showAppSnackBar(
+                        context,
+                        "Staff role requested: $role for tenant $tenantId",
+                        status: AppStatus.success,
+                      );
+                    }
                   } catch (e) {
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+                    if (context.mounted) {
+                      showAppSnackBar(
+                        context,
+                        AppErrorView.friendlyMessage(e),
+                        status: AppStatus.error,
+                      );
+                    }
                   }
                 }
               }
@@ -910,8 +967,10 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
     } catch (e) {
       if (mounted) Navigator.pop(context);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Backup failed: $e"), backgroundColor: Colors.red),
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
         );
       }
     }
@@ -956,7 +1015,15 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("PLATFORM REVENUE BREAKDOWN", style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+          const Text(
+            "PLATFORM REVENUE BREAKDOWN",
+            style: TextStyle(
+              color: Colors.white60,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.1,
+            ),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -1009,7 +1076,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-              Text(description, style: const TextStyle(color: Colors.white38, fontSize: 10)),
+              Text(description, style: const TextStyle(color: Colors.white38, fontSize: 11)),
             ],
           ),
         ),
@@ -1046,10 +1113,17 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             title: Text(feature, style: const TextStyle(color: Colors.white, fontSize: 14)),
             value: isEnabled,
             activeThumbColor: Colors.greenAccent,
-            subtitle: Text("Enabled for ${tenant?.name ?? 'all'}", style: const TextStyle(color: Colors.white30, fontSize: 10)),
+            subtitle: Text(
+              "Enabled for ${tenant?.name ?? 'all'}",
+              style: const TextStyle(color: Colors.white30, fontSize: 11),
+            ),
             onChanged: (val) async {
               if (tenant == null) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No tenant selected to configure"), backgroundColor: Colors.red));
+                showAppSnackBar(
+                  context,
+                  "No tenant selected to configure",
+                  status: AppStatus.error,
+                );
                 return;
               }
               final client = Supabase.instance.client;
@@ -1067,18 +1141,20 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
                 }
                 
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text("$feature updated to ${val ? 'Enabled' : 'Disabled'}! ✅"),
-                    backgroundColor: Colors.green,
-                  ));
+                  showAppSnackBar(
+                    context,
+                    "$feature updated to ${val ? 'Enabled' : 'Disabled'}! ✅",
+                    status: AppStatus.success,
+                  );
                   _loadStats();
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text("Error: $e"),
-                    backgroundColor: Colors.red,
-                  ));
+                  showAppSnackBar(
+                    context,
+                    AppErrorView.friendlyMessage(e),
+                    status: AppStatus.error,
+                  );
                 }
               }
             },
@@ -1131,6 +1207,8 @@ class _AuditLogScreenState extends ConsumerState<_AuditLogScreen> {
         leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
       ),
       body: logsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: Colors.amber)),
+        error: (e, st) => AppErrorView(error: e, onRetry: () => ref.invalidate(auditLogStreamProvider)),
         data: (logs) {
           if (logs.isEmpty) {
             return const Center(child: Text("No audit logs yet.", style: TextStyle(color: Colors.white38)));
@@ -1197,9 +1275,17 @@ class _AuditLogScreenState extends ConsumerState<_AuditLogScreen> {
                           const SizedBox(height: 4),
                           Text("$entity${entityId.isNotEmpty ? ': $entityId' : ''}", style: const TextStyle(color: Colors.white54, fontSize: 12)),
                           if (details.isNotEmpty)
-                            Text(details.toString(), style: const TextStyle(color: Colors.white24, fontSize: 10), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            Text(
+                              details.toString(),
+                              style: const TextStyle(color: Colors.white24, fontSize: 11),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           const SizedBox(height: 4),
-                          Text("$adminEmail • ${createdAt.isNotEmpty ? createdAt.substring(0, 19).replaceAll('T', ' ') : ''}", style: const TextStyle(color: Colors.white24, fontSize: 9)),
+                          Text(
+                            "$adminEmail • ${createdAt.isNotEmpty ? createdAt.substring(0, 19).replaceAll('T', ' ') : ''}",
+                            style: const TextStyle(color: Colors.white24, fontSize: 11),
+                          ),
                         ],
                       ),
                     ),
@@ -1209,8 +1295,6 @@ class _AuditLogScreenState extends ConsumerState<_AuditLogScreen> {
             },
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator(color: Colors.orange)),
-        error: (e, st) => Center(child: Text("Error: $e", style: const TextStyle(color: Colors.red))),
       ),
     );
   }

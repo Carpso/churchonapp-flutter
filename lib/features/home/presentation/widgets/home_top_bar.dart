@@ -254,7 +254,7 @@ class HomeTopBar extends StatelessWidget {
                 isLabelVisible: count > 0,
                 label: Text(
                   count > 99 ? '99+' : '$count',
-                  style: const TextStyle(fontSize: 10),
+                  style: const TextStyle(fontSize: 11),
                 ),
                 child: bellButton,
               ),

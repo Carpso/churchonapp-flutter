@@ -109,14 +109,14 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text("Bishop's Intelligence", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        Text("Privacy-First Asset Mapping (OSM)", style: TextStyle(color: Colors.grey, fontSize: 10)),
+                        Text("Privacy-First Asset Mapping (OSM)", style: TextStyle(color: Colors.grey, fontSize: 11)),
                       ],
                     ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                    child: const Text("LIVE", style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
+                    child: const Text("LIVE", style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),

@@ -1,0 +1,26 @@
+- [x] Accessibility: Font Size Normalization (P0)
+    - [x] Update `profile_screen.dart` font sizes
+    - [x] Update `main_navigation_shell.dart` font sizes
+    - [ ] Update `home_screen.dart` disclaimers (9 -> 11)
+    - [x] Update `membership_card_screen.dart`
+    - [x] Update `marketplace_screen.dart`
+- [ ] Theme Integrity & Dark Mode Fixes (P1)
+    - [x] Enhance `AppTheme` with `StatusColor` helper
+    - [ ] Fix `login_screen.dart` dark mode issues
+    - [x] Fix `support_hub_screen.dart` dark mode issues
+    - [x] Fix `verification_request_screen.dart` dark mode issues
+    - [x] Fix `security_screen.dart` dark mode issues
+    - [x] Fix `rewards_screen.dart` dark mode issues
+    - [ ] Unify Snackbar call sites using `showAppSnackBar`
+- [x] Navigation: GoRouter Migration (P2)
+    - [x] Register missing routes in `app_router.dart`
+    - [x] Update `home_quick_actions.dart` navigation
+    - [x] Update `ProfileScreen` navigation
+- [ ] Error UX & Shared Widgets (P2)
+    - [x] Create `AppErrorView` widget
+    - [ ] Migrate priority screens to `AppErrorView`
+    - [ ] Create `AppEmptyView` and `AppLoadingView`
+- [ ] UI/UX Polish (P3)
+    - [ ] Reduce Home Screen vertical density
+    - [ ] Bottom Nav: Add active indicator pill
+    - [ ] Bundle top-3 fonts

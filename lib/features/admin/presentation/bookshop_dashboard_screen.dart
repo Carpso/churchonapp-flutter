@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/core/widgets/app_error_view.dart';
 import 'package:church_on_app/features/admin/data/role_hierarchy_service.dart';
 import '../../marketplace/presentation/post_product_screen.dart';
 
@@ -126,12 +127,20 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
         try {
           await svc.elevateRole(userId: uid, roleName: role);
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$role added to shop!"), backgroundColor: Colors.green));
+            showAppSnackBar(
+              context,
+              "$role added to shop!",
+              status: AppStatus.success,
+            );
           }
           _loadDashboard();
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+            showAppSnackBar(
+              context,
+              AppErrorView.friendlyMessage(e),
+              status: AppStatus.error,
+            );
           }
         }
       }
@@ -146,16 +155,28 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
       appBar: AppBar(
         title: const Text("Bookshop Dashboard", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        foregroundColor: Colors.black87,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
         actions: [
-          IconButton(icon: const Icon(LucideIcons.plus), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PostProductScreen(initialCategory: "bookshop"))).then((_) => _loadDashboard())),
+          IconButton(
+            icon: const Icon(LucideIcons.plus),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PostProductScreen(initialCategory: "bookshop")),
+            ).then((_) => _loadDashboard()),
+          ),
           IconButton(icon: const Icon(LucideIcons.users), onPressed: _addStaffMember, tooltip: "Add Staff"),
-          IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _isLoading ? null : _loadDashboard),
+          IconButton(
+            icon: const Icon(LucideIcons.refreshCw),
+            onPressed: _isLoading ? null : _loadDashboard,
+          ),
         ],
       ),
-      body: _isLoading ? _buildShimmer() : _error != null ? _buildError()
-          : RefreshIndicator(
+      body: _isLoading
+          ? _buildShimmer()
+          : _error != null
+              ? _buildErrorView()
+              : RefreshIndicator(
               onRefresh: _loadDashboard,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -187,11 +208,7 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
     ]),
   );
 
-  Widget _buildError() => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-    Icon(LucideIcons.wifiOff, size: 48, color: Colors.grey.shade300),
-    const SizedBox(height: 12), Text("Could not load bookshop", style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
-    const SizedBox(height: 20), ElevatedButton.icon(onPressed: _loadDashboard, icon: const Icon(LucideIcons.refreshCw, size: 16), label: const Text("Retry")),
-  ]));
+  Widget _buildErrorView() => AppErrorView(error: _error, onRetry: _loadDashboard);
 
   Widget _buildHeader(ThemeData theme) {
     final currency = NumberFormat.currency(symbol: 'K ', decimalDigits: 0);
@@ -228,15 +245,38 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
     );
   }
 
-  Widget _statCard(String label, String value, IconData icon, Color color) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12)]),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-      Icon(icon, color: color, size: 20), const Spacer(),
-      Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-      Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
-    ]),
-  );
+  Widget _statCard(String label, String value, IconData icon, Color color) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withValues(alpha: 0.04),
+            blurRadius: 12,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const Spacer(),
+          Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+          Text(
+            label,
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _productTile(ThemeData theme, Map<String, dynamic> product) {
     final title = product['title'] as String? ?? 'Untitled';
@@ -245,22 +285,49 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
     final status = stock == 0 ? 'Out of Stock' : stock < 10 ? 'Low Stock' : 'In Stock';
     final statusColor = stock == 0 ? Colors.red : stock < 10 ? Colors.orange : Colors.green;
     return Container(
-      margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-      child: Row(children: [
-        Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-          child: const Icon(LucideIcons.book, color: Colors.orange, size: 18)),
-        const SizedBox(width: 14),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          Text("K ${NumberFormat.decimalPattern().format(price)} • Stock: $stock", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
-        ])),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-          child: Text(status, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: statusColor)),
-        ),
-      ]),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(LucideIcons.book, color: Colors.orange, size: 18),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(
+                  "K ${NumberFormat.decimalPattern().format(price)} • Stock: $stock",
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            child: Text(
+              status,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: statusColor,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -269,20 +336,44 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
     final status = order['status'] as String? ?? 'pending';
     final currency = NumberFormat.currency(symbol: 'K ', decimalDigits: 0);
     return Container(
-      margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-      child: Row(children: [
-        Icon(LucideIcons.shoppingBag, size: 14, color: Colors.grey.shade600),
-        const SizedBox(width: 10),
-        Expanded(child: Text(currency.format(amount), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-        Text(status, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
-      ]),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            LucideIcons.shoppingBag,
+            size: 14,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              currency.format(amount),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+          ),
+          Text(
+            status,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _emptyCard(ThemeData theme, String msg) => Container(
     width: double.infinity, padding: const EdgeInsets.all(25),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-    child: Center(child: Text(msg, style: TextStyle(color: Colors.grey.shade400))),
+    decoration: BoxDecoration(
+      color: theme.colorScheme.surface,
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Center(child: Text(msg, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4)))),
   );
 }

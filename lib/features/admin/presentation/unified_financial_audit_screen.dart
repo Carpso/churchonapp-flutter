@@ -147,7 +147,7 @@ class _UnifiedFinancialAuditScreenState extends ConsumerState<UnifiedFinancialAu
   Widget _summaryItem(String label, String value) {
     return Column(children: [
       Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-      Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10)),
+      Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
     ]);
   }
 
@@ -199,7 +199,7 @@ class _UnifiedFinancialAuditScreenState extends ConsumerState<UnifiedFinancialAu
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(type, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              Text(formattedDate, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+              Text(formattedDate, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
             ],
           )),
           Text("K ${NumberFormat.decimalPattern().format(amount)}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.teal.shade700)),
@@ -232,7 +232,7 @@ class _UnifiedFinancialAuditScreenState extends ConsumerState<UnifiedFinancialAu
               child: LinearProgressIndicator(value: progress, backgroundColor: Colors.grey.shade200, valueColor: AlwaysStoppedAnimation(Colors.teal.shade400), minHeight: 8),
             ),
             const SizedBox(height: 6),
-            Text("K ${NumberFormat.decimalPattern().format(raised)} of K ${NumberFormat.decimalPattern().format(target)}", style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+            Text("K ${NumberFormat.decimalPattern().format(raised)} of K ${NumberFormat.decimalPattern().format(target)}", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
           ],
         ),
       );
@@ -245,7 +245,7 @@ class _UnifiedFinancialAuditScreenState extends ConsumerState<UnifiedFinancialAu
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-          Column(children: [Text(_formatNum(_totalWalletTx), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22)), Text("Wallet TX", style: TextStyle(color: Colors.grey.shade500, fontSize: 10))]),
+          Column(children: [Text(_formatNum(_totalWalletTx), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22)), Text("Wallet TX", style: TextStyle(color: Colors.grey.shade500, fontSize: 11))]),
           Column(children: [Icon(LucideIcons.arrowUpDown, color: Colors.teal.shade300), const Text("")]),
         ]),
       ),

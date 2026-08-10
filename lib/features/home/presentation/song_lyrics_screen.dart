@@ -22,7 +22,7 @@ class SongLyricsScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(30),
           child: Column(
             children: [
-              const Text("CURRENT SONG", style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2)),
+              const Text("CURRENT SONG", style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2)),
               Text(lyric.title, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
               Text(lyric.artist, style: const TextStyle(color: Colors.white54, fontSize: 14)),
               const SizedBox(height: 50),

@@ -23,6 +23,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   bool _isLive = false;
   bool _isInit = false;
   bool _isLoading = false;
+  bool _permissionDenied = false;
   String _streamStatus = "OFFLINE";
   String _streamTitle = "Sunday Celebration Live";
   int _viewers = 0;
@@ -48,9 +49,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       }
     } else {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Camera and Microphone permissions required.")),
-      );
+      setState(() => _permissionDenied = true);
     }
   }
 
@@ -196,22 +195,52 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   }
 
   void _shareStream() {
-    final info = _rtmpUrl != null && _streamKey != null
-        ? "RTMP: $_rtmpUrl\nKey: $_streamKey\nHLS: https://live.churchonapp.com/stream/$_streamId"
-        : "https://churchonapp.com/live";
+    const link = "https://churchonapp.com/live";
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Share: $info"), backgroundColor: Colors.blue, duration: const Duration(seconds: 5)),
+      const SnackBar(content: Text("Live link: $link"), duration: Duration(seconds: 3)),
     );
   }
 
   @override
   void dispose() {
+    _titleController.dispose();
     _cameraController?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_permissionDenied) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(LucideIcons.cameraOff, color: Colors.white54, size: 64),
+                const SizedBox(height: 16),
+                const Text("Camera & Microphone Access Required",
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                const SizedBox(height: 8),
+                const Text("Grant permissions to go live.", style: TextStyle(color: Colors.white70), textAlign: TextAlign.center),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: () {
+                    setState(() => _permissionDenied = false);
+                    _checkPermissionsAndInit();
+                  },
+                  icon: const Icon(LucideIcons.refreshCw),
+                  label: const Text("GRANT ACCESS"),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     if (!_isInit || _cameraController == null) {
       return const Scaffold(backgroundColor: Colors.black, body: Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))));
     }
@@ -333,9 +362,9 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                         children: [
                           IconButton(
                             icon: const Icon(LucideIcons.cast, color: Colors.white, size: 28),
-                            onPressed: () {},
+                            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Cast to device coming soon"))),
                           ),
-                          const Text("Connect", style: TextStyle(color: Colors.white, fontSize: 10)),
+                          const Text("Connect", style: TextStyle(color: Colors.white, fontSize: 11)),
                         ],
                       ),
                       if (_isLive)
@@ -345,7 +374,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                               icon: const Icon(LucideIcons.share, color: Colors.blue, size: 28),
                               onPressed: _shareStream,
                             ),
-                            const Text("Share Link", style: TextStyle(color: Colors.white, fontSize: 10)),
+                            const Text("Share Link", style: TextStyle(color: Colors.white, fontSize: 11)),
                           ],
                         ),
                       GestureDetector(
@@ -375,7 +404,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                             icon: const Icon(LucideIcons.refreshCcw, color: Colors.white, size: 28),
                             onPressed: _toggleCamera,
                           ),
-                          const Text("Flip", style: TextStyle(color: Colors.white, fontSize: 10)),
+                          const Text("Flip", style: TextStyle(color: Colors.white, fontSize: 11)),
                         ],
                       ),
                     ],

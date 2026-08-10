@@ -205,6 +205,43 @@ class TransportService {
     }
   }
 
+  // ── Fare negotiation (passenger ↔ driver) ──
+
+  /// Passenger submits a fare offer (below estimated price).
+  Future<void> submitFareOffer(String requestId, double offer) async {
+    await _client.from('ride_requests').update({
+      'negotiated_fare': offer,
+      'negotiation_status': 'passenger_offered',
+    }).eq('id', requestId);
+  }
+
+  /// Driver counters with a different fare.
+  Future<void> counterFare(String requestId, double counter) async {
+    await _client.from('ride_requests').update({
+      'negotiated_fare': counter,
+      'negotiation_status': 'driver_countered',
+    }).eq('id', requestId);
+  }
+
+  /// Passenger accepts the driver's counter-offer → locks fare and accepts ride.
+  Future<void> acceptCounterOffer(String requestId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+    await _client.from('ride_requests').update({
+      'status': 'accepted',
+      'negotiation_status': 'accepted',
+      'fare_locked_at': DateTime.now().toIso8601String(),
+    }).eq('id', requestId).eq('negotiation_status', 'driver_countered');
+  }
+
+  /// Passenger declines the counter-offer, resets to pending.
+  Future<void> declineCounterOffer(String requestId) async {
+    await _client.from('ride_requests').update({
+      'negotiation_status': 'none',
+      'negotiated_fare': null,
+    }).eq('id', requestId).eq('negotiation_status', 'driver_countered');
+  }
+
   Future<void> updateRideStatus(String requestId, String status) async {
     await _client.from('ride_requests').update({'status': status}).eq('id', requestId);
     

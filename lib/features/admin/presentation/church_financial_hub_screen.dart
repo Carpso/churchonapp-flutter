@@ -151,7 +151,7 @@ class _ChurchFinancialHubScreenState extends ConsumerState<ChurchFinancialHubScr
         Icon(icon, color: color, size: 20),
         const Spacer(),
         Text(value, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.black87)),
-        Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+        Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
       ]),
     );
   }
@@ -172,7 +172,7 @@ class _ChurchFinancialHubScreenState extends ConsumerState<ChurchFinancialHubScr
           const SizedBox(height: 8),
           ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: progress, backgroundColor: Colors.grey.shade200, valueColor: AlwaysStoppedAnimation(Colors.amber.shade400), minHeight: 8)),
           const SizedBox(height: 6),
-          Text("K ${NumberFormat.decimalPattern().format(raised)} of K ${NumberFormat.decimalPattern().format(target)} (${(progress * 100).toStringAsFixed(0)}%)", style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+          Text("K ${NumberFormat.decimalPattern().format(raised)} of K ${NumberFormat.decimalPattern().format(target)} (${(progress * 100).toStringAsFixed(0)}%)", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
         ]),
       );
     }).toList();
@@ -194,7 +194,7 @@ class _ChurchFinancialHubScreenState extends ConsumerState<ChurchFinancialHubScr
           const SizedBox(height: 8),
           ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: progress, backgroundColor: Colors.grey.shade200, valueColor: AlwaysStoppedAnimation(Colors.teal.shade400), minHeight: 8)),
           const SizedBox(height: 6),
-          Text("K ${NumberFormat.decimalPattern().format(collected)} of K ${NumberFormat.decimalPattern().format(target)}", style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+          Text("K ${NumberFormat.decimalPattern().format(collected)} of K ${NumberFormat.decimalPattern().format(target)}", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
         ]),
       );
     }).toList();

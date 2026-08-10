@@ -59,13 +59,30 @@ class CallService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception("User not authenticated");
 
+    // Fetch caller's tenant for scoping
+    final profile = await _client.from('profiles').select('tenant_id').eq('id', userId).maybeSingle();
+    final tenantId = profile?['tenant_id'];
+
     final res = await _client.from('calls').insert({
       'caller_id': userId,
       'recipient_id': recipientId,
       'type': type,
       'status': 'dialing',
       'offer': offer,
+      'tenant_id': tenantId,
     }).select().single();
+
+    // Push notification to recipient
+    try {
+      await _client.functions.invoke('push-notifications', body: {
+        'userId': recipientId,
+        'title': 'Incoming Call',
+        'body': 'Someone is calling you on Church On App',
+        'type': 'incoming_call',
+        'referenceId': res['id'],
+        'channelId': 'calls',
+      });
+    } catch (_) {}
 
     return CallSession.fromMap(res);
   }

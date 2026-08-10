@@ -272,7 +272,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
         border: Border.all(color: Colors.white24),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(text, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+      child: Text(text, style: const TextStyle(color: Colors.white54, fontSize: 11)),
     );
   }
 

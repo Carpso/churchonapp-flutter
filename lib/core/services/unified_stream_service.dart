@@ -160,6 +160,7 @@ class UnifiedStreamService {
           'name': title,
           'description': description,
           'max_duration': config.maxStreamDurationSec,
+          'church_id': config.tenantId,
           'allowed_origins': ['*'],
         },
       },
@@ -471,7 +472,7 @@ class StreamingConfig {
       retentionDays: 90,
       maxStorageGb: 10.0,
       maxStreamDurationSec: 14400, // 4 hours
-      maxQuality: 720,
+      maxQuality: 1080,
       autoRecord: true,
       enableChat: true,
       enablePrayerRequests: true,

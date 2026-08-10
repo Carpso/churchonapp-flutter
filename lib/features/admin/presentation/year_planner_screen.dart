@@ -108,7 +108,7 @@ class _YearPlannerScreenState extends ConsumerState<YearPlannerScreen> {
             decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15)),
             child: Column(
               children: [
-                Text(DateFormat('MMM').format(date).toUpperCase(), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 10)),
+                Text(DateFormat('MMM').format(date).toUpperCase(), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 11)),
                 Text(DateFormat('dd').format(date), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w900, fontSize: 18)),
               ],
             ),
@@ -136,7 +136,7 @@ class _YearPlannerScreenState extends ConsumerState<YearPlannerScreen> {
           ),
           if (program['is_central'] == true)
             const Chip(
-              label: Text("MAJOR", style: TextStyle(fontSize: 8, color: Colors.white)),
+              label: Text("MAJOR", style: TextStyle(fontSize: 11, color: Colors.white)),
               backgroundColor: Colors.red,
               padding: EdgeInsets.zero,
             ),

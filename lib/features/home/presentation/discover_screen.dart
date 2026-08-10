@@ -131,7 +131,7 @@ class DiscoverScreen extends ConsumerWidget {
                 children: [
                   Text(sermon.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 4),
-                  Text(sermon.preacher, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+                  Text(sermon.preacher, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
                 ],
               ),
             ),

@@ -59,7 +59,7 @@ class _PlatformAdScreenState extends ConsumerState<PlatformAdScreen> {
                                         color: Colors.blue.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
-                                      child: const Text('PLATFORM', style: TextStyle(fontSize: 9, color: Colors.blue, fontWeight: FontWeight.bold)),
+                                      child: const Text('PLATFORM', style: TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.bold)),
                                     ),
                                   if (!ad.isPlatformWide) ...[
                                     const SizedBox(width: 6),
@@ -69,7 +69,7 @@ class _PlatformAdScreenState extends ConsumerState<PlatformAdScreen> {
                                         color: Colors.grey.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
-                                      child: const Text('TENANT', style: TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold)),
+                                      child: const Text('TENANT', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
                                     ),
                                   ],
                                 ],

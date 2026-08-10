@@ -65,6 +65,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // Create the tenant entry
     const tenantRes = await supabase.from("tenants").insert({
       name: name.trim(),
       type: "bookshop",
@@ -77,21 +78,34 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    await supabase.from("marketplace_items").insert({
+    // Create the bookshop record (proper table, not marketplace_items)
+    await supabase.from("bookshops").insert({
+      tenant_id: tenantId,
       name: name.trim(),
       description: description.trim(),
       contact: contact.trim(),
       location: location.trim(),
-      category: "bookshop",
-      vendor_id: user.id,
-      tenant_id: tenantId,
-      created_at: new Date().toISOString(),
+      owner_id: user.id,
+      owner_name: profile?.full_name ?? (user.email ?? name),
+      status: "pending",
+      is_active: true,
     });
 
+    // Assign caller as bookshop_owner and link to the new tenant
     await supabase.from("profiles").update({
-      role: "vendor",
+      role: "bookshop_owner",
       tenant_id: tenantId,
     }).eq("id", user.id);
+
+    // Audit trail
+    await supabase.from("role_assignments").insert({
+      user_id: user.id,
+      role_name: "bookshop_owner",
+      tenant_id: tenantId,
+      assigned_by: user.id,
+      status: "approved",
+      created_at: new Date().toISOString(),
+    });
 
     return new Response(JSON.stringify({ success: true, tenantId }), {
       status: 200,

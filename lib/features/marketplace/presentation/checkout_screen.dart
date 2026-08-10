@@ -348,7 +348,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             return;
           }
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Checkout: Error parsing payment status: $e');
+      }
 
       // Check Lipila API status
       try {
@@ -373,9 +375,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 .toString()
                 .toLowerCase()
                 .trim();
-      } catch (e) {
-        debugPrint('Checkout: Error parsing payment status: $e');
-      }
+          } catch (e) {
+            debugPrint('Checkout: Error parsing payment status: $e');
+          }
 
           if (['successful', 'paid', 'completed', 'settled', 'success', 'approved', 'accepted', 'confirmed'].contains(status)) {
             timer.cancel();
@@ -1081,7 +1083,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   Widget _buildBottomButton() {
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+      padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewPadding.bottom + 20),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))],

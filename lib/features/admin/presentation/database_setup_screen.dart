@@ -295,7 +295,7 @@ class _DatabaseSetupScreenState extends ConsumerState<DatabaseSetupScreen> {
                       Text(
                         table.isReady ? 'ready' : 'needs migration',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 9,
+                          fontSize: 11,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1,
                           color: table.isReady ? Colors.green : Colors.red,

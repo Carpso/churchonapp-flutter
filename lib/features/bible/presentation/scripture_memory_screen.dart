@@ -84,8 +84,8 @@ class _ScriptureMemoryScreenState extends State<ScriptureMemoryScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: const [
-              Text("Easy", style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
-              Text("By Heart", style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+              Text("Easy", style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+              Text("By Heart", style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 20),

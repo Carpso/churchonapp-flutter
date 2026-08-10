@@ -1,4 +1,3 @@
-import "https://deno.land/std@0.177.0/dotenv.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
@@ -38,7 +37,37 @@ Deno.serve(async (req) => {
       return new Response("Forbidden", { status: 403, headers: corsHeaders });
     }
 
-    const body = await req.json();
+    // HMAC-SHA256 signature verification (X-Hub-Signature-256).
+    const rawBody = await req.text();
+    const signature = req.headers.get("X-Hub-Signature-256") ?? "";
+    const appSecret = Deno.env.get("WHATSAPP_APP_SECRET");
+
+    if (appSecret) {
+      if (!signature.startsWith("sha256=")) {
+        console.warn("WhatsApp webhook: missing or malformed X-Hub-Signature-256");
+        return new Response("Forbidden", { status: 403, headers: corsHeaders });
+      }
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(appSecret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"],
+      );
+      const hmac = await crypto.subtle.sign("HMAC", key, encoder.encode(rawBody));
+      const expected = "sha256=" + Array.from(new Uint8Array(hmac))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      if (signature !== expected) {
+        console.warn("WhatsApp webhook: signature mismatch");
+        return new Response("Forbidden", { status: 403, headers: corsHeaders });
+      }
+    } else {
+      console.warn("WHATSAPP_APP_SECRET not configured — webhook accepted without signature verification");
+    }
+
+    const body = JSON.parse(rawBody);
 
     if (body.object === "whatsapp_business_account") {
       for (const entry of body.entry || []) {

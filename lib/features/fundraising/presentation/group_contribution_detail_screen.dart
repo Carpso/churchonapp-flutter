@@ -347,7 +347,7 @@ class _MemberTile extends StatelessWidget {
               margin: const EdgeInsets.only(left: 6),
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(6)),
-              child: Text("You", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.brown.shade700)),
+              child: Text("You", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.brown.shade700)),
             ),
         ],
       ),
@@ -359,7 +359,7 @@ class _MemberTile extends StatelessWidget {
           alignment: Alignment.center,
           children: [
             CircularProgressIndicator(value: progress.clamp(0, 1), strokeWidth: 4, backgroundColor: Colors.grey.shade200, color: progress >= 1 ? Colors.green : Colors.amber),
-            Text("${(progress * 100).toInt()}%", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: progress >= 1 ? Colors.green : Colors.grey.shade600)),
+            Text("${(progress * 100).toInt()}%", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: progress >= 1 ? Colors.green : Colors.grey.shade600)),
           ],
         ),
       ),

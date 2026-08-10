@@ -157,12 +157,23 @@ class HomeNews extends ConsumerWidget {
                   children: [
                     Text(
                       article.source.toUpperCase(),
-                      style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                      style: TextStyle(
+                        color: Theme.of(context).primaryColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.1,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(article.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 4),
-                    Text(article.pubDate, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10)),
+                    Text(
+                      article.pubDate,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                        fontSize: 11,
+                      ),
+                    ),
                   ],
                 ),
               ),

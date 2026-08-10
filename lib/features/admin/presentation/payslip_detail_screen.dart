@@ -205,7 +205,7 @@ class _PayslipDetailScreenState extends ConsumerState<PayslipDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text("K ${NumberFormat.decimalPattern().format(amount)}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10)),
+        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
       ],
     );
   }
@@ -214,7 +214,7 @@ class _PayslipDetailScreenState extends ConsumerState<PayslipDetailScreen> {
     return Column(
       children: [
         Text("K ${amount.toStringAsFixed(0)}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9)),
+        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11)),
       ],
     );
   }
@@ -252,7 +252,7 @@ class _PayslipDetailScreenState extends ConsumerState<PayslipDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text("K ${payslip.netPay.toStringAsFixed(2)}", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade600, fontSize: 14)),
-              const Text("NET PAY", style: TextStyle(fontSize: 8, color: Colors.grey)),
+              const Text("NET PAY", style: TextStyle(fontSize: 11, color: Colors.grey)),
             ],
           ),
           children: [
@@ -290,7 +290,7 @@ class _PayslipDetailScreenState extends ConsumerState<PayslipDetailScreen> {
           const Divider(),
           _payslipRow("NET PAY", payslip.netPay, bold: true, isHighlight: true),
           const SizedBox(height: 12),
-          const Text("EMPLOYER CONTRIBUTIONS (not deducted from employee)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1, color: Colors.grey)),
+          const Text("EMPLOYER CONTRIBUTIONS (not deducted from employee)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1, color: Colors.grey)),
           const SizedBox(height: 6),
           _payslipRow("NAPSA (Employer 5%)", payslip.napsaEmployer, isGrey: true),
           _payslipRow("NHIMA (Employer 1%)", payslip.nhimaEmployer, isGrey: true),

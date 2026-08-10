@@ -150,15 +150,15 @@ class _AttendanceCheckinScreenState extends ConsumerState<AttendanceCheckinScree
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
               Column(children: [
                 Text("$_attendeeCount", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 28, color: Colors.blue.shade700)),
-                Text("Attendees", style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+                Text("Attendees", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
               ]),
               Column(children: [
                 Text("$checkedIn", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 28, color: Colors.green.shade700)),
-                Text("Checked In", style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+                Text("Checked In", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
               ]),
               Column(children: [
                 Text("${total - checkedIn}", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 28, color: Colors.orange.shade700)),
-                Text("Pending", style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+                Text("Pending", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
               ]),
             ]),
           ),
@@ -182,7 +182,7 @@ class _AttendanceCheckinScreenState extends ConsumerState<AttendanceCheckinScree
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                       decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                      child: const Text("Check In", style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600, fontSize: 10)),
+                      child: const Text("Check In", style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600, fontSize: 11)),
                     ),
                   ),
               ]),

@@ -221,7 +221,7 @@ class RecommendationCarouselWidget extends ConsumerWidget {
                                 item.category,
                                 style: TextStyle(
                                   color: item.themeColor,
-                                  fontSize: 10,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -236,7 +236,7 @@ class RecommendationCarouselWidget extends ConsumerWidget {
                                 '${item.matchPercentage}% Match',
                                 style: TextStyle(
                                   color: Colors.amber.shade900,
-                                  fontSize: 9,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),

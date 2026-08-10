@@ -328,7 +328,7 @@ class _VendorDashboardScreenState extends ConsumerState<VendorDashboardScreen> {
             ),
             child: Text(
               (status ?? 'unknown').toUpperCase(),
-              style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.bold),
+              style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
             ),
           ),
           const SizedBox(width: 8),
@@ -406,7 +406,7 @@ class _VendorDashboardScreenState extends ConsumerState<VendorDashboardScreen> {
             ),
             child: Text(
               order.status.toUpperCase(),
-              style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.bold),
+              style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
             ),
           ),
         ],

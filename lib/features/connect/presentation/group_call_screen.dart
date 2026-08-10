@@ -292,7 +292,7 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
                           children: [
                             Icon(LucideIcons.lock, color: Colors.greenAccent, size: 10),
                             SizedBox(width: 4),
-                            Text('E2E', style: TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                            Text('E2E', style: TextStyle(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -370,7 +370,7 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
                       if (isSpeaking)
                         const Padding(
                           padding: EdgeInsets.only(top: 4),
-                          child: Text('Speaking…', style: TextStyle(color: Colors.greenAccent, fontSize: 10)),
+                          child: Text('Speaking…', style: TextStyle(color: Colors.greenAccent, fontSize: 11)),
                         ),
                     ],
                   ),
@@ -396,7 +396,7 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Text('You',
-                          style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.w900)),
+                          style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.w900)),
                     ),
                   ),
               ],
@@ -509,7 +509,7 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
             child: Center(child: Icon(icon, color: isActive ? activeColor : Colors.white, size: 22)),
           ),
           const SizedBox(height: 6),
-          Text(label, style: TextStyle(color: isActive ? activeColor : Colors.white54, fontSize: 10)),
+          Text(label, style: TextStyle(color: isActive ? activeColor : Colors.white54, fontSize: 11)),
         ],
       ),
     );

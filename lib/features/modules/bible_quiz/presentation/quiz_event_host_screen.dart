@@ -18,7 +18,7 @@ class _QuizEventHostScreenState extends ConsumerState<QuizEventHostScreen> {
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(profileProvider).value;
-    final isAllowed = profile?.isSuperadmin == true || profile?.isEmployee == true;
+    final isAllowed = profile?.isSuperadmin == true || profile?.isEmployee == true || profile?.isPastor == true || profile?.isBishop == true;
 
     if (!isAllowed) {
       return Scaffold(
@@ -32,9 +32,12 @@ class _QuizEventHostScreenState extends ConsumerState<QuizEventHostScreen> {
               SizedBox(height: 16),
               Text('Host access restricted',
                   style: TextStyle(color: Colors.white54, fontSize: 16)),
-              SizedBox(height: 8),
-              Text('Superadmin & Employee only',
-                  style: TextStyle(color: Colors.white38, fontSize: 13)),
+              const SizedBox(height: 16),
+              const Text('Quiz Host Access Required', style: TextStyle(color: Colors.white54, fontSize: 18)),
+              const SizedBox(height: 8),
+              Text('Superadmins, COA Employees, Pastors & Bishops. Lease the Quiz Engine from the Quiz Hub first.',
+                  style: TextStyle(color: Colors.white38, fontSize: 13),
+                  textAlign: TextAlign.center),
             ],
           ),
         ),
@@ -680,7 +683,7 @@ class _CreateEventDialogState extends ConsumerState<_CreateEventDialog> {
   }
 
   Widget _difficultyDropdown() {
-    const diffs = ['', 'Hard'];
+    const diffs = ['', 'Easy', 'Medium', 'Hard'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/features/admin/data/organization_service.dart';
 
 class ApostleDashboardScreen extends ConsumerStatefulWidget {
   const ApostleDashboardScreen({super.key});
@@ -24,29 +26,44 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
   Future<void> _loadData() async {
     try {
       final client = Supabase.instance.client;
+      final profile = ref.read(profileProvider).value;
+      final orgId = profile?.organizationId;
 
-      final churchesRes = await client.from('churches').select('id, name, location, is_verified');
-      final churches = List<Map<String, dynamic>>.from(churchesRes);
+      if (orgId != null && orgId.isNotEmpty) {
+        // NETWORK MODE: server-side aggregation — no full-profiles scan.
+        final orgSvc = ref.read(organizationServiceProvider);
+        final counts = await orgSvc.getOrganizationChurchMemberCounts(orgId);
 
-      final profilesRes = await client
-          .from('profiles')
-          .select('tenant_id')
-          .not('tenant_id', 'is', null);
-
-      final counts = <String, int>{};
-      for (final p in profilesRes) {
-        final tid = p['tenant_id']?.toString();
-        if (tid != null) {
-          counts[tid] = (counts[tid] ?? 0) + 1;
+        final memberCounts = <String, int>{};
+        final branches = <Map<String, dynamic>>[];
+        for (final c in counts) {
+          final cid = (c['church_id'] as String?)?.toString() ?? '';
+          if (cid.isNotEmpty) {
+            memberCounts[cid] = (c['member_count'] as num?)?.toInt() ?? 0;
+            branches.add({'id': cid, 'name': c['church_name']?.toString() ?? 'Unknown Church', 'city': '', 'country': ''});
+          }
         }
-      }
-
-      if (mounted) {
-        setState(() {
-          _churches = churches;
-          _memberCounts = counts;
-          _loading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _churches = branches;
+            _memberCounts = memberCounts;
+            _loading = false;
+          });
+        }
+      } else {
+        // Fallback: bounded church list only (no unbounded profile scan).
+        final churchesRes = await client
+            .from('churches')
+            .select('id, name, city, country')
+            .order('created_at', ascending: false)
+            .limit(50);
+        if (mounted) {
+          setState(() {
+            _churches = List<Map<String, dynamic>>.from(churchesRes as List);
+            _memberCounts = {};
+            _loading = false;
+          });
+        }
       }
     } catch (e) {
       debugPrint("ApostleDashboard error: $e");
@@ -195,7 +212,7 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
           ),
           Text(
             title,
-            style: TextStyle(color: theme.colorScheme.onSecondary.withValues(alpha: 0.7), fontSize: 10),
+            style: TextStyle(color: theme.colorScheme.onSecondary.withValues(alpha: 0.7), fontSize: 11),
           ),
         ],
       ),

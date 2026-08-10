@@ -58,7 +58,7 @@ class SocialPostCard extends StatelessWidget {
                               Text(post.userName ?? "User", style: const TextStyle(fontWeight: FontWeight.bold)),
                               Text(
                                 formatTimeAgo(post.createdAt),
-                                style: const TextStyle(color: Colors.grey, fontSize: 10),
+                                style: const TextStyle(color: Colors.grey, fontSize: 11),
                               ),
                             ],
                           ),

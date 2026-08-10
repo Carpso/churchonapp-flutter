@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:intl/intl.dart';
 
 class PastorTelemetryWidget extends StatelessWidget {
   final double totalTithes;
@@ -113,9 +114,18 @@ class PastorTelemetryWidget extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildLegendItem("Tithes", "K${totalTithes.toStringAsFixed(0)}", const Color(0xFF10B981)),
-                _buildLegendItem("Offerings", "K${totalOfferings.toStringAsFixed(0)}", const Color(0xFF3B82F6)),
-                _buildLegendItem("Pledges", "K${totalPledges.toStringAsFixed(0)}", const Color(0xFFF59E0B)),
+                Flexible(
+                  flex: 1,
+                  child: _buildLegendItem("Tithes", _formatKwacha(totalTithes), const Color(0xFF10B981)),
+                ),
+                Flexible(
+                  flex: 1,
+                  child: _buildLegendItem("Offerings", _formatKwacha(totalOfferings), const Color(0xFF3B82F6)),
+                ),
+                Flexible(
+                  flex: 1,
+                  child: _buildLegendItem("Pledges", _formatKwacha(totalPledges), const Color(0xFFF59E0B)),
+                ),
               ],
             ),
             const Divider(height: 30),
@@ -148,6 +158,10 @@ class PastorTelemetryWidget extends StatelessWidget {
     );
   }
 
+  static String _formatKwacha(double value) {
+    return NumberFormat.compactCurrency(symbol: 'K ', decimalDigits: 1).format(value);
+  }
+
   Widget _buildLegendItem(String label, String amount, Color color) {
     return Row(
       children: [
@@ -157,12 +171,14 @@ class PastorTelemetryWidget extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            Text(amount, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-          ],
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              Text(amount, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+            ],
+          ),
         ),
       ],
     );
@@ -197,7 +213,7 @@ class PastorTelemetryWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
-                Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey), overflow: TextOverflow.ellipsis),
+                Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey), overflow: TextOverflow.ellipsis),
               ],
             ),
           ),

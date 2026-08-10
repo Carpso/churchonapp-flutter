@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/env.dart';
+import '../services/tenant_service.dart';
 
 class AuthState {
   final User? user;
@@ -201,6 +202,10 @@ class AuthNotifier extends Notifier<AuthState> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('remember_me');
     await prefs.remove('remembered_email');
+    
+    // Clear current tenant context to prevent data leakage on next login
+    await ref.read(currentTenantProvider.notifier).setTenant(null);
+    
     await _client.auth.signOut();
     await GoogleSignIn().signOut();
   }

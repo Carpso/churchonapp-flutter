@@ -13,6 +13,12 @@ class CoaPayment {
   final DateTime createdAt;
   final String? approvedBy;
   final DateTime? approvedAt;
+  final String? phoneNumber;
+  final String? network;
+  final String? webhookIdempotency;
+  final DateTime? settledAt;
+  final String? category;
+  final Map<String, dynamic>? metadata;
 
   CoaPayment({
     required this.id,
@@ -24,6 +30,12 @@ class CoaPayment {
     required this.createdAt,
     this.approvedBy,
     this.approvedAt,
+    this.phoneNumber,
+    this.network,
+    this.webhookIdempotency,
+    this.settledAt,
+    this.category,
+    this.metadata,
   });
 
   factory CoaPayment.fromMap(Map<String, dynamic> map) {
@@ -34,9 +46,15 @@ class CoaPayment {
       amount: (map['amount'] ?? 0).toDouble(),
       paymentRef: map['payment_ref']?.toString() ?? '',
       status: map['status']?.toString() ?? 'pending',
-      createdAt: DateTime.parse(map['created_at']?.toString() ?? DateTime.now().toIso8601String()),
+      createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ?? DateTime.now(),
       approvedBy: map['approved_by']?.toString(),
-      approvedAt: map['approved_at'] != null ? DateTime.parse(map['approved_at'].toString()) : null,
+      approvedAt: map['approved_at'] != null ? DateTime.tryParse(map['approved_at'].toString()) : null,
+      phoneNumber: map['phone_number']?.toString(),
+      network: map['network']?.toString(),
+      webhookIdempotency: map['webhook_idempotency']?.toString(),
+      settledAt: map['settled_at'] != null ? DateTime.tryParse(map['settled_at'].toString()) : null,
+      category: map['category']?.toString(),
+      metadata: map['metadata'] != null ? Map<String, dynamic>.from(map['metadata']) : null,
     );
   }
 }
@@ -157,6 +175,37 @@ class CoaPaymentService {
             .map((e) => CoaPayment.fromMap(Map<String, dynamic>.from(e)))
             .toList());
   }
+
+  /// All payments (superadmin view) — realtime stream for the command centre.
+  Stream<List<CoaPayment>> allPaymentsStream({String? status, int limit = 100}) {
+    final builder = status != null && status.isNotEmpty
+        ? _client
+            .from('coa_payments')
+            .stream(primaryKey: ['id'])
+            .eq('status', status)
+            .order('created_at', ascending: false)
+            .limit(limit)
+        : _client
+            .from('coa_payments')
+            .stream(primaryKey: ['id'])
+            .order('created_at', ascending: false)
+            .limit(limit);
+    return builder.map((data) => data
+        .map((e) => CoaPayment.fromMap(Map<String, dynamic>.from(e)))
+        .toList());
+  }
+
+  /// Stats for the wallet command centre KPI cards.
+  Future<Map<String, dynamic>> getPaymentStats() async {
+    try {
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      final res = await _client.rpc('get_coa_payment_stats', params: {'p_today': today});
+      return (res as Map<String, dynamic>?) ?? {};
+    } catch (e) {
+      debugPrint('getPaymentStats error: $e');
+      return {};
+    }
+  }
 }
 
 final coaPaymentServiceProvider = Provider((ref) {
@@ -169,4 +218,12 @@ final pendingCoaPaymentsProvider = FutureProvider<List<CoaPayment>>((ref) async 
 
 final pendingCoaPaymentsStreamProvider = StreamProvider<List<CoaPayment>>((ref) {
   return ref.watch(coaPaymentServiceProvider).pendingPaymentsStream();
+});
+
+final allCoaPaymentsStreamProvider = StreamProvider.family<List<CoaPayment>, String?>((ref, status) {
+  return ref.watch(coaPaymentServiceProvider).allPaymentsStream(status: status);
+});
+
+final coaPaymentStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  return ref.watch(coaPaymentServiceProvider).getPaymentStats();
 });

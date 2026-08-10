@@ -111,7 +111,7 @@ class _BuyCoinsScreenState extends ConsumerState<BuyCoinsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("YOUR BALANCE", style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          const Text("YOUR BALANCE", style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -172,7 +172,7 @@ class _BuyCoinsScreenState extends ConsumerState<BuyCoinsScreen> {
                             color: Colors.green.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text(pkg.bonus!, style: const TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                          child: Text(pkg.bonus!, style: const TextStyle(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ],
@@ -222,7 +222,7 @@ class _BuyCoinsScreenState extends ConsumerState<BuyCoinsScreen> {
           const SizedBox(height: 8),
           Text(
             "Church Coins (CC) are loyalty reward tokens for in-app use only. They have no real-world monetary value and cannot be exchanged for cash, transferred to other users, or refunded. Coins can be earned for free through daily app activity or purchased with real money. Coin purchases are final and non-refundable. COA reserves the right to modify the coin system at any time. By purchasing, you agree to these terms.",
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 10, height: 1.5),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 11, height: 1.5),
           ),
         ],
       ),

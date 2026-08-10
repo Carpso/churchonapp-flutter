@@ -168,7 +168,7 @@ class _CarpsoDriverApprovalScreenState extends ConsumerState<CarpsoDriverApprova
                                             : status == 'rejected'
                                                 ? Colors.red
                                                 : Colors.orange,
-                                        fontSize: 10,
+                                        fontSize: 11,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),

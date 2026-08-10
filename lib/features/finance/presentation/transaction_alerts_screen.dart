@@ -201,7 +201,7 @@ class _TransactionAlertCard extends ConsumerWidget {
                             color: Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text(categoryLabel, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+                          child: Text(categoryLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                         ),
                         const SizedBox(width: 8),
                         Text(transaction.recipientName ?? "Member",
@@ -222,7 +222,7 @@ class _TransactionAlertCard extends ConsumerWidget {
                   Text(transaction.reference.length > 12
                       ? '...${transaction.reference.substring(transaction.reference.length - 8)}'
                       : transaction.reference,
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
                 ],
               ),
             ],

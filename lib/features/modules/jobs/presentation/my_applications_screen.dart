@@ -106,7 +106,7 @@ class _MyApplicationsScreenState extends ConsumerState<MyApplicationsScreen> {
                                 child: Text(
                                   status.toUpperCase(),
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     color: status == 'accepted' ? Colors.green : status == 'rejected' ? Colors.red : Colors.amber.shade800,
                                   ),

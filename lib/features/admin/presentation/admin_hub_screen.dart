@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:go_router/go_router.dart';
 import 'member_management_screen.dart';
 import 'baptism_registry_screen.dart';
 import 'media_upload_screen.dart';
-import 'package:church_on_app/features/modules/live_streaming/presentation/live_stream_studio_screen.dart';
 import 'global_broadcast_screen.dart';
 import 'bookshop_dashboard_screen.dart';
 import 'writer_dashboard_screen.dart';
@@ -13,8 +13,6 @@ import 'event_scheduler_screen.dart';
 import 'live_viewer_heatmap_screen.dart';
 import 'logistics_dashboard_screen.dart';
 import 'prophetic_heatmap_screen.dart';
-import 'flyer_studio_screen.dart';
-import 'ministry_management_screen.dart';
 
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/features/admin/presentation/widgets/admin_navigation_registry.dart';
@@ -118,7 +116,7 @@ class AdminHubScreen extends ConsumerWidget {
                 "Ministries",
                 "Manage ministry groups, leaders, and schedules",
                 Colors.amber,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MinistryManagementScreen())),
+                 () => context.push('/ministry-management'),
               ),
             if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'bookshop_owner' || role == 'vendor' || role == 'merchant')
               _buildAdminTile(
@@ -163,7 +161,7 @@ class AdminHubScreen extends ConsumerWidget {
                 "Live Studio",
                 "Connect to Prophetic Hub & start church-wide broadcast",
                 Colors.red,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LiveStreamStudioScreen())),
+                 () => context.push('/live-studio'),
               ),
             if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
@@ -181,7 +179,7 @@ class AdminHubScreen extends ConsumerWidget {
                 "Flyer Studio",
                 "Design visual announcement templates for events",
                 Colors.amber,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FlyerStudioScreen())),
+                 () => context.push('/flyer-studio'),
               ),
             if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
@@ -249,6 +247,7 @@ class AdminHubScreen extends ConsumerWidget {
     final theme = Theme.of(ctx);
     return GridView.count(
       physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
       crossAxisCount: 2,
       mainAxisSpacing: 15,
       crossAxisSpacing: 15,
@@ -277,7 +276,7 @@ class AdminHubScreen extends ConsumerWidget {
           Icon(icon, color: color, size: 20),
           const SizedBox(height: 8),
           Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
-          Text(label, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 10)),
+          Text(label, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11)),
         ],
       ),
     );

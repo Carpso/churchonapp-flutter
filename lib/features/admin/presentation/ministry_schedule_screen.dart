@@ -2,64 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
-
-class MinistryScheduleEntry {
-  final String id;
-  final String ministryName;
-  final DateTime date;
-  final TimeOfDay time;
-  final String location;
-  final String leader;
-
-  MinistryScheduleEntry({
-    required this.id,
-    required this.ministryName,
-    required this.date,
-    required this.time,
-    required this.location,
-    required this.leader,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'ministry_name': ministryName,
-    'date': date.toIso8601String(),
-    'time_hour': time.hour,
-    'time_minute': time.minute,
-    'location': location,
-    'leader': leader,
-  };
-
-  factory MinistryScheduleEntry.fromJson(Map<String, dynamic> json) => MinistryScheduleEntry(
-    id: json['id'] as String,
-    ministryName: json['ministry_name'] as String,
-    date: DateTime.parse(json['date'] as String),
-    time: TimeOfDay(hour: json['time_hour'] as int, minute: json['time_minute'] as int),
-    location: json['location'] as String? ?? '',
-    leader: json['leader'] as String? ?? '',
-  );
-}
-
-class MinistryScheduleNotifier extends Notifier<List<MinistryScheduleEntry>> {
-  @override
-  List<MinistryScheduleEntry> build() => [];
-
-  void addEntry(MinistryScheduleEntry entry) {
-    state = [...state, entry];
-  }
-
-  void updateEntry(MinistryScheduleEntry entry) {
-    state = state.map((e) => e.id == entry.id ? entry : e).toList();
-  }
-
-  void removeEntry(String id) {
-    state = state.where((e) => e.id != id).toList();
-  }
-}
-
-final ministryScheduleProvider = NotifierProvider<MinistryScheduleNotifier, List<MinistryScheduleEntry>>(
-  MinistryScheduleNotifier.new,
-);
+import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/widgets/app_error_view.dart';
+import '../data/ministry_schedule_service.dart';
 
 class MinistryScheduleScreen extends ConsumerStatefulWidget {
   const MinistryScheduleScreen({super.key});
@@ -74,13 +19,16 @@ class _MinistryScheduleScreenState extends ConsumerState<MinistryScheduleScreen>
 
   @override
   Widget build(BuildContext context) {
-    final schedules = ref.watch(ministryScheduleProvider);
-    final schedulesForSelectedDay = _selectedDay != null
-        ? schedules.where((s) =>
-            s.date.year == _selectedDay!.year &&
-            s.date.month == _selectedDay!.month &&
-            s.date.day == _selectedDay!.day).toList()
-        : <MinistryScheduleEntry>[];
+    final tenant = ref.watch(currentTenantProvider);
+    if (tenant == null) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: const Center(child: Text('Select a church first')),
+      );
+    }
+
+    final key = ministryMonthKey(tenant.id, _currentMonth);
+    final schedulesAsync = ref.watch(ministryScheduleMonthProvider(key));
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -94,35 +42,57 @@ class _MinistryScheduleScreenState extends ConsumerState<MinistryScheduleScreen>
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Column(
-        children: [
-          _buildMonthNavigation(),
-          Expanded(
-            child: schedules.isEmpty
-                ? _buildEmptyState()
-                : ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                    children: [
-                      _buildCalendarGrid(schedules),
-                      if (_selectedDay != null) ...[
-                        const SizedBox(height: 20),
-                        _buildSelectedDayHeader(),
-                        if (schedulesForSelectedDay.isEmpty)
-                          _buildNoScheduleForDay()
-                        else
-                          ...schedulesForSelectedDay.map(_buildScheduleCard),
-                      ],
-                    ],
-                  ),
-          ),
-        ],
+      body: schedulesAsync.when(
+        data: (schedules) => _buildBody(context, schedules, tenant.id),
+        loading: () => Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 12),
+            Text('Loading ministry schedule...', style: TextStyle(color: Colors.grey[600])),
+          ]),
+        ),
+        error: (e, st) => AppErrorView(error: e.toString(), onRetry: () => ref.invalidate(ministryScheduleMonthProvider)),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showScheduleForm(null),
+        onPressed: () => _showScheduleForm(tenant.id, null),
         backgroundColor: Colors.amber,
         child: const Icon(LucideIcons.plus, color: Colors.white),
       ),
     );
+  }
+
+  Widget _buildBody(BuildContext context, List<MinistryScheduleEntry> schedules, String tenantId) {
+    return Column(
+      children: [
+        _buildMonthNavigation(),
+        Expanded(
+          child: schedules.isEmpty
+              ? _buildEmptyState()
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                  children: [
+                    _buildCalendarGrid(schedules),
+                    if (_selectedDay != null) ...[
+                      const SizedBox(height: 20),
+                      _buildSelectedDayHeader(),
+                      if (_selectedSchedules(schedules).isEmpty)
+                        _buildNoScheduleForDay()
+                      else
+                        ..._selectedSchedules(schedules).map((e) => _buildScheduleCard(e, tenantId)),
+                    ],
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  List<MinistryScheduleEntry> _selectedSchedules(List<MinistryScheduleEntry> schedules) {
+    if (_selectedDay == null) return [];
+    return schedules.where((s) =>
+        s.date.year == _selectedDay!.year &&
+        s.date.month == _selectedDay!.month &&
+        s.date.day == _selectedDay!.day).toList();
   }
 
   Widget _buildMonthNavigation() {
@@ -287,7 +257,7 @@ class _MinistryScheduleScreenState extends ConsumerState<MinistryScheduleScreen>
     );
   }
 
-  Widget _buildScheduleCard(MinistryScheduleEntry entry) {
+  Widget _buildScheduleCard(MinistryScheduleEntry entry, String tenantId) {
     final timeString = entry.time.format(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -326,16 +296,33 @@ class _MinistryScheduleScreenState extends ConsumerState<MinistryScheduleScreen>
               ],
             ),
           ),
-          GestureDetector(
-            onTap: () => _confirmDelete(entry),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(10),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () => _showScheduleForm(tenantId, entry),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(LucideIcons.edit2, size: 16, color: Colors.blue),
+                ),
               ),
-              child: const Icon(LucideIcons.trash2, size: 18, color: Colors.red),
-            ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () => _confirmDelete(entry, tenantId),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(LucideIcons.trash2, size: 16, color: Colors.red),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -367,7 +354,7 @@ class _MinistryScheduleScreenState extends ConsumerState<MinistryScheduleScreen>
     );
   }
 
-  void _confirmDelete(MinistryScheduleEntry entry) {
+  void _confirmDelete(MinistryScheduleEntry entry, String tenantId) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -376,8 +363,12 @@ class _MinistryScheduleScreenState extends ConsumerState<MinistryScheduleScreen>
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
-              ref.read(ministryScheduleProvider.notifier).removeEntry(entry.id);
+            onPressed: () async {
+              final service = ref.read(ministryScheduleServiceProvider);
+              await service.delete(entry.id);
+              if (!ctx.mounted) return;
+              ref.invalidate(ministryScheduleMonthProvider(ministryMonthKey(tenantId, _currentMonth)));
+              if (!ctx.mounted) return;
               Navigator.pop(ctx);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -388,7 +379,7 @@ class _MinistryScheduleScreenState extends ConsumerState<MinistryScheduleScreen>
     );
   }
 
-  void _showScheduleForm(MinistryScheduleEntry? existing) {
+  void _showScheduleForm(String tenantId, MinistryScheduleEntry? existing) {
     final isEditing = existing != null;
     final ministryNameController = TextEditingController(text: existing?.ministryName ?? '');
     final locationController = TextEditingController(text: existing?.location ?? '');
@@ -459,30 +450,46 @@ class _MinistryScheduleScreenState extends ConsumerState<MinistryScheduleScreen>
                           SizedBox(
                             width: double.infinity,
                             height: 50,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                final name = ministryNameController.text.trim();
-                                if (name.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Please enter a ministry name'), backgroundColor: Colors.red),
-                                  );
-                                  return;
-                                }
-                                final entry = MinistryScheduleEntry(
-                                  id: existing?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
-                                  ministryName: name,
-                                  date: selectedDate.value,
-                                  time: selectedTime.value,
-                                  location: locationController.text.trim(),
-                                  leader: leaderController.text.trim(),
-                                );
-                                if (isEditing) {
-                                  ref.read(ministryScheduleProvider.notifier).updateEntry(entry);
-                                } else {
-                                  ref.read(ministryScheduleProvider.notifier).addEntry(entry);
-                                }
-                                Navigator.pop(ctx);
-                              },
+                               child: ElevatedButton(
+            onPressed: () async {
+                                 final name = ministryNameController.text.trim();
+                                 if (name.isEmpty) {
+                                   ScaffoldMessenger.of(context).showSnackBar(
+                                     const SnackBar(content: Text('Please enter a ministry name'), backgroundColor: Colors.red),
+                                   );
+                                   return;
+                                 }
+                                 final service = ref.read(ministryScheduleServiceProvider);
+                                 final messenger = ScaffoldMessenger.of(context);
+                                 try {
+                                   if (existing != null) {
+                                     await service.update(
+                                       existing.id,
+                                       ministryName: name,
+                                       date: selectedDate.value,
+                                       time: selectedTime.value,
+                                       location: locationController.text.trim(),
+                                       leader: leaderController.text.trim(),
+                                       notes: existing.notes,
+                                     );
+                                   } else {
+                                     await service.create(
+                                       tenantId: tenantId,
+                                       ministryName: name,
+                                       date: selectedDate.value,
+                                       time: selectedTime.value,
+                                       location: locationController.text.trim(),
+                                       leader: leaderController.text.trim(),
+                                     );
+                                   }
+                                    ref.invalidate(ministryScheduleMonthProvider(ministryMonthKey(tenantId, _currentMonth)));
+                                    if (!ctx.mounted) return;
+                                    Navigator.pop(ctx);
+                                 } catch (e) {
+                                   if (!mounted) return;
+                                   messenger.showSnackBar(SnackBar(content: Text('Could not save schedule: $e'), backgroundColor: Colors.red));
+                                 }
+                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.amber,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:church_on_app/core/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/profile_provider.dart';
 
@@ -98,24 +99,23 @@ class _VerificationRequestScreenState extends ConsumerState<VerificationRequestS
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F0F),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.black,
         title: const Text("REQUEST VERIFICATION", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 2)),
-        foregroundColor: Colors.white,
       ),
       body: _existingStatus != null
-          ? _buildStatusView()
-          : _buildFormView(),
+          ? _buildStatusView(theme)
+          : _buildFormView(theme),
     );
   }
 
-  Widget _buildStatusView() {
+  Widget _buildStatusView(ThemeData theme) {
     final (Color color, String label, IconData icon) = switch (_existingStatus!) {
-      'approved' => (Colors.green, "APPROVED", LucideIcons.checkCircle),
-      'rejected' => (Colors.redAccent, "REJECTED", LucideIcons.xCircle),
-      _ => (Colors.amber, "PENDING REVIEW", LucideIcons.clock),
+      'approved' => (theme.colorScheme.success, "APPROVED", LucideIcons.checkCircle),
+      'rejected' => (theme.colorScheme.error, "REJECTED", LucideIcons.xCircle),
+      _ => (theme.colorScheme.warning, "PENDING REVIEW", LucideIcons.clock),
     };
     return Center(
       child: Padding(
@@ -138,13 +138,18 @@ class _VerificationRequestScreenState extends ConsumerState<VerificationRequestS
                       ? "Your verification request was not approved. You can submit a new request."
                       : "Your verification request is being reviewed by our team.",
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white38, fontSize: 13),
+              style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 13),
             ),
             const SizedBox(height: 32),
             if (_existingStatus == 'rejected')
               ElevatedButton(
                 onPressed: () => setState(() => _existingStatus = null),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, minimumSize: const Size(200, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28))),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: theme.colorScheme.onPrimary,
+                  minimumSize: const Size(200, 56),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                ),
                 child: const Text("SUBMIT NEW REQUEST", style: TextStyle(fontWeight: FontWeight.bold)),
               ),
           ],
@@ -153,7 +158,7 @@ class _VerificationRequestScreenState extends ConsumerState<VerificationRequestS
     );
   }
 
-  Widget _buildFormView() {
+  Widget _buildFormView(ThemeData theme) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Form(
@@ -169,25 +174,25 @@ class _VerificationRequestScreenState extends ConsumerState<VerificationRequestS
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.2)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(LucideIcons.badgeCheck, color: Colors.blueAccent, size: 32),
-                  SizedBox(width: 16),
+                  const Icon(LucideIcons.badgeCheck, color: Colors.blueAccent, size: 32),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Text(
                       "Get verified to earn a blue checkmark on your profile, increasing trust and visibility in the community.",
-                      style: TextStyle(color: Colors.white60, fontSize: 13),
+                      style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 13),
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 32),
-            _buildField(_fullNameCtrl, "Full Name", Icons.person, required: true),
+            _buildField(theme, _fullNameCtrl, "Full Name", Icons.person, required: true),
             const SizedBox(height: 20),
-            _buildField(_roleCtrl, "Church Role", Icons.church, required: true),
+            _buildField(theme, _roleCtrl, "Church Role", Icons.church, required: true),
             const SizedBox(height: 20),
-            _buildField(_reasonCtrl, "Reason for Verification", Icons.edit_note, maxLines: 3),
+            _buildField(theme, _reasonCtrl, "Reason for Verification", Icons.edit_note, maxLines: 3),
             const SizedBox(height: 24),
             GestureDetector(
               onTap: _pickDocument,
@@ -195,18 +200,18 @@ class _VerificationRequestScreenState extends ConsumerState<VerificationRequestS
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.03),
+                  color: theme.colorScheme.surface,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: _idDocumentPath != null ? Colors.green.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.1)),
+                  border: Border.all(color: _idDocumentPath != null ? theme.colorScheme.success.withValues(alpha: 0.4) : theme.colorScheme.onSurface.withValues(alpha: 0.1)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(_idDocumentPath != null ? LucideIcons.checkCircle : LucideIcons.upload, color: _idDocumentPath != null ? Colors.green : Colors.white38, size: 24),
+                    Icon(_idDocumentPath != null ? LucideIcons.checkCircle : LucideIcons.upload, color: _idDocumentPath != null ? theme.colorScheme.success : theme.colorScheme.onSurface.withValues(alpha: 0.38), size: 24),
                     const SizedBox(width: 12),
                     Text(
                       _idDocumentPath != null ? "ID Document Selected" : "Upload ID Document (Optional)",
-                      style: TextStyle(color: _idDocumentPath != null ? Colors.green : Colors.white38, fontWeight: FontWeight.bold, fontSize: 13),
+                      style: TextStyle(color: _idDocumentPath != null ? theme.colorScheme.success : theme.colorScheme.onSurface.withValues(alpha: 0.38), fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ],
                 ),
@@ -219,13 +224,13 @@ class _VerificationRequestScreenState extends ConsumerState<VerificationRequestS
               child: ElevatedButton(
                 onPressed: _isSubmitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.amber,
-                  foregroundColor: Colors.black,
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: theme.colorScheme.onPrimary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                  disabledBackgroundColor: Colors.amber.withValues(alpha: 0.4),
+                  disabledBackgroundColor: theme.primaryColor.withValues(alpha: 0.4),
                 ),
                 child: _isSubmitting
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                    ? SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: theme.colorScheme.onPrimary))
                     : const Text("SUBMIT REQUEST", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
               ),
             ),
@@ -236,20 +241,20 @@ class _VerificationRequestScreenState extends ConsumerState<VerificationRequestS
     );
   }
 
-  Widget _buildField(TextEditingController ctrl, String label, IconData icon, {bool required = false, int maxLines = 1}) {
+  Widget _buildField(ThemeData theme, TextEditingController ctrl, String label, IconData icon, {bool required = false, int maxLines = 1}) {
     return TextFormField(
       controller: ctrl,
       maxLines: maxLines,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: theme.colorScheme.onSurface),
       validator: required ? (v) => (v == null || v.trim().isEmpty) ? "Required" : null : null,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.white38),
-        prefixIcon: Icon(icon, color: Colors.white38),
+        labelStyle: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.38)),
+        prefixIcon: Icon(icon, color: theme.colorScheme.onSurface.withValues(alpha: 0.38)),
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.03),
+        fillColor: theme.colorScheme.surface,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: Colors.amber)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: theme.primaryColor)),
       ),
     );
   }

@@ -179,7 +179,7 @@ class LedgerScreen extends ConsumerWidget {
       children: [
         Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
         Text("$percent%", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
       ],
     );
@@ -297,7 +297,7 @@ class LedgerScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(tx.category.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(tx.reference, style: const TextStyle(color: Colors.grey, fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(tx.reference, style: const TextStyle(color: Colors.grey, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -305,7 +305,7 @@ class LedgerScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text("+ K ${tx.amount.toStringAsFixed(2)}", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w900, fontSize: 16)),
-              Text("${tx.createdAt.day}/${tx.createdAt.month} ${tx.createdAt.hour}:${tx.createdAt.minute}", style: const TextStyle(color: Colors.grey, fontSize: 10)),
+              Text("${tx.createdAt.day}/${tx.createdAt.month} ${tx.createdAt.hour}:${tx.createdAt.minute}", style: const TextStyle(color: Colors.grey, fontSize: 11)),
             ],
           ),
         ],

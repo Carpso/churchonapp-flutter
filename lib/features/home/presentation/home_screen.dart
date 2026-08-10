@@ -32,6 +32,7 @@ import 'package:church_on_app/features/admin/presentation/widgets/ad_banner_widg
 import '../widgets/announcement_ticker.dart';
 import 'package:church_on_app/features/navigation/presentation/carpso_suggestion_card.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/theme/app_theme.dart';
 
 final unreadCountProvider = StreamProvider.autoDispose<int>((ref) {
   final supabase = Supabase.instance.client;
@@ -52,7 +53,10 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> with AutomaticKeepAliveClientMixin {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with AutomaticKeepAliveClientMixin {
+  bool _showAdminPromo = false;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -83,7 +87,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with AutomaticKeepAlive
 
     // Cache critical data for offline access
     final cacheService = OfflineCacheService();
-    final criticalCache = CriticalDataCache(cacheService, Supabase.instance.client);
+    final criticalCache = CriticalDataCache(
+      cacheService,
+      Supabase.instance.client,
+    );
     unawaited(criticalCache.cacheAllCriticalData());
   }
 
@@ -99,24 +106,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with AutomaticKeepAlive
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Row(
           children: [
-            const Icon(LucideIcons.sparkles, color: Colors.amber, size: 24),
+            Icon(
+              LucideIcons.sparkles,
+              color: Theme.of(context).colorScheme.warning,
+              size: 24,
+            ),
             const SizedBox(width: 8),
-            const Text("Welcome!", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text(
+              "Welcome!",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _guideItem(LucideIcons.send, "Give", "Tap GIVE in your wallet to tithe or offer securely"),
-            _guideItem(LucideIcons.coins, "Church Coins", "Earn free coins daily or buy with Mobile Money"),
-            _guideItem(LucideIcons.badgePercent, "Redeem", "Spend coins at partner bookshops & coffee shops"),
-            _guideItem(LucideIcons.gamepad2, "Bible Quiz", "Test your knowledge and win coins"),
-            _guideItem(LucideIcons.users, "Connect", "Share testimonies and join prayer requests"),
+            _guideItem(
+              LucideIcons.send,
+              "Give",
+              "Tap GIVE in your wallet to tithe or offer securely",
+            ),
+            _guideItem(
+              LucideIcons.coins,
+              "Church Coins",
+              "Earn free coins daily or buy with Mobile Money",
+            ),
+            _guideItem(
+              LucideIcons.badgePercent,
+              "Redeem",
+              "Spend coins at partner bookshops & coffee shops",
+            ),
+            _guideItem(
+              LucideIcons.gamepad2,
+              "Bible Quiz",
+              "Test your knowledge and win coins",
+            ),
+            _guideItem(
+              LucideIcons.users,
+              "Connect",
+              "Share testimonies and join prayer requests",
+            ),
             const SizedBox(height: 12),
             Text(
               "Find help anytime from Profile > Support & Guides",
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11),
+              style: TextStyle(
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.5),
+                fontSize: 11,
+              ),
             ),
           ],
         ),
@@ -126,9 +165,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with AutomaticKeepAlive
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).primaryColor,
               foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            child: const Text("GET STARTED", style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              "GET STARTED",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -144,23 +188,112 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with AutomaticKeepAlive
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha: 0.1),
+              color: Theme.of(
+                context,
+              ).colorScheme.warning.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: Colors.amber, size: 16),
+            child: Icon(
+              icon,
+              color: Theme.of(context).colorScheme.warning,
+              size: 16,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                Text(desc, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                Text(
+                  desc,
+                  style: TextStyle(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.5),
+                    fontSize: 11,
+                  ),
+                ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAdminPromoSection(Tenant? tenant) {
+    final profile = ref.watch(profileProvider).value;
+    final bool isAdmin = profile?.isAdminOrHigher ?? false;
+
+    return Column(
+      children: [
+        if (isAdmin) ...[
+          GestureDetector(
+            onTap: () => setState(() => _showAdminPromo = !_showAdminPromo),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    LucideIcons.shieldCheck,
+                    size: 18,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      "ADMIN & PROMOTIONS",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _showAdminPromo
+                        ? LucideIcons.chevronUp
+                        : LucideIcons.chevronDown,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(
+                      alpha: 0.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_showAdminPromo) ...[
+            const HomeAdminDashboard(),
+            const SizedBox(height: 30),
+            const HomePromoCarousel(),
+            const SizedBox(height: 16),
+            const AdBannerWidget(placement: 'home'),
+            const SizedBox(height: 30),
+          ],
+        ],
+        if (!isAdmin) ...[
+          const HomePromoCarousel(),
+          const SizedBox(height: 16),
+          const AdBannerWidget(placement: 'home'),
+          const SizedBox(height: 30),
+        ],
+      ],
     );
   }
 
@@ -170,94 +303,103 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with AutomaticKeepAlive
     final tenant = ref.watch(currentTenantProvider);
     final isExpired = tenant != null && tenant.isSubscriptionExpired;
 
-    final bottomInset = MediaQuery.of(context).padding.bottom + kBottomNavigationBarHeight;
+    final bottomInset =
+        MediaQuery.of(context).padding.bottom + kBottomNavigationBarHeight;
 
     return Scaffold(
       body: SafeArea(
         top: true,
         bottom: false,
         child: RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(profileProvider);
-              ref.invalidate(currentTenantProvider);
-              await Future.delayed(const Duration(milliseconds: 500));
-            },
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(child: HomeTopBar(tenant: tenant)),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                  sliver: isExpired
-                      ? SliverToBoxAdapter(
-                          child: HomeSubscriptionPaywall(tenant: tenant),
-                        )
-                      : SliverList(
-                          delegate: SliverChildListDelegate([
-                            const AnnouncementTicker(),
-                            const SizedBox(height: 16),
-                            const LiveStreamIndicator(),
-                            const SizedBox(height: 20),
-                            const HomeGreetingHeader(),
-                            const SizedBox(height: 20),
-                            const HomeStreakPreview(),
-                            const SizedBox(height: 8),
-                            const CarpsoSuggestionCard(contextType: 'home'),
-                            const SizedBox(height: 20),
-                            const OnboardingQuickStart(),
-                            const SizedBox(height: 20),
-                            const RecommendationCarouselWidget(),
-                            const SizedBox(height: 20),
-                            const HomeDailyVerse(),
-                            const SizedBox(height: 20),
-                            if (tenant == null) const HomeSmartReminder(),
-                            const SizedBox(height: 20),
-                            const HomeHeroCard(),
-                            const SizedBox(height: 30),
-                            const HomeAdminDashboard(),
-                            const SizedBox(height: 30),
-                            const HomeQuickActions(),
-                            const SizedBox(height: 30),
-                            const HomePromoCarousel(),
-                            const SizedBox(height: 16),
-                            const AdBannerWidget(placement: 'home'),
-                            const SizedBox(height: 30),
-                            const HomeSectionTitle(title: "Sparkle Picks"),
-                            const HomeSparkleGrid(),
-                            const SizedBox(height: 30),
-                            const HomeLatestSermon(),
-                            const SizedBox(height: 30),
-                            const HomeEventTimeline(),
-                            const SizedBox(height: 30),
-                            const HomeSectionTitle(title: "News"),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 10, bottom: 15),
-                              child: Text(
-                                "Disclaimer: Church On App is not affiliated with any news providers. All content belongs to respective owners.",
-                                style: TextStyle(
-                                    fontSize: 9,
-                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
-                                    fontStyle: FontStyle.italic),
+          onRefresh: () async {
+            ref.invalidate(profileProvider);
+            ref.invalidate(currentTenantProvider);
+            await Future.delayed(const Duration(milliseconds: 500));
+          },
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: HomeTopBar(tenant: tenant)),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                sliver: isExpired
+                    ? SliverToBoxAdapter(
+                        child: HomeSubscriptionPaywall(tenant: tenant),
+                      )
+                    : SliverList(
+                        delegate: SliverChildListDelegate([
+                          const AnnouncementTicker(),
+                          const SizedBox(height: 16),
+                          const LiveStreamIndicator(),
+                          const SizedBox(height: 20),
+                          const HomeGreetingHeader(),
+                          const SizedBox(height: 20),
+                          const HomeStreakPreview(),
+                          const SizedBox(height: 8),
+                          const CarpsoSuggestionCard(contextType: 'home'),
+                          const SizedBox(height: 20),
+                          const OnboardingQuickStart(),
+                          const SizedBox(height: 20),
+                          const RecommendationCarouselWidget(),
+                          const SizedBox(height: 20),
+                          const HomeDailyVerse(),
+                          const SizedBox(height: 20),
+                          if (tenant == null) const HomeSmartReminder(),
+                          const SizedBox(height: 20),
+                          const HomeHeroCard(),
+                          const SizedBox(height: 30),
+
+                          // Collapsible Admin & Promo Section
+                          _buildAdminPromoSection(tenant),
+
+                          const HomeQuickActions(),
+                          const SizedBox(height: 30),
+                          const HomeSectionTitle(title: "Sparkle Picks"),
+                          const HomeSparkleGrid(),
+                          const SizedBox(height: 30),
+                          const HomeLatestSermon(),
+                          const SizedBox(height: 30),
+                          const HomeEventTimeline(),
+                          const SizedBox(height: 30),
+                          const HomeSectionTitle(title: "News"),
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              left: 10,
+                              bottom: 15,
+                            ),
+                            child: Text(
+                              "Disclaimer: Church On App is not affiliated with any news providers. All content belongs to respective owners.",
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.4),
+                                fontStyle: FontStyle.italic,
                               ),
                             ),
-                            const HomeNews(),
-                            SizedBox(height: 80 + bottomInset),
-                          ]),
-                        ),
-                ),
-              ],
-            ),
+                          ),
+                          const HomeNews(),
+                          SizedBox(height: 80 + bottomInset),
+                        ]),
+                      ),
+              ),
+            ],
           ),
         ),
+      ),
       floatingActionButton: FloatingActionButton(
         heroTag: null,
         tooltip: 'Create new post',
         onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const CreateSocialPostScreen())),
+          context,
+          MaterialPageRoute(
+            builder: (context) => const CreateSocialPostScreen(),
+          ),
+        ),
         backgroundColor: Theme.of(context).primaryColor,
-        child:
-            Icon(LucideIcons.plus, color: Theme.of(context).colorScheme.onPrimary),
+        child: Icon(
+          LucideIcons.plus,
+          color: Theme.of(context).colorScheme.onPrimary,
+        ),
       ),
     );
   }

@@ -177,7 +177,7 @@ class _MinistryManagementScreenState extends ConsumerState<MinistryManagementScr
                     isActive ? 'ACTIVE' : 'INACTIVE',
                     style: TextStyle(
                       color: isActive ? Colors.green : Colors.grey,
-                      fontSize: 9,
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),
                   ),

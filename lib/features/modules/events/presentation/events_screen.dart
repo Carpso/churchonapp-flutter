@@ -157,11 +157,22 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
   Future<String?> _uploadImage() async {
     if (_imageFile == null) return null;
     setState(() => _isUploading = true);
-    final r2Service = ref.read(r2ServiceProvider);
-    final fileName = "event_${DateTime.now().millisecondsSinceEpoch}.jpg";
-    final url = await r2Service.uploadFile(_imageFile!, "events/$fileName");
-    setState(() => _isUploading = false);
-    return url;
+    try {
+      final r2Service = ref.read(r2ServiceProvider);
+      final fileName = "event_${DateTime.now().millisecondsSinceEpoch}.jpg";
+      final url = await r2Service.uploadFile(_imageFile!, "events/$fileName");
+      return url;
+    } catch (e) {
+      debugPrint('Event image upload failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Image upload failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+      return null;
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
   }
 
   Future<void> _submitEvent() async {

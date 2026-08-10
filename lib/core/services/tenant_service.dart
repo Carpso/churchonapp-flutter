@@ -7,6 +7,7 @@ import 'plan_service.dart';
 class Tenant {
   final String id;
   final String slug;
+  final String? organizationId;
   final String name;
   final String type;
   final String? shortName;
@@ -20,6 +21,8 @@ class Tenant {
   final double? longitude;
   final Map<String, dynamic>? settings;
   final String? treasurerPhone;
+  final String? pastorPhone;
+  final String? contactPhone;
   final DateTime? subscriptionEndsAt;
   final String? paymentReference;
   final DateTime? paymentSubmittedAt;
@@ -30,6 +33,7 @@ class Tenant {
   Tenant({
     required this.id,
     required this.slug,
+    this.organizationId,
     required this.name,
     this.type = 'church',
     this.shortName,
@@ -43,6 +47,8 @@ class Tenant {
     this.latitude,
     this.longitude,
     this.treasurerPhone,
+    this.pastorPhone,
+    this.contactPhone,
     this.subscriptionEndsAt,
     this.paymentReference,
     this.paymentSubmittedAt,
@@ -82,6 +88,7 @@ class Tenant {
     return Tenant(
       id: rawId.isNotEmpty ? rawId : 'zm_1',
       slug: rawSlug.isNotEmpty ? rawSlug : 'rock-of-ages-kabulonga',
+      organizationId: map['organization_id']?.toString(),
       name: (map['name'] ?? 'Church On App').toString().trim(),
       type: map['type']?.toString() ?? 'church',
       shortName: map['short_name']?.toString(),
@@ -106,6 +113,8 @@ class Tenant {
       latitude: _parseDouble(map['latitude']),
       longitude: _parseDouble(map['longitude']),
       treasurerPhone: map['treasurer_phone']?.toString(),
+      pastorPhone: map['pastor_phone']?.toString(),
+      contactPhone: map['contact_phone']?.toString(),
       subscriptionEndsAt:
           _parseDateTime(map['subscription_ends_at']) ??
           (map['seed_ref'] != null ||
@@ -327,8 +336,22 @@ class TenantService {
               result.add({...tenant, 'type': 'church', '_registered': false});
             }
           } else {
-            // Bookshop type
-            result.add({...tenant, 'type': 'bookshop', '_registered': true});
+            // Bookshop type — fetch bookshop-specific fields including location
+            final bookshop = await _client
+                .from('bookshops')
+                .select('id, name, logo_url, latitude, longitude, address, is_active')
+                .eq('tenant_id', tenant['id'])
+                .maybeSingle();
+
+            if (bookshop != null) {
+              result.add({
+                ...bookshop,
+                'type': 'bookshop',
+                '_registered': true,
+              });
+            } else {
+              result.add({...tenant, 'type': 'bookshop', '_registered': true});
+            }
           }
         }
         return result;

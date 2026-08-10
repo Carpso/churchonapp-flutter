@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:church_on_app/core/config/fee_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geocoding/geocoding.dart';
 import 'dart:async';
@@ -287,13 +286,12 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
 
   Widget _buildTopOverlay(RidePricingState pricing) {
     final categoryInfo = {
-      'people': {'label': 'RIDE', 'icon': LucideIcons.car},
-      'bus': {'label': 'BUS', 'icon': LucideIcons.bus},
-      'marketplace': {'label': 'MARKET', 'icon': LucideIcons.shoppingBag},
-      'bookshop': {'label': 'BOOKS', 'icon': LucideIcons.bookOpen},
+      'people': {'label': 'CARPSO RIDE', 'icon': LucideIcons.car, 'color': const Color(0xFF6366F1)},
+      'bus': {'label': 'CARPSO BUS', 'icon': LucideIcons.bus, 'color': const Color(0xFFF59E0B)},
+      'marketplace': {'label': 'CARPSO CARGO', 'icon': LucideIcons.shoppingBag, 'color': const Color(0xFF10B981)},
+      'bookshop': {'label': 'CARPSO BOOKS', 'icon': LucideIcons.bookOpen, 'color': const Color(0xFFEC4899)},
     };
-    final info =
-        categoryInfo[pricing.selectedCategory] ?? categoryInfo['people']!;
+    final info = categoryInfo[pricing.selectedCategory] ?? categoryInfo['people']!;
     final theme = Theme.of(context);
 
     return Positioned(
@@ -303,47 +301,37 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          CircleAvatar(
-            backgroundColor: theme.colorScheme.surface,
-            child: IconButton(
-              icon: Icon(LucideIcons.arrowLeft,
-                  color: theme.colorScheme.onSurface),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
+          _glassButton(icon: LucideIcons.arrowLeft, onTap: () => Navigator.pop(context), theme: theme),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
+              color: theme.colorScheme.surface.withValues(alpha: 0.92),
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 10)
-              ],
+              boxShadow: [BoxShadow(color: (info['color'] as Color).withValues(alpha: 0.25), blurRadius: 16, offset: const Offset(0, 4))],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(info['icon'] as IconData,
-                    size: 14, color: theme.primaryColor),
+                Icon(info['icon'] as IconData, size: 14, color: info['color'] as Color),
                 const SizedBox(width: 6),
-                Text(info['label'] as String,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 11)),
+                Text(info['label'] as String, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: info['color'] as Color, letterSpacing: 0.5)),
               ],
             ),
           ),
-          GestureDetector(
-            onTap: () => _showRiderProfile(),
-            child: CircleAvatar(
-              backgroundColor: theme.colorScheme.surface,
-              child: Icon(LucideIcons.user,
-                  color: theme.colorScheme.onSurface),
-            ),
-          ),
+          _glassButton(icon: LucideIcons.user, onTap: _showRiderProfile, theme: theme),
         ],
       ),
+    );
+  }
+
+  Widget _glassButton({required IconData icon, required VoidCallback onTap, required ThemeData theme}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: 0.88),
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12)],
+      ),
+      child: IconButton(icon: Icon(icon, color: theme.colorScheme.onSurface), onPressed: onTap),
     );
   }
 
@@ -494,7 +482,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                             ? theme.colorScheme.onSecondary
                             : theme.colorScheme.onSurface
                                 .withValues(alpha: 0.5),
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -514,7 +502,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
     final pricing = ref.read(ridePricingProvider);
     if (pricing.estimatedPrice == null || _isRequesting) return;
 
-    final fare = pricing.totalPayable(ref.read(feeConfigProvider).value ?? FeeConfig.defaults);
+    final fare = pricing.totalPayable;
     final pickup = _pickupLatLng ?? const LatLng(-15.3875, 28.3228);
     final dest = _destLatLng ?? const LatLng(-15.395, 28.35);
     final isDelivery = pricing.selectedCategory == 'marketplace' ||
@@ -1164,7 +1152,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
       },
       {
         "q": "How does pricing work?",
-        "a": "Rides: K10 base + K5/km — you can negotiate the final fare with your driver. Deliveries: fixed Yango-comparable rate (K15 base + K8/km) — no negotiation, the price shown is final."
+        "a": "Rides: K15 base + K10/km — you can negotiate the final fare with your driver. Deliveries: fixed rate (K7.50 base + K5/km) — no negotiation, the price shown is final. Processing fee: 1% COA (min K3) + K0.48 Lipila. Minimum fare: K30 for both rides and deliveries."
       },
       {
         "q": "Is it safe?",

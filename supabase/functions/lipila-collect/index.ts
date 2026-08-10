@@ -96,7 +96,7 @@ serve(async (req: Request) => {
       });
     }
 
-    const { accountNumber, amount, narration, reference: providedReference } = body;
+    const { accountNumber, amount, narration, reference: providedReference, metadata } = body;
 
     if (!accountNumber || !amount || amount <= 0) {
       return new Response(JSON.stringify({ error: "Invalid collection parameters: accountNumber and amount are required" }), {
@@ -128,6 +128,35 @@ serve(async (req: Request) => {
       ?? `${supabaseUrl}/functions/v1/lipila-webhook`;
 
     const referenceId = providedReference ?? crypto.randomUUID();
+
+    // ── PERSIST A PENDING PAYMENT ROW (immediate, before provider round-trip)
+    // This guarantees the client poller finds the row and that organization /
+    // branch / user metadata survives settlement via the webhook upsert.
+    const userId = user.id;
+    const rawMeta: Record<string, unknown> =
+      metadata && typeof metadata === "object" && !Array.isArray(metadata)
+        ? metadata as Record<string, unknown>
+        : {};
+    const meta: Record<string, unknown> = { ...rawMeta };
+    if (!meta.user_id && userId) meta.user_id = userId;
+    const { error: insertError } = await supabase
+      .from("coa_payments")
+      .insert({
+        user_id: userId,
+        service_type: typeof rawMeta.service_type === "string"
+          ? rawMeta.service_type
+          : "lipila_collect",
+        amount: amount,
+        payment_ref: referenceId,
+        status: "pending",
+        phone_number: accountNumber,
+        category: typeof rawMeta.category === "string" ? rawMeta.category : null,
+        metadata: Object.keys(meta).length > 0 ? meta : null,
+      });
+    if (insertError) {
+      // Non-fatal: the webhook can still create/resolve the row by phone
+      console.warn(`[lipila-collect] Could not pre-create coa_payments row: ${insertError.message}`);
+    }
 
     const collectRes = await fetch(`${baseUrl}/v1/collections/mobile-money`, {
       method: "POST",

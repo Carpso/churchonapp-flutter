@@ -190,6 +190,13 @@ Deno.serve(async (req) => {
   const role = profile?.data?.role ?? "member";
   const isPrivileged = role === "superadmin" || role === "coa_employee";
 
+  if (!isPrivileged) {
+    return new Response(JSON.stringify({ error: "Forbidden: superadmin/coa_employee only" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 403,
+    });
+  }
+
   try {
     const body = await req.json();
     const {

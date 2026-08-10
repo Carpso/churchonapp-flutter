@@ -94,7 +94,7 @@ class QrPaymentScreen extends ConsumerWidget {
               const SizedBox(width: 10),
               Text(
                 "VERIFIED HUB PAYMENT",
-                style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5),
+                style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.5),
               ),
             ],
           ),
@@ -110,7 +110,7 @@ class QrPaymentScreen extends ConsumerWidget {
             decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(10)),
             child: Text(
               "REF: $refCode",
-              style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 10),
+              style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 11),
             ),
           ),
         ],

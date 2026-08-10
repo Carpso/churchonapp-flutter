@@ -222,7 +222,7 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("CREATE NEW DISPATCH", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.5)),
+            const Text("CREATE NEW DISPATCH", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.5)),
             const SizedBox(height: 20),
             TextField(
               controller: _titleCtrl,
@@ -239,7 +239,7 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            const Text("TARGET AUDIENCE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
+            const Text("TARGET AUDIENCE", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -253,7 +253,7 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            const Text("DISPATCH CHANNEL", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
+            const Text("DISPATCH CHANNEL", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -378,7 +378,7 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(h['target_audience'].toString(),
-                      style: TextStyle(color: isSms ? Colors.green : Colors.purple, fontSize: 9, fontWeight: FontWeight.bold)),
+                      style: TextStyle(color: isSms ? Colors.green : Colors.purple, fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
               const SizedBox(width: 10),
               Container(
@@ -387,7 +387,7 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
                   color: isSms ? Colors.green.withValues(alpha: 0.1) : Colors.blue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(channel, style: TextStyle(color: isSms ? Colors.green : Colors.blue, fontSize: 9, fontWeight: FontWeight.bold)),
+                child: Text(channel, style: TextStyle(color: isSms ? Colors.green : Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
               ),
             ],
           ),

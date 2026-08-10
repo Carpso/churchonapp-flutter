@@ -198,7 +198,7 @@ class _WorshipLyricsScreenState extends ConsumerState<WorshipLyricsScreen> {
                                 ),
                                 child: Text(
                                   'Key: ${song.key}',
-                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber),
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber),
                                 ),
                               ),
                             ],

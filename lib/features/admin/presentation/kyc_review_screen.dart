@@ -283,7 +283,7 @@ class _KycReviewScreenState extends ConsumerState<KycReviewScreen> {
                             color: Colors.amber.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Text('PENDING', style: TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+                          child: const Text('PENDING', style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
                         ),
                         const SizedBox(width: 8),
                         Text('${app.documents.length} document(s)', style: const TextStyle(color: Colors.white38, fontSize: 11)),

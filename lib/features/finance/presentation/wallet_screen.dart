@@ -5,6 +5,7 @@ import '../../../core/providers/profile_provider.dart';
 import '../../../core/services/coins_service.dart';
 import '../../../core/widgets/error_retry_widget.dart';
 import '../../../core/widgets/shimmer_loader.dart';
+import '../../../core/utils/money.dart';
 import '../../connect/data/user_activity_service.dart';
 import '../data/finance_service.dart';
 import 'transaction_page.dart';
@@ -22,11 +23,15 @@ class WalletScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
         ),
-        padding: EdgeInsets.only(left: 25, right: 25, top: 30, bottom: MediaQuery.of(ctx).viewInsets.bottom + 40),
+        padding: EdgeInsets.only(
+            left: 25,
+            right: 25,
+            top: 30,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -34,25 +39,25 @@ class WalletScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("Top Up Wallet", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                IconButton(icon: const Icon(LucideIcons.x), onPressed: () => Navigator.pop(ctx)),
+                Text('Top Up Wallet',
+                    style: Theme.of(context).textTheme.titleLarge),
+                IconButton(
+                    icon: const Icon(LucideIcons.x),
+                    onPressed: () => Navigator.pop(ctx)),
               ],
             ),
             const SizedBox(height: 20),
             TextField(
               controller: amountCtrl,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: "Amount (K)",
-                hintText: "Enter amount to add",
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                prefixIcon: const Icon(LucideIcons.banknote, size: 20),
+              decoration: const InputDecoration(
+                labelText: 'Amount (K)',
+                hintText: 'Enter amount to add',
+                prefixIcon: Icon(LucideIcons.banknote, size: 20),
               ),
             ),
             const SizedBox(height: 30),
-            ElevatedButton(
+            FilledButton(
               onPressed: () {
                 final amt = double.tryParse(amountCtrl.text);
                 if (amt == null || amt <= 0) return;
@@ -61,12 +66,12 @@ class WalletScreen extends ConsumerWidget {
                   context: context,
                   isScrollControlled: true,
                   backgroundColor: Colors.transparent,
-                  builder: (context) => LipilaPaymentGateway(
+                  builder: (sheetCtx) => LipilaPaymentGateway(
                     amount: amt,
-                    description: "Wallet Top Up",
-                    category: "top_up",
+                    description: 'Wallet Top Up',
+                    category: 'top_up',
                     onComplete: (success, txId) async {
-                      Navigator.pop(context);
+                      Navigator.pop(sheetCtx);
                       if (success && context.mounted) {
                         actionRef.invalidate(profileProvider);
                       }
@@ -74,12 +79,10 @@ class WalletScreen extends ConsumerWidget {
                   ),
                 );
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0F172A),
-                minimumSize: const Size(double.infinity, 60),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 56),
               ),
-              child: const Text("PROCEED TO PAYMENT", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              child: const Text('PROCEED TO PAYMENT'),
             ),
           ],
         ),
@@ -151,13 +154,13 @@ class WalletScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("TOTAL BALANCE", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+              const Text("TOTAL BALANCE", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
               Icon(LucideIcons.wallet, color: Colors.white.withValues(alpha: 0.8), size: 24),
             ],
           ),
           const SizedBox(height: 15),
           Text(
-            "K ${coins.toDouble()}",
+            formatKwacha(coins.toDouble()),
             style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 15),
@@ -273,12 +276,12 @@ class WalletScreen extends ConsumerWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 5),
                   ),
@@ -298,10 +301,15 @@ class WalletScreen extends ConsumerWidget {
     return transactionsAsync.when(
       data: (transactions) {
         if (transactions.isEmpty) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 30.0),
-              child: Text("No transactions found", style: TextStyle(color: Colors.grey)),
+              padding: const EdgeInsets.symmetric(vertical: 30.0),
+              child: Text("No transactions found",
+                  style: TextStyle(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.5))),
             ),
           );
         }
@@ -312,7 +320,7 @@ class WalletScreen extends ConsumerWidget {
           itemBuilder: (context, index) {
             final t = transactions[index];
             final isAdd = t.category == 'top_up' || t.amount > 0;
-            final amountText = "${isAdd ? '+' : ''}K ${t.amount.toStringAsFixed(2)}";
+            final amountText = "${isAdd ? '+' : ''}${formatKwacha(t.amount)}";
             
             // Format date
             final dateStr = "${t.createdAt.day}/${t.createdAt.month}/${t.createdAt.year}";
@@ -347,7 +355,7 @@ class WalletScreen extends ConsumerWidget {
             return Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(

@@ -143,7 +143,7 @@ class LiveStreamIndicator extends ConsumerWidget {
                 style: TextStyle(
                   color: Colors.red.shade700,
                   fontWeight: FontWeight.w900,
-                  fontSize: 10,
+                  fontSize: 11,
                   letterSpacing: 0.5,
                 ),
               ),

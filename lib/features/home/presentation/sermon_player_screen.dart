@@ -215,7 +215,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
             const SizedBox(height: 8),
             const Text(
               "AUDIO SERMON",
-              style: TextStyle(color: Colors.amber, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2),
+              style: TextStyle(color: Colors.amber, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 2),
             ),
           ],
         ),
@@ -330,7 +330,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                   style: TextStyle(
                     color: Colors.amber,
                     fontWeight: FontWeight.w900,
-                    fontSize: 10,
+                    fontSize: 11,
                     letterSpacing: 2,
                   ),
                 ),
@@ -367,11 +367,11 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                         children: [
                           Text(
                             _formatDuration(position),
-                            style: const TextStyle(color: Colors.white70, fontSize: 10),
+                            style: const TextStyle(color: Colors.white70, fontSize: 11),
                           ),
                           Text(
                             _formatDuration(duration),
-                            style: const TextStyle(color: Colors.white70, fontSize: 10),
+                            style: const TextStyle(color: Colors.white70, fontSize: 11),
                           ),
                         ],
                       ),
@@ -507,7 +507,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                         itemBuilder: (context, i) => ListTile(
                           leading: const CircleAvatar(child: Icon(LucideIcons.user, size: 14)),
                           title: Text(comments[i]['content'] ?? "", style: const TextStyle(fontSize: 14)),
-                          subtitle: const Text("Citizen", style: TextStyle(fontSize: 10)),
+                          subtitle: const Text("Citizen", style: TextStyle(fontSize: 11)),
                         ),
                       ),
                   loading: () => const ListSkeleton(count: 3),
@@ -789,7 +789,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                   const Spacer(),
                   TextButton(
                     onPressed: () => _showFullTranscript(),
-                    child: const Text("VIEW FULL", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                    child: const Text("VIEW FULL", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),

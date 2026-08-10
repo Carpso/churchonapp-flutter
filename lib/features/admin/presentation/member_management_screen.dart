@@ -225,7 +225,7 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(member.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                Text(member.role.toUpperCase(), style: TextStyle(color: Colors.grey.shade600, fontSize: 10, letterSpacing: 1.1)),
+                Text(member.role.toUpperCase(), style: TextStyle(color: Colors.grey.shade600, fontSize: 11, letterSpacing: 1.1)),
               ],
             ),
           ),
@@ -239,7 +239,7 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
               "ACTIVE",
               style: TextStyle(
                 color: Colors.green,
-                fontSize: 9,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),
             ),

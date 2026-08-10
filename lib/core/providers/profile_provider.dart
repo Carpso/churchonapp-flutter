@@ -21,6 +21,7 @@ class UserProfile {
   final String? phoneNumber;
   final String? avatarUrl;
   final String? tenantId;
+  final String? organizationId;
   final bool isVerified;
   final String? walletId;
   final String? membershipId;
@@ -41,6 +42,7 @@ class UserProfile {
     this.phoneNumber,
     this.avatarUrl,
     this.tenantId,
+    this.organizationId,
     this.isVerified = false,
     this.walletId,
     this.membershipId,
@@ -67,6 +69,7 @@ class UserProfile {
       phoneNumber: map['phone_number']?.toString() ?? map['phone']?.toString(),
       avatarUrl: map['avatar_url']?.toString() ?? map['avatar']?.toString(),
       tenantId: map['tenant_id']?.toString(),
+      organizationId: map['organization_id']?.toString(),
       isVerified: map['is_verified'] == true,
       walletId: map['wallet_id']?.toString(),
       membershipId: map['membership_id']?.toString(),
@@ -78,22 +81,21 @@ class UserProfile {
 
   bool get isSuperadmin => role == 'superadmin';
   bool get isEmployee => role == 'coa_employee' || role == 'superadmin';
-  bool get isTenantAdmin =>
-      role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle'
-      || (role.endsWith('_employee') && role != 'coa_employee');
+  bool get isBishopOrHigher =>
+      role == 'bishop' || role == 'apostle' || role == 'superadmin' || role == 'coa_employee';
+  bool get isPastorOrHigher =>
+      isBishopOrHigher || role == 'pastor' || role == 'prophet' || role == 'general_secretary';
   bool get isAdminOrHigher =>
+      isPastorOrHigher ||
       role == 'admin' ||
-      role == 'pastor' ||
-      role == 'bishop' ||
-      role == 'superadmin' ||
-      role == 'prophet' ||
-      role == 'apostle' ||
+      role == 'leader' ||
       (role.endsWith('_employee') && role != 'coa_employee');
+  bool get isTenantAdmin => isAdminOrHigher;
   bool get isLedgerManager =>
-      isAdminOrHigher || role == 'usher' || role == 'coa_employee';
+      isAdminOrHigher || role == 'usher' || role == 'treasurer';
   bool get isOnboardingOfficer =>
       isSuperadmin || role == 'coa_employee' || role == 'bishop';
-  bool get isBishop => role == 'bishop';
+  bool get isBishop => role == 'bishop' || role == 'apostle';
   bool get isPastor => role == 'pastor';
   bool get isUsher => role == 'usher';
   bool get isBookshopOwner =>
@@ -134,6 +136,9 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
   @override
   AsyncValue<UserProfile?> build() {
     final auth = ref.watch(authProvider);
+    // Watch tenant so we re-fetch profile and re-derive roles when context changes
+    ref.watch(currentTenantProvider);
+
     final user = auth.user;
     if (user == null) {
       return const AsyncValue.data(null);
@@ -214,6 +219,7 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
 
         // Sync local selected tenant with DB profile
         final dbTenantId = profileData['tenant_id']?.toString();
+
         if (dbTenantId != null &&
             dbTenantId.isNotEmpty &&
             (selectedTenant == null || selectedTenant.id != dbTenantId)) {
@@ -230,9 +236,13 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
           try {
             await _client
                 .from('profiles')
-                .update({'tenant_id': selectedTenant.id})
+                .update({
+                  'tenant_id': selectedTenant.id,
+                  'organization_id': selectedTenant.organizationId,
+                })
                 .eq('id', userId);
             profileData['tenant_id'] = selectedTenant.id;
+            profileData['organization_id'] = selectedTenant.organizationId;
           } catch (e) {
             debugPrint('Error updating profile tenant_id in sync: $e');
           }

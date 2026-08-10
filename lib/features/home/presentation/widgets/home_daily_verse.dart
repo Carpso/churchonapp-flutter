@@ -44,7 +44,15 @@ class HomeDailyVerse extends ConsumerWidget {
                       child: const Icon(LucideIcons.bookOpen, color: Colors.amber, size: 16),
                     ),
                     const SizedBox(width: 8),
-                    Text("VERSE OF THE DAY", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.amber.shade300, letterSpacing: 1.2)),
+                    Text(
+            "VERSE OF THE DAY",
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              color: Colors.amber.shade300,
+              letterSpacing: 1.2,
+            ),
+          ),
                   ],
                 ),
                 IconButton(

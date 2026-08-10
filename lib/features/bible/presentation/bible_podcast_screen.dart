@@ -248,7 +248,7 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("TRENDING PODCASTS", style: GoogleFonts.plusJakartaSans(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                      Text("TRENDING PODCASTS", style: GoogleFonts.plusJakartaSans(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2)),
                       const SizedBox(height: 20),
                       if (episodes.isNotEmpty) ...[
                         _buildFeaturedCard(context, episodes.first),
@@ -256,7 +256,7 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
                         const Center(child: Text("No podcasts available", style: TextStyle(color: Colors.white54))),
                       ],
                       const SizedBox(height: 40),
-                      Text("ALL BIBLE BOOKS", style: GoogleFonts.plusJakartaSans(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                      Text("ALL BIBLE BOOKS", style: GoogleFonts.plusJakartaSans(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2)),
                       const SizedBox(height: 20),
                     ],
                   ),
@@ -319,9 +319,9 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(episode.book, style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+                      Text(episode.book, style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
                       Text(episode.title, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text("${_fmt(_position)} / ${_fmt(_duration)}", style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                      Text("${_fmt(_position)} / ${_fmt(_duration)}", style: const TextStyle(color: Colors.white54, fontSize: 11)),
                     ],
                   ),
                 ),
@@ -392,7 +392,7 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
               Row(children: [
                 const Icon(LucideIcons.radio, color: Colors.amber, size: 16),
                 const SizedBox(width: 8),
-                Text("HOT NEW RELEASE", style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+                Text("HOT NEW RELEASE", style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
                 const Spacer(),
                 Container(padding: const EdgeInsets.all(10), decoration: const BoxDecoration(color: Colors.amber, shape: BoxShape.circle), child: const Icon(LucideIcons.play, color: Colors.black, size: 18)),
               ]),
@@ -458,10 +458,14 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
             ),
             const SizedBox(width: 15),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(episode.book, style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(episode.book, style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
                 const SizedBox(height: 4),
-                Text(episode.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                Row(children: [
+                  Expanded(child: Text(episode.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  if (!episode.hasAudio)
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)), child: const Text('TTS', style: TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.w700))),
+                ]),
                 const SizedBox(height: 4),
                 Text(episode.duration, style: const TextStyle(color: Colors.white54, fontSize: 11)),
                 const SizedBox(height: 6),

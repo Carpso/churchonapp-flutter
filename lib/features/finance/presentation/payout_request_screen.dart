@@ -84,40 +84,43 @@ class PayoutRequestScreen extends ConsumerWidget {
             const SizedBox(height: 24),
             const Text("How to Earn Coins", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
-            _buildEarningItem(LucideIcons.calendarCheck, "Daily App Opens", "Open the app every day to build your streak"),
-            const SizedBox(height: 10),
-            _buildEarningItem(LucideIcons.flame, "Reading Streaks", "Read your Bible daily for bonus coins"),
-            const SizedBox(height: 10),
-            _buildEarningItem(LucideIcons.userPlus, "Referrals", "Invite friends and earn 100 CC per referral"),
-            const SizedBox(height: 10),
-            _buildEarningItem(LucideIcons.scanLine, "Attendance", "Scan in at church services"),
-            const SizedBox(height: 10),
-            _buildEarningItem(LucideIcons.gamepad2, "Bible Quiz", "Participate in Bible quiz games"),
+             _buildEarningItem(context, LucideIcons.calendarCheck, "Daily App Opens", "Open the app every day to build your streak"),
+             const SizedBox(height: 10),
+             _buildEarningItem(context, LucideIcons.flame, "Reading Streaks", "Read your Bible daily for bonus coins"),
+             const SizedBox(height: 10),
+             _buildEarningItem(context, LucideIcons.userPlus, "Referrals", "Invite friends and earn 100 CC per referral"),
+             const SizedBox(height: 10),
+             _buildEarningItem(context, LucideIcons.scanLine, "Attendance", "Scan in at church services"),
+             const SizedBox(height: 10),
+             _buildEarningItem(context, LucideIcons.gamepad2, "Bible Quiz", "Participate in Bible quiz games"),
             const SizedBox(height: 24),
             const Text("What You Can Redeem", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
-            _buildRedemptionOption(
-              icon: LucideIcons.bookOpen,
-              title: "Partner Bookshops",
-              subtitle: "Redeem coins for free books and Bibles at partner bookshops.",
-              color: Colors.orange,
-            ),
-            const SizedBox(height: 10),
-            _buildRedemptionOption(
-              icon: LucideIcons.coffee,
-              title: "Partner Coffee Shops",
-              subtitle: "Get free coffee and snacks from partner coffee shops.",
-              color: Colors.brown,
-            ),
-            const SizedBox(height: 10),
-            _buildRedemptionOption(
-              icon: LucideIcons.trophy,
+             _buildRedemptionOption(
+               context: context,
+               icon: LucideIcons.bookOpen,
+               title: "Partner Bookshops",
+               subtitle: "Redeem coins for free books and Bibles at partner bookshops.",
+               color: Colors.orange,
+             ),
+             const SizedBox(height: 10),
+             _buildRedemptionOption(
+               context: context,
+               icon: LucideIcons.coffee,
+               title: "Partner Coffee Shops",
+               subtitle: "Get free coffee and snacks from partner coffee shops.",
+               color: Colors.brown,
+             ),
+             const SizedBox(height: 10),
+             _buildRedemptionOption(
+               context: context,
+               icon: LucideIcons.trophy,
               title: "Bible Quiz Merch",
               subtitle: "Redeem coins for exclusive Bible Quiz merchandise.",
               color: Colors.blue,
             ),
             const SizedBox(height: 24),
-            _buildLegalDisclaimer(),
+             _buildLegalDisclaimer(context),
           ],
         ),
       ),
@@ -142,7 +145,7 @@ class PayoutRequestScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("CHURCH COINS BALANCE", style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+              const Text("CHURCH COINS BALANCE", style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -180,7 +183,7 @@ class PayoutRequestScreen extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: color.withValues(alpha: 0.3)),
           boxShadow: [
@@ -204,24 +207,25 @@ class PayoutRequestScreen extends ConsumerWidget {
             const SizedBox(height: 10),
             Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             const SizedBox(height: 4),
-            Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 11), textAlign: TextAlign.center),
+             Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11), textAlign: TextAlign.center),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEarningItem(IconData icon, String title, String subtitle) {
+  Widget _buildEarningItem(BuildContext ctx, IconData icon, String title, String subtitle) {
+    final scheme = Theme.of(ctx).colorScheme;
     return Row(
       children: [
-        Icon(icon, color: Colors.amber.shade700, size: 18),
+         Icon(icon, color: scheme.primary, size: 18),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+              Text(subtitle, style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
             ],
           ),
         ),
@@ -229,66 +233,69 @@ class PayoutRequestScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildRedemptionOption({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
-              ],
-            ),
-          ),
+    Widget _buildRedemptionOption({
+     required BuildContext context,
+     required IconData icon,
+     required String title,
+     required String subtitle,
+     required Color color,
+   }) {
+     final scheme = Theme.of(context).colorScheme;
+     return Container(
+       padding: const EdgeInsets.all(14),
+       decoration: BoxDecoration(
+         color: scheme.surface,
+         borderRadius: BorderRadius.circular(14),
+         border: Border.all(color: color.withValues(alpha: 0.2)),
+       ),
+       child: Row(
+         children: [
+           Container(
+             padding: const EdgeInsets.all(8),
+             decoration: BoxDecoration(
+               color: color.withValues(alpha: 0.1),
+               shape: BoxShape.circle,
+             ),
+             child: Icon(icon, color: color, size: 18),
+           ),
+           const SizedBox(width: 12),
+           Expanded(
+             child: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                 Text(subtitle, style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
+               ],
+             ),
+           ),
         ],
       ),
     );
   }
 
-  Widget _buildLegalDisclaimer() {
+  Widget _buildLegalDisclaimer(BuildContext ctx) {
+    final scheme = Theme.of(ctx).colorScheme;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(LucideIcons.info, color: Colors.grey.shade400, size: 14),
+              Icon(LucideIcons.info, color: scheme.onSurface.withValues(alpha: 0.5), size: 14),
               const SizedBox(width: 6),
-              Text("About Church Coins", style: TextStyle(color: Colors.grey.shade600, fontSize: 11, fontWeight: FontWeight.bold)),
+              Text("About Church Coins", style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.6), fontSize: 11, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 6),
           Text(
             "Church Coins (CC) are loyalty reward tokens for in-app use only. They have no real-world monetary value and cannot be exchanged for cash, transferred to other users, or refunded. Coins can be earned for free or purchased with real money. Purchases are final and non-refundable.",
-            style: TextStyle(color: Colors.grey.shade400, fontSize: 10, height: 1.4),
+            style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.4), fontSize: 11, height: 1.4),
           ),
         ],
       ),

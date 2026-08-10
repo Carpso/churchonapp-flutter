@@ -108,7 +108,7 @@ class MyJobsScreen extends ConsumerWidget {
                               children: [
                                 Icon(LucideIcons.zap, color: Colors.amber, size: 12),
                                 SizedBox(width: 3),
-                                Text("PROMOTED", style: TextStyle(color: Colors.amber, fontSize: 8, fontWeight: FontWeight.bold)),
+                                Text("PROMOTED", style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ),

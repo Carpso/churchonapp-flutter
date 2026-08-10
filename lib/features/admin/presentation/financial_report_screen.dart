@@ -185,7 +185,7 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
         children: [
           Icon(LucideIcons.shieldCheck, color: Colors.grey, size: 14),
           SizedBox(width: 8),
-          Text("VERIFIED BY VPS BLOCKCHAIN LEDGER", style: TextStyle(color: Colors.grey, fontSize: 8, fontWeight: FontWeight.bold)),
+          Text("VERIFIED BY VPS BLOCKCHAIN LEDGER", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
         ],
       ),
     );

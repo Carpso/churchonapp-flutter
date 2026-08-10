@@ -61,7 +61,7 @@ class NotificationService {
 
   void stopListening() {
     for (final ch in _channels) {
-      try { ch.unsubscribe(); } catch (_) {}
+      try { ch.unsubscribe(); } catch (e) { debugPrint('Notification unsubscribe error: $e'); }
     }
     _channels.clear();
     _listeningUserId = null;

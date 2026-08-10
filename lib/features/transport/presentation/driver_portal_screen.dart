@@ -26,7 +26,7 @@ class DriverPortalScreen extends ConsumerWidget {
               Tab(icon: Icon(LucideIcons.package), text: "CARGO"),
             ],
             indicatorColor: Colors.amber,
-            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
           ),
           actions: [
             IconButton(icon: const Icon(LucideIcons.settings), onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Driver settings coming soon")))),
@@ -118,7 +118,7 @@ class DriverPortalScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("NEW REQUEST", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.2)),
+              const Text("NEW REQUEST", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.2)),
               Text("K ${ride.fare.toInt()}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.secondary)),
             ],
           ),
@@ -137,10 +137,10 @@ class DriverPortalScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Pickup", style: TextStyle(color: Colors.grey, fontSize: 10)),
+                    const Text("Pickup", style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const Text("Main Street, Church View", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 10),
-                    const Text("Destination", style: TextStyle(color: Colors.grey, fontSize: 10)),
+                    const Text("Destination", style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const Text("Mall, Wing B", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   ],
                 ),
@@ -217,7 +217,7 @@ class DriverPortalScreen extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                child: Text(delivery.itemCategory.toUpperCase(), style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.w900, fontSize: 8, letterSpacing: 1)),
+                child: Text(delivery.itemCategory.toUpperCase(), style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1)),
               ),
               Text("K ${delivery.fare.toInt()}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.secondary)),
             ],
@@ -260,7 +260,7 @@ class DriverPortalScreen extends ConsumerWidget {
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   ),
-                  child: const Text("ACCEPT MISSION", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                  child: const Text("ACCEPT MISSION", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                 ),
               ),
             ],

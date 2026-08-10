@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class KidsZoneResource {
   final String id;
@@ -16,30 +17,43 @@ class KidsZoneResource {
   final bool isFree;
 
   KidsZoneResource({
-    required this.id,
+    this.id = '',
     required this.title,
-    this.description,
-    required this.category,
+    this.description = '',
+    this.category = 'activity',
     this.imageUrl,
     this.contentUrl,
-    required this.ageMin,
-    required this.ageMax,
+    this.ageMin = 3,
+    this.ageMax = 12,
     this.sortOrder = 0,
-    this.isFree = true,
+    required this.isFree,
   });
+
+  IconData get categoryIcon {
+    switch (category) {
+      case 'bible_story': return LucideIcons.bookOpen;
+      case 'activity': return LucideIcons.puzzle;
+      case 'coloring': return LucideIcons.penTool;
+      case 'game': return LucideIcons.gamepad;
+      case 'lesson': return LucideIcons.video;
+      case 'video': return LucideIcons.play;
+      case 'song': return LucideIcons.music;
+      default: return LucideIcons.star;
+    }
+  }
 
   factory KidsZoneResource.fromMap(Map<String, dynamic> map) {
     return KidsZoneResource(
       id: map['id']?.toString() ?? '',
       title: map['title']?.toString() ?? '',
-      description: map['description']?.toString(),
+      description: map['description']?.toString() ?? '',
       category: map['category']?.toString() ?? 'activity',
       imageUrl: map['image_url']?.toString(),
       contentUrl: map['content_url']?.toString(),
       ageMin: int.tryParse(map['age_min']?.toString() ?? '3') ?? 3,
       ageMax: int.tryParse(map['age_max']?.toString() ?? '12') ?? 12,
       sortOrder: int.tryParse(map['sort_order']?.toString() ?? '0') ?? 0,
-      isFree: map['is_free'] != false, // Default to true if not specified
+      isFree: map['is_free'] != false,
     );
   }
 }

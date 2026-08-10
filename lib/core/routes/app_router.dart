@@ -62,6 +62,21 @@ import 'package:church_on_app/features/admin/presentation/writer_approval_screen
 import 'package:church_on_app/features/admin/presentation/order_tracking_screen.dart';
 import 'package:church_on_app/features/admin/presentation/pastor_dashboard_screen.dart';
 import 'package:church_on_app/features/admin/presentation/apostle_dashboard_screen.dart';
+import 'package:church_on_app/features/admin/presentation/coa_employee_dashboard.dart';
+import 'package:church_on_app/features/admin/presentation/bookshop_dashboard_screen.dart';
+import 'package:church_on_app/features/admin/presentation/year_planner_screen.dart';
+import 'package:church_on_app/features/admin/presentation/pastor_bishop_report_screen.dart';
+import 'package:church_on_app/features/admin/presentation/attendance_scanner_screen.dart';
+import 'package:church_on_app/features/admin/presentation/admin_hub_screen.dart';
+import 'package:church_on_app/features/admin/presentation/ledger_screen.dart';
+import 'package:church_on_app/features/modules/navigation/presentation/more_hub_screen.dart';
+import 'package:church_on_app/features/home/presentation/fasting_tracker_screen.dart';
+import 'package:church_on_app/features/modules/media/presentation/radio_screen.dart';
+import 'package:church_on_app/features/navigation/presentation/carpso_ride_scanner_screen.dart';
+import 'package:church_on_app/features/profile/presentation/account_settings_screen.dart';
+import 'package:church_on_app/features/profile/presentation/verification_request_screen.dart';
+import 'package:church_on_app/features/profile/presentation/referral_system_screen.dart';
+import 'package:church_on_app/features/finance/presentation/coa_missions_donate_screen.dart';
 import 'package:church_on_app/features/profile/presentation/church_referral_screen.dart';
 import 'package:church_on_app/features/profile/presentation/writer_application_screen.dart';
 import 'package:church_on_app/features/marketplace/presentation/cart_screen.dart';
@@ -108,6 +123,10 @@ import 'package:church_on_app/features/bible_study/presentation/bible_study_crea
 import 'package:church_on_app/features/bible_study/presentation/bible_study_detail_screen.dart';
 import 'package:church_on_app/features/bible_study/presentation/bible_study_list_screen.dart';
 import 'package:church_on_app/features/connect/presentation/create_klip_screen.dart';
+import 'package:church_on_app/features/data_import/presentation/data_import_screen.dart';
+import 'package:church_on_app/features/admin/presentation/feature_toggles_screen.dart';
+import 'package:church_on_app/features/admin/presentation/platform_analytics_screen.dart';
+import 'package:church_on_app/features/modules/kids/presentation/kids_zone_screen.dart';
 import 'package:church_on_app/features/connect/presentation/sovereign_matchmaking_screen.dart';
 import 'package:church_on_app/features/finance/presentation/giving_history_screen.dart';
 import 'package:church_on_app/features/finance/presentation/my_pledges_screen.dart';
@@ -268,44 +287,62 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Role-based route guards
       final path = state.uri.path;
-      final profileAsync = ref.read(profileProvider);
-      final profile = profileAsync.value;
-      final role = profile?.role ?? 'member';
+      final profile = ref.read(profileProvider).value;
+      if (profile == null &&
+          !['/login', '/signup', '/select-church', '/onboarding', '/splash', '/landing', '/register-church', '/forgot-password', '/join', '/invite'].contains(path)) {
+        return null; // Profile loading or not required
+      }
 
-      const adminRoutes = [
-        '/superadmin-hub', '/coa-employee-dashboard', '/onboarding-manager',
-        '/system-docs', '/database-setup', '/emergency-shutdown',
-      ];
-      const bishopRoutes = ['/bishop-hub', '/bishop-dashboard'];
-      const pastorRoutes = ['/pastor-dashboard', '/service-report'];
-      const driverRoutes = ['/driver-portal', '/driver-earnings', '/ride-portal'];
-      const vendorRoutes = ['/vendor-dashboard', '/bookshop-dashboard'];
-      // COA management-only routes (tenant admins must NOT access these)
-      const coaManagementRoutes = ['/role-approvals', '/onboarding-manager', '/system-docs', '/database-setup', '/emergency-shutdown', '/ads', '/platform-ads'];
+      bool hasAccess(String route, UserProfile user) {
+        // Platform level admin (SuperAdmin / COA Employee only)
+        if (route.startsWith('/superadmin') ||
+            route == '/coa-employee-dashboard' ||
+            route == '/system-docs' ||
+            route == '/database-setup' ||
+            route == '/emergency-shutdown' ||
+            route == '/ads' ||
+            route == '/platform-ads') {
+          return user.isEmployee;
+        }
 
-      bool hasAccess(String route, String role) {
-        if (adminRoutes.contains(route)) {
-          return ['superadmin', 'coa_employee'].contains(role);
+        // Executive level admin (Bishop / Apostle / SuperAdmin)
+        if (route.startsWith('/bishop') || route.startsWith('/apostle')) {
+          return user.isBishopOrHigher;
         }
-        if (coaManagementRoutes.contains(route)) {
-          return ['superadmin', 'coa_employee'].contains(role);
+
+        // Church level admin (Pastor / Admin / Leader)
+        if (route.startsWith('/pastor-dashboard') ||
+            route.startsWith('/service-report') ||
+            route.startsWith('/streaming-config') ||
+            route.startsWith('/crm-donors') ||
+            route.startsWith('/stream-admin') ||
+            route.startsWith('/live-studio') ||
+            route.startsWith('/volunteer-scheduling') ||
+            route.startsWith('/role-approvals') ||
+            route.startsWith('/custom-roles') ||
+            route == '/admin-hub' ||
+            route == '/ledger' ||
+            route == '/financial-report') {
+          return user.isPastorOrHigher;
         }
-        if (bishopRoutes.contains(route)) {
-          return ['bishop', 'superadmin', 'coa_employee', 'apostle'].contains(role);
+
+        // Logistics (Driver / Rider / Employee)
+        if (route.startsWith('/driver-portal') ||
+            route == '/driver-earnings' ||
+            route == '/ride-portal') {
+          return user.canWork || user.isEmployee;
         }
-        if (pastorRoutes.contains(route)) {
-          return ['pastor', 'bishop', 'superadmin', 'coa_employee', 'apostle', 'prophet'].contains(role);
+
+        // Marketplace (Vendor / Bookshop Staff / Employee)
+        if (route == '/vendor-dashboard' || route == '/bookshop-dashboard') {
+          return user.isBookshopStaff || user.isEmployee;
         }
-        if (driverRoutes.contains(route)) {
-          return ['driver', 'superadmin', 'coa_employee'].contains(role);
-        }
-        if (vendorRoutes.contains(route)) {
-          return ['vendor', 'bookshop_owner', 'store_manager', 'superadmin', 'coa_employee'].contains(role);
-        }
+
         return true;
       }
 
-      if (!hasAccess(path, role)) {
+      if (profile != null && !hasAccess(path, profile)) {
+        debugPrint('Security Guard: Access denied for $path to role ${profile.role}');
         return '/';
       }
 
@@ -457,10 +494,34 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/apostle-dashboard',
         builder: (context, state) => const ApostleDashboardScreen(),
       ),
+      GoRoute(
+        path: '/coa-employee-dashboard',
+        builder: (context, state) => const CoaEmployeeDashboard(),
+      ),
+      GoRoute(
+        path: '/data-import',
+        builder: (context, state) => const DataImportScreen(),
+      ),
+      GoRoute(
+        path: '/feature-toggles',
+        builder: (context, state) => const FeatureTogglesScreen(),
+      ),
+      GoRoute(
+        path: '/platform-analytics',
+        builder: (context, state) => const PlatformAnalyticsScreen(),
+      ),
+      GoRoute(
+        path: '/kids-zone',
+        builder: (context, state) => const KidsZoneScreen(),
+      ),
       GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
       GoRoute(
         path: '/vendor-dashboard',
         builder: (context, state) => const VendorDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/bookshop-dashboard',
+        builder: (context, state) => const BookshopDashboardScreen(),
       ),
       GoRoute(
         path: '/ministry-management',
@@ -735,6 +796,26 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/sos-alerts',
         builder: (context, state) => const SosAlertsManagementScreen(),
+      ),
+      GoRoute(
+        path: '/year-planner',
+        builder: (context, state) => const YearPlannerScreen(),
+      ),
+      GoRoute(
+        path: '/pastor-bishop-report',
+        builder: (context, state) => const PastorBishopReportScreen(),
+      ),
+      GoRoute(
+        path: '/attendance-scanner',
+        builder: (context, state) => const AttendanceScannerScreen(),
+      ),
+      GoRoute(
+        path: '/admin-hub',
+        builder: (context, state) => const AdminHubScreen(),
+      ),
+      GoRoute(
+        path: '/ledger',
+        builder: (context, state) => const LedgerScreen(),
       ),
       GoRoute(
         path: '/streaming-config/:tenantId',
@@ -1065,6 +1146,38 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/life-hub',
         builder: (context, state) => const LifeHubScreen(),
+      ),
+      GoRoute(
+        path: '/more-hub',
+        builder: (context, state) => const MoreHubScreen(),
+      ),
+      GoRoute(
+        path: '/fasting',
+        builder: (context, state) => const FastingTrackerScreen(),
+      ),
+      GoRoute(
+        path: '/radio',
+        builder: (context, state) => const RadioScreen(),
+      ),
+      GoRoute(
+        path: '/ride-scanner',
+        builder: (context, state) => const CarpsoRideScannerScreen(),
+      ),
+      GoRoute(
+        path: '/account-settings',
+        builder: (context, state) => const AccountSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/request-verification',
+        builder: (context, state) => const VerificationRequestScreen(),
+      ),
+      GoRoute(
+        path: '/referral-program',
+        builder: (context, state) => const ReferralSystemScreen(),
+      ),
+      GoRoute(
+        path: '/missions-donate',
+        builder: (context, state) => const CoaMissionsDonateScreen(),
       ),
       GoRoute(
         path: '/volunteer-scheduling/:tenantId',

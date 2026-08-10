@@ -72,7 +72,7 @@ class _UniversalSearchScreenState extends State<UniversalSearchScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("QUICK SUGGESTIONS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1.2, color: Colors.grey)),
+          const Text("QUICK SUGGESTIONS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1.2, color: Colors.grey)),
           const SizedBox(height: 15),
           Wrap(
             spacing: 12,
@@ -133,7 +133,7 @@ class _UniversalSearchScreenState extends State<UniversalSearchScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(5)),
-                child: Text(item['type'].toUpperCase(), style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey)),
+                child: Text(item['type'].toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
               ),
             ],
           ),

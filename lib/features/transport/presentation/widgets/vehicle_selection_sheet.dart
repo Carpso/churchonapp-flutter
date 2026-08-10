@@ -5,8 +5,6 @@ import 'package:latlong2/latlong.dart';
 import 'package:church_on_app/features/transport/data/ride_pricing_provider.dart';
 import 'package:church_on_app/features/transport/data/transport_service.dart';
 import 'package:church_on_app/features/admin/data/promo_service.dart';
-import 'package:church_on_app/core/config/fee_config.dart';
-import 'package:church_on_app/core/config/remote_config.dart';
 
 class VehicleSelectionSheet extends ConsumerStatefulWidget {
   final LatLng pickupLatLng;
@@ -36,16 +34,10 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
   }
 
   static String formatZmw(double amount) {
-    if (amount == amount.roundToDouble() && amount < 10000) {
+    if (amount == amount.roundToDouble() && amount < 1000) {
       return "K ${amount.toInt()}";
     }
-    final formatted = amount.toStringAsFixed(2);
-    final parts = formatted.split('.');
-    final intPart = parts[0].replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return "K $intPart.${parts[1]}";
+    return "K ${amount.toStringAsFixed(2)}";
   }
 
   @override
@@ -84,8 +76,13 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
     return Container(
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [theme.colorScheme.surface, theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3)],
+        ),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 30, offset: const Offset(0, -5))],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -112,30 +109,12 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
                 ? 'Book Delivery'
                 : 'Personal Transport';
 
-    final fees = ref.watch(feeConfigProvider).value ?? FeeConfig.defaults;
     final isDelivery = pricing.selectedCategory == 'marketplace' ||
         pricing.selectedCategory == 'bookshop';
-    final baseFare = isDelivery
-        ? fees.rideDeliveryBaseFareKwacha
-        : fees.rideBaseFareKwacha;
-    final perKmRate = isDelivery
-        ? (fees.rideDeliveryPerKmKwacha > 0
-            ? fees.rideDeliveryPerKmKwacha
-            : kDeliveryPerKmRate)
-        : (ref
-                .read(remoteConfigProvider)
-                .value
-                ?.getDouble('ride_per_km_kwacha', kCarpsoPerKmRate) ??
-            kCarpsoPerKmRate);
+    final baseFare = isDelivery ? kDeliveryDefaultBaseFare : kCarpsoDefaultBaseFare;
+    final perKmRate = isDelivery ? kDeliveryPerKmRate : kCarpsoPerKmRate;
     final distance = pricing.distanceKm;
-    final citySpeed = ref
-            .read(remoteConfigProvider)
-            .value
-            ?.getDouble('ride_avg_city_speed_kmh', kCarpsoCitySpeedKmh) ??
-        kCarpsoCitySpeedKmh;
-    final tripMinutes = distance != null
-        ? (distance / citySpeed * 60).ceil()
-        : null;
+    final tripMinutes = distance != null ? (distance / kCarpsoCitySpeedKmh * 60).ceil() : null;
 
     final driversAsync = ref.watch(activeDriversStreamProvider);
     double? nearestDriverKm;
@@ -154,12 +133,15 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
         : null;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [const Color(0xFF1E293B), const Color(0xFF0F172A)],
+        ),
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: theme.primaryColor.withValues(alpha: 0.15), blurRadius: 20, offset: const Offset(0, 8))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,37 +154,21 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       "ESTIMATED FARE",
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
+                      style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       pricing.selectedCategory == 'bus'
                           ? "Shared Bus Route Ride"
-                          : (pricing.selectedCategory == 'marketplace' ||
-                                  pricing.selectedCategory == 'bookshop')
+                          : (pricing.selectedCategory == 'marketplace' || pricing.selectedCategory == 'bookshop')
                               ? "Cargo Delivery"
                               : "Standard Carpso Ride",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: theme.colorScheme.onSurface,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      desc,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                      ),
-                    ),
+                    Text(desc, style: const TextStyle(fontSize: 11, color: Colors.white54)),
                   ],
                 ),
               ),
@@ -210,21 +176,8 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    formatZmw(pricing.totalPayable(fees)),
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
-                      color: theme.primaryColor,
-                    ),
-                  ),
-                  Text(
-                    "incl. platform fee",
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
-                  ),
+                  Text(formatZmw(pricing.totalPayable), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.amberAccent), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const Text("incl. processing fee", style: TextStyle(fontSize: 11, color: Colors.white38)),
                 ],
               ),
             ],
@@ -304,23 +257,16 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: theme.primaryColor.withValues(alpha: 0.08),
+        color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.2)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: theme.primaryColor),
+          Icon(icon, size: 12, color: Colors.amberAccent),
           const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: theme.primaryColor.withValues(alpha: 0.9),
-            ),
-          ),
+          Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white70)),
         ],
       ),
     );
@@ -339,24 +285,18 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
             pricing.selectedCategory == 'bookshop';
 
         return ElevatedButton(
-          onPressed: drivers.isEmpty
-              ? null
-              : () => _showDriverSelection(context, ref, drivers, isDelivery, theme),
+          onPressed: drivers.isEmpty ? null : () => _showDriverSelection(context, ref, drivers, isDelivery, theme),
           style: ElevatedButton.styleFrom(
-            backgroundColor: theme.primaryColor,
+            backgroundColor: Colors.amberAccent,
+            foregroundColor: Colors.black,
             minimumSize: const Size(double.infinity, 65),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-            elevation: 8,
-            shadowColor: theme.primaryColor.withValues(alpha: 0.5),
+            elevation: 10,
+            shadowColor: Colors.amberAccent.withValues(alpha: 0.4),
           ),
           child: Text(
             isDelivery ? "REQUEST CARGO DELIVERY" : "REQUEST CARPSO RIDE",
-            style: TextStyle(
-              color: theme.colorScheme.onPrimary,
-              fontWeight: FontWeight.w900,
-              fontSize: 14,
-              letterSpacing: 1.5,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.5, color: Colors.black),
           ),
         );
       },

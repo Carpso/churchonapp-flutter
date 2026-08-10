@@ -57,7 +57,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
             const SizedBox(height: 40),
             const Text(
               "INTERNATIONAL EXPANSION", 
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.grey)
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.grey)
             ),
             const SizedBox(height: 20),
             _buildExpansionHub(context),
@@ -93,7 +93,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
         children: [
           const Text(
             "CHURCH COINS BALANCE", 
-            style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)
+            style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)
           ),
           const SizedBox(height: 15),
           Text(
@@ -117,7 +117,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold)),
         Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
       ],
     );
@@ -143,7 +143,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("ACCOUNT BALANCE", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)),
+                const Text("ACCOUNT BALANCE", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
                 Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ],
             ),

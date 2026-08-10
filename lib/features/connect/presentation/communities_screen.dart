@@ -157,7 +157,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
     return Text(
       label,
       style: const TextStyle(
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: FontWeight.w900,
         letterSpacing: 2,
         color: Colors.grey,

@@ -164,7 +164,7 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text("$pickup → $dropoff", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-          Text("K ${NumberFormat.decimalPattern().format(fare)} • $status", style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+          Text("K ${NumberFormat.decimalPattern().format(fare)} • $status", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
         ])),
       ]),
     );
@@ -193,7 +193,7 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
       Icon(icon, color: color, size: 20), const Spacer(),
       Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-      Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+      Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
     ]),
   );
 

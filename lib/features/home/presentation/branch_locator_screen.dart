@@ -153,7 +153,7 @@ class _BranchLocatorScreenState extends ConsumerState<BranchLocatorScreen> {
                 Text(name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: theme.colorScheme.onSurface)),
                 Text(address, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11)),
                 const SizedBox(height: 5),
-                Text(distance, style: TextStyle(color: theme.primaryColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                Text(distance, style: TextStyle(color: theme.primaryColor, fontSize: 11, fontWeight: FontWeight.bold)),
               ],
             ),
           ),

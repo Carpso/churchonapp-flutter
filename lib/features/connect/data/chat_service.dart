@@ -209,10 +209,14 @@ class ChatService {
         'file_name': fileName,
         'reply_to_id': replyToId,
         'reply_to_text': replyToText,
-        'conversation_id': conversationId,
-        'created_at': DateTime.now().toUtc().toIso8601String(),
-      });
-    } catch (e) {
+          'conversation_id': conversationId,
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        });
+
+        // Fire push notification to recipient (fire-and-forget)
+        _notifyMessage(receiverId, content);
+
+      } catch (e) {
       debugPrint('sendMessage error: $e. Retrying resilient insert...');
       try {
         await _client.from('messages').insert({
@@ -277,6 +281,23 @@ class ChatService {
       return List<Map<String, dynamic>>.from(res);
     } catch (_) {
       return [];
+    }
+  }
+
+  Future<void> _notifyMessage(String receiverId, String content) async {
+    try {
+      final senderName = _client.auth.currentUser?.userMetadata?['full_name'] ?? 'Someone';
+      final preview = content.length > 50 ? '${content.substring(0, 50)}...' : content;
+      await _client.functions.invoke('push-notifications', body: {
+        'userId': receiverId,
+        'title': senderName,
+        'body': preview,
+        'type': 'chat_message',
+        'referenceId': receiverId,
+        'channelId': 'messages',
+      });
+    } catch (_) {
+      // Fire-and-forget — notification failure is non-critical
     }
   }
 }

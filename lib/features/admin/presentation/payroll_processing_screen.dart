@@ -188,7 +188,7 @@ class _PayrollProcessingScreenState extends ConsumerState<PayrollProcessingScree
             fontSize: isHighlight ? 16 : 13,
           ),
         ),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10)),
+        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
       ],
     );
   }
@@ -219,7 +219,7 @@ class _PayrollProcessingScreenState extends ConsumerState<PayrollProcessingScree
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                child: Text(run.status.toUpperCase(), style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                child: Text(run.status.toUpperCase(), style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -252,7 +252,7 @@ class _PayrollProcessingScreenState extends ConsumerState<PayrollProcessingScree
     return Column(
       children: [
         Text("K${amount.toStringAsFixed(0)}", style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
-        Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+        Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
       ],
     );
   }

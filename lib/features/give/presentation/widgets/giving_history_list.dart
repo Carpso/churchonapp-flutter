@@ -241,7 +241,7 @@ class GivingHistoryList extends ConsumerWidget {
                       color: item.status == 'completed'
                           ? Colors.green
                           : Colors.orange,
-                      fontSize: 9,
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),
                   ),

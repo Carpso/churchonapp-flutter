@@ -87,7 +87,7 @@ class ReferralSystemScreen extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          const Text("YOUR REFERRAL CODE", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          const Text("YOUR REFERRAL CODE", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           const SizedBox(height: 15),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
@@ -255,14 +255,14 @@ class ReferralSystemScreen extends ConsumerWidget {
                 ),
                 child: Text(
                   isVerified ? "VERIFIED" : "PENDING",
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: 4),
               if (isVerified)
                 const Text("+100 CC", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12))
               else
-                Text("Awaiting join", style: TextStyle(color: Colors.grey.shade400, fontSize: 10)),
+                Text("Awaiting join", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
             ],
           ),
         ],

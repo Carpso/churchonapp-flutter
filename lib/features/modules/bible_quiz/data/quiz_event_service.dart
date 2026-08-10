@@ -6,7 +6,6 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/config/env.dart';
-import '../../../../core/services/gemini_service.dart';
 import 'bible_quiz_service.dart';
 
 class QuizEvent {
@@ -535,7 +534,7 @@ class QuizEventService {
 
   // ── AI Questions for Events ──
 
-  Future<List<QuizQuestion>> getEventQuestions(QuizEvent event, {GeminiService? gemini, List<String>? exclude}) async {
+  Future<List<QuizQuestion>> getEventQuestions(QuizEvent event, {List<String>? exclude}) async {
     // Try unseen questions first
     final dbQuestions = await _bqService.getUnseenQuestions(
       event.questionCount,
@@ -568,31 +567,36 @@ class QuizEventService {
       }
     }
 
-    // Top up with Gemini if still insufficient
-    if (gemini != null && dbQuestions.length < event.questionCount) {
-      final aiRaw = await gemini.generateBibleQuizQuestions(
-        count: event.questionCount - dbQuestions.length,
-        category: event.categoryFilter,
-        difficulty: event.difficultyFilter,
-        excludeQuestions: exclude ?? dbQuestions.map((q) => q.question).toList(),
-      );
-
-      if (aiRaw.isNotEmpty) {
-        final aiQuestions = aiRaw.map((m) {
-          final opts = List<String>.from(m['options'] ?? []);
-          return QuizQuestion(
-            id: 'ai_${DateTime.now().millisecondsSinceEpoch}_${m['question'].hashCode}',
-            question: m['question'] ?? '',
-            options: opts,
-            correctAnswer: m['correct_answer'] ?? 0,
-            difficulty: m['difficulty'] ?? 'Medium',
-            category: m['category'] ?? 'General',
-            scriptureReference: m['scripture_reference'],
-            points: m['difficulty'] == 'Hard' ? 20 : m['difficulty'] == 'Medium' ? 15 : 10,
-          );
-        }).toList();
-
-        return [...dbQuestions, ...aiQuestions].take(event.questionCount).toList();
+    // Fallback: call generate-quiz-batch Edge Function (HuggingFace, no Gemini)
+    if (dbQuestions.length < event.questionCount) {
+      try {
+        final need = event.questionCount - dbQuestions.length;
+        final res = await _client.functions.invoke('generate-quiz-batch', body: {
+          'count': need,
+          'category': event.categoryFilter,
+          'difficulty': event.difficultyFilter,
+          'excludeQuestions': exclude ?? dbQuestions.map((q) => q.question).toList(),
+        });
+        final data = res.data as Map<String, dynamic>?;
+        final generated = (data?['questions'] as List?) ?? [];
+        if (generated.isNotEmpty) {
+          final aiQuestions = generated.map((m) {
+            final opts = List<String>.from((m as Map)['options'] ?? []);
+            return QuizQuestion(
+              id: 'ef_${DateTime.now().millisecondsSinceEpoch}_${opts.hashCode}',
+              question: m['question'] ?? '',
+              options: opts,
+              correctAnswer: m['correct_answer'] ?? 0,
+              difficulty: m['difficulty'] ?? 'Medium',
+              category: m['category'] ?? 'General',
+              scriptureReference: m['scripture_reference'],
+              points: m['difficulty'] == 'Hard' ? 20 : m['difficulty'] == 'Medium' ? 15 : 10,
+            );
+          }).toList();
+          return [...dbQuestions, ...aiQuestions].take(event.questionCount).toList();
+        }
+      } catch (e) {
+        debugPrint('Quiz event AI fallback failed: $e');
       }
     }
 

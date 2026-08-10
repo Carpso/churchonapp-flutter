@@ -83,43 +83,46 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final profileAsync = ref.watch(profileProvider);
     final achievementsAsync = ref.watch(achievementsProvider);
     final referralCountAsync = ref.watch(referralCountProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Rewards', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text('Rewards', style: TextStyle(color: scheme.onSurface, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.white,
+        foregroundColor: scheme.onSurface,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildBalanceHeader(profileAsync),
+            _buildBalanceHeader(theme, profileAsync),
             const SizedBox(height: 25),
-            _buildDailyCollect(),
+            _buildDailyCollect(theme),
             const SizedBox(height: 25),
-            _buildStreakSection(profileAsync),
+            _buildStreakSection(theme, profileAsync),
             const SizedBox(height: 25),
-            _buildReferralSection(referralCountAsync),
+            _buildReferralSection(theme, referralCountAsync),
             const SizedBox(height: 25),
-            const Text('Achievements', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Achievements', style: TextStyle(color: scheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 5),
-            const Text('Complete tasks to earn badges and XP', style: TextStyle(color: Colors.white38, fontSize: 12)),
+            Text('Complete tasks to earn badges and XP', style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.4), fontSize: 12)),
             const SizedBox(height: 15),
-            _buildAchievements(achievementsAsync),
+            _buildAchievements(theme, achievementsAsync),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBalanceHeader(AsyncValue<UserProfile?> profileAsync) {
+  Widget _buildBalanceHeader(ThemeData theme, AsyncValue<UserProfile?> profileAsync) {
+    final scheme = theme.colorScheme;
     final profile = profileAsync.value;
     final coins = (profile?.balanceCc ?? 0).toInt();
     final streak = profile?.streakCount ?? 0;
@@ -129,9 +132,9 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF0F172A)]),
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.2)),
+        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.2)),
       ),
       child: Column(
         children: [
@@ -141,27 +144,27 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Welcome, $name', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                  Text('Welcome, $name', style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5), fontSize: 12)),
                   const SizedBox(height: 4),
-                  const Text('Rewards', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                  Text('Rewards', style: TextStyle(color: scheme.onSurface, fontSize: 22, fontWeight: FontWeight.bold)),
                 ],
               ),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.1),
+                  color: theme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(15),
                 ),
-                child: const Icon(LucideIcons.gift, color: Colors.amber, size: 28),
+                child: Icon(LucideIcons.gift, color: theme.primaryColor, size: 28),
               ),
             ],
           ),
           const SizedBox(height: 20),
           Row(
             children: [
-              _balanceItem('Coins', coins.toString(), LucideIcons.coins, Colors.amber),
+              _balanceItem(theme, 'Coins', coins.toString(), LucideIcons.coins, theme.primaryColor),
               const SizedBox(width: 15),
-              _balanceItem('Day Streak', '$streak', LucideIcons.flame, Colors.orange),
+              _balanceItem(theme, 'Day Streak', '$streak', LucideIcons.flame, Colors.orange),
             ],
           ),
         ],
@@ -169,7 +172,8 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
     );
   }
 
-  Widget _balanceItem(String label, String value, IconData icon, Color color) {
+  Widget _balanceItem(ThemeData theme, String label, String value, IconData icon, Color color) {
+    final scheme = theme.colorScheme;
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -186,7 +190,7 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.w900)),
-                Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                Text(label, style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
               ],
             ),
           ],
@@ -195,48 +199,45 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
     );
   }
 
-  Widget _buildDailyCollect() {
+  Widget _buildDailyCollect(ThemeData theme) {
+    final scheme = theme.colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.amber.withValues(alpha: 0.1), Colors.orange.withValues(alpha: 0.05)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.2)),
+        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha: 0.15),
+              color: theme.primaryColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(LucideIcons.sun, color: Colors.amber, size: 32),
+            child: Icon(LucideIcons.sun, color: theme.primaryColor, size: 32),
           ),
           const SizedBox(width: 20),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Daily Reward', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                Text('Daily Reward', style: TextStyle(color: scheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 4),
-                const Text('Collect 25 Coins every day', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                Text('Collect 25 Coins every day', style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5), fontSize: 12)),
               ],
             ),
           ),
           ElevatedButton.icon(
             onPressed: _isCollecting ? null : _collectDaily,
             icon: _isCollecting
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                : const Icon(LucideIcons.gift, size: 16, color: Colors.black),
-            label: Text(_isCollecting ? '...' : 'Collect', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 12)),
+                ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.onPrimary))
+                : Icon(LucideIcons.gift, size: 16, color: scheme.onPrimary),
+            label: Text(_isCollecting ? '...' : 'Collect', style: TextStyle(fontWeight: FontWeight.bold, color: scheme.onPrimary, fontSize: 12)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.amber,
+              backgroundColor: theme.primaryColor,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
@@ -246,7 +247,8 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
     );
   }
 
-  Widget _buildStreakSection(AsyncValue<UserProfile?> profileAsync) {
+  Widget _buildStreakSection(ThemeData theme, AsyncValue<UserProfile?> profileAsync) {
+    final scheme = theme.colorScheme;
     final streak = profileAsync.value?.streakCount ?? 0;
     final maxStreak = 7;
     final progress = (streak / maxStreak).clamp(0.0, 1.0);
@@ -255,9 +257,9 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: scheme.onSurface.withValues(alpha: 0.05)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,12 +275,12 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
                 child: const Icon(LucideIcons.flame, color: Colors.orange, size: 22),
               ),
               const SizedBox(width: 15),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Reading Streak', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text('Read the Bible daily to build your streak', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                    Text('Reading Streak', style: TextStyle(color: scheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text('Read the Bible daily to build your streak', style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.4), fontSize: 11)),
                   ],
                 ),
               ),
@@ -290,7 +292,7 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: progress,
-              backgroundColor: Colors.white.withValues(alpha: 0.05),
+              backgroundColor: scheme.onSurface.withValues(alpha: 0.05),
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
               minHeight: 8,
             ),
@@ -304,14 +306,14 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: filled ? Colors.orange : Colors.white.withValues(alpha: 0.05),
+                  color: filled ? Colors.orange : scheme.onSurface.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
                   child: Icon(
                     filled ? LucideIcons.check : LucideIcons.x,
                     size: 14,
-                    color: filled ? Colors.white : Colors.white24,
+                    color: filled ? Colors.white : scheme.onSurface.withValues(alpha: 0.2),
                   ),
                 ),
               );
@@ -322,16 +324,17 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
     );
   }
 
-  Widget _buildReferralSection(AsyncValue<int> referralCountAsync) {
+  Widget _buildReferralSection(ThemeData theme, AsyncValue<int> referralCountAsync) {
+    final scheme = theme.colorScheme;
     final count = referralCountAsync.value ?? 0;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: scheme.onSurface.withValues(alpha: 0.05)),
       ),
       child: Row(
         children: [
@@ -348,8 +351,8 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Referral Rewards', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                Text('$count friends joined • Earn 100 CC per referral', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                Text('Referral Rewards', style: TextStyle(color: scheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16)),
+                Text('$count friends joined • Earn 100 CC per referral', style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5), fontSize: 12)),
               ],
             ),
           ),
@@ -366,17 +369,17 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
     );
   }
 
-  Widget _buildAchievements(AsyncValue<List<Map<String, dynamic>>> achievementsAsync) {
+  Widget _buildAchievements(ThemeData theme, AsyncValue<List<Map<String, dynamic>>> achievementsAsync) {
     return achievementsAsync.when(
       data: (achievements) {
         final categories = achievements.map((a) => a['category']?.toString() ?? '').toSet().toList();
         return Column(
-          children: categories.map((cat) => _buildCategory(cat, achievements.where((a) => a['category']?.toString() == cat).toList())).toList(),
+          children: categories.map((cat) => _buildCategory(theme, cat, achievements.where((a) => a['category']?.toString() == cat).toList())).toList(),
         );
       },
       loading: () => Shimmer.fromColors(
-        baseColor: const Color(0xFF1E293B),
-        highlightColor: const Color(0xFF334155),
+        baseColor: theme.colorScheme.surface,
+        highlightColor: theme.colorScheme.surfaceContainerHighest,
         child: const Padding(
           padding: EdgeInsets.all(16),
           child: Column(
@@ -390,11 +393,12 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
           ),
         ),
       ),
-      error: (e, _) => Center(child: Text('$e', style: const TextStyle(color: Colors.white38))),
+      error: (e, _) => Center(child: Text('$e', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.3)))),
     );
   }
 
-  Widget _buildCategory(String category, List<Map<String, dynamic>> items) {
+  Widget _buildCategory(ThemeData theme, String category, List<Map<String, dynamic>> items) {
+    final scheme = theme.colorScheme;
     final unlockedCount = items.where((a) => a['unlocked'] == true).length;
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
@@ -404,18 +408,19 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(category, style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
-              Text('$unlockedCount/${items.length}', style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
+              Text(category, style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+              Text('$unlockedCount/${items.length}', style: TextStyle(color: theme.primaryColor, fontSize: 11, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 10),
-          ...items.map((a) => _buildAchievementCard(a)),
+          ...items.map((a) => _buildAchievementCard(theme, a)),
         ],
       ),
     );
   }
 
-  Widget _buildAchievementCard(Map<String, dynamic> achievement) {
+  Widget _buildAchievementCard(ThemeData theme, Map<String, dynamic> achievement) {
+    final scheme = theme.colorScheme;
     final unlocked = achievement['unlocked'] as bool;
     final iconName = (achievement['icon'] as String?)?.toLowerCase() ?? 'star';
     IconData iconData;
@@ -430,10 +435,10 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: unlocked ? Colors.amber.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.02),
+        color: unlocked ? theme.primaryColor.withValues(alpha: 0.05) : scheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: unlocked ? Colors.amber.withValues(alpha: 0.2) : Colors.white10,
+          color: unlocked ? theme.primaryColor.withValues(alpha: 0.2) : scheme.onSurface.withValues(alpha: 0.05),
         ),
       ),
       child: Row(
@@ -441,12 +446,12 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: unlocked ? Colors.amber.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.05),
+              color: unlocked ? theme.primaryColor.withValues(alpha: 0.15) : scheme.onSurface.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               iconData,
-              color: unlocked ? Colors.amber : Colors.white24,
+              color: unlocked ? theme.primaryColor : scheme.onSurface.withValues(alpha: 0.2),
               size: 20,
             ),
           ),
@@ -458,14 +463,14 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
                 Text(
                   achievement['title']?.toString() ?? '',
                   style: TextStyle(
-                    color: unlocked ? Colors.white : Colors.white38,
+                    color: unlocked ? scheme.onSurface : scheme.onSurface.withValues(alpha: 0.4),
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
                 ),
                 Text(
                   achievement['description']?.toString() ?? '',
-                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                  style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.4), fontSize: 11),
                 ),
               ],
             ),
@@ -476,12 +481,12 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
+                color: scheme.onSurface.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 '+${achievement['xp_reward'] ?? 0} XP',
-                style: const TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold),
+                style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.2), fontSize: 11, fontWeight: FontWeight.bold),
               ),
             ),
         ],

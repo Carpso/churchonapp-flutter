@@ -85,7 +85,7 @@ class _PartnerRedemptionScreenState extends ConsumerState<PartnerRedemptionScree
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("YOUR REWARD BALANCE", style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                    const Text("YOUR REWARD BALANCE", style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
                     const SizedBox(height: 4),
                     Text("$userCoins CC", style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900)),
                   ],
@@ -97,7 +97,7 @@ class _PartnerRedemptionScreenState extends ConsumerState<PartnerRedemptionScree
                     color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text("VASP Compliant", style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600)),
+                  child: const Text("VASP Compliant", style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
                 )
               ],
             ),

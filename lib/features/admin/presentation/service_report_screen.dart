@@ -134,7 +134,7 @@ class _ServiceReportScreenState extends ConsumerState<ServiceReportScreen> {
                 ),
                 child: Text(
                   report.type.toUpperCase(),
-                  style: TextStyle(color: isAnnouncement ? Colors.orange : Colors.blue, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: isAnnouncement ? Colors.orange : Colors.blue, fontSize: 11, fontWeight: FontWeight.bold),
                 ),
               ),
               Text(

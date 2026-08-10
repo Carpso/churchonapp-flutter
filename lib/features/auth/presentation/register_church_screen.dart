@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/widgets/app_error_view.dart';
 import '../../../core/services/code_generator_service.dart';
 import '../../../core/utils/country_detection_util.dart';
 import '../../../core/services/plan_service.dart';
@@ -69,8 +70,10 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
       final existing = await client.from('tenants').select('id').ilike('name', _nameController.text.trim()).maybeSingle();
       if (existing != null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('A church with this name already exists'), backgroundColor: Colors.red),
+          showAppSnackBar(
+            context,
+            'A church with this name already exists',
+            status: AppStatus.error,
           );
         }
         return;
@@ -90,6 +93,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
         'latitude': _lat,
         'longitude': _lng,
         'contact_phone': _treasurerPhoneController.text.trim(),
+        'treasurer_phone': _treasurerPhoneController.text.trim(),
         'slug': slug,
         'tenant_id': tenantId,
         'is_verified': false,
@@ -102,6 +106,16 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
         'tenant_id': tenantId,
         'role': _selectedRole,
       }).eq('id', user.id);
+
+      // Audit trail: record the role assignment for traceability
+      await client.from('role_assignments').insert({
+        'user_id': user.id,
+        'role_name': _selectedRole,
+        'tenant_id': tenantId,
+        'assigned_by': user.id,
+        'status': 'approved',
+        'created_at': DateTime.now().toIso8601String(),
+      });
 
       String? inviteCode;
       try {
@@ -123,8 +137,10 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        showAppSnackBar(
+          context,
+          AppErrorView.friendlyMessage(e),
+          status: AppStatus.error,
         );
       }
     } finally {
@@ -155,11 +171,21 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
               const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(15)),
-                child: const Column(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Column(
                   children: [
-                    Text("Zamtel/Airtel/MTN Money", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    Text("Superadmin MoMo: 0976847775", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.blue)),
+                    const Text("Zamtel/Airtel/MTN Money", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    Text(
+                      "Superadmin MoMo: 0976847775",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -167,7 +193,10 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
                 const SizedBox(height: 20),
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(15)),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
                   child: Column(
                     children: [
                       const Text("Share This Invite Code", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
@@ -188,8 +217,8 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
                           icon: const Icon(LucideIcons.share2, size: 18),
                           label: const Text("Share Invite Link"),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
+                            backgroundColor: Theme.of(context).colorScheme.onSurface,
+                            foregroundColor: Theme.of(context).colorScheme.surface,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
@@ -208,7 +237,11 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
                 Navigator.of(ctx).pop();
                 Navigator.of(ctx).pop();
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size(200, 50)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.onSurface,
+                foregroundColor: Theme.of(context).colorScheme.surface,
+                minimumSize: const Size(200, 50),
+              ),
               child: const Text("UNDERSTOOD"),
             ),
           ),
@@ -264,7 +297,11 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
               const SizedBox(height: 40),
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber.shade100)),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.2)),
+                ),
                 child: Row(
                   children: [
                     const Icon(LucideIcons.wallet, color: Colors.amber),
@@ -273,7 +310,10 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text("Required Onboarding Fee", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        Text(fee, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.amber)),
+                        Text(
+                          fee,
+                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.amber),
+                        ),
                       ],
                     ),
                   ],
@@ -286,7 +326,8 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
                 : ElevatedButton(
                     onPressed: _handleRegistration,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
+                      backgroundColor: Theme.of(context).colorScheme.onSurface,
+                      foregroundColor: Theme.of(context).colorScheme.surface,
                       minimumSize: const Size(double.infinity, 60),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
@@ -297,7 +338,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
                 child: Text(
                   "By submitting, you agree to our Terms of Service. Church approvals typically take 24-48 hours.",
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10, color: Colors.grey),
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
                 ),
               ),
             ],
@@ -314,15 +355,27 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: active ? Colors.black : Colors.white,
+          color: active ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: active ? Colors.black : Colors.grey.withValues(alpha: 0.2)),
+          border: Border.all(
+            color: active ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
+          ),
         ),
         child: Column(
           children: [
-            Icon(icon, color: active ? Colors.white : Colors.black45, size: 30),
+            Icon(
+              icon,
+              color: active ? Theme.of(context).colorScheme.surface : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+              size: 30,
+            ),
             const SizedBox(height: 10),
-            Text(title, style: TextStyle(color: active ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+            Text(
+              title,
+              style: TextStyle(
+                color: active ? Theme.of(context).colorScheme.surface : Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
       ),
@@ -332,7 +385,10 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
   Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
