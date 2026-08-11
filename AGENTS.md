@@ -831,3 +831,18 @@ flutter analyze --no-fatal-infos --no-fatal-warnings
   - **Expansion leads / Firebase**: cleanup continued (SHA registration, web Firebase config corrected to web appId `1:45750098887:web:2e4259493139c6719217e2`).
   - **Release builds**: clean (flutter clean + pub get) ? APK `Church On App.apk` 205MB v1.0.0+262, AAB `app-release.aab` 119.1MB v1.0.0+263. Commits `60b0bfb`. Web deployed to Cloudflare Pages (0 exceptions).
   - **Remaining knowns**: Bible audio (LibriVox archive.org paths) may play wrong files for some chapters — R2 upload of KJV audio still pending; Communities from Life/MoreHub uses the SAME CommunitiesScreen as Connect (no red styling in code); KYC flow is mobile-only (uses dart:io File); 9 info-level analyze issues remain (pre-existing, all in kids/data_import/quiz/wallet files).
+## How To: Reuse Lipila + FX in Other Projects
+
+The Lipila payment integration now includes a **shared FX service** that other
+projects can copy/reuse when they wire Lipila:
+
+- `lib/features/give/data/lipila_fx_service.dart` — `LipilaFxService` (free
+  `open.er-api.com`, no API key). Methods: `fetchRate()` (10-min cache,
+  fallback rate 18.0), `convert(amount, rate)`, `convertAsync(amount)`.
+  Providers: `lipilaFxServiceProvider`, `zmwPerUsdProvider`.
+- `lib/core/services/currency_service.dart` — backwards-compatible facade that
+  re-exports the Lipila FX service (existing `zmwPerUsdProvider` still works).
+- Wired into: Lipila payment gateway fee preview ("˜ USD") + multi-currency
+  wallet live-rate card.
+- Constructor takes `baseCurrency`/`targetCurrency` (default ZMW->USD) so other
+  projects can convert any supported pair.
