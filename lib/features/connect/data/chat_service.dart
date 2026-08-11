@@ -76,12 +76,17 @@ class ChatService {
         .from('messages')
         .stream(primaryKey: ['id'])
         .eq('conversation_id', conversationId)
-        .order('created_at', ascending: false)
         .asyncMap((data) async {
           final seenIds = <String>{};
           final filtered = data
               .where((map) => seenIds.add(map['id'] as String))
               .toList();
+          // Sort client-side (realtime streams can't reliably order).
+          filtered.sort((a, b) {
+            final ta = a['created_at']?.toString() ?? '';
+            final tb = b['created_at']?.toString() ?? '';
+            return tb.compareTo(ta);
+          });
           final senderIds = filtered.map((m) => m['sender_id'] as String).toSet().toList();
           Map<String, Map<String, dynamic>> profiles = {};
           if (senderIds.isNotEmpty) {
@@ -113,9 +118,17 @@ class ChatService {
         .from('messages')
         .stream(primaryKey: ['id'])
         .eq('community_group_id', groupId)
-        .order('created_at', ascending: false)
         .asyncMap((data) async {
-          final senderIds = data.map((m) => m['sender_id'] as String).toSet().toList();
+          final seenIds = <String>{};
+          final filtered = data
+              .where((map) => seenIds.add(map['id'] as String))
+              .toList();
+          filtered.sort((a, b) {
+            final ta = a['created_at']?.toString() ?? '';
+            final tb = b['created_at']?.toString() ?? '';
+            return tb.compareTo(ta);
+          });
+          final senderIds = filtered.map((m) => m['sender_id'] as String).toSet().toList();
           Map<String, Map<String, dynamic>> profiles = {};
           if (senderIds.isNotEmpty) {
             try {
@@ -130,7 +143,7 @@ class ChatService {
               debugPrint('Failed to load sender profiles: $e');
             }
           }
-          return data.map((map) {
+          return filtered.map((map) {
             final enriched = Map<String, dynamic>.from(map);
             enriched['profiles'] = profiles[map['sender_id']];
             return ChatMessage.fromMap(enriched, currentUserId);

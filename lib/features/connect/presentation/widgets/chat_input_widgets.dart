@@ -28,45 +28,48 @@ class ChatInputWidget extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       color: Colors.transparent,
       child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5)],
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        showStickers ? LucideIcons.keyboard : LucideIcons.smile,
-                        color: Colors.grey,
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom > 0 ? 0 : 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5)],
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          showStickers ? LucideIcons.keyboard : LucideIcons.smile,
+                          color: Colors.grey,
+                        ),
+                        onPressed: onToggleStickers,
                       ),
-                      onPressed: onToggleStickers,
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: controller,
-                        maxLines: null,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: const InputDecoration(
-                          hintText: 'Message',
-                          hintStyle: TextStyle(color: Colors.grey),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: controller,
+                          maxLines: null,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: const InputDecoration(
+                            hintText: 'Message',
+                            hintStyle: TextStyle(color: Colors.grey),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 10),
+                          ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(LucideIcons.paperclip, color: Colors.grey),
-                      onPressed: onToggleAttachment,
-                    ),
-                  ],
+                      IconButton(
+                        icon: const Icon(LucideIcons.paperclip, color: Colors.grey),
+                        onPressed: onToggleAttachment,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
             const SizedBox(width: 8),
             GestureDetector(
               onTap: isTyping ? onSend : null,
@@ -83,7 +86,8 @@ class ChatInputWidget extends StatelessWidget {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
