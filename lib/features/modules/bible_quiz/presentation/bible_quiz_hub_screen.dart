@@ -539,9 +539,9 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
         duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: isThisConnecting ? Colors.blue.withValues(alpha: 0.3) : iconColor.withValues(alpha: 0.15),
+          color: isThisConnecting ? Colors.blue.withValues(alpha: 0.4) : Color.lerp(iconColor, const Color(0xFF0D1117), 0.55),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isThisConnecting ? Colors.blue : iconColor.withValues(alpha: 0.25), width: isThisConnecting ? 2 : 1),
+          border: Border.all(color: isThisConnecting ? Colors.blue : iconColor.withValues(alpha: 0.4), width: isThisConnecting ? 2 : 1),
         ),
         child: isThisConnecting 
           ? const Column(

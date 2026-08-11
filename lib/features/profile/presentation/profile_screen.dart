@@ -18,7 +18,6 @@ import '../../../core/providers/auth_provider.dart';
 import '../../auth/presentation/two_factor_setup_screen.dart';
 import '../../../core/services/coins_service.dart';
 import '../../../core/services/r2_service.dart';
-import '../../connect/data/user_activity_service.dart';
 import '../../modules/bible_quiz/data/bible_quiz_service.dart';
 import '../../transport/presentation/driver_portal_screen.dart';
 import 'package:image_picker/image_picker.dart';
@@ -123,6 +122,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
       pinned: true,
       stretch: true,
       backgroundColor: Colors.black,
+      title: Text(
+        profile.name,
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+      ),
       flexibleSpace: FlexibleSpaceBar(
         stretchModes: const [StretchMode.zoomBackground, StretchMode.blurBackground],
         background: Stack(
@@ -304,23 +309,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             _buildWalletAction(context, LucideIcons.send, "GIVE", () => context.push('/giving')),
-            _buildWalletAction(context, canCollect ? LucideIcons.coins : LucideIcons.checkCircle, canCollect ? "COLLECT" : "DONE", () async {
-              if (!canCollect) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Already collected today! Come back tomorrow."), backgroundColor: Colors.orange));
-                }
-                return;
-              }
-              final service = ref.read(coinsServiceProvider);
-              final activity = ref.read(userActivityServiceProvider);
-              final earned = await service.collectDailyCoins();
-              if (earned > 0) {
-                await activity.logActivity(type: ActivityType.coinCollected, description: "Daily coin reward", coinsEarned: earned);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("+$earned coins collected!"), backgroundColor: Colors.green));
-                }
-              }
-            }),
             _buildWalletAction(context, LucideIcons.coins, "MY CC", () => context.push('/payout-request')),
             _buildWalletAction(context, LucideIcons.shieldCheck, "IDENTITY", () => context.push('/kyc-verification')),
           ],
@@ -365,7 +353,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
   Widget _buildMinistryActions(BuildContext context, WidgetRef ref, UserProfile profile, Tenant? tenant) {
     return Column(
       children: [
-        _buildPremiumItem(context, LucideIcons.plusCircle, "Register Your Church", isHighlighted: true, onTap: () => context.push('/register-church')),
+        _buildPremiumItem(context, LucideIcons.plusCircle, "Register Your Church", onTap: () => context.push('/register-church')),
         if (profile.isExecutiveOffice) ...[
           _buildPremiumItem(context, LucideIcons.crown, "BISHOP COMMAND HUB", isHighlighted: true, onTap: () => context.push('/bishop-hub')),
         ],
@@ -404,14 +392,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
         _buildPremiumItem(context, LucideIcons.shield, "Security & Privacy", onTap: () => _showSecuritySettings(context)),
         _buildPremiumItem(context, LucideIcons.fileCheck, "KYC Verification", trailing: "UNVERIFIED", onTap: () => context.push('/kyc-verification')),
         if (!profile.isVerified)
-          _buildPremiumItem(context, LucideIcons.badgeCheck, "Request Verification", isHighlighted: true, onTap: () => context.push('/request-verification')),
+          _buildPremiumItem(context, LucideIcons.badgeCheck, "Request Verification", onTap: () => context.push('/request-verification')),
         _buildPremiumItem(context, LucideIcons.trendingUp, "Role Onboarding", onTap: () => context.push('/onboarding/${profile.role}')),
         if (profile.role != 'writer')
           _buildPremiumItem(context, LucideIcons.penTool, "Apply as Writer", onTap: () => context.push('/apply-writer')),
         _buildPremiumItem(context, LucideIcons.package, "My Orders", onTap: () => context.push('/orders')),
         _buildPremiumItem(context, LucideIcons.gift, "Referral Program", onTap: () => context.push('/referral-program')),
         _buildPremiumItem(context, LucideIcons.church, "Can't Find Your Church?", onTap: () => context.push('/refer-church')),
-        _buildPremiumItem(context, LucideIcons.heart, "COA Missions Donate", isHighlighted: true, onTap: () => context.push('/missions-donate')),
+        _buildPremiumItem(context, LucideIcons.heart, "COA Missions Donate", onTap: () => context.push('/missions-donate')),
         _buildPremiumItem(context, LucideIcons.helpCircle, "Help & Support", onTap: () => context.push('/support')),
         _buildPremiumItem(context, LucideIcons.logOut, "Logout", isDestructive: true, onTap: () => _showLogoutConfirmation(context, ref)),
       ],

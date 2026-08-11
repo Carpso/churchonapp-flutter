@@ -119,8 +119,13 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
                       description: 'Giving: $_selectedCategory',
                       category: _selectedCategory.toLowerCase(),
                       recipientName: tenant?.name ?? 'Local Church',
-                      recipientAccount:
-                          tenant?.treasurerPhone ?? 'CHURCH-OFFICIAL-AC',
+                      recipientAccount: _selectedCategory.toLowerCase() == 'tithe'
+                          ? (tenant?.pastorPhone ??
+                              tenant?.treasurerPhone ??
+                              'CHURCH-OFFICIAL-AC')
+                          : (tenant?.treasurerPhone ??
+                              tenant?.contactPhone ??
+                              'CHURCH-OFFICIAL-AC'),
                       paymentReason: '$_selectedCategory Support',
                       onComplete: (success, txId) async {
                         Navigator.pop(sheetCtx);

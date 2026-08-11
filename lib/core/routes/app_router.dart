@@ -166,6 +166,7 @@ import 'package:church_on_app/features/modules/navigation/presentation/life_hub_
 import 'package:church_on_app/features/modules/volunteer_scheduling/presentation/volunteer_scheduling_screen.dart';
 import 'package:church_on_app/features/profile/presentation/certificates_screen.dart';
 import 'package:church_on_app/features/profile/presentation/membership_card_screen.dart';
+import 'package:church_on_app/features/profile/presentation/kyc_verification_screen.dart';
 import 'package:church_on_app/features/profile/presentation/notification_preferences_screen.dart';
 import 'package:church_on_app/features/profile/presentation/profile_deeplink_handler_screen.dart';
 import 'package:church_on_app/features/profile/presentation/rewards_screen.dart';
@@ -1001,7 +1002,9 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'create',
                 builder: (context, state) {
-                  final tenantId = state.extra as String;
+                  final tenantId = state.extra is String
+                      ? state.extra as String
+                      : ref.read(currentTenantProvider)?.id ?? '';
                   return CreateGroupContributionScreen(tenantId: tenantId);
                 },
               ),
@@ -1217,6 +1220,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/membership-card',
         builder: (context, state) => const MembershipCardScreen(),
+      ),
+      GoRoute(
+        path: '/kyc-verification',
+        builder: (context, state) => const KycVerificationScreen(),
       ),
       GoRoute(
         path: '/notification-preferences',

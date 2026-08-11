@@ -9,25 +9,37 @@ class GroupContributionService {
   Future<GroupContribution?> getGroup(String groupId) async {
     final data = await _client
         .from('group_contributions')
-        .select('*, group_contribution_members!inner(count)')
+        .select('*, group_contribution_members(count)')
         .eq('id', groupId)
         .maybeSingle();
     if (data == null) return null;
-    final memberCount = (data['group_contribution_members'] as List?)?.length ?? 0;
+    final memberCount = _extractMemberCount(data['group_contribution_members']);
     return GroupContribution.fromMap({...data, 'member_count': memberCount});
   }
 
   Future<List<GroupContribution>> getGroups(String tenantId) async {
     final data = await _client
         .from('group_contributions')
-        .select('*, group_contribution_members!inner(count)')
+        .select('*, group_contribution_members(count)')
         .eq('tenant_id', tenantId)
         .order('created_at', ascending: false);
 
     return data.map((map) {
-      final memberCount = (map['group_contribution_members'] as List?)?.length ?? 0;
+      final memberCount = _extractMemberCount(map['group_contribution_members']);
       return GroupContribution.fromMap({...map, 'member_count': memberCount});
     }).toList();
+  }
+
+  /// Robustly extracts the count from `group_contribution_members(count)` join,
+  /// which can come back as `[{'count': N}]`, `{'count': N}`, a number, or null.
+  static int _extractMemberCount(dynamic joinResult) {
+    if (joinResult is List && joinResult.isNotEmpty) {
+      final first = joinResult.first;
+      if (first is Map) return (first['count'] as num?)?.toInt() ?? 0;
+    }
+    if (joinResult is Map) return (joinResult['count'] as num?)?.toInt() ?? 0;
+    if (joinResult is num) return joinResult.toInt();
+    return 0;
   }
 
   Stream<List<GroupContribution>> getGroupsStream(String tenantId) {
@@ -35,8 +47,18 @@ class GroupContributionService {
         .from('group_contributions')
         .stream(primaryKey: ['id'])
         .eq('tenant_id', tenantId)
-        .order('created_at', ascending: false)
-        .map((data) => data.map((map) => GroupContribution.fromMap(map)).toList());
+        .asyncMap((data) async {
+          final seenIds = <String>{};
+          final filtered = data
+              .where((map) => seenIds.add(map['id'] as String))
+              .toList();
+          filtered.sort((a, b) {
+            final ta = a['created_at']?.toString() ?? '';
+            final tb = b['created_at']?.toString() ?? '';
+            return tb.compareTo(ta);
+          });
+          return filtered.map((map) => GroupContribution.fromMap(map)).toList();
+        });
   }
 
   Future<GroupContribution> createGroup({
@@ -89,8 +111,18 @@ class GroupContributionService {
         .from('group_contribution_members')
         .stream(primaryKey: ['id'])
         .eq('group_id', groupId)
-        .order('joined_at', ascending: true)
-        .map((data) => data.map((map) => GroupContributionMember.fromMap(map)).toList());
+        .asyncMap((data) async {
+          final seenIds = <String>{};
+          final filtered = data
+              .where((map) => seenIds.add(map['id'] as String))
+              .toList();
+          filtered.sort((a, b) {
+            final ta = a['joined_at']?.toString() ?? '';
+            final tb = b['joined_at']?.toString() ?? '';
+            return ta.compareTo(tb);
+          });
+          return filtered.map((map) => GroupContributionMember.fromMap(map)).toList();
+        });
   }
 
   Future<void> joinGroup({
@@ -190,8 +222,18 @@ class GroupContributionService {
         .from('group_contribution_payments')
         .stream(primaryKey: ['id'])
         .eq('group_id', groupId)
-        .order('created_at', ascending: false)
-        .map((data) => data.map((map) => GroupContributionPayment.fromMap(map)).toList());
+        .asyncMap((data) async {
+          final seenIds = <String>{};
+          final filtered = data
+              .where((map) => seenIds.add(map['id'] as String))
+              .toList();
+          filtered.sort((a, b) {
+            final ta = a['created_at']?.toString() ?? '';
+            final tb = b['created_at']?.toString() ?? '';
+            return tb.compareTo(ta);
+          });
+          return filtered.map((map) => GroupContributionPayment.fromMap(map)).toList();
+        });
   }
 
   Future<GroupContributionMember?> getMyMembership(String groupId, String userId) async {

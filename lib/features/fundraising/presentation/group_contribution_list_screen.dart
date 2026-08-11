@@ -27,7 +27,7 @@ class GroupContributionListScreen extends ConsumerWidget {
           if (canCreate)
             IconButton(
               icon: const Icon(LucideIcons.plus),
-              onPressed: () => context.push('/fundraising/groups/create'),
+              onPressed: () => context.push('/fundraising/groups/create', extra: tenantId),
             ),
         ],
       ),

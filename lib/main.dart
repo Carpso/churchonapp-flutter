@@ -314,7 +314,7 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
       builder: (context, child) {
         return SafeArea(
           top: true,
-          bottom: false,
+          bottom: true,
           child: NotificationOverlay(
             child: child ?? const SizedBox.shrink(),
           ),

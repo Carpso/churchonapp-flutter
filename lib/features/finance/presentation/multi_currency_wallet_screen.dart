@@ -168,7 +168,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
           SizedBox(width: 15),
           Expanded(
             child: Text(
-              "Church On App is available in Zambia and Zimbabwe. More regions coming soon.",
+              "Church On App is currently available in Zambia. More regions coming soon.",
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ),
