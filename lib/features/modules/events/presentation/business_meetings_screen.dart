@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/features/modules/events/presentation/meeting_subscription_sheet.dart';
 import '../data/meeting_service.dart';
 
@@ -154,7 +155,24 @@ class _BusinessMeetingsScreenState extends ConsumerState<BusinessMeetingsScreen>
             backgroundColor: Colors.transparent,
             builder: (ctx) => MeetingSubscriptionSheet(
               onSubscribe: (planType, amountZmw, paymentRef) async {
-                return true;
+                final tenant = ref.read(currentTenantProvider);
+                try {
+                  await ref.read(meetingServiceProvider).recordSubscription(
+                    planType: planType,
+                    amountZmw: amountZmw,
+                    paymentRef: paymentRef,
+                    tenantId: tenant?.id,
+                  );
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(content: Text('Pro Meeting Suite activated! ($planType)'), backgroundColor: Colors.green),
+                    );
+                  }
+                  return true;
+                } catch (e) {
+                  debugPrint('Meeting subscription record error: $e');
+                  return false;
+                }
               },
             ),
           )),

@@ -57,7 +57,7 @@ void main() {
       when(() => mockClient.from('social_posts')).thenAnswer((_) => mockQuery);
       when(() => mockQuery.select(any())).thenAnswer((_) => mockFilter);
       when(() => mockFilter.order('created_at', ascending: false)).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.limit(50)).thenAnswer((_) => mockFilter);
+      when(() => mockFilter.range(any(), any())).thenAnswer((_) => mockFilter);
       mockFilter.mockResult = [
         {
           'id': 'p1',
@@ -81,7 +81,7 @@ void main() {
       when(() => mockClient.from('social_posts')).thenAnswer((_) => mockQuery);
       when(() => mockQuery.select(any())).thenAnswer((_) => mockFilter);
       when(() => mockFilter.order('created_at', ascending: false)).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.limit(50)).thenThrow(Exception('error'));
+      when(() => mockFilter.range(any(), any())).thenThrow(Exception('error'));
 
       final posts = await service.fetchPosts();
       expect(posts, isEmpty);
@@ -90,14 +90,14 @@ void main() {
     test('filters by tenantId when provided', () async {
       when(() => mockClient.from('social_posts')).thenAnswer((_) => mockQuery);
       when(() => mockQuery.select(any())).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.eq('tenant_id', 'church_1')).thenAnswer((_) => mockFilter);
+      when(() => mockFilter.filter('tenant_id::text', 'eq', 'church_1')).thenAnswer((_) => mockFilter);
       when(() => mockFilter.order('created_at', ascending: false)).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.limit(50)).thenAnswer((_) => mockFilter);
+      when(() => mockFilter.range(any(), any())).thenAnswer((_) => mockFilter);
       mockFilter.mockResult = [];
 
       final posts = await service.fetchPosts(tenantId: 'church_1');
       expect(posts, isEmpty);
-      verify(() => mockFilter.eq('tenant_id', 'church_1')).called(1);
+      verify(() => mockFilter.filter('tenant_id::text', 'eq', 'church_1')).called(1);
     });
   });
 

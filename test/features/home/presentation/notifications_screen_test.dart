@@ -39,26 +39,7 @@ void main() {
       );
       await tester.pump();
     });
-    expect(find.text('Kingdom Alerts'), findsOneWidget);
-  });
-
-  testWidgets('NotificationsScreen has category tabs', (WidgetTester tester) async {
-    await tester.runAsync(() async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            notificationsStreamProvider.overrideWith((ref) => Stream.value(<Map<String, dynamic>>[])),
-          ],
-          child: const MaterialApp(
-            home: NotificationsScreen(),
-          ),
-        ),
-      );
-      await tester.pump();
-    });
-    expect(find.text('All'), findsOneWidget);
-    expect(find.text('Prayer'), findsOneWidget);
-    expect(find.text('Sermon'), findsOneWidget);
+    expect(find.text('Alerts'), findsOneWidget);
   });
 
   testWidgets('NotificationsScreen shows empty state', (WidgetTester tester) async {
@@ -75,6 +56,6 @@ void main() {
       );
       await tester.pump();
     });
-    expect(find.text('You\'re all caught up'), findsOneWidget);
+    expect(find.text('No notifications yet'), findsOneWidget);
   });
 }

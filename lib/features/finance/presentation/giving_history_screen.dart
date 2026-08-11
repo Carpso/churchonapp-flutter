@@ -15,7 +15,7 @@ class GivingHistoryScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Stewardship History"),
+        title: const Text("Giving History"),
       ),
       body: transactionsAsync.when(
         data: (transactions) {
@@ -60,7 +60,7 @@ class GivingHistoryScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          "Track your sovereign seeds on the Ledger",
+                          "Track your giving on the Ledger",
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.6),
                             fontSize: 12,

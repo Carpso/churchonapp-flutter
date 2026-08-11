@@ -164,7 +164,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
     PremiumConfirmationSheet.show(
       context: context,
       title: 'Transaction Successful!',
-      subtitle: 'Your seed has been received.',
+      subtitle: 'Your giving has been received.',
       message:
           'God bless your faithfulness. Your giving of ${formatKwacha(double.tryParse(_amountController.text) ?? 0)} has been processed securely.',
       referenceId: txId,

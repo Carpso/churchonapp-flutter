@@ -31,6 +31,12 @@ class FakeFilterBuilder extends Mock
   PostgrestFilterBuilder<List<Map<String, dynamic>>> order(String column, {bool ascending = false, bool nullsFirst = false, String? referencedTable}) => this;
 
   @override
+  PostgrestFilterBuilder<List<Map<String, dynamic>>> range(int from, int to, {String? referencedTable}) => this;
+
+  @override
+  PostgrestFilterBuilder<List<Map<String, dynamic>>> inFilter(String column, List values, {String? referencedTable}) => this;
+
+  @override
   PostgrestFilterBuilder<List<Map<String, dynamic>>> or(String filters, {String? referencedTable}) => this;
 
   @override

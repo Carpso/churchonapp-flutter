@@ -622,13 +622,58 @@ class HostBusinessMeetingSheet extends StatelessWidget {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const BusinessMeetingsScreen(meetingTitle: "Instant Session X1")));
           }),
           const SizedBox(height: 15),
-          _buildMeetingOption(context, "Schedule Meeting", "Set date and send calendar invites", LucideIcons.calendar, Colors.green, () {}),
+          _buildMeetingOption(context, "Schedule Meeting", "Set date and send calendar invites", LucideIcons.calendar, Colors.green, () async {
+            final date = await showDatePicker(
+              context: context,
+              initialDate: DateTime.now().add(const Duration(days: 1)),
+              firstDate: DateTime.now(),
+              lastDate: DateTime.now().add(const Duration(days: 365)),
+            );
+            if (date == null || !context.mounted) return;
+            final time = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 9, minute: 0));
+            if (time == null || !context.mounted) return;
+            final title = "Scheduled Session ${date.day}/${date.month} ${time.format(context)}";
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => BusinessMeetingsScreen(meetingTitle: title)));
+          }),
           const SizedBox(height: 15),
-          _buildMeetingOption(context, "Join with Code", "Enter meeting ID or alias", LucideIcons.logIn, Colors.white70, () {}),
+          _buildMeetingOption(context, "Join with Code", "Enter meeting ID or alias", LucideIcons.logIn, Colors.white70, () {
+            final ctrl = TextEditingController();
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                backgroundColor: const Color(0xFF1E293B),
+                title: const Text("Enter Meeting Code", style: TextStyle(color: Colors.white)),
+                content: TextField(
+                  controller: ctrl,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(hintText: "e.g. MEET-2024-SYS", hintStyle: TextStyle(color: Colors.white38)),
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel", style: TextStyle(color: Colors.white54))),
+                  FilledButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      final code = ctrl.text.trim().isNotEmpty ? ctrl.text.trim() : 'MEET-2024-SYS';
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => BusinessMeetingsScreen(meetingId: code, meetingTitle: "Meeting $code")));
+                    },
+                    child: const Text("Join"),
+                  ),
+                ],
+              ),
+            );
+          }),
           const SizedBox(height: 15),
-          _buildMeetingOption(context, "Whiteboard & Blueprint", "Interactive canvas for structural plans", LucideIcons.mousePointerClick, Colors.pinkAccent, () {}),
+          _buildMeetingOption(context, "Whiteboard & Blueprint", "Interactive canvas for structural plans", LucideIcons.mousePointerClick, Colors.pinkAccent, () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const BusinessMeetingsScreen(meetingTitle: "Whiteboard Session")));
+          }),
           const SizedBox(height: 15),
-          _buildMeetingOption(context, "Digital Voting System", "Secure anonymous polls for leadership", LucideIcons.barChart3, Colors.blue, () {}),
+          _buildMeetingOption(context, "Digital Voting System", "Secure anonymous polls for leadership", LucideIcons.barChart3, Colors.blue, () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const BusinessMeetingsScreen(meetingTitle: "Voting Session")));
+          }),
           const SizedBox(height: 30),
           
           ElevatedButton(

@@ -399,7 +399,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
     PremiumConfirmationSheet.show(
       context: context,
       title: "Transaction Successful!",
-      subtitle: "Your seed has been received.",
+      subtitle: "Your giving has been received.",
       message: "God bless your faithfulness. Your giving of K${_amountController.text} has been processed securely.",
       referenceId: txId,
       type: ConfirmationType.success,

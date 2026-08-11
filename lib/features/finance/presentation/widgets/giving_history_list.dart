@@ -19,7 +19,7 @@ class GivingHistoryList extends ConsumerWidget {
           return const Center(
             child: Padding(
               padding: EdgeInsets.only(top: 40.0),
-              child: Text("No stewardship records found.", style: TextStyle(color: Colors.grey)),
+              child: Text("No giving records found.", style: TextStyle(color: Colors.grey)),
             ),
           );
         }

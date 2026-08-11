@@ -148,8 +148,8 @@ import 'package:church_on_app/features/home/presentation/song_lyrics_screen.dart
 import 'package:church_on_app/features/home/presentation/tech_fast_blocker.dart';
 import 'package:church_on_app/features/modules/ai_sermon_notes/presentation/ai_sermon_notes_screen.dart';
 import 'package:church_on_app/features/modules/bible_quiz/presentation/bible_quiz_arena_screen.dart';
+import 'package:church_on_app/features/modules/bible_quiz/presentation/bible_quiz_hub_screen.dart';
 import 'package:church_on_app/features/modules/bible_quiz/presentation/church_competition_lobby_screen.dart';
-import 'package:church_on_app/features/modules/bible_quiz/presentation/church_competition_screen.dart';
 import 'package:church_on_app/features/modules/bible_quiz/presentation/quiz_invite_handler_screen.dart';
 import 'package:church_on_app/features/modules/church_website/presentation/church_website_builder_screen.dart';
 import 'package:church_on_app/features/modules/crm_donor_management/presentation/crm_donor_screen.dart';
@@ -1055,7 +1055,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/quiz',
-        builder: (context, state) => const ChurchCompetitionScreen(),
+        builder: (context, state) => const BibleQuizHubScreen(),
         routes: [
           GoRoute(
             path: 'lobby',

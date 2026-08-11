@@ -67,11 +67,19 @@ class MeetingService {
     return _client
         .from('meeting_notes')
         .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
-        .map((data) => data
-            .where((e) => e['meeting_id'] == meetingId)
-            .map((e) => MeetingNote.fromMap(e))
-            .toList());
+        .asyncMap((data) async {
+          final seen = <String>{};
+          final filtered = data
+              .where((e) => e['meeting_id'] == meetingId)
+              .where((e) => seen.add(e['id'] as String))
+              .toList();
+          filtered.sort((a, b) {
+            final ta = a['created_at']?.toString() ?? '';
+            final tb = b['created_at']?.toString() ?? '';
+            return tb.compareTo(ta);
+          });
+          return filtered.map((e) => MeetingNote.fromMap(e)).toList();
+        });
   }
 
   Future<void> castVote(String meetingId, String option) async {
@@ -88,8 +96,8 @@ class MeetingService {
   Stream<Map<String, int>> streamVoteResults(String meetingId) {
     return _client
         .from('meeting_votes')
-        .stream(primaryKey: ['meeting_id', 'voter_id'])
-        .map((data) {
+        .stream(primaryKey: ['id'])
+        .asyncMap((data) async {
           final results = <String, int>{};
           final filtered = data.where((e) => e['meeting_id'] == meetingId);
           for (var item in filtered) {
@@ -98,6 +106,28 @@ class MeetingService {
           }
           return results;
         });
+  }
+
+  /// Record a paid Pro Meeting subscription for the current user/tenant.
+  Future<void> recordSubscription({
+    required String planType,
+    required double amountZmw,
+    String? paymentRef,
+    String? tenantId,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+    await _client.from('meeting_subscriptions').insert({
+      'user_id': user.id,
+      'tenant_id': tenantId,
+      'plan_type': planType,
+      'amount_zmw': amountZmw,
+      'payment_ref': paymentRef,
+      'status': 'active',
+      'expires_at': DateTime.now()
+          .add(Duration(days: planType == 'yearly' ? 365 : 30))
+          .toIso8601String(),
+    });
   }
 }
 

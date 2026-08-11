@@ -8,9 +8,11 @@ import '../../../test_mocks.dart';
 class MockFunctionsClient extends Mock implements FunctionsClient {}
 class MockFunctionResponse extends Mock implements FunctionResponse {}
 
+// ignore: must_be_immutable
 class FakeFilterBuilder extends Mock
     implements PostgrestFilterBuilder<List<Map<String, dynamic>>> {
   final List<Map<String, dynamic>> mockResult;
+  Map<String, dynamic>? maybeSingleResult;
   FakeFilterBuilder([this.mockResult = const []]);
 
   @override
@@ -29,6 +31,18 @@ class FakeFilterBuilder extends Mock
   PostgrestFilterBuilder<List<Map<String, dynamic>>> inFilter(String column, List<dynamic> values) => this;
 
   @override
+  PostgrestFilterBuilder<List<Map<String, dynamic>>> range(int from, int to, {String? referencedTable}) => this;
+
+  @override
+  PostgrestTransformBuilder<Map<String, dynamic>> single() => MockSingleBuilder();
+
+  @override
+  PostgrestTransformBuilder<Map<String, dynamic>?> maybeSingle() {
+    final builder = MockMaybeSingleBuilder()..result = maybeSingleResult;
+    return builder;
+  }
+
+  @override
   Future<R> then<R>(FutureOr<R> Function(List<Map<String, dynamic>>) onValue,
       {Function? onError}) {
     return Future.value(mockResult).then(onValue, onError: onError);
@@ -40,7 +54,6 @@ void main() {
   late MockAuth mockAuth;
   late MockUser mockUser;
   late MockQueryBuilder mockQuery;
-  late MockMaybeSingleBuilder mockMaybeSingle;
   late FinanceService service;
 
   setUp(() {
@@ -48,7 +61,6 @@ void main() {
     mockAuth = MockAuth();
     mockUser = MockUser();
     mockQuery = MockQueryBuilder();
-    mockMaybeSingle = MockMaybeSingleBuilder();
     service = FinanceService(mockClient);
 
     when(() => mockClient.auth).thenReturn(mockAuth);
@@ -62,12 +74,10 @@ void main() {
     final defaultFilter = FakeFilterBuilder();
     when(() => mockQuery.select(any())).thenAnswer((_) => defaultFilter);
     when(() => mockQuery.insert(any())).thenAnswer((_) => defaultFilter);
+    when(() => mockQuery.update(any())).thenAnswer((_) => defaultFilter);
     when(() => mockQuery.upsert(any(),
         onConflict: any(named: 'onConflict'),
         ignoreDuplicates: any(named: 'ignoreDuplicates'))).thenAnswer((_) => defaultFilter);
-
-    when(() => defaultFilter.maybeSingle()).thenAnswer((_) => mockMaybeSingle);
-    mockMaybeSingle.result = null;
 
     // Functions stub
     final mockFunctions = MockFunctionsClient();
@@ -78,26 +88,20 @@ void main() {
   group('logTransaction', () {
     test('logs transaction successfully and updates coins', () async {
       await service.logTransaction(50.0, 'offering', 'ref_123');
-      verify(() => mockQuery.upsert(any(that: containsPair('amount', 50.0)),
-          onConflict: 'reference',
-          ignoreDuplicates: true)).called(1);
+      verify(() => mockQuery.insert(any(that: containsPair('amount', 50.0)))).called(1);
     });
 
     test('looks up church treasurer when recipientPhone is null and tenantId provided', () async {
-      final defaultFilter = FakeFilterBuilder();
-      final churchMaybeSingle = MockMaybeSingleBuilder()
-        ..result = {
+      final defaultFilter = FakeFilterBuilder()
+        ..maybeSingleResult = {
           'treasurer_phone': '0976847775',
           'name': 'Grace Church',
         };
 
       when(() => mockQuery.select('treasurer_phone, name')).thenAnswer((_) => defaultFilter);
-      when(() => defaultFilter.maybeSingle()).thenAnswer((_) => churchMaybeSingle);
 
       await service.logTransaction(100.0, 'tithe', 'ref_456', tenantId: 'church_1');
-      verify(() => mockQuery.upsert(any(that: containsPair('recipient_phone', '0976847775')),
-          onConflict: 'reference',
-          ignoreDuplicates: true)).called(1);
+      verify(() => mockQuery.insert(any(that: containsPair('recipient_phone', '0976847775')))).called(1);
     });
 
     test('does nothing when user is null', () async {
