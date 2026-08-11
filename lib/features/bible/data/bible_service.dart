@@ -27,7 +27,9 @@ class BibleService {
   static const _remoteCodes = {'kjv', 'web', 'asv', 'bbe', 'ylt', 'dra'};
 
   /// Translations that are seeded in the local Supabase bible_verses table.
-  static const _dbCodes = {'nkjv', 'nlt', 'web', 'kjv'};
+  /// NOTE: KJV/WEB are fetched from bible-api.com (reliable remote source);
+  /// only NKJV/NLT (not on bible-api.com) use the local table.
+  static const _dbCodes = {'nkjv', 'nlt'};
 
   Future<List<BibleVerse>> getChapter(String translation, String book, int chapter) async {
     final cacheKey = 'bible_${translation}_${book}_$chapter';

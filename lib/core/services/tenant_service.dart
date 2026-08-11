@@ -299,75 +299,53 @@ class TenantService {
   /// Get all tenants (churches + bookshops) for the select screen
   Future<List<Map<String, dynamic>>> getAllTenants() async {
     try {
-      final dynamic response = await _client
-          .from('tenants')
-          .select('id, name, type, created_at')
+      // Fetch all churches + bookshops in parallel (avoids N+1 round trips
+      // which previously timed out on mobile and fell back to seed data).
+      final churchesFuture = _client
+          .from('churches')
+          .select(
+            'id, slug, name, logo_url, primary_color, latitude, longitude, address, country, is_verified, subscription_ends_at',
+          )
           .order('name', ascending: true);
+      final bookshopsFuture = _client
+          .from('bookshops')
+          .select('id, name, logo_url, latitude, longitude, address, is_active, tenant_id');
 
-      List tenantsList = [];
-      if (response is List) {
-        tenantsList = response;
-      }
+      final results = await Future.wait([churchesFuture, bookshopsFuture]);
 
       final result = <Map<String, dynamic>>[];
 
-      if (tenantsList.isNotEmpty) {
-        for (final tenant in tenantsList) {
-          final type = tenant['type']?.toString() ?? 'church';
-
-          if (type == 'church') {
-            // Get church-specific fields
-            final church = await _client
-                .from('churches')
-                .select(
-                  'id, slug, name, logo_url, primary_color, latitude, longitude, address, country, is_verified, subscription_ends_at',
-                )
-                .eq('id', tenant['id'])
-                .maybeSingle();
-
-            if (church != null) {
-              result.add({
-                ...church,
-                'type': 'church',
-                '_registered': church['is_verified'] == true,
-              });
-            } else {
-              result.add({...tenant, 'type': 'church', '_registered': false});
-            }
-          } else {
-            // Bookshop type — fetch bookshop-specific fields including location
-            final bookshop = await _client
-                .from('bookshops')
-                .select('id, name, logo_url, latitude, longitude, address, is_active')
-                .eq('tenant_id', tenant['id'])
-                .maybeSingle();
-
-            if (bookshop != null) {
-              result.add({
-                ...bookshop,
-                'type': 'bookshop',
-                '_registered': true,
-              });
-            } else {
-              result.add({...tenant, 'type': 'bookshop', '_registered': true});
-            }
-          }
-        }
-        return result;
+      for (final church in (results[0] as List)) {
+        final map = Map<String, dynamic>.from(church as Map);
+        result.add({
+          ...map,
+          'type': 'church',
+          '_registered': map['is_verified'] == true,
+        });
       }
 
-      return fallbackChurches
-          .map(
-            (c) =>
-                ({...c, '_registered': c['slug'] == 'rock-of-ages-kabulonga'}),
-          )
-          .toList();
+      for (final shop in (results[1] as List)) {
+        final map = Map<String, dynamic>.from(shop as Map);
+        result.add({
+          ...map,
+          'type': 'bookshop',
+          '_registered': map['is_active'] == true,
+        });
+      }
+
+      if (result.isEmpty) {
+        return fallbackChurches
+            .map(
+              (c) => ({...c, '_registered': c['slug'] == 'rock-of-ages-kabulonga'}),
+            )
+            .toList();
+      }
+      return result;
     } catch (e) {
       debugPrint('Error fetching all tenants: $e');
       return fallbackChurches
           .map(
-            (c) =>
-                ({...c, '_registered': c['slug'] == 'rock-of-ages-kabulonga'}),
+            (c) => ({...c, '_registered': c['slug'] == 'rock-of-ages-kabulonga'}),
           )
           .toList();
     }

@@ -897,26 +897,24 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   Widget _buildCountdown(ThemeData theme) {
     return Center(
       child: TweenAnimationBuilder<double>(
+        key: ValueKey(_countdownValue),
         tween: Tween(begin: 1, end: 0),
-        duration: const Duration(seconds: 1),
+        duration: const Duration(milliseconds: 900),
         builder: (context, value, child) {
           return Transform.scale(
-            scale: 1 + value * 0.3,
-            child: Opacity(
-              opacity: value > 0.5 ? 1 : 0,
-              child: Text(
-                '$_countdownValue',
-                style: TextStyle(
-                  fontSize: 100 - value * 40,
-                  fontWeight: FontWeight.bold,
-                  color: theme.primaryColor,
-                  shadows: [
-                    Shadow(
-                      color: theme.primaryColor.withAlpha(100),
-                      blurRadius: 30,
-                    ),
-                  ],
-                ),
+            scale: 1 + value * 0.25,
+            child: Text(
+              '$_countdownValue',
+              style: TextStyle(
+                fontSize: 90,
+                fontWeight: FontWeight.bold,
+                color: theme.primaryColor,
+                shadows: [
+                  Shadow(
+                    color: theme.primaryColor.withAlpha(100),
+                    blurRadius: 30,
+                  ),
+                ],
               ),
             ),
           );

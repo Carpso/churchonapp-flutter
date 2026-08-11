@@ -73,6 +73,7 @@ import 'package:church_on_app/features/admin/presentation/ledger_screen.dart';
 import 'package:church_on_app/features/modules/navigation/presentation/more_hub_screen.dart';
 import 'package:church_on_app/features/home/presentation/fasting_tracker_screen.dart';
 import 'package:church_on_app/features/modules/media/presentation/radio_screen.dart';
+import 'package:church_on_app/features/modules/media/presentation/kael_chat_screen.dart';
 import 'package:church_on_app/features/navigation/presentation/carpso_ride_scanner_screen.dart';
 import 'package:church_on_app/features/profile/presentation/account_settings_screen.dart';
 import 'package:church_on_app/features/profile/presentation/verification_request_screen.dart';
@@ -1157,6 +1158,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/flyer-studio',
         builder: (context, state) => const FlyerStudioScreen(),
+      ),
+      GoRoute(
+        path: '/kael-chat',
+        builder: (context, state) => const KaelChatScreen(),
       ),
       GoRoute(
         path: '/worship-lyrics',

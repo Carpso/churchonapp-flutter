@@ -199,6 +199,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             const Text("P2P MULTIPLAYER ARENA", style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
             const SizedBox(height: 15),
             GridView.count(
+              shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisCount: 2,
               mainAxisSpacing: 15,
