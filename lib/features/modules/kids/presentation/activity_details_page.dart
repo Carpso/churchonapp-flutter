@@ -1,17 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../data/kids_service.dart';
+import 'kids_audio_player.dart';
 
 class ActivityDetailsPage extends StatelessWidget {
   final String title;
   final IconData icon;
   final Color color;
+  final KidsZoneResource? resource;
 
   const ActivityDetailsPage({
     super.key,
     required this.title,
     required this.icon,
     required this.color,
+    this.resource,
   });
+
+  const ActivityDetailsPage.resource(
+    KidsZoneResource res, {
+    super.key,
+  })  : resource = res,
+        title = '',
+        icon = LucideIcons.star,
+        color = Colors.orange;
 
   static const _memoryVerses = [
     {"ref": "John 3:16", "text": "For God so loved the world that he gave his one and only Son..."},
@@ -29,12 +42,15 @@ class ActivityDetailsPage extends StatelessWidget {
     {"q": "What did God send to save Noah's family?", "a": "An ark"},
   ];
 
+  String get _displayTitle =>
+      resource?.title ?? title;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(_displayTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: color,
         foregroundColor: Colors.white,
       ),
@@ -46,6 +62,37 @@ class ActivityDetailsPage extends StatelessWidget {
   }
 
   Widget _buildContent(BuildContext context) {
+    final res = resource;
+    if (res != null) {
+      final contentUrl = res.contentUrl;
+      final isAudio = contentUrl != null &&
+          (contentUrl.contains('.mp3') ||
+              contentUrl.contains('.m4a') ||
+              contentUrl.contains('.ogg') ||
+              contentUrl.contains('archive.org'));
+      if (isAudio) {
+        return _buildAudioStory(context, res, contentUrl);
+      }
+      if (contentUrl != null && contentUrl.isNotEmpty) {
+        return _buildLinkedContent(res, contentUrl);
+      }
+      // No link: show a themed activity page based on category
+      switch (res.category) {
+        case 'memory':
+        case 'verse':
+          return _buildMemoryVerses();
+        case 'game':
+        case 'activity':
+          return _buildBibleTrivia();
+        case 'coloring':
+          return _buildColoring();
+        case 'lesson':
+        case 'video':
+          return _buildSundaySchool();
+        default:
+          return _buildResourceCard(res);
+      }
+    }
     switch (title) {
       case "Memory Verses":
         return _buildMemoryVerses();
@@ -58,6 +105,111 @@ class ActivityDetailsPage extends StatelessWidget {
       default:
         return _buildPlaceholder();
     }
+  }
+
+  Widget _buildAudioStory(BuildContext context, KidsZoneResource res, String audioUrl) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [color.withValues(alpha: 0.9), color]),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            children: [
+              Icon(LucideIcons.headphones, color: Colors.white, size: 40),
+              const SizedBox(height: 10),
+              Text(res.title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+              if (res.description?.isNotEmpty == true) ...[
+                const SizedBox(height: 6),
+                Text(res.description!, style: const TextStyle(color: Colors.white70), textAlign: TextAlign.center),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        KidsAudioPlayer(
+          title: res.title,
+          audioUrl: audioUrl,
+          storyTitle: res.title,
+          onComplete: () {},
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLinkedContent(KidsZoneResource res, String contentUrl) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [color.withValues(alpha: 0.9), color]),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            children: [
+              Icon(res.categoryIcon, color: Colors.white, size: 40),
+              const SizedBox(height: 10),
+              Text(res.title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+              if (res.description?.isNotEmpty == true) ...[
+                const SizedBox(height: 6),
+                Text(res.description!, style: const TextStyle(color: Colors.white70), textAlign: TextAlign.center),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () async {
+              final url = Uri.parse(contentUrl);
+              if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
+            },
+            icon: const Icon(LucideIcons.externalLink),
+            label: const Text("Open Content"),
+            style: ElevatedButton.styleFrom(backgroundColor: color, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16)),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(15)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("About this activity", style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text("Category: ${res.category.replaceAll('_', ' ')}", style: const TextStyle(fontSize: 13, color: Colors.grey)),
+              if (res.ageMax > 0) Text("Ages: ${res.ageMin}-${res.ageMax}", style: const TextStyle(fontSize: 13, color: Colors.grey)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResourceCard(KidsZoneResource res) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(res.categoryIcon, color: color, size: 100),
+          const SizedBox(height: 30),
+          Text(res.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+          const SizedBox(height: 20),
+          Text(
+            res.description?.isNotEmpty == true ? res.description! : "A fun faith-building activity for kids!",
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildMemoryVerses() {

@@ -146,7 +146,7 @@ class WeatherData {
           colors: [Color(0xFFEA580C), Color(0xFFF97316)],
         ),
         chipGradient: const LinearGradient(
-          colors: [Color(0xFFFF4500), Color(0xFFFF8C00)],
+          colors: [Color(0xFFDC2626), Color(0xFFDC2626)],
         ),
         primaryTextColor: Colors.white,
         subtextColor: Colors.white70,
@@ -166,7 +166,7 @@ class WeatherData {
           colors: [Color(0xFF4B5563), Color(0xFF6B7280)],
         ),
         chipGradient: const LinearGradient(
-          colors: [Color(0xFF546E7A), Color(0xFF78909C)],
+          colors: [Color(0xFF475569), Color(0xFF475569)],
         ),
         primaryTextColor: Colors.white,
         subtextColor: Colors.white70,
@@ -175,7 +175,7 @@ class WeatherData {
       );
     }
 
-    // Default Clear / Sunny Sky
+    // Default Clear / Sunny Sky — single clear-blue chip
     return WeatherThemeData(
       backgroundGradient: const LinearGradient(
         begin: Alignment.topCenter,
@@ -186,7 +186,7 @@ class WeatherData {
         colors: [Color(0xFF0284C7), Color(0xFF38BDF8)],
       ),
       chipGradient: const LinearGradient(
-        colors: [Color(0xFF1E88E5), Color(0xFFFFB300)],
+        colors: [Color(0xFF0369A1), Color(0xFF0369A1)],
       ),
       primaryTextColor: Colors.white,
       subtextColor: Colors.white70,

@@ -28,29 +28,37 @@ class _KidsZoneScreenState extends ConsumerState<KidsZoneScreen> {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
     try {
+      final now = DateTime.now();
+      final weekStart = DateTime(now.year, now.month, now.day)
+          .subtract(Duration(days: now.weekday - 1));
       final res = await Supabase.instance.client
           .from('kids_progress')
           .select('completed_resource_ids, weekly_activity_count')
           .eq('user_id', user.id)
+          .eq('week_start', weekStart.toIso8601String().split('T').first)
           .maybeSingle();
       if (res != null && mounted) {
         setState(() {
-          _completedCount = res['weekly_activity_count'] ?? 0;
+          _completedCount =
+              (res['weekly_activity_count'] as num?)?.toInt() ?? 0;
         });
       }
     } catch (_) {}
   }
 
-  Future<void> _markCompleted() async {
+  Future<void> _markCompleted(String resourceId) async {
+    if (resourceId.isEmpty) return;
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
     try {
-      await Supabase.instance.client.rpc('kids_upsert_progress', params: {
-        'p_user_id': user.id,
-        'p_activity_count': _completedCount + 1,
+      await Supabase.instance.client
+          .rpc('kids_mark_resource_completed', params: {
+        'p_resource_id': resourceId,
       });
-      setState(() => _completedCount++);
-    } catch (_) {}
+      await _loadProgress();
+    } catch (e) {
+      debugPrint('kids_mark_resource_completed error: $e');
+    }
   }
 
   @override
@@ -146,28 +154,15 @@ class _KidsZoneScreenState extends ConsumerState<KidsZoneScreen> {
         child: const Center(child: Text("Activities loading...", style: TextStyle(color: Colors.grey))),
       );
     }
-    final display = activities.take(4).toList();
-    while (display.length < 4) {
-      display.add(KidsZoneResource(id: '', title: 'Coming Soon', description: 'New activities added weekly', category: 'activity', isFree: true));
-    }
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(child: _activityCard(context, display[0].title, display[0].categoryIcon, _categoryColor(display[0].category), display[0].description ?? '', display[0])),
-            const SizedBox(width: 12),
-            Expanded(child: _activityCard(context, display[1].title, display[1].categoryIcon, _categoryColor(display[1].category), display[1].description ?? '', display[1])),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _activityCard(context, display[2].title, display[2].categoryIcon, _categoryColor(display[2].category), display[2].description ?? '', display[2])),
-            const SizedBox(width: 12),
-            Expanded(child: _activityCard(context, display[3].title, display[3].categoryIcon, _categoryColor(display[3].category), display[3].description ?? '', display[3])),
-          ],
-        ),
-      ],
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: activities.map((res) {
+        return SizedBox(
+          width: (MediaQuery.of(context).size.width - 40 - 12) / 2,
+          child: _activityCard(context, res.title, res.categoryIcon, _categoryColor(res.category), res.description ?? '', res),
+        );
+      }).toList(),
     );
   }
 
@@ -185,8 +180,8 @@ class _KidsZoneScreenState extends ConsumerState<KidsZoneScreen> {
   Widget _activityCard(BuildContext context, String title, IconData? icon, Color color, String subtitle, KidsZoneResource res) {
     return GestureDetector(
       onTap: res.id.isNotEmpty ? () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => ActivityDetailsPage(title: title, icon: icon ?? LucideIcons.star, color: color)));
-        _markCompleted();
+        Navigator.push(context, MaterialPageRoute(builder: (_) => ActivityDetailsPage.resource(res)));
+        _markCompleted(res.id);
       } : null,
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -215,8 +210,8 @@ class _KidsZoneScreenState extends ConsumerState<KidsZoneScreen> {
           final s = list[index];
           return GestureDetector(
             onTap: s.id.isNotEmpty ? () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => ActivityDetailsPage(title: s.title, icon: LucideIcons.bookOpen, color: _categoryColor(s.category))));
-              _markCompleted();
+              Navigator.push(context, MaterialPageRoute(builder: (_) => ActivityDetailsPage.resource(s)));
+              _markCompleted(s.id);
             } : null,
             child: Container(
               width: 160,

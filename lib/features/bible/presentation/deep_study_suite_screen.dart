@@ -181,6 +181,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
     ];
 
     return GridView.builder(
+      shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1.1),
       itemCount: tools.length,

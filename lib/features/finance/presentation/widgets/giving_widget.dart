@@ -158,7 +158,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "STEWARDSHIP REWARDS",
+            "MY GIVING",
             style: TextStyle(
               color: _readableOn(primary),
               fontSize: 11,
@@ -216,7 +216,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
           ),
           const SizedBox(height: 15),
           Text(
-            "Sovereign Material Rewards Active",
+            "Material Rewards Active",
             style: TextStyle(
               color: _readableOn(primary).withValues(alpha: 0.7),
               fontSize: 11,

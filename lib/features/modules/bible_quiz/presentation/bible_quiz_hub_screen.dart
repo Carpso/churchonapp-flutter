@@ -1006,7 +1006,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                                   color: Colors.greenAccent.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: Text("${user['coins']} CC", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+                                child: Text("${user['correct_answers'] ?? 0} correct", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 13)),
                               ),
                             ],
                           ),

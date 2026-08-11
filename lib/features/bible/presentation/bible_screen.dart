@@ -452,11 +452,11 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               itemCount: 5,
               itemBuilder: (context, index) {
                 switch (index) {
-                  case 0: return _buildStudySection("CROSS REFERENCES", ["Psalm 23:1", "Isaiah 40:11", "1 Peter 2:25"]);
+                  case 0: return _buildStudySection("READING", ["$selectedBook $selectedChapter", "Tap verses to highlight, long-press to copy, share or take notes."]);
                   case 1: return const SizedBox(height: 30);
-                  case 2: return _buildStudySection("COMMENTARY", ["Matthew Henry: The Lord is my shepherd...", "Spurgeon: A song of holy confidence..."]);
+                  case 2: return _buildStudySection("STUDY TOOLS", ["Deep Study Suite: word studies, atlas & verse memory", "Cross-references, chapter summaries & reading plans"]);
                   case 3: return const SizedBox(height: 30);
-                  case 4: return _buildStudySection("GREEK ANALYSIS", ["Strong's G4165 (Poimainō) - To act as a shepherd, to tend a flock."]);
+                  case 4: return _buildStudySection("OPEN DEEP STUDY", ["Open the Deep Study Suite for exegesis, atlas, memory verses and more."]);
                   default: return const SizedBox.shrink();
                 }
               },
@@ -465,6 +465,19 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
         ],
       ),
     );
+  }
+
+  void _shareCurrentChapter() {
+    final state = ref.read(bibleChapterProvider({
+      'translation': selectedTranslation,
+      'book': selectedBook,
+      'chapter': selectedChapter,
+    }));
+    final verses = state.value;
+    if (verses == null) return;
+    final text = verses.map((v) => "${v.verse} ${v.text}").join('\n');
+    final reference = "$selectedBook $selectedChapter ($selectedTranslation)";
+    SharePlus.instance.share(ShareParams(text: "$reference\n\n$text"));
   }
 
   Widget _buildStudySection(String title, List<String> items) {
@@ -507,9 +520,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                 case 1: // Notes
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const NotebookScreen()));
                 case 2: // Share
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Share $selectedBook $selectedChapter"), backgroundColor: Colors.green, duration: const Duration(seconds: 1)),
-                  );
+                  _shareCurrentChapter();
                 case 3: // Audio — inline chapter player
                   setState(() => _showAudioPlayer = !_showAudioPlayer);
                   break;
@@ -721,7 +732,21 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                     const Text("Translation"),
                     DropdownButton<String>(
                       value: selectedTranslation,
-                      items: translations.map((t) => DropdownMenuItem(value: t['id'], child: Text(t['name']?.toString() ?? 'Translation'))).toList(),
+                      items: kEnglishTranslations.map((t) => DropdownMenuItem<String>(
+                        value: t.code,
+                        enabled: t.remoteSupported || t.code == 'nkjv' || t.code == 'nlt',
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(t.name),
+                            if (!(t.remoteSupported || t.code == 'nkjv' || t.code == 'nlt'))
+                              const Padding(
+                                padding: EdgeInsets.only(left: 6),
+                                child: Text('(soon)', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                              ),
+                          ],
+                        ),
+                      )).toList(),
                       onChanged: (v) {
                         if (v != null) {
                           setState(() => selectedTranslation = v);

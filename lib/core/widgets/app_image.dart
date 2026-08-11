@@ -30,6 +30,19 @@ class AppImage extends StatelessWidget {
     final cacheWidth = width != null ? (width! * MediaQuery.devicePixelRatioOf(context)).round() : null;
     final cacheHeight = height != null ? (height! * MediaQuery.devicePixelRatioOf(context)).round() : null;
 
+    final url = this.url.trim();
+    if (url.isEmpty) {
+      // Empty URL: render the placeholder / error fallback instead of a
+      // broken-image icon.
+      return placeholder ??
+          errorWidget?.call(context, '') ??
+          Container(
+            width: width,
+            height: height,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          );
+    }
+
     Widget image = CachedNetworkImage(
       imageUrl: url,
       width: width,

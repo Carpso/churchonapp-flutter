@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 
@@ -25,7 +26,7 @@ class HomeGreetingHeader extends ConsumerWidget {
         if (firstName.length > 12) {
           firstName = "${firstName.substring(0, 10)}...";
         }
-        final coins = profile?.coins ?? 0;
+        final streak = profile?.streakCount ?? 0;
         final greeting = _getGreeting();
 
         return Row(
@@ -51,23 +52,25 @@ class HomeGreetingHeader extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(25),
-                border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.2)),
+                border: Border.all(color: streak > 0 ? Colors.orange.withValues(alpha: 0.4) : Theme.of(context).primaryColor.withValues(alpha: 0.2)),
                 boxShadow: [BoxShadow(color: Theme.of(context).shadowColor.withValues(alpha: 0.05), blurRadius: 10)],
               ),
               child: Row(
                 children: [
+                  Icon(streak > 0 ? LucideIcons.flame : LucideIcons.coins, size: 18, color: streak > 0 ? Colors.orange : Theme.of(context).colorScheme.secondary),
+                  const SizedBox(width: 6),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-              "CHURCH COINS",
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-              ),
-            ),
-                      Text("$coins CC", style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.secondary)),
+                        streak > 0 ? "STREAK" : "REWARDS",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      Text(streak > 0 ? "$streak days 🔥" : "Open Rewards", style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.secondary)),
                     ],
                   ),
                 ],

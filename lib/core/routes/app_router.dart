@@ -278,10 +278,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         }
       }
 
-      // Subscription check for quiz routes
+      // Subscription check for quiz + kids-zone routes
       if (tenant != null && tenant.isSubscriptionExpired) {
-        final quizPaths = ['/quiz', '/quiz/'];
-        if (quizPaths.any((p) => state.uri.path == p || state.uri.path.startsWith(p))) {
+        final gatedPaths = ['/quiz', '/quiz/', '/kids-zone'];
+        if (gatedPaths.any((p) => state.uri.path == p || state.uri.path.startsWith(p))) {
           return '/';
         }
       }
@@ -887,6 +887,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/bible',
+        builder: (context, state) => const BibleScreen(),
+      ),
+      GoRoute(
         path: '/bible/:book/:chapter/:verse',
         builder: (context, state) {
           final book = state.pathParameters['book']!;
@@ -920,6 +924,15 @@ final routerProvider = Provider<GoRouter>((ref) {
               final studyId = state.pathParameters['studyId']!;
               return BibleStudyDetailScreen(studyId: studyId);
             },
+            routes: [
+              GoRoute(
+                path: 'edit',
+                builder: (context, state) {
+                  final extraStudy = state.extra as BibleStudy?;
+                  return BibleStudyCreateScreen(study: extraStudy);
+                },
+              ),
+            ],
           ),
         ],
       ),

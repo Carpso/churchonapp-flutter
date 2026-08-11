@@ -7,6 +7,9 @@ class BibleTranslation {
   final bool hasOldTestament;
   final bool hasNewTestament;
 
+  /// Whether bible-api.com (the remote fetch layer) supports this code.
+  final bool remoteSupported;
+
   const BibleTranslation({
     required this.code,
     required this.name,
@@ -15,21 +18,22 @@ class BibleTranslation {
     this.isPublicDomain = true,
     this.hasOldTestament = true,
     this.hasNewTestament = true,
+    this.remoteSupported = false,
   });
 }
 
 const List<BibleTranslation> kEnglishTranslations = [
-  BibleTranslation(code: 'kjv', name: 'King James Version', shortName: 'KJV'),
+  BibleTranslation(code: 'kjv', name: 'King James Version', shortName: 'KJV', remoteSupported: true),
   BibleTranslation(code: 'nkjv', name: 'New King James Version', shortName: 'NKJV'),
   BibleTranslation(code: 'niv', name: 'New International Version', shortName: 'NIV'),
   BibleTranslation(code: 'esv', name: 'English Standard Version', shortName: 'ESV'),
   BibleTranslation(code: 'nlt', name: 'New Living Translation', shortName: 'NLT'),
-  BibleTranslation(code: 'web', name: 'World English Bible', shortName: 'WEB'),
-  BibleTranslation(code: 'asv', name: 'American Standard Version', shortName: 'ASV'),
+  BibleTranslation(code: 'web', name: 'World English Bible', shortName: 'WEB', remoteSupported: true),
+  BibleTranslation(code: 'asv', name: 'American Standard Version', shortName: 'ASV', remoteSupported: true),
   BibleTranslation(code: 'msg', name: 'The Message', shortName: 'MSG'),
-  BibleTranslation(code: 'bbe', name: 'Bible in Basic English', shortName: 'BBE'),
-  BibleTranslation(code: 'ylt', name: "Young's Literal Translation", shortName: 'YLT'),
-  BibleTranslation(code: 'dra', name: 'Douay-Rheims American Edition', shortName: 'DRA'),
+  BibleTranslation(code: 'bbe', name: 'Bible in Basic English', shortName: 'BBE', remoteSupported: true),
+  BibleTranslation(code: 'ylt', name: "Young's Literal Translation", shortName: 'YLT', remoteSupported: true),
+  BibleTranslation(code: 'dra', name: 'Douay-Rheims American Edition', shortName: 'DRA', remoteSupported: true),
   BibleTranslation(code: 'geneva1599', name: 'Geneva Bible 1599', shortName: 'GNV'),
 ];
 

@@ -1,5 +1,14 @@
 # Church On App — How-To Guide for AI Agents
 
+## ⚠️ CRITICAL RULE — NEVER BUILD APK/AAB WITHOUT EXPLICIT CONFIRMATION
+
+**Do NOT run `build_release.ps1`, `flutter build apk`, or `flutter build appbundle`
+unless the user explicitly says to build the Android release.** Android builds take
+20–40 minutes and burn resources. When the user asks for app changes, only run
+`flutter analyze` and (if web) `flutter build web --release` + deploy. Building the
+APK/AAB requires the user to say something like *"build the apk"* / *"make the
+release"* first. This rule takes precedence over any prior instruction.
+
 ## Project Overview
 
 Flutter-based church management platform with Supabase backend. Covers digital giving, marketplace, media streaming, events, logistics, Bible study, social features, and admin tools. Target market: Zambian churches (MTN/Airtel/Zamtel mobile money).

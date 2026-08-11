@@ -132,7 +132,6 @@ class SpiritualPredictorCard extends ConsumerWidget {
 
     return predictionAsync.when(
       data: (pred) => Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
@@ -182,7 +181,7 @@ class SpiritualPredictorCard extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        'Personalized Growth Forecast',
+                        'Growth Forecast',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 11,
@@ -291,7 +290,6 @@ class SpiritualPredictorCard extends ConsumerWidget {
       ),
       loading: () => Container(
         height: 140,
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.indigo.shade900.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(24),

@@ -189,7 +189,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("STEWARDSHIP REWARDS", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          const Text("MY GIVING", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           const SizedBox(height: 15),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -211,7 +211,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
             ],
           ),
           const SizedBox(height: 15),
-          const Text("Sovereign Material Rewards Active", style: TextStyle(color: Colors.white70, fontSize: 11)),
+          const Text("Material Rewards Active", style: TextStyle(color: Colors.white70, fontSize: 11)),
         ],
       ),
     );
@@ -231,40 +231,46 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
       children: [
         const Text("More Ways to Give", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 15),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: List.generate(features.length, (index) {
-            final (icon, title, subtitle, route, color) = features[index];
-            return GestureDetector(
-              onTap: () => context.push(route),
-              child: Container(
-                width: MediaQuery.of(context).size.width / 3 - 16,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: color.withValues(alpha: 0.2)),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(icon, color: color, size: 22),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final tileWidth = (constraints.maxWidth - 24) / 3;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: List.generate(features.length, (index) {
+                final (icon, title, subtitle, route, color) = features[index];
+                return GestureDetector(
+                  onTap: () => context.push(route),
+                  child: Container(
+                    width: tileWidth,
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: color.withValues(alpha: 0.2)),
                     ),
-                    const SizedBox(height: 8),
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center),
-                    Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11), textAlign: TextAlign.center),
-                  ],
-                ),
-              ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(icon, color: color, size: 22),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 2),
+                        Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                );
+              }),
             );
-          }),
+          },
         ),
       ],
     );

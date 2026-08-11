@@ -212,7 +212,7 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
                               debugPrint('Error adding streak bonus: $e');
                             }
                             widget.ref.invalidate(readingPlansProvider);
-                            setState(() => _plan.completedDays++);
+                            setState(() => _plan.completedDays = (_plan.completedDays + 1).clamp(0, _plan.totalDays));
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                                 content: Text("Day completed! +10 Church Coins earned."),

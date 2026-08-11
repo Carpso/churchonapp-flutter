@@ -579,14 +579,11 @@ final quizLeaderboardProvider =
   final client = Supabase.instance.client;
   try {
     final tenantId = ref.read(currentTenantProvider)?.id;
-    final base = client
-        .from('profiles')
-        .select('full_name, id, coins');
-    final query = tenantId != null
-        ? base.eq('tenant_id', tenantId)
-        : base;
-    final res = await query.order('coins', ascending: false).limit(10);
-    return List<Map<String, dynamic>>.from(res);
+    final res = await client.rpc('get_quiz_leaderboard', params: {
+      'p_limit': 10,
+      if (tenantId != null) 'p_tenant_id': tenantId,
+    });
+    return List<Map<String, dynamic>>.from(res as List);
   } catch (_) {
     return [];
   }
@@ -598,16 +595,13 @@ final myQuizRankProvider = FutureProvider<String>((ref) async {
   if (user == null) return "N/A";
 
   try {
-    final res = await client
-        .from('profiles')
-        .select('id, coins')
-        .order('coins', ascending: false);
-
-    final list = res as List? ?? [];
-    final profiles = List<Map<String, dynamic>>.from(list);
-    int rank = profiles.indexWhere((p) => p['id'] == user.id) + 1;
+    final res = await client.rpc('get_quiz_leaderboard', params: {
+      'p_limit': 1000,
+    });
+    final list = List<Map<String, dynamic>>.from(res as List);
+    int rank = list.indexWhere((p) => p['user_id'] == user.id) + 1;
     return rank > 0 ? "#$rank" : "N/A";
   } catch (_) {
-    return "#12";
+    return "N/A";
   }
 });

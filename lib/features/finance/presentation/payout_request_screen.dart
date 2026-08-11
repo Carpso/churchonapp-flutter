@@ -5,6 +5,7 @@ import '../../../core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/features/finance/presentation/buy_coins_screen.dart';
 import 'package:church_on_app/features/finance/presentation/partner_redemption_screen.dart';
+import 'package:church_on_app/features/profile/presentation/rewards_screen.dart';
 
 class PayoutRequestScreen extends ConsumerWidget {
   const PayoutRequestScreen({super.key});
@@ -77,6 +78,32 @@ class PayoutRequestScreen extends ConsumerWidget {
                     subtitle: "Spend coins at\npartner locations",
                     color: Colors.amber,
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PartnerRedemptionScreen())),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildActionCard(
+                    context: context,
+                    icon: LucideIcons.gift,
+                    title: "Rewards",
+                    subtitle: "Daily collect,\nstreaks & bonuses",
+                    color: Colors.purple,
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardsScreen())),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildActionCard(
+                    context: context,
+                    icon: LucideIcons.coins,
+                    title: "Collect",
+                    subtitle: "Claim your\nfree daily coins",
+                    color: Colors.orange,
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardsScreen())),
                   ),
                 ),
               ],

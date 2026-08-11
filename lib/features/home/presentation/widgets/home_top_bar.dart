@@ -56,7 +56,9 @@ class HomeTopBar extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          _buildWeatherChip(context),
+          Flexible(
+            child: _buildWeatherChip(context),
+          ),
           const SizedBox(width: 4),
           _buildNotificationBell(context),
           Semantics(
@@ -73,8 +75,8 @@ class HomeTopBar extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(
-                minWidth: 44,
-                minHeight: 44,
+                minWidth: 40,
+                minHeight: 40,
               ),
             ),
           ),
@@ -96,8 +98,8 @@ class HomeTopBar extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(
-                minWidth: 44,
-                minHeight: 44,
+                minWidth: 40,
+                minHeight: 40,
               ),
             ),
           ),

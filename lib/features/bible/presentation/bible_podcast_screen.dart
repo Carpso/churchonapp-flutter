@@ -381,7 +381,7 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
         width: double.infinity,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(30),
-          image: DecorationImage(image: NetworkImage(episode.thumbnailUrl), fit: BoxFit.cover, colorFilter: ColorFilter.mode(Colors.black.withAlpha(102), BlendMode.darken)),
+          gradient: const LinearGradient(colors: [Color(0xFF4A2C6D), Color(0xFF1A1A2E)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         ),
         child: Padding(
           padding: const EdgeInsets.all(25.0),

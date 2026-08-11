@@ -12,7 +12,6 @@ import 'package:church_on_app/core/widgets/verification_badge.dart';
 import 'package:church_on_app/features/profile/presentation/membership_card_screen.dart';
 import '../../marketplace/presentation/my_library_screen.dart';
 import '../../modules/events/presentation/events_screen.dart';
-import '../../connect/presentation/prayer_wall_screen.dart';
 
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/providers/auth_provider.dart';
@@ -96,11 +95,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
                       _buildSectionHeader(context, "MINISTRY & COMMAND"),
                       _buildMinistryActions(context, ref, profile, tenant),
                       const SizedBox(height: 40),
-                      _buildSectionHeader(context, "ACCOUNT & TRUST"),
-                      _buildAccountList(context, ref, profile),
-                      const SizedBox(height: 40),
                       _buildSectionHeader(context, "DIGITAL ASSETS"),
                       _buildAssetGrid(context, ref),
+                      const SizedBox(height: 40),
+                      _buildSectionHeader(context, "ACCOUNT & TRUST"),
+                      _buildAccountList(context, ref, profile),
                       const SizedBox(height: 120),
                     ],
                   ),
@@ -305,7 +304,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             _buildWalletAction(context, LucideIcons.send, "GIVE", () => context.push('/giving')),
-            _buildWalletAction(context, LucideIcons.gift, "REDEEM", () => context.push('/partner-redemption')),
             _buildWalletAction(context, canCollect ? LucideIcons.coins : LucideIcons.checkCircle, canCollect ? "COLLECT" : "DONE", () async {
               if (!canCollect) {
                 if (context.mounted) {
@@ -323,16 +321,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
                 }
               }
             }),
-            _buildWalletAction(context, LucideIcons.gift, "REWARDS", () => context.push('/rewards')),
-            _buildWalletAction(context, LucideIcons.shieldCheck, "IDENTITY", () => context.push('/kyc-verification')),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildWalletAction(context, LucideIcons.shoppingCart, "BUY CC", () => context.push('/buy-coins')),
             _buildWalletAction(context, LucideIcons.coins, "MY CC", () => context.push('/payout-request')),
+            _buildWalletAction(context, LucideIcons.shieldCheck, "IDENTITY", () => context.push('/kyc-verification')),
           ],
         ),
       ],
@@ -499,7 +489,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
       {"icon": LucideIcons.book, "title": "My Library", "count": "Digital books & content", "action": "library"},
       {"icon": LucideIcons.award, "title": "Certificates", "count": "Faith milestones", "action": "certs"},
       {"icon": LucideIcons.gift, "title": "Rewards", "count": "Coins & achievements", "action": "rewards"},
-      {"icon": LucideIcons.flame, "title": "Prayer Wall", "count": "Community prayers", "action": "prayer"},
     ];
 
     return GridView.builder(
@@ -520,9 +509,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
                 break;
               case 'rewards':
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardsScreen()));
-                break;
-              case 'prayer':
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const PrayerWallScreen()));
                 break;
               case 'certs':
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const CertificatesScreen()));

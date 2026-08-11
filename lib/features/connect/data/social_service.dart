@@ -129,26 +129,52 @@ class SocialService {
     final hasTenant = tenantId != null && tenantId.isNotEmpty;
     final stream = _client.from('social_posts').stream(primaryKey: ['id']);
 
+    // Realtime streams do NOT support the `profiles(...)` join, so we fetch
+    // author names/avatars separately and enrich each post.
+    Stream<List<Map<String, dynamic>>> baseStream = stream;
     if (hasTenant) {
-      return stream
+      baseStream = stream
           .eq('tenant_id', tenantId)
           .order('created_at', ascending: false)
-          .limit(50)
-          .map((data) =>
-              (data as List).map((map) => SocialPost.fromMap(map)).toList())
-          .handleError((error) {
-        debugPrint('social_service: Stream error for tenant $tenantId: $error');
-        return <SocialPost>[];
-      });
+          .limit(50);
+    } else {
+      baseStream = stream.order('created_at', ascending: false).limit(50);
     }
 
-    return stream
-        .order('created_at', ascending: false)
-        .limit(50)
-        .map((data) =>
-            (data as List).map((map) => SocialPost.fromMap(map)).toList())
+    return baseStream
+        .asyncMap((data) async {
+          final posts = (data as List).cast<Map<String, dynamic>>();
+          final userIds = posts
+              .map((p) => p['user_id']?.toString())
+              .whereType<String>()
+              .where((id) => id.isNotEmpty)
+              .toSet();
+          final profiles = <String, Map<String, dynamic>>{};
+          if (userIds.isNotEmpty) {
+            try {
+              final res = await _client
+                  .from('profiles')
+                  .select('id, full_name, avatar_url, role')
+                  .inFilter('id', userIds.toList());
+              for (final row in (res as List)) {
+                final map = Map<String, dynamic>.from(row);
+                profiles[map['id']?.toString() ?? ''] = map;
+              }
+            } catch (e) {
+              debugPrint('social_service: profile enrich error: $e');
+            }
+          }
+          return posts.map((map) {
+            final enriched = Map<String, dynamic>.from(map);
+            final pid = map['user_id']?.toString() ?? '';
+            if (profiles.containsKey(pid)) {
+              enriched['profiles'] = profiles[pid];
+            }
+            return SocialPost.fromMap(enriched);
+          }).toList();
+        })
         .handleError((error) {
-      debugPrint('social_service: Stream error (global): $error');
+      debugPrint('social_service: Stream error (${hasTenant ? "tenant" : "global"}): $error');
       return <SocialPost>[];
     });
   }

@@ -70,7 +70,10 @@ class _BibleStudyDetailScreenState extends ConsumerState<BibleStudyDetailScreen>
             ? [
                 IconButton(
                   icon: const Icon(LucideIcons.pencil),
-                  onPressed: () => context.push('/bible-study/${widget.studyId}/edit'),
+                  onPressed: () => context.push(
+                    '/bible-study/${widget.studyId}/edit',
+                    extra: study,
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(LucideIcons.trash2),

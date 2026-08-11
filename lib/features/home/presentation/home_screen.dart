@@ -333,32 +333,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           const SizedBox(height: 20),
                           const HomeGreetingHeader(),
                           const SizedBox(height: 20),
+                          const HomeDailyVerse(),
+                          const SizedBox(height: 20),
+                          const HomeHeroCard(),
+                          const SizedBox(height: 20),
                           const HomeStreakPreview(),
-                          const SizedBox(height: 8),
-                          const CarpsoSuggestionCard(contextType: 'home'),
                           const SizedBox(height: 20),
                           const OnboardingQuickStart(),
                           const SizedBox(height: 20),
-                          const RecommendationCarouselWidget(),
-                          const SizedBox(height: 20),
-                          const HomeDailyVerse(),
-                          const SizedBox(height: 20),
                           if (tenant == null) const HomeSmartReminder(),
                           const SizedBox(height: 20),
-                          const HomeHeroCard(),
-                          const SizedBox(height: 30),
-
-                          // Collapsible Admin & Promo Section
-                          _buildAdminPromoSection(tenant),
 
                           const HomeQuickActions(),
                           const SizedBox(height: 30),
+
+                          // Collapsible Admin & Promo Section (Special Offer)
+                          _buildAdminPromoSection(tenant),
+
                           const HomeSectionTitle(title: "Sparkle Picks"),
                           const HomeSparkleGrid(),
                           const SizedBox(height: 30),
                           const HomeLatestSermon(),
                           const SizedBox(height: 30),
                           const HomeEventTimeline(),
+                          const SizedBox(height: 30),
+                          const RecommendationCarouselWidget(),
                           const SizedBox(height: 30),
                           const HomeSectionTitle(title: "News"),
                           Padding(
@@ -378,6 +377,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                           ),
                           const HomeNews(),
+                          const SizedBox(height: 24),
+                          // Carpso Ride placed at the bottom so it doesn't disturb
+                          // the primary home tab layout.
+                          const CarpsoSuggestionCard(contextType: 'home'),
                           SizedBox(height: 80 + bottomInset),
                         ]),
                       ),
