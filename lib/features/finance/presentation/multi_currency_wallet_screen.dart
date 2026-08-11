@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/providers/profile_provider.dart';
+import '../../../core/services/currency_service.dart';
 import '../../../core/widgets/shimmer_loader.dart';
 import '../../../core/widgets/error_retry_widget.dart';
 
@@ -12,7 +13,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(profileProvider);
     return profileAsync.when(
-      data: (profile) => _buildScreen(context, profile),
+      data: (profile) => _buildScreen(context, profile, ref),
       loading: () => Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: ListSkeleton(count: 4),
@@ -27,7 +28,7 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildScreen(BuildContext context, UserProfile? profile) {
+  Widget _buildScreen(BuildContext context, UserProfile? profile, WidgetRef ref) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -59,6 +60,8 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
               "INTERNATIONAL EXPANSION", 
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.grey)
             ),
+            const SizedBox(height: 20),
+            _buildFxRateCard(context, ref),
             const SizedBox(height: 20),
             _buildExpansionHub(context),
             const SizedBox(height: 40),
@@ -171,6 +174,44 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
               "Church On App is currently available in Zambia. More regions coming soon.",
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFxRateCard(BuildContext context, WidgetRef ref) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.greenAccent.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(LucideIcons.arrowLeftRight, color: Colors.green, size: 20),
+          ),
+          const SizedBox(width: 15),
+          const Expanded(
+            child: Text(
+              "Live USD Exchange Rate",
+              style: TextStyle(color: Colors.black87, fontSize: 13, fontWeight: FontWeight.bold),
+            ),
+          ),
+          ref.watch(zmwPerUsdProvider).when(
+            data: (rate) => Text(
+              "1 USD = K${rate.toStringAsFixed(2)}",
+              style: const TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.w900),
+            ),
+            loading: () => const Text("Loading…", style: TextStyle(color: Colors.grey, fontSize: 12)),
+            error: (_, __) => const Text("Rate unavailable", style: TextStyle(color: Colors.grey, fontSize: 12)),
           ),
         ],
       ),

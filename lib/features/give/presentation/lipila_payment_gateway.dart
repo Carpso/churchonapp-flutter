@@ -10,6 +10,7 @@ import 'package:church_on_app/features/finance/data/payment_state.dart';
 import 'package:church_on_app/features/give/presentation/widgets/momo_phone_input_widget.dart';
 import 'package:church_on_app/features/give/presentation/widgets/payment_status_overlay.dart';
 import 'package:church_on_app/core/config/fee_config.dart';
+import 'package:church_on_app/core/services/currency_service.dart';
 import 'package:church_on_app/core/utils/money.dart';
 
 enum _PayMethod { mobileMoney, card }
@@ -314,6 +315,30 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
               Text(formatKwacha(widget.amount),
                   style: const TextStyle(fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('≈ USD',
+                  style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontSize: 12)),
+              ref.watch(zmwPerUsdProvider).when(
+                    data: (rate) => Text(
+                      '\$${(widget.amount / rate).toStringAsFixed(2)}',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6),
+                          fontWeight: FontWeight.w600),
+                    ),
+                    loading: () => const Text('…',
+                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    error: (_, __) => const Text('USD n/a',
+                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  ),
             ],
           ),
           if (widget.category == 'giving' ||
