@@ -52,6 +52,14 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
         setState(() => _isTyping = hasText);
       }
     });
+    // Mark incoming messages as read so the sender sees real read receipts.
+    if (!widget.isGroup && widget.receiverId != null) {
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          ref.read(chatServiceProvider).markAsRead(widget.receiverId!);
+        }
+      });
+    }
   }
 
   @override

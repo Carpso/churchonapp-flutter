@@ -143,7 +143,7 @@ class _MyPledgesScreenState extends ConsumerState<MyPledgesScreen> {
                     borderRadius: BorderRadius.circular(30),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _summaryStat("Pledged", totalPledged),
                       _summaryStat("Paid", totalPaid),
@@ -186,12 +186,17 @@ class _MyPledgesScreenState extends ConsumerState<MyPledgesScreen> {
   }
 
   Widget _summaryStat(String label, double value) {
-    return Column(
-      children: [
-        Text("K ${value.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 4),
-        Text(label.toUpperCase(), style: const TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold)),
-      ],
+    return Expanded(
+      child: Column(
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text("K ${value.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+          ),
+          const SizedBox(height: 4),
+          Text(label.toUpperCase(), style: const TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold)),
+        ],
+      ),
     );
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/qr_code_with_logo.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
@@ -21,6 +22,24 @@ class MembershipCardScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.black,
+        actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.share2, color: Colors.black),
+            onPressed: () {
+              final name = profileAsync.value?.name ?? 'Believer';
+              final memberId = profileAsync.value?.membershipId ?? 'COA-PENDING';
+              SharePlus.instance.share(
+                ShareParams(
+                  text: 'Church On App Digital ID\n\n'
+                      'Name: $name\n'
+                      'Member ID: $memberId\n'
+                      'Church: ${tenant?.name ?? 'Church On App'}\n\n'
+                      'Join me on Church On App!',
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: LayoutBuilder(
@@ -102,7 +121,9 @@ class MembershipCardScreen extends ConsumerWidget {
                       child: Text(tenant != null && tenant.name.isNotEmpty ? tenant.name.substring(0,1) : "K", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(width: 15),
-                    Text(tenant?.name ?? "CHURCH", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                    Expanded(
+                      child: Text(tenant?.name ?? "CHURCH", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
                   ],
                 ),
                 const Spacer(),

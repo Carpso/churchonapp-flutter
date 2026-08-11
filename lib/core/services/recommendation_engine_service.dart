@@ -176,7 +176,7 @@ class RecommendationCarouselWidget extends ConsumerWidget {
           ),
         ),
         SizedBox(
-          height: 145,
+          height: 190,
           child: recsAsync.when(
             data: (items) => ListView.builder(
               scrollDirection: Axis.horizontal,

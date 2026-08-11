@@ -164,7 +164,6 @@ class HomeTopBar extends StatelessWidget {
                   final emoji = weather.isHot
                       ? '🔥'
                       : WeatherService.weatherEmoji(weather.weatherCode);
-                  final label = weather.isHot ? 'Hot' : weather.condition;
                   return Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -174,7 +173,7 @@ class HomeTopBar extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        "${weather.temperature.isFinite ? weather.temperature.round() : 0}°C $label",
+                        "${weather.temperature.isFinite ? weather.temperature.round() : 0}°C",
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -196,7 +195,7 @@ class HomeTopBar extends StatelessWidget {
                     Icon(LucideIcons.sun, color: Colors.white, size: 14),
                     SizedBox(width: 4),
                     Text(
-                      "--°C Weather",
+                      "--°",
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -209,15 +208,6 @@ class HomeTopBar extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(LucideIcons.cloudOff, color: Colors.white70, size: 14),
-                    SizedBox(width: 4),
-                    Text(
-                      "Weather unavailable",
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                      ),
-                    ),
                   ],
                 ),
               ),
