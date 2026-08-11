@@ -1538,3 +1538,45 @@ DEPLOYMENT:
   - Web deployed to Cloudflare Pages (churchonapp.com) via wrangler pages deploy.
   - Verified 0 exceptions on load, main.dart.js hash matches live.
 ================================================================================
+
+================================================================================
+UPDATE (2026-08-11): Feature Hardening & Clean Release (v1.0.0+263)
+================================================================================
+BIBLE QUIZ: countdown no longer goes dark (always-visible number); P2P grid
+shrinkWrap (no overlapping cards); VS reveal shows real players; leaderboard
+now ranks by quiz performance (pvp_answers + daily_challenge_results) not coins.
+
+BIBLE: web/kjv use bible-api.com, nkjv/nlt use local bible_verses table; added
+bare /bible route + /bible-study/:studyId/edit; Deep Study pane dynamic (no
+hardcoded Psalm 23); migration 20260880 created bible_studies, attendance,
+streaks, bible_verses tables.
+
+KIDS ZONE: fixed broken progress RPC (added UNIQUE(user_id, week_start) + auth
+guard); new kids_mark_resource_completed dedupe RPC; wired audio player to
+stories; all activities shown.
+
+SOCIAL/CHAT: social stream enriches real names/avatars; chat streams drop
+.order() (was refresh loops + disappearing messages), sort client-side; chat
+input padded so typing not hidden behind nav bar.
+
+TENANTS: getAllTenants -> 2 parallel queries (was 33 N+1 -> mobile timed out,
+fell back to only Rock of Ages).
+
+HOME: reordered cards; streak chip in greeting (coins -> profile); schedule
+sheet scrollable + name wraps; top bar weather flexible (buttons stay visible);
+weather chip single-color backgrounds.
+
+GIVE/PROFILE: Give tab "MY GIVING" (no Sovereign); wallet consolidated into
+MY CC (buy/redeem/rewards/collect); Digital Assets above logout; spiritual
+momentum card full-width no "AI".
+
+KLIPS: seeded sample Klips (migration 20260882); reactions + Give verified.
+
+MARKETPLACE: postProduct sets tenant_id (was invisible); RLS hardened (migration
+20260878).
+
+MISSING ROUTE: /kael-chat added (was page not found from Life/More Hub).
+
+RELEASE: flutter clean + pub get -> APK 205MB v1.0.0+262, AAB 119.1MB v1.0.0+263.
+Web deployed to Cloudflare Pages (0 exceptions).
+================================================================================

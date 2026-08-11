@@ -2,7 +2,7 @@
 
 A comprehensive church management and community platform built with Flutter, connecting congregations through digital giving, marketplace, media, events, and more.
 
-**v1.0.0+255 — 1.0.0 | Flutter 3.35.1 | 0 errors, 0 warnings | August 2026**
+**v1.0.0+263 — 1.0.0 | Flutter 3.35.1 | 0 errors, 0 warnings | August 2026**
 
 ## Features
 
