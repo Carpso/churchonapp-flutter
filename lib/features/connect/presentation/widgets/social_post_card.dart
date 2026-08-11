@@ -199,11 +199,15 @@ class _SocialPostActionsState extends ConsumerState<SocialPostActions> {
           behavior: HitTestBehavior.opaque,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: _liked ? 1 : 0),
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.elasticOut,
+              builder: (context, value, child) {
+                return Transform.scale(scale: 0.7 + value * 0.3, child: child);
+              },
               child: Icon(
                 LucideIcons.heart,
-                key: ValueKey(_liked),
                 size: 24,
                 color: _liked ? Colors.red : Colors.grey,
               ),

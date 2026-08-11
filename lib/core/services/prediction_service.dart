@@ -162,7 +162,7 @@ class SpiritualPredictorCard extends ConsumerWidget {
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
-                    LucideIcons.sparkles,
+                    LucideIcons.trendingUp,
                     color: Color(0xFFFDE047),
                     size: 20,
                   ),

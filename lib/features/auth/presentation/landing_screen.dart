@@ -144,27 +144,36 @@ class LandingScreen extends ConsumerWidget {
   }
 
   Widget _buildPhoneMockup(BuildContext context) {
-    const appIcons = <IconData>[
-      Icons.menu_book, Icons.play_circle, Icons.wallet, Icons.calendar_today,
-      Icons.store, Icons.quiz, Icons.directions_car, Icons.radio,
-      Icons.forum, Icons.edit_note, Icons.dashboard, Icons.volunteer_activism,
-      Icons.people, Icons.notifications, Icons.music_note, Icons.map,
-      Icons.videocam, Icons.church, Icons.local_shipping, Icons.favorite,
+    const appIcons = <(IconData, String, Color)>[
+      (Icons.menu_book, 'Bible', Color(0xFF4CAF50)),
+      (Icons.play_circle, 'Sermons', Color(0xFF2196F3)),
+      (Icons.wallet, 'Give', Color(0xFFFF9800)),
+      (Icons.calendar_today, 'Events', Color(0xFFE91E63)),
+      (Icons.store, 'Market', Color(0xFF009688)),
+      (Icons.quiz, 'Quiz', Color(0xFF3F51B5)),
+      (Icons.directions_car, 'Ride', Color(0xFF673AB7)),
+      (Icons.radio, 'Radio', Color(0xFFF44336)),
+      (Icons.forum, 'Chat', Color(0xFF00BCD4)),
+      (Icons.edit_note, 'Notes', Color(0xFF795548)),
+      (Icons.videocam, 'Klips', Color(0xFF9C27B0)),
+      (Icons.favorite, 'Prayer', Color(0xFFFF5722)),
     ];
+    final phoneWidth = (MediaQuery.of(context).size.width * 0.8).clamp(280.0, 340.0);
+    final phoneHeight = phoneWidth * 2.0;
     return Center(
       child: Container(
-        width: 320,
-        height: 650,
+        width: phoneWidth,
+        height: phoneHeight,
         decoration: BoxDecoration(
           color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(50),
+          borderRadius: BorderRadius.circular(phoneWidth * 0.15),
           border: Border.all(color: Colors.white10, width: 8),
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 100, spreadRadius: 10),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(42),
+          borderRadius: BorderRadius.circular(phoneWidth * 0.13),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -189,34 +198,51 @@ class LandingScreen extends ConsumerWidget {
                       child: GridView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 0.82,
+                          crossAxisCount: 3,
+                          mainAxisSpacing: 14,
+                          crossAxisSpacing: 14,
+                          childAspectRatio: 0.8,
                         ),
                         itemCount: appIcons.length,
                         itemBuilder: (context, i) {
                           return Container(
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(16),
+                              color: const Color(0xFF1E1E1E),
+                              borderRadius: BorderRadius.circular(18),
                               border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 3)),
+                              ],
                             ),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
-                                  appIcons[i],
-                                  color: const Color(0xFFFFDA03),
-                                  size: 26,
-                                ),
-                                const SizedBox(height: 5),
-                                Text(
-                                  'App ${i + 1}',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.5),
-                                    fontSize: 9,
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [appIcons[i].$3, appIcons[i].$3.withValues(alpha: 0.7)],
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(color: appIcons[i].$3.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 3)),
+                                    ],
                                   ),
+                                  child: Icon(appIcons[i].$1, color: Colors.white, size: 22),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  appIcons[i].$2,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.8),
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),

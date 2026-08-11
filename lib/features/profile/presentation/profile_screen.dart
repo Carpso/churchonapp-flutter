@@ -538,16 +538,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
       ),
       child: Column(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 18,
+            runSpacing: 18,
+            alignment: WrapAlignment.center,
             children: [
               _buildDashboardMetric(context, "Church", (profile.tenantId ?? '').isNotEmpty ? 'Active' : '--', LucideIcons.building, Colors.blueAccent),
+              _buildDashboardMetric(context, "Streak", "${profile.streakCount}d", LucideIcons.flame, Colors.orange),
               quizRankAsync.when(
                 data: (rank) => _buildDashboardMetric(context, "Quiz Rank", rank, LucideIcons.trophy, Colors.amber),
                 loading: () => _buildDashboardMetric(context, "Quiz Rank", "#--", LucideIcons.trophy, Colors.amber),
                 error: (e, st) => _buildDashboardMetric(context, "Quiz Rank", "#--", LucideIcons.trophy, Colors.amber),
               ),
               _buildDashboardMetric(context, "Tokens", "${profile.coins}", LucideIcons.zap, Colors.purpleAccent),
+              _buildDashboardMetric(context, "Giving", "K${profile.balanceZmw.toInt()}", LucideIcons.banknote, Colors.greenAccent),
             ],
           ),
           const SizedBox(height: 32),

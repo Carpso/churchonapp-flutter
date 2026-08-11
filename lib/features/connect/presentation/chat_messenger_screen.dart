@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../data/chat_service.dart';
+import '../data/presence_service.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/services/r2_service.dart';
 import 'audio_call_screen.dart';
@@ -40,12 +41,22 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
   bool _isTyping = false;
   bool _showStickers = false;
   bool _isSending = false;
+  bool _online = false;
+  StreamSubscription<bool>? _onlineSub;
+  PresenceService? _presence;
 
   static const Color _appBarColor = Color(0xFF1A1A1A);
 
   @override
   void initState() {
     super.initState();
+    _presence = ref.read(presenceServiceProvider);
+    _presence?.startHeartbeat();
+    if (!widget.isGroup && widget.receiverId != null) {
+      _onlineSub = _presence?.watchOnline(widget.receiverId!).listen((online) {
+        if (mounted) setState(() => _online = online);
+      });
+    }
     _messageController.addListener(() {
       final hasText = _messageController.text.trim().isNotEmpty;
       if (hasText != _isTyping) {
@@ -64,6 +75,8 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
 
   @override
   void dispose() {
+    _onlineSub?.cancel();
+    _presence?.dispose();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -325,7 +338,7 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
                 Text(
-                  widget.isGroup ? 'Group · tap for info' : 'Online',
+                  widget.isGroup ? 'Group · tap for info' : (_online ? 'Online' : 'Offline'),
                   style: const TextStyle(fontSize: 11, color: Colors.white70),
                 ),
               ],
