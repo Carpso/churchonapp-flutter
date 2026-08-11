@@ -29,7 +29,10 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter test --coverage || true
+      # Key-flows smoke test is a hard gate (must pass).
+      - run: flutter test test/key_flows_smoke_test.dart
+      # Full suite runs but failures are informational (fragile mocks pre-date CI).
+      - run: flutter test || true
 
   build-apk:
     name: Build APK
