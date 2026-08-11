@@ -2,7 +2,7 @@ name: church_on_app
 description: "A new Flutter project."
 publish_to: "none"
 
-version: 1.0.0+258
+version: 1.0.0+260
 
 environment:
   sdk: ^3.9.0
