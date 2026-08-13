@@ -28,6 +28,7 @@ class HomeQuickActions extends StatelessWidget {
         "color": Colors.teal,
       },
       {"icon": LucideIcons.penTool, "label": "Notebook", "color": Colors.brown},
+      {"icon": LucideIcons.car, "label": "Carpso Ride", "color": Colors.cyan},
     ];
 
     return Column(
@@ -179,6 +180,8 @@ class HomeQuickActions extends StatelessWidget {
       context.push('/marketplace');
     } else if (label == "Notebook") {
       context.push('/notebook');
+    } else if (label == "Carpso Ride") {
+      context.push('/ride');
     } else if (label == "Radio") {
       if (tenant?.settings?['kingdom_radio'] == false) {
         ScaffoldMessenger.of(context).showSnackBar(

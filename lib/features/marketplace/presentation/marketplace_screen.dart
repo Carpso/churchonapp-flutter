@@ -10,6 +10,7 @@ import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
 
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 
 class MarketplaceScreen extends ConsumerStatefulWidget {
   final String? initialCategory;
@@ -136,7 +137,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         ],
       ),
       body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
+        ? _buildShimmerGrid()
         : _error != null 
           ? AppErrorView(error: _error, onRetry: _loadProducts)
           : Column(
@@ -164,9 +165,15 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                           itemBuilder: (context, index) {
                             if (index == _products.length) {
                               return _isLoadingMore
-                                  ? const Padding(
-                                      padding: EdgeInsets.symmetric(vertical: 16),
-                                      child: Center(child: CircularProgressIndicator()),
+                                  ? Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      child: Row(
+                                        children: [
+                                          Expanded(child: _shimmerCard()),
+                                          const SizedBox(width: 15),
+                                          Expanded(child: _shimmerCard()),
+                                        ],
+                                      ),
                                     )
                                   : GestureDetector(
                                       onTap: _loadMore,
@@ -295,6 +302,46 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
           );
         },
       ),
+    );
+  }
+
+  Widget _shimmerCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 15),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(25),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ShimmerLoader.rectangular(height: 140),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ShimmerLoader.rectangular(width: 120, height: 14),
+                const SizedBox(height: 8),
+                ShimmerLoader.rectangular(width: 70, height: 12),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShimmerGrid() {
+    return MasonryGridView.count(
+      padding: const EdgeInsets.all(20),
+      crossAxisCount: 2,
+      mainAxisSpacing: 15,
+      crossAxisSpacing: 15,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 8,
+      itemBuilder: (context, index) => _shimmerCard(),
     );
   }
 

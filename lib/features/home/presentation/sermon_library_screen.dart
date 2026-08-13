@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/features/home/data/sermon_service.dart';
 import 'package:church_on_app/features/home/presentation/sermon_player_screen.dart';
@@ -24,6 +25,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
   String _selectedCategory = "All";
   final List<String> _categories = ["All", "Bible", "Miracles", "Faith", "Prosperity", "Healing", "Worship"];
   List<Sermon> _sermons = [];
+  bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
   int _offset = 0;
@@ -42,6 +44,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
       setState(() {
         _sermons = _filterSermons(batch);
         _hasMore = batch.length >= _limit;
+        _isLoading = false;
       });
     }
   }
@@ -116,7 +119,34 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
                 });
                 await _loadSermons();
               },
-              child: _sermons.isEmpty
+              child: _isLoading
+              ? ListView.builder(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: 5,
+                  itemBuilder: (context, index) => Padding(
+                    padding: const EdgeInsets.only(bottom: 15),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const ShimmerLoader.rectangular(width: 90, height: 90),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: const [
+                              ShimmerLoader.rectangular(width: double.infinity, height: 16),
+                              SizedBox(height: 10),
+                              ShimmerLoader.rectangular(width: 150, height: 12),
+                              SizedBox(height: 10),
+                              ShimmerLoader.rectangular(width: 90, height: 12),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : _sermons.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -137,7 +167,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
                         return _isLoadingMore
                             ? const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 16),
-                                child: Center(child: CircularProgressIndicator()),
+                                child: ShimmerLoader.rectangular(height: 48),
                               )
                             : GestureDetector(
                                 onTap: _loadMore,

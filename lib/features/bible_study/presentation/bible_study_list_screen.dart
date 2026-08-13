@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
-import 'package:shimmer/shimmer.dart';
+import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/empty_state_widget.dart';
@@ -108,12 +108,14 @@ class _BibleStudyListScreenState extends ConsumerState<BibleStudyListScreen> {
       },
       loading: () => SizedBox(
         height: 200,
-        child: Center(
-          child: Shimmer.fromColors(
-            baseColor: Colors.grey[300]!,
-            highlightColor: Colors.grey[100]!,
-            child: CircularProgressIndicator(color: Colors.indigo),
-          ),
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          children: List.generate(3, (i) => Container(
+            width: 240,
+            margin: const EdgeInsets.only(right: 12),
+            child: const ShimmerLoader.rectangular(height: 160),
+          )),
         ),
       ),
       error: (e, _) => const SizedBox.shrink(),
@@ -218,10 +220,13 @@ class _BibleStudyListScreenState extends ConsumerState<BibleStudyListScreen> {
           ],
         );
       },
-      loading: () => Shimmer.fromColors(
-        baseColor: Colors.grey[300]!,
-        highlightColor: Colors.grey[100]!,
-        child: const Center(child: CircularProgressIndicator(color: Colors.indigo)),
+      loading: () => ListView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 4,
+        itemBuilder: (context, index) => const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: ShimmerLoader.rectangular(height: 110),
+        ),
       ),
       error: (e, _) => Center(child: Text('Error: $e')),
     );

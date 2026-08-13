@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:church_on_app/features/transport/data/ride_history_service.dart';
+import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/config/fee_config.dart';
 
 class RideHistoryScreen extends ConsumerStatefulWidget {
@@ -263,7 +264,14 @@ class _RideHistoryScreenState extends ConsumerState<RideHistoryScreen> {
           // List
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? ListView.builder(
+                    padding: const EdgeInsets.all(20),
+                    itemCount: 4,
+                    itemBuilder: (context, index) => const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: ShimmerLoader.rectangular(height: 96),
+                    ),
+                  )
                 : filtered.isEmpty
                     ? Center(
                         child: Column(
