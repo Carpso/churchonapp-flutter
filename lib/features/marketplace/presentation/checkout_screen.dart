@@ -15,6 +15,8 @@ import 'package:church_on_app/core/config/env.dart';
 import 'package:church_on_app/core/config/fee_config.dart';
 import 'package:church_on_app/core/config/remote_config.dart';
 import 'package:church_on_app/features/give/presentation/widgets/momo_phone_input_widget.dart';
+import 'package:church_on_app/features/transport/data/transport_service.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 enum _PaymentPhase { idle, initiating, awaitingPin, succeeded, failed }
@@ -31,6 +33,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
+  final _carpsoAddressCtrl = TextEditingController();
   String _selectedNetwork = "MTN";
   String _paymentMethod = "mobile_money";
   String _deliveryMethod = "delivery";
@@ -75,6 +78,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _firstNameCtrl.dispose();
     _lastNameCtrl.dispose();
     _emailCtrl.dispose();
+    _carpsoAddressCtrl.dispose();
     super.dispose();
   }
 
@@ -82,9 +86,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   FeeConfig get _fees => ref.read(feeConfigProvider).value ?? FeeConfig.defaults;
   double get _platformFee => _fees.platformFee(ref.read(cartProvider.notifier).total);
 
-  double get _deliveryFee => _deliveryMethod == 'delivery'
-      ? widgetRemoteConfig(ref).getDouble('marketplace_delivery_fee_kwacha', 15.0)
-      : 0.0;
+  double get _deliveryFee {
+    if (_deliveryMethod == 'carpso') {
+      return widgetRemoteConfig(ref).getDouble('ride_delivery_min_fare_kwacha', 20.0);
+    }
+    return _deliveryMethod == 'delivery'
+        ? widgetRemoteConfig(ref).getDouble('marketplace_delivery_fee_kwacha', 15.0)
+        : 0.0;
+  }
 
   double get _total {
     final subtotal = ref.read(cartProvider.notifier).total;
@@ -183,6 +192,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return;
     }
 
+    if (_deliveryMethod == "carpso" && _carpsoAddressCtrl.text.trim().isEmpty) {
+      setState(() {
+        _isError = true;
+        _errorMessage = "Delivery address is required for Carpso Delivery";
+      });
+      return;
+    }
+
     setState(() {
       _isProcessing = true;
       _isError = false;
@@ -193,29 +210,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final subtotal = ref.read(cartProvider.notifier).total;
       final fee = _platformFee;
       final total = subtotal + fee;
-      final tenant = ref.read(currentTenantProvider);
 
-      if (_paymentMethod == "wallet") {
-        // Atomic wallet deduction via RPC
-        final profile = ref.read(profileProvider).value;
-        if (profile == null) throw Exception("Not authenticated");
-
-        final supabase = Supabase.instance.client;
-        final result = await supabase.rpc('add_coins', params: {
-          'user_id': profile.id,
-          'amount': -(total.toInt()),
-        });
-
-        if (result != null && result.toString().contains('error')) {
-          throw Exception("Insufficient wallet balance. You need ${total.toInt()} coins but have ${profile.coins}.");
-        }
-
-        final paymentReference = 'wallet_${const Uuid().v4()}';
-        await _createOrderAndDisburse(items, subtotal, fee, tenant?.id, paymentReference);
-        return;
-      }
-
-      // Card payment: initiate → redirect to 3DS page
       if (_paymentMethod == "card") {
         final supabase = Supabase.instance.client;
         final referenceId = const Uuid().v4();
@@ -459,11 +454,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         platformFee: fee,
         paymentReference: paymentReference,
         tenantId: tenantId,
+        shippingAddress: _deliveryMethod == 'carpso' ? _carpsoAddressCtrl.text.trim() : null,
+        contactPhone: _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+        notes: _deliveryMethod == 'carpso'
+            ? 'Carpso Delivery to: ${_carpsoAddressCtrl.text.trim()}'
+            : null,
       );
 
       // Disburse to seller only AFTER order is confirmed
       if (_paymentMethod == "mobile_money") {
         await _disburseToSeller(items, subtotal, fee, tenantId);
+      }
+
+      // Optional Carpso Delivery: create a courier request for drivers
+      if (_deliveryMethod == "carpso") {
+        await _triggerCarpsoDelivery(orderId, items);
       }
 
       ref.read(cartProvider.notifier).clear();
@@ -486,12 +491,35 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
+  /// Creates a Carpso courier request so a driver can deliver the order.
+  /// Uses the church's coordinates as pickup point (vendor pickup at church).
+  /// Non-blocking — the order is already placed and paid for.
+  Future<void> _triggerCarpsoDelivery(String orderId, List<CartItem> items) async {
+    try {
+      final tenant = ref.read(currentTenantProvider);
+      final lat = tenant?.latitude ?? -15.4190;
+      final lng = tenant?.longitude ?? 28.3490;
+      final address = _carpsoAddressCtrl.text.trim();
+
+      final itemNames = items.map((i) => '${i.quantity}x ${i.product.name}').join(', ');
+      await ref.read(transportServiceProvider).requestDelivery(
+        pickup: LatLng(lat, lng),
+        dest: LatLng(lat + 0.001, lng + 0.001),
+        desc: 'Marketplace order #${orderId.substring(0, 8).toUpperCase()}: $itemNames. Deliver to: $address',
+        category: 'marketplace',
+        weight: 'Light',
+        fare: _deliveryFee,
+      );
+      debugPrint('[Marketplace] Carpso delivery request created for order $orderId');
+    } catch (e) {
+      debugPrint('[Marketplace] Carpso delivery request failed (non-blocking): $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = ref.watch(cartProvider);
     final subtotal = ref.read(cartProvider.notifier).total;
-    final profileAsync = ref.watch(profileProvider);
-    final walletBalance = profileAsync.value?.coins ?? 0;
 
     return PopScope(
       canPop: !_isProcessing,
@@ -513,7 +541,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ? _buildSuccessState()
             : _paymentPhase != _PaymentPhase.idle && _paymentPhase != _PaymentPhase.failed
                 ? _buildPaymentStatus()
-                : _buildCheckoutContent(items, subtotal, walletBalance),
+                : _buildCheckoutContent(items, subtotal),
       ),
     );
   }
@@ -599,7 +627,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  Widget _buildCheckoutContent(List<CartItem> items, double subtotal, int walletBalance) {
+  Widget _buildCheckoutContent(List<CartItem> items, double subtotal) {
     return Column(
       children: [
         Expanded(
@@ -612,7 +640,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 const SizedBox(height: 24),
                 _buildDeliveryMethodSelector(),
                 const SizedBox(height: 24),
-                _buildPaymentMethodSection(walletBalance),
+                _buildPaymentMethodSection(),
                 const SizedBox(height: 24),
                 _buildOrderTotal(subtotal),
                 if (_isError && _errorMessage != null)
@@ -746,6 +774,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   Widget _buildDeliveryMethodSelector() {
+    final carpsoFee = widgetRemoteConfig(ref).getDouble('ride_delivery_min_fare_kwacha', 20.0);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -787,6 +816,31 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               const SizedBox(width: 15),
               Expanded(
                 child: GestureDetector(
+                  onTap: () => setState(() => _deliveryMethod = 'carpso'),
+                  child: Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: _deliveryMethod == 'carpso' ? Theme.of(context).primaryColor.withValues(alpha: 0.1) : Colors.white,
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: _deliveryMethod == 'carpso' ? Theme.of(context).primaryColor : Colors.grey.withValues(alpha: 0.2),
+                        width: _deliveryMethod == 'carpso' ? 2 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(LucideIcons.car, color: _deliveryMethod == 'carpso' ? Theme.of(context).primaryColor : Colors.grey),
+                        const SizedBox(height: 8),
+                        const Text("Carpso Delivery", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        Text("K${carpsoFee.toStringAsFixed(2)}", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: GestureDetector(
                   onTap: () => setState(() => _deliveryMethod = 'pickup'),
                   child: Container(
                     padding: const EdgeInsets.all(15),
@@ -811,12 +865,46 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               ),
             ],
           ),
+          if (_deliveryMethod == 'carpso') ...[
+            const SizedBox(height: 16),
+            TextField(
+              controller: _carpsoAddressCtrl,
+              maxLines: 2,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                hintText: "Enter delivery address (home, office, landmark...)",
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.6),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.only(bottom: 40),
+                  child: Icon(LucideIcons.mapPin, size: 20),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(LucideIcons.car, size: 14, color: Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    "A Carpso courier picks up your order from the church and delivers to your address.",
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildPaymentMethodSection(int walletBalance) {
+  Widget _buildPaymentMethodSection() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -841,13 +929,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             title: "Card",
             subtitle: "Visa / Mastercard",
             value: "card",
-          ),
-          const SizedBox(height: 8),
-          _buildPaymentOption(
-            icon: LucideIcons.wallet,
-            title: "Wallet",
-            subtitle: "$walletBalance coins available",
-            value: "wallet",
           ),
           if (_paymentMethod == "mobile_money") ...[
             const SizedBox(height: 20),
@@ -953,29 +1034,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               ),
             ),
           ],
-          if (_paymentMethod == "wallet") ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(LucideIcons.coins, color: Colors.amber, size: 24),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("Wallet Balance", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                      Text("$walletBalance coins", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -1044,7 +1102,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           ],
           if (delivery > 0) ...[
             const SizedBox(height: 8),
-            _buildTotalRow("Express Delivery", "K ${delivery.toStringAsFixed(2)}"),
+            _buildTotalRow(
+              _deliveryMethod == 'carpso' ? 'Carpso Delivery' : 'Express Delivery',
+              "K ${delivery.toStringAsFixed(2)}",
+            ),
           ],
           if (_deliveryMethod == 'pickup') ...[
             const SizedBox(height: 8),
@@ -1135,6 +1196,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.grey, fontSize: 14),
             ),
+            if (_deliveryMethod == 'carpso') ...[
+              const SizedBox(height: 8),
+              Text(
+                "A Carpso courier has been requested to deliver to: ${_carpsoAddressCtrl.text.trim()}",
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+            ],
             if (_orderReference != null) ...[
               const SizedBox(height: 16),
               Container(

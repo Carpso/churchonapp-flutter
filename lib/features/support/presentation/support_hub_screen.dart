@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/theme/app_theme.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // Feature screens for direct navigation from How-To guides
+import 'file_dispute_screen.dart';
 import '../../finance/presentation/giving_screen.dart';
 import '../../finance/presentation/coa_missions_donate_screen.dart';
 import '../../finance/presentation/buy_coins_screen.dart';
@@ -28,8 +30,9 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
   bool _isSubmitting = false;
   
   // Custom interactive guides states
-  int _selectedTab = 0; // 0 = How-To Guides, 1 = Submit Ticket
+  int _selectedTab = 0; // 0 = How-To Guides, 1 = Submit Ticket, 2 = Disputes
   String _selectedCategory = 'Wallet'; // Categories: Wallet, Word, Community, Logistics, Command
+  String _selectedTicketCategory = 'Wallet';
 
   Future<void> _submitTicket() async {
     if (_subjectController.text.isEmpty || _descriptionController.text.isEmpty) {
@@ -44,10 +47,12 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
 
-      await Supabase.instance.client.from('tickets').insert({
+      await Supabase.instance.client.from('support_tickets').insert({
         'user_id': user.id,
+        'tenant_id': ref.read(currentTenantProvider)?.id,
         'subject': _subjectController.text,
         'description': _descriptionController.text,
+        'category': _selectedTicketCategory.toLowerCase(),
         'status': 'open',
         'priority': 'medium',
       });
@@ -122,7 +127,11 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
             const SizedBox(height: 30),
 
             // Display content based on active tab
-            _selectedTab == 0 ? _buildGuidesTab(theme) : _buildTicketsTab(theme),
+            _selectedTab == 0
+                ? _buildGuidesTab(theme)
+                : _selectedTab == 1
+                    ? _buildTicketsTab(theme)
+                    : _buildDisputesTab(theme),
           ],
         ),
       ),
@@ -476,6 +485,34 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
         _buildTextField(theme, "Subject", _subjectController, "e.g. Daily coins reward not accumulating"),
         const SizedBox(height: 20),
         _buildTextField(theme, "Description", _descriptionController, "Please describe the problem in detail...", maxLines: 5),
+        const SizedBox(height: 20),
+        DropdownButtonFormField<String>(
+          initialValue: _selectedTicketCategory,
+          decoration: InputDecoration(
+            labelText: "Category",
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.05), width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: theme.primaryColor, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+          ),
+          items: const [
+            DropdownMenuItem(value: 'Wallet', child: Text('Wallet & Coins')),
+            DropdownMenuItem(value: 'Word & Radio', child: Text('Word & Radio')),
+            DropdownMenuItem(value: 'Community', child: Text('Community')),
+            DropdownMenuItem(value: 'Logistics', child: Text('Logistics (Carpso)')),
+            DropdownMenuItem(value: 'Ministry', child: Text('Ministry')),
+            DropdownMenuItem(value: 'Payments', child: Text('Payments & Giving')),
+            DropdownMenuItem(value: 'Other', child: Text('Other')),
+          ],
+          onChanged: (v) => setState(() => _selectedTicketCategory = v ?? 'Wallet'),
+        ),
         const SizedBox(height: 30),
         
         ElevatedButton(
@@ -570,7 +607,7 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
     }
 
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: client.from('tickets').stream(primaryKey: ['id']).eq('user_id', user.id).order('created_at'),
+      stream: client.from('support_tickets').stream(primaryKey: ['id']).eq('user_id', user.id).order('created_at'),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(child: CircularProgressIndicator(color: theme.primaryColor));
@@ -646,6 +683,176 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
       ),
     );
   }
+
+  // MARK: - Disputes Tab
+
+  Widget _buildDisputesTab(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Dispute Resolution",
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 26,
+            fontWeight: FontWeight.w900,
+            color: theme.colorScheme.onSurface,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "Had an issue with a ride, delivery, order, or payment? File a dispute and our COA team will review it within 48 hours.",
+          style: GoogleFonts.inter(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            fontSize: 13,
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 24),
+        ElevatedButton.icon(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const FileDisputeScreen()),
+            );
+          },
+          icon: const Icon(LucideIcons.gavel, size: 18),
+          label: const Text("FILE A DISPUTE"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: theme.colorScheme.onSurface,
+            foregroundColor: theme.colorScheme.surface,
+            minimumSize: const Size(double.infinity, 58),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            elevation: 0,
+          ),
+        ),
+        const SizedBox(height: 36),
+        Text(
+          "YOUR DISPUTES",
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5), letterSpacing: 2),
+        ),
+        const SizedBox(height: 15),
+        _buildDisputesList(theme),
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+
+  Widget _buildDisputesList(ThemeData theme) {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) {
+      return _buildEmptyState(theme, LucideIcons.userCheck, "Please log in to see your disputes.");
+    }
+
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: client.from('support_disputes').stream(primaryKey: ['id']).eq('user_id', user.id).order('created_at'),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator(color: theme.primaryColor));
+        }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return _buildEmptyState(theme, LucideIcons.gavel, "No disputes filed yet.");
+        }
+
+        final disputes = snapshot.data!;
+        return Column(
+          children: disputes.map((d) => _buildDisputeItem(theme, d)).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyState(ThemeData theme, IconData icon, String message) {
+    return Container(
+      padding: const EdgeInsets.all(30),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: theme.colorScheme.onSurface.withValues(alpha: 0.3), size: 36),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            style: GoogleFonts.inter(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDisputeItem(ThemeData theme, Map<String, dynamic> dispute) {
+    final status = dispute['status'] ?? 'open';
+    final type = dispute['dispute_type'] ?? 'other';
+    final color = StatusColor.fromString(context, status);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.04)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+                child: Icon(LucideIcons.gavel, color: color, size: 18),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dispute['subject'] ?? 'No Subject',
+                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 13, color: theme.colorScheme.onSurface),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '$type · ${status.toUpperCase()}',
+                      style: GoogleFonts.plusJakartaSans(color: color, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (dispute['reference_id'] != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Ref: ${dispute['reference_id']}',
+              style: GoogleFonts.inter(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+            ),
+          ],
+          if (dispute['resolution_notes'] != null && (dispute['resolution_notes'] as String).isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Response: ${dispute['resolution_notes']}',
+                style: GoogleFonts.inter(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.8)),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 // MARK: - Sliding Tab Bar Widget
@@ -677,14 +884,14 @@ class _CustomSlidingTabBar extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final tabWidth = constraints.maxWidth / 2;
+          final tabWidth = constraints.maxWidth / 3;
           return Stack(
             children: [
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
-                left: selectedIndex == 0 ? 0 : tabWidth,
-                right: selectedIndex == 0 ? tabWidth : 0,
+                left: tabWidth * selectedIndex,
+                right: tabWidth * (2 - selectedIndex),
                 top: 0,
                 bottom: 0,
                 child: Container(
@@ -702,10 +909,10 @@ class _CustomSlidingTabBar extends StatelessWidget {
                       behavior: HitTestBehavior.opaque,
                       child: Center(
                         child: Text(
-                          "HOW-TO GUIDES",
+                          "GUIDES",
                           style: GoogleFonts.plusJakartaSans(
                             fontWeight: FontWeight.w900,
-                            fontSize: 11,
+                            fontSize: 10,
                             color: selectedIndex == 0 ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface.withValues(alpha: 0.5),
                             letterSpacing: 1,
                           ),
@@ -719,11 +926,28 @@ class _CustomSlidingTabBar extends StatelessWidget {
                       behavior: HitTestBehavior.opaque,
                       child: Center(
                         child: Text(
-                          "SUBMIT TICKET",
+                          "SUPPORT",
                           style: GoogleFonts.plusJakartaSans(
                             fontWeight: FontWeight.w900,
-                            fontSize: 11,
+                            fontSize: 10,
                             color: selectedIndex == 1 ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => onTabSelected(2),
+                      behavior: HitTestBehavior.opaque,
+                      child: Center(
+                        child: Text(
+                          "DISPUTES",
+                          style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 10,
+                            color: selectedIndex == 2 ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface.withValues(alpha: 0.5),
                             letterSpacing: 1,
                           ),
                         ),

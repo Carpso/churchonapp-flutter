@@ -1,20 +1,93 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 
-class ManageTab extends ConsumerWidget {
+class ManageTab extends ConsumerStatefulWidget {
   final VoidCallback onCreateEvent;
   const ManageTab({super.key, required this.onCreateEvent});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ManageTab> createState() => _ManageTabState();
+}
+
+class _ManageTabState extends ConsumerState<ManageTab> {
+  bool _loading = true;
+  int _eventCount = 0;
+  int _ticketsSold = 0;
+  int _checkedIn = 0;
+  double _revenue = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    final tenant = ref.read(currentTenantProvider);
+    if (tenant == null) {
+      setState(() => _loading = false);
+      return;
+    }
+    try {
+      final client = Supabase.instance.client;
+      final eventsRes = await client
+          .from('events')
+          .select('id')
+          .eq('tenant_id', tenant.id);
+      final eventsCount = List<Map<String, dynamic>>.from(eventsRes).length;
+
+      final regsRes = await client
+          .from('event_registrations')
+          .select('ticket_quantity, rsvp_status, check_in_status, events!inner (ticket_price, price)')
+          .eq('events.tenant_id', tenant.id);
+
+      var tickets = 0;
+      var checkedIn = 0;
+      var revenue = 0.0;
+      for (final reg in List<Map<String, dynamic>>.from(regsRes)) {
+        final status = (reg['rsvp_status'] ?? '').toString().toLowerCase();
+        if (status.contains('cancel') || status.contains('decline')) continue;
+        final qty = (reg['ticket_quantity'] as num?)?.toInt() ?? 1;
+        tickets += qty;
+        if ((reg['check_in_status'] ?? '').toString() == 'checked_in') {
+          checkedIn += qty;
+        }
+        final ev = reg['events'];
+        if (ev is Map) {
+          final price = (ev['ticket_price'] as num?)?.toDouble() ??
+              (ev['price'] as num?)?.toDouble() ??
+              0;
+          revenue += price * qty;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _eventCount = eventsCount;
+          _ticketsSold = tickets;
+          _checkedIn = checkedIn;
+          _revenue = revenue;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('ManageTab stats failed: $e');
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return RefreshIndicator(
-      onRefresh: () async {},
+      onRefresh: _loadStats,
       child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
           GestureDetector(
-            onTap: onCreateEvent,
+            onTap: widget.onCreateEvent,
             child: Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -40,13 +113,28 @@ class ManageTab extends ConsumerWidget {
           const SizedBox(height: 20),
           const Text("Dashboard & Analytics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 15),
-          const Row(
-            children: [
-              Expanded(child: _MetricCard(title: "Tickets Sold", value: "142", icon: LucideIcons.ticket, color: Colors.blue)),
-              SizedBox(width: 15),
-              Expanded(child: _MetricCard(title: "Revenue (K)", value: "35500.00", icon: LucideIcons.wallet, color: Colors.green)),
-            ],
-          )
+          if (_loading)
+            const SizedBox(
+              height: 90,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else ...[
+            Row(
+              children: [
+                Expanded(child: _MetricCard(title: "Tickets Sold", value: "$_ticketsSold", icon: LucideIcons.ticket, color: Colors.blue)),
+                const SizedBox(width: 15),
+                Expanded(child: _MetricCard(title: "Revenue (K)", value: _revenue.toStringAsFixed(2), icon: LucideIcons.wallet, color: Colors.green)),
+              ],
+            ),
+            const SizedBox(height: 15),
+            Row(
+              children: [
+                Expanded(child: _MetricCard(title: "Events Hosted", value: "$_eventCount", icon: LucideIcons.calendarDays, color: Colors.orange)),
+                const SizedBox(width: 15),
+                Expanded(child: _MetricCard(title: "Checked In", value: "$_checkedIn", icon: LucideIcons.clipboardCheck, color: Colors.teal)),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -71,7 +159,7 @@ class _MetricCard extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 24),
           const SizedBox(height: 10),
-          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
           Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),

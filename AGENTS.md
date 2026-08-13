@@ -41,6 +41,46 @@ flutter analyze --no-fatal-infos --no-fatal-warnings
 - Test files have pre-existing issues (reporting_service_test.dart needs constructor update, radio_service_test.dart references removed `fetchLiveMetadata`, many unused imports)
 - If adding code, ensure no new warnings appear in source (test warnings are acceptable)
 
+## How To: Secure the App, Handle a Hack & Backup
+
+**Read `SECURITY.md` first — it is the full security operating manual** (threat
+model, incident response runbook, backup/recovery plan, key inventory,
+monitoring, secure-development checklist). A generic, project-agnostic copy
+lives in `SECURITY_PLAYBOOK.md` — copy that one into other projects.
+
+### Golden rules (never violate)
+1. **Never ship secrets.** `.env` is bundled into every release build — it must
+   contain ONLY public values (Supabase URL + anon key, map URLs,
+   `R2_PUBLIC_DOMAIN`). R2 keys, `CLOUDFLARE_API_TOKEN`, `GEMINI_API_KEY`,
+   `HUGGINGFACE_TOKEN`, Resend, Lipila, TURN secrets live ONLY in the Edge
+   Function environment (`Deno.env.get()`) — never in `lib/`, `.env`, or assets.
+2. **Never add secret getters to `env.dart`** (they ship inside the app).
+3. **Client is untrusted.** Money-movement code re-derives amounts server-side;
+   `lipila-payout` requires a confirmed `coa_payments` anchor; payouts never
+   trust a client-inserted `transactions` row.
+4. **Coin RPCs are guarded** (`auth.uid()` + amount cap) — don't remove those guards.
+5. **New admin route** ⇒ add it to `hasAccess` in `app_router.dart`.
+6. **New RPC** ⇒ `SET search_path = public` + `REVOKE EXECUTE FROM anon`; admin
+   RPCs also revoked from `authenticated`.
+7. **New table** ⇒ RLS on, owner/tenant-scoped policies, never
+   `WITH CHECK (true)` on INSERT/UPDATE.
+
+### If a hack happens (quick version — full runbook in SECURITY.md §2)
+1. Contain in minutes: invalidate `LIPILA_API_KEY` (payouts fail fast),
+   rotate any leaked key, `cron.unschedule('lps-settle')`.
+2. Preserve evidence (`database-backup`, `admin_audit_log`, function logs).
+3. Fix + rotate *all* possibly-exposed keys + reset affected users.
+4. Re-enable, verify core flows, document in SECURITY.md §8 log.
+
+### Backup (full plan in SECURITY.md §3)
+- Supabase PITR + daily backups (dashboard). Test a restore monthly.
+- R2 bucket: enable versioning + lifecycle. Test a version restore quarterly.
+- On-demand: `database-backup` function (superadmin) or
+  `supabase db dump --linked`.
+- Web: Cloudflare Pages keeps deployment history for rollback.
+- Cron jobs `lps-settle` + `event-remind` must send `x-cron-secret`
+  (`CRON_SECRET` env var) — never a hardcoded anon JWT.
+
 ## How To: Write a New Feature
 
 1. Follow the feature-first structure:
@@ -808,21 +848,21 @@ flutter analyze --no-fatal-infos --no-fatal-warnings
   - **Project cleanup**: removed `tmpclaude-*`, `diagnostics/`, `site_release.zip` (104MB), `media_playback.mp4`, stray PDFs/iml/logs. Extended `.gitignore`.
   - **Deploy**: web deployed to Cloudflare Pages (`churchonapp.com`), verified 0 exceptions + hash match. Firebase Android SHA-1/256 = `46BDAED912391CD34CBA330EF05DF1B6EC8AE1A4` / `FB57B43902E7B93A48506915BE9767C24CA5DDEF7732A59A679768CF2FA67BDA`.
   - **Remaining manual steps**: add `https://churchonapp.com` as Authorized JavaScript origin on web OAuth client in Google Cloud Console; (optional) Supabase custom domain to hide `daboihiudmglwhdfvsku.supabase.co`.
-- **Session 2026-08-11 � Feature Hardening, Release Builds +260..263**:
+- **Session 2026-08-11 � Feature Hardening, Release Builds +260..263**:
   - **CRITICAL RULE (top of file)**: NEVER build APK/AAB unless the user explicitly confirms ("build the apk"/"make the release"). Only run `flutter analyze` + `flutter build web --release` + deploy by default.
-  - **Bible quiz**: fixed countdown going dark (removed fading `Opacity` in `_buildCountdown` � now always visible number); P2P `GridView.count` got `shrinkWrap: true` (cards no longer overlap/hide the International banner). VS reveal screen shows real player cards + animated VS badge.
-  - **Bible**: `bible_service.dart` now uses `bible-api.com` for `web`/`kjv` (reliable) and the local `bible_verses` table only for `nkjv`/`nlt`. Translation dropdown disables unsupported codes with "(soon)" label. Bare `/bible` route added (home quick action was dead � "no route for /bible"). `/bible-study/:studyId/edit` route added (edit button was crashing). Deep Study pane no longer hardcoded to Psalm 23 (shows current book/chapter). Deep Study GridView `shrinkWrap` fix (was showing only the verse card).
+  - **Bible quiz**: fixed countdown going dark (removed fading `Opacity` in `_buildCountdown` � now always visible number); P2P `GridView.count` got `shrinkWrap: true` (cards no longer overlap/hide the International banner). VS reveal screen shows real player cards + animated VS badge.
+  - **Bible**: `bible_service.dart` now uses `bible-api.com` for `web`/`kjv` (reliable) and the local `bible_verses` table only for `nkjv`/`nlt`. Translation dropdown disables unsupported codes with "(soon)" label. Bare `/bible` route added (home quick action was dead � "no route for /bible"). `/bible-study/:studyId/edit` route added (edit button was crashing). Deep Study pane no longer hardcoded to Psalm 23 (shows current book/chapter). Deep Study GridView `shrinkWrap` fix (was showing only the verse card).
   - **Missing tables migration `20260880_bible_study_tables.sql`**: created `bible_studies`, `bible_study_attendance`, `user_study_streaks`, `bible_verses` + `increment_study_attendees` RPC. Applied.
   - **Quiz leaderboard**: `get_quiz_leaderboard(p_limit, p_tenant_id)` RPC aggregates correct answers from `pvp_answers` + `daily_challenge_results` (not coins). Migration `20260881_quiz_leaderboard.sql` (also creates `daily_challenge_results`). UI shows "N correct".
   - **Kids progress**: `kids_progress` got `UNIQUE (user_id, week_start)` (RPC ON CONFLICT was failing 42P10), `kids_upsert_progress` hardened with `auth.uid() = p_user_id`, new `kids_mark_resource_completed(UUID)` dedupe RPC. `_loadProgress` filters by current `week_start`. Migration `20260879_kids_progress_fix.sql`. Applied.
-  - **Kids audio**: `KidsAudioPlayer` wired via `ActivityDetailsPage.resource(res)` � audio stories play, linked content opens externally. Activity grid shows ALL activities (Wrap), not just 4.
+  - **Kids audio**: `KidsAudioPlayer` wired via `ActivityDetailsPage.resource(res)` � audio stories play, linked content opens externally. Activity grid shows ALL activities (Wrap), not just 4.
   - **Social posts**: `streamPosts` now enriches real user names+avatars (realtime streams don't join profiles). `AppImage` empty-URL fallback (no broken-image icon).
   - **Chat**: realtime streams no longer use `.order()` (caused refresh loops + disappearing messages); sort client-side. Chat input wrapped in bottom padding so typing isn't hidden behind the nav bar.
-  - **Tenants**: `getAllTenants` rewritten to 2 parallel queries (churches + bookshops) � was 33 sequential N+1 calls that timed out on mobile and fell back to only "Rock of Ages".
+  - **Tenants**: `getAllTenants` rewritten to 2 parallel queries (churches + bookshops) � was 33 sequential N+1 calls that timed out on mobile and fell back to only "Rock of Ages".
   - **Home tab reorder**: greeting (streak chip now, coins moved to profile) ? verse of day ? church card (HomeHeroCard) ? streak ? onboarding setup ? quick actions ? special offer ? sparkle picks ? latest sermon ? events ? recommended ? news (writers+global) ? carpso ride.
   - **Give tab**: card renamed to "MY GIVING", removed "Sovereign" (now "Material Rewards Active"), feature tiles use LayoutBuilder 3-col grid (was squashed/clamped). Same fixes in `giving_widget.dart`.
-  - **Profile**: wallet card consolidated � removed BUY CC / REDEEM CC / REWARDS duplicates; MY CC screen (`payout_request_screen`) now holds Buy Coins + Redeem + Rewards + Collect. Digital Assets moved above Account/Logout, Prayer Wall tile removed. Spiritual momentum card full-width (removed margin), subtitle "Growth Forecast" (no "Personalized/AI"), title stays "Spiritual Momentum". Removed unused imports.
-  - **Home top bar**: weather chip is `Flexible` so bell/search/more buttons stay visible on narrow screens. Weather chip backgrounds are single-color (removed confusing blue+gold mix in `weather_model.dart` chipGradient � hot=red, overcast=slate, clear=sky-blue).
+  - **Profile**: wallet card consolidated � removed BUY CC / REDEEM CC / REWARDS duplicates; MY CC screen (`payout_request_screen`) now holds Buy Coins + Redeem + Rewards + Collect. Digital Assets moved above Account/Logout, Prayer Wall tile removed. Spiritual momentum card full-width (removed margin), subtitle "Growth Forecast" (no "Personalized/AI"), title stays "Spiritual Momentum". Removed unused imports.
+  - **Home top bar**: weather chip is `Flexible` so bell/search/more buttons stay visible on narrow screens. Weather chip backgrounds are single-color (removed confusing blue+gold mix in `weather_model.dart` chipGradient � hot=red, overcast=slate, clear=sky-blue).
   - **Home schedule sheet**: `isScrollControlled` + SingleChildScrollView so Save/date/time buttons aren't hidden; church name wraps (was squashed/ellipsis).
   - **Settings**: Account Settings scroll view bottom padding (140) so list not hidden behind nav bar.
   - **Kael**: added missing `/kael-chat` route (was GoRouter "page not found" from More Hub/Life).
@@ -830,19 +870,60 @@ flutter analyze --no-fatal-infos --no-fatal-warnings
   - **Marketplace**: `postProduct` now sets `tenant_id` from current tenant (was NULL ? items invisible under RLS). Migration `20260878_marketplace_tenant_scoping.sql`: tenant-scoped INSERT policy, vendor DELETE policy, backfill tenant_id from profiles. Applied.
   - **Expansion leads / Firebase**: cleanup continued (SHA registration, web Firebase config corrected to web appId `1:45750098887:web:2e4259493139c6719217e2`).
   - **Release builds**: clean (flutter clean + pub get) ? APK `Church On App.apk` 205MB v1.0.0+262, AAB `app-release.aab` 119.1MB v1.0.0+263. Commits `60b0bfb`. Web deployed to Cloudflare Pages (0 exceptions).
-  - **Remaining knowns**: Bible audio (LibriVox archive.org paths) may play wrong files for some chapters � R2 upload of KJV audio still pending; Communities from Life/MoreHub uses the SAME CommunitiesScreen as Connect (no red styling in code); KYC flow is mobile-only (uses dart:io File); 9 info-level analyze issues remain (pre-existing, all in kids/data_import/quiz/wallet files).
+  - **Bible audio now self-hosted on R2**: KJV dramatized (127 range files) + DBSOT dramatized OT stories (20 files + m4b) + TTS per-chapter (`audio/kjv/`) uploaded to `media.churchonapp.com`. App wired: chapter player, podcast, verse-of-the-day listen button, quiz scripture listen button, kids zone stories. Archive.org URLs removed. 93 stale `_kjv_128kb.mp3` duplicates deleted; 58 `.wav` placeholders remain (15 B – 352 KB, unused) — safe to delete.
+  - **Remaining knowns**: Communities from Life/MoreHub uses the SAME CommunitiesScreen as Connect (no red styling in code); KYC flow is mobile-only (uses dart:io File); 11 info-level analyze issues remain (pre-existing, all in kids/data_import/quiz/wallet files).
 ## How To: Reuse Lipila + FX in Other Projects
 
 The Lipila payment integration now includes a **shared FX service** that other
 projects can copy/reuse when they wire Lipila:
 
-- `lib/features/give/data/lipila_fx_service.dart` � `LipilaFxService` (free
+- `lib/features/give/data/lipila_fx_service.dart` � `LipilaFxService` (free
   `open.er-api.com`, no API key). Methods: `fetchRate()` (10-min cache,
   fallback rate 18.0), `convert(amount, rate)`, `convertAsync(amount)`.
   Providers: `lipilaFxServiceProvider`, `zmwPerUsdProvider`.
-- `lib/core/services/currency_service.dart` � backwards-compatible facade that
+- `lib/core/services/currency_service.dart` � backwards-compatible facade that
   re-exports the Lipila FX service (existing `zmwPerUsdProvider` still works).
-- Wired into: Lipila payment gateway fee preview ("� USD") + multi-currency
+- Wired into: Lipila payment gateway fee preview ("� USD") + multi-currency
   wallet live-rate card.
 - Constructor takes `baseCurrency`/`targetCurrency` (default ZMW->USD) so other
   projects can convert any supported pair.
+- **Session 2026-08-13 — Security Hardening Sprint**:
+  - **Full 3-agent security audit** (Flutter client, Supabase backend,
+    infra/config/secrets). Findings → fixes below.
+  - **Secrets hygiene (CRIT-1):** `.env` was bundled into every release build
+    and previously contained `R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`,
+    `CLOUDFLARE_API_TOKEN`, `GEMINI_API_KEY`, `HUGGINGFACE_TOKEN`. `.env` now
+    public-only; secret getters (`r2Endpoint`, `geminiApiKey`,
+    `huggingFaceToken`) removed from `env.dart`; `SECRETS_BACKUP.md` deleted.
+    **⚠ USER ACTION PENDING: rotate all those keys + `RESEND_API_KEY` +
+    anon key; restrict Google web API key by referrer; enable email
+    confirmation in Supabase Auth.** (SECURITY.md §5)
+  - **Migration `20260888_security_hardening.sql`:** `add_coins`/`deduct_coins`
+    now require `auth.uid() = user_id` + ±100,000 cap; `coa_payments` INSERT
+    policy restricted to `status='pending'` (superadmin bypass); `SET search_path
+    = public` added to 14 SECURITY DEFINER functions (get_my_tenant_id,
+    get_church_monthly_stats, get_church_monthly_tithes,
+    get_organization_church_member_counts, get_organization_missions,
+    sp_validate_import_columns, get_church_service_summary,
+    get_organization_service_summary, get_coa_payment_stats,
+    kids_upsert_progress, get_platform_engagement_stats,
+    kids_mark_resource_completed, increment_study_attendees,
+    get_quiz_leaderboard). Added to `deploy.ps1`.
+  - **`lipila-payout` hardened:** non-payout roles must now present a
+    `coa_payments` row (`payment_ref = reference`, status
+    approved/completed/confirmed/settled) and payout is capped at verified
+    amount + 1.0. Client-inserted `transactions` rows can no longer trigger payouts.
+  - **Android backups disabled:** `allowBackup="false"`,
+    `fullBackupContent="false"`, `dataExtractionRules="@xml/data_extraction_rules"`
+    (new file excludes all domains from cloud-backup/device-transfer).
+  - **Web hardening:** CSP meta tag + SRI on the passkeys `bundle.js` in
+    `web/index.html`.
+  - **Git hygiene:** deleted `SECRETS_BACKUP.md`; `git rm -r --cached
+    supabase/.temp`; `.gitignore` += `supabase/.temp/`; replaced hardcoded anon
+    JWT in `20260870`/`20260871` cron SQL with `x-cron-secret` placeholder.
+    **⚠ LIVE pg_cron jobs (`lps-settle`, `event-remind`) still embed the old
+    JWT — re-schedule them with a real `CRON_SECRET` (SECURITY.md §6).**
+  - **Docs:** new `SECURITY.md` (full operating manual) +
+    `SECURITY_PLAYBOOK.md` (reusable for other projects) + this security how-to
+    section.
+  - **`flutter analyze`:** 0 errors, 0 warnings (12 pre-existing info-level).

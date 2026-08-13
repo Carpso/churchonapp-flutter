@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:just_audio/just_audio.dart';
 
-/// Bible chapter audio player — streams from LibriVox/Internet Archive.
-/// URLs are computed from book abbreviation + chapter number.
-/// When user uploads to R2, just change [baseUrl].
+import '../data/bible_audio_r2.dart';
+
+/// Bible chapter audio player — streams the LibriVox KJV recording from Cloudflare R2.
 class BibleAudioPlayer extends ConsumerStatefulWidget {
   final String bookName;
   final String bookAbbrev;
@@ -35,20 +35,16 @@ class _BibleAudioPlayerState extends ConsumerState<BibleAudioPlayer> {
   Duration _duration = const Duration(minutes: 1);
   double _speed = 1.0;
 
-  // Base URL for LibriVox KJV recordings. Switch to R2 URL later:
-  // static const _baseUrl = 'https://media.churchonapp.com/kjv_audio';
-  static const _baseUrl = 'https://archive.org/download/kjv_librivox';
-
-  String get _audioUrl {
-    final book = widget.bookAbbrev.toLowerCase().replaceAll(' ', '_');
-    final ch = widget.chapter.toString().padLeft(2, '0');
-    return '$_baseUrl/${book}_${ch}_kjv.mp3';
-  }
+  // Base URL for LibriVox KJV recordings hosted on Cloudflare R2.
+  String? get _audioUrl => kjvR2AudioUrlFor(widget.bookName, widget.chapter);
 
   @override
   void didUpdateWidget(BibleAudioPlayer old) {
     super.didUpdateWidget(old);
-    if (old.chapter != widget.chapter) _loadAudio();
+    if (old.chapter != widget.chapter &&
+        kjvR2AudioUrlFor(old.bookName, old.chapter) != _audioUrl) {
+      _loadAudio();
+    }
   }
 
   @override
@@ -59,8 +55,13 @@ class _BibleAudioPlayerState extends ConsumerState<BibleAudioPlayer> {
 
   Future<void> _loadAudio() async {
     setState(() { _isLoading = true; _error = null; });
+    final url = _audioUrl;
+    if (url == null) {
+      setState(() { _isLoading = false; _error = 'Audio unavailable for ${widget.bookName} ${widget.chapter} — no recording mapped yet.'; });
+      return;
+    }
     try {
-      await _player.setUrl(_audioUrl);
+      await _player.setUrl(url);
       _player.positionStream.listen((p) => mounted ? setState(() => _position = p) : null);
       _player.durationStream.listen((d) => mounted ? setState(() => _duration = d ?? const Duration(minutes: 1)) : null);
       _player.playerStateStream.listen((s) {

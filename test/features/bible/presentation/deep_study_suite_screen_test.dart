@@ -19,8 +19,9 @@ void main() {
   });
 
   testWidgets('DeepStudySuiteScreen renders', (WidgetTester tester) async {
-    await tester.runAsync(() async {
-      await tester.pumpWidget(
+    await tester.binding.setSurfaceSize(const Size(480, 960));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
         ProviderScope(
           overrides: [
             profileProvider.overrideWith(() => MockProfileNotifier()),
@@ -30,14 +31,15 @@ void main() {
           ),
         ),
       );
-      await tester.pump();
-    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(DeepStudySuiteScreen), findsOneWidget);
   });
 
   testWidgets('DeepStudySuiteScreen shows title', (WidgetTester tester) async {
-    await tester.runAsync(() async {
-      await tester.pumpWidget(
+    await tester.binding.setSurfaceSize(const Size(480, 960));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
         ProviderScope(
           overrides: [
             profileProvider.overrideWith(() => MockProfileNotifier()),
@@ -47,14 +49,15 @@ void main() {
           ),
         ),
       );
-      await tester.pump();
-    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('DEEP STUDY'), findsOneWidget);
   });
 
   testWidgets('DeepStudySuiteScreen has tool matrix', (WidgetTester tester) async {
-    await tester.runAsync(() async {
-      await tester.pumpWidget(
+    await tester.binding.setSurfaceSize(const Size(480, 960));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
         ProviderScope(
           overrides: [
             profileProvider.overrideWith(() => MockProfileNotifier()),
@@ -64,8 +67,8 @@ void main() {
           ),
         ),
       );
-      await tester.pump();
-    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Podcast'), findsOneWidget);
     expect(find.text('Atlas'), findsOneWidget);
     expect(find.text('Study Plans'), findsOneWidget);

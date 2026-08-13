@@ -18,6 +18,7 @@ import '../data/admin_service.dart';
 import '../data/role_hierarchy_service.dart';
 import '../../events/data/event_service.dart';
 import '../data/audit_service.dart';
+import 'resolution_hub_screen.dart';
 import 'emergency_shutdown_screen.dart';
 import 'ad_management_screen.dart';
 import 'role_approval_screen.dart';
@@ -782,6 +783,9 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             }),
             _buildGlobalAction(LucideIcons.hardDrive, "Create System Backup", "Download snapshot of database schema and settings", Colors.purple, () => _performBackup()),
             _buildGlobalAction(LucideIcons.scrollText, "Audit Log", "View all admin actions and changes", Colors.orange, () => _showAuditLog()),
+            _buildGlobalAction(LucideIcons.lifeBuoy, "Resolution Hub", "Respond to tickets, disputes & error reports", Colors.redAccent, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ResolutionHubScreen()));
+            }),
             _buildGlobalAction(LucideIcons.megaphone, "Sponsored Content", "Manage tenant ads and banners", Colors.cyan, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const AdManagementScreen()));
             }),

@@ -4,14 +4,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:church_on_app/features/home/presentation/home_screen.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/services/supabase_service.dart';
 import 'package:church_on_app/core/services/notification_service.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/features/home/data/sermon_service.dart';
 import 'package:church_on_app/features/home/data/news_service.dart';
 import 'package:church_on_app/features/home/data/live_streaming_service.dart';
 import 'package:church_on_app/features/bible/data/bible_verse_service.dart';
+import 'package:church_on_app/features/modules/logistics/presentation/providers/weather_provider.dart';
+import 'package:church_on_app/features/modules/logistics/data/weather_model.dart';
+
+class FakeSupabaseService extends SupabaseService {
+  @override
+  SupabaseClient get client => MockSupabaseClient();
+}
+
+class MockSupabaseClient extends Mock implements SupabaseClient {}
 
 // --- Lightweight Http Mock for Network Images ---
 class MyHttpOverrides extends HttpOverrides {
@@ -100,6 +112,7 @@ void main() {
 
   setUp(() {
     HttpOverrides.global = MyHttpOverrides();
+    SharedPreferences.setMockInitialValues({});
     mockNotificationService = MockNotificationService();
     mockSermonService = MockSermonService();
     mockNewsService = MockNewsService();
@@ -112,18 +125,24 @@ void main() {
   });
 
   testWidgets('Home screen renders without error', (tester) async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    await tester.runAsync(() => Supabase.initialize(url: 'http://localhost:54321', anonKey: 'test-anon-key'));
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          supabaseServiceProvider.overrideWithValue(FakeSupabaseService()),
           profileProvider.overrideWith(() => MockProfileNotifier()),
           currentTenantProvider.overrideWith(() => MockCurrentTenantNotifier()),
           unreadCountProvider.overrideWith((ref) => Stream.value(0)),
           notificationServiceProvider.overrideWithValue(mockNotificationService),
           sermonServiceProvider.overrideWithValue(mockSermonService),
           newsServiceProvider.overrideWithValue(mockNewsService),
+          publicNewsProvider.overrideWith((ref) => Future.value(<NewsArticle>[])),
+          newsStreamProvider.overrideWith((ref) => Stream.value(<NewsArticle>[])),
           liveStreamingServiceProvider.overrideWithValue(mockLiveStreamingService),
           liveStatusProvider.overrideWith((ref, id) => Stream.value(LiveStreamStatus(isLive: false))),
           dailyBibleVerseProvider.overrideWith((ref) => Future.value(mockVerse)),
+          weatherDataProvider.overrideWith((ref) => Future.value(WeatherData(temperature: 25, feelsLike: 25, humidity: 40, windSpeed: 5, precipitation: 0, weatherCode: 0))),
           // trendingSermonVerseProvider.overrideWith((ref) => Future.value(mockVerse)),
         ],
         child: const MaterialApp(home: HomeScreen()),
@@ -134,18 +153,24 @@ void main() {
   });
 
   testWidgets('Home screen contains Scaffold', (tester) async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    await tester.runAsync(() => Supabase.initialize(url: 'http://localhost:54321', anonKey: 'test-anon-key'));
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          supabaseServiceProvider.overrideWithValue(FakeSupabaseService()),
           profileProvider.overrideWith(() => MockProfileNotifier()),
           currentTenantProvider.overrideWith(() => MockCurrentTenantNotifier()),
           unreadCountProvider.overrideWith((ref) => Stream.value(0)),
           notificationServiceProvider.overrideWithValue(mockNotificationService),
           sermonServiceProvider.overrideWithValue(mockSermonService),
           newsServiceProvider.overrideWithValue(mockNewsService),
+          publicNewsProvider.overrideWith((ref) => Future.value(<NewsArticle>[])),
+          newsStreamProvider.overrideWith((ref) => Stream.value(<NewsArticle>[])),
           liveStreamingServiceProvider.overrideWithValue(mockLiveStreamingService),
           liveStatusProvider.overrideWith((ref, id) => Stream.value(LiveStreamStatus(isLive: false))),
           dailyBibleVerseProvider.overrideWith((ref) => Future.value(mockVerse)),
+          weatherDataProvider.overrideWith((ref) => Future.value(WeatherData(temperature: 25, feelsLike: 25, humidity: 40, windSpeed: 5, precipitation: 0, weatherCode: 0))),
           // trendingSermonVerseProvider.overrideWith((ref) => Future.value(mockVerse)),
         ],
         child: const MaterialApp(home: HomeScreen()),

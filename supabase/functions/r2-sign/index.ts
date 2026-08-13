@@ -132,12 +132,15 @@ serve(async (req) => {
 
   // User-scoped folders: only the user's own subfolder is allowed
   const userScopedFolders = ["profile", "driver-documents", "kyc"];
-  if (body.action !== "read" && body.action !== "download" && userScopedFolders.includes(body.folder)) {
-    const expectedPrefix = `${body.folder}/${userId}`;
-    const requestedKey = `${body.folder}/${body.filename}`;
+  const requestedKey = body.action === "read" || body.action === "download"
+    ? (body.key ?? "")
+    : `${body.folder}/${body.filename ?? ""}`;
+  const scopedFolder = userScopedFolders.find((f) => requestedKey.startsWith(`${f}/`));
+  if (scopedFolder) {
+    const expectedPrefix = `${scopedFolder}/${userId}`;
     if (!requestedKey.startsWith(expectedPrefix)) {
       return new Response(
-        JSON.stringify({ error: `Can only upload to your own ${body.folder} folder (${expectedPrefix}/...)` }),
+        JSON.stringify({ error: `Can only access your own ${scopedFolder} folder (${expectedPrefix}/...)` }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403 }
       );
     }

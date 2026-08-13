@@ -29,6 +29,7 @@ class Tenant {
   final TenantPlan plan;
   final bool onboardingFeePaid;
   final DateTime? promotionPlatinumUntil;
+  final double onboardingBalanceDue;
 
   Tenant({
     required this.id,
@@ -55,6 +56,7 @@ class Tenant {
     this.plan = TenantPlan.silver,
     this.onboardingFeePaid = false,
     this.promotionPlatinumUntil,
+    this.onboardingBalanceDue = 0,
   });
 
   bool get isChurch => type == 'church';
@@ -128,6 +130,8 @@ class Tenant {
       onboardingFeePaid: map['onboarding_fee_paid'] == true,
       promotionPlatinumUntil:
           _parseDateTime(map['promotion_platinum_until']),
+      onboardingBalanceDue:
+          (map['onboarding_balance_due'] as num?)?.toDouble() ?? 0,
     );
   }
 
@@ -309,7 +313,7 @@ class TenantService {
           .order('name', ascending: true);
       final bookshopsFuture = _client
           .from('bookshops')
-          .select('id, name, logo_url, latitude, longitude, address, is_active, tenant_id');
+          .select('id, name, logo_url, latitude, longitude, address, is_active, tenant_id, subscription_ends_at, plan, onboarding_fee_paid');
 
       final results = await Future.wait([churchesFuture, bookshopsFuture]);
 

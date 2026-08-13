@@ -17,6 +17,9 @@ void main() {
     await tester.tap(find.text('Show'));
     await tester.pump();
     expect(find.text('Success message'), findsOneWidget);
+    // Let the auto-dismiss timer fire so the test ends with no pending timers.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('PremiumToast.showError displays without error', (tester) async {
@@ -33,6 +36,8 @@ void main() {
     await tester.tap(find.text('Show'));
     await tester.pump();
     expect(find.text('Error message'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('PremiumToast.showInfo displays without error', (tester) async {
@@ -49,5 +54,7 @@ void main() {
     await tester.tap(find.text('Show'));
     await tester.pump();
     expect(find.text('Info message'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
   });
 }

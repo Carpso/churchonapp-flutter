@@ -10,6 +10,7 @@ import 'package:universal_io/io.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
+import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
 import 'package:geolocator/geolocator.dart';
 import '../data/transport_service.dart';
 import '../data/ride_pricing_provider.dart';
@@ -402,8 +403,6 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                                   destLatLng:
                                       _destLatLng ?? const LatLng(-15.395, 28.35),
                                   onRequestRide: () => _handleRidePayment(),
-                                  onDriverSelected: (driverId) =>
-                                      _listenForAcceptance(driverId),
                                 ),
                             ],
                           ),
@@ -502,11 +501,36 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
     final pricing = ref.read(ridePricingProvider);
     if (pricing.estimatedPrice == null || _isRequesting) return;
 
-    final fare = pricing.totalPayable;
-    final pickup = _pickupLatLng ?? const LatLng(-15.3875, 28.3228);
-    final dest = _destLatLng ?? const LatLng(-15.395, 28.35);
+    // Gross fare — the Lipila gateway adds the processing fee on top.
+    final fare = pricing.displayPrice;
     final isDelivery = pricing.selectedCategory == 'marketplace' ||
         pricing.selectedCategory == 'bookshop';
+
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => LipilaPaymentGateway(
+        amount: fare,
+        description: isDelivery ? 'Carpso Cargo Delivery' : 'Carpso Ride',
+        category: 'ride',
+        paymentReason: isDelivery ? 'Carpso Delivery Fare' : 'Carpso Ride Fare',
+        onComplete: (success, txId) {
+          Navigator.pop(sheetCtx);
+          if (success) {
+            _createRideRequest(fare, isDelivery);
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _createRideRequest(double fare, bool isDelivery) async {
+    if (_isRequesting) return;
+    final pricing = ref.read(ridePricingProvider);
+    final pickup = _pickupLatLng ?? const LatLng(-15.3875, 28.3228);
+    final dest = _destLatLng ?? const LatLng(-15.395, 28.35);
 
     setState(() => _isRequesting = true);
     try {

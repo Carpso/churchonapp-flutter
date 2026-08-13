@@ -8,12 +8,12 @@ class Env {
   static String get mapsZimbabweUrl => dotenv.env['MAPS_ZIMBABWE_URL'] ?? 'https://maps.churchonapp.com/zimbabwe.pmtiles';
   static String get liveStreamUrl => dotenv.env['LIVE_STREAM_URL'] ?? 'https://db.churchonapp.com:8088/live/';
   
-  static String get r2Endpoint => dotenv.env['R2_ENDPOINT'] ?? '';
   static String get r2PublicDomain => dotenv.env['R2_PUBLIC_DOMAIN'] ?? 'media.churchonapp.com';
-  
-  static String get geminiApiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
-  static String get googleWebClientId => dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '';
-  static String get huggingFaceToken => dotenv.env['HUGGINGFACE_TOKEN'] ?? '';
+
+  // NOTE: Server-side secrets (R2 keys, Cloudflare token, Gemini/HuggingFace
+  // keys, Resend, Lipila) are NEVER read in the app — they live only in the
+  // Edge Function environment (Deno.env.get). Never add them here: any value
+  // in this file that is bundled as an asset ships inside every release APK/AAB.
 
   static String get lipilaWebhookUrl =>
       dotenv.env['LIPILA_WEBHOOK_URL'] ??

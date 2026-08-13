@@ -37,10 +37,12 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Role check: only superadmin, employee, or existing bookshop_owner can create bookshops
+    // Role check: superadmin/employee/bookshop_owner/vendor may create;
+    // any authenticated user without a tenant may also self-register a bookshop.
     const { data: profile } = await supabase
-      .from("profiles").select("role").eq("id", user.id).maybeSingle();
-    if (!["superadmin", "coa_employee", "bookshop_owner", "vendor"].includes(profile?.role)) {
+      .from("profiles").select("role, tenant_id").eq("id", user.id).maybeSingle();
+    const allowedRoles = ["superadmin", "coa_employee", "bookshop_owner", "vendor"];
+    if (!allowedRoles.includes(profile?.role) && profile?.tenant_id) {
       return new Response(JSON.stringify({ error: "Forbidden: insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -79,6 +81,9 @@ Deno.serve(async (req: Request) => {
     }
 
     // Create the bookshop record (proper table, not marketplace_items)
+    // New bookshops get a 30-day FREE trial (same as churches).
+    const trialDays = Number(Deno.env.get("BOOKSHOP_TRIAL_DAYS") ?? "30");
+    const trialEndsAt = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString();
     await supabase.from("bookshops").insert({
       tenant_id: tenantId,
       name: name.trim(),
@@ -89,6 +94,8 @@ Deno.serve(async (req: Request) => {
       owner_name: profile?.full_name ?? (user.email ?? name),
       status: "pending",
       is_active: true,
+      subscription_ends_at: trialEndsAt,
+      plan: "silver",
     });
 
     // Assign caller as bookshop_owner and link to the new tenant

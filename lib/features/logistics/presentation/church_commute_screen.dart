@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
 import '../../profile/data/notification_service.dart';
 import '../../../core/providers/profile_provider.dart';
+import '../../modules/logistics/presentation/weather_maps_screen.dart';
 
 class ChurchCommuteScreen extends ConsumerStatefulWidget {
   const ChurchCommuteScreen({super.key});
@@ -49,6 +51,30 @@ class _ChurchCommuteScreenState extends ConsumerState<ChurchCommuteScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeader(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildQuickActionCard(
+                          icon: LucideIcons.bus,
+                          label: "Live Bus Tracking",
+                          color: Colors.orange,
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const WeatherMapsScreen())),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildQuickActionCard(
+                          icon: LucideIcons.car,
+                          label: "Book Carpso Ride",
+                          color: const Color(0xFFE8C547),
+                          onTap: () => context.push('/ride'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.all(20),
@@ -107,6 +133,35 @@ class _ChurchCommuteScreenState extends ConsumerState<ChurchCommuteScreen> {
           const SizedBox(height: 8),
           Text("Connect with church-verified drivers and riders for a safe commute to service.", style: TextStyle(color: Colors.grey[600], fontSize: 14)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionCard({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
+            const Icon(LucideIcons.chevronRight, color: Colors.grey, size: 16),
+          ],
+        ),
       ),
     );
   }

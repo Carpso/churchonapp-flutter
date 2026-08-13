@@ -146,6 +146,34 @@ serve(async (req) => {
         });
       }
 
+      // ── Security hardening: payouts must be anchored to a REAL collection ──
+      // The `transactions` row is client-insertable, so `status = completed`
+      // alone proves nothing. Require a matching coa_payments row (created by
+      // lipila-collect via service role) that reached a confirmed status.
+      // coa_payments UPDATE is superadmin-only, so a member cannot forge this.
+      const { data: payment } = await supabase
+        .from("coa_payments")
+        .select("status, amount, phone_number")
+        .eq("payment_ref", reference)
+        .maybeSingle();
+      const confirmedStatuses = ["approved", "completed", "confirmed", "settled"];
+      const paymentStatus = (payment?.status ?? "").toLowerCase();
+      if (!payment || !confirmedStatuses.includes(paymentStatus)) {
+        return new Response(JSON.stringify({
+          error: "Forbidden: no verified collection for this reference",
+        }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Never pay out more than the verified collection (defense in depth).
+      if (typeof payment.amount === "number" && Number(txn.amount) > payment.amount + 1.0) {
+        return new Response(JSON.stringify({ error: "Forbidden: payout exceeds verified collection" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const norm = (p: string): string => {
         let s = (p ?? "").replace(/\D/g, "");
         if (s.startsWith("0")) s = "260" + s.slice(1);

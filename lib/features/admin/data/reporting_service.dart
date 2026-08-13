@@ -111,3 +111,8 @@ final reportsStreamProvider = StreamProvider.family<List<ServiceReport>, String>
   return ref.watch(reportingServiceProvider).getReportsStream(tenantId);
 });
 
+/// Current-month church service summary from `get_church_service_summary`.
+final churchServiceSummaryProvider = FutureProvider.family<Map<String, dynamic>, String>((ref, tenantId) {
+  return ref.watch(reportingServiceProvider).getServiceSummary(tenantId);
+});
+

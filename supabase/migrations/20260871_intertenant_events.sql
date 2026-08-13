@@ -16,7 +16,7 @@ BEGIN
     PERFORM cron.schedule(
       'event-remind',
       '0 */6 * * *',
-      'SELECT net.http_post(url := ''https://daboihiudmglwhdfvsku.supabase.co/functions/v1/push-notifications'', headers := ''{"Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhYm9paGl1ZG1nbHdoZGZ2c2t1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MzY0ODgsImV4cCI6MjA5ODExMjQ4OH0.jG1-PyHH6Pa6R77M5h2uFpMsLihkxh3NSAzlX9UDA8Q","Content-Type":"application/json"'', body := ''{"action":"event_reminder"}'')'
+      'SELECT net.http_post(url := ''https://daboihiudmglwhdfvsku.supabase.co/functions/v1/push-notifications'', headers := ''{"x-cron-secret":"__SET_CRON_SECRET_VIA_VAULT__","Content-Type":"application/json"'', body := ''{"action":"event_reminder"}'')'
     );
   END IF;
 END;

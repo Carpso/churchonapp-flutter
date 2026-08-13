@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/features/transport/presentation/driver_portal_screen.dart';
-import 'finance_dashboard_screen.dart';
+import 'package:church_on_app/features/transport/presentation/driver_earnings_screen.dart';
 
 class DriverDashboardScreen extends ConsumerStatefulWidget {
   const DriverDashboardScreen({super.key});
@@ -139,7 +139,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                   const SizedBox(height: 15),
                   _actionBtn(theme, LucideIcons.map, "View Rides", "Browse available ride requests near you", Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DriverPortalScreen()))),
                   _actionBtn(theme, LucideIcons.package, "Deliveries", "Available cargo and package deliveries", Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DriverPortalScreen()))),
-                  _actionBtn(theme, LucideIcons.barChart3, "Earnings Report", "Detailed payout and earnings history", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FinanceDashboardScreen()))),
+                  _actionBtn(theme, LucideIcons.barChart3, "Earnings Report", "Detailed payout and earnings history", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DriverEarningsScreen()))),
                 ]),
               ),
             ),

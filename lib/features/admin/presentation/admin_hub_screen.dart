@@ -118,6 +118,15 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.amber,
                  () => context.push('/ministry-management'),
               ),
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+              _buildAdminTile(
+                context,
+                LucideIcons.calendarClock,
+                "Service Schedule",
+                "Set weekly service days & Carpso Ride prompts",
+                Colors.teal,
+                () => context.push('/church-schedule'),
+              ),
             if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'bookshop_owner' || role == 'vendor' || role == 'merchant')
               _buildAdminTile(
                 context,

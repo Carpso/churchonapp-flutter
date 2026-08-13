@@ -48,6 +48,24 @@ serve(async (req) => {
     })
   }
 
+  // Leadership only: pastors, treasurers, and platform employees may broadcast SMS
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle()
+  const allowedRoles = [
+    'superadmin', 'coa_employee', 'bishop', 'apostle', 'pastor',
+    'prophet', 'general_secretary', 'general_treasurer', 'admin',
+    'leader', 'treasurer', 'usher',
+  ]
+  if (!profile || !allowedRoles.includes(profile.role)) {
+    return new Response(JSON.stringify({ error: 'Forbidden' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 403,
+    })
+  }
+
   const { allowed } = await checkRateLimit(supabase, user.id, "send_sms", 5, 1);
   if (!allowed) {
     return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {

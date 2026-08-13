@@ -10,7 +10,6 @@ import '../../../core/providers/auth_provider.dart';
 import '../../../core/widgets/app_error_view.dart';
 import '../../../core/services/code_generator_service.dart';
 import '../../../core/utils/country_detection_util.dart';
-import '../../../core/services/plan_service.dart';
 import '../../../core/config/remote_config.dart';
 
 class RegisterChurchScreen extends ConsumerStatefulWidget {
@@ -149,7 +148,10 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
   }
 
   void _showSuccessDialog({String? inviteCode}) {
-    final fee = 'K${PlanLimits.onboardingFeeKwacha.toStringAsFixed(0)}';
+    final roleFee = _selectedRole == 'bishop'
+        ? widgetRemoteConfig(ref).getDouble('onboarding_fee_bishop_kwacha', 1000)
+        : widgetRemoteConfig(ref).getDouble('onboarding_fee_church_kwacha', 500);
+    final fee = 'K${roleFee.toStringAsFixed(roleFee % 1 == 0 ? 0 : 2)}';
     final churchName = _nameController.text.trim();
     showDialog(
       context: context,
@@ -253,7 +255,10 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final fee = _selectedRole == 'pastor' ? 'K 500' : 'K 1,000';
+    final fee = _selectedRole == 'bishop'
+        ? widgetRemoteConfig(ref).getDouble('onboarding_fee_bishop_kwacha', 1000)
+        : widgetRemoteConfig(ref).getDouble('onboarding_fee_church_kwacha', 500);
+    final feeText = 'K ${fee.toStringAsFixed(fee % 1 == 0 ? 0 : 2)}';
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -311,7 +316,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
                       children: [
                         const Text("Required Onboarding Fee", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         Text(
-                          fee,
+                          feeText,
                           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.amber),
                         ),
                       ],

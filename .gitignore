@@ -104,3 +104,7 @@ run_output.txt
 analyze_output.txt
 *.pdf
 0
+
+# Supabase CLI local state (project refs, versions)
+supabase/.temp/
+

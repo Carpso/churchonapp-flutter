@@ -50,6 +50,7 @@ import 'package:church_on_app/features/profile/presentation/terms_of_service_scr
 import 'package:church_on_app/features/profile/presentation/about_screen.dart';
 import 'package:church_on_app/features/support/presentation/support_hub_screen.dart';
 import 'package:church_on_app/features/admin/presentation/expansion_leads_screen.dart';
+import 'package:church_on_app/features/admin/presentation/carpso_driver_approval_screen.dart';
 import 'package:church_on_app/features/admin/presentation/emergency_shutdown_screen.dart';
 import 'package:church_on_app/features/admin/presentation/ad_management_screen.dart';
 import 'package:church_on_app/features/admin/presentation/report_creator_screen.dart';
@@ -83,6 +84,7 @@ import 'package:church_on_app/features/profile/presentation/church_referral_scre
 import 'package:church_on_app/features/profile/presentation/writer_application_screen.dart';
 import 'package:church_on_app/features/marketplace/presentation/cart_screen.dart';
 import 'package:church_on_app/features/marketplace/presentation/checkout_screen.dart';
+import 'package:church_on_app/features/church/presentation/church_schedule_screen.dart';
 import 'package:church_on_app/features/marketplace/presentation/marketplace_screen.dart';
 import 'package:church_on_app/features/marketplace/presentation/vendor_dashboard_screen.dart';
 import 'package:church_on_app/features/admin/presentation/ministry_management_screen.dart';
@@ -305,7 +307,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             route == '/emergency-shutdown' ||
             route == '/ads' ||
             route == '/platform-ads' ||
-            route == '/expansion-leads') {
+            route == '/expansion-leads' ||
+            route == '/shutdown' ||
+            route == '/writer-approvals' ||
+            route == '/carpso-approval' ||
+            route == '/manage-partners' ||
+            route == '/news-management' ||
+            route == '/feature-toggles' ||
+            route == '/platform-analytics' ||
+            route == '/role-quick-actions') {
           return user.isEmployee;
         }
 
@@ -326,8 +336,23 @@ final routerProvider = Provider<GoRouter>((ref) {
             route.startsWith('/custom-roles') ||
             route == '/admin-hub' ||
             route == '/ledger' ||
-            route == '/financial-report') {
-          return user.isPastorOrHigher;
+            route == '/financial-report' ||
+            route == '/data-import' ||
+            route == '/poll-creator' ||
+            route == '/report-creator') {
+          return user.isPastorOrHigher || user.role == 'general_treasurer';
+        }
+
+        // Finance (Treasurer / Usher / Leadership)
+        if (route == '/turnover-tax') {
+          return user.isLedgerManager;
+        }
+
+        // Church staff scanning (Usher / Admin / Leader)
+        if (route == '/attendance-scanner' ||
+            route == '/ride-scanner' ||
+            route.startsWith('/events/ticket-scanner')) {
+          return user.isAdminOrHigher || user.role == 'usher';
         }
 
         // Logistics (Driver / Rider / Employee)
@@ -798,6 +823,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ExpansionLeadsScreen(),
       ),
       GoRoute(
+        path: '/carpso-approval',
+        builder: (context, state) => const CarpsoDriverApprovalScreen(),
+      ),
+      GoRoute(
         path: '/service-report',
         builder: (context, state) => const ServiceReportFormScreen(),
       ),
@@ -820,6 +849,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin-hub',
         builder: (context, state) => const AdminHubScreen(),
+      ),
+      GoRoute(
+        path: '/church-schedule',
+        builder: (context, state) => const ChurchScheduleScreen(),
       ),
       GoRoute(
         path: '/ledger',
@@ -1258,7 +1291,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/ride',
-        builder: (context, state) => const RideRequestScreen(),
+        builder: (context, state) {
+          final extra = state.extra;
+          if (extra is Map && extra['mode'] is String) {
+            return RideRequestScreen(mode: extra['mode'] as String);
+          }
+          return const RideRequestScreen();
+        },
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

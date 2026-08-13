@@ -82,6 +82,7 @@ class _ServiceReportScreenState extends ConsumerState<ServiceReportScreen> {
   }
 
   Widget _buildReportActionCard(Tenant tenant, UserProfile? profile) {
+    final summaryAsync = ref.watch(churchServiceSummaryProvider(tenant.id));
     return Container(
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(25),
@@ -104,7 +105,85 @@ class _ServiceReportScreenState extends ConsumerState<ServiceReportScreen> {
             "Track attendance, offerings, and announcements for ${tenant.name}",
             style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13),
           ),
+          const SizedBox(height: 18),
+          summaryAsync.when(
+            data: (s) {
+              final count = (s['service_count'] as num?)?.toInt() ?? 0;
+              final attendance = (s['attendance'] as num?)?.toInt() ?? 0;
+              final offering = (s['offering'] as num?)?.toDouble() ?? 0;
+              final visitors = (s['visitors'] as num?)?.toInt() ?? 0;
+              final salvations = (s['salvations'] as num?)?.toInt() ?? 0;
+              final online = (s['online_viewers'] as num?)?.toInt() ?? 0;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "THIS MONTH",
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _summaryChip(LucideIcons.calendarDays, "$count", "Services"),
+                      const SizedBox(width: 10),
+                      _summaryChip(LucideIcons.users, "$attendance", "Attended"),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _summaryChip(LucideIcons.banknote, "K${offering.toStringAsFixed(0)}", "Offering"),
+                      const SizedBox(width: 10),
+                      _summaryChip(LucideIcons.eye, "$online", "Online"),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _summaryChip(LucideIcons.userPlus, "$visitors", "Visitors"),
+                      const SizedBox(width: 10),
+                      _summaryChip(LucideIcons.heartHandshake, "$salvations", "Saved"),
+                    ],
+                  ),
+                ],
+              );
+            },
+            loading: () => SizedBox(
+              height: 96,
+              child: Center(
+                child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)),
+              ),
+            ),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _summaryChip(IconData icon, String value, String label) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 16),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13), overflow: TextOverflow.ellipsis),
+                  Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10), overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

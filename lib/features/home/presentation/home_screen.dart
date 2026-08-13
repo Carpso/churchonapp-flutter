@@ -15,7 +15,7 @@ import 'package:church_on_app/core/widgets/onboarding_quick_start.dart';
 import 'package:church_on_app/features/connect/presentation/create_social_post_screen.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_top_bar.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_greeting_header.dart';
-import 'package:church_on_app/features/home/presentation/widgets/home_hero_card.dart';
+
 import 'package:church_on_app/features/home/presentation/widgets/home_quick_actions.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_sparkle_grid.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_latest_sermon.dart';
@@ -26,11 +26,12 @@ import 'package:church_on_app/features/home/presentation/widgets/home_section_ti
 import 'package:church_on_app/features/home/presentation/widgets/home_streak_preview.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_smart_reminder.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_admin_dashboard.dart';
+import 'package:church_on_app/features/home/presentation/widgets/home_hero_carousel.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_promo_carousel.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_subscription_paywall.dart';
 import 'package:church_on_app/features/admin/presentation/widgets/ad_banner_widget.dart';
 import '../widgets/announcement_ticker.dart';
-import 'package:church_on_app/features/navigation/presentation/carpso_suggestion_card.dart';
+
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/theme/app_theme.dart';
 
@@ -335,7 +336,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           const SizedBox(height: 20),
                           const HomeDailyVerse(),
                           const SizedBox(height: 20),
-                          const HomeHeroCard(),
+                          const HomeHeroCarousel(),
                           const SizedBox(height: 20),
                           const HomeStreakPreview(),
                           const SizedBox(height: 20),
@@ -377,10 +378,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                           ),
                           const HomeNews(),
-                          const SizedBox(height: 24),
-                          // Carpso Ride placed at the bottom so it doesn't disturb
-                          // the primary home tab layout.
-                          const CarpsoSuggestionCard(contextType: 'home'),
                           SizedBox(height: 80 + bottomInset),
                         ]),
                       ),

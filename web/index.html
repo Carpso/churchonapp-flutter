@@ -18,6 +18,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://github.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: wss:; frame-src 'self' https:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'">
   <meta name="description" content="Church On App - Connecting Churches Through Technology. Digital ecosystem for modern congregations with sermons, events, ride-sharing, digital giving, and community.">
   <meta name="keywords" content="church, app, church management, sermons, events, digital giving, ride sharing, community, faith">
   <meta property="og:title" content="Church On App">
@@ -59,7 +60,7 @@
   <title>Church On App | Connecting Churches Through Technology</title>
 
   <link rel="manifest" href="manifest.json">
-  <script src="https://github.com/corbado/flutter-passkeys/releases/download/2.4.0/bundle.js" type="text/javascript"></script>
+  <script src="https://github.com/corbado/flutter-passkeys/releases/download/2.4.0/bundle.js" type="text/javascript" integrity="sha384-lJXabVIVTplZn8Gq0rr7HchxKSYaVleDXbBqiFCwr5wJ9cQnHZGdx89nnZX9xHca" crossorigin="anonymous"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
     const fb = {

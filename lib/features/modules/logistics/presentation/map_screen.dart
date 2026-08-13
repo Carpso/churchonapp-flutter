@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:church_on_app/core/widgets/church_map.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 
@@ -16,24 +16,53 @@ class MapScreen extends ConsumerStatefulWidget {
 class _MapScreenState extends ConsumerState<MapScreen> {
   final LatLng _lusaka = const LatLng(-15.3875, 28.3228);
   final LatLng _harare = const LatLng(-17.8252, 31.0335);
-  
+
+  LatLng _center = const LatLng(-15.3875, 28.3228);
+  LatLng? _userPosition;
   List<Tenant> _churches = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadChurches();
+    _load();
   }
 
-  Future<void> _loadChurches() async {
-    final churches = await ref.read(tenantServiceProvider).getNearbyChurches(_lusaka.latitude, _lusaka.longitude);
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+    });
+    _fetchUserPosition();
+    final churches = await ref.read(tenantServiceProvider).getNearbyChurches(_center.latitude, _center.longitude);
     if (mounted) {
       setState(() {
         _churches = churches;
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _fetchUserPosition() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+        final pos = await Geolocator.getCurrentPosition();
+        if (mounted) {
+          setState(() => _userPosition = LatLng(pos.latitude, pos.longitude));
+        }
+      }
+    } catch (e) {
+      debugPrint('MapScreen: location fetch failed: $e');
+    }
+  }
+
+  void _switchRegion(LatLng center, bool isSelected) {
+    if (isSelected) return;
+    setState(() => _center = center);
+    _load();
   }
 
   @override
@@ -43,28 +72,26 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       appBar: AppBar(
         title: const Text("Expansion Map", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
-          IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _loadChurches),
+          IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _load),
         ],
       ),
       body: Stack(
         children: [
           ChurchMap(
-            center: _lusaka,
+            center: _center,
             zoom: 6, // View both Zambia and Zimbabwe
             markers: [
+              if (_userPosition != null)
+                buildUserMarker(point: _userPosition!),
               ..._churches.map((church) => buildChurchMarker(
                 point: LatLng(church.latitude ?? 0, church.longitude ?? 0),
                 name: church.name,
                 color: church.primaryColor,
                 logoUrl: church.logoUrl,
               )),
-              // Live "Kingdom Services" indicators (Mocked for demo)
-              _buildKingdomServiceMarker(const LatLng(-15.4167, 28.2833), "Mobile Clinic", Colors.red),
-              _buildKingdomServiceMarker(const LatLng(-17.8639, 31.0297), "Food Bank", Colors.green),
-              _buildKingdomServiceMarker(const LatLng(-12.9722, 28.6417), "Evangelism Team", Colors.blue), // Ndola
             ],
           ),
-          
+
           // Map Overlay Controls
           Positioned(
             top: 20,
@@ -92,55 +119,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             left: 20,
             child: Column(
               children: [
-                 regionButton("ZAMBIA", _lusaka, true),
+                 regionButton("ZAMBIA", _lusaka, _center.latitude == _lusaka.latitude),
                 const SizedBox(height: 10),
-                 regionButton("ZIMBABWE", _harare, false),
+                 regionButton("ZIMBABWE", _harare, _center.latitude == _harare.latitude),
               ],
             ),
           ),
-          
+
           if (_isLoading)
             const Center(child: CircularProgressIndicator(color: Colors.amber)),
         ],
       ),
     );
-  }
-
-  Marker _buildKingdomServiceMarker(LatLng point, String type, Color color) {
-    return Marker(
-      point: point,
-      width: 60,
-      height: 60,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 10)],
-            ),
-            child: Icon(_getServiceIcon(type), color: Colors.white, size: 14),
-          ),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(4)),
-            child: Text(type, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _getServiceIcon(String type) {
-    switch (type) {
-      case "Mobile Clinic": return LucideIcons.heartPulse;
-      case "Food Bank": return LucideIcons.utensils;
-      case "Evangelism Team": return LucideIcons.megaphone;
-      default: return LucideIcons.info;
-    }
   }
 
   Widget mapFilterBadge(String label, IconData icon, Color color, bool isActive) {
@@ -163,7 +153,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   Widget regionButton(String label, LatLng center, bool isSelected) {
     return GestureDetector(
-      onTap: () {},
+      onTap: () => _switchRegion(center, isSelected),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(

@@ -3,6 +3,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/coins_service.dart';
+import '../../test_mocks.dart';
 
 class MockSupabaseClient extends Mock implements SupabaseClient {}
 class MockGoTrueClient extends Mock implements GoTrueClient {}
@@ -130,28 +131,36 @@ void main() {
 
       test('returns 5 coins for day 1', () async {
         final mockUser = MockUser();
+        when(() => mockUser.id).thenReturn('test-user');
         when(() => mockGoTrue.currentUser).thenReturn(mockUser);
+        when(() => mockClient.rpc(any(), params: any(named: 'params'))).thenReturn(MockFilterBuilder());
         final result = await coinsService.addAppOpenStreakCoins(1);
         expect(result, 5);
       });
 
       test('returns 10 coins for day 3', () async {
         final mockUser = MockUser();
+        when(() => mockUser.id).thenReturn('test-user');
         when(() => mockGoTrue.currentUser).thenReturn(mockUser);
+        when(() => mockClient.rpc(any(), params: any(named: 'params'))).thenReturn(MockFilterBuilder());
         final result = await coinsService.addAppOpenStreakCoins(3);
         expect(result, 10);
       });
 
       test('returns 20 coins for day 7', () async {
         final mockUser = MockUser();
+        when(() => mockUser.id).thenReturn('test-user');
         when(() => mockGoTrue.currentUser).thenReturn(mockUser);
+        when(() => mockClient.rpc(any(), params: any(named: 'params'))).thenReturn(MockFilterBuilder());
         final result = await coinsService.addAppOpenStreakCoins(7);
         expect(result, 20);
       });
 
       test('returns 30 coins for day 14', () async {
         final mockUser = MockUser();
+        when(() => mockUser.id).thenReturn('test-user');
         when(() => mockGoTrue.currentUser).thenReturn(mockUser);
+        when(() => mockClient.rpc(any(), params: any(named: 'params'))).thenReturn(MockFilterBuilder());
         final result = await coinsService.addAppOpenStreakCoins(14);
         expect(result, 30);
       });

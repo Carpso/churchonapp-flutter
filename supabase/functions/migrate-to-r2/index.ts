@@ -59,6 +59,19 @@ serve(async (req: Request) => {
     });
   }
 
+  // Admin-only: only SuperAdmin / COA Employee may run migrations
+  const { data: profile } = await supabaseAuth
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!profile || !["superadmin", "coa_employee"].includes(profile.role)) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 403,
+    });
+  }
+
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   const accessKey = Deno.env.get("R2_ACCESS_KEY_ID");

@@ -10,7 +10,6 @@ import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 import 'package:church_on_app/core/widgets/premium_confirmation_sheet.dart';
-import 'package:church_on_app/features/navigation/presentation/carpso_suggestion_card.dart';
 import 'package:church_on_app/core/config/fee_config.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -90,8 +89,6 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                       event['description'] ?? "Join us for an incredible experience as we gather to worship, learn, and grow together. This event is designed to bring the community closer to God through inspired messages and powerful fellowship.",
                       style: TextStyle(fontSize: 16, height: 1.6, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.85)),
                     ),
-                    const SizedBox(height: 16),
-                    const CarpsoSuggestionCard(contextType: 'event'),
                     const SizedBox(height: 30),
                     // 1. Linked Participating Churches (For interchurch conferences)
                     FutureBuilder<List<Map<String, dynamic>>>(

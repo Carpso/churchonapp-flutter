@@ -12,6 +12,7 @@ import '../../../core/services/plan_service.dart';
 import '../../../core/config/fee_config.dart';
 import '../../../core/config/remote_config.dart';
 import '../data/audit_service.dart';
+import 'resolution_hub_screen.dart';
 
 class CoaEmployeeDashboard extends ConsumerStatefulWidget {
   const CoaEmployeeDashboard({super.key});
@@ -463,6 +464,9 @@ Widget _buildScreen(UserProfile profile) {
                 context.push('/carpso-approval');
               }),
               _buildAction(LucideIcons.scrollText, "Audit Log", "View admin actions and changes", Colors.orange, () => _showAuditLog()),
+              _buildAction(LucideIcons.lifeBuoy, "Resolution Hub", "Respond to tickets, disputes & error reports", Colors.redAccent, () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const ResolutionHubScreen()));
+              }),
 const SizedBox(height: 40),
             ],
           ),

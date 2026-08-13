@@ -10,6 +10,7 @@ import '../data/bible_quiz_service.dart';
 import '../data/pvp_service.dart';
 import '../data/quiz_event_service.dart';
 import '../../../../core/providers/profile_provider.dart';
+import '../../../bible/presentation/scripture_audio_button.dart';
 import 'bible_quiz_results_screen.dart';
 
 enum GamePhase { matchmaking, vsReveal, countdown, playing, answering, feedback, review, finished }
@@ -956,17 +957,26 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
                       children: [
                         // Scripture reference
                         if (q.scriptureReference != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Text(
-                              q.scriptureReference!,
-                              style: TextStyle(
-                                color: theme.primaryColor.withValues(alpha: 0.8),
-                                fontSize: 13,
-                                fontStyle: FontStyle.italic,
-                                fontWeight: FontWeight.w600,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  q.scriptureReference!,
+                                  style: TextStyle(
+                                    color: theme.primaryColor.withValues(alpha: 0.8),
+                                    fontSize: 13,
+                                    fontStyle: FontStyle.italic,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
-                            ),
+                              ScriptureAudioButton(
+                                reference: q.scriptureReference!,
+                                iconColor: theme.primaryColor,
+                                iconSize: 16,
+                              ),
+                            ],
                           ),
                         // Question text
                         Text(

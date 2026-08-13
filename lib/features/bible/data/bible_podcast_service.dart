@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'bible_books.dart';
-import '../presentation/bible_audio_player.dart' show kjvBookAbbrevs;
+import 'bible_audio_r2.dart';
 
 class BiblePodcastEpisode {
   final String id;
@@ -45,10 +45,7 @@ class BiblePodcastService {
     'Jude', 'Revelation',
   };
 
-  String _getAudioUrl(String bookName) {
-    final abbrev = kjvBookAbbrevs[bookName] ?? bookName.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '_');
-    return 'https://archive.org/download/kjv_librivox/${abbrev}_01_kjv.mp3';
-  }
+  String? _getAudioUrl(String bookName) => kjvR2BookUrl(bookName);
 
   bool _hasAudio(String book) => _booksWithAudio.contains(book);
 
@@ -76,7 +73,7 @@ class BiblePodcastService {
         book: book,
         duration: available ? '~${3 + (index % 15)}:00' : 'TTS Only',
         thumbnailUrl: '', // Placeholder — Bible book art coming soon
-        audioUrl: available ? _getAudioUrl(book) : '',
+        audioUrl: available ? (_getAudioUrl(book) ?? '') : '',
         description: available
             ? 'Dramatized reading of the Book of $book by LibriVox volunteers. Chapter-by-chapter audio narration with character voices.'
             : 'Audio recording not yet available for $book. Use Text-to-Speech (Read Aloud) or stream chapter audio from the Bible reader.',

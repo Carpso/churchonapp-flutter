@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/services/code_generator_service.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 class BookshopOnboardingScreen extends ConsumerStatefulWidget {
   const BookshopOnboardingScreen({super.key});
@@ -76,15 +80,27 @@ class _BookshopOnboardingScreenState extends ConsumerState<BookshopOnboardingScr
       if (result == null || result['success'] != true) {
         throw Exception(result?['error'] ?? 'Failed to create bookshop');
       }
+      final tenantId = result['tenantId'] as String?;
+
+      // Generate + register a bookshop invite code so workers can join.
+      String? inviteCode;
+      try {
+        final codeGenerator = CodeGeneratorService(client);
+        inviteCode = await codeGenerator.generateBookshopCode('ZM');
+        await codeGenerator.registerCode(
+          codeType: 'bookshop',
+          codeValue: inviteCode,
+          countryIso: 'ZM',
+          userId: userId,
+          metadata: {'tenant_id': tenantId, 'bookshop_name': _nameC.text.trim()},
+        );
+      } catch (e) {
+        debugPrint('Bookshop code generation failed: $e');
+      }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bookshop created successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.pop(context);
+      await _showSuccessDialog(inviteCode, tenantId);
+      if (mounted) Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -93,6 +109,96 @@ class _BookshopOnboardingScreenState extends ConsumerState<BookshopOnboardingScr
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Future<void> _showSuccessDialog(String? inviteCode, String? tenantId) async {
+    final trialDays = widgetRemoteConfig(ref).getInt('subscription_trial_days', 30);
+    final inviteLink = inviteCode != null
+        ? 'https://churchonapp.com/join?code=$inviteCode'
+        : null;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(LucideIcons.checkCircle, color: Colors.green),
+            SizedBox(width: 10),
+            Text('Bookshop Created!'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Your bookshop is live on a $trialDays-day FREE trial '
+                '(Silver plan). After the trial you can stay on the free '
+                'Silver plan or upgrade to Gold/Platinum.',
+                style: const TextStyle(fontSize: 13, height: 1.5),
+              ),
+              if (inviteCode != null) ...[
+                const SizedBox(height: 16),
+                const Text('Bookshop Invite Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          inviteCode,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 1.2),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(LucideIcons.copy, size: 18),
+                        onPressed: () async {
+                          await Clipboard.setData(ClipboardData(text: inviteCode));
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Code copied to clipboard')),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Share this code with your staff so they can join your bookshop tenant.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(LucideIcons.check, size: 16),
+            label: const Text('DONE'),
+          ),
+          if (inviteLink != null)
+            ElevatedButton.icon(
+              onPressed: () => SharePlus.instance.share(ShareParams(text: inviteLink)),
+              icon: const Icon(LucideIcons.share2, size: 16),
+              label: const Text('SHARE INVITE'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            ),
+        ],
+      ),
+    );
   }
 
   @override

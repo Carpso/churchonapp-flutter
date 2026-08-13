@@ -10,14 +10,12 @@ class VehicleSelectionSheet extends ConsumerStatefulWidget {
   final LatLng pickupLatLng;
   final LatLng destLatLng;
   final VoidCallback onRequestRide;
-  final void Function(String driverId) onDriverSelected;
 
   const VehicleSelectionSheet({
     super.key,
     required this.pickupLatLng,
     required this.destLatLng,
     required this.onRequestRide,
-    required this.onDriverSelected,
   });
 
   @override
@@ -44,7 +42,6 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final pricing = ref.watch(ridePricingProvider);
-    final driversAsync = ref.watch(activeDriversStreamProvider);
 
     if (pricing.isCalculating) {
       return Container(
@@ -89,7 +86,7 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
         children: [
           _buildFareCard(context, ref, pricing, theme),
           const SizedBox(height: 20),
-          _buildRequestButton(context, ref, pricing, driversAsync, theme),
+          _buildRequestButton(context, ref, pricing, theme),
         ],
       ),
     );
@@ -276,158 +273,24 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
     BuildContext context,
     WidgetRef ref,
     RidePricingState pricing,
-    AsyncValue<List<RideRegistration>> driversAsync,
     ThemeData theme,
   ) {
-    return driversAsync.when(
-      data: (drivers) {
-        final isDelivery = pricing.selectedCategory == 'marketplace' ||
-            pricing.selectedCategory == 'bookshop';
+    final isDelivery = pricing.selectedCategory == 'marketplace' ||
+        pricing.selectedCategory == 'bookshop';
 
-        return ElevatedButton(
-          onPressed: drivers.isEmpty ? null : () => _showDriverSelection(context, ref, drivers, isDelivery, theme),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.amberAccent,
-            foregroundColor: Colors.black,
-            minimumSize: const Size(double.infinity, 65),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-            elevation: 10,
-            shadowColor: Colors.amberAccent.withValues(alpha: 0.4),
-          ),
-          child: Text(
-            isDelivery ? "REQUEST CARGO DELIVERY" : "REQUEST CARPSO RIDE",
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.5, color: Colors.black),
-          ),
-        );
-      },
-      loading: () => const SizedBox(
-        height: 65,
-        child: Center(child: CircularProgressIndicator()),
+    return ElevatedButton(
+      onPressed: () => widget.onRequestRide(),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.amberAccent,
+        foregroundColor: Colors.black,
+        minimumSize: const Size(double.infinity, 65),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+        elevation: 10,
+        shadowColor: Colors.amberAccent.withValues(alpha: 0.4),
       ),
-      error: (e, _) => const SizedBox.shrink(),
-    );
-  }
-
-  void _showDriverSelection(
-    BuildContext context,
-    WidgetRef ref,
-    List<RideRegistration> drivers,
-    bool isDelivery,
-    ThemeData theme,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _DriverListContent(
-        drivers: drivers,
-        isDelivery: isDelivery,
-        onDriverSelected: (driverId) {
-          Navigator.pop(ctx);
-          widget.onDriverSelected(driverId);
-        },
-      ),
-    );
-  }
-}
-
-class _DriverListContent extends StatelessWidget {
-  final List<RideRegistration> drivers;
-  final bool isDelivery;
-  final ValueChanged<String> onDriverSelected;
-
-  const _DriverListContent({
-    required this.drivers,
-    required this.isDelivery,
-    required this.onDriverSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final driverType = isDelivery ? 'Courier' : 'Carpso Ride Driver';
-
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.5,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 15),
-            width: 50,
-            height: 5,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 25),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Available ${driverType}s",
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                ),
-                Text(
-                  "${drivers.length} Nearby",
-                  style: TextStyle(
-                    color: theme.primaryColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Divider(),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: drivers.length,
-              itemBuilder: (context, index) {
-                final driver = drivers[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(15),
-                    leading: CircleAvatar(
-                      backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-                      child: Icon(LucideIcons.user, color: theme.primaryColor),
-                    ),
-                    title: Text(
-                      "$driverType #${index + 1}",
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(driver.vehicleInfo ?? 'Standard Vehicle'),
-                    trailing: ElevatedButton(
-                      onPressed: () => onDriverSelected(driver.userId),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.primaryColor,
-                        foregroundColor: theme.colorScheme.onPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        "SELECT",
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+      child: Text(
+        isDelivery ? "REQUEST CARGO DELIVERY" : "REQUEST CARPSO RIDE",
+        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.5, color: Colors.black),
       ),
     );
   }

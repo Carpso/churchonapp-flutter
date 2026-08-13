@@ -84,15 +84,17 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
         ),
       ],
       flexibleSpace: FlexibleSpaceBar(
-        background: Padding(
-          padding: const EdgeInsets.only(top: 80, left: 25, right: 25),
-          child: Column(
-            children: [
-              Text("DEEP STUDY", style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-              Text("THEOLOGICAL SUITE", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 3, color: Colors.indigo)),
-              const SizedBox(height: 15),
-              _buildSearchBar(),
-            ],
+        background: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 80, left: 25, right: 25),
+            child: Column(
+              children: [
+                Text("DEEP STUDY", style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                Text("THEOLOGICAL SUITE", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 3, color: Colors.indigo)),
+                const SizedBox(height: 15),
+                _buildSearchBar(),
+              ],
+            ),
           ),
         ),
       ),
@@ -146,12 +148,14 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
                 child: const Icon(LucideIcons.bookOpen, color: Colors.white, size: 24),
               ),
               const SizedBox(width: 15),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("Bible Reader", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  Text(_translationLabel(settings.preferredTranslation), style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2)),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("Bible Reader", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(_translationLabel(settings.preferredTranslation), style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
               ),
             ],
           ),
@@ -183,7 +187,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1.1),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.95),
       itemCount: tools.length,
       itemBuilder: (context, index) {
         return GestureDetector(
@@ -216,7 +220,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
 
   Widget _buildToolCard(IconData icon, String title, String sub, Color color) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -231,10 +235,10 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
             decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: Icon(icon, color: color, size: 18),
           ),
-          const SizedBox(height: 10),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          const SizedBox(height: 8),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
-          Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+          Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
       ),
     );

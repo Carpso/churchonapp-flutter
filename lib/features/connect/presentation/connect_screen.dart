@@ -12,7 +12,6 @@ import 'create_social_post_screen.dart';
 import '../../modules/games/presentation/game_hub_screen.dart';
 import '../../../core/utils/connectivity_util.dart';
 import 'package:church_on_app/features/navigation/presentation/main_navigation_shell.dart';
-import 'package:church_on_app/features/navigation/presentation/carpso_suggestion_card.dart';
 
 class ConnectScreen extends ConsumerStatefulWidget {
   const ConnectScreen({super.key});
@@ -43,11 +42,6 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
   void dispose() {
     _tabController.dispose();
     super.dispose();
-  }
-
-  bool _showCarpsoCard() {
-    final day = DateTime.now().weekday;
-    return day == DateTime.sunday || day == DateTime.wednesday || day == DateTime.friday;
   }
 
   @override
@@ -95,14 +89,6 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
         },
         child: Column(
           children: [
-            if (_showCarpsoCard())
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: SizedBox(
-                  height: 48,
-                  child: CarpsoSuggestionCard(contextType: 'connect'),
-                ),
-              ),
             Expanded(
               child: Stack(
                 children: [

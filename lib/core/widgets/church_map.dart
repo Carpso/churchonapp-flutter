@@ -551,6 +551,45 @@ Marker buildCarpsoDestinationMarker({required LatLng point, required String labe
   );
 }
 
+/// A live bus marker shown at the bus's current GPS position.
+Marker buildBusMarker({required LatLng point, required String name, Color? color}) {
+  final c = color ?? const Color(0xFFE8C547);
+  return Marker(
+    point: point,
+    width: 80,
+    height: 80,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: c,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [BoxShadow(color: c.withValues(alpha: 0.4), blurRadius: 8)],
+          ),
+          child: const Icon(LucideIcons.bus, color: Colors.black, size: 16),
+        ),
+        const SizedBox(height: 2),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.black87,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            name,
+            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 Marker buildBusStopMarker({required LatLng point, required String name, Color? color}) {
   final c = color ?? Colors.orange;
   return Marker(

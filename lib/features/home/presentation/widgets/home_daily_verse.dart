@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/features/bible/data/bible_verse_service.dart';
+import 'package:church_on_app/features/bible/presentation/scripture_audio_button.dart';
 
 class HomeDailyVerse extends ConsumerWidget {
   const HomeDailyVerse({super.key});
@@ -66,6 +67,7 @@ class HomeDailyVerse extends ConsumerWidget {
                   constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                   padding: EdgeInsets.zero,
                 ),
+                ScriptureAudioButton(reference: verse.reference, iconColor: Colors.amber.shade200, iconSize: 18),
               ],
             ),
             const SizedBox(height: 16),

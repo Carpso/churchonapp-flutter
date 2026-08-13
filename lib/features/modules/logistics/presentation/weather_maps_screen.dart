@@ -5,16 +5,66 @@ import 'package:latlong2/latlong.dart';
 import 'package:church_on_app/core/widgets/church_map.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 import '../data/weather_model.dart';
 import '../data/weather_service.dart';
 import '../data/logistics_model.dart';
 import 'providers/weather_provider.dart';
 
-class WeatherMapsScreen extends ConsumerWidget {
+class WeatherMapsScreen extends ConsumerStatefulWidget {
   const WeatherMapsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WeatherMapsScreen> createState() => _WeatherMapsScreenState();
+}
+
+class _WeatherMapsScreenState extends ConsumerState<WeatherMapsScreen> {
+  LatLng? _userPosition;
+  bool _locating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserPosition();
+  }
+
+  Future<void> _fetchUserPosition() async {
+    setState(() => _locating = true);
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+        final pos = await Geolocator.getCurrentPosition();
+        if (mounted) {
+          setState(() {
+            _userPosition = LatLng(pos.latitude, pos.longitude);
+            _locating = false;
+          });
+        }
+        return;
+      }
+    } catch (e) {
+      debugPrint('WeatherMaps: location fetch failed: $e');
+    }
+    // Fallback to the user's church coordinates, then Lusaka centre.
+    final tenant = ref.read(currentTenantProvider);
+    if (mounted) {
+      setState(() {
+        _userPosition = LatLng(
+          tenant?.latitude ?? -15.3875,
+          tenant?.longitude ?? 28.3228,
+        );
+        _locating = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final weatherAsync = ref.watch(refreshableWeatherProvider);
     final busesAsync = ref.watch(refreshableBusesProvider);
     final trafficAsync = ref.watch(refreshableTrafficAlertsProvider);
@@ -126,19 +176,29 @@ class WeatherMapsScreen extends ConsumerWidget {
                 busesAsync.when(
                   data: (buses) => buses.isEmpty
                       ? _buildEmptyState("No buses running")
-                      : _buildBusTrackingCard(context, buses.first, ref),
+                      : _buildBusTrackingSection(context, buses, ref),
                   loading: () => _buildBusShimmer(),
-                  error: (e, _) => _buildBusTrackingCard(
-                    context,
+                  error: (e, _) => _buildBusTrackingSection(context, [
                     BusInfo(
                       id: 'default',
                       name: 'Bus #4',
                       route: 'Great East Road',
                       eta: '--',
                       nextStop: '--',
+                      stops: const [
+                        BusStop(name: 'Stop A', position: LatLng(-15.3850, 28.3200)),
+                        BusStop(name: 'Stop B', position: LatLng(-15.3900, 28.3250)),
+                        BusStop(name: 'Stop C', position: LatLng(-15.3950, 28.3300)),
+                      ],
+                      path: const [
+                        LatLng(-15.3850, 28.3200),
+                        LatLng(-15.3870, 28.3220),
+                        LatLng(-15.3900, 28.3250),
+                        LatLng(-15.3930, 28.3280),
+                        LatLng(-15.3950, 28.3300),
+                      ],
                     ),
-                    ref,
-                  ),
+                  ], ref),
                 ),
                 const SizedBox(height: 30),
                 const Text(
@@ -488,86 +548,213 @@ class WeatherMapsScreen extends ConsumerWidget {
     ));
   }
 
-  Widget _buildBusTrackingCard(BuildContext context, BusInfo bus, WidgetRef ref) {
-    final userPos = const LatLng(-15.3880, 28.3230);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(25),
-      child: SizedBox(
-        height: 310,
-        child: Stack(
-          children: [
-            ChurchMap(
-              center: userPos,
-              zoom: 14,
-              markers: [
-                ...bus.stops.map((s) => buildBusStopMarker(point: s.position, name: s.name)),
-                buildUserMarker(point: userPos),
-              ],
-              path: bus.path.isNotEmpty ? bus.path : null,
-            ),
-            Positioned(
-              bottom: 15, left: 15, right: 15,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)]),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
+  Widget _buildBusTrackingSection(BuildContext context, List<BusInfo> buses, WidgetRef ref) {
+    final userPos = _userPosition ?? const LatLng(-15.3875, 28.3228);
+    LatLng? center;
+    for (final b in buses) {
+      if (b.currentPosition != null) {
+        center = b.currentPosition;
+        break;
+      }
+    }
+
+    // All live bus positions on one map (falls back to route start).
+    final busMarkers = buses.map((b) {
+      final point = b.currentPosition ??
+          (b.path.isNotEmpty ? b.path.first : (b.stops.isNotEmpty ? b.stops.first.position : userPos));
+      return buildBusMarker(point: point, name: b.name);
+    }).toList();
+
+    // Bus stop markers from every bus.
+    final stopMarkers = buses
+        .expand((b) => b.stops)
+        .map((s) => buildBusStopMarker(point: s.position, name: s.name))
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(25),
+          child: SizedBox(
+            height: 310,
+            child: Stack(
+              children: [
+                ChurchMap(
+                  center: center ?? userPos,
+                  zoom: 13,
+                  markers: [
+                    ...busMarkers,
+                    ...stopMarkers,
+                    buildUserMarker(point: userPos),
+                  ],
+                  path: buses.isNotEmpty ? buses.first.path : null,
+                ),
+                if (_locating)
+                  const Positioned(
+                    top: 15,
+                    left: 15,
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    ),
+                  ),
+                Positioned(
+                  top: 15,
+                  right: 15,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(LucideIcons.bus, color: Colors.orange, size: 22),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text("${bus.name} → ${bus.route}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                              Text("ETA: ${bus.eta} • Next Stop: ${bus.nextStop}", style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                            ],
-                          ),
+                        const Icon(LucideIcons.bus, color: Colors.amber, size: 14),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${buses.length} ${buses.length == 1 ? 'bus' : 'buses'} live',
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
-                    if (bus.driverPhone != null && bus.driverPhone!.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildContactButton(
-                              icon: LucideIcons.phone,
-                              label: 'In-App Call',
-                              color: Colors.green,
-                              onTap: () => _contactDriver(context, bus, method: 'call'),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _buildContactButton(
-                              icon: LucideIcons.smartphone,
-                              label: 'Cellular',
-                              color: Colors.blue,
-                              onTap: () => _contactDriver(context, bus, method: 'cellular'),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _buildContactButton(
-                              icon: LucideIcons.messageCircle,
-                              label: 'Chat',
-                              color: Colors.orange,
-                              onTap: () => _contactDriver(context, bus, method: 'chat'),
-                            ),
-                          ),
-                        ],
+                  ),
+                ),
+                Positioned(
+                  bottom: 15,
+                  left: 15,
+                  child: GestureDetector(
+                    onTap: () => _fetchUserPosition(),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 8)],
                       ),
-                    ],
+                      child: const Icon(LucideIcons.crosshair, color: Colors.blue, size: 18),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 15),
+        // Carpso Ride CTA — connect tracking to booking.
+        GestureDetector(
+          onTap: () => context.push('/ride'),
+          child: Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8C547),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: const Color(0xFFE8C547).withValues(alpha: 0.3), blurRadius: 10)],
+            ),
+            child: const Row(
+              children: [
+                Icon(LucideIcons.car, color: Colors.black, size: 20),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Need a lift? Book a Carpso Ride to church",
+                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+                Icon(LucideIcons.chevronRight, color: Colors.black, size: 18),
+              ],
+            ),
+          ),
+        ),
+        ...buses.map((b) => _buildBusInfoCard(context, b)),
+      ],
+    );
+  }
+
+  Widget _buildBusInfoCard(BuildContext context, BusInfo bus) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFDA03).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(LucideIcons.bus, color: Color(0xFFB8860B), size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("${bus.name} → ${bus.route}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(LucideIcons.clock, size: 12, color: Colors.grey.shade500),
+                        const SizedBox(width: 4),
+                        Text("ETA: ${bus.eta}", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                        const SizedBox(width: 12),
+                        Icon(LucideIcons.mapPin, size: 12, color: Colors.grey.shade500),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text("Next: ${bus.nextStop}", style: TextStyle(color: Colors.grey.shade600, fontSize: 12), overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
+            ],
+          ),
+          if (bus.driverPhone != null && bus.driverPhone!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildContactButton(
+                    icon: LucideIcons.phone,
+                    label: 'In-App Call',
+                    color: Colors.green,
+                    onTap: () => _contactDriver(context, bus, method: 'call'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildContactButton(
+                    icon: LucideIcons.smartphone,
+                    label: 'Cellular',
+                    color: Colors.blue,
+                    onTap: () => _contactDriver(context, bus, method: 'cellular'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildContactButton(
+                    icon: LucideIcons.messageCircle,
+                    label: 'Chat',
+                    color: Colors.orange,
+                    onTap: () => _contactDriver(context, bus, method: 'chat'),
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
+        ],
       ),
     );
   }

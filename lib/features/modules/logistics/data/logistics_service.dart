@@ -8,9 +8,13 @@ class LogisticsService {
 
   LogisticsService(this._client);
 
-  Future<List<BusInfo>> getBuses() async {
+  Future<List<BusInfo>> getBuses({String? tenantId}) async {
     try {
-      final data = await _client.from('church_buses').select().limit(10);
+      final baseQuery = _client.from('church_buses').select();
+      final query = (tenantId != null && tenantId.isNotEmpty)
+          ? baseQuery.eq('tenant_id', tenantId)
+          : baseQuery;
+      final data = await query.limit(10);
       if (data.isNotEmpty) {
         return data.map((b) {
           final stopsRaw = (b['stops'] as List?)?.map((s) {
@@ -30,6 +34,8 @@ class LogisticsService {
               (pp['lng'] as num?)?.toDouble() ?? 28.320,
             );
           }).toList() ?? [];
+          final currentLat = (b['current_lat'] as num?)?.toDouble();
+          final currentLng = (b['current_lng'] as num?)?.toDouble();
 
           return BusInfo(
             id: b['id']?.toString() ?? '',
@@ -39,6 +45,10 @@ class LogisticsService {
             nextStop: b['next_stop']?.toString() ?? '--',
             stops: stopsRaw,
             path: pathRaw,
+            currentPosition: (currentLat != null && currentLng != null)
+                ? LatLng(currentLat, currentLng)
+                : null,
+            lastUpdatedAt: b['updated_at'] != null ? DateTime.tryParse(b['updated_at'].toString()) : null,
             driverName: b['driver_name']?.toString(),
             driverPhone: b['driver_phone']?.toString(),
           );

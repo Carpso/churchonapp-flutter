@@ -3,7 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
+import 'member_management_screen.dart';
+import 'service_report_screen.dart';
+import 'global_broadcast_screen.dart';
 
 class ApostleDashboardScreen extends ConsumerStatefulWidget {
   const ApostleDashboardScreen({super.key});
@@ -15,6 +19,7 @@ class ApostleDashboardScreen extends ConsumerStatefulWidget {
 class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen> {
   List<Map<String, dynamic>> _churches = [];
   Map<String, int> _memberCounts = {};
+  List<Map<String, dynamic>> _activeDeliveries = [];
   bool _loading = true;
 
   @override
@@ -43,13 +48,8 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
             branches.add({'id': cid, 'name': c['church_name']?.toString() ?? 'Unknown Church', 'city': '', 'country': ''});
           }
         }
-        if (mounted) {
-          setState(() {
-            _churches = branches;
-            _memberCounts = memberCounts;
-            _loading = false;
-          });
-        }
+        _churches = branches;
+        _memberCounts = memberCounts;
       } else {
         // Fallback: bounded church list only (no unbounded profile scan).
         final churchesRes = await client
@@ -57,33 +57,32 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
             .select('id, name, city, country')
             .order('created_at', ascending: false)
             .limit(50);
-        if (mounted) {
-          setState(() {
-            _churches = List<Map<String, dynamic>>.from(churchesRes as List);
-            _memberCounts = {};
-            _loading = false;
-          });
-        }
+        _churches = List<Map<String, dynamic>>.from(churchesRes as List);
+        _memberCounts = {};
       }
+
+      // Real active cargo missions (bounded).
+      final deliveriesRes = await client
+          .from('deliveries')
+          .select('id, pickup_address, delivery_address, status, created_at')
+          .or('status.eq.pending,status.eq.assigned,status.eq.picked_up,status.eq.in_transit')
+          .order('created_at', ascending: false)
+          .limit(20);
+      _activeDeliveries = List<Map<String, dynamic>>.from(deliveriesRes);
+
+      if (mounted) setState(() => _loading = false);
     } catch (e) {
       debugPrint("ApostleDashboard error: $e");
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   int get _totalMembers =>
       _churches.fold(0, (sum, c) => sum + (_memberCounts[c['id']?.toString()] ?? 0));
 
-  int get _missionsActive => _churches.length ~/ 2 + 1;
+  int get _activeMissions => _activeDeliveries.length;
 
-  String get _growthRate {
-    final total = _totalMembers;
-    if (total == 0) return "0%";
-    final growth = (total * 0.08).round();
-    return "+$growth%";
-  }
+  int get _avgMembersPerChurch => _churches.isEmpty ? 0 : (_totalMembers / _churches.length).round();
 
   @override
   Widget build(BuildContext context) {
@@ -97,98 +96,129 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
         ),
         backgroundColor: theme.colorScheme.surface,
         foregroundColor: theme.colorScheme.onSurface,
+        actions: [IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _loading ? null : _loadData)],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(25),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Network Metrics",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
-                  ),
-                  const SizedBox(height: 15),
-                  GridView.count(
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 15,
-                    crossAxisSpacing: 15,
-                    childAspectRatio: 1.2,
-                    children: [
-                      _buildMetricCard(context, "Network Churches", _churches.length.toString(), LucideIcons.church),
-                      _buildMetricCard(context, "Total Members", _totalMembers.toString(), LucideIcons.users),
-                      _buildMetricCard(context, "Missions Active", _missionsActive.toString(), LucideIcons.zap),
-                      _buildMetricCard(context, "Growth Rate", _growthRate, LucideIcons.trendingUp),
-                    ],
-                  ),
-                  const SizedBox(height: 40),
-                  Text(
-                    "Network Overview",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
-                  ),
-                  const SizedBox(height: 15),
-                  if (_churches.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 30),
-                      child: Center(
-                        child: Text(
-                          "No churches in your network yet.",
-                          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(25),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Network Metrics",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+                    ),
+                    const SizedBox(height: 15),
+                    GridView.count(
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 15,
+                      crossAxisSpacing: 15,
+                      childAspectRatio: 1.2,
+                      children: [
+                        _buildMetricCard(context, "Network Churches", _churches.length.toString(), LucideIcons.church),
+                        _buildMetricCard(context, "Total Members", _totalMembers.toString(), LucideIcons.users),
+                        _buildMetricCard(context, "Missions Active", _activeMissions.toString(), LucideIcons.zap),
+                        _buildMetricCard(context, "Avg Members/Church", _avgMembersPerChurch.toString(), LucideIcons.trendingUp),
+                      ],
+                    ),
+                    const SizedBox(height: 40),
+                    Text(
+                      "Network Overview",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+                    ),
+                    const SizedBox(height: 15),
+                    if (_churches.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 30),
+                        child: Center(
+                          child: Text(
+                            "No churches in your network yet.",
+                            style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                          ),
                         ),
+                      )
+                    else
+                      ...List.generate(_churches.length, (i) {
+                        final church = _churches[i];
+                        final cid = church['id']?.toString() ?? '';
+                        final members = _memberCounts[cid] ?? 0;
+                        final name = church['name']?.toString() ?? 'Unknown Church';
+                        final location = church['city']?.toString() ?? church['country']?.toString() ?? '';
+                        return _buildChurchRow(context, theme, name, members, location);
+                      }),
+                    if (_churches.length > 1) ...[
+                      const SizedBox(height: 40),
+                      Text(
+                        "Members by Church",
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
                       ),
-                    )
-                  else
-                    ...List.generate(_churches.length, (i) {
-                      final church = _churches[i];
-                      final cid = church['id']?.toString() ?? '';
-                      final members = _memberCounts[cid] ?? 0;
-                      final name = church['name']?.toString() ?? 'Unknown Church';
-                      final location = church['city']?.toString() ?? church['country']?.toString() ?? '';
-                      return _buildChurchRow(context, theme, name, members, location);
+                      const SizedBox(height: 15),
+                      _buildMembersChart(context, theme),
+                    ],
+                    const SizedBox(height: 40),
+                    Text(
+                      "Active Missions",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+                    ),
+                    const SizedBox(height: 15),
+                    if (_activeDeliveries.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 30),
+                        child: Center(
+                          child: Text(
+                            "No active cargo missions right now.",
+                            style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                          ),
+                        ),
+                      )
+                    else
+                      ..._activeDeliveries.map((d) => _buildMissionItem(context, theme, d)),
+                    const SizedBox(height: 40),
+                    Text(
+                      "Quick Actions",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+                    ),
+                    const SizedBox(height: 15),
+                    _buildQuickAction(context, LucideIcons.church, "Member Management", Colors.blue, () {
+                      final tenant = ref.read(currentTenantProvider);
+                      if (tenant == null) {
+                        _noTenantSnack(context);
+                        return;
+                      }
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const MemberManagementScreen()));
                     }),
-                  const SizedBox(height: 40),
-                  Text(
-                    "Growth Trend",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
-                  ),
-                  const SizedBox(height: 15),
-                  _buildGrowthPlaceholder(context, theme),
-                  const SizedBox(height: 40),
-                  Text(
-                    "Active Missions",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
-                  ),
-                  const SizedBox(height: 15),
-                  _buildMissionItem(context, theme, "Northern Outreach", "Lusaka, Ndola", "12 workers"),
-                  _buildMissionItem(context, theme, "Copperbelt Revival", "Kitwe, Chingola", "8 workers"),
-                  _buildMissionItem(context, theme, "Eastern Planting", "Chipata, Lundazi", "5 workers"),
-                  const SizedBox(height: 40),
-                  Text(
-                    "Quick Actions",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
-                  ),
-                  const SizedBox(height: 15),
-                  _buildQuickAction(context, LucideIcons.church, "View All Churches", Colors.blue, () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Opening all churches...")),
-                    );
-                  }),
-                  _buildQuickAction(context, LucideIcons.fileText, "Network Reports", Colors.purple, () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Opening network reports...")),
-                    );
-                  }),
-                  _buildQuickAction(context, LucideIcons.megaphone, "Send Broadcast", Colors.amber, () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Opening broadcast...")),
-                    );
-                  }),
-                  const SizedBox(height: 40),
-                ],
+                    _buildQuickAction(context, LucideIcons.fileText, "Ministry Reports", Colors.purple, () {
+                      final tenant = ref.read(currentTenantProvider);
+                      if (tenant == null) {
+                        _noTenantSnack(context);
+                        return;
+                      }
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ServiceReportScreen()));
+                    }),
+                    _buildQuickAction(context, LucideIcons.megaphone, "Send Broadcast", Colors.amber, () {
+                      final tenant = ref.read(currentTenantProvider);
+                      if (tenant == null) {
+                        _noTenantSnack(context);
+                        return;
+                      }
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const GlobalBroadcastScreen()));
+                    }),
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
             ),
+    );
+  }
+
+  void _noTenantSnack(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Select a church first — open a church from the home screen.")),
     );
   }
 
@@ -231,13 +261,15 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
-              if (location.isNotEmpty)
-                Text(location, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                if (location.isNotEmpty)
+                  Text(location, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
+              ],
+            ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -255,10 +287,20 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
     );
   }
 
-  Widget _buildGrowthPlaceholder(BuildContext context, ThemeData theme) {
+  /// Real per-church member counts (top 12) rendered as bars.
+  Widget _buildMembersChart(BuildContext context, ThemeData theme) {
+    final sorted = _churches.map((c) {
+      final cid = c['id']?.toString() ?? '';
+      return (name: c['name']?.toString() ?? 'Unknown', members: _memberCounts[cid] ?? 0);
+    }).toList()
+      ..sort((a, b) => b.members.compareTo(a.members));
+
+    final top = sorted.take(12).toList();
+    final maxMembers = top.fold(0, (m, e) => e.members > m ? e.members : m);
+    final avg = _avgMembersPerChurch;
+
     return Container(
       width: double.infinity,
-      height: 180,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
@@ -267,29 +309,46 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(
-            children: List.generate(12, (i) {
-              final height = [40, 60, 35, 80, 50, 90, 65, 100, 55, 75, 85, 95][i].toDouble();
-              return Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  decoration: BoxDecoration(
-                    color: theme.primaryColor.withValues(alpha: 0.3 + (i / 24)),
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                  ),
-                  height: height,
-                  alignment: Alignment.bottomCenter,
-                ),
-              );
-            }),
+          Text(
+            "Avg $avg members per church",
+            style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12),
           ),
-          const SizedBox(height: 12),
-          Center(
-            child: Text(
-              "Monthly Growth — Q1-Q4",
-              style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 180,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List.generate(top.length, (i) {
+                final barHeight = maxMembers == 0 ? 0.0 : (top[i].members / maxMembers * 150).clamp(4.0, 150.0);
+                return Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        "${top[i].members}",
+                        style: TextStyle(fontSize: 9, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        height: barHeight,
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        decoration: BoxDecoration(
+                          color: theme.primaryColor.withValues(alpha: 0.55 + (0.45 * (barHeight / 150))),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        top[i].name.length > 8 ? '${top[i].name.substring(0, 8)}…' : top[i].name,
+                        style: TextStyle(fontSize: 8, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                );
+              }),
             ),
           ),
         ],
@@ -297,7 +356,15 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
     );
   }
 
-  Widget _buildMissionItem(BuildContext context, ThemeData theme, String title, String location, String workers) {
+  Widget _buildMissionItem(BuildContext context, ThemeData theme, Map<String, dynamic> d) {
+    final pickup = d['pickup_address']?.toString() ?? 'Pickup';
+    final dropoff = d['delivery_address']?.toString() ?? 'Destination';
+    final status = (d['status'] ?? '').toString().toUpperCase();
+    final color = status == 'IN_TRANSIT'
+        ? Colors.orange
+        : status == 'PICKED_UP'
+            ? Colors.teal
+            : Colors.green;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(20),
@@ -311,22 +378,29 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(LucideIcons.mapPin, color: Colors.green, size: 20),
+            child: Icon(LucideIcons.mapPin, color: color, size: 20),
           ),
           const SizedBox(width: 15),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
-                Text(location, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
+                Text(
+                  '$pickup → $dropoff',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  'Cargo delivery • ${d['created_at']?.toString().split('T').first ?? ''}',
+                  style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11),
+                ),
               ],
             ),
           ),
-          Text(workers, style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11)),
+          Text(status, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10)),
         ],
       ),
     );

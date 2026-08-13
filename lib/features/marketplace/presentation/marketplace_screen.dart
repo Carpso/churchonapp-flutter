@@ -8,7 +8,7 @@ import 'product_details_screen.dart';
 import 'post_product_screen.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
-import 'package:church_on_app/features/navigation/presentation/carpso_suggestion_card.dart';
+
 import 'package:church_on_app/core/services/tenant_service.dart';
 
 class MarketplaceScreen extends ConsumerStatefulWidget {
@@ -29,11 +29,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   bool _hasMore = true;
   int _offset = 0;
   static const int _limit = 30;
-
-  bool _showCarpsoCard() {
-    final day = DateTime.now().weekday;
-    return day == DateTime.sunday || day == DateTime.wednesday || day == DateTime.friday;
-  }
 
   @override
   void initState() {
@@ -148,14 +143,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               children: [
                 _buildTabRibbon(),
                 _buildCategoryRibbon(),
-                if (_showCarpsoCard())
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: SizedBox(
-                      height: 48,
-                      child: CarpsoSuggestionCard(contextType: 'marketplace'),
-                    ),
-                  ),
                 Expanded(
                   child: _products.isEmpty && !_isLoadingMore
                       ? _buildEmptyState()

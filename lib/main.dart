@@ -30,6 +30,7 @@ import 'package:app_links/app_links.dart';
 
 // Core service imports (for init calls and provider lifecycle)
 import 'core/services/email_service.dart';
+import 'core/services/error_reporter.dart';
 import 'core/services/foreground_service_helper.dart';
 import 'core/services/payout_service.dart';
 import 'core/services/performance_service.dart';
@@ -78,6 +79,10 @@ void main() async {
     } catch (e) {
       debugPrint('Firebase init error (non-fatal): $e');
     }
+
+    // In-app error reporting (COA-visible). Augments Crashlytics.
+    await ErrorReporter.instance.init();
+    ErrorReporter.instance.attachGlobal();
     
     if (Env.supabaseUrl.isEmpty) {
       debugPrint('WARNING: SUPABASE_URL is empty. check your .env file.');

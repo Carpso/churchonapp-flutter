@@ -4,6 +4,7 @@ import '../../data/weather_service.dart';
 import '../../data/weather_model.dart';
 import '../../data/logistics_service.dart';
 import '../../data/logistics_model.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 
 final weatherServiceProvider = Provider<WeatherService>((ref) => WeatherService());
 
@@ -73,7 +74,8 @@ final refreshableWeatherProvider = FutureProvider.autoDispose<WeatherData>((ref)
 final refreshableBusesProvider = FutureProvider.autoDispose<List<BusInfo>>((ref) async {
   ref.watch(weatherRefreshProvider);
   final service = ref.watch(logisticsServiceProvider);
-  return service.getBuses();
+  final tenant = ref.watch(currentTenantProvider);
+  return service.getBuses(tenantId: tenant?.id);
 });
 
 final refreshableTrafficAlertsProvider = FutureProvider.autoDispose<List<TrafficAlert>>((ref) async {

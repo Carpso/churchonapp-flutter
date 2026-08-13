@@ -68,8 +68,7 @@ class ActivityDetailsPage extends StatelessWidget {
       final isAudio = contentUrl != null &&
           (contentUrl.contains('.mp3') ||
               contentUrl.contains('.m4a') ||
-              contentUrl.contains('.ogg') ||
-              contentUrl.contains('archive.org'));
+              contentUrl.contains('.ogg'));
       if (isAudio) {
         return _buildAudioStory(context, res, contentUrl);
       }

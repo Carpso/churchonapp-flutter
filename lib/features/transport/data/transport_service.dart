@@ -124,7 +124,7 @@ class TransportService {
     if (user == null) return null;
 
     final request = RideRequest(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: '',
       riderId: user.id,
       pickup: start,
       destination: dest,
@@ -133,8 +133,12 @@ class TransportService {
       createdAt: DateTime.now(),
     );
 
-    await _client.from('ride_requests').insert(request.toMap());
-    return request.id;
+    final inserted = await _client
+        .from('ride_requests')
+        .insert(request.toMap())
+        .select('id')
+        .single();
+    return inserted['id'] as String?;
   }
 
   Stream<List<RideRequest>> getPendingRidesStream() {
@@ -251,28 +255,6 @@ class TransportService {
     }
   }
 
-  Future<void> confirmRidePayment(String requestId, double fare) async {
-    final user = _client.auth.currentUser;
-    if (user == null) return;
-
-    // Hold fare in escrow (deduct from rider's coins)
-    await _updateUserBalance(user.id, -fare);
-    await _client.from('ride_requests').update({
-      'status': 'confirmed',
-      'escrow_held': true,
-    }).eq('id', requestId);
-
-    // Log escrow transaction
-    await _client.from('wallet_transactions').insert({
-      'user_id': user.id,
-      'amount': -fare,
-      'type': 'ride_escrow',
-      'reference_id': requestId,
-      'description': 'Ride fare held in escrow pending completion',
-      'platform_fee': 0.0,
-    });
-  }
-
   /// Business commission cut percent — read from remote FeeConfig (10% default).
   double get _businessCutPercent =>
       _ref.read(feeConfigProvider).value?.businessCutPercent ?? 0.10;
@@ -282,27 +264,16 @@ class TransportService {
 
   Future<void> _settleRide(String requestId) async {
     // 1. Fetch ride details
-    final res = await _client.from('ride_requests').select('rider_id, driver_id, offered_fare, escrow_held').eq('id', requestId).single();
+    final res = await _client.from('ride_requests').select('rider_id, driver_id, offered_fare').eq('id', requestId).single();
     final riderId = res['rider_id'];
     final driverId = res['driver_id'];
     final fare = (res['offered_fare'] as num).toDouble();
-    final escrowHeld = res['escrow_held'] ?? false;
 
     if (driverId == null) return;
 
     final cutPercent = _businessCutPercent;
     final platformCut = fare * cutPercent;
     final netEarning = fare - platformCut;
-
-    // 2. Transfer Coins
-    if (!escrowHeld) {
-      // Legacy: deduct from rider now
-      await _updateUserBalance(riderId, -fare);
-    }
-    // Release from escrow: pay net earning to Driver
-    await _updateUserBalance(driverId, netEarning);
-    // Add cut to Central Treasury
-    await _updateUserBalance(Env.treasuryId, platformCut);
 
     // Update ride request with platform fee
     await _client.from('ride_requests').update({
@@ -368,15 +339,6 @@ class TransportService {
     }
   }
 
-  Future<void> _updateUserBalance(String userId, double delta) async {
-    // Use atomic RPC to prevent TOCTOU race conditions
-    final amount = delta.isFinite ? delta.round() : 0;
-    await _client.rpc('add_coins', params: {
-      'user_id': userId,
-      'amount': amount,
-    });
-  }
-
   Stream<LatLng?> watchDriverLocation(String driverId) {
     return _client
         .from('profiles')
@@ -409,7 +371,7 @@ class TransportService {
     if (user == null) return null;
 
     final request = DeliveryRequest(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: '',
       senderId: user.id,
       itemDescription: desc,
       itemCategory: category,
@@ -424,8 +386,12 @@ class TransportService {
       itemPrice: itemPrice,
     );
 
-    await _client.from('delivery_requests').insert(request.toMap());
-    return request.id;
+    final inserted = await _client
+        .from('delivery_requests')
+        .insert(request.toMap())
+        .select('id')
+        .single();
+    return inserted['id'] as String?;
   }
 
   Stream<List<DeliveryRequest>> getPendingDeliveriesStream() {
@@ -498,14 +464,6 @@ class TransportService {
     final cutPercent = _businessCutPercent;
     final platformCut = fare * cutPercent;
     final netEarning = fare - platformCut;
-
-    // Transfer Coins
-    // Deduct full fare from Sender
-    await _updateUserBalance(senderId, -fare);
-    // Add net earning to Courier
-    await _updateUserBalance(driverId, netEarning);
-    // Add cut to Central Treasury
-    await _updateUserBalance(Env.treasuryId, platformCut);
 
     // Update delivery request with platform fee
     await _client.from('delivery_requests').update({

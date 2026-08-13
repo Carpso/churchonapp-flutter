@@ -200,7 +200,21 @@ $migrations = @(
      "20260874_kids_progress_rpc.sql"
      "20260875_kids_audio_stories.sql"
      "20260876_engagement_analytics.sql"
- )
+     "20260877_expansion_leads_rls.sql"
+     "20260878_marketplace_tenant_scoping.sql"
+     "20260879_kids_progress_fix.sql"
+     "20260880_bible_study_tables.sql"
+     "20260881_quiz_leaderboard.sql"
+     "20260882_seed_sample_klips.sql"
+     "20260883_kids_audio_r2_urls.sql"
+     "20260883_presence_last_seen.sql"
+     "20260884_dedupe_kids_resources.sql"
+     "20260884_meeting_subscriptions.sql"
+     "20260885_remove_biblegateway_kids.sql"
+     "20260886_normalize_good_samaritan.sql"
+     "20260887_support_disputes_errors.sql"
+     "20260888_security_hardening.sql"
+)
 
 foreach ($m in $migrations) {
     $path = "supabase\migrations\$m"

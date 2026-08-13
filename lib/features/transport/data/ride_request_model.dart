@@ -39,7 +39,7 @@ class RideRequest {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      if (id.isNotEmpty) 'id': id,
       'rider_id': riderId,
       'driver_id': driverId,
       'pickup_lat': pickup.latitude,

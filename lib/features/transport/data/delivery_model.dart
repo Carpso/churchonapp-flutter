@@ -54,7 +54,7 @@ class DeliveryRequest {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      if (id.isNotEmpty) 'id': id,
       'sender_id': senderId,
       'driver_id': driverId,
       'item_description': itemDescription,
