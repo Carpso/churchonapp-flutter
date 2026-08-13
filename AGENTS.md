@@ -927,3 +927,43 @@ projects can copy/reuse when they wire Lipila:
     `SECURITY_PLAYBOOK.md` (reusable for other projects) + this security how-to
     section.
   - **`flutter analyze`:** 0 errors, 0 warnings (12 pre-existing info-level).
+- **Session 2026-08-13 — Church Auto-Payout (Kingdom Sponsor model)**:
+  - **Feature:** mirrors chisomo's host payout model — giving collected to a
+    church accumulates into a server-side **withdrawable balance** and is
+    automatically disbursed to the church treasurer phone when it crosses
+    `church_payout_min_kwacha` (default K100). Admin dashboard lists eligible
+    churches + payout ledger.
+  - **Migration `20260890_church_auto_payout.sql`:** `church_withdrawals` ledger
+    (RLS select-only for admin roles; INSERT/UPDATE service-role only), partial
+    unique index = ONE in-flight withdrawal per church, `payout_tasks` CHECK now
+    allows `church_payout` source + nullable `user_id`. RPCs:
+    `_church_withdrawable_balances_svc()` (service-only balance core),
+    `get_church_withdrawable_balances()` (role-gated admin wrapper),
+    `get_church_withdrawals()` (role-gated ledger history),
+    `enqueue_church_auto_payouts(NUMERIC)` (atomic enqueue, service-only).
+    Config key `church_payout_min_kwacha` seeded. **Deployed.**
+  - **Balance math (never client-trusted):** confirmed giving `coa_payments`
+    (metadata->>tenant_id) MINUS giving `payout_tasks` already
+    pending/processing/paid MINUS in-flight withdrawals. Legacy confirmed
+    payments (pre-2026-08-13, paid by the old client path) are excluded via a
+    `created_at >= 2026-08-13` OR has-task guard — no double-pay.
+  - **`_shared/settlement.ts`:** new `church_payout` case in `resolveSettlement`
+    (gross capped by ledger row), `disburse`/`markTaskFailed` now sync the
+    `church_withdrawals` ledger (processing/paid/failed + fees + payout ref),
+    new `enqueueChurchAutoPayouts(supabase)` reading the threshold from
+    `platform_settings`. Wired into `lipila-settle` cron + `lipila-webhook`
+    (runs right after a confirmed collection). **Both deployed.**
+  - **Dart:** `lib/features/admin/data/church_payout_service.dart`
+    (`ChurchWithdrawable`, `ChurchWithdrawalRecord`, provider, `runSettlementNow()`
+    invoking `lipila-settle`), `lib/features/admin/presentation/church_payout_screen.dart`
+    (KPI row, eligible churches, ledger, pull-to-refresh, "Run settlement now"),
+    superadmin dashboard tile, `church_payout_min_kwacha` editable in
+    Subscription Pricing.
+  - **Cron secret fixed (was CRIT from security sprint):** generated a real
+    `CRON_SECRET` (96-char random hex), set via `supabase secrets set
+    CRON_SECRET=...`, and re-scheduled the **live `lps-settle`** pg_cron job to
+    send `x-cron-secret` instead of the old anon JWT (verified working via a
+    live invoke: `success:true`, threshold K100). **`event-remind` cron still
+    embeds the old JWT and its function is no longer in this repo — orphaned;
+    delete or re-schedule it (SECURITY.md §6).**
+  - **`flutter analyze lib`:** 0 errors, 0 warnings (10 pre-existing info-level).

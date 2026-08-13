@@ -10,6 +10,10 @@ class Env {
   
   static String get r2PublicDomain => dotenv.env['R2_PUBLIC_DOMAIN'] ?? 'media.churchonapp.com';
 
+  // Public OAuth web client ID (safe to ship — Google publishes it in web
+  // bundles; it is NOT a secret).
+  static String get googleWebClientId => dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '';
+
   // NOTE: Server-side secrets (R2 keys, Cloudflare token, Gemini/HuggingFace
   // keys, Resend, Lipila) are NEVER read in the app — they live only in the
   // Edge Function environment (Deno.env.get). Never add them here: any value

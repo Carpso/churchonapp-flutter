@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 import 'package:church_on_app/core/config/fee_config.dart';
 
 class Transaction {
@@ -136,32 +135,22 @@ class FinanceService {
     recipientName = finalName;
 
     // AUTOMATIC SETTLEMENT ENGINE
-    // Churches/sellers receive the FULL amount — fee was already collected from the buyer on top.
-    if (recipientPhone != null && recipientPhone.trim().isNotEmpty) {
-      try {
-        String targetPhone = recipientPhone.replaceAll(RegExp(r'\D'), '');
-        if (targetPhone.startsWith('0')) targetPhone = '260${targetPhone.substring(1)}';
-        if (targetPhone.startsWith('9')) targetPhone = '260$targetPhone';
-        if (targetPhone.length == 9) targetPhone = '260$targetPhone';
-
-        final payoutRef = const Uuid().v4();
-        // Lipila disbursement fee (1.5%) is paid out of the settled amount
-        final payoutAmount = fees.payoutNet(amount);
-
-        await _client.functions.invoke(
-          'lipila-payout',
-          method: HttpMethod.post,
-          body: {
-            'accountNumber': targetPhone,
-            'amount': payoutAmount,
-            'narration': 'COA Settlement: $reference',
-            'referenceId': payoutRef,
-            'reference': reference,
-          },
-        );
-      } catch (e) {
-        debugPrint("Automatic payout failed for $recipientPhone: $e");
-      }
+    // Churches/sellers receive the FULL amount — fee was already collected from
+    // the buyer on top. Enqueue a server-side payout task anchored to this
+    // collection's reference; the settlement engine (webhook/cron) resolves the
+    // church treasurer server-side and disburses after confirmation. The client
+    // can no longer move money directly.
+    try {
+      await _client.rpc('enqueue_payout_task', params: {
+        'p_source': 'giving',
+        'p_source_ref': null,
+        'p_payment_ref': reference,
+        'p_recipient_user_id': null,
+        'p_recipient_phone': recipientPhone ?? '',
+        'p_gross_amount': amount,
+      });
+    } catch (e) {
+      debugPrint("Automatic settlement enqueue failed: $e");
     }
   }
 }

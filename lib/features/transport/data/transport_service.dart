@@ -259,9 +259,6 @@ class TransportService {
   double get _businessCutPercent =>
       _ref.read(feeConfigProvider).value?.businessCutPercent ?? 0.10;
 
-  /// Remote fee config (Lipila 1.5% + COA 1% min K3 deducted on money out).
-  FeeConfig get _fees => _ref.read(feeConfigProvider).value ?? FeeConfig.defaults;
-
   Future<void> _settleRide(String requestId) async {
     // 1. Fetch ride details
     final res = await _client.from('ride_requests').select('rider_id, driver_id, offered_fare').eq('id', requestId).single();
@@ -308,34 +305,21 @@ class TransportService {
       'platform_fee': 0.0,
     });
 
-    // 4. Trigger Payout to Driver via server-side edge function
+    // 4. Enqueue SERVER-SIDE settlement for the driver.
+    // The settlement engine (webhook/lps-settle cron) pays the ride's recorded
+    // driver from ride_requests.offered_fare, applying fees server-side. The
+    // client can no longer move money directly.
     try {
-      final driverProfile = await _client.from('profiles').select('phone_number, full_name').eq('id', driverId).single();
-      final driverPhone = driverProfile['phone_number'];
-
-      if (driverPhone != null && driverPhone.toString().trim().isNotEmpty) {
-        String targetPhone = driverPhone.toString().replaceAll(RegExp(r'\D'), '');
-        if (targetPhone.startsWith('0')) targetPhone = '260${targetPhone.substring(1)}';
-        if (targetPhone.startsWith('9')) targetPhone = '260$targetPhone';
-        if (targetPhone.length == 9) targetPhone = '260$targetPhone';
-
-        final payoutRef = "RIDE-DISB-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}";
-        final payoutAmount = _fees.payoutNet(netEarning);
-
-        await _client.functions.invoke(
-          'lipila-payout',
-          method: HttpMethod.post,
-          body: {
-            'accountNumber': targetPhone,
-            'amount': payoutAmount,
-            'grossAmount': netEarning,
-            'narration': 'Ride payout $requestId',
-            'referenceId': payoutRef,
-          },
-        );
-      }
+      await _client.rpc('enqueue_payout_task', params: {
+        'p_source': 'ride',
+        'p_source_ref': requestId,
+        'p_payment_ref': null,
+        'p_recipient_user_id': null,
+        'p_recipient_phone': '',
+        'p_gross_amount': netEarning,
+      });
     } catch (e) {
-      debugPrint("transport_service: Driver ride payout failed: $e");
+      debugPrint("transport_service: Driver settlement enqueue failed: $e");
     }
   }
 
@@ -498,63 +482,40 @@ class TransportService {
       'platform_fee': 0.0,
     });
 
-    // 1. Trigger Payout to courier/driver via server-side edge function
+    // 1. Enqueue SERVER-SIDE settlement for courier/driver.
+    // The settlement engine resolves the courier + gross from delivery_requests
+    // and disburses after delivery is confirmed. Client cannot move money.
     try {
-      final driverProfile = await _client.from('profiles').select('phone_number, full_name').eq('id', driverId).single();
-      final driverPhone = driverProfile['phone_number'];
-
-      if (driverPhone != null && driverPhone.toString().trim().isNotEmpty) {
-        String targetPhone = driverPhone.toString().replaceAll(RegExp(r'\D'), '');
-        if (targetPhone.startsWith('0')) targetPhone = '260${targetPhone.substring(1)}';
-        if (targetPhone.startsWith('9')) targetPhone = '260$targetPhone';
-        if (targetPhone.length == 9) targetPhone = '260$targetPhone';
-
-        final payoutRef = "DELIV-DISB-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}";
-        final payoutAmount = _fees.payoutNet(netEarning);
-
-        await _client.functions.invoke(
-          'lipila-payout',
-          method: HttpMethod.post,
-          body: {
-            'accountNumber': targetPhone,
-            'amount': payoutAmount,
-            'grossAmount': netEarning,
-            'narration': 'Delivery payout: $deliveryId',
-            'referenceId': payoutRef,
-          },
-        );
-      }
+      await _client.rpc('enqueue_payout_task', params: {
+        'p_source': 'delivery',
+        'p_source_ref': deliveryId,
+        'p_payment_ref': null,
+        'p_recipient_user_id': null,
+        'p_recipient_phone': '',
+        'p_gross_amount': netEarning,
+      });
     } catch (e) {
-      debugPrint("transport_service: Courier delivery payout failed: $e");
+      debugPrint("transport_service: Courier settlement enqueue failed: $e");
     }
 
-    // 2. Release Escrow Payout to Marketplace Vendor via server-side edge function
+    // 2. Enqueue SERVER-SIDE escrow settlement for the marketplace vendor.
+    // The engine releases item_price * (1 - cut) to delivery_requests.vendor_phone
+    // after delivery is confirmed.
     final vendorPhone = res['vendor_phone'];
     final itemPrice = res['item_price'] != null ? (res['item_price'] as num).toDouble() : 0.0;
 
-    if (vendorPhone != null && vendorPhone.toString().trim().isNotEmpty && itemPrice > 0) {
+    if (itemPrice > 0) {
       try {
-        String targetPhone = vendorPhone.toString().replaceAll(RegExp(r'\D'), '');
-        if (targetPhone.startsWith('0')) targetPhone = '260${targetPhone.substring(1)}';
-        if (targetPhone.startsWith('9')) targetPhone = '260$targetPhone';
-        if (targetPhone.length == 9) targetPhone = '260$targetPhone';
-
-        final payoutRef = "MARKET-RELEASE-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}";
-        final payoutAmount = _fees.payoutNet(itemPrice);
-
-        await _client.functions.invoke(
-          'lipila-payout',
-          method: HttpMethod.post,
-          body: {
-            'accountNumber': targetPhone,
-            'amount': payoutAmount,
-            'grossAmount': itemPrice,
-            'narration': 'Market escrow release: ${res['item_description']}',
-            'referenceId': payoutRef,
-          },
-        );
+        await _client.rpc('enqueue_payout_task', params: {
+          'p_source': 'escrow',
+          'p_source_ref': deliveryId,
+          'p_payment_ref': null,
+          'p_recipient_user_id': null,
+          'p_recipient_phone': vendorPhone?.toString() ?? '',
+          'p_gross_amount': itemPrice,
+        });
       } catch (e) {
-        debugPrint("transport_service: Vendor escrow payout release failed: $e");
+        debugPrint("transport_service: Vendor escrow settlement enqueue failed: $e");
       }
     }
   }

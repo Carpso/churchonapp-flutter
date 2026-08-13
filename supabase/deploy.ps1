@@ -214,6 +214,8 @@ $migrations = @(
      "20260886_normalize_good_samaritan.sql"
      "20260887_support_disputes_errors.sql"
      "20260888_security_hardening.sql"
+     "20260889_server_side_settlement.sql"
+     "20260890_church_auto_payout.sql"
 )
 
 foreach ($m in $migrations) {

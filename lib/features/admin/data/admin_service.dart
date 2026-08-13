@@ -354,11 +354,10 @@ class AdminService {
 
     try {
       final result = await _client.functions.invoke('lipila-payout', body: {
-        'payout_id': insertRes['id'],
+        'accountNumber': phone,
         'amount': amount,
-        'phone': phone,
-        'network': network,
-        'user_id': userId,
+        'narration': 'Admin manual payout',
+        'referenceId': insertRes['id'].toString(),
       });
 
       final data = result.data as Map<String, dynamic>?;

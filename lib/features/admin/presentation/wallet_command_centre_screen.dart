@@ -262,11 +262,10 @@ class _WalletCommandCentreScreenState extends ConsumerState<WalletCommandCentreS
     await ref.read(adminServiceProvider).processPayout(id, 'processed');
     try {
       final result = await client.functions.invoke('lipila-payout', body: {
-        'payout_id': id,
+        'accountNumber': r['mobile_number'] ?? '',
         'amount': amount,
-        'mobile_number': r['mobile_number'] ?? '',
-        'network': r['network'] ?? '',
-        'recipient_name': r['profiles']?['full_name'] ?? '',
+        'narration': 'Wallet command centre disbursement',
+        'referenceId': id,
       });
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

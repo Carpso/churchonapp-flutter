@@ -14,12 +14,6 @@ void main() {
     expect(service, isA<GeminiService>());
   });
 
-  /* test('chat() returns empty string on error (no real API key)', () async {
-    final service = GeminiService();
-    final result = await service.chat('Hello');
-    expect(result, '');
-  }); */
-
   test('generateFinancialReport handles exception gracefully', () async {
     final service = GeminiService();
     final result = await service.generateFinancialReport({
@@ -38,7 +32,7 @@ void main() {
       'destination': 'Ndola',
       'cargo': 'Bibles',
     });
-    expect(result['ai_response'], 'Route optimization unavailable at this time.');
+    expect(result['ai_response'], 'Success is ordained for this mission.');
   });
 
   test('moderateSocialPost handles exception gracefully', () async {

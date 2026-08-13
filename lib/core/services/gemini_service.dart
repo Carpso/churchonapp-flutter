@@ -1,18 +1,37 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../config/env.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Server-side AI generation proxy.
+///
+/// All AI calls are forwarded to the `kael-ai` Edge Function, which holds the
+/// `GEMINI_API_KEY` / `HUGGINGFACE_TOKEN` secrets in its environment. The
+/// client never embeds an AI API key (removed in the 2026-08-13 security
+/// sprint). Non-chat actions return `{ "response": "..." }`.
 class GeminiService {
-  late final GenerativeModel _model;
+  final SupabaseClient? _client;
 
-  GeminiService() {
-    _model = GenerativeModel(
-      model: 'gemini-1.5-flash',
-      apiKey: Env.geminiApiKey,
-    );
+  GeminiService([this._client]);
+
+  Future<String> _generate(String action, String prompt) async {
+    final client = _client;
+    if (client == null) return ''; // offline/fallback path (tests, pre-auth)
+    try {
+      final res = await client.functions.invoke('kael-ai', body: {
+        'action': action,
+        'prompt': prompt,
+      });
+      final data = res.data;
+      if (data is Map && data['response'] is String) {
+        return data['response'] as String;
+      }
+      return '';
+    } catch (e) {
+      debugPrint('GeminiService $_generate error: $e');
+      return '';
+    }
   }
 
   Future<String> generateFinancialReport(Map<String, dynamic> stats) async {
@@ -20,13 +39,8 @@ class GeminiService {
                   "Provide a concise report (max 200 words) with: 1. Financial Health Summary, 2. Growth Trends, "
                   "3. A 'Prophetic Action' for the upcoming month to increase stewardship.";
 
-    try {
-      final content = [Content.text(prompt)];
-      final response = await _model.generateContent(content);
-      return response.text ?? "Unable to generate spiritual insights at this time.";
-    } catch (e) {
-      return "The AI Prophet is currently meditating. Statistics confirm K ${stats['total']} in total volume.";
-    }
+    final text = await _generate('report', prompt);
+    return text.isNotEmpty ? text : "The AI Prophet is currently meditating. Statistics confirm K ${stats['total']} in total volume.";
   }
 
   Future<Map<String, dynamic>> optimizeLogisticsRoute(Map<String, dynamic> missionData) async {
@@ -34,17 +48,10 @@ class GeminiService {
                   "Provide: 1. A verified optimized route plan, 2. Efficiency factor (0.0 to 1.0), "
                   "3. A 'Prophetic Logistics' insight to ensure the safety and success of the cargo.";
 
-    try {
-      final content = [Content.text(prompt)];
-      final response = await _model.generateContent(content);
-      return {
-        'ai_response': response.text ?? "Success is ordained for this mission.",
-      };
-    } catch (e) {
-      return {
-        'ai_response': "Route optimization unavailable at this time.",
-      };
-    }
+    final text = await _generate('report', prompt);
+    return {
+      'ai_response': text.isNotEmpty ? text : "Success is ordained for this mission.",
+    };
   }
 
   Future<Map<String, dynamic>> predictApostolicResourceNeeds(Map<String, dynamic> hubData) async {
@@ -52,17 +59,10 @@ class GeminiService {
                   "Predict the material resource needs for the next 3 months (chairs, Bibles, welfare funds, fuel). "
                   "Provide: 1. A list of resource types with predicted quantities, 2. A 'Prophetic Justification' for each allocation.";
 
-    try {
-      final content = [Content.text(prompt)];
-      final response = await _model.generateContent(content);
-      return {
-        'ai_response': response.text ?? "Material expansion is required to contain the harvest.",
-      };
-    } catch (e) {
-      return {
-        'ai_response': "Resource prediction unavailable at this time.",
-      };
-    }
+    final text = await _generate('report', prompt);
+    return {
+      'ai_response': text.isNotEmpty ? text : "Material expansion is required to contain the harvest.",
+    };
   }
 
   Future<Map<String, dynamic>> moderateSocialPost(String content) async {
@@ -72,11 +72,9 @@ class GeminiService {
                   "3. A 'Justification' for this weight. "
                   "Return in JSON format: {\"weight\": 0.8, \"category\": \"Testimony\", \"justification\": \"...\"}";
 
-    try {
-      final textContent = [Content.text(prompt)];
-      final response = await _model.generateContent(textContent);
-      final rawText = response.text ?? "";
-      
+    final rawText = await _generate('report', prompt);
+
+    if (rawText.isNotEmpty) {
       try {
         final parsed = jsonDecode(rawText) as Map<String, dynamic>;
         return {
@@ -88,16 +86,15 @@ class GeminiService {
         return {
           'weight': 0.5,
           'category': 'General',
-          'justification': rawText.isNotEmpty ? rawText : 'Standard communication.',
+          'justification': rawText,
         };
       }
-    } catch (e) {
-      return {
-        'weight': 0.0,
-        'category': 'System',
-        'justification': 'Gatekeeper currently offline.',
-      };
     }
+    return {
+      'weight': 0.0,
+      'category': 'System',
+      'justification': 'Gatekeeper currently offline.',
+    };
   }
 
   Future<List<Map<String, dynamic>>> generateBibleQuizQuestions({
@@ -123,35 +120,32 @@ class GeminiService {
         "\"scripture_reference\": \"Book Chapter:Verse\""
         "}";
 
-    try {
-      final content = [Content.text(prompt)];
-      final response = await _model.generateContent(content);
-      final raw = response.text ?? '[]';
-      final cleaned = raw
-          .replaceAll(RegExp(r'```json\s*'), '')
-          .replaceAll(RegExp(r'```\s*'), '')
-          .trim();
+    final raw = await _generate('report', prompt);
+    if (raw.isEmpty) return [];
 
-      List<dynamic> parsed = [];
-      try {
-        parsed = (jsonDecode(cleaned) as List?) ?? [];
-      } catch (_) {
-        // Try to extract array from markdown
-        final match = RegExp(r'\[[\s\S]*\]').firstMatch(cleaned);
-        if (match != null) {
+    final cleaned = raw
+        .replaceAll(RegExp(r'```json\s*'), '')
+        .replaceAll(RegExp(r'```\s*'), '')
+        .trim();
+
+    List<dynamic> parsed = [];
+    try {
+      parsed = (jsonDecode(cleaned) as List?) ?? [];
+    } catch (_) {
+      final match = RegExp(r'\[[\s\S]*\]').firstMatch(cleaned);
+      if (match != null) {
+        try {
           parsed = jsonDecode(match.group(0)!) as List? ?? [];
-        } else {
+        } catch (_) {
           return [];
         }
+      } else {
+        return [];
       }
-
-      return parsed.cast<Map<String, dynamic>>();
-    } catch (e) {
-      debugPrint("Gemini quiz generation failed: $e");
-      return [];
     }
+
+    return parsed.cast<Map<String, dynamic>>();
   }
 }
 
-final geminiServiceProvider = Provider((ref) => GeminiService());
-
+final geminiServiceProvider = Provider((ref) => GeminiService(Supabase.instance.client));

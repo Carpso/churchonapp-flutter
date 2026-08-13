@@ -13,6 +13,8 @@ declare const Deno: {
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore URL import resolution for Supabase Edge Functions
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// @ts-ignore shared module import
+import { settleReference, enqueueChurchAutoPayouts } from "../_shared/settlement.ts";
 
 interface LipilaWebhookPayload {
   referenceId: string;
@@ -311,6 +313,37 @@ async function processWebhook(payload: LipilaWebhookPayload): Promise<Response> 
       type: "payment_success",
       reference_id: reference,
     });
+  }
+
+  // ── SERVER-SIDE SETTLEMENT ─────────────────────────────
+  // On a confirmed collection, disburse any queued payout_tasks for this
+  // reference (giving / order settlements). Ride/delivery/escrow tasks and
+  // anything enqueued after this webhook are picked up by the lps-settle cron.
+  // Settlement failure here is non-fatal — the cron retries.
+  if (newStatus === "settled" && paymentId) {
+    try {
+      const settle = await settleReference(supabase, reference);
+      console.log(
+        `[Webhook] Settlement for ref=${reference}: checked=${settle.checked}, paid=${settle.paid}, failed=${settle.failed}`,
+      );
+    } catch (settleErr) {
+      console.error(`[Webhook] Settlement failed for ref=${reference}: ${settleErr}`);
+    }
+
+    // ── CHURCH AUTO-PAYOUT ────────────────────────────────
+    // A fresh confirmed collection may push a church's withdrawable balance
+    // over the threshold — enqueue its aggregate treasurer payout now so the
+    // church doesn't wait up to 5 minutes for the cron. Idempotent + atomic.
+    try {
+      const enqueued = await enqueueChurchAutoPayouts(supabase);
+      if (enqueued.enqueued > 0) {
+        console.log(
+          `[Webhook] Church auto-payout: enqueued=${enqueued.enqueued} churches (threshold K${enqueued.thresholdKwacha})`,
+        );
+      }
+    } catch (enqueueErr) {
+      console.error(`[Webhook] Church auto-payout enqueue failed: ${enqueueErr}`);
+    }
   }
 
   const elapsed = Date.now() - startTime;

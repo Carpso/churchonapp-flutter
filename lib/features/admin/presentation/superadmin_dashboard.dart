@@ -12,6 +12,7 @@ import 'logistics_dashboard_screen.dart';
 import 'withdrawal_approval_screen.dart';
 import 'global_payout_command_screen.dart';
 import 'wallet_command_centre_screen.dart';
+import 'church_payout_screen.dart';
 import 'feature_toggles_screen.dart';
 import 'platform_analytics_screen.dart';
 import 'zambian_payroll_screen.dart';
@@ -242,6 +243,7 @@ class SuperAdminDashboard extends ConsumerWidget {
       _tile(context, theme, LucideIcons.calendarDays, "Event Scheduling", "Coordinate services, missions & conferences", Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EventSchedulerScreen()))),
       _tile(context, theme, LucideIcons.truck, "Logistics Command", "Monitor real-time rides, cargo & couriers", Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LogisticsDashboardScreen()))),
       _tile(context, theme, LucideIcons.creditCard, "Payout Settlement", "Approve and process Mobile Money payouts", Colors.blueGrey, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WithdrawalApprovalScreen()))),
+      _tile(context, theme, LucideIcons.banknote, "Church Auto-Payout", "Automatic treasurer payouts from church giving balances", Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchPayoutScreen()))),
       _tile(context, theme, LucideIcons.send, "Global Payout Command", "Execute Lipila settlements (MTN/Airtel)", Colors.greenAccent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GlobalPayoutCommandScreen()))),
       _tile(context, theme, LucideIcons.wallet, "Wallet Command Centre", "Carpso 68907 — collections, disbursements, activity log", Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletCommandCentreScreen()))),
       _tile(context, theme, LucideIcons.users, "Employee Management", "Add staff, set salaries, manage departments", Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmployeeManagementScreen()))),

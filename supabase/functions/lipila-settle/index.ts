@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { processPendingSettlements, enqueueChurchAutoPayouts } from "../_shared/settlement.ts";
 
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
@@ -108,12 +109,47 @@ serve(async (req: Request) => {
       }
     }
 
+    // ── SERVER-SIDE SETTLEMENT QUEUE ──────────────────────
+    // Process queued payout_tasks whose anchors (confirmed collection,
+    // completed ride/delivery) are ready. This is the reliability net for
+    // anything the webhook missed, plus ride/delivery/escrow settlements.
+    let payoutChecked = 0;
+    let payoutPaid = 0;
+    let payoutFailed = 0;
+    try {
+      const res = await processPendingSettlements(supabase);
+      payoutChecked = res.checked;
+      payoutPaid = res.paid;
+      payoutFailed = res.failed;
+    } catch (payoutErr) {
+      console.error(`[Settle] Payout queue processing failed: ${payoutErr}`);
+    }
+
+    // ── CHURCH AUTO-PAYOUT ─────────────────────────────────
+    // Enqueue aggregate treasurer payouts for churches whose withdrawable
+    // balance has crossed the threshold. Safe against concurrent runs via the
+    // atomic SQL enqueue + in-flight unique index.
+    let churchPayoutsEnqueued = 0;
+    let churchPayoutThreshold = 0;
+    try {
+      const res = await enqueueChurchAutoPayouts(supabase);
+      churchPayoutsEnqueued = res.enqueued;
+      churchPayoutThreshold = res.thresholdKwacha;
+    } catch (enqueueErr) {
+      console.error(`[Settle] Church auto-payout enqueue failed: ${enqueueErr}`);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         checked: pendingPayments?.length ?? 0,
         settled: settledCount,
         failed: failedCount,
+        payoutChecked,
+        payoutPaid,
+        payoutFailed,
+        churchPayoutsEnqueued,
+        churchPayoutThreshold,
         timestamp: new Date().toISOString(),
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -100,7 +100,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return subtotal + _platformFee + _deliveryFee;
   }
 
-  Future<void> _disburseToSeller(List<CartItem> items, double subtotal, double fee, String? tenantId) async {
+  Future<void> _disburseToSeller(List<CartItem> items, double subtotal, double fee, String? tenantId, String? paymentReference) async {
     try {
       final supabase = Supabase.instance.client;
 
@@ -145,27 +145,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         final vendorItemTotal = items
             .where((item) => item.product.vendorId == vendorId)
             .fold(0.0, (sum, item) => sum + (item.product.price * item.quantity));
-        // COA business cut deducted from seller (10%)
-        final coaCommission = _fees.businessCut(vendorItemTotal);
-        final vendorShare = vendorItemTotal - coaCommission;
-        if (vendorShare <= 0) continue;
-        // Lipila disbursement fee (1.5%) deducted from the payout itself
-        final payoutAmount = _fees.payoutNet(vendorShare);
+        if (vendorItemTotal <= 0) continue;
 
-        String phone = sellerPhone.replaceAll(RegExp(r'\D'), '');
-        if (phone.startsWith('0')) phone = '260${phone.substring(1)}';
-        if (phone.startsWith('9') && phone.length == 9) phone = '260$phone';
-        if (phone.length == 9) phone = '260$phone';
-
-        final payoutRef = 'MKT-${DateTime.now().millisecondsSinceEpoch}-$vendorId';
-        await supabase.functions.invoke('lipila-payout', body: {
-          'accountNumber': phone,
-          'amount': payoutAmount,
-          'grossAmount': vendorShare,
-          'narration': 'Marketplace seller payout',
-          'referenceId': payoutRef,
-        });
-        debugPrint('[Marketplace] Paid K${payoutAmount.toStringAsFixed(2)} to seller $vendorId via $phone');
+        final payoutRef = paymentReference ?? 'MKT-${DateTime.now().millisecondsSinceEpoch}-$vendorId';
+        // ── Server-side settlement ──────────────────────────────────────
+        // Enqueue a payout task anchored to the confirmed Lipila collection.
+        // The settlement engine (webhook/cron) pays the seller's profile phone
+        // and applies the COA business cut + payout fees SERVER-SIDE. We pass
+        // the uncut item total so the cut can never be bypassed client-side.
+        try {
+          await supabase.rpc('enqueue_payout_task', params: {
+            'p_source': 'order',
+            'p_source_ref': null,
+            'p_payment_ref': payoutRef,
+            'p_recipient_user_id': vendorId,
+            'p_recipient_phone': sellerPhone,
+            'p_gross_amount': vendorItemTotal,
+          });
+          debugPrint('[Marketplace] Enqueued seller settlement for $vendorId (ref $payoutRef)');
+        } catch (e) {
+          debugPrint('[Marketplace] Seller settlement enqueue failed (non-blocking): $e');
+        }
       }
     } catch (e) {
       debugPrint('[Marketplace] Seller disbursement failed (non-blocking): $e');
@@ -463,7 +463,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
       // Disburse to seller only AFTER order is confirmed
       if (_paymentMethod == "mobile_money") {
-        await _disburseToSeller(items, subtotal, fee, tenantId);
+        await _disburseToSeller(items, subtotal, fee, tenantId, paymentReference);
       }
 
       // Optional Carpso Delivery: create a courier request for drivers
