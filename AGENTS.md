@@ -963,7 +963,8 @@ projects can copy/reuse when they wire Lipila:
     `CRON_SECRET` (96-char random hex), set via `supabase secrets set
     CRON_SECRET=...`, and re-scheduled the **live `lps-settle`** pg_cron job to
     send `x-cron-secret` instead of the old anon JWT (verified working via a
-    live invoke: `success:true`, threshold K100). **`event-remind` cron still
-    embeds the old JWT and its function is no longer in this repo — orphaned;
-    delete or re-schedule it (SECURITY.md §6).**
+    live invoke: `success:true`, threshold K100). **`event-remind` orphaned
+    cron deleted** — it embedded the old JWT, no `event-remind` function is
+    deployed (repo or live), and `push-notifications` cannot serve it (needs a
+    user JWT, no `event_reminder` action). See SECURITY.md §6.
   - **`flutter analyze lib`:** 0 errors, 0 warnings (10 pre-existing info-level).

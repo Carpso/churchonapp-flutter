@@ -69,8 +69,9 @@ map URLs, public media domain).
   `RESEND_API_KEY`, `SUPABASE_ANON_KEY`, Africa's Talking keys. Rotate in each
   dashboard and update the Supabase Edge Function env. (See §5.)
 - **Anon key in git history:** `20260870`/`20260871` once embedded the anon JWT
-  in cron SQL. Files are fixed to use `x-cron-secret`; the **live** pg_cron
-  jobs still need re-scheduling with a real `CRON_SECRET` (see §6).
+  in cron SQL. Fixed: `CRON_SECRET` is set in Edge env and the live `lps-settle`
+  job sends `x-cron-secret` (verified working). The orphaned `event-remind` job
+  (old JWT, no deployed function) was deleted — see §6 before re-adding.
 - **Client-side TOTP service** (`two_factor_service.dart`) encrypts with a key
   derivable from public data — prefer Supabase Auth MFA
   (`enroll`/`challenge`/`verify`), which holds secrets server-side.
@@ -226,20 +227,25 @@ Then re-deploy functions (`.\supabase\deploy.ps1`) and rebuild/redeploy the app.
 
 ## 6. Cron jobs that need `CRON_SECRET`
 
-Two pg_cron jobs call Edge Functions from inside Postgres. They currently send
-`x-cron-secret` (after the 2026-08-13 fix) — but the **live** scheduled jobs
-still embed the old anon JWT from the original migrations. Fix once
-`CRON_SECRET` is set:
+pg_cron jobs that call Edge Functions must send `x-cron-secret` matching the
+`CRON_SECRET` env var — never a hardcoded anon JWT. Live state (2026-08-13):
+
+| Job | Schedule | Target | Status |
+|-----|----------|--------|--------|
+| `lps-settle` | `*/5 * * * *` | `lipila-settle` (action `settle`) | Active, sends real `x-cron-secret` — verified working |
+| `event-remind` | — | (deleted) | Deleted 2026-08-13: no `event-remind` function is deployed, and `push-notifications` requires a user JWT + has no `event_reminder` action, so it cannot serve this job |
+
+To (re)create a cron job once `CRON_SECRET` is set in Edge env:
 
 ```sql
--- Re-schedule with the real secret (set CRON_SECRET in Edge Function env first)
 SELECT cron.unschedule('lps-settle');
 SELECT cron.schedule('lps-settle', '*/5 * * * *',
   'SELECT net.http_post(url := ''https://daboihiudmglwhdfvsku.supabase.co/functions/v1/lipila-settle'', headers := ''{"x-cron-secret":"<CRON_SECRET>","Content-Type":"application/json"}'', body := ''{"action":"settle"}'')');
-SELECT cron.unschedule('event-remind');
-SELECT cron.schedule('event-remind', '0 */6 * * *',
-  'SELECT net.http_post(url := ''https://daboihiudmglwhdfvsku.supabase.co/functions/v1/push-notifications'', headers := ''{"x-cron-secret":"<CRON_SECRET>","Content-Type":"application/json"}'', body := ''{"action":"event_reminder"}'')');
 ```
+
+If event reminders are needed again: build a new Edge Function that queries
+upcoming `events` and sends pushes via the FCM service account, deploy it, then
+add a cron job with the `x-cron-secret` pattern above.
 
 ---
 
