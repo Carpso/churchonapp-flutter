@@ -34,6 +34,7 @@ import '../widgets/announcement_ticker.dart';
 
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/theme/app_theme.dart';
+import 'package:church_on_app/core/utils/responsive.dart';
 
 final unreadCountProvider = StreamProvider.autoDispose<int>((ref) {
   final supabase = Supabase.instance.client;
@@ -306,6 +307,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     final bottomInset =
         MediaQuery.of(context).padding.bottom + kBottomNavigationBarHeight;
+    final hPad = Responsive.hPadding(context);
 
     return Scaffold(
       body: SafeArea(
@@ -321,7 +323,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             slivers: [
               SliverToBoxAdapter(child: HomeTopBar(tenant: tenant)),
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                padding: EdgeInsets.symmetric(horizontal: hPad),
                 sliver: isExpired
                     ? SliverToBoxAdapter(
                         child: HomeSubscriptionPaywall(tenant: tenant),

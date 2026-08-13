@@ -13,6 +13,7 @@ import 'package:church_on_app/core/services/session_guard_service.dart';
 import 'package:church_on_app/core/services/offline_service.dart';
 
 import 'package:go_router/go_router.dart';
+import 'package:church_on_app/core/utils/responsive.dart';
 
 final navBarVisibleProvider = NotifierProvider<NavBarVisibleNotifier, bool>(
   NavBarVisibleNotifier.new,
@@ -95,6 +96,7 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
     });
 
     final isVisible = ref.watch(navBarVisibleProvider);
+    final isWide = MediaQuery.sizeOf(context).width >= Responsive.medium;
 
     return PopScope(
       canPop: false,
@@ -123,7 +125,8 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
         child: Scaffold(
           body: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
-              if (notification is ScrollUpdateNotification &&
+              if (!isWide &&
+                  notification is ScrollUpdateNotification &&
                   notification.dragDetails != null) {
                 final delta = notification.scrollDelta ?? 0;
                 if (delta > 0) {
@@ -136,7 +139,7 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
             },
             child: Stack(
               children: [
-                widget.navigationShell,
+                if (isWide) _buildWideLayout(context) else widget.navigationShell,
                 ValueListenableBuilder<GlobalMediaState>(
                   valueListenable: globalMediaPlayerController.state,
                   builder: (context, mediaState, _) {
@@ -144,7 +147,7 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
                     return AnimatedPositioned(
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeInOut,
-                      left: 0,
+                      left: isWide ? 80 : 0,
                       right: 0,
                       bottom: isVisible ? 0 : -80, // Animate out with the nav bar
                       child: AnimatedOpacity(
@@ -158,31 +161,100 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
               ],
             ),
           ),
-          bottomNavigationBar: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            height: isVisible ? 80 + MediaQuery.of(context).padding.bottom : 0,
-            decoration: const BoxDecoration(),
-            clipBehavior: Clip.hardEdge,
-            child: BottomAppBar(
-              padding: EdgeInsets.zero,
-              color: Theme.of(context).colorScheme.surface,
-              elevation: 8,
-              shadowColor: Theme.of(context).shadowColor,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildNavItem(0, LucideIcons.home, "Home"),
-                  _buildNavItem(1, LucideIcons.headphones, "Sermons"),
-                  _buildNavItem(2, LucideIcons.hand, "Give"),
-                  _buildNavItem(3, LucideIcons.users, "Connect"),
-                  _buildNavItem(4, LucideIcons.user, "Profile"),
-                ],
+          bottomNavigationBar: isWide
+              ? null
+              : AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  height: isVisible ? 80 + MediaQuery.of(context).padding.bottom : 0,
+                  decoration: const BoxDecoration(),
+                  clipBehavior: Clip.hardEdge,
+                  child: BottomAppBar(
+                    padding: EdgeInsets.zero,
+                    color: Theme.of(context).colorScheme.surface,
+                    elevation: 8,
+                    shadowColor: Theme.of(context).shadowColor,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildNavItem(0, LucideIcons.home, "Home"),
+                        _buildNavItem(1, LucideIcons.headphones, "Sermons"),
+                        _buildNavItem(2, LucideIcons.hand, "Give"),
+                        _buildNavItem(3, LucideIcons.users, "Connect"),
+                        _buildNavItem(4, LucideIcons.user, "Profile"),
+                      ],
+                    ),
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  /// Desktop layout: a NavigationRail on the left + content capped to
+  /// [Responsive.maxContentWidth] so wide screens don't stretch full-bleed.
+  Widget _buildWideLayout(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final currentIndex = widget.navigationShell.currentIndex;
+    final extended = MediaQuery.sizeOf(context).width >= 1280;
+
+    return ColoredBox(
+      color: scheme.surface,
+      child: Row(
+        children: [
+          SafeArea(
+            child: NavigationRail(
+              extended: extended,
+              minExtendedWidth: 200,
+              backgroundColor: scheme.surfaceContainerLowest,
+              selectedIndex: currentIndex,
+              onDestinationSelected: _onTap,
+              leading: Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 8),
+                child: Center(
+                  child: Image.asset(
+                    "assets/app_logo.png",
+                    width: 36,
+                    height: 36,
+                    errorBuilder: (c, e, s) => const Icon(Icons.church, size: 32),
+                  ),
+                ),
+              ),
+              labelType: extended
+                  ? NavigationRailLabelType.none
+                  : NavigationRailLabelType.all,
+              destinations: [
+                _buildRailDestination(0, LucideIcons.home, "Home"),
+                _buildRailDestination(1, LucideIcons.headphones, "Sermons"),
+                _buildRailDestination(2, LucideIcons.hand, "Give"),
+                _buildRailDestination(3, LucideIcons.users, "Connect"),
+                _buildRailDestination(4, LucideIcons.user, "Profile"),
+              ],
+            ),
+          ),
+          const VerticalDivider(width: 1, thickness: 1),
+          Expanded(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: Responsive.maxContentWidth,
+                ),
+                child: widget.navigationShell,
               ),
             ),
           ),
-        ),
+        ],
       ),
+    );
+  }
+
+  NavigationRailDestination _buildRailDestination(int index, IconData icon, String label) {
+    final theme = Theme.of(context);
+    return NavigationRailDestination(
+      icon: Icon(icon, size: 22),
+      selectedIcon: Icon(icon, size: 22, color: theme.primaryColor),
+      label: Text(label),
     );
   }
 

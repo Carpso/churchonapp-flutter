@@ -479,30 +479,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
       {"icon": LucideIcons.gift, "title": "Rewards", "count": "Coins & achievements", "action": "rewards"},
     ];
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 1.2),
-      itemCount: assets.length,
-      itemBuilder: (context, index) {
-        return GestureDetector(
-          onTap: () {
-            final action = assets[index]['action'] as String;
-            switch (action) {
-              case 'library':
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const MyLibraryScreen()));
-                break;
-              case 'events':
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const EventsScreen()));
-                break;
-              case 'rewards':
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardsScreen()));
-                break;
-              case 'certs':
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const CertificatesScreen()));
-                break;
-            }
-          },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cols = (constraints.maxWidth / 300).floor().clamp(2, 3);
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: cols, crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 1.2),
+          itemCount: assets.length,
+          itemBuilder: (context, index) {
+            return GestureDetector(
+              onTap: () {
+                final action = assets[index]['action'] as String;
+                switch (action) {
+                  case 'library':
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const MyLibraryScreen()));
+                    break;
+                  case 'events':
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const EventsScreen()));
+                    break;
+                  case 'rewards':
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardsScreen()));
+                    break;
+                  case 'certs':
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const CertificatesScreen()));
+                    break;
+                }
+              },
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -522,6 +525,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
               ],
             ),
           ),
+        );
+          },
         );
       },
     );

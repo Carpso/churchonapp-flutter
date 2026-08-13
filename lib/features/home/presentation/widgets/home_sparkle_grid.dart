@@ -25,49 +25,89 @@ class HomeSparkleGrid extends ConsumerWidget {
             child: Center(child: Text("No items available")),
           );
         }
-        return MasonryGridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          itemCount: displayProducts.length,
-          itemBuilder: (context, index) {
-            final prod = displayProducts[index];
-            return GestureDetector(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(product: prod))),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [BoxShadow(color: Theme.of(context).shadowColor.withValues(alpha: 0.02), blurRadius: 10)],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                      child: AppImage(
-                        prod.image != null && prod.image!.isNotEmpty ? prod.image! : "",
-                        width: double.infinity,
-                        height: 160,
-                        fit: BoxFit.cover,
-                      ),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final cols = (constraints.maxWidth / 260).floor().clamp(2, 4);
+            return MasonryGridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: cols,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              itemCount: displayProducts.length,
+              itemBuilder: (context, index) {
+                final prod = displayProducts[index];
+                return GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(product: prod))),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [BoxShadow(color: Theme.of(context).shadowColor.withValues(alpha: 0.02), blurRadius: 10)],
                     ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                          child: AppImage(
+                            prod.image != null && prod.image!.isNotEmpty ? prod.image! : "",
+                            width: double.infinity,
+                            height: 160,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(prod.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              Text(
+                          "K${prod.price.toStringAsFixed(2)}",
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Theme.of(context).primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+      loading: () => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final cols = (constraints.maxWidth / 260).floor().clamp(2, 4);
+            return MasonryGridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: cols,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              itemCount: 4,
+              itemBuilder: (context, index) => Container(
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(20)),
+                child: Column(
+                  children: [
+                    const ShimmerLoader.rectangular(height: 120),
                     Padding(
-                      padding: const EdgeInsets.all(12.0),
+                      padding: const EdgeInsets.all(12),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(prod.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          Text(
-                      "K${prod.price.toStringAsFixed(2)}",
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                          ShimmerLoader.rectangular(width: 100, height: 14),
+                          const SizedBox(height: 8),
+                          ShimmerLoader.rectangular(width: 60, height: 12),
                         ],
                       ),
                     ),
@@ -76,36 +116,6 @@ class HomeSparkleGrid extends ConsumerWidget {
               ),
             );
           },
-        );
-      },
-      loading: () => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: MasonryGridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          itemCount: 4,
-          itemBuilder: (context, index) => Container(
-            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(20)),
-            child: Column(
-              children: [
-                const ShimmerLoader.rectangular(height: 120),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ShimmerLoader.rectangular(width: 100, height: 14),
-                      const SizedBox(height: 8),
-                      ShimmerLoader.rectangular(width: 60, height: 12),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
       error: (e, s) => const Padding(

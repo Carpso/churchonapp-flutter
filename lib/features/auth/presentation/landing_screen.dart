@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/expansion_service.dart';
+import 'package:church_on_app/core/utils/responsive.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class LandingScreen extends ConsumerWidget {
@@ -32,113 +33,134 @@ class LandingScreen extends ConsumerWidget {
 
   Widget _buildStickyNav(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 25),
+      padding: EdgeInsets.symmetric(
+        horizontal: Responsive.hPadding(context),
+        vertical: 25,
+      ),
       color: Colors.white,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFDA03),
-                  shape: BoxShape.circle,
+      child: Responsive.wrap(
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          runSpacing: 14,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFDA03),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Image.asset("assets/app_logo.png", errorBuilder: (c, e, s) => const Icon(Icons.church, color: Colors.black)),
+                  ),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Image.asset("assets/app_logo.png", errorBuilder: (c, e, s) => const Icon(Icons.church, color: Colors.black)),
+                const SizedBox(width: 12),
+                Text(
+                  "Church On App",
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 22,
+                    letterSpacing: -1,
+                    color: const Color(0xFF1A1A1A),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                "Church On App",
-                style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 22,
-                  letterSpacing: -1,
-                  color: const Color(0xFF1A1A1A),
-                ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              _buildSmallButton("Sign Up", () => context.go('/signup')),
-              const SizedBox(width: 10),
-              _buildSmallButton("Member Login", () => context.go('/login')),
-              const SizedBox(width: 10),
-              _buildSmallButton("Join Ecosystem", () => context.go('/register-church'), isPrimary: true),
-            ],
-          ),
-        ],
+              ],
+            ),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.end,
+              children: [
+                _buildSmallButton("Sign Up", () => context.go('/signup')),
+                _buildSmallButton("Member Login", () => context.go('/login')),
+                _buildSmallButton("Join Ecosystem", () => context.go('/register-church'), isPrimary: true),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildHero(BuildContext context, WidgetRef ref) {
+    final headline = Responsive.displayFont(context, 64, tablet: 48, phone: 34);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(top: 100, bottom: 80),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF7E6),
-              borderRadius: BorderRadius.circular(100),
-              border: Border.all(color: const Color(0xFFFFCC00).withValues(alpha: 0.3)),
-            ),
-            child: const Text(
-              "✨ CONNECTING CHURCHES THROUGH TECHNOLOGY",
-              style: TextStyle(
-                color: Color(0xFFB8860B),
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1,
+      padding: EdgeInsets.only(
+        top: Responsive.isCompact(context) ? 60 : 100,
+        bottom: Responsive.isCompact(context) ? 60 : 80,
+      ),
+      child: Responsive.wrap(
+        Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7E6),
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(color: const Color(0xFFFFCC00).withValues(alpha: 0.3)),
+              ),
+              child: const Text(
+                "✨ CONNECTING CHURCHES THROUGH TECHNOLOGY",
+                style: TextStyle(
+                  color: Color(0xFFB8860B),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 30),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              "Connecting Churches\nThrough Technology.",
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 64,
-                height: 1.1,
-                fontWeight: FontWeight.w900,
-                color: const Color(0xFF1A1A1A),
+            const SizedBox(height: 30),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                "Connecting Churches\nThrough Technology.",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: headline,
+                  height: 1.1,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF1A1A1A),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 25),
-          SizedBox(
-            width: 700,
-            child: Text(
-              "From Lusaka to Harare, we're uniting churches with a world-class platform for sermons, ride-sharing, digital giving, and deep community engagement.",
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                fontSize: 20,
-                color: Colors.black45,
-                height: 1.6,
+            const SizedBox(height: 25),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 700),
+                  child: Text(
+                    "From Lusaka to Harare, we're uniting churches with a world-class platform for sermons, ride-sharing, digital giving, and deep community engagement.",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontSize: Responsive.isCompact(context) ? 17 : 20,
+                      color: Colors.black45,
+                      height: 1.6,
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 50),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildBigButton(context, "Explore Churches", () => context.go('/select-church')),
-              const SizedBox(width: 20),
-              _buildOutlineBigButton(context, "Register Church", () => context.go('/register-church')),
-            ],
-          ),
-          const SizedBox(height: 100),
-          _buildPhoneMockup(context),
-        ],
+            const SizedBox(height: 50),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 20,
+              runSpacing: 16,
+              children: [
+                _buildBigButton(context, "Explore Churches", () => context.go('/select-church')),
+                _buildOutlineBigButton(context, "Register Church", () => context.go('/register-church')),
+              ],
+            ),
+            const SizedBox(height: 100),
+            _buildPhoneMockup(context),
+          ],
+        ),
       ),
     );
   }
@@ -348,27 +370,37 @@ class LandingScreen extends ConsumerWidget {
 
   Widget _buildValueProp(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 100),
+      padding: EdgeInsets.symmetric(
+        vertical: Responsive.isCompact(context) ? 60 : 100,
+      ),
       color: Colors.white,
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _valueItem(Icons.security, "Security First", "Your congregation's data is protected by enterprise-grade encryption."),
-              _valueItem(Icons.flash_on, "Real-time Sync", "Instant updates for sermons, events, and community chats."),
-              _valueItem(Icons.public, "Borderless", "Connect with members whether they are in the pews or abroad."),
-            ],
-          ),
-        ],
+      child: Responsive.wrap(
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final avail = constraints.maxWidth;
+            final cols = avail >= 960 ? 3 : (avail >= 560 ? 2 : 1);
+            final itemWidth = (avail - 32 * (cols - 1)) / cols;
+            final itemPadding = Responsive.isCompact(context) ? 28.0 : 40.0;
+            return Wrap(
+              spacing: 32,
+              runSpacing: 32,
+              alignment: WrapAlignment.center,
+              children: [
+                _valueItem(Icons.security, "Security First", "Your congregation's data is protected by enterprise-grade encryption.", itemWidth, itemPadding),
+                _valueItem(Icons.flash_on, "Real-time Sync", "Instant updates for sermons, events, and community chats.", itemWidth, itemPadding),
+                _valueItem(Icons.public, "Borderless", "Connect with members whether they are in the pews or abroad.", itemWidth, itemPadding),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _valueItem(IconData icon, String title, String desc) {
+  Widget _valueItem(IconData icon, String title, String desc, double width, double padding) {
     return Container(
-      width: 300,
-      padding: const EdgeInsets.all(40),
+      width: width,
+      padding: EdgeInsets.all(padding),
       child: Column(
         children: [
           Icon(icon, size: 48, color: const Color(0xFFFFCC00)),
@@ -382,44 +414,57 @@ class LandingScreen extends ConsumerWidget {
   }
 
   Widget _buildFeatures(BuildContext context) {
+    final titleSize = Responsive.displayFont(context, 48, tablet: 40, phone: 30);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 120, horizontal: 60),
-      child: Column(
-        children: [
-          Text("CHURCH OPERATING SYSTEM", style: TextStyle(letterSpacing: 2, color: Colors.blue[800], fontWeight: FontWeight.bold, fontSize: 12)),
-          const SizedBox(height: 20),
-          Text("Uniting the Faithful.", style: GoogleFonts.plusJakartaSans(fontSize: 48, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 15),
-          Text("Everything your church needs—in one digital ecosystem.", style: TextStyle(fontSize: 18, color: Colors.black45, height: 1.5)),
-          const SizedBox(height: 80),
-          Wrap(
-            spacing: 30,
-            runSpacing: 30,
-            alignment: WrapAlignment.center,
-            children: [
-              _featureCard(context, Icons.menu_book, "Holy Bible", "Read, study, and memorize Scripture with multiple translations and audio."),
-              _featureCard(context, Icons.play_circle, "Sermons & Media", "Live streaming, recorded sermons, and worship lyrics in one place."),
-              _featureCard(context, Icons.wallet, "Digital Giving", "Tithes, offerings, and fundraising via MTN, Airtel, and Zamtel mobile money."),
-              _featureCard(context, Icons.calendar_today, "Events & Calendars", "Never miss a conference or fellowship again—with ticketing and check-in."),
-              _featureCard(context, Icons.store, "Marketplace", "Buy and sell within your church community—books, crafts, and more."),
-              _featureCard(context, Icons.quiz, "Bible Quiz", "Compete in Scripture knowledge challenges with your church and beyond."),
-              _featureCard(context, Icons.directions_car, "Ride Sharing", "Carpso Ride—safe, affordable church commutes, deliveries, and SOS."),
-              _featureCard(context, Icons.radio, "Kingdom Radio", "Broadcasting the Word 24/7 with worship music across the continent."),
-              _featureCard(context, Icons.forum, "Community", "Prayer wall, chat, Klips, testimonies, and pastor-led small groups."),
-              _featureCard(context, Icons.edit_note, "Notebook", "Sermon notes, personal journaling, and AI-powered study tools."),
-              _featureCard(context, Icons.dashboard, "Church Micro-sites", "Every branch gets its own digital home with website builder."),
-              _featureCard(context, Icons.volunteer_activism, "Charity & Missions", "Organize giving and track impact for those who need it most."),
-            ],
-          ),
-        ],
+      padding: EdgeInsets.symmetric(
+        vertical: Responsive.isCompact(context) ? 70 : 120,
+        horizontal: Responsive.hPadding(context),
+      ),
+      child: Responsive.wrap(
+        Column(
+          children: [
+            Text("CHURCH OPERATING SYSTEM", style: TextStyle(letterSpacing: 2, color: Colors.blue[800], fontWeight: FontWeight.bold, fontSize: 12)),
+            const SizedBox(height: 20),
+            Text("Uniting the Faithful.", style: GoogleFonts.plusJakartaSans(fontSize: titleSize, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 15),
+            Text("Everything your church needs—in one digital ecosystem.", style: TextStyle(fontSize: Responsive.isCompact(context) ? 15 : 18, color: Colors.black45, height: 1.5)),
+            const SizedBox(height: 80),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final avail = constraints.maxWidth;
+                final cols = avail >= 1100 ? 3 : (avail >= 660 ? 2 : 1);
+                final cardWidth = (avail - 30 * (cols - 1)) / cols;
+                return Wrap(
+                  spacing: 30,
+                  runSpacing: 30,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _featureCard(context, Icons.menu_book, "Holy Bible", "Read, study, and memorize Scripture with multiple translations and audio.", cardWidth),
+                    _featureCard(context, Icons.play_circle, "Sermons & Media", "Live streaming, recorded sermons, and worship lyrics in one place.", cardWidth),
+                    _featureCard(context, Icons.wallet, "Digital Giving", "Tithes, offerings, and fundraising via MTN, Airtel, and Zamtel mobile money.", cardWidth),
+                    _featureCard(context, Icons.calendar_today, "Events & Calendars", "Never miss a conference or fellowship again—with ticketing and check-in.", cardWidth),
+                    _featureCard(context, Icons.store, "Marketplace", "Buy and sell within your church community—books, crafts, and more.", cardWidth),
+                    _featureCard(context, Icons.quiz, "Bible Quiz", "Compete in Scripture knowledge challenges with your church and beyond.", cardWidth),
+                    _featureCard(context, Icons.directions_car, "Ride Sharing", "Carpso Ride—safe, affordable church commutes, deliveries, and SOS.", cardWidth),
+                    _featureCard(context, Icons.radio, "Kingdom Radio", "Broadcasting the Word 24/7 with worship music across the continent.", cardWidth),
+                    _featureCard(context, Icons.forum, "Community", "Prayer wall, chat, Klips, testimonies, and pastor-led small groups.", cardWidth),
+                    _featureCard(context, Icons.edit_note, "Notebook", "Sermon notes, personal journaling, and AI-powered study tools.", cardWidth),
+                    _featureCard(context, Icons.dashboard, "Church Micro-sites", "Every branch gets its own digital home with website builder.", cardWidth),
+                    _featureCard(context, Icons.volunteer_activism, "Charity & Missions", "Organize giving and track impact for those who need it most.", cardWidth),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _featureCard(BuildContext context, IconData icon, String title, String desc) {
+  Widget _featureCard(BuildContext context, IconData icon, String title, String desc, double width) {
     return Container(
-      width: 350,
-      padding: const EdgeInsets.all(40),
+      width: width,
+      padding: EdgeInsets.all(Responsive.isCompact(context) ? 26 : 40),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -450,25 +495,30 @@ class LandingScreen extends ConsumerWidget {
   }
 
   Widget _buildStats(BuildContext context) {
+    final dense = Responsive.isCompact(context);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 100),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _statItem("500+", "Churches Onboarded"),
-          _statItem("1M+", "Members Connected"),
-          _statItem("100%", "Service Uptime"),
-        ],
+      padding: EdgeInsets.symmetric(vertical: dense ? 60 : 100),
+      child: Responsive.wrap(
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 24,
+          runSpacing: 24,
+          children: [
+            _statItem("500+", "Churches Onboarded", dense),
+            _statItem("1M+", "Members Connected", dense),
+            _statItem("100%", "Service Uptime", dense),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _statItem(String val, String label) {
+  Widget _statItem(String val, String label, bool dense) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 60),
+      padding: EdgeInsets.symmetric(horizontal: dense ? 16 : 60),
       child: Column(
         children: [
-          Text(val, style: GoogleFonts.plusJakartaSans(fontSize: 48, fontWeight: FontWeight.w900, color: const Color(0xFFFFDA03))),
+          Text(val, style: GoogleFonts.plusJakartaSans(fontSize: dense ? 34 : 48, fontWeight: FontWeight.w900, color: const Color(0xFFFFDA03))),
           Text(label, style: const TextStyle(color: Colors.black26, fontWeight: FontWeight.bold, fontSize: 14)),
         ],
       ),
@@ -476,51 +526,68 @@ class LandingScreen extends ConsumerWidget {
   }
 
   Widget _buildPricing(BuildContext context) {
+    final titleSize = Responsive.displayFont(context, 48, tablet: 40, phone: 30);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 120),
+      padding: EdgeInsets.symmetric(
+        vertical: Responsive.isCompact(context) ? 70 : 120,
+        horizontal: Responsive.hPadding(context),
+      ),
       color: Theme.of(context).scaffoldBackgroundColor,
-      child: Column(
-        children: [
-          Text("CHURCH PROMO 🚀", style: TextStyle(letterSpacing: 2, color: Colors.blue[800], fontWeight: FontWeight.bold, fontSize: 12)),
-          const SizedBox(height: 20),
-          Text("Invest in Your Digital Future.", style: GoogleFonts.plusJakartaSans(fontSize: 48, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 80),
-          Wrap(
-            spacing: 30,
-            runSpacing: 30,
-            alignment: WrapAlignment.center,
-            children: [
-              _pricingCard(
-                "Churches", "K500/mo", "Free setup",
-                ["Free Silver plan forever", "Gold K100/mo • Platinum K500/mo", "One-time K500 onboarding fee", "Digital Tithes & Offerings"],
-                isFeatured: true,
-                onTap: () => context.go('/register-church'),
-              ),
-              _pricingCard(
-                "Bookshops", "K0", "onboarding",
-                ["Digital Storefront", "Inventory Management", "Secure Payments", "10% Commission"],
-                onTap: () => context.go('/signup'),
-              ),
-              _pricingCard(
-                "Vendors", "K0", "onboarding",
-                ["Sell Goods & Services", "Integrated Delivery", "Instant Payouts", "10% Commission"],
-                onTap: () => context.go('/signup'),
-              ),
-              _pricingCard(
-                "Drivers", "K0", "onboarding",
-                ["Flexible Hours", "In-App Navigation", "Instant Payouts", "10% Commission"],
-                onTap: () => context.go('/signup'),
-              ),
-            ],
-          ),
-        ],
+      child: Responsive.wrap(
+        Column(
+          children: [
+            Text("CHURCH PROMO 🚀", style: TextStyle(letterSpacing: 2, color: Colors.blue[800], fontWeight: FontWeight.bold, fontSize: 12)),
+            const SizedBox(height: 20),
+            Text("Invest in Your Digital Future.", style: GoogleFonts.plusJakartaSans(fontSize: titleSize, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 80),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final avail = constraints.maxWidth;
+                final cols = avail >= 1000 ? 4 : (avail >= 640 ? 2 : 1);
+                final cardWidth = (avail - 30 * (cols - 1)) / cols;
+                return Wrap(
+                  spacing: 30,
+                  runSpacing: 30,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _pricingCard(
+                      "Churches", "K500/mo", "Free setup",
+                      ["Free Silver plan forever", "Gold K100/mo • Platinum K500/mo", "One-time K500 onboarding fee", "Digital Tithes & Offerings"],
+                      isFeatured: true,
+                      onTap: () => context.go('/register-church'),
+                      width: cardWidth,
+                    ),
+                    _pricingCard(
+                      "Bookshops", "K0", "onboarding",
+                      ["Digital Storefront", "Inventory Management", "Secure Payments", "10% Commission"],
+                      onTap: () => context.go('/signup'),
+                      width: cardWidth,
+                    ),
+                    _pricingCard(
+                      "Vendors", "K0", "onboarding",
+                      ["Sell Goods & Services", "Integrated Delivery", "Instant Payouts", "10% Commission"],
+                      onTap: () => context.go('/signup'),
+                      width: cardWidth,
+                    ),
+                    _pricingCard(
+                      "Drivers", "K0", "onboarding",
+                      ["Flexible Hours", "In-App Navigation", "Instant Payouts", "10% Commission"],
+                      onTap: () => context.go('/signup'),
+                      width: cardWidth,
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _pricingCard(String title, String price, String period, List<String> features, {bool isFeatured = false, VoidCallback? onTap}) {
+  Widget _pricingCard(String title, String price, String period, List<String> features, {bool isFeatured = false, VoidCallback? onTap, double? width}) {
     return Container(
-      width: 280,
+      width: width ?? 280,
       padding: const EdgeInsets.all(35),
       decoration: BoxDecoration(
         color: isFeatured ? Colors.black : Colors.white.withValues(alpha: 0.9),
@@ -573,112 +640,129 @@ class LandingScreen extends ConsumerWidget {
   }
 
   Widget _buildRegistrationBanner(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(60),
-      padding: const EdgeInsets.all(80),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFCC00),
-        borderRadius: BorderRadius.circular(50),
-      ),
-      child: Column(
-        children: [
-          Text(
-            "Ready to digitalize your ministry?",
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.black),
-          ),
-          const SizedBox(height: 20),
-          const Text("Join the fastest growing ecosystem today.", style: TextStyle(fontSize: 18, color: Colors.black54)),
-          const SizedBox(height: 40),
-          ElevatedButton(
-            onPressed: () => context.go('/register-church'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 25),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    final dense = Responsive.isCompact(context);
+    return Responsive.wrap(
+      Container(
+        margin: EdgeInsets.symmetric(vertical: dense ? 16 : 60),
+        padding: EdgeInsets.all(dense ? 28 : 80),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFCC00),
+          borderRadius: BorderRadius.circular(dense ? 28 : 50),
+        ),
+        child: Column(
+          children: [
+            Text(
+              "Ready to digitalize your ministry?",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(fontSize: dense ? 24 : 36, fontWeight: FontWeight.w900, color: Colors.black),
             ),
-            child: const Text("REGISTER YOUR CHURCH NOW", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-          ),
-        ],
+            const SizedBox(height: 20),
+            const Text("Join the fastest growing ecosystem today.", style: TextStyle(fontSize: 18, color: Colors.black54)),
+            const SizedBox(height: 40),
+            ElevatedButton(
+              onPressed: () => context.go('/register-church'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: dense ? 26 : 50, vertical: dense ? 18 : 25),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+              child: Text(
+                "REGISTER YOUR CHURCH NOW",
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildFooter(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.only(top: 100, bottom: 40, left: 60, right: 60),
+      padding: EdgeInsets.only(
+        top: 100,
+        bottom: 40,
+        left: Responsive.hPadding(context),
+        right: Responsive.hPadding(context),
+      ),
       color: const Color(0xFF1A1A1A),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Image.asset("assets/app_logo.png", height: 30, errorBuilder: (c,e,s) => const Icon(Icons.church, color: Colors.white)),
-                      const SizedBox(width: 10),
-                      Text("Church On App", style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text("Connecting Churches Through Technology.", style: TextStyle(color: Colors.white.withValues(alpha: 0.4))),
-                  const SizedBox(height: 25),
-                  _footerContact(Icons.phone, "+260 968 551 110"),
-                  _footerContact(Icons.mail, "hello@churchonapp.com"),
-                ],
-              ),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _footerHeading("Features"),
-                      _footerLink("Sermons & Teachings", onTap: () => context.push('/sermons')),
-                      _footerLink("Events & Calendars", onTap: () => context.push('/events')),
-                      _footerLink("Klips", onTap: () => context.push('/kingdom-klips')),
-                      _footerLink("Bible Quiz", onTap: () => context.push('/quiz')),
-                      _footerLink("Carpso Ride", onTap: () => context.push('/ride')),
-                      _footerLink("Jobs Portal", onTap: () => context.push('/jobs')),
-                    ],
-                  ),
-                  const SizedBox(width: 40),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _footerHeading("Resources"),
-                      _footerLink("Privacy Policy", onTap: () => context.push('/privacy')),
-                      _footerLink("Terms of Service", onTap: () => context.push('/terms')),
-                      _footerLink("About Us", onTap: () => context.push('/about')),
-                      _footerLink("Support", onTap: () => context.push('/support')),
-                      _footerLink("Contact Us", onTap: () async {
-                        final url = Uri.parse("mailto:hello@churchonapp.com");
-                        if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.inAppWebView);
-                      }),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 40),
-          Center(
-            child: TextButton.icon(
-              onPressed: () => _showExpansionDialog(context),
-              icon: const Icon(Icons.add_location_alt, color: Colors.amber),
-              label: const Text("Tell us which church to add next", style: TextStyle(color: Colors.white)),
+      child: Responsive.wrap(
+        Column(
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.start,
+              runSpacing: 40,
+              spacing: 60,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Image.asset("assets/app_logo.png", height: 30, errorBuilder: (c,e,s) => const Icon(Icons.church, color: Colors.white)),
+                        const SizedBox(width: 10),
+                        Text("Church On App", style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text("Connecting Churches Through Technology.", style: TextStyle(color: Colors.white.withValues(alpha: 0.4))),
+                    const SizedBox(height: 25),
+                    _footerContact(Icons.phone, "+260 968 551 110"),
+                    _footerContact(Icons.mail, "hello@churchonapp.com"),
+                  ],
+                ),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.start,
+                  runSpacing: 40,
+                  spacing: 60,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _footerHeading("Features"),
+                        _footerLink("Sermons & Teachings", onTap: () => context.push('/sermons')),
+                        _footerLink("Events & Calendars", onTap: () => context.push('/events')),
+                        _footerLink("Klips", onTap: () => context.push('/kingdom-klips')),
+                        _footerLink("Bible Quiz", onTap: () => context.push('/quiz')),
+                        _footerLink("Carpso Ride", onTap: () => context.push('/ride')),
+                        _footerLink("Jobs Portal", onTap: () => context.push('/jobs')),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _footerHeading("Resources"),
+                        _footerLink("Privacy Policy", onTap: () => context.push('/privacy')),
+                        _footerLink("Terms of Service", onTap: () => context.push('/terms')),
+                        _footerLink("About Us", onTap: () => context.push('/about')),
+                        _footerLink("Support", onTap: () => context.push('/support')),
+                        _footerLink("Contact Us", onTap: () async {
+                          final url = Uri.parse("mailto:hello@churchonapp.com");
+                          if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.inAppWebView);
+                        }),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 40),
-          const Divider(color: Colors.white12),
-          const SizedBox(height: 20),
-          Text("© 2026 Church On App Global. Powered by Carpso Solutions.", style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12)),
-        ],
+            const SizedBox(height: 40),
+            Center(
+              child: TextButton.icon(
+                onPressed: () => _showExpansionDialog(context),
+                icon: const Icon(Icons.add_location_alt, color: Colors.amber),
+                label: const Text("Tell us which church to add next", style: TextStyle(color: Colors.white)),
+              ),
+            ),
+            const SizedBox(height: 40),
+            const Divider(color: Colors.white12),
+            const SizedBox(height: 20),
+            Text("© 2026 Church On App Global. Powered by Carpso Solutions.", style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12)),
+          ],
+        ),
       ),
     );
   }
