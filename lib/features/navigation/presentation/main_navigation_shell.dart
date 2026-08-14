@@ -13,7 +13,9 @@ import 'package:church_on_app/features/admin/presentation/lockdown_overlay.dart'
 import 'package:church_on_app/core/widgets/global_media_player.dart';
 import 'package:church_on_app/core/services/session_guard_service.dart';
 import 'package:church_on_app/core/services/offline_service.dart';
+import 'package:church_on_app/core/services/coins_service.dart';
 import 'package:church_on_app/core/config/remote_config.dart';
+import 'package:church_on_app/features/connect/data/user_activity_service.dart';
 
 import 'package:go_router/go_router.dart';
 import 'package:church_on_app/core/utils/responsive.dart';
@@ -62,6 +64,37 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell>
           );
       // Activate offline write queue
       ref.read(offlineServiceProvider).startAutoSync();
+      // Auto-collect daily coins (cooldown-checked server-side-safe: returns
+      // 0 when already collected today, so this is at most once per 20h)
+      final coinsSvc = ref.read(coinsServiceProvider);
+      coinsSvc.collectDailyCoins().then((earned) {
+        if (earned > 0) {
+          ref
+              .read(userActivityServiceProvider)
+              .logActivity(
+                type: ActivityType.coinCollected,
+                description: 'Daily coin reward',
+                coinsEarned: earned,
+              );
+        }
+      }).catchError((e) {
+        debugPrint('Daily coin auto-collect failed: $e');
+      });
+      // Tiered app-open streak bonus (5/10/20/30 by day bucket, once per day)
+      final streakCount = ref.read(profileProvider).asData?.value?.streakCount ?? 0;
+      coinsSvc.collectAppOpenStreakReward(streakCount).then((earned) {
+        if (earned > 0) {
+          ref
+              .read(userActivityServiceProvider)
+              .logActivity(
+                type: ActivityType.coinCollected,
+                description: 'App-open streak reward',
+                coinsEarned: earned,
+              );
+        }
+      }).catchError((e) {
+        debugPrint('Streak reward auto-collect failed: $e');
+      });
     });
   }
 

@@ -11,6 +11,7 @@ class CoinsService {
   CoinsService(this._client, [this._config = const RemoteConfig()]);
 
   static const _dailyCollectKey = 'last_daily_coin_collect';
+  static const _streakPaidKey = 'last_app_open_streak_paid';
 
   /// Reward amounts are remote-configurable via `coins_*` keys in
   /// `platform_settings` — no app update needed to change them.
@@ -89,6 +90,27 @@ class CoinsService {
     });
 
     return _referralCoins;
+  }
+
+  /// Tiered app-open streak reward, paid at most once per cooldown period.
+  /// Tiers (remote-configurable): 1d=5, 2-6d=10, 7-13d=20, 14d+=30 coins.
+  Future<int> collectAppOpenStreakReward(int consecutiveDays) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+
+    final prefs = await SharedPreferences.getInstance();
+    final lastPaid = prefs.getString(_streakPaidKey);
+    if (lastPaid != null) {
+      final lastTime = DateTime.parse(lastPaid);
+      if (DateTime.now().difference(lastTime) < _collectCooldown) return 0;
+    }
+    if (consecutiveDays <= 0) return 0;
+
+    final earned = await addAppOpenStreakCoins(consecutiveDays);
+    if (earned > 0) {
+      await prefs.setString(_streakPaidKey, DateTime.now().toIso8601String());
+    }
+    return earned;
   }
 
   Future<int> addAppOpenStreakCoins(int consecutiveDays) async {
