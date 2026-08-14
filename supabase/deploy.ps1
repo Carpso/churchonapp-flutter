@@ -216,6 +216,10 @@ $migrations = @(
      "20260888_security_hardening.sql"
      "20260889_server_side_settlement.sql"
      "20260890_church_auto_payout.sql"
+     "20260891_fixes_onboarding_rls_audio.sql"
+     "20260892_session_inactivity_config.sql"
+     "20260893_fix_quiz_leaderboard.sql"
+     "20260894_fix_noah_ark_audio.sql"
 )
 
 foreach ($m in $migrations) {

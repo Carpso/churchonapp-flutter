@@ -68,7 +68,7 @@ $$;
 -- 2. ride_registrations: unique user_id (fixes ON CONFLICT 42P10 everywhere)
 DELETE FROM public.ride_registrations a
 USING public.ride_registrations b
-WHERE a.user_id = b.user_id AND a.id <> b.id AND a.created_at < b.created_at;
+WHERE a.user_id = b.user_id AND a.id <> b.id AND a.updated_at < b.updated_at;
 
 CREATE UNIQUE INDEX IF NOT EXISTS ride_registrations_user_id_key
   ON public.ride_registrations (user_id);

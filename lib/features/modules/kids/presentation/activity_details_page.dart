@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:church_on_app/features/bible/data/audio_bible_service.dart';
 import '../data/kids_service.dart';
 import 'kids_audio_player.dart';
 
-class ActivityDetailsPage extends StatelessWidget {
+class ActivityDetailsPage extends ConsumerStatefulWidget {
   final String title;
   final IconData icon;
   final Color color;
@@ -26,6 +28,13 @@ class ActivityDetailsPage extends StatelessWidget {
         icon = LucideIcons.star,
         color = Colors.orange;
 
+  @override
+  ConsumerState<ActivityDetailsPage> createState() => _ActivityDetailsPageState();
+}
+
+class _ActivityDetailsPageState extends ConsumerState<ActivityDetailsPage> {
+  int _speakingVerse = -1;
+
   static const _memoryVerses = [
     {"ref": "John 3:16", "text": "For God so loved the world that he gave his one and only Son..."},
     {"ref": "Psalm 23:1", "text": "The Lord is my shepherd; I shall not want."},
@@ -43,7 +52,23 @@ class ActivityDetailsPage extends StatelessWidget {
   ];
 
   String get _displayTitle =>
-      resource?.title ?? title;
+      widget.resource?.title ?? widget.title;
+
+  void _toggleVerseSpeech(int index, Map<String, String> verse) {
+    final tts = ref.read(audioBibleServiceProvider);
+    if (_speakingVerse == index) {
+      tts.stopSpeech();
+      setState(() => _speakingVerse = -1);
+      return;
+    }
+    setState(() => _speakingVerse = index);
+    tts.speakText('${verse["ref"]}. ${verse["text"]}');
+    tts.speechStateStream.listen((playing) {
+      if (!playing && mounted && !tts.isPausedSpeech && _speakingVerse == index) {
+        setState(() => _speakingVerse = -1);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +76,7 @@ class ActivityDetailsPage extends StatelessWidget {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(_displayTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: color,
+        backgroundColor: widget.color,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -62,7 +87,7 @@ class ActivityDetailsPage extends StatelessWidget {
   }
 
   Widget _buildContent(BuildContext context) {
-    final res = resource;
+    final res = widget.resource;
     if (res != null) {
       final contentUrl = res.contentUrl;
       final isAudio = contentUrl != null &&
@@ -92,7 +117,7 @@ class ActivityDetailsPage extends StatelessWidget {
           return _buildResourceCard(res);
       }
     }
-    switch (title) {
+    switch (widget.title) {
       case "Memory Verses":
         return _buildMemoryVerses();
       case "Bible Trivia":
@@ -113,7 +138,7 @@ class ActivityDetailsPage extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [color.withValues(alpha: 0.9), color]),
+            gradient: LinearGradient(colors: [widget.color.withValues(alpha: 0.9), widget.color]),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
@@ -133,6 +158,7 @@ class ActivityDetailsPage extends StatelessWidget {
           title: res.title,
           audioUrl: audioUrl,
           storyTitle: res.title,
+          storyText: res.description,
           onComplete: () {},
         ),
       ],
@@ -146,7 +172,7 @@ class ActivityDetailsPage extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [color.withValues(alpha: 0.9), color]),
+            gradient: LinearGradient(colors: [widget.color.withValues(alpha: 0.9), widget.color]),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
@@ -171,7 +197,7 @@ class ActivityDetailsPage extends StatelessWidget {
             },
             icon: const Icon(LucideIcons.externalLink),
             label: const Text("Open Content"),
-            style: ElevatedButton.styleFrom(backgroundColor: color, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16)),
+            style: ElevatedButton.styleFrom(backgroundColor: widget.color, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16)),
           ),
         ),
         const SizedBox(height: 20),
@@ -197,7 +223,7 @@ class ActivityDetailsPage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(res.categoryIcon, color: color, size: 100),
+          Icon(res.categoryIcon, color: widget.color, size: 100),
           const SizedBox(height: 30),
           Text(res.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
           const SizedBox(height: 20),
@@ -231,23 +257,39 @@ class ActivityDetailsPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        ..._memoryVerses.map((v) => Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: Colors.blue.withValues(alpha: 0.1)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(v["ref"]!, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 14)),
-              const SizedBox(height: 5),
-              Text(v["text"]!, style: const TextStyle(fontSize: 13, color: Colors.black87, fontStyle: FontStyle.italic)),
-            ],
-          ),
-        )),
+        ..._memoryVerses.asMap().entries.map((e) {
+          final v = e.value;
+          final speaking = _speakingVerse == e.key;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.blue.withValues(alpha: 0.1)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(v["ref"]!, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 14)),
+                      const SizedBox(height: 5),
+                      Text(v["text"]!, style: const TextStyle(fontSize: 13, color: Colors.black87, fontStyle: FontStyle.italic)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: speaking ? 'Stop' : 'Read aloud',
+                  icon: Icon(speaking ? LucideIcons.square : LucideIcons.volume2, color: speaking ? Colors.orange : Colors.blue),
+                  onPressed: () => _toggleVerseSpeech(e.key, v),
+                ),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
@@ -440,9 +482,9 @@ class ActivityDetailsPage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: color, size: 100),
+          Icon(widget.icon, color: widget.color, size: 100),
           const SizedBox(height: 30),
-          Text("Welcome to $title!", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+          Text("Welcome to ${widget.title}!", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
           const SizedBox(height: 20),
           const Text(
             "Prepare for an exciting spiritual journey! This feature is being tuned for maximum fun and learning.",

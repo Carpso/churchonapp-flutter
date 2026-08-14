@@ -1,13 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:church_on_app/core/services/coins_service.dart';
+import 'package:church_on_app/features/bible/data/audio_bible_service.dart';
 
 class KidsAudioPlayer extends ConsumerStatefulWidget {
   final String title;
   final String? audioUrl;
   final String storyTitle;
+  final String? storyText;
   final VoidCallback onComplete;
 
   const KidsAudioPlayer({
@@ -15,6 +19,7 @@ class KidsAudioPlayer extends ConsumerStatefulWidget {
     required this.title,
     this.audioUrl,
     this.storyTitle = '',
+    this.storyText,
     required this.onComplete,
   });
 
@@ -24,9 +29,12 @@ class KidsAudioPlayer extends ConsumerStatefulWidget {
 
 class _KidsAudioPlayerState extends ConsumerState<KidsAudioPlayer> {
   final _player = AudioPlayer();
+  AudioBibleService? _tts;
+  StreamSubscription<bool>? _ttsStateSub;
   bool _isPlaying = false;
   bool _isLoading = true;
   String? _error;
+  bool _ttsMode = false;
   Duration _position = Duration.zero;
   Duration _duration = const Duration(minutes: 1);
   int _sleepMinutes = 0;
@@ -51,7 +59,7 @@ class _KidsAudioPlayerState extends ConsumerState<KidsAudioPlayer> {
 
   Future<void> _initPlayer() async {
     if (widget.audioUrl == null || widget.audioUrl!.isEmpty) {
-      setState(() { _isLoading = false; _error = 'No audio available'; });
+      await _startTtsFallback();
       return;
     }
     try {
@@ -71,17 +79,53 @@ class _KidsAudioPlayerState extends ConsumerState<KidsAudioPlayer> {
       });
       setState(() { _isLoading = false; _error = null; });
     } catch (e) {
+      await _startTtsFallback();
+    }
+  }
+
+  String get _ttsText =>
+      (widget.storyText?.isNotEmpty == true ? widget.storyText! : widget.storyTitle.isNotEmpty ? widget.storyTitle : widget.title);
+
+  Future<void> _startTtsFallback() async {
+    final tts = ref.read(audioBibleServiceProvider);
+    _tts = tts;
+    try {
+      await tts.initialize();
+      await tts.speakText(_ttsText);
+      _ttsStateSub = tts.speechStateStream.listen((playing) {
+        if (!mounted) return;
+        setState(() => _isPlaying = playing);
+        if (!playing && !tts.isPausedSpeech && !_quizShown) {
+          _showQuiz();
+        }
+      });
+      setState(() { _isLoading = false; _error = null; _ttsMode = true; });
+    } catch (e) {
       setState(() { _isLoading = false; _error = e.toString(); });
     }
   }
 
   @override
   void dispose() {
+    _ttsStateSub?.cancel();
+    _tts?.stopSpeech();
     _player.dispose();
     super.dispose();
   }
 
   void _playPause() {
+    if (_ttsMode) {
+      final tts = _tts;
+      if (tts == null) return;
+      if (_isPlaying) {
+        tts.pauseSpeech();
+      } else if (tts.isPausedSpeech) {
+        tts.resumeSpeech();
+      } else {
+        tts.speakText(_ttsText);
+      }
+      return;
+    }
     if (_isPlaying) { _player.pause(); } else { _player.play(); }
   }
 
@@ -143,12 +187,14 @@ class _KidsAudioPlayerState extends ConsumerState<KidsAudioPlayer> {
   }
 
   Future<void> _finishQuiz() async {
+    if (!mounted) return;
     final passed = _quizScore >= (_quizQuestions.length / 2).ceil();
     if (passed) {
       try {
         await ref.read(coinsServiceProvider).addAttendanceCoins();
       } catch (_) {}
     }
+    if (!context.mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -200,47 +246,61 @@ class _KidsAudioPlayerState extends ConsumerState<KidsAudioPlayer> {
             if (_error != null) Center(child: Text('⚠️ $_error', style: const TextStyle(color: Colors.red))),
 
             if (!_isLoading && _error == null) ...[
-              // Progress bar
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(value: progress, backgroundColor: Colors.grey.shade200, valueColor: AlwaysStoppedAnimation(theme.primaryColor), minHeight: 6),
-              ),
-              const SizedBox(height: 8),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text(_formatDuration(_position), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                Text(_formatDuration(_duration), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-              ]),
+              if (!_ttsMode) ...[
+                // Progress bar
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(value: progress, backgroundColor: Colors.grey.shade200, valueColor: AlwaysStoppedAnimation(theme.primaryColor), minHeight: 6),
+                ),
+                const SizedBox(height: 8),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Text(_formatDuration(_position), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  Text(_formatDuration(_duration), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                ]),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(LucideIcons.volume2, size: 14, color: Colors.orange),
+                    SizedBox(width: 6),
+                    Text('Read-aloud mode', style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold)),
+                  ]),
+                ),
+              ],
 
               // Controls
               const SizedBox(height: 12),
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                IconButton(icon: const Icon(LucideIcons.skipBack), onPressed: () => _seekRelative(const Duration(seconds: -10))),
-                const SizedBox(width: 16),
+                if (!_ttsMode) IconButton(icon: const Icon(LucideIcons.skipBack), onPressed: () => _seekRelative(const Duration(seconds: -10))),
+                if (!_ttsMode) const SizedBox(width: 16),
                 Container(
                   width: 56, height: 56,
                   decoration: BoxDecoration(shape: BoxShape.circle, color: theme.primaryColor),
                   child: IconButton(icon: Icon(_isPlaying ? LucideIcons.pause : LucideIcons.play, color: Colors.white), onPressed: _playPause, iconSize: 28),
                 ),
-                const SizedBox(width: 16),
-                IconButton(icon: const Icon(LucideIcons.skipForward), onPressed: () => _seekRelative(const Duration(seconds: 10))),
+                if (!_ttsMode) const SizedBox(width: 16),
+                if (!_ttsMode) IconButton(icon: const Icon(LucideIcons.skipForward), onPressed: () => _seekRelative(const Duration(seconds: 10))),
               ]),
 
               // Sleep timer
-              const SizedBox(height: 8),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Icon(LucideIcons.moon, size: 14, color: Colors.grey),
-                const SizedBox(width: 4),
-                ...([15, 30, 45].map((m) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: ChoiceChip(
-                    label: Text('${m}m', style: TextStyle(fontSize: 11, color: _sleepMinutes == m ? Colors.white : Colors.grey)),
-                    selected: _sleepMinutes == m,
-                    selectedColor: Colors.indigo,
-                    onSelected: (_) => _setSleepTimer(_sleepMinutes == m ? 0 : m),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ))),
-              ]),
+              if (!_ttsMode) ...[
+                const SizedBox(height: 8),
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const Icon(LucideIcons.moon, size: 14, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  ...([15, 30, 45].map((m) => Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ChoiceChip(
+                      label: Text('${m}m', style: TextStyle(fontSize: 11, color: _sleepMinutes == m ? Colors.white : Colors.grey)),
+                      selected: _sleepMinutes == m,
+                      selectedColor: Colors.indigo,
+                      onSelected: (_) => _setSleepTimer(_sleepMinutes == m ? 0 : m),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ))),
+                ]),
+              ],
             ],
           ],
         ),
