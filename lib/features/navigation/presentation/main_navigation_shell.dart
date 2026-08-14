@@ -50,7 +50,7 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(profileNotificationServiceProvider).init();
       // Activate session guard (remote-config inactivity lockout)
-      final timeoutMinutes = currentRemoteConfig(ref).getInt(
+      final timeoutMinutes = widgetRemoteConfig(ref).getInt(
         'session_inactivity_minutes',
         5,
       );

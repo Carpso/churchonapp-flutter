@@ -23,13 +23,20 @@ class BibleVerse {
 }
 
 class BibleService {
-  /// Translations that bible-api.com serves remotely.
+  /// Translations that bible-api.com serves remotely (fallback layer).
   static const _remoteCodes = {'kjv', 'web', 'asv', 'bbe', 'ylt', 'dra'};
 
   /// Translations that are seeded in the local Supabase bible_verses table.
-  /// NOTE: KJV/WEB are fetched from bible-api.com (reliable remote source);
-  /// only NKJV/NLT (not on bible-api.com) use the local table.
+  /// NOTE: only NKJV/NLT (not free to self-host) use the local table.
   static const _dbCodes = {'nkjv', 'nlt'};
+
+  /// Translations self-hosted on Cloudflare R2 (media.churchonapp.com) —
+  /// whole books fetched once, then chapters read from the local cache.
+  static const _r2Codes = {
+    'kjv', 'web', 'dra', 'asv', 'bbe', 'ylt', 'geneva1599', 'acv', 'cpdv',
+    'darby', 'jubilee2000', 'mkjv', 'nheb', 'noyes', 'rlt', 'rnkjv',
+    'rotherham', 'ukjv', 'webster', 'tyndale', 'oeb',
+  };
 
   Future<List<BibleVerse>> getChapter(
     String translation,
@@ -70,10 +77,10 @@ class BibleService {
         }
       }
 
-      // KJV is self-hosted on Cloudflare R2 (media.churchonapp.com) — fetch
-      // the whole book once, cache it, then pull the chapter locally.
-      if (translation == 'kjv') {
-        final r2Verses = await _fetchFromR2(book, chapter);
+      // Self-hosted translations live on Cloudflare R2 — fetch the whole
+      // book once, cache it, then pull the chapter locally.
+      if (_r2Codes.contains(translation)) {
+        final r2Verses = await _fetchFromR2(translation, book, chapter);
         if (r2Verses.isNotEmpty) {
           await prefs.setString(cacheKey, json.encode(r2Verses));
           return r2Verses.map((v) => BibleVerse.fromJson(v)).toList();
@@ -137,14 +144,15 @@ class BibleService {
     }
   }
 
-  static const _r2Base = 'https://media.churchonapp.com/bible-text/kjv';
+  static const _r2Base = 'https://media.churchonapp.com/bible-text';
 
   Future<List<Map<String, dynamic>>> _fetchFromR2(
+    String translation,
     String book,
     int chapter,
   ) async {
     final prefs = await SharedPreferences.getInstance();
-    final bookKey = 'bible_book_kjv_$book';
+    final bookKey = 'bible_book_${translation}_$book';
     try {
       final cached = prefs.getString(bookKey);
       if (cached != null) {
@@ -156,8 +164,8 @@ class BibleService {
       }
       final fileName = book.replaceAll(' ', '_');
       final response = await http
-          .get(Uri.parse('$_r2Base/$fileName.json'))
-          .timeout(const Duration(seconds: 15));
+          .get(Uri.parse('$_r2Base/$translation/$fileName.json'))
+          .timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) return [];
       final data = json.decode(response.body) as Map<String, dynamic>;
       final chapters = data['chapters'] as Map<String, dynamic>? ?? {};

@@ -34,7 +34,19 @@ const List<BibleTranslation> kEnglishTranslations = [
   BibleTranslation(code: 'bbe', name: 'Bible in Basic English', shortName: 'BBE', remoteSupported: true),
   BibleTranslation(code: 'ylt', name: "Young's Literal Translation", shortName: 'YLT', remoteSupported: true),
   BibleTranslation(code: 'dra', name: 'Douay-Rheims American Edition', shortName: 'DRA', remoteSupported: true),
-  BibleTranslation(code: 'geneva1599', name: 'Geneva Bible 1599', shortName: 'GNV'),
+  BibleTranslation(code: 'geneva1599', name: 'Geneva Bible 1599', shortName: 'GNV', remoteSupported: true),
+  BibleTranslation(code: 'acv', name: 'A Conservative Version', shortName: 'ACV', remoteSupported: true),
+  BibleTranslation(code: 'cpdv', name: 'Catholic Public Domain Version', shortName: 'CPDV', remoteSupported: true),
+  BibleTranslation(code: 'darby', name: 'Darby Bible', shortName: 'DARBY', remoteSupported: true),
+  BibleTranslation(code: 'jubilee2000', name: 'Jubilee Bible 2000', shortName: 'JUB', remoteSupported: true),
+  BibleTranslation(code: 'mkjv', name: 'Modern King James Version', shortName: 'MKJV', remoteSupported: true),
+  BibleTranslation(code: 'nheb', name: 'New Heart English Bible', shortName: 'NHEB', remoteSupported: true),
+  BibleTranslation(code: 'noyes', name: "Noyes' New Testament", shortName: 'NOYES', remoteSupported: true),
+  BibleTranslation(code: 'rlt', name: 'Revised Literal Translation', shortName: 'RLT', remoteSupported: true),
+  BibleTranslation(code: 'rnkjv', name: 'Restored Name King James Version', shortName: 'RNKJV', remoteSupported: true),
+  BibleTranslation(code: 'rotherham', name: "Rotherham's Emphasized Bible", shortName: 'ROTH', remoteSupported: true),
+  BibleTranslation(code: 'ukjv', name: 'Updated King James Version', shortName: 'UKJV', remoteSupported: true),
+  BibleTranslation(code: 'webster', name: "Webster's Bible 1833", shortName: 'WEBSTER', remoteSupported: true),
 ];
 
 BibleTranslation? getTranslationByCode(String code) {
