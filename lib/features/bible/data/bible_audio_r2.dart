@@ -1,11 +1,22 @@
 /// Chapter-range to R2 audio file mapping for the LibriVox KJV (Complete 2001) recording.
 /// Each entry lists [startChapter, endChapter, fileNumber] triples; audio lives at
 /// https://media.churchonapp.com/bible-audio/kjv-dramatized/bible_NNN.mp3
+///
+/// AUDITED 2026-08-14 (word-count ↔ duration math against the source files):
+/// the ranges below match the LibriVox section listing exactly (127/127 files).
+/// Two chapters are duplicated in the SOURCE recording itself — each was
+/// recorded into BOTH adjacent files (per the LibriVox listing "Ch. 12 - 25"
+/// / "Ch. 25 - 34" etc.), so either file contains the correct chapter:
+///   • Deuteronomy 25 → files 18 ("Ch. 12 - 25") AND 19 ("Ch. 25 - 34")
+///   • Acts 10        → files 102 ("Ch. 1 - 10") AND 103 ("Ch. 10 - 20")
+/// `kjvR2AudioUrlFor` resolves first-match (Deut 25 → 18, Acts 10 → 102),
+/// which is correct audio in both cases.
 const Map<String, List<List<int>>> kjvChapterFileRanges = {
   'Genesis': [[1,14,1], [15,24,2], [25,32,3], [33,43,4], [44,50,5]],
   'Exodus': [[1,10,6], [11,22,7], [23,33,8], [34,40,9]],
   'Leviticus': [[1,11,10], [12,22,11], [23,27,12]],
   'Numbers': [[1,9,13], [10,20,14], [21,30,15], [31,36,16]],
+  // Deuteronomy 25 is duplicated in files 18 and 19 (source recording quirk).
   'Deuteronomy': [[1,11,17], [12,25,18], [25,34,19]],
   'Joshua': [[1,10,20], [11,21,21], [22,24,22]],
   'Judges': [[1,8,23], [9,18,24], [19,21,25]],
@@ -45,7 +56,7 @@ const Map<String, List<List<int>>> kjvChapterFileRanges = {
   'Mark': [[1,9,94], [10,16,95]],
   'Luke': [[1,8,96], [9,16,97], [17,24,98]],
   'John': [[1,8,99], [9,18,100], [19,21,101]],
-  'Acts': [[1,10,102], [10,20,103], [21,28,104]],
+  'Acts': [[1,10,102], [10,20,103], [21,28,104]], // Acts 10 duplicated in 102 and 103 (source quirk)
   'Romans': [[1,16,105]],
   '1 Corinthians': [[1,16,106]],
   '2 Corinthians': [[1,13,107]],

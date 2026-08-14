@@ -109,8 +109,18 @@ class AudioBibleService {
   void Function(int verseNum)? _onVerseChangeCallback;
   final RegExp _versePattern = RegExp(r'(?:Verse )?(\d+)\.');
   final StreamController<int> _verseChangeController = StreamController<int>.broadcast();
+  final StreamController<bool> _speechStateController = StreamController<bool>.broadcast();
 
   Stream<int> get verseChangeStream => _verseChangeController.stream;
+
+  /// Emits `true` when speech starts/resumes, `false` when it stops/pauses/completes.
+  Stream<bool> get speechStateStream => _speechStateController.stream;
+
+  void _emitSpeech(bool playing) {
+    if (!_speechStateController.isClosed) {
+      _speechStateController.add(playing);
+    }
+  }
 
   bool get isPlayingSpeech => _isPlayingSpeech;
   bool get isPausedSpeech => _isPausedSpeech;
@@ -119,8 +129,12 @@ class AudioBibleService {
   int get currentSpeakingVerse => _currentSpeakingVerse;
   double get currentSpeechRate => _currentSpeechRate;
 
-  /// Initialize TTS engine
+  bool _initialized = false;
+
+  /// Initialize TTS engine (idempotent — safe to call from multiple widgets).
   Future<void> initialize() async {
+    if (_initialized) return;
+    _initialized = true;
     await _flutterTts.setLanguage('en-US');
     await _flutterTts.setSpeechRate(_currentSpeechRate);
     await _flutterTts.setPitch(_config.pitch);
@@ -129,11 +143,13 @@ class AudioBibleService {
     _flutterTts.setCompletionHandler(() {
       _isPlayingSpeech = false;
       _isPausedSpeech = false;
+      _emitSpeech(false);
     });
 
     _flutterTts.setErrorHandler((msg) {
       _isPlayingSpeech = false;
       _isPausedSpeech = false;
+      _emitSpeech(false);
     });
     
     // Try to set voice (platform-dependent)
@@ -183,24 +199,42 @@ class AudioBibleService {
     final spokenText = _formatChapterText(bookName, chapter, verses);
     await _flutterTts.setSpeechRate(_currentSpeechRate);
     await _flutterTts.speak(spokenText);
+    _emitSpeech(true);
+  }
+
+  /// Speak any raw passage text (no verse-number formatting) using TTS.
+  Future<void> speakText(String text) async {
+    await stopSpeech();
+    if (text.trim().isEmpty) return;
+    _currentSpeakingBook = '';
+    _currentSpeakingChapter = 0;
+    _currentSpeakingVerse = 0;
+    _isPlayingSpeech = true;
+    _isPausedSpeech = false;
+    await _flutterTts.setSpeechRate(_currentSpeechRate);
+    await _flutterTts.speak(text);
+    _emitSpeech(true);
   }
 
   Future<void> pauseSpeech() async {
     await _flutterTts.pause();
     _isPlayingSpeech = false;
     _isPausedSpeech = true;
+    _emitSpeech(false);
   }
 
   Future<void> resumeSpeech() async {
     _isPlayingSpeech = true;
     _isPausedSpeech = false;
     await _flutterTts.speak('');
+    _emitSpeech(true);
   }
 
   Future<void> stopSpeech() async {
     await _flutterTts.stop();
     _isPlayingSpeech = false;
     _isPausedSpeech = false;
+    _emitSpeech(false);
   }
 
   Future<void> setSpeechRate(double rate) async {

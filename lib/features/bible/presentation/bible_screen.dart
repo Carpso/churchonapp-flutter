@@ -325,6 +325,8 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                         selectedBook.toLowerCase(),
                     chapter: selectedChapter,
                     totalChapters: _maxChapter,
+                    translationCode: selectedTranslation,
+                    verses: verses,
                     onChapterChange: (ch) => setState(() {
                       selectedChapter = ch;
                       _persistReadingPosition();
