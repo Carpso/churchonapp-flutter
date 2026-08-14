@@ -3,22 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:just_audio/just_audio.dart';
 
 import 'package:church_on_app/features/bible/data/audio_bible_service.dart';
-import 'package:church_on_app/features/bible/data/bible_audio_r2.dart';
 import 'package:church_on_app/features/bible/data/bible_service.dart';
 
-enum _AudioMode { tts, dramatized }
-
-/// Bible chapter audio player.
+/// Bible chapter audio player — TTS only.
 ///
-/// TTS first, LibriVox second:
-///   1. [BibleAudioPlayer.tts] (default when [verses] are available) — reads
-///      the chapter aloud with on-device Flutter TTS in ANY translation.
-///   2. [BibleAudioPlayer.dramatized] — streams the LibriVox KJV dramatized
-///      recording from Cloudflare R2 (KJV only; a toggle appears when both
-///      sources are available).
+/// Reads the chapter aloud with on-device Flutter TTS in ANY translation.
+/// (Dramatized LibriVox recordings are used only in the Bible Podcast.)
 class BibleAudioPlayer extends ConsumerStatefulWidget {
   final String bookName;
   final String bookAbbrev;
@@ -44,33 +36,21 @@ class BibleAudioPlayer extends ConsumerStatefulWidget {
 }
 
 class _BibleAudioPlayerState extends ConsumerState<BibleAudioPlayer> {
-  final _player = AudioPlayer();
   bool _isPlaying = false;
   bool _isLoading = true;
+  bool _wasPlaying = false;
   String? _error;
-  Duration _position = Duration.zero;
-  Duration _duration = const Duration(minutes: 1);
   double _speed = 1.0;
-  _AudioMode _mode = _AudioMode.tts;
   StreamSubscription<bool>? _ttsSub;
-  StreamSubscription<PlayerState>? _playerSub;
 
   AudioBibleService get _tts => ref.read(audioBibleServiceProvider);
 
   bool get _ttsAvailable =>
       widget.verses != null && widget.verses!.isNotEmpty;
 
-  bool get _dramatizedAvailable =>
-      widget.translationCode == 'kjv' &&
-      kjvR2AudioUrlFor(widget.bookName, widget.chapter) != null;
-
-  String? get _dramatizedUrl =>
-      kjvR2AudioUrlFor(widget.bookName, widget.chapter);
-
   @override
   void initState() {
     super.initState();
-    _pickDefaultMode();
     _subscribe();
     _load();
   }
@@ -82,41 +62,24 @@ class _BibleAudioPlayerState extends ConsumerState<BibleAudioPlayer> {
     final translationChanged = old.translationCode != widget.translationCode;
     final versesChanged = old.verses != widget.verses;
     if (chapterChanged || translationChanged || versesChanged) {
-      // Dramatized mode may disappear on translation change.
-      if (_mode == _AudioMode.dramatized && !_dramatizedAvailable) {
-        _mode = _ttsAvailable ? _AudioMode.tts : _AudioMode.dramatized;
-      }
       _load();
     }
   }
 
-  void _pickDefaultMode() {
-    if (_ttsAvailable) {
-      _mode = _AudioMode.tts;
-    } else if (_dramatizedAvailable) {
-      _mode = _AudioMode.dramatized;
-    }
-  }
-
   void _subscribe() {
-    _playerSub?.cancel();
     _ttsSub?.cancel();
-    _playerSub = _player.playerStateStream.listen((s) {
-      if (!mounted) return;
-      setState(() => _isPlaying = s.playing);
-      if (s.processingState == ProcessingState.completed) _nextChapter();
-    });
-    _player.positionStream.listen(
-      (p) => mounted ? setState(() => _position = p) : null,
-    );
-    _player.durationStream.listen(
-      (d) => mounted
-          ? setState(() => _duration = d ?? const Duration(minutes: 1))
-          : null,
-    );
     _ttsSub = _tts.speechStateStream.listen((playing) {
-      if (!mounted || _mode != _AudioMode.tts) return;
-      setState(() => _isPlaying = playing);
+      if (!mounted) return;
+      setState(() {
+        _isPlaying = playing;
+        if (playing) _wasPlaying = true;
+      });
+      // Chapter finished naturally (not paused, not stopped manually) →
+      // advance to the next chapter.
+      if (!playing && _wasPlaying && !_tts.isPausedSpeech) {
+        _wasPlaying = false;
+        _nextChapter();
+      }
     });
   }
 
@@ -125,70 +88,39 @@ class _BibleAudioPlayerState extends ConsumerState<BibleAudioPlayer> {
       _isLoading = true;
       _error = null;
       _isPlaying = false;
+      _wasPlaying = false;
     });
-    if (_mode == _AudioMode.tts) {
-      if (!_ttsAvailable) {
+    if (!_ttsAvailable) {
+      setState(() {
+        _isLoading = false;
         _error = 'Audio unavailable — chapter text not loaded.';
-        _isLoading = false;
-        return;
-      }
-      await _tts.initialize();
-      setState(() {
-        _isLoading = false;
-        _error = null;
       });
       return;
     }
-    final url = _dramatizedUrl;
-    if (url == null) {
-      setState(() {
-        _isLoading = false;
-        _error = 'Audio unavailable for ${widget.bookName} ${widget.chapter} — no recording mapped yet.';
-      });
-      return;
-    }
-    try {
-      await _player.setUrl(url);
-      setState(() {
-        _isLoading = false;
-        _error = null;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _error = 'Audio unavailable — chapter may not be recorded yet. Will be available after R2 upload.';
-      });
-    }
-  }
-
-  void _switchMode(_AudioMode mode) {
-    if (mode == _mode) return;
-    _tts.stopSpeech();
-    _player.stop();
-    setState(() => _mode = mode);
-    _load();
+    await _tts.initialize();
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _error = null;
+    });
   }
 
   @override
   void dispose() {
-    _playerSub?.cancel();
     _ttsSub?.cancel();
     _tts.stopSpeech();
-    _player.dispose();
     super.dispose();
   }
 
   Future<void> _playPause() async {
-    if (_mode == _AudioMode.dramatized) {
-      _isPlaying ? await _player.pause() : await _player.play();
-      return;
-    }
     final service = _tts;
     if (_isPlaying) {
+      _wasPlaying = false;
       await service.pauseSpeech();
       return;
     }
     if (service.isPausedSpeech) {
+      _wasPlaying = true;
       await service.resumeSpeech();
       return;
     }
@@ -199,13 +131,6 @@ class _BibleAudioPlayerState extends ConsumerState<BibleAudioPlayer> {
       widget.verses!,
     );
     if (mounted) setState(() => _isLoading = false);
-  }
-
-  void _seekRelative(Duration d) {
-    if (_mode != _AudioMode.dramatized) return;
-    final ms = (_position.inMilliseconds + d.inMilliseconds)
-        .clamp(0, _duration.inMilliseconds);
-    _player.seek(Duration(milliseconds: ms));
   }
 
   void _prevChapter() {
@@ -220,23 +145,13 @@ class _BibleAudioPlayerState extends ConsumerState<BibleAudioPlayer> {
 
   Future<void> _setSpeed(double s) async {
     setState(() => _speed = s);
-    if (_mode == _AudioMode.dramatized) {
-      await _player.setSpeed(s);
-    } else {
-      await _tts.setSpeechRate(s);
-    }
+    await _tts.setSpeechRate(s);
   }
-
-  bool get _bothModes => _ttsAvailable && _dramatizedAvailable;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final progress = _duration.inMilliseconds > 0
-        ? _position.inMilliseconds / _duration.inMilliseconds
-        : 0.0;
     final bookCh = '${widget.bookName} ${widget.chapter}';
-    final isTts = _mode == _AudioMode.tts;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -260,18 +175,6 @@ class _BibleAudioPlayerState extends ConsumerState<BibleAudioPlayer> {
                 ),
               ),
             if (!_isLoading && _error == null) ...[
-              // Mode toggle (TTS first, dramatized second)
-              if (_bothModes) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _modeChip(theme, 'Narrated voice', _AudioMode.tts),
-                    const SizedBox(width: 8),
-                    _modeChip(theme, 'Dramatized (KJV)', _AudioMode.dramatized),
-                  ],
-                ),
-                const SizedBox(height: 8),
-              ],
               // Title + chapter
               Row(children: [
                 Expanded(
@@ -280,37 +183,15 @@ class _BibleAudioPlayerState extends ConsumerState<BibleAudioPlayer> {
                     style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                   ),
                 ),
-                if (isTts)
-                  Text(
-                    '${widget.translationCode.toUpperCase()} · on-device voice',
-                    style: const TextStyle(fontSize: 10, color: Colors.grey),
-                  )
-                else ...[
-                  Text(_formatDuration(_position), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                  const Text(' / ', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                  Text(_formatDuration(_duration), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                ],
-              ]),
-              if (!isTts) ...[
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 4,
-                    backgroundColor: Colors.grey.shade200,
-                    valueColor: AlwaysStoppedAnimation(theme.primaryColor),
-                  ),
+                Text(
+                  '${widget.translationCode.toUpperCase()} · on-device voice',
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
                 ),
-              ],
+              ]),
               const SizedBox(height: 12),
               // Controls
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 IconButton(icon: const Icon(LucideIcons.skipBack), onPressed: _prevChapter, iconSize: 20, tooltip: 'Previous chapter'),
-                if (!isTts) ...[
-                  const SizedBox(width: 4),
-                  IconButton(icon: const Icon(LucideIcons.rewind), onPressed: () => _seekRelative(const Duration(seconds: -10)), iconSize: 18),
-                ],
                 const SizedBox(width: 8),
                 Container(
                   width: 48, height: 48,
@@ -321,10 +202,6 @@ class _BibleAudioPlayerState extends ConsumerState<BibleAudioPlayer> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                if (!isTts) ...[
-                  IconButton(icon: const Icon(LucideIcons.fastForward), onPressed: () => _seekRelative(const Duration(seconds: 10)), iconSize: 18),
-                  const SizedBox(width: 4),
-                ],
                 IconButton(icon: const Icon(LucideIcons.skipForward), onPressed: _nextChapter, iconSize: 20, tooltip: 'Next chapter'),
               ]),
               // Speed
@@ -353,52 +230,19 @@ class _BibleAudioPlayerState extends ConsumerState<BibleAudioPlayer> {
                   ),
                 )),
               ]),
-              if (isTts)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    'Read aloud from the ${widget.translationCode.toUpperCase()} text — works offline for every translation.',
-                    style: const TextStyle(fontSize: 10, color: Colors.grey),
-                    textAlign: TextAlign.center,
-                  ),
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Read aloud from the ${widget.translationCode.toUpperCase()} text — works offline for every translation.',
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  textAlign: TextAlign.center,
                 ),
+              ),
             ],
           ],
         ),
       ),
     );
-  }
-
-  Widget _modeChip(ThemeData theme, String label, _AudioMode mode) {
-    final active = _mode == mode;
-    return GestureDetector(
-      onTap: () => _switchMode(mode),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: active ? theme.primaryColor.withValues(alpha: 0.15) : Colors.transparent,
-          border: Border.all(
-            color: active ? theme.primaryColor : Colors.grey.shade300,
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: active ? theme.primaryColor : Colors.grey.shade600,
-            fontWeight: active ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _formatDuration(Duration d) {
-    final h = d.inHours > 0 ? '${d.inHours}:' : '';
-    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$h$m:$s';
   }
 }
 

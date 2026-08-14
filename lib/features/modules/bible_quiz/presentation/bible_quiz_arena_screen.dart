@@ -218,6 +218,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
           questionCount: widget.questionCount,
           timePerQuestion: widget.timePerQuestionSec,
           wagerTier: widget.wagerTier,
+          mode: widget.mode,
         );
         if (!mounted) return;
         if (match == null) {
@@ -228,7 +229,8 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
 
         // If match is still pending (we created it), wait for opponent
         if (match.status == 'pending') {
-          final accepted = await _pvpService!.waitForMatch(match.id);
+          final accepted = await _pvpService!.waitForMatch(match.id,
+              timeout: const Duration(seconds: 25));
           if (!mounted) return;
           if (accepted == null) {
             setState(() => _loadingError = true);
@@ -1008,18 +1010,19 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
                             ],
                           ),
                         // Verse text in the user's preferred translation
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: LiveScriptureText(
-                            reference: q.scriptureReference!,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.65),
-                              fontSize: 13,
-                              height: 1.5,
-                              fontStyle: FontStyle.italic,
+                        if (q.scriptureReference != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: LiveScriptureText(
+                              reference: q.scriptureReference!,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.65),
+                                fontSize: 13,
+                                height: 1.5,
+                                fontStyle: FontStyle.italic,
+                              ),
                             ),
                           ),
-                        ),
                         // Question text
                         Text(
                           q.question,

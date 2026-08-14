@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:audio_service/audio_service.dart';
@@ -19,6 +20,8 @@ class RadioScreen extends ConsumerStatefulWidget {
 class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProviderStateMixin {
   late AnimationController _visualizerController;
   String _selectedStationName = "Radio Christian Voice";
+  List<RadioStation> _directory = const [];
+  int _directoryIndex = 0;
 
   @override
   void initState() {
@@ -196,7 +199,11 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        IconButton(icon: const Icon(LucideIcons.volumeX, color: Colors.white54), onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Volume control coming soon")))),
+        IconButton(
+          icon: const Icon(LucideIcons.skipBack, color: Colors.white54),
+          tooltip: 'Previous station',
+          onPressed: _directory.isEmpty ? null : () => _skipStation(service, -1),
+        ),
         const SizedBox(width: 30),
         GestureDetector(
           onTap: () => playing ? service.pause() : service.play(),
@@ -211,9 +218,23 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
           ),
         ),
         const SizedBox(width: 30),
-        IconButton(icon: const Icon(LucideIcons.messageSquare, color: Colors.white54), onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Radio chat coming soon")))),
+        IconButton(
+          icon: const Icon(LucideIcons.skipForward, color: Colors.white54),
+          tooltip: 'Next station',
+          onPressed: _directory.isEmpty ? null : () => _skipStation(service, 1),
+        ),
       ],
     );
+  }
+
+  void _skipStation(RadioService service, int direction) {
+    if (_directory.isEmpty) return;
+    final next = (_directoryIndex + direction) % _directory.length;
+    _directoryIndex = next;
+    final station = _directory[next];
+    setState(() => _selectedStationName = station.name);
+    if (station.isPrivate) return;
+    service.playStation(station);
   }
 
   Future<void> _showAddStationDialog() async {
@@ -327,6 +348,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
 
   Widget _buildStationDirectory(RadioService service, String selectedName, UserProfile? profile) {
     final stationsAsync = ref.watch(radioStationsFutureProvider);
+    final globalAsync = ref.watch(globalChristianStationsProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,67 +376,112 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
               if (stations.isEmpty) {
                 return const Center(child: Text("No frequencies found.", style: TextStyle(color: Colors.white38)));
               }
-              return ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: stations.length,
-                itemBuilder: (context, index) {
-                  final station = stations[index];
-                  final isCurrent = selectedName == station.name;
-                  return GestureDetector(
-                    onTap: () {
-                      if (station.isPrivate) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Coming Soon 📻"),
-                            backgroundColor: Colors.amber,
-                          ),
-                        );
-                        return;
-                      }
-                      setState(() => _selectedStationName = station.name);
-                      service.playStation(station);
-                    },
-                    child: Container(
-                      width: 160,
-                      margin: const EdgeInsets.only(right: 15),
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: isCurrent ? Theme.of(context).primaryColor : Colors.white.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(25),
-                        border: Border.all(color: isCurrent ? Colors.transparent : Colors.white10),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(color: isCurrent ? Colors.black12 : Colors.white10, shape: BoxShape.circle),
-                            child: Icon(
-                              station.isPrivate ? LucideIcons.lock : LucideIcons.radio, 
-                              color: isCurrent ? Colors.black : Colors.amber, 
-                              size: 20,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(station.name, style: TextStyle(color: isCurrent ? Colors.black : Colors.white, fontWeight: FontWeight.bold, fontSize: 14), maxLines: 2),
-                          const SizedBox(height: 5),
-                          Text(
-                            station.isPrivate ? "PRIVATE" : station.location, 
-                            style: TextStyle(color: isCurrent ? Colors.black54 : Colors.white38, fontSize: 11, fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              );
+              _syncDirectory(stations);
+              return _stationStrip(stations, service, selectedName);
             },
-             loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const Center(child: CircularProgressIndicator()),
             error: (err, stack) => Center(child: Text("Error: $err", style: const TextStyle(color: Colors.red))),
           ),
         ),
+        const SizedBox(height: 24),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 25),
+          child: Row(
+            children: [
+              const Text("GLOBAL CHRISTIAN STATIONS", style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2)),
+              const SizedBox(width: 8),
+              Text("(${_globalLabel()})", style: const TextStyle(color: Colors.white24, fontSize: 10)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          height: 180,
+          child: globalAsync.when(
+            data: (stations) {
+              if (stations.isEmpty) {
+                return const Center(child: Text("No global stations found.", style: TextStyle(color: Colors.white38)));
+              }
+              return _stationStrip(stations, service, selectedName);
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, __) => const Center(child: Text("Could not load global stations.", style: TextStyle(color: Colors.white38))),
+          ),
+        ),
       ],
+    );
+  }
+
+  String _globalLabel() {
+    final stations = _directory;
+    return stations.isEmpty ? 'worldwide' : '${stations.length} stations';
+  }
+
+  void _syncDirectory(List<RadioStation> stations) {
+    final playable = stations.where((s) => !s.isPrivate).toList();
+    if (!listEquals(playable.map((s) => s.id).toList(),
+        _directory.map((s) => s.id).toList())) {
+      _directory = playable;
+      final idx = _directory.indexWhere((s) => s.name == _selectedStationName);
+      _directoryIndex = math.max(0, math.min(idx, _directory.length - 1));
+    }
+  }
+
+  Widget _stationStrip(List<RadioStation> stations, RadioService service, String selectedName) {
+    return ListView.builder(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      itemCount: stations.length,
+      itemBuilder: (context, index) {
+        final station = stations[index];
+        final isCurrent = selectedName == station.name;
+        return GestureDetector(
+          onTap: () {
+            if (station.isPrivate) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Coming Soon 📻"),
+                  backgroundColor: Colors.amber,
+                ),
+              );
+              return;
+            }
+            setState(() => _selectedStationName = station.name);
+            service.playStation(station);
+          },
+          child: Container(
+            width: 160,
+            margin: const EdgeInsets.only(right: 15),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isCurrent ? Theme.of(context).primaryColor : Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(25),
+              border: Border.all(color: isCurrent ? Colors.transparent : Colors.white10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: isCurrent ? Colors.black12 : Colors.white10, shape: BoxShape.circle),
+                  child: Icon(
+                    station.isPrivate ? LucideIcons.lock : LucideIcons.radio,
+                    color: isCurrent ? Colors.black : Colors.amber,
+                    size: 20,
+                  ),
+                ),
+                const Spacer(),
+                Text(station.name, style: TextStyle(color: isCurrent ? Colors.black : Colors.white, fontWeight: FontWeight.bold, fontSize: 14), maxLines: 2),
+                const SizedBox(height: 5),
+                Text(
+                  station.isPrivate ? "PRIVATE" : station.location,
+                  style: TextStyle(color: isCurrent ? Colors.black54 : Colors.white38, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -428,7 +495,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
         border: Border.all(color: Colors.white10),
       ),
       child: const Text(
-        "COA Radio provides a sovereign gateway to high-fidelity spiritual broadcasts from across Zambia. Content provided by third-party partners.",
+        "COA Radio provides a sovereign gateway to high-fidelity Christian broadcasts from Zambia and around the world. Content provided by third-party partners.",
         textAlign: TextAlign.center,
         style: TextStyle(color: Colors.white30, fontSize: 11, height: 1.5),
       ),

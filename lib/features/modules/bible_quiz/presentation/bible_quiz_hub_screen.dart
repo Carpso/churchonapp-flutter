@@ -3,7 +3,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../../core/providers/profile_provider.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/features/navigation/presentation/main_navigation_shell.dart';
 import '../../../../core/services/tenant_service.dart';
 import '../../../../core/config/remote_config.dart';
 import '../data/bible_quiz_service.dart';
@@ -272,7 +273,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                   ),
                   _buildP2PCard(
                     "My Church",
-                    "Local Members",
+                    "Same Church Only",
                     LucideIcons.home,
                     Colors.greenAccent,
                     "Church",
@@ -286,7 +287,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                   ),
                   _buildP2PCard(
                     "Any COA User",
-                    "Public Match",
+                    "Play COA Staff",
                     LucideIcons.globe,
                     Colors.pinkAccent,
                     "Any COA",
@@ -665,12 +666,20 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                   onPressed: _showLeaderboard,
                   icon: const Icon(
                     LucideIcons.barChart3,
-                    size: 16,
+                    size: 15,
                     color: Colors.white,
                   ),
-                  label: const Text(
-                    "LEADERBOARD",
-                    style: TextStyle(color: Colors.white),
+                  label: const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      "LEADERBOARD",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
                   ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Colors.white38),
@@ -795,7 +804,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       builder: (context) => Container(
         padding: const EdgeInsets.all(30),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          color: const Color(0xFF151A2E),
           borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
         ),
         child: Column(
@@ -1649,17 +1658,21 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       return;
     }
 
+    ref.read(navBarVisibleProvider.notifier).hide();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      isDismissible: true,
       builder: (_) => _FriendPickerSheet(
         tenantId: myTenant,
         onPicked: (memberId, memberName) {
           _chooseWager(memberId, memberName);
         },
       ),
-    );
+    ).whenComplete(() {
+      if (mounted) ref.read(navBarVisibleProvider.notifier).show();
+    });
   }
 
   void _chooseWager(String memberId, String memberName) {
@@ -1670,7 +1683,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.fromLTRB(
+            24, 24, 24, 24 + MediaQuery.of(ctx).viewPadding.bottom),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1708,14 +1722,16 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                         label: Text(
                           w == 0 ? "Free" : "$w CC",
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: Colors.amber,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         selected: false,
                         selectedColor: Colors.amber,
-                        backgroundColor: Colors.white.withValues(alpha: 0.1),
-                        side: BorderSide(color: Colors.white24),
+                        backgroundColor: const Color(0xFF232845),
+                        side: BorderSide(
+                            color: Colors.amber.withValues(alpha: 0.5)),
+                        labelStyle: const TextStyle(color: Colors.amber),
                         onSelected: (_) {
                           Navigator.pop(ctx);
                           _sendInvite(memberId, memberName, w);
@@ -1731,7 +1747,9 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
           ],
         ),
       ),
-    );
+    ).whenComplete(() {
+      if (mounted) ref.read(navBarVisibleProvider.notifier).show();
+    });
   }
 
   Future<void> _sendInvite(
@@ -1797,7 +1815,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             height: MediaQuery.of(context).size.height * 0.75,
             padding: const EdgeInsets.all(25),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
+              color: const Color(0xFF151A2E),
               borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
             ),
             child: Column(

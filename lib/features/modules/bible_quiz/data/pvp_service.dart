@@ -195,6 +195,7 @@ class PvPService {
     int questionCount = 10,
     int timePerQuestion = 15,
     WagerTier wagerTier = WagerTier.free,
+    String? mode,
   }) async {
     final uid = currentUserId;
     if (uid == null) return null;
@@ -213,17 +214,89 @@ class PvPService {
     try {
       final tid = await _resolveTenantId();
       final userElo = await _getUserElo();
+      final isChurch = mode == 'Church';
+      final isRandom = mode == 'Random';
+      final isCoa = mode == 'Any COA';
 
-      // ELO matchmaking with expanding range
+      final freshSince = DateTime.now()
+          .subtract(const Duration(minutes: 10))
+          .toIso8601String();
+
+      // "Any COA User" — only matches queued by COA team (superadmin/coa_employee).
+      if (isCoa) {
+        final coaMatch = await _client
+            .from('pvp_matches')
+            .select()
+            .eq('status', 'pending')
+            .eq('wager_amount', wagerAmount)
+            .neq('player1_id', uid)
+            .gte('created_at', freshSince)
+            .limit(20)
+            .maybeSingle();
+        if (coaMatch != null) {
+          // Client-side role check: only accept if player1 is superadmin/coa_employee
+          final player1Profile = await _client
+              .from('profiles')
+              .select('role')
+              .eq('id', coaMatch['player1_id'])
+              .maybeSingle();
+          final player1Role = player1Profile?['role'] ?? '';
+          if (player1Role == 'superadmin' || player1Role == 'coa_employee') {
+            return _joinMatch(PvPMatch.fromMap(coaMatch), uid,
+                crossTenant: true);
+          }
+        }
+        // Fall through: no COA match found — create our own pending match
+        // so others can join (including COA team members who may join later).
+        return _createMatch(uid, tid, questionCount, timePerQuestion, wagerAmount, userElo);
+      }
+
+      // "Random" — instant play: any pending match, no ELO gating.
+      if (isRandom) {
+        final within = tid != null
+            ? await _client
+                .from('pvp_matches')
+                .select()
+                .eq('status', 'pending')
+                .eq('tenant_id', tid)
+                .eq('wager_amount', wagerAmount)
+                .neq('player1_id', uid)
+                .gte('created_at', freshSince)
+                .limit(1)
+                .maybeSingle()
+            : null;
+        if (within != null) {
+          return _joinMatch(PvPMatch.fromMap(within), uid);
+        }
+        final cross = await _client
+            .from('pvp_matches')
+            .select()
+            .eq('status', 'pending')
+            .eq('wager_amount', wagerAmount)
+            .neq('player1_id', uid)
+            .gte('created_at', freshSince)
+            .limit(1)
+            .maybeSingle();
+        if (cross != null) {
+          return _joinMatch(PvPMatch.fromMap(cross), uid, crossTenant: true);
+        }
+        // Nobody waiting — create our own pending match for others to join.
+        return _createMatch(uid, tid, questionCount, timePerQuestion, wagerAmount, userElo);
+      }
+
+      // "My Church" — same-tenant opponents only, no cross-tenant fallback.
+      // "Global" — ELO matchmaking with expanding range (tenant-first then global).
       const ranges = [100, 200, 400, 9999]; // 9999 = global
-      const rangeExpandInterval = Duration(seconds: 5);
-      final searchTimeout = Duration(seconds: 30);
+      final rangeExpandInterval = isChurch ? Duration(seconds: 3) : Duration(seconds: 5);
+      final searchTimeout = isChurch
+          ? const Duration(seconds: 20)
+          : const Duration(seconds: 30);
       final searchStart = DateTime.now();
 
       for (final range in ranges) {
         if (DateTime.now().difference(searchStart) >= searchTimeout) break;
 
-        final freshSince = DateTime.now()
+        final freshSince2 = DateTime.now()
             .subtract(const Duration(minutes: 10))
             .toIso8601String();
 
@@ -236,7 +309,7 @@ class PvPService {
               .eq('tenant_id', tid)
               .eq('wager_amount', wagerAmount)
               .neq('player1_id', uid)
-              .gte('created_at', freshSince)
+              .gte('created_at', freshSince2)
               .gte('player1_elo_at_match', userElo - range)
               .lte('player1_elo_at_match', userElo + range)
               .limit(1)
@@ -247,21 +320,23 @@ class PvPService {
           }
         }
 
-        // Cross-tenant
-        final cross = await _client
-            .from('pvp_matches')
-            .select()
-            .eq('status', 'pending')
-            .eq('wager_amount', wagerAmount)
-            .neq('player1_id', uid)
-            .gte('created_at', freshSince)
-            .gte('player1_elo_at_match', userElo - range)
-            .lte('player1_elo_at_match', userElo + range)
-            .limit(1)
-            .maybeSingle();
+        // Cross-tenant (Global mode only — My Church stays within the tenant)
+        if (!isChurch) {
+          final cross = await _client
+              .from('pvp_matches')
+              .select()
+              .eq('status', 'pending')
+              .eq('wager_amount', wagerAmount)
+              .neq('player1_id', uid)
+              .gte('created_at', freshSince2)
+              .gte('player1_elo_at_match', userElo - range)
+              .lte('player1_elo_at_match', userElo + range)
+              .limit(1)
+              .maybeSingle();
 
-        if (cross != null) {
-          return _joinMatch(PvPMatch.fromMap(cross), uid, crossTenant: true);
+          if (cross != null) {
+            return _joinMatch(PvPMatch.fromMap(cross), uid, crossTenant: true);
+          }
         }
 
         // Wait before expanding range (except on last iteration)

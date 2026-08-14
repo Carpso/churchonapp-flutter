@@ -316,6 +316,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             route == '/news-management' ||
             route == '/feature-toggles' ||
             route == '/platform-analytics' ||
+            route == '/admin/radio-mgmt' ||
+            route == '/radio-stations' ||
             route == '/role-quick-actions') {
           return user.isEmployee;
         }
@@ -810,6 +812,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/radio-stations',
+        builder: (context, state) => const RadioStationManagementScreen(),
+      ),
+      GoRoute(
+        path: '/admin/radio-mgmt',
         builder: (context, state) => const RadioStationManagementScreen(),
       ),
       GoRoute(
