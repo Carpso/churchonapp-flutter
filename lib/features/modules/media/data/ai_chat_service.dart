@@ -43,8 +43,11 @@ class AiChatService {
         .from('ai_chat_messages')
         .stream(primaryKey: ['id'])
         .eq('session_id', sessionId)
-        .order('created_at', ascending: true)
-        .map((data) => data.map((map) => AiChatMessage.fromMap(map)).toList());
+        .map((data) {
+      final messages = data.map((map) => AiChatMessage.fromMap(map)).toList();
+      messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return messages;
+    });
   }
 
   Future<String> createSession(String title) async {

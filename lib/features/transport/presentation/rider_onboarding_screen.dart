@@ -49,20 +49,6 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
       final profile = ref.read(profileProvider).value;
       final tenantId = profile?.tenantId;
 
-      await client.from('profiles').update({
-        'role': 'driver',
-        'full_name': _fullName,
-        'phone_number': _phone,
-        'email': _email,
-      }).eq('id', userId);
-
-      final vehicleInfo = {
-        'type': _vehicleType,
-        'make_model': _makeModel,
-        'license_plate': _licensePlate,
-        'color': _color,
-      };
-
       // Upload documents to R2 storage
       String? vehiclePhotoUrl;
       String? licensePhotoUrl;
@@ -108,22 +94,22 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
         idPhotoUrl = await uploadToR2(_idPhotoPath!, 'driver-documents');
       }
 
-      await client.from('ride_registrations').upsert({
+      await client.from('driver_applications').insert({
         'user_id': userId,
-        'lat': -15.39,
-        'lng': 28.33,
-        'type': 'driver',
-        'status': 'pending_verification',
-        'vehicle_info': vehicleInfo,
+        'tenant_id': tenantId,
+        'full_name': _fullName,
+        'email': _email,
+        'phone': _phone,
+        'vehicle_type': _vehicleType,
+        'license_plate': _licensePlate,
+        'vehicle_make_model': _makeModel,
+        'vehicle_color': _color,
+        'vehicle_photo_url': vehiclePhotoUrl ?? _vehiclePhotoPath,
+        'drivers_license_url': licensePhotoUrl ?? _licensePhotoPath,
+        'national_id_url': idPhotoUrl ?? _idPhotoPath,
         'payout_operator': _payoutOperator,
         'payout_number': _payoutNumber,
-        'full_name': _fullName,
-        'pre_registered_phone': _phone,
-        'email': _email,
-        'vehicle_photo': vehiclePhotoUrl ?? _vehiclePhotoPath,
-        'license_photo': licensePhotoUrl ?? _licensePhotoPath,
-        'id_photo': idPhotoUrl ?? _idPhotoPath,
-        'tenant_id': tenantId,
+        'status': 'pending',
       });
 
       if (mounted) {

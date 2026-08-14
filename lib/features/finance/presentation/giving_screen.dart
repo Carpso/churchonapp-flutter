@@ -82,7 +82,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(25),
+        padding: EdgeInsets.fromLTRB(25, 25, 25, 25 + MediaQuery.of(context).padding.bottom + 90),
         child: Column(
           children: [
             _buildTotalGivenCard(profile),

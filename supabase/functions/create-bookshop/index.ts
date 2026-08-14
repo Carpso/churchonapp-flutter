@@ -37,16 +37,25 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Role check: superadmin/employee/bookshop_owner/vendor may create;
-    // any authenticated user without a tenant may also self-register a bookshop.
+    // Any authenticated user may self-register a bookshop (product intent).
+    // Block only users who already belong to a bookshop tenant or are COA staff.
     const { data: profile } = await supabase
-      .from("profiles").select("role, tenant_id").eq("id", user.id).maybeSingle();
-    const allowedRoles = ["superadmin", "coa_employee", "bookshop_owner", "vendor"];
-    if (!allowedRoles.includes(profile?.role) && profile?.tenant_id) {
-      return new Response(JSON.stringify({ error: "Forbidden: insufficient permissions" }), {
+      .from("profiles").select("role, tenant_id, full_name").eq("id", user.id).maybeSingle();
+    if (profile?.role === "coa_employee" || profile?.role === "superadmin") {
+      return new Response(JSON.stringify({ error: "COA staff cannot own a bookshop" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+    if (profile?.tenant_id) {
+      const { data: tenant } = await supabase
+        .from("tenants").select("type").eq("id", profile.tenant_id).maybeSingle();
+      if (tenant?.type === "bookshop") {
+        return new Response(JSON.stringify({ error: "You already own a bookshop" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const { name, description, contact, location } = await req.json();

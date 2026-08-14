@@ -20,7 +20,10 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
   bool _isLoading = false;
   bool _isStreaming = false;
   String _streamingBuffer = '';
+  Stream<List<AiChatMessage>>? _messagesStream;
   StreamSubscription<String>? _streamSubscription;
+  Timer? _flushTimer;
+  final List<String> _pendingChunks = [];
   late AnimationController _avatarGlowController;
   late Animation<double> _avatarGlowAnimation;
   late AnimationController _pulseController;
@@ -50,6 +53,7 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
   void dispose() {
     _avatarGlowController.dispose();
     _pulseController.dispose();
+    _flushTimer?.cancel();
     _streamSubscription?.cancel();
     _controller.dispose();
     _scrollController.dispose();
@@ -59,7 +63,9 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
   Future<void> _initSession() async {
     setState(() => _isLoading = true);
     try {
-      final id = await ref.read(aiChatServiceProvider).createSession("New Spiritual Inquiry");
+      final service = ref.read(aiChatServiceProvider);
+      final id = await service.createSession("New Spiritual Inquiry");
+      _messagesStream = service.getMessagesStream(id);
       setState(() {
         _sessionId = id;
         _isLoading = false;
@@ -73,6 +79,19 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     }
+  }
+
+  void _onStreamChunk(String chunk) {
+    if (!mounted) return;
+    _pendingChunks.add(chunk);
+    _flushTimer ??= Timer(const Duration(milliseconds: 60), () {
+      if (!mounted) return;
+      final joined = _pendingChunks.join();
+      _pendingChunks.clear();
+      _flushTimer = null;
+      setState(() => _streamingBuffer += joined);
+      _scrollToBottom();
+    });
   }
 
   void _sendMessage() {
@@ -92,13 +111,12 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
     final stream = service.sendMessageStreaming(_sessionId!, content);
 
     _streamSubscription = stream.listen(
-      (chunk) {
-        if (!mounted) return;
-        setState(() => _streamingBuffer += chunk);
-        _scrollToBottom();
-      },
+      (chunk) => _onStreamChunk(chunk),
       onDone: () {
         if (!mounted) return;
+        _flushTimer?.cancel();
+        _flushTimer = null;
+        _pendingChunks.clear();
         setState(() {
           _isStreaming = false;
           _streamingBuffer = '';
@@ -106,6 +124,9 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
       },
       onError: (error) {
         if (!mounted) return;
+        _flushTimer?.cancel();
+        _flushTimer = null;
+        _pendingChunks.clear();
         setState(() {
           _isStreaming = false;
           _streamingBuffer = '';
@@ -131,13 +152,12 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
     final stream = service.regenerateStreaming(_sessionId!);
 
     _streamSubscription = stream.listen(
-      (chunk) {
-        if (!mounted) return;
-        setState(() => _streamingBuffer += chunk);
-        _scrollToBottom();
-      },
+      (chunk) => _onStreamChunk(chunk),
       onDone: () {
         if (!mounted) return;
+        _flushTimer?.cancel();
+        _flushTimer = null;
+        _pendingChunks.clear();
         setState(() {
           _isStreaming = false;
           _streamingBuffer = '';
@@ -145,6 +165,9 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
       },
       onError: (error) {
         if (!mounted) return;
+        _flushTimer?.cancel();
+        _flushTimer = null;
+        _pendingChunks.clear();
         setState(() {
           _isStreaming = false;
           _streamingBuffer = '';
@@ -235,8 +258,14 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
               children: [
                 Expanded(
                   child: StreamBuilder<List<AiChatMessage>>(
-                    stream: ref.read(aiChatServiceProvider).getMessagesStream(_sessionId!),
+                    stream: _messagesStream,
                     builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Text("Failed to load messages: ${snapshot.error}",
+                            style: const TextStyle(color: Colors.white54)),
+                        );
+                      }
                       if (!snapshot.hasData) {
                         return const Center(
                           child: Column(
@@ -258,7 +287,7 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
 
                       return ListView.builder(
                         controller: _scrollController,
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                         itemCount: messages.length + (hasStreamingBubble ? 1 : 0) + (_isStreaming && !hasStreamingBubble ? 1 : 0),
                         itemBuilder: (context, index) {
                           // Typing indicator (before any streaming text appears)

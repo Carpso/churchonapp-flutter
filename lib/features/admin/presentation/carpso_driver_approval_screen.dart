@@ -56,6 +56,10 @@ class _CarpsoDriverApprovalScreenState extends ConsumerState<CarpsoDriverApprova
 
       await supabase.from('driver_applications').update({'status': 'approved'}).eq('id', app['id']);
 
+      if (userId != null) {
+        await supabase.from('profiles').update({'role': 'driver'}).eq('id', userId);
+      }
+
       await supabase.from('notifications').insert({
         'user_id': userId,
         'title': 'Carpso Ride Application Approved',

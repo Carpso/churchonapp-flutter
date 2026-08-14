@@ -165,7 +165,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
                       return false;
                     },
                     child: ListView.builder(
-                      padding: const EdgeInsets.all(20),
+                      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).padding.bottom + 90),
                       itemCount: socialItems.length,
                       itemBuilder: (context, index) => socialItems[index],
                     ),

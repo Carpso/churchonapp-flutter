@@ -178,7 +178,6 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
       {"icon": LucideIcons.brain, "title": "Exegesis", "sub": "Word Study", "color": Colors.blue, "action": "exegesis"},
       {"icon": LucideIcons.map, "title": "Atlas", "sub": "Historic Maps", "color": const Color(0xFF10B981), "action": "atlas"},
       {"icon": LucideIcons.target, "title": "Memory", "sub": "Master Verses", "color": Colors.purple, "action": "memory"},
-      {"icon": LucideIcons.calendar, "title": "Plans", "sub": "Reading Paths", "color": Colors.pink, "action": "plans"},
       {"icon": LucideIcons.sunrise, "title": "Devotions", "sub": "Daily Devotionals", "color": Colors.amber, "screen": const DailyDevotionsScreen()},
       {"icon": LucideIcons.brainCircuit, "title": "Scripture", "sub": "Verse Memorizer", "color": Colors.indigo, "screen": const ScriptureMemoryScreen()},
       {"icon": LucideIcons.layers, "title": "Study Plans", "sub": "Track Progress", "color": Colors.teal, "screen": const StudyPlansScreen()},
@@ -213,8 +212,6 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
         Navigator.push(context, MaterialPageRoute(builder: (_) => const _BiblicalAtlasScreen()));
       case 'memory':
         Navigator.push(context, MaterialPageRoute(builder: (_) => const _VerseMemoryScreen()));
-      case 'plans':
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const _ReadingPlansScreen()));
     }
   }
 
@@ -333,14 +330,17 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
     final notifier = ref.read(studySettingsProvider.notifier);
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
       backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Container(
-              padding: const EdgeInsets.all(25),
-              child: Column(
+            return SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(25, 25, 25, MediaQuery.of(context).padding.bottom + 20),
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -497,6 +497,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
                   ),
                 ],
               ),
+              ),
             );
           }
         );
@@ -518,7 +519,6 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
     final translations = [
       {'code': 'kjv', 'label': 'King James Version (KJV)'},
       {'code': 'web', 'label': 'World English Bible (WEB)'},
-      {'code': 'niv', 'label': 'New International Version (NIV)'},
       {'code': 'nkjv', 'label': 'New King James Version (NKJV)'},
     ];
     return Padding(
@@ -914,102 +914,8 @@ class _VerseMemoryScreenState extends ConsumerState<_VerseMemoryScreen> {
 }
 
 // ═══════════════════════════════════════
-// READING PLANS SCREEN
+// READING PLANS — consolidated into StudyPlansScreen (study_plans_screen.dart)
 // ═══════════════════════════════════════
-class _ReadingPlansScreen extends StatelessWidget {
-  const _ReadingPlansScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    final plans = [
-      {'title': 'Bible in a Year', 'desc': 'Read the entire Bible in 365 days', 'days': '365', 'progress': 0.12, 'color': Colors.blue, 'icon': LucideIcons.bookOpen},
-      {'title': 'Psalms & Proverbs', 'desc': 'Daily wisdom and worship', 'days': '30', 'progress': 0.45, 'color': Colors.purple, 'icon': LucideIcons.music},
-      {'title': 'Gospel of John', 'desc': 'The heart of the Gospel in 21 days', 'days': '21', 'progress': 0.0, 'color': Colors.red, 'icon': LucideIcons.heart},
-      {'title': 'Paul\'s Letters', 'desc': 'Romans through Philemon', 'days': '60', 'progress': 0.0, 'color': Colors.teal, 'icon': LucideIcons.mail},
-      {'title': 'New Believer', 'desc': 'Foundation scriptures for new Christians', 'days': '14', 'progress': 0.0, 'color': Colors.green, 'icon': LucideIcons.sprout},
-      {'title': 'Prophetic Books', 'desc': 'Isaiah through Malachi', 'days': '90', 'progress': 0.0, 'color': Colors.orange, 'icon': LucideIcons.megaphone},
-    ];
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFC),
-      appBar: AppBar(
-        title: Text("Reading Plans", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: plans.map((plan) {
-          final progress = plan['progress'] as double;
-          final isActive = progress > 0;
-          return Container(
-            margin: const EdgeInsets.only(bottom: 15),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white, borderRadius: BorderRadius.circular(25),
-              border: isActive ? Border.all(color: (plan['color'] as Color).withValues(alpha: 0.3), width: 2) : null,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(color: (plan['color'] as Color).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                      child: Icon(plan['icon'] as IconData, color: plan['color'] as Color, size: 22),
-                    ),
-                    const SizedBox(width: 15),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(plan['title'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          Text(plan['desc'] as String, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(10)),
-                      child: Text("${plan['days']} days", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-                if (isActive) ...[
-                  const SizedBox(height: 15),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: LinearProgressIndicator(value: progress, backgroundColor: Colors.grey.shade100, valueColor: AlwaysStoppedAnimation(plan['color'] as Color), minHeight: 6),
-                  ),
-                  const SizedBox(height: 5),
-                  Text("${(progress * 100).toInt()}% complete", style: TextStyle(fontSize: 11, color: plan['color'] as Color, fontWeight: FontWeight.bold)),
-                ],
-                if (!isActive) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Started: ${plan['title']}!"), backgroundColor: plan['color'] as Color));
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: (plan['color'] as Color).withValues(alpha: 0.1),
-                        foregroundColor: plan['color'] as Color,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      ),
-                      child: const Text("START PLAN", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
 
 // ═══════════════════════════════════════
 // SCRIPTURE SEARCH SCREEN

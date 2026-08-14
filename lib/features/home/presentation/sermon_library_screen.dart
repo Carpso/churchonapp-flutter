@@ -160,7 +160,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
                   ),
                 )
                   : ListView.builder(
-                    padding: const EdgeInsets.all(20),
+                    padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).padding.bottom + 90),
                     itemCount: _sermons.length + (_hasMore ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index == _sermons.length) {

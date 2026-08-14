@@ -92,7 +92,7 @@ class PlanLimits {
 
   static const double platformFeePercent = 0.01;
   static const double minPlatformFeeKwacha = 3.0;
-  static const double quizLeaseFeeKwacha = 250.0;
+  static const double quizLeaseFeeKwacha = 1500.0;
   static const double onboardingFeeKwacha = 500.0;
 
   /// SMS bundles (separate from plans)

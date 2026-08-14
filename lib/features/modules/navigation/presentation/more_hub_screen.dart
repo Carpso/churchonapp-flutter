@@ -8,11 +8,11 @@ import '../../jobs/presentation/jobs_portal_screen.dart';
 import '../../logistics/presentation/map_screen.dart';
 import '../../kids/presentation/kids_zone_screen.dart';
 import '../../media/presentation/radio_screen.dart';
-import 'package:church_on_app/features/admin/presentation/admin_hub_screen.dart';
 import 'package:church_on_app/features/transport/presentation/rider_onboarding_screen.dart';
 import '../../bible_quiz/presentation/bible_quiz_hub_screen.dart';
 import 'package:church_on_app/features/logistics/presentation/church_commute_screen.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
 
 class MoreHubScreen extends ConsumerWidget {
   const MoreHubScreen({super.key});
@@ -36,6 +36,8 @@ class MoreHubScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tenant = ref.watch(currentTenantProvider);
+    final profile = ref.watch(profileProvider).value;
+    final isAdmin = profile?.isAdminOrHigher ?? false;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -86,10 +88,12 @@ class MoreHubScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 40),
-            const Text("Administration", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 15),
-            _buildAdminBanner(context),
-            const SizedBox(height: 50),
+            if (isAdmin) ...[
+              const Text("Administration", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 15),
+              _buildAdminBanner(context),
+              const SizedBox(height: 50),
+            ],
           ],
         ),
       ),
@@ -125,7 +129,7 @@ class MoreHubScreen extends ConsumerWidget {
 
   Widget _buildAdminBanner(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminHubScreen())),
+      onTap: () => context.push('/admin-hub'),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
