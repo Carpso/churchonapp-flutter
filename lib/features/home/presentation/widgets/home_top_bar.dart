@@ -39,17 +39,20 @@ class HomeTopBar extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const KingdomLogo(size: 32),
-                  if (tenant != null) ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      _abbreviateChurchName(tenant),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
+                   if (tenant != null) ...[
+                     const SizedBox(width: 8),
+                     Flexible(
+                       child: Text(
+                         _abbreviateChurchName(tenant),
+                         style: GoogleFonts.plusJakartaSans(
+                           fontWeight: FontWeight.bold,
+                           fontSize: 12,
+                         ),
+                         overflow: TextOverflow.fade,
+                         maxLines: 2,
+                         textAlign: TextAlign.right,
+                       ),
+                     ),
                   ],
                 ],
               ),
