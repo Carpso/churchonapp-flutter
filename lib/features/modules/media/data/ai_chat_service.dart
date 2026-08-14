@@ -37,6 +37,11 @@ class AiChatService {
   AiChatService(this._client);
 
   static const _errorPrefix = 'Sorry, I encountered an error';
+static const _fallbackResponses = [
+      "I'm here to help with your spiritual questions and church activities.",
+      "How can I assist you today with scripture or church matters?",
+      "I'm ready to guide you — what's on your mind regarding faith or church?",
+    ];
 
   Stream<List<AiChatMessage>> getMessagesStream(String sessionId) {
     return _client
@@ -145,7 +150,11 @@ class AiChatService {
         yield chunk;
       }
       if (fullResponse.trim().isEmpty) {
-        fullResponse = "I'm here to assist you with any spiritual guidance, scripture study, or church activities!";
+        final fallback = _fallbackResponses.firstWhere(
+          (r) => !fullResponse.toLowerCase().contains(r.toLowerCase()),
+          orElse: (_) => _fallbackResponses[0],
+        );
+        fullResponse = fallback;
         yield fullResponse;
       }
       if (fullResponse.startsWith(_errorPrefix)) isError = true;
@@ -298,9 +307,14 @@ class AiChatService {
   /// Strips leading echoes / prompt artifacts from the first streamed chunk.
   static String _cleanResponse(String text, String userContent, {bool allowFallback = true}) {
     if (text.trim().isEmpty) {
-      return allowFallback
-          ? "I'm here to assist you with any spiritual guidance, scripture study, or church activities!"
-          : '';
+      if (allowFallback) {
+        final fallback = _fallbackResponses.firstWhere(
+          (r) => text.toLowerCase().contains(r.toLowerCase()) == false,
+          orElse: (_) => _fallbackResponses[0],
+        );
+        return fallback;
+      }
+      return '';
     }
 
     var cleaned = text;
