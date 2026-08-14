@@ -180,6 +180,10 @@ class QuizPass {
   bool get isPaid => status == 'paid';
 }
 
+/// Outcome of joining an event: joined, blocked because the wallet has
+/// too few Church Coins (for wager stakes / CC pass), or failed.
+enum JoinOutcome { joined, insufficientCoins, failed }
+
 class QuizEventService {
   final SupabaseClient _client = Supabase.instance.client;
   final BibleQuizService _bqService = BibleQuizService();
@@ -335,22 +339,43 @@ class QuizEventService {
 
   // ── Participants ──
 
-  Future<bool> joinEvent(String eventId) async {
+  Future<JoinOutcome> joinEvent(String eventId, {bool payCc = false}) async {
     final userId = _client.auth.currentUser?.id;
-    if (userId == null) return false;
+    if (userId == null) return JoinOutcome.failed;
 
     try {
       final res = await _client.rpc('join_quiz_event', params: {
         'p_event_id': eventId,
+        'p_pay_cc': payCc,
       });
+      final result = res is Map<String, dynamic> ? res : <String, dynamic>{};
+      if (result['success'] == true) return JoinOutcome.joined;
+      if (result['error'] is String) {
+        debugPrint('joinQuizEvent rejected: ${result['error']}');
+        if (result['error'].toString().contains('Insufficient coins')) {
+          return JoinOutcome.insufficientCoins;
+        }
+      }
+      return JoinOutcome.failed;
+    } catch (e) {
+      debugPrint('joinQuizEvent error: $e');
+      return JoinOutcome.failed;
+    }
+  }
+
+  /// Lease the Quiz Engine by spending Church Coins (server-enforced amount).
+  /// Returns true on success, false otherwise.
+  Future<bool> leaseQuizEngineCc() async {
+    try {
+      final res = await _client.rpc('lease_quiz_engine_cc');
       final result = res is Map<String, dynamic> ? res : <String, dynamic>{};
       if (result['success'] == true) return true;
       if (result['error'] is String) {
-        debugPrint('joinQuizEvent rejected: ${result['error']}');
+        debugPrint('leaseQuizEngineCc rejected: ${result['error']}');
       }
       return false;
     } catch (e) {
-      debugPrint('joinQuizEvent error: $e');
+      debugPrint('leaseQuizEngineCc error: $e');
       return false;
     }
   }

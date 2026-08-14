@@ -4,8 +4,95 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../finance/presentation/lipila_payment_gateway.dart';
+import '../../../finance/presentation/buy_coins_screen.dart';
+import '../../../../core/config/remote_config.dart';
 import '../data/quiz_event_service.dart';
 import 'bible_quiz_arena_screen.dart';
+
+/// Bottom sheet prompting the player to buy Church Coins when their wallet
+/// runs dry (wager stake, CC pass, engine lease, paid invite).
+void showBuyCoinsSheet(BuildContext context,
+    {String reason = 'Not enough Church Coins.'}) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: const Color(0xFF151A2E),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (ctx) => Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              const Icon(LucideIcons.coins, color: Colors.amber, size: 28),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  "Insufficient Church Coins",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            reason,
+            style: const TextStyle(color: Colors.white54, fontSize: 13),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            "Top up instantly with Mobile Money (MTN / Airtel / Zamtel) or card.",
+            style: TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const BuyCoinsScreen(),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber,
+                foregroundColor: Colors.black,
+                minimumSize: const Size(double.infinity, 54),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: const Text(
+                "BUY CHURCH COINS",
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
 class QuizEventLobbyScreen extends ConsumerWidget {
   const QuizEventLobbyScreen({super.key});
@@ -259,6 +346,8 @@ class _EventDetailSheetState extends ConsumerState<_EventDetailSheet> {
   bool _isJoined = false;
   bool _hasPass = false;
 
+  RemoteConfig get _rc => widgetRemoteConfig(ref);
+
   @override
   void initState() {
     super.initState();
@@ -281,19 +370,127 @@ class _EventDetailSheetState extends ConsumerState<_EventDetailSheet> {
     if (_isJoined) return;
 
     if (!widget.event.isFree && !_hasPass) {
-      _showPayment(ctx: context);
+      _showPaymentChoice();
       return;
     }
 
+    await _performJoin(payCc: false);
+  }
+
+  /// Paid events: player picks Mobile Money or Church Coins from the wallet.
+  void _showPaymentChoice() {
+    final rate = _rc.getDouble('quiz_pass_cc_per_zmw', 1.0);
+    final ccCost = (widget.event.passPriceZmw * rate).ceil();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF151A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              "Buy a Tournament Pass",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${widget.event.title} — K${widget.event.passPriceZmw.toStringAsFixed(2)}',
+              style: const TextStyle(color: Colors.white54, fontSize: 13),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _showPayment();
+                },
+                icon: const Icon(LucideIcons.smartphone,
+                    color: Colors.white, size: 18),
+                label: Text(
+                  'Pay K${widget.event.passPriceZmw.toStringAsFixed(2)} (Mobile Money)',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2575FC),
+                  minimumSize: const Size(double.infinity, 54),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _performJoin(payCc: true);
+                },
+                icon: const Icon(LucideIcons.coins,
+                    color: Colors.black, size: 18),
+                label: Text(
+                  'Pay $ccCost CC from my wallet',
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber,
+                  minimumSize: const Size(double.infinity, 54),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '1 CC ≈ K1 · Or buy CC with Mobile Money, then join with CC.',
+              style: const TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _performJoin({required bool payCc}) async {
     setState(() => _isJoining = true);
     final svc = ref.read(quizEventServiceProvider);
-    final ok = await svc.joinEvent(widget.event.id);
-    if (mounted) {
-      setState(() {
-        _isJoining = false;
-        _isJoined = ok;
-      });
-      if (ok) {
+    final outcome = await svc.joinEvent(widget.event.id, payCc: payCc);
+    if (!mounted) return;
+    setState(() {
+      _isJoining = false;
+      _isJoined = outcome == JoinOutcome.joined;
+    });
+    switch (outcome) {
+      case JoinOutcome.joined:
         ScaffoldMessenger.of(context).showSnackBar(
           widget.event.hasWager
               ? SnackBar(
@@ -303,19 +500,24 @@ class _EventDetailSheetState extends ConsumerState<_EventDetailSheet> {
                 )
               : const SnackBar(content: Text('Joined event!')),
         );
-      } else if (widget.event.hasWager) {
+      case JoinOutcome.insufficientCoins:
+        showBuyCoinsSheet(
+          context,
+          reason: widget.event.hasWager
+              ? 'You need ${widget.event.wagerCoins} CC to stake this wager.'
+              : 'You need Church Coins to buy this pass.',
+        );
+      case JoinOutcome.failed:
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Could not join — check your Church Coin balance.'),
+            content: Text('Could not join this event.'),
             backgroundColor: Colors.orange,
           ),
         );
-      }
     }
   }
 
-  void _showPayment({required BuildContext ctx}) {
-    Navigator.of(ctx).pop(); // close sheet
+  void _showPayment() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

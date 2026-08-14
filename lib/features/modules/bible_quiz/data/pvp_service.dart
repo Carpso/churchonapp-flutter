@@ -391,16 +391,47 @@ class PvPService {
     }
   }
 
-  /// Live stream of invites sent TO the current user.
+  /// Live stream of invites sent TO the current user (realtime + refresh).
   Stream<List<PvPMatch>> incomingInvitesStream() {
     final uid = currentUserId;
     if (uid == null) return const Stream.empty();
-    return _client
-        .from('pvp_matches')
-        .stream(primaryKey: ['id'])
-        .eq('player2_id', uid)
-        .eq('status', 'invited')
-        .map((list) => list.map(PvPMatch.fromMap).toList());
+    final controller = StreamController<List<PvPMatch>>.broadcast();
+
+    Future<void> refresh() async {
+      try {
+        final res = await _client
+            .from('pvp_matches')
+            .select()
+            .eq('player2_id', uid)
+            .eq('status', 'invited')
+            .order('created_at', ascending: false)
+            .limit(10);
+        final list = (res as List)
+            .cast<Map<String, dynamic>>()
+            .map(PvPMatch.fromMap)
+            .toList();
+        if (!controller.isClosed) controller.add(list);
+      } catch (e) {
+        debugPrint('[PvP] incoming invites refresh error: $e');
+      }
+    }
+
+    _client
+        .channel('pvp_invites_$uid')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'pvp_matches',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'player2_id',
+            value: uid,
+          ),
+          callback: (_) => refresh(),
+        )
+        .subscribe();
+    refresh();
+    return controller.stream;
   }
 
   Future<PvPMatch?> _joinMatch(PvPMatch match, String uid, {bool crossTenant = false}) async {

@@ -6,10 +6,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/providers/profile_provider.dart';
 import '../../../../core/services/tenant_service.dart';
 import '../../../../core/config/remote_config.dart';
-import 'package:church_on_app/core/widgets/coa_payment_sheet.dart';
 import '../data/bible_quiz_service.dart';
 import '../data/daily_challenge_service.dart';
 import '../data/pvp_service.dart';
+import '../data/quiz_event_service.dart';
 import '../data/xp_service.dart';
 import 'bible_quiz_arena_screen.dart';
 import 'church_competition_lobby_screen.dart';
@@ -33,9 +33,9 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   /// Remote-configurable quiz values (`quiz_*` keys in platform_settings).
   RemoteConfig get _rc => widgetRemoteConfig(ref);
 
-  int get _prize1 => _rc.getInt('quiz_prize_1st_kwacha', 500);
-  int get _prize2 => _rc.getInt('quiz_prize_2nd_kwacha', 300);
-  int get _prize3 => _rc.getInt('quiz_prize_3rd_kwacha', 150);
+  int get _prize1 => _rc.getInt('quiz_prize_1st_cc', 500);
+  int get _prize2 => _rc.getInt('quiz_prize_2nd_cc', 300);
+  int get _prize3 => _rc.getInt('quiz_prize_3rd_cc', 150);
   int get _seasonWeeks => _rc.getInt('quiz_season_weeks', 12);
 
   @override
@@ -828,7 +828,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                     children: [
                       const Text("🥇", style: TextStyle(fontSize: 28)),
                       Text(
-                        "K$_prize1",
+                        "$_prize1 CC",
                         style: const TextStyle(
                           color: Colors.amber,
                           fontWeight: FontWeight.bold,
@@ -840,7 +840,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                     children: [
                       const Text("🥈", style: TextStyle(fontSize: 28)),
                       Text(
-                        "K$_prize2",
+                        "$_prize2 CC",
                         style: const TextStyle(
                           color: Colors.amber,
                           fontWeight: FontWeight.bold,
@@ -852,7 +852,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                     children: [
                       const Text("🥉", style: TextStyle(fontSize: 28)),
                       Text(
-                        "K$_prize3",
+                        "$_prize3 CC",
                         style: const TextStyle(
                           color: Colors.amber,
                           fontWeight: FontWeight.bold,
@@ -1238,157 +1238,151 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   }
 
   void _showLeaseModal() {
-    bool isUsd = false;
-    final leaseFee = _rc.getDouble('quiz_lease_fee_kwacha', 1500.0);
-    final leaseFeeUsd = _rc.getDouble('quiz_lease_fee_usd', 50.0);
+    final leaseFeeCc = _rc.getInt('quiz_lease_fee_cc', 1500);
+    final coins = ref.read(profileProvider).value?.coins ?? 0;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          return Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              25,
+              25,
+              25,
+              MediaQuery.of(context).padding.bottom + 20,
             ),
-            child: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  25,
-                  25,
-                  25,
-                  MediaQuery.of(context).padding.bottom + 20,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Lease Quizzing Engine",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            "Lease Quizzing Engine",
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
+                const SizedBox(height: 6),
+                const Text(
+                  "Pay Church On App to host an internationally standardized Bible Quiz — "
+                  "for your church's yearly tournament or as an individual hosting a personal "
+                  "tournament. Supports 500+ live mobile players.",
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+                const SizedBox(height: 25),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.amber.shade100),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        LucideIcons.crown,
+                        color: Colors.amber,
+                        size: 30,
+                      ),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              "ZMW",
+                              "Premium Engine Lease",
                               style: TextStyle(
-                                fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.grey,
+                                fontSize: 16,
                               ),
                             ),
-                            Switch(
-                              value: isUsd,
-                              activeThumbColor: Colors.green,
-                              onChanged: (v) => setState(() => isUsd = v),
+                            const Text(
+                              "1 Live Event • Active Leaderboard • Custom Questions",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 11,
+                              ),
                             ),
-                            const Padding(
-                              padding: EdgeInsets.only(right: 4),
-                              child: Text(
-                                "USD",
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.grey,
-                                ),
+                            const SizedBox(height: 5),
+                            Text(
+                              "$leaseFeeCc CC",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                color: Colors.amber,
+                                fontSize: 18,
                               ),
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                    const Text(
-                      "Pay Church On App to host an internationally standardized Bible Quiz for your church. Supports 500+ live mobile players.",
-                      style: TextStyle(color: Colors.grey, fontSize: 13),
-                    ),
-                    const SizedBox(height: 25),
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.blue.shade100),
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            LucideIcons.crown,
-                            color: Colors.blue,
-                            size: 30,
-                          ),
-                          const SizedBox(width: 15),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  "Premium Event Pass",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                const Text(
-                                  "1 Live Event • Active Leaderboard • Custom Questions",
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                                const SizedBox(height: 5),
-                                Text(
-                                  isUsd
-                                      ? "\$ ${leaseFeeUsd.toStringAsFixed(2)} USD"
-                                      : "K ${leaseFee.toStringAsFixed(2)} ZMW",
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.blue,
-                                    fontSize: 18,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _payQuizLease(leaseFee, leaseFeeUsd, isUsd);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        minimumSize: const Size(double.infinity, 60),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                      ),
-                      child: const Text(
-                        "PROCEED TO CHECKOUT",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(LucideIcons.wallet,
+                        color: Colors.grey, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Your balance: $coins CC',
+                      style: const TextStyle(
+                          color: Colors.grey, fontSize: 12),
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _payQuizLease();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    minimumSize: const Size(double.infinity, 60),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  ),
+                  child: Text(
+                    "PAY $leaseFeeCc CC",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      showBuyCoinsSheet(
+                        context,
+                        reason: 'Buy Church Coins to lease the Quiz Engine.',
+                      );
+                    },
+                    child: const Text(
+                      "Need CC? Buy Church Coins",
+                      style: TextStyle(
+                        color: Colors.amber,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
@@ -1684,12 +1678,9 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
     );
     if (!mounted) return;
     if (match == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Invite failed — check your Church Coin balance and try again.'),
-          backgroundColor: Colors.orange,
-        ),
+      showBuyCoinsSheet(
+        context,
+        reason: 'Not enough Church Coins to send this challenge.',
       );
       return;
     }
@@ -1710,9 +1701,9 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
           'userId': memberId,
           'title': 'Quiz Challenge!',
           'body': wagerCoins > 0
-              ? '${ref.read(profileProvider).value?.fullName ?? 'A friend'} '
+              ? '${ref.read(profileProvider).value?.name ?? 'A friend'} '
                   'challenged you for ${wagerCoins} CC. Accept or decline!'
-              : '${ref.read(profileProvider).value?.fullName ?? 'A friend'} '
+              : '${ref.read(profileProvider).value?.name ?? 'A friend'} '
                   'challenged you to a free quiz match!',
           'data': {
             'type': 'pvp_invite',
@@ -1734,7 +1725,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       builder: (context) => Consumer(
         builder: (context, ref, child) {
           final leaderboardAsync = ref.watch(quizLeaderboardProvider);
-          final top3 = ['K$_prize1', 'K$_prize2', 'K$_prize3'];
+          final top3 = ['$_prize1 CC', '$_prize2 CC', '$_prize3 CC'];
           return Container(
             height: MediaQuery.of(context).size.height * 0.75,
             padding: const EdgeInsets.all(25),
@@ -1755,7 +1746,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                   ),
                 ),
                 Text(
-                  "Weekly rewards: K$_prize1 | K$_prize2 | K$_prize3",
+                  "Weekly rewards: $_prize1 CC | $_prize2 CC | $_prize3 CC",
                   style: const TextStyle(
                     color: Colors.amber,
                     fontSize: 12,
@@ -1972,32 +1963,26 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
     );
   }
 
-  void _payQuizLease(double amountZmw, double amountUsd, bool isUsd) {
-    final amount = isUsd ? amountUsd : amountZmw;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => CoaPaymentSheet(
-        serviceType: 'quiz_lease',
-        amount: amount,
-        serviceLabel: 'Quiz Engine Lease',
-        description:
-            'Pay ${isUsd ? "\$${amountUsd.toStringAsFixed(2)} USD" : "K${amountZmw.toStringAsFixed(2)} ZMW"} to unlock the Quiz Engine for your church.',
-        onComplete: (paymentId, paymentRef) {
-          if (ctx.mounted) {
-            ScaffoldMessenger.of(ctx).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Quiz Engine leased! Create events from the Events tab.',
-                ),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-        },
-      ),
-    );
+  Future<void> _payQuizLease() async {
+    final svc = ref.read(quizEventServiceProvider);
+    final ok = await svc.leaseQuizEngineCc();
+    if (!mounted) return;
+    if (ok) {
+      ref.invalidate(profileProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Quiz Engine leased! Create events from the Events tab.',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      showBuyCoinsSheet(
+        context,
+        reason: 'Not enough Church Coins to lease the Quiz Engine.',
+      );
+    }
   }
 }
 
@@ -2231,11 +2216,9 @@ class _IncomingInvitesSectionState
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not accept — check your CC balance.'),
-            backgroundColor: Colors.orange,
-          ),
+        showBuyCoinsSheet(
+          context,
+          reason: 'Not enough Church Coins to accept this wager.',
         );
       }
     } else {
