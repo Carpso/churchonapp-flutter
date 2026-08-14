@@ -222,9 +222,10 @@ $migrations = @(
      "20260894_fix_noah_ark_audio.sql"
      "20260895_quiz_security_hardening.sql"
      "20260896_quiz_tournament_gates.sql"
-     "20260897_quiz_wager_tournaments_invites.sql"
-     "20260898_quiz_cc_economy.sql"
-)
+"20260897_quiz_wager_tournaments_invites.sql"
+      "20260898_quiz_cc_economy.sql"
+      "20260899_radio_christian_only.sql"
+    )
 
 foreach ($m in $migrations) {
     $path = "supabase\migrations\$m"
