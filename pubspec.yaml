@@ -103,3 +103,5 @@ flutter:
     - assets/logo_mtn.png
     - assets/logo_zamtel.png
     - assets/offline_bible_data.json
+    - assets/strongs/hebrew.json
+    - assets/strongs/greek.json

@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/bible/data/study_settings_provider.dart';
+import 'package:church_on_app/features/bible/data/strongs_lexicon.dart';
 import 'package:church_on_app/core/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'bible_podcast_screen.dart';
@@ -580,24 +581,23 @@ String _translationLabelStatic(String code) {
 // ═══════════════════════════════════════
 // EXEGESIS / WORD STUDY SCREEN
 // ═══════════════════════════════════════
-class _ExegesisScreen extends StatefulWidget {
+class _ExegesisScreen extends ConsumerStatefulWidget {
   const _ExegesisScreen();
   @override
-  State<_ExegesisScreen> createState() => _ExegesisScreenState();
+  ConsumerState<_ExegesisScreen> createState() => _ExegesisScreenState();
 }
 
-class _ExegesisScreenState extends State<_ExegesisScreen> {
+class _ExegesisScreenState extends ConsumerState<_ExegesisScreen> {
   final _wordController = TextEditingController();
-  String? _selectedWord;
-  
-  final Map<String, Map<String, String>> _wordStudies = {
-    'agape': {'greek': 'ἀγάπη', 'transliteration': 'agapē', 'meaning': 'Unconditional, selfless love. The highest form of love in Greek. Used 116 times in the NT.', 'usage': 'John 3:16, 1 Cor 13:4-8, Romans 5:8', 'root': 'From agapaō - to love deeply'},
-    'shalom': {'hebrew': 'שָׁלוֹם', 'transliteration': 'shālôm', 'meaning': 'Completeness, wholeness, peace, welfare, safety. Far more than absence of conflict.', 'usage': 'Numbers 6:26, Psalm 29:11, Isaiah 26:3', 'root': 'From shalem - to be complete'},
-    'logos': {'greek': 'λόγος', 'transliteration': 'logos', 'meaning': 'Word, reason, principle. In John 1:1, refers to the pre-existent Christ as the divine Word.', 'usage': 'John 1:1, Hebrews 4:12, Rev 19:13', 'root': 'From legō - to say, speak'},
-    'chesed': {'hebrew': 'חֶסֶד', 'transliteration': 'ḥeseḏ', 'meaning': 'Lovingkindness, steadfast love, mercy, faithfulness. God\'s covenant loyalty.', 'usage': 'Psalm 136, Lamentations 3:22, Micah 6:8', 'root': 'Covenant faithfulness'},
-    'pneuma': {'greek': 'πνεῦμα', 'transliteration': 'pneuma', 'meaning': 'Spirit, breath, wind. Used for the Holy Spirit, human spirit, and wind.', 'usage': 'John 3:8, Romans 8:16, Acts 2:4', 'root': 'From pneō - to blow, breathe'},
-    'sozo': {'greek': 'σώζω', 'transliteration': 'sōzō', 'meaning': 'To save, deliver, protect, heal, make whole. Encompasses spiritual and physical salvation.', 'usage': 'Matthew 1:21, Acts 2:21, Romans 10:9', 'root': 'From saos - safe, sound'},
-  };
+  String _query = '';
+
+  @override
+  void dispose() {
+    _wordController.dispose();
+    super.dispose();
+  }
+
+  void _runSearch(String v) => setState(() => _query = v.trim());
 
   @override
   Widget build(BuildContext context) {
@@ -611,6 +611,12 @@ class _ExegesisScreenState extends State<_ExegesisScreen> {
         builder: (context, ref, _) {
           final settings = ref.watch(studySettingsProvider);
           final translationLabel = _translationLabelStatic(settings.preferredTranslation);
+          final isStrongsNumber = RegExp(r'^[hgH G]?\s*\d+$').hasMatch(_query);
+          final resultsAsync = _query.isEmpty
+              ? ref.watch(strongsPopularProvider)
+              : isStrongsNumber
+                  ? ref.watch(strongsNumberProvider(_query))
+                  : ref.watch(strongsSearchProvider(_query));
           return ListView(
             padding: const EdgeInsets.all(25),
             children: [
@@ -631,44 +637,94 @@ class _ExegesisScreenState extends State<_ExegesisScreen> {
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade200)),
                 child: TextField(
                   controller: _wordController,
-                  onSubmitted: (val) => setState(() => _selectedWord = val.toLowerCase()),
-                  decoration: const InputDecoration(hintText: "Enter a Greek or Hebrew word...", icon: Icon(LucideIcons.languages, size: 18), border: InputBorder.none),
+                  onChanged: _runSearch,
+                  onSubmitted: _runSearch,
+                  decoration: InputDecoration(
+                    hintText: "Search 14,298 words… love, agape, shalom, H3068",
+                    icon: const Icon(LucideIcons.languages, size: 18),
+                    border: InputBorder.none,
+                    suffixIcon: _query.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(LucideIcons.x, size: 18),
+                            onPressed: () {
+                              _wordController.clear();
+                              _runSearch('');
+                            },
+                          )
+                        : null,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
-              Text("POPULAR STUDIES", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.grey)),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8, runSpacing: 8,
-                children: _wordStudies.keys.map((w) => GestureDetector(
-                  onTap: () => setState(() => _selectedWord = w),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: _selectedWord == w ? Colors.blue : Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: _selectedWord == w ? Colors.blue : Colors.grey.shade300),
-                    ),
-                    child: Text(w, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _selectedWord == w ? Colors.white : Colors.black)),
-                  ),
-                )).toList(),
+              if (_query.isEmpty) ...[
+                Text("POPULAR STUDIES", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.grey)),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8, runSpacing: 8,
+                  children: [
+                    for (final label in const ['agape', 'shalom', 'logos', 'chesed', 'pneuma', 'grace', 'faith', 'love'])
+                      _PopularChip(label: label, onTap: () {
+                        _wordController.text = label;
+                        _runSearch(label);
+                      }),
+                  ],
+                ),
+                const SizedBox(height: 25),
+              ],
+              resultsAsync.when(
+                data: (words) => words.isEmpty
+                    ? const Center(child: Padding(padding: EdgeInsets.all(30), child: Text("No entries found. Try \"love\", \"grace\" or a Strong's number.", style: TextStyle(color: Colors.grey))))
+                    : Column(
+                        children: [
+                          for (final w in words) _LexiconCard(entry: w),
+                        ],
+                      ),
+                loading: () => const Center(child: Padding(padding: EdgeInsets.all(30), child: CircularProgressIndicator())),
+                error: (e, _) => Center(child: Padding(padding: const EdgeInsets.all(30), child: Text("Lexicon error: $e", style: const TextStyle(color: Colors.red)))),
               ),
-              const SizedBox(height: 25),
-              if (_selectedWord != null && _wordStudies.containsKey(_selectedWord))
-                _buildWordCard(_selectedWord!, _wordStudies[_selectedWord]!),
-              if (_selectedWord != null && !_wordStudies.containsKey(_selectedWord))
-                Center(child: Padding(padding: const EdgeInsets.all(30), child: Text("Word \"$_selectedWord\" not found in database.", style: const TextStyle(color: Colors.grey)))),
             ],
           );
         },
       ),
     );
   }
+}
 
-  Widget _buildWordCard(String word, Map<String, String> data) {
-    final isGreek = data.containsKey('greek');
+class _PopularChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _PopularChip({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black)),
+      ),
+    );
+  }
+}
+
+/// Real Strong's entry card: original script, morphology, definitions,
+/// derivation and KJV renderings.
+class _LexiconCard extends StatelessWidget {
+  final StrongsEntry entry;
+  const _LexiconCard({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final isGreek = !entry.isHebrew;
+    final script = entry.word.isNotEmpty ? entry.word : entry.lemma;
     return Container(
-      padding: const EdgeInsets.all(25),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 15)]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -678,26 +734,45 @@ class _ExegesisScreenState extends State<_ExegesisScreen> {
               Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: isGreek ? Colors.blue.withValues(alpha: 0.1) : Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
                 child: Text(isGreek ? "GREEK" : "HEBREW", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: isGreek ? Colors.blue : Colors.amber, letterSpacing: 1)),
               ),
+              const SizedBox(width: 8),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                child: Text(entry.id, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+              ),
               const Spacer(),
-              Text(data['transliteration'] ?? '', style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+              if (entry.transliteration.isNotEmpty)
+                Text(entry.transliteration, style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
             ],
           ),
           const SizedBox(height: 15),
-          Center(child: Text(data[isGreek ? 'greek' : 'hebrew'] ?? '', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold))),
-          const SizedBox(height: 5),
-          Center(child: Text(word.toUpperCase(), style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 3, color: Colors.grey))),
+          Center(child: Text(script, style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold))),
+          if (entry.lemma.isNotEmpty && entry.lemma != script) ...[
+            const SizedBox(height: 5),
+            Center(child: Text(entry.lemma, style: const TextStyle(fontSize: 22, color: Colors.grey))),
+          ],
+          if (entry.morphLabel.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Center(child: Text(entry.morphLabel, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.grey.shade600))),
+          ],
           const Divider(height: 30),
           const Text("MEANING", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1, color: Colors.grey)),
           const SizedBox(height: 8),
-          Text(data['meaning'] ?? '', style: const TextStyle(fontSize: 15, height: 1.5)),
-          const SizedBox(height: 15),
-          const Text("KEY PASSAGES", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1, color: Colors.grey)),
-          const SizedBox(height: 8),
-          Text(data['usage'] ?? '', style: TextStyle(fontSize: 14, color: Colors.blue.shade700, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 15),
-          const Text("ROOT", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1, color: Colors.grey)),
-          const SizedBox(height: 8),
-          Text(data['root'] ?? '', style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic)),
+          Text(entry.definition.isNotEmpty ? entry.definition : '(no definition)', style: const TextStyle(fontSize: 15, height: 1.5)),
+          if (entry.explanation.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(entry.explanation, style: const TextStyle(fontSize: 14, height: 1.5, fontStyle: FontStyle.italic, color: Colors.blueGrey)),
+          ],
+          if (entry.derivation.isNotEmpty) ...[
+            const SizedBox(height: 15),
+            const Text("DERIVATION", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1, color: Colors.grey)),
+            const SizedBox(height: 8),
+            Text(entry.derivation, style: const TextStyle(fontSize: 14, height: 1.5)),
+          ],
+          if (entry.kjvRenderings.isNotEmpty) ...[
+            const SizedBox(height: 15),
+            const Text("KJV RENDERINGS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1, color: Colors.grey)),
+            const SizedBox(height: 8),
+            Text(entry.kjvRenderings, style: TextStyle(fontSize: 14, color: Colors.blue.shade700, fontWeight: FontWeight.w500)),
+          ],
         ],
       ),
     );

@@ -9,7 +9,7 @@ import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/empty_state_widget.dart';
 import 'package:church_on_app/features/bible_study/data/bible_study_service.dart';
 import 'package:church_on_app/features/bible_study/data/bible_study_providers.dart';
-import 'package:church_on_app/features/bible/data/exegesis_data.dart';
+import 'package:church_on_app/features/bible/data/strongs_lexicon.dart';
 
 class BibleStudyListScreen extends ConsumerStatefulWidget {
   const BibleStudyListScreen({super.key});
@@ -19,6 +19,8 @@ class BibleStudyListScreen extends ConsumerStatefulWidget {
 }
 
 class _BibleStudyListScreenState extends ConsumerState<BibleStudyListScreen> {
+  String _lexiconQuery = '';
+
   @override
   Widget build(BuildContext context) {
     final tenant = ref.watch(currentTenantProvider);
@@ -369,73 +371,190 @@ class _BibleStudyListScreenState extends ConsumerState<BibleStudyListScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Original language word studies for deeper understanding',
+              'Full Strong\'s concordance — 14,298 Hebrew & Greek entries',
               style: TextStyle(color: Colors.grey, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              onChanged: (v) => setState(() => _lexiconQuery = v.trim()),
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: 'Search word, transliteration or meaning… e.g. love, agape, H3068',
+                prefixIcon: const Icon(LucideIcons.search, size: 18),
+                suffixIcon: _lexiconQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(LucideIcons.x, size: 16),
+                        onPressed: () => setState(() => _lexiconQuery = ''),
+                      )
+                    : null,
+                isDense: true,
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+              ),
             ),
             const Divider(height: 24),
             Expanded(
-              child: ListView.separated(
-                itemCount: exegesisData.length,
-                separatorBuilder: (_, __) => const Divider(),
-                itemBuilder: (_, i) {
-                  final word = exegesisData[i];
-                  return ExpansionTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.indigo.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        word.word[0].toUpperCase(),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.indigo,
-                        ),
-                      ),
-                    ),
-                    title: Text(word.word, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('${word.language} · ${word.strongsNumber}', style: const TextStyle(fontSize: 11)),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(word.transliteration, style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
-                            const SizedBox(height: 8),
-                            Text(word.definition, style: const TextStyle(fontSize: 13, height: 1.5)),
-                            if (word.notes.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.indigo.withValues(alpha: 0.05),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(word.notes, style: const TextStyle(fontSize: 12, color: Colors.indigo, height: 1.4)),
-                              ),
-                            ],
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 6,
-                              children: word.usageVerses.map((v) => Chip(
-                                label: Text(v, style: const TextStyle(fontSize: 11)),
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                visualDensity: VisualDensity.compact,
-                              )).toList(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+              child: _LexiconResults(query: _lexiconQuery),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Live searchable Strong's lexicon (real data, client-side search).
+class _LexiconResults extends ConsumerStatefulWidget {
+  final String query;
+  const _LexiconResults({required this.query});
+
+  @override
+  ConsumerState<_LexiconResults> createState() => _LexiconResultsState();
+}
+
+class _LexiconResultsState extends ConsumerState<_LexiconResults> {
+  @override
+  Widget build(BuildContext context) {
+    if (widget.query.isEmpty) {
+      final popularAsync = ref.watch(strongsPopularProvider);
+      return popularAsync.when(
+        data: (words) => _buildList(words),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Lexicon failed to load: $e')),
+      );
+    }
+    if (RegExp(r'^[hgH G]?\s*\d+$').hasMatch(widget.query)) {
+      final lookupAsync = ref.watch(strongsLexiconProvider).byNumber(widget.query);
+      return FutureBuilder<StrongsEntry?>(
+        future: lookupAsync,
+        builder: (context, snap) {
+          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+          final hit = snap.data;
+          if (hit == null) {
+            return const Center(child: Text('No entry for that Strong\'s number.'));
+          }
+          return _buildList([hit]);
+        },
+      );
+    }
+    final resultsAsync = ref.watch(strongsSearchProvider(widget.query));
+    return resultsAsync.when(
+      data: (words) => words.isEmpty
+          ? const Center(child: Text('No matches. Try "love", "grace", "H3068"…'))
+          : _buildList(words),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Search failed: $e')),
+    );
+  }
+
+  Widget _buildList(List<StrongsEntry> words) {
+    return ListView.separated(
+      itemCount: words.length,
+      separatorBuilder: (_, __) => const Divider(),
+      itemBuilder: (_, i) {
+        final word = words[i];
+        final script = word.word.isNotEmpty ? word.word : word.lemma;
+        final initial =
+            script.isNotEmpty ? script.characters.first : word.id[0];
+        return ExpansionTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: word.isHebrew
+                  ? Colors.amber.withValues(alpha: 0.15)
+                  : Colors.indigo.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              initial,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: word.isHebrew ? Colors.amber.shade800 : Colors.indigo,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          title: Text(
+            script,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          subtitle: Text(
+            '${word.isHebrew ? 'Hebrew' : 'Greek'} · ${word.id}'
+            '${word.transliteration.isNotEmpty ? ' · ${word.transliteration}' : ''}',
+            style: const TextStyle(fontSize: 11),
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (word.transliteration.isNotEmpty)
+                    Text(
+                      word.transliteration,
+                      style: const TextStyle(
+                        fontStyle: FontStyle.italic,
+                        color: Colors.grey,
+                        fontSize: 14,
+                      ),
+                    ),
+                  if (word.morphLabel.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      word.morphLabel,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  if (word.definition.isNotEmpty)
+                    Text(
+                      word.definition,
+                      style: const TextStyle(fontSize: 13, height: 1.5),
+                    ),
+                  if (word.explanation.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      word.explanation,
+                      style: const TextStyle(fontSize: 13, height: 1.5, fontStyle: FontStyle.italic),
+                    ),
+                  ],
+                  if (word.derivation.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        word.derivation,
+                        style: const TextStyle(fontSize: 12, color: Colors.indigo, height: 1.4),
+                      ),
+                    ),
+                  ],
+                  if (word.kjvRenderings.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'KJV renderings: ${word.kjvRenderings}',
+                      style: TextStyle(fontSize: 12, color: Colors.amber.shade800, height: 1.4),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
