@@ -34,13 +34,13 @@ class LipilaFxService {
 
   void setFallbackRate(double rate) => _fallbackRate = rate;
 
-  /// Fetch the live rate. Cached for 10 minutes to be polite to the API.
-  /// Returns a Future<unitPerTarget>. Throws/falls back if offline.
+  /// Fetch the live rate. Cached for 1 minute to keep it fresh without spamming the API.
+  /// Returns a Future&lt;double&gt;. Falls back if offline.
   Future<double> fetchRate({bool force = false}) async {
     if (!force &&
         _zmwPerTarget > 0 &&
         _lastUpdated != null &&
-        DateTime.now().difference(_lastUpdated!).inMinutes < 10) {
+         DateTime.now().difference(_lastUpdated!).inMinutes < 1) {
       return _zmwPerTarget;
     }
     try {

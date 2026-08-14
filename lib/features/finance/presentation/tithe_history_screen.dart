@@ -72,10 +72,8 @@ class TitheHistoryScreen extends ConsumerWidget {
                     child: Text("No records found.", style: TextStyle(color: Colors.grey)),
                   ))
                 else
-                  ListView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: transactions.length,
-                    itemBuilder: (context, index) {
+                  Column(
+                    children: List.generate(transactions.length, (index) {
                       final t = transactions[index];
                       return _buildTitheCard(
                         t.category.toUpperCase(),
@@ -83,7 +81,7 @@ class TitheHistoryScreen extends ConsumerWidget {
                         DateFormat.yMMMd().format(t.createdAt),
                         t.status.toUpperCase(),
                       );
-                    },
+                    }),
                   ),
                 ],
               ),
