@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -26,6 +27,8 @@ class QuizEvent {
   final String? difficultyFilter;
   final bool isFeatured;
   final String? bannerUrl;
+  final int wagerCoins;
+  final DateTime? settledAt;
   final DateTime createdAt;
 
   QuizEvent({
@@ -46,6 +49,8 @@ class QuizEvent {
     this.difficultyFilter,
     this.isFeatured = false,
     this.bannerUrl,
+    this.wagerCoins = 0,
+    this.settledAt,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -67,10 +72,13 @@ class QuizEvent {
         difficultyFilter: m['difficulty_filter'],
         isFeatured: m['is_featured'] == true,
         bannerUrl: m['banner_url'],
+        wagerCoins: m['wager_coins'] ?? 0,
+        settledAt: m['settled_at'] != null ? DateTime.tryParse(m['settled_at'].toString()) : null,
         createdAt: m['created_at'] != null ? DateTime.tryParse(m['created_at'].toString()) : null,
       );
 
   bool get isFree => passPriceZmw <= 0 && passPriceCc <= 0;
+  bool get hasWager => wagerCoins > 0;
   bool get isActive => status == 'active';
   bool get isUpcoming => status == 'upcoming';
   bool get isCompleted => status == 'completed';
@@ -233,6 +241,7 @@ class QuizEventService {
     String? difficultyFilter,
     bool isFeatured = false,
     String? bannerUrl,
+    int wagerCoins = 0,
   }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return 'Not authenticated';
@@ -253,6 +262,7 @@ class QuizEventService {
         'difficulty_filter': difficultyFilter,
         'is_featured': isFeatured,
         'banner_url': bannerUrl,
+        'wager_coins': wagerCoins,
       }).select('id').maybeSingle();
 
       return res?['id']?.toString();
@@ -271,6 +281,56 @@ class QuizEventService {
     } catch (e) {
       return 'Update failed: $e';
     }
+  }
+
+  /// Host finishes the event: ranks players, pays 1st/2nd/3rd (wager events),
+  /// marks the event completed. Returns null on success or an error string.
+  Future<String?> completeEvent(String eventId) async {
+    try {
+      final res = await _client.rpc('complete_quiz_event', params: {
+        'p_event_id': eventId,
+      });
+      final data = res as Map<String, dynamic>?;
+      if (data?['success'] == true) return null;
+      return data?['error']?.toString() ?? 'Failed to finish event';
+    } catch (e) {
+      return 'Finish failed: $e';
+    }
+  }
+
+  /// Host cancels the event: refunds every staked wager, marks cancelled.
+  Future<String?> cancelEvent(String eventId) async {
+    try {
+      final res = await _client.rpc('cancel_quiz_event', params: {
+        'p_event_id': eventId,
+      });
+      final data = res as Map<String, dynamic>?;
+      if (data?['success'] == true) return null;
+      return data?['error']?.toString() ?? 'Failed to cancel event';
+    } catch (e) {
+      return 'Cancel failed: $e';
+    }
+  }
+
+  /// Emits a tick whenever a participant row changes → live tournament
+  /// scoreboards without polling.
+  Stream<int> eventLeaderboardTicks(String eventId) {
+    final channel = _client.channel('quiz_event_lb_$eventId');
+    final controller = StreamController<int>.broadcast();
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'quiz_event_participants',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'event_id', value: eventId),
+          callback: (payload) {
+            if (!controller.isClosed) {
+              controller.add(DateTime.now().millisecondsSinceEpoch);
+            }
+          },
+        )
+        .subscribe();
+    return controller.stream;
   }
 
   // ── Participants ──

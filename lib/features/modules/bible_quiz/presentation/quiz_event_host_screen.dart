@@ -176,10 +176,14 @@ class _HostEventCardState extends ConsumerState<_HostEventCard> {
               const Spacer(),
               // Price
               Text(
-                widget.event.isFree ? 'FREE' : 'K${widget.event.passPriceZmw.toStringAsFixed(0)}',
+                widget.event.hasWager
+                    ? '${widget.event.wagerCoins} CC wager'
+                    : (widget.event.isFree ? 'FREE' : 'K${widget.event.passPriceZmw.toStringAsFixed(0)}'),
                 style: TextStyle(
-                  color: widget.event.isFree ? Colors.blueAccent : Colors.greenAccent,
-                  fontSize: 14,
+                  color: widget.event.hasWager
+                      ? Colors.amberAccent
+                      : (widget.event.isFree ? Colors.blueAccent : Colors.greenAccent),
+                  fontSize: 13,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -317,13 +321,37 @@ class _HostEventCardState extends ConsumerState<_HostEventCard> {
 
   Future<void> _updateStatus(String status) async {
     final svc = ref.read(quizEventServiceProvider);
-    final err = await svc.updateEventStatus(widget.event.id, status);
+    String? err;
+    // Wager events settle through RPCs (payouts / refunds); free events can
+    // keep the plain status update.
+    if (status == 'completed' && widget.event.hasWager) {
+      err = await svc.completeEvent(widget.event.id);
+    } else if (status == 'cancelled' && widget.event.hasWager) {
+      err = await svc.cancelEvent(widget.event.id);
+    } else {
+      err = await svc.updateEventStatus(widget.event.id, status);
+    }
     if (mounted) {
       if (err != null) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(err)));
       } else {
         ref.invalidate(allEventsProvider);
+        if (status == 'completed' || status == 'cancelled') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                widget.event.hasWager
+                    ? (status == 'completed'
+                        ? 'Event finished — prizes paid out!'
+                        : 'Event cancelled — wagers refunded.')
+                    : (status == 'completed'
+                        ? 'Event finished!'
+                        : 'Event cancelled.'),
+              ),
+            ),
+          );
+        }
       }
     }
   }
@@ -493,6 +521,7 @@ class _CreateEventDialogState extends ConsumerState<_CreateEventDialog> {
   final _qCountCtrl = TextEditingController(text: '10');
   final _timeCtrl = TextEditingController(text: '15');
   final _maxCtrl = TextEditingController();
+  final _wagerCtrl = TextEditingController(text: '0');
 
   DateTime _startTime = DateTime.now().add(const Duration(hours: 2));
   String _category = '';
@@ -508,6 +537,7 @@ class _CreateEventDialogState extends ConsumerState<_CreateEventDialog> {
     _qCountCtrl.dispose();
     _timeCtrl.dispose();
     _maxCtrl.dispose();
+    _wagerCtrl.dispose();
     super.dispose();
   }
 
@@ -550,6 +580,15 @@ class _CreateEventDialogState extends ConsumerState<_CreateEventDialog> {
               const SizedBox(height: 12),
               _field('Pass Price (ZMW, 0 = Free)', _priceCtrl, '0',
                   keyboardType: TextInputType.number),
+              const SizedBox(height: 12),
+              _field('Wager per Player (CC, 0 = No Wager)', _wagerCtrl, '0',
+                  keyboardType: TextInputType.number),
+              const SizedBox(height: 4),
+              const Text(
+                'Every participant stakes this many CC at join. On completion: '
+                '1st 50%, 2nd 30%, 3rd 20% of the pot. No-shows are refunded.',
+                style: TextStyle(color: Colors.white38, fontSize: 10),
+              ),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -762,6 +801,7 @@ class _CreateEventDialogState extends ConsumerState<_CreateEventDialog> {
       categoryFilter: _category.isEmpty ? null : _category,
       difficultyFilter: _difficulty.isEmpty ? null : _difficulty,
       isFeatured: _isFeatured,
+      wagerCoins: int.tryParse(_wagerCtrl.text) ?? 0,
     );
 
     if (mounted) {

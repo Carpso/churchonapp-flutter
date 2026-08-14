@@ -301,6 +301,108 @@ class PvPService {
     }
   }
 
+  // ── Friend invites (free or paid) ──
+
+  /// Create a direct 1v1 invite to a specific opponent. The inviter's wager
+  /// (if any) is charged server-side at creation.
+  Future<PvPMatch?> createInvite({
+    required String opponentId,
+    int wagerCoins = 0,
+    int questionCount = 10,
+    int timePerQuestion = 15,
+  }) async {
+    final uid = currentUserId;
+    if (uid == null) return null;
+    try {
+      final res = await _client.rpc('create_pvp_invite', params: {
+        'p_opponent_id': opponentId,
+        'p_wager_coins': wagerCoins,
+        'p_question_count': questionCount,
+        'p_time_per_question': timePerQuestion,
+      });
+      final data = res as Map<String, dynamic>?;
+      if (data?['success'] != true) {
+        debugPrint('[PvP] Invite rejected: ${data?['error']}');
+        return null;
+      }
+      return PvPMatch(
+        id: data!['match_id'] as String,
+        player1Id: uid,
+        player2Id: opponentId,
+        status: 'invited',
+        channelName: 'pvp_${data['match_id']}',
+        questionCount: questionCount,
+        timePerQuestion: timePerQuestion,
+        wagerAmount: wagerCoins,
+      );
+    } catch (e) {
+      debugPrint('[PvP] createInvite error: $e');
+      return null;
+    }
+  }
+
+  /// Accept an incoming invite (charges the invitee's wager server-side).
+  Future<PvPMatch?> acceptInvite(String matchId) async {
+    final uid = currentUserId;
+    if (uid == null) return null;
+    try {
+      final res = await _client.rpc('accept_pvp_invite', params: {
+        'p_match_id': matchId,
+      });
+      final data = res as Map<String, dynamic>?;
+      if (data?['success'] != true) {
+        debugPrint('[PvP] Accept failed: ${data?['error']}');
+        return null;
+      }
+      final row = await _client
+          .from('pvp_matches')
+          .select()
+          .eq('id', matchId)
+          .maybeSingle();
+      if (row == null) return null;
+      return PvPMatch.fromMap(row);
+    } catch (e) {
+      debugPrint('[PvP] acceptInvite error: $e');
+      return null;
+    }
+  }
+
+  /// Decline an incoming invite (refunds the inviter server-side).
+  Future<bool> declineInvite(String matchId) async {
+    try {
+      final res = await _client.rpc('decline_pvp_invite', params: {
+        'p_match_id': matchId,
+      });
+      return (res as Map<String, dynamic>?)?['success'] == true;
+    } catch (e) {
+      debugPrint('[PvP] declineInvite error: $e');
+      return false;
+    }
+  }
+
+  /// Sweep stale invites (refunds inviters). Call when opening the PvP screen.
+  Future<int> expireStaleInvites() async {
+    try {
+      final res = await _client.rpc('expire_stale_pvp_invites');
+      return res is int ? res : 0;
+    } catch (e) {
+      debugPrint('[PvP] expireStaleInvites error: $e');
+      return 0;
+    }
+  }
+
+  /// Live stream of invites sent TO the current user.
+  Stream<List<PvPMatch>> incomingInvitesStream() {
+    final uid = currentUserId;
+    if (uid == null) return const Stream.empty();
+    return _client
+        .from('pvp_matches')
+        .stream(primaryKey: ['id'])
+        .eq('player2_id', uid)
+        .eq('status', 'invited')
+        .map((list) => list.map(PvPMatch.fromMap).toList());
+  }
+
   Future<PvPMatch?> _joinMatch(PvPMatch match, String uid, {bool crossTenant = false}) async {
     // Server-side join: verifies availability, charges the joiner's wager,
     // fills the player2 slot atomically (join_pvp_match RPC).

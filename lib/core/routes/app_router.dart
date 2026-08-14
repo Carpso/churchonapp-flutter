@@ -150,6 +150,7 @@ import 'package:church_on_app/features/home/presentation/song_lyrics_screen.dart
 import 'package:church_on_app/features/home/presentation/tech_fast_blocker.dart';
 import 'package:church_on_app/features/modules/ai_sermon_notes/presentation/ai_sermon_notes_screen.dart';
 import 'package:church_on_app/features/modules/bible_quiz/presentation/bible_quiz_arena_screen.dart';
+import 'package:church_on_app/features/modules/bible_quiz/data/pvp_service.dart';
 import 'package:church_on_app/features/modules/bible_quiz/presentation/bible_quiz_hub_screen.dart';
 import 'package:church_on_app/features/modules/bible_quiz/presentation/church_competition_lobby_screen.dart';
 import 'package:church_on_app/features/modules/bible_quiz/presentation/quiz_invite_handler_screen.dart';
@@ -1108,7 +1109,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               final matchData = extra?['pvpMatch'];
               int qCount = 10;
               int tpq = 15;
-              if (matchData is Map<String, dynamic>) {
+              PvPMatch? pvpMatch;
+              if (matchData is PvPMatch) {
+                pvpMatch = matchData;
+                qCount = pvpMatch.questionCount;
+                tpq = pvpMatch.timePerQuestion;
+              } else if (matchData is Map<String, dynamic>) {
                 qCount = (matchData['questionCount'] as int?) ?? 10;
                 tpq = (matchData['timePerQuestion'] as int?) ?? 15;
               }
@@ -1116,6 +1122,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 mode: mode,
                 questionCount: qCount,
                 timePerQuestionSec: tpq,
+                initialPvPMatch: pvpMatch,
               );
             },
           ),

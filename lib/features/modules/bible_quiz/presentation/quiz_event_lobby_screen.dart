@@ -135,8 +135,25 @@ class _EventCard extends ConsumerWidget {
                       ),
                     ],
                     const Spacer(),
-                    // Price
-                    if (!event.isFree)
+                    // Price / wager
+                    if (event.hasWager)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.amberAccent.withAlpha(20),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.amberAccent.withAlpha(50)),
+                        ),
+                        child: Text(
+                          '${event.wagerCoins} CC wager',
+                          style: const TextStyle(
+                            color: Colors.amberAccent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      )
+                    else if (!event.isFree)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
@@ -278,7 +295,20 @@ class _EventDetailSheetState extends ConsumerState<_EventDetailSheet> {
       });
       if (ok) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Joined event!')),
+          widget.event.hasWager
+              ? SnackBar(
+                  content: Text(
+                      'Joined! ${widget.event.wagerCoins} CC staked. Good luck!'),
+                  backgroundColor: Colors.green,
+                )
+              : const SnackBar(content: Text('Joined event!')),
+        );
+      } else if (widget.event.hasWager) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not join — check your Church Coin balance.'),
+            backgroundColor: Colors.orange,
+          ),
         );
       }
     }
@@ -389,6 +419,12 @@ class _EventDetailSheetState extends ConsumerState<_EventDetailSheet> {
             const SizedBox(height: 6),
             _detailRow(LucideIcons.creditCard,
                 'Pass: K${widget.event.passPriceZmw.toStringAsFixed(2)}'),
+          ],
+          if (widget.event.hasWager) ...[
+            const SizedBox(height: 6),
+            _detailRow(
+                LucideIcons.coins,
+                'Stake: ${widget.event.wagerCoins} CC/player — 1st 50% · 2nd 30% · 3rd 20% of pot'),
           ],
           const SizedBox(height: 24),
           // Action buttons

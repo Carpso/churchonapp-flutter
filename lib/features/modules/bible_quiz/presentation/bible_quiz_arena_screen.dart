@@ -24,6 +24,8 @@ class BibleQuizArenaScreen extends ConsumerStatefulWidget {
   final int timePerQuestionSec;
   final String? categoryFilter;
   final String? difficultyFilter;
+  final PvPMatch? initialPvPMatch;
+  final WagerTier wagerTier;
 
   const BibleQuizArenaScreen({
     super.key,
@@ -33,6 +35,8 @@ class BibleQuizArenaScreen extends ConsumerStatefulWidget {
     this.timePerQuestionSec = 15,
     this.categoryFilter,
     this.difficultyFilter,
+    this.initialPvPMatch,
+    this.wagerTier = WagerTier.free,
   });
 
   @override
@@ -202,9 +206,18 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     // For PvP mode, find or create a match first
     if (widget.mode != 'Solo' && _pvpService != null) {
       try {
-        final match = await _pvpService!.findOrCreateMatch(
+        // Invited match passed in (deep link or in-app invite accept):
+        // never re-run matchmaking — use (and accept) the invited match.
+        final provided = widget.initialPvPMatch;
+        var match = provided;
+        if (provided != null && provided.status == 'invited' && provided.player2Id == _pvpService!.currentUserId) {
+          final accepted = await _pvpService!.acceptInvite(provided.id);
+          if (accepted != null) match = accepted;
+        }
+        match ??= await _pvpService!.findOrCreateMatch(
           questionCount: widget.questionCount,
           timePerQuestion: widget.timePerQuestionSec,
+          wagerTier: widget.wagerTier,
         );
         if (!mounted) return;
         if (match == null) {

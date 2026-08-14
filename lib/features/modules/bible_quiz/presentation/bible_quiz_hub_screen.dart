@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/providers/profile_provider.dart';
@@ -10,6 +9,7 @@ import '../../../../core/config/remote_config.dart';
 import 'package:church_on_app/core/widgets/coa_payment_sheet.dart';
 import '../data/bible_quiz_service.dart';
 import '../data/daily_challenge_service.dart';
+import '../data/pvp_service.dart';
 import '../data/xp_service.dart';
 import 'bible_quiz_arena_screen.dart';
 import 'church_competition_lobby_screen.dart';
@@ -322,6 +322,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 15),
+              const _IncomingInvitesSection(),
               const SizedBox(height: 30),
 
               const Text(
@@ -1576,18 +1578,152 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
 
   void _showInviteFriend() {
     final profile = ref.read(profileProvider).value;
-    if (profile == null) return;
+    final myTenant = profile?.tenantId;
+    if (myTenant == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You must belong to a church to invite members.'),
+        ),
+      );
+      return;
+    }
 
-    final refCode =
-        profile.walletId ??
-        "COA-ZM-REF-${profile.id.substring(0, 6).toUpperCase()}";
-    final inviteText =
-        'Join me on Church On App for a Bible Quiz PvP match!\n\n'
-        'Download the app and challenge me: https://churchonapp.com/quiz/invite\n'
-        'My referral code: $refCode';
-    SharePlus.instance.share(
-      ShareParams(text: inviteText, subject: 'Bible Quiz Invitation'),
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _FriendPickerSheet(
+        tenantId: myTenant,
+        onPicked: (memberId, memberName) {
+          _chooseWager(memberId, memberName);
+        },
+      ),
     );
+  }
+
+  void _chooseWager(String memberId, String memberName) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF151A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              "Challenge a Friend",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "$memberName — choose the wager (staked by both players).",
+              style: const TextStyle(color: Colors.white54, fontSize: 13),
+            ),
+            const SizedBox(height: 20),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [0, 10, 25, 50, 100]
+                  .map((w) => ChoiceChip(
+                        label: Text(
+                          w == 0 ? "Free" : "$w CC",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        selected: false,
+                        selectedColor: Colors.amber,
+                        backgroundColor: Colors.white.withValues(alpha: 0.1),
+                        side: BorderSide(color: Colors.white24),
+                        onSelected: (_) {
+                          Navigator.pop(ctx);
+                          _sendInvite(memberId, memberName, w);
+                        },
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Winner takes 90% of the pot. Draw or no-show = full refund.",
+              style: const TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendInvite(
+      String memberId, String memberName, int wagerCoins) async {
+    final pvpService = ref.read(pvpServiceProvider);
+    final match = await pvpService.createInvite(
+      opponentId: memberId,
+      wagerCoins: wagerCoins,
+      questionCount: 10,
+      timePerQuestion: 15,
+    );
+    if (!mounted) return;
+    if (match == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Invite failed — check your Church Coin balance and try again.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          wagerCoins > 0
+              ? "Invite sent to $memberName (${wagerCoins} CC staked)!"
+              : "Free invite sent to $memberName!",
+        ),
+        backgroundColor: Colors.green,
+      ),
+    );
+    try {
+      await Supabase.instance.client.functions.invoke(
+        'push-notifications',
+        body: {
+          'userId': memberId,
+          'title': 'Quiz Challenge!',
+          'body': wagerCoins > 0
+              ? '${ref.read(profileProvider).value?.fullName ?? 'A friend'} '
+                  'challenged you for ${wagerCoins} CC. Accept or decline!'
+              : '${ref.read(profileProvider).value?.fullName ?? 'A friend'} '
+                  'challenged you to a free quiz match!',
+          'data': {
+            'type': 'pvp_invite',
+            'reference_id': match.id,
+            'channel_id': 'coa_events',
+          },
+        },
+      );
+    } catch (e) {
+      debugPrint('Invite push notification failed: $e');
+    }
   }
 
   void _showLeaderboard() {
@@ -1861,6 +1997,354 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
           }
         },
       ),
+    );
+  }
+}
+
+/// Church member picker for direct 1v1 invites.
+class _FriendPickerSheet extends ConsumerStatefulWidget {
+  final String tenantId;
+  final void Function(String memberId, String memberName) onPicked;
+
+  const _FriendPickerSheet({
+    required this.tenantId,
+    required this.onPicked,
+  });
+
+  @override
+  ConsumerState<_FriendPickerSheet> createState() => _FriendPickerSheetState();
+}
+
+class _FriendPickerSheetState extends ConsumerState<_FriendPickerSheet> {
+  List<Map<String, dynamic>> _members = [];
+  List<Map<String, dynamic>> _filtered = [];
+  bool _loading = true;
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMembers();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadMembers() async {
+    try {
+      final uid = Supabase.instance.client.auth.currentUser?.id;
+      final res = await Supabase.instance.client
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .eq('tenant_id', widget.tenantId)
+          .neq('id', uid ?? '')
+          .order('full_name')
+          .limit(200);
+      if (mounted) {
+        setState(() {
+          _members = (res as List).cast<Map<String, dynamic>>();
+          _filtered = List.from(_members);
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Friend picker load error: $e');
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _filter(String q) {
+    final query = q.trim().toLowerCase();
+    setState(() {
+      _filtered = query.isEmpty
+          ? List.from(_members)
+          : _members
+              .where((m) =>
+                  (m['full_name']?.toString() ?? '').toLowerCase().contains(query))
+              .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final height = MediaQuery.of(context).size.height * 0.75;
+    return Container(
+      height: height,
+      decoration: const BoxDecoration(
+        color: Color(0xFF151A2E),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            "Invite a Church Member",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: _filter,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Search members…',
+                hintStyle: const TextStyle(color: Colors.white38),
+                prefixIcon: const Icon(LucideIcons.search,
+                    color: Colors.white38, size: 20),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.06),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: _loading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.amber))
+                : _filtered.isEmpty
+                    ? const Center(
+                        child: Text('No members found',
+                            style: TextStyle(color: Colors.white54)),
+                      )
+                    : ListView.builder(
+                        itemCount: _filtered.length,
+                        itemBuilder: (context, i) {
+                          final m = _filtered[i];
+                          final name =
+                              m['full_name']?.toString() ?? 'Member';
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.amber.withValues(
+                                  alpha: 0.2),
+                              foregroundImage: m['avatar_url'] != null &&
+                                      m['avatar_url'].toString().isNotEmpty
+                                  ? NetworkImage(m['avatar_url'].toString())
+                                  : null,
+                              child: m['avatar_url'] == null ||
+                                      m['avatar_url'].toString().isEmpty
+                                  ? Text(name.isNotEmpty ? name[0] : '?',
+                                      style: const TextStyle(
+                                          color: Colors.amber,
+                                          fontWeight: FontWeight.bold))
+                                  : null,
+                            ),
+                            title: Text(name,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600)),
+                            trailing: const Icon(LucideIcons.chevronRight,
+                                color: Colors.white38, size: 18),
+                            onTap: () {
+                              Navigator.pop(context);
+                              widget.onPicked(
+                                m['id'].toString(),
+                                name,
+                              );
+                            },
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Live list of invites sent TO the current user, with accept/decline.
+class _IncomingInvitesSection extends ConsumerStatefulWidget {
+  const _IncomingInvitesSection();
+
+  @override
+  ConsumerState<_IncomingInvitesSection> createState() =>
+      _IncomingInvitesSectionState();
+}
+
+class _IncomingInvitesSectionState
+    extends ConsumerState<_IncomingInvitesSection> {
+  final Map<String, String> _inviterNames = {};
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(pvpServiceProvider).expireStaleInvites();
+    });
+  }
+
+  Future<String> _nameFor(String userId) async {
+    if (_inviterNames.containsKey(userId)) return _inviterNames[userId]!;
+    try {
+      final res = await Supabase.instance.client
+          .from('profiles')
+          .select('full_name')
+          .eq('id', userId)
+          .maybeSingle();
+      final name = res?['full_name']?.toString() ?? 'A friend';
+      if (mounted) setState(() => _inviterNames[userId] = name);
+      return name;
+    } catch (_) {
+      return 'A friend';
+    }
+  }
+
+  Future<void> _respond(PvPMatch match, bool accept) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final pvpService = ref.read(pvpServiceProvider);
+    if (accept) {
+      final updated = await pvpService.acceptInvite(match.id);
+      if (!mounted) return;
+      setState(() => _busy = false);
+      if (updated != null) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => BibleQuizArenaScreen(
+              mode: 'PvP',
+              questionCount: updated.questionCount,
+              timePerQuestionSec: updated.timePerQuestion,
+              initialPvPMatch: updated,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not accept — check your CC balance.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } else {
+      final ok = await pvpService.declineInvite(match.id);
+      if (!mounted) return;
+      setState(() => _busy = false);
+      if (ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invite declined.')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<PvPMatch>>(
+      stream: ref.read(pvpServiceProvider).incomingInvitesStream(),
+      builder: (context, snapshot) {
+        final invites = snapshot.data ?? const <PvPMatch>[];
+        if (invites.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.orangeAccent.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${invites.length} PENDING INVITE${invites.length > 1 ? 'S' : ''}',
+                    style: const TextStyle(
+                      color: Colors.orangeAccent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...invites.map((match) {
+              final inviterName = _inviterNames[match.player1Id];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.orangeAccent.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                      color: Colors.orangeAccent.withValues(alpha: 0.3)),
+                ),
+                child: FutureBuilder<String>(
+                  future: _nameFor(match.player1Id),
+                  builder: (context, snap) => Row(
+                    children: [
+                      const Icon(LucideIcons.swords,
+                          color: Colors.orangeAccent, size: 22),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${snap.data ?? inviterName ?? 'A friend'} challenged you',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              match.wagerAmount > 0
+                                  ? '${match.wagerAmount} CC wager · ${match.questionCount} questions'
+                                  : 'Free match · ${match.questionCount} questions',
+                              style: const TextStyle(
+                                  color: Colors.white54, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Accept',
+                        onPressed:
+                            _busy ? null : () => _respond(match, true),
+                        icon: const Icon(LucideIcons.check,
+                            color: Colors.greenAccent),
+                      ),
+                      IconButton(
+                        tooltip: 'Decline',
+                        onPressed:
+                            _busy ? null : () => _respond(match, false),
+                        icon: const Icon(LucideIcons.x,
+                            color: Colors.redAccent),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        );
+      },
     );
   }
 }
