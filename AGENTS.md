@@ -151,13 +151,15 @@ The Lipila payment gateway lives at `lib/features/finance/presentation/lipila_pa
 |------|-----------------|
 | Coin rewards | `coins_daily_open_reward` (25), `coins_streak_bonus_per_day` (50), `coins_attendance_reward` (50), `coins_referral_reward` (100), `coins_daily_collect_cooldown_sec` (72000), `coins_open_streak_1d/6d/13d/14d` (5/10/20/30) |
 | Carpso rides | `ride_per_km_kwacha` (5), `ride_min_total_fare_kwacha` (15), `ride_delivery_min_fare_kwacha` (20), `ride_medium_weight_surcharge_kwacha` (5), `ride_heavy_weight_surcharge_kwacha` (10), `ride_avg_city_speed_kmh` (25) |
-| Bible quiz | `quiz_prize_1st/2nd/3rd_kwacha` (500/300/150), `quiz_season_weeks` (12), `quiz_lease_fee_kwacha` (1500), `quiz_lease_fee_usd` (50) |
+| Bible quiz | `quiz_prize_1st/2nd/3rd_cc` (500/300/150 CC rewards), `quiz_prize_1st/2nd/3rd_kwacha` (legacy, unused by app), `quiz_season_weeks` (12), `quiz_lease_fee_cc` (1500 CC engine lease), `quiz_lease_fee_kwacha/usd` (legacy), `quiz_pass_cc_per_zmw` (1.0 CC per K1 pass conversion) |
 | Subscriptions | `subscription_trial_days` (30), `subscription_renewal_days` (365), `platinum_promo_days` (30), `subscription_manual_payment_days` (30) |
 | Marketplace/Events | `marketplace_delivery_fee_kwacha` (15), `event_commission_percent` (0.10) |
 | Fees (FeeConfig) | `coa_fee_percent`, `momo_fee_percent`, `card_fee_percent`, `business_cut_percent`, `min_fee_kwacha`, `lipila_disbursement_fee_percent`, `coa_payout_fee_percent`, `ride_base_fare_kwacha`, `ride_delivery_base_fare_kwacha`, `ride_delivery_per_km_kwacha` |
 | Plan pricing | `onboarding_fee`, `gold_monthly_fee`, `platinum_monthly_fee` (wired in `home_subscription_paywall.dart`) |
 
-**Known gap**: the old `quiz_lease_fee` key (K250 default) is still shown in the pricing screen overview but the hub lease modal now reads `quiz_lease_fee_kwacha` (K1,500).
+**Known gap**: the old `quiz_lease_fee` key (K250 default) is still shown in the pricing screen overview but the hub lease modal reads `quiz_lease_fee_cc` (1,500 CC).
+
+**CC economy (20260898)**: everything bible-quiz is Church Coins — the Quiz Engine lease (churches' yearly tournaments + individual hosting) is paid in CC via the `lease_quiz_engine_cc` RPC (server-enforced amount, logged to `coin_redemptions` as `quiz_engine_lease`); players buy CC with Mobile Money (Lipila) from the Buy Coins screen when their wallet runs dry (Buy-CC sheet appears on any insufficient-balance quiz action); COA tournament prizes 1st/2nd/3rd are CC rewards (500/300/150 CC); paid tournament passes can be paid with CC via `join_quiz_event(p_event_id, p_pay_cc)` (1 CC = K1 × `quiz_pass_cc_per_zmw`, logged as `quiz_tournament_pass`).
 
 ## How To: Manage Church Coins (CC)
 
