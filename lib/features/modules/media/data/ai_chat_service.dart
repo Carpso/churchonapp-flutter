@@ -152,7 +152,7 @@ static const _fallbackResponses = [
       if (fullResponse.trim().isEmpty) {
         final fallback = _fallbackResponses.firstWhere(
           (r) => !fullResponse.toLowerCase().contains(r.toLowerCase()),
-          orElse: (_) => _fallbackResponses[0],
+          orElse: () => _fallbackResponses[0],
         );
         fullResponse = fallback;
         yield fullResponse;
@@ -310,7 +310,7 @@ static const _fallbackResponses = [
       if (allowFallback) {
         final fallback = _fallbackResponses.firstWhere(
           (r) => text.toLowerCase().contains(r.toLowerCase()) == false,
-          orElse: (_) => _fallbackResponses[0],
+          orElse: () => _fallbackResponses[0],
         );
         return fallback;
       }

@@ -26,10 +26,12 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
   bool get wantKeepAlive => true;
 
   final _formKey = GlobalKey<FormState>();
-  String _selectedCategory = "Tithe";
+  String _selectedCategory = "Offering";
+  String _selectedTitheRecipient = "Pastor";
   final TextEditingController _amountController = TextEditingController();
 
-  final List<String> _categories = ["Tithe", "Offering", "Mission", "Building Fund", "Other"];
+  final List<String> _categories = ["Offering", "Tithe", "Mission", "Building Fund", "Other"];
+  final List<String> _titheRecipients = ["Pastor", "Bishop", "Treasurer"];
 
   @override
   void dispose() {
@@ -87,13 +89,19 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
           children: [
             _buildTotalGivenCard(profile),
             const SizedBox(height: 20),
-            _buildFeatureTiles(context),
+             _buildFeatureTiles(context),
+            const SizedBox(height: 16),
+            _buildGroupGivingShortcut(),
             const SizedBox(height: 30),
-            GivingCategorySelector(
+             GivingCategorySelector(
               categories: _categories,
               selectedCategory: _selectedCategory,
               onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
             ),
+            if (_selectedCategory == "Tithe") ...[
+              const SizedBox(height: 16),
+              _buildTitheRecipientSelector(),
+            ],
             const SizedBox(height: 30),
             Form(
               key: _formKey,
@@ -118,14 +126,12 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
                       amount: amount,
                       description: 'Giving: $_selectedCategory',
                       category: _selectedCategory.toLowerCase(),
-                      recipientName: tenant?.name ?? 'Local Church',
-                      recipientAccount: _selectedCategory.toLowerCase() == 'tithe'
-                          ? (tenant?.pastorPhone ??
-                              tenant?.treasurerPhone ??
-                              'CHURCH-OFFICIAL-AC')
-                          : (tenant?.treasurerPhone ??
-                              tenant?.contactPhone ??
-                              'CHURCH-OFFICIAL-AC'),
+                     recipientName: tenant?.name ?? 'Local Church',
+                     recipientAccount: _selectedCategory.toLowerCase() == 'tithe'
+                         ? _titheRecipientPhone(tenant)
+                         : (tenant?.treasurerPhone ??
+                             tenant?.contactPhone ??
+                             'CHURCH-OFFICIAL-AC'),
                       paymentReason: '$_selectedCategory Support',
                       onComplete: (success, txId) async {
                         Navigator.pop(sheetCtx);
@@ -334,7 +340,190 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
           ]
         ],
       ),
+     );
+  }
+
+  Widget _buildTitheRecipientSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Tithe Recipient",
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedTitheRecipient,
+              isExpanded: true,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14, fontWeight: FontWeight.bold),
+              items: _titheRecipients.map((r) {
+                return DropdownMenuItem(
+                  value: r,
+                  child: Text(r),
+                );
+              }).toList(),
+              onChanged: (v) => setState(() => _selectedTitheRecipient = v!),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
+  static const _groupTypes = ["Couple", "Friend", "Family"];
+
+  Widget _buildGroupGivingShortcut() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.users, size: 20, color: Theme.of(context).primaryColor),
+              const SizedBox(width: 8),
+              Text("Group Giving",
+                  style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 14, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text("Give together with Couple / Friend / Family",
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11)),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _groupTypes.map((type) {
+              return ChoiceChip(
+                label: Text(type, style: TextStyle(fontSize: 12, color: Theme.of(context).primaryColor)),
+                selected: false,
+                backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                showCheckmark: false,
+                onSelected: (_) => _openGroupGivingSheet(type),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openGroupGivingSheet(String type) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        final tenant = ref.read(currentTenantProvider);
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: Container(
+            padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(sheetCtx).viewPadding.bottom + 30),
+            color: Theme.of(sheetCtx).colorScheme.surface,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("$type Giving",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(sheetCtx).colorScheme.onSurface)),
+                const SizedBox(height: 4),
+                Text("Enter amount to give as a $type",
+                    style: TextStyle(color: Theme.of(sheetCtx).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _groupAmountController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    hintText: "0.00",
+                    prefixText: "K ",
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _groupAmountController.text.isNotEmpty
+                        ? () {
+                            final amount = double.tryParse(_groupAmountController.text) ?? 0.0;
+                            if (amount <= 0) return;
+                            Navigator.pop(sheetCtx);
+                            _proceedGroupPayment(sheetCtx, type, amount, tenant);
+                          }
+                        : null,
+                    style: FilledButton.styleFrom(minimumSize: const Size(double.infinity, 52)),
+                    child: const Text("PROCEED TO SECURE PAYMENT"),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  final TextEditingController _groupAmountController = TextEditingController();
+
+  void _proceedGroupPayment(BuildContext ctx, String type, double amount, Tenant? tenant) {
+    showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return LipilaPaymentGateway(
+          amount: amount,
+          description: '$type Giving',
+          category: 'offering',
+          recipientName: tenant?.name ?? 'Local Church',
+          recipientAccount: tenant?.treasurerPhone ?? tenant?.contactPhone ?? 'CHURCH-OFFICIAL-AC',
+          paymentReason: '$type Giving',
+          onComplete: (success, txId) async {
+            Navigator.pop(sheetCtx);
+            if (success && txId != null) {
+              await ref.read(financeServiceProvider).logTransaction(
+                    amount,
+                    'offering',
+                    txId,
+                    tenantId: tenant?.id,
+                    recipientPhone: tenant?.treasurerPhone,
+                    recipientName: tenant?.name,
+                  );
+              ref.invalidate(transactionsStreamProvider);
+              ref.invalidate(profileProvider);
+              if (mounted) _showSuccessSheet(txId);
+              _groupAmountController.clear();
+            }
+          },
+        );
+      },
+    );
+  }
+
+  String _titheRecipientPhone(Tenant? tenant) {
+    switch (_selectedTitheRecipient) {
+      case "Pastor":
+        return tenant?.pastorPhone ?? tenant?.treasurerPhone ?? 'CHURCH-OFFICIAL-AC';
+      case "Bishop":
+        return tenant?.contactPhone ?? tenant?.pastorPhone ?? 'CHURCH-OFFICIAL-AC';
+      case "Treasurer":
+        return tenant?.treasurerPhone ?? tenant?.contactPhone ?? 'CHURCH-OFFICIAL-AC';
+      default:
+        return tenant?.pastorPhone ?? tenant?.treasurerPhone ?? 'CHURCH-OFFICIAL-AC';
+    }
+  }
 }

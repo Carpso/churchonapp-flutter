@@ -43,8 +43,8 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
   bool _isProcessing = false;
 
   static const _defaultCategories = [
-    "Tithe",
     "Offering",
+    "Tithe",
     "Mission",
     "Building Fund",
     "Other",
