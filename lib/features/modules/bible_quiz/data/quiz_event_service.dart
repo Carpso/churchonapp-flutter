@@ -280,12 +280,17 @@ class QuizEventService {
     if (userId == null) return false;
 
     try {
-      await _client.from('quiz_event_participants').insert({
-        'event_id': eventId,
-        'user_id': userId,
+      final res = await _client.rpc('join_quiz_event', params: {
+        'p_event_id': eventId,
       });
-      return true;
-    } catch (_) {
+      final result = res is Map<String, dynamic> ? res : <String, dynamic>{};
+      if (result['success'] == true) return true;
+      if (result['error'] is String) {
+        debugPrint('joinQuizEvent rejected: ${result['error']}');
+      }
+      return false;
+    } catch (e) {
+      debugPrint('joinQuizEvent error: $e');
       return false;
     }
   }

@@ -221,6 +221,7 @@ $migrations = @(
      "20260893_fix_quiz_leaderboard.sql"
      "20260894_fix_noah_ark_audio.sql"
      "20260895_quiz_security_hardening.sql"
+     "20260896_quiz_tournament_gates.sql"
 )
 
 foreach ($m in $migrations) {
