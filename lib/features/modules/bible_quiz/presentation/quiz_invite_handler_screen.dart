@@ -44,8 +44,8 @@ class _QuizInviteHandlerScreenState extends ConsumerState<QuizInviteHandlerScree
       }
 
       final match = PvPMatch.fromMap(res);
-      if (match.status != 'pending') {
-        setState(() { _status = 'This challenge has already been accepted or completed.'; _error = true; });
+      if (!['pending', 'invited'].contains(match.status)) {
+        setState(() { _status = 'This challenge has already been accepted, declined or completed.'; _error = true; });
         return;
       }
 
@@ -60,9 +60,11 @@ class _QuizInviteHandlerScreenState extends ConsumerState<QuizInviteHandlerScree
       }
 
       final pvpService = ref.read(pvpServiceProvider);
-      final updated = await pvpService.joinByInvite(widget.matchId);
+      final PvPMatch? updated = match.status == 'invited'
+          ? await pvpService.acceptInvite(widget.matchId)
+          : await pvpService.joinByInvite(widget.matchId);
       if (updated == null || !mounted) {
-        if (mounted) setState(() { _status = 'Failed to join challenge. Try again.'; _error = true; });
+        if (mounted) setState(() { _status = 'Failed to join challenge — check your Church Coin balance for paid invites.'; _error = true; });
         return;
       }
 

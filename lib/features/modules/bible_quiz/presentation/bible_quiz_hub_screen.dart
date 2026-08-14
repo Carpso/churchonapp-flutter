@@ -13,6 +13,7 @@ import '../data/quiz_event_service.dart';
 import '../data/xp_service.dart';
 import 'bible_quiz_arena_screen.dart';
 import 'church_competition_lobby_screen.dart';
+import 'quiz_cc_store_screen.dart';
 import 'quiz_event_lobby_screen.dart';
 
 class BibleQuizHubScreen extends ConsumerStatefulWidget {
@@ -240,6 +241,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 15),
+              _storeCard(),
               const SizedBox(height: 30),
 
               const Text(
@@ -1570,6 +1573,70 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
     }
   }
 
+  void _openStore() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const QuizCcStoreScreen()),
+    );
+  }
+
+  Widget _storeCard() {
+    final coins = ref.read(profileProvider).value?.coins ?? 0;
+    return GestureDetector(
+      onTap: _openStore,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF3A2E00), Color(0xFF1A1400)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(LucideIcons.store,
+                  color: Colors.amber, size: 26),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "QUIZ CC STORE",
+                    style: TextStyle(
+                      color: Colors.amber,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    "$coins CC · buy, lease, wagers, passes, prizes & history",
+                    style: const TextStyle(
+                        color: Colors.white54, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(LucideIcons.chevronRight,
+                color: Colors.amber, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showInviteFriend() {
     final profile = ref.read(profileProvider).value;
     final myTenant = profile?.tenantId;
@@ -1688,7 +1755,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       SnackBar(
         content: Text(
           wagerCoins > 0
-              ? "Invite sent to $memberName (${wagerCoins} CC staked)!"
+              ? 'Invite sent to $memberName ($wagerCoins CC staked)!'
               : "Free invite sent to $memberName!",
         ),
         backgroundColor: Colors.green,
@@ -1702,7 +1769,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
           'title': 'Quiz Challenge!',
           'body': wagerCoins > 0
               ? '${ref.read(profileProvider).value?.name ?? 'A friend'} '
-                  'challenged you for ${wagerCoins} CC. Accept or decline!'
+                  'challenged you for $wagerCoins CC. Accept or decline!'
               : '${ref.read(profileProvider).value?.name ?? 'A friend'} '
                   'challenged you to a free quiz match!',
           'data': {

@@ -21,8 +21,6 @@ class _SubscriptionPricingScreenState extends ConsumerState<SubscriptionPricingS
     {'key': 'onboarding_fee', 'label': 'Onboarding Fee (K)', 'default': PlanLimits.onboardingFeeKwacha.toStringAsFixed(0)},
     {'key': 'gold_monthly_fee', 'label': 'Gold Monthly Fee (K)', 'default': PlanLimits.forPlan(TenantPlan.gold).monthlyPriceKwacha.toStringAsFixed(0)},
     {'key': 'platinum_monthly_fee', 'label': 'Platinum Monthly Fee (K)', 'default': PlanLimits.forPlan(TenantPlan.platinum).monthlyPriceKwacha.toStringAsFixed(0)},
-    {'key': 'quiz_lease_fee_kwacha', 'label': 'Quiz Engine Lease Fee (K)', 'default': '1500'},
-    {'key': 'quiz_lease_fee_usd', 'label': 'Quiz Engine Lease Fee (USD)', 'default': '50'},
   ];
 
   final _feeFields = [
@@ -152,7 +150,7 @@ class _SubscriptionPricingScreenState extends ConsumerState<SubscriptionPricingS
           _buildField('onboarding_fee', 'Onboarding Fee (K) — one-time'),
           _buildField('gold_monthly_fee', 'Gold Monthly Fee (K)'),
           _buildField('platinum_monthly_fee', 'Platinum Monthly Fee (K)'),
-          _buildField('quiz_lease_fee', 'Quiz Engine Lease Fee (K/mo)'),
+          _buildField('quiz_lease_fee_cc', 'Quiz Engine Lease Fee (CC) — buy CC with MoMo/card'),
           const Divider(height: 40),
           const Text("Fee Configuration", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
@@ -219,7 +217,7 @@ class _SubscriptionPricingScreenState extends ConsumerState<SubscriptionPricingS
                 Text("Silver: Free (100 members, 10 events, 1GB)"),
                 Text("Gold: K${_controllers['gold_monthly_fee']?.text ?? '100'}/mo (500 members, 50 events, 10GB)"),
                 Text("Platinum: K${_controllers['platinum_monthly_fee']?.text ?? '500'}/mo (Unlimited, quiz hosting, priority)"),
-                Text("Quiz Lease: K${_controllers['quiz_lease_fee_kwacha']?.text ?? '1500'}/mo"),
+                Text("Quiz Lease: ${_controllers['quiz_lease_fee_cc']?.text ?? '1500'} CC (buy CC with MoMo/card)"),
                 const Divider(height: 20),
                 Text("Onboarding: K${_controllers['onboarding_fee']?.text ?? '500'} (one-time, includes 30 days free Platinum)"),
                 Text("Platform fee: 1% COA + Lipila (1.5% MoMo / 2.5% Card, min K3)"),
