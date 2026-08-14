@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:church_on_app/core/services/notification_service.dart';
 
 class DailyChallenge {
   final String id;
@@ -107,14 +106,16 @@ class DailyChallengeService {
     if (uid == null) return null;
 
     try {
-      final challenge = await getTodaysChallenge();
-      if (challenge == null) return null;
+      final today = DateTime.now();
+      final todayStart = DateTime(today.year, today.month, today.day);
 
       final res = await _client
           .from('daily_challenge_results')
           .select()
-          .eq('challenge_id', challenge.id)
           .eq('user_id', uid)
+          .gte('completed_at', todayStart.toUtc().toIso8601String())
+          .order('completed_at', ascending: false)
+          .limit(1)
           .maybeSingle();
       if (res == null) return null;
       return DailyChallengeResult.fromMap(res);
@@ -124,42 +125,29 @@ class DailyChallengeService {
     }
   }
 
-  Future<void> saveResult({
-    required String challengeId,
-    required int score,
-    required int correctCount,
-    required int totalQuestions,
-    required int xpEarned,
+  /// Submits today's challenge answers for server-side scoring.
+  /// The RPC derives score/correct from the question bank (never trusts the
+  /// client), enforces one completion per day, and feeds the leaderboard.
+  Future<Map<String, dynamic>?> submitVerifiedResult({
+    required List<String> questionIds,
+    required List<int> answers,
+    required List<int> responseTimesMs,
   }) async {
     final uid = _client.auth.currentUser?.id;
-    if (uid == null) return;
+    if (uid == null) return null;
 
     try {
-      await _client.from('daily_challenge_results').insert({
-        'challenge_id': challengeId,
-        'user_id': uid,
-        'score': score,
-        'correct_count': correctCount,
-        'total_questions': totalQuestions,
-        'xp_earned': xpEarned,
+      final res = await _client.rpc('submit_daily_challenge_result', params: {
+        'p_question_ids': questionIds,
+        'p_answers': answers,
+        'p_response_times_ms': responseTimesMs,
+        'p_xp_earned': 100,
       });
-
-      // Notify user of completion
-      try {
-        final notifService = NotificationService(_client);
-        await notifService.sendNotification(
-          userId: uid,
-          title: 'Challenge Complete!',
-          body: 'You scored $score ($correctCount/$totalQuestions correct). +$xpEarned XP earned!',
-          type: 'daily_challenge',
-          channelId: 'coa_events',
-        );
-      } catch (e) {
-        debugPrint('Daily challenge notification failed: $e');
-      }
+      if (res is Map<String, dynamic>) return res;
     } catch (e) {
-      debugPrint('DailyChallengeService.saveResult error: $e');
+      debugPrint('DailyChallengeService.submitVerifiedResult error: $e');
     }
+    return null;
   }
 }
 

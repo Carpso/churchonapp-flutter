@@ -223,6 +223,10 @@ class PvPService {
       for (final range in ranges) {
         if (DateTime.now().difference(searchStart) >= searchTimeout) break;
 
+        final freshSince = DateTime.now()
+            .subtract(const Duration(minutes: 10))
+            .toIso8601String();
+
         // Within-tenant first
         if (tid != null) {
           final within = await _client
@@ -232,6 +236,7 @@ class PvPService {
               .eq('tenant_id', tid)
               .eq('wager_amount', wagerAmount)
               .neq('player1_id', uid)
+              .gte('created_at', freshSince)
               .gte('player1_elo_at_match', userElo - range)
               .lte('player1_elo_at_match', userElo + range)
               .limit(1)
@@ -249,6 +254,7 @@ class PvPService {
             .eq('status', 'pending')
             .eq('wager_amount', wagerAmount)
             .neq('player1_id', uid)
+            .gte('created_at', freshSince)
             .gte('player1_elo_at_match', userElo - range)
             .lte('player1_elo_at_match', userElo + range)
             .limit(1)
@@ -295,15 +301,22 @@ class PvPService {
     }
   }
 
-  Future<PvPMatch> _joinMatch(PvPMatch match, String uid, {bool crossTenant = false}) async {
-    final channelName = 'pvp_${match.id}';
-    await _client.from('pvp_matches').update({
-      'player2_id': uid,
-      'status': 'accepted',
-      'channel_name': channelName,
-      'cross_tenant': crossTenant,
-      'player2_elo_at_match': await _getUserElo(),
-    }).eq('id', match.id);
+  Future<PvPMatch?> _joinMatch(PvPMatch match, String uid, {bool crossTenant = false}) async {
+    // Server-side join: verifies availability, charges the joiner's wager,
+    // fills the player2 slot atomically (join_pvp_match RPC).
+    try {
+      final res = await _client.rpc('join_pvp_match', params: {
+        'p_match_id': match.id,
+      });
+      final data = res as Map<String, dynamic>?;
+      if (data?['success'] != true) {
+        debugPrint('[PvP] Join failed: $data');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('[PvP] Join failed: $e');
+      return null;
+    }
 
     try {
       final joinerProfile = await _client
@@ -331,7 +344,7 @@ class PvPService {
       player1Id: match.player1Id,
       player2Id: uid,
       status: 'accepted',
-      channelName: channelName,
+      channelName: 'pvp_${match.id}',
       questionCount: match.questionCount,
       timePerQuestion: match.timePerQuestion,
       wagerAmount: match.wagerAmount,
@@ -489,6 +502,7 @@ class PvPService {
   Future<void> sendAnswer({
     required PvPMatch match,
     required int questionIndex,
+    required String questionId,
     required int selectedAnswer,
     required int responseTimeMs,
     required bool isCorrect,
@@ -496,23 +510,15 @@ class PvPService {
     required int correctCount,
   }) async {
     try {
-      final isPlayer1 = currentUserId == match.player1Id;
-
       await _client.from('pvp_answers').insert({
         'match_id': match.id,
         'player_id': currentUserId,
+        'question_id': questionId,
         'question_index': questionIndex,
         'selected_answer': selectedAnswer,
         'response_time_ms': responseTimeMs,
         'is_correct': isCorrect,
       });
-
-      final scoreField = isPlayer1 ? 'player1_score' : 'player2_score';
-      final correctField = isPlayer1 ? 'player1_correct' : 'player2_correct';
-      await _client.from('pvp_matches').update({
-        scoreField: score,
-        correctField: correctCount,
-      }).eq('id', match.id);
 
       // Broadcast answer to opponent
       await _channel?.sendBroadcastMessage(event: 'opponent_answered', payload: {
@@ -535,42 +541,39 @@ class PvPService {
     }
   }
 
-  /// Complete the match, calculate ELO, settle wager.
+  /// Complete the match — server-side settlement (verified scores + ELO +
+  /// wager). Winner is derived from pvp_answers against the question bank.
   Future<void> completeMatch(PvPMatch match) async {
     final uid = currentUserId;
     if (uid == null) return;
 
-    String? winnerId;
-    if (match.player1Score > match.player2Score) {
-      winnerId = match.player1Id;
-    } else if (match.player2Score > match.player1Score && match.player2Id != null) {
-      winnerId = match.player2Id;
-    }
-
-    await _client.from('pvp_matches').update({
-      'status': 'completed',
-      'winner_id': winnerId,
-      'completed_at': DateTime.now().toIso8601String(),
-    }).eq('id', match.id);
-
-    // Calculate ELO and settle wager atomically
-    Map<String, dynamic>? eloResult;
+    Map<String, dynamic>? result;
     try {
-      final result = await _client.rpc('calculate_elo_and_award_wager', params: {
+      final res = await _client.rpc('complete_pvp_match', params: {
         'p_match_id': match.id,
       });
-      eloResult = result as Map<String, dynamic>?;
+      result = res as Map<String, dynamic>?;
     } catch (e) {
-      debugPrint('[PvP] ELO calculation failed: $e');
+      debugPrint('[PvP] Match completion failed: $e');
     }
+
+    // Server-derived winner (fall back to local scores only for the broadcast).
+    final serverWinner = result?['winner_id']?.toString();
+    final winnerId = (serverWinner != null && serverWinner.isNotEmpty)
+        ? serverWinner
+        : (match.player1Score > match.player2Score
+            ? match.player1Id
+            : (match.player2Score > match.player1Score
+                ? match.player2Id
+                : null));
 
     // Broadcast match complete
     await _channel?.sendBroadcastMessage(event: 'match_complete', payload: {
       'winner_id': winnerId,
       'player1_score': match.player1Score,
       'player2_score': match.player2Score,
-      'player1_elo_change': eloResult?['player1_elo_change'] ?? 0,
-      'player2_elo_change': eloResult?['player2_elo_change'] ?? 0,
+      'player1_elo_change': result?['player1_elo_change'] ?? 0,
+      'player2_elo_change': result?['player2_elo_change'] ?? 0,
     });
 
     // Notify loser

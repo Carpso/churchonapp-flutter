@@ -260,6 +260,7 @@ class BibleQuizService {
     String? eventId,
     List<bool>? isCorrect,
     List<int>? responseTimesMs,
+    List<int>? answers,
   }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return;
@@ -272,6 +273,7 @@ class BibleQuizService {
         'p_event_id': eventId,
         'p_is_correct': isCorrect,
         'p_response_times_ms': responseTimesMs,
+        'p_answers': answers,
       });
     } catch (e) {
       debugPrint('Failed to record answered questions: $e');

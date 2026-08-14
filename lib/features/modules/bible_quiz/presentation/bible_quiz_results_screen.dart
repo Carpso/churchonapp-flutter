@@ -215,8 +215,22 @@ class BibleQuizResultsScreen extends ConsumerWidget {
   }
 
   Widget _buildScoreBreakdown(ThemeData theme) {
-    final streakBonus = result.streak >= 3 ? (result.streak ~/ 3) * 5 : 0;
-    final baseScore = result.score - streakBonus;
+    // Mirror the arena's exact rule: +5 per correct answer once the current
+    // streak reaches 3 (see _submitAnswer in the arena screen).
+    var bonus = 0;
+    var streak = 0;
+    final answers = result.answers;
+    final questions = result.questions;
+    for (var i = 0; i < answers.length && i < questions.length; i++) {
+      final a = answers[i];
+      if (a != null && a >= 0 && a == questions[i].correctAnswer) {
+        streak++;
+        if (streak >= 3) bonus += 5;
+      } else {
+        streak = 0;
+      }
+    }
+    final baseScore = result.score - bonus;
 
     return Container(
       width: double.infinity,
@@ -238,10 +252,10 @@ class BibleQuizResultsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _breakdownRow('Base Score', '$baseScore', theme.primaryColor),
-          if (streakBonus > 0)
+          if (bonus > 0)
             _breakdownRow(
               'Streak Bonus (${result.streak}x)',
-              '+$streakBonus',
+              '+$bonus',
               Colors.orangeAccent,
             ),
           if (result.powerUpsUsed > 0)

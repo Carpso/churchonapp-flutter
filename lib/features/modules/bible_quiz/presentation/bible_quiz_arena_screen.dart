@@ -7,6 +7,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/bible_quiz_service.dart';
+import '../data/daily_challenge_service.dart';
 import '../data/pvp_service.dart';
 import '../data/quiz_event_service.dart';
 import '../../../../core/providers/profile_provider.dart';
@@ -62,7 +63,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   final List<int> _responseTimesMs = [];
 
   late int _timerMs;
-  final int _timerIntervalMs = 50;
+  final int _timerIntervalMs = 120;
   int? _startTime;
   Timer? _timer;
   Timer? _countdownTimer;
@@ -410,6 +411,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
         _pvpService!.sendAnswer(
           match: _pvpMatch!,
           questionIndex: _currentIndex,
+          questionId: _questions[_currentIndex].id,
           selectedAnswer: effectiveIdx,
           responseTimeMs: elapsed,
           isCorrect: isCorrect,
@@ -511,18 +513,14 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       powerUpsUsed: _powerUpsUsed,
     );
 
-    // Submit score to event if in event mode
+    // Submit verified score to event if in event mode (server-verified RPC)
     if (widget.eventId != null) {
-      int correctCount = 0;
-      for (int i = 0; i < _answers.length; i++) {
-        if (_answers[i] == _questions[i].correctAnswer) correctCount++;
-      }
       try {
-        await ref.read(quizEventServiceProvider).submitEventScore(
+        await ref.read(quizEventServiceProvider).submitTournamentAnswersBatch(
           eventId: widget.eventId!,
-          score: _score,
-          correctCount: correctCount,
-          totalQuestions: _questions.length,
+          questionIds: _questions.map((q) => q.id).toList(),
+          answers: _answers.map((e) => e ?? -1).toList(),
+          responseTimesMs: _responseTimesMs,
         );
       } catch (e) {
         debugPrint('Failed to submit quiz event score: $e');
@@ -534,16 +532,15 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
         questionIds: _questions.map((q) => q.id).toList(),
         matchId: _pvpMatch?.id,
         isCorrect: List.generate(_questions.length, (i) => _answers[i] == _questions[i].correctAnswer),
+        answers: _answers.map((e) => e ?? -1).toList(),
         responseTimesMs: _responseTimesMs,
       );
     } catch (e) {
       debugPrint('Failed to record answered questions: $e');
     }
 
-    // Complete PvP match (triggers ELO calculation + wager settlement)
+    // Complete PvP match (server-side settlement: verified scores + ELO + wager)
     if (widget.mode != 'Solo' && _pvpMatch != null && _pvpService != null) {
-      _pvpMatch!.player1Score = _score;
-      _pvpMatch!.player2Score = _opponentScore;
       try {
         await _pvpService!.completeMatch(_pvpMatch!);
       } catch (e) {
@@ -552,17 +549,35 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     }
 
     if (widget.categoryFilter == 'Daily') {
+      var dailyRecorded = false;
       try {
-        await ref.read(profileProvider.notifier).addCoins(10);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("+10 CC earned for Daily Challenge!"), backgroundColor: Colors.green),
-          );
-        }
+        final res = await ref.read(dailyChallengeServiceProvider).submitVerifiedResult(
+          questionIds: _questions.map((q) => q.id).toList(),
+          answers: _answers.map((e) => e ?? -1).toList(),
+          responseTimesMs: _responseTimesMs,
+        );
+        dailyRecorded = res?['success'] == true;
       } catch (e) {
-        debugPrint('Failed to award daily challenge coins: $e');
+        debugPrint('Failed to save daily challenge result: $e');
+      }
+      // +10 CC only when today's challenge was actually recorded (no replays).
+      if (dailyRecorded) {
+        try {
+          await ref.read(profileProvider.notifier).addCoins(10);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("+10 CC earned for Daily Challenge!"), backgroundColor: Colors.green),
+            );
+          }
+        } catch (e) {
+          debugPrint('Failed to award daily challenge coins: $e');
+        }
       }
     }
+
+    // Leaderboard reflects the just-finished game.
+    ref.invalidate(quizLeaderboardProvider);
+    ref.invalidate(myQuizRankProvider);
 
     if (!mounted) return;
     Future.microtask(() {
