@@ -51,6 +51,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Create .env from example
+        run: cp .env.example .env
+
       - name: Run Flutter analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
@@ -82,6 +85,9 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Create .env from example
+        run: cp .env.example .env
 
       - name: Run unit tests
         run: flutter test --coverage --exclude-tags=integration
@@ -130,6 +136,9 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Create .env from example
+        run: cp .env.example .env
 
       - name: Generate build number
         id: build_number
@@ -209,6 +218,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Create .env from example
+        run: cp .env.example .env
+
       - name: Generate build number
         id: build_number
         run: |
@@ -279,6 +291,9 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Create .env from example
+        run: cp .env.example .env
 
       - name: Generate build number
         id: build_number

@@ -227,7 +227,7 @@ final bibleChapterProvider =
       return ref
           .watch(bibleServiceProvider)
           .getChapter(
-            params['translation'] ?? 'web',
+            params['translation'] ?? 'kjv',
             params['book'] ?? 'John',
             params['chapter'] ?? 1,
           );

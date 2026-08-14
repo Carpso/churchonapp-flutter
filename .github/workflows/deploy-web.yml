@@ -16,6 +16,10 @@ jobs:
         with:
           flutter-version: stable
 
+      # .env is gitignored but bundled as an asset — create it from the committed example
+      - name: Create .env from example
+        run: cp .env.example .env
+
       - name: Build web
         run: flutter build web --release
 

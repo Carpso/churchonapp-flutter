@@ -581,6 +581,7 @@ final quizLeaderboardProvider =
     final tenantId = ref.read(currentTenantProvider)?.id;
     final res = await client.rpc('get_quiz_leaderboard', params: {
       'p_limit': 10,
+      'p_since': _startOfWeek().toIso8601String(),
       if (tenantId != null) 'p_tenant_id': tenantId,
     });
     return List<Map<String, dynamic>>.from(res as List);
@@ -597,6 +598,7 @@ final myQuizRankProvider = FutureProvider<String>((ref) async {
   try {
     final res = await client.rpc('get_quiz_leaderboard', params: {
       'p_limit': 1000,
+      'p_since': _startOfWeek().toIso8601String(),
     });
     final list = List<Map<String, dynamic>>.from(res as List);
     int rank = list.indexWhere((p) => p['user_id'] == user.id) + 1;
@@ -605,3 +607,10 @@ final myQuizRankProvider = FutureProvider<String>((ref) async {
     return "N/A";
   }
 });
+
+/// Start of the current competition week (Monday 00:00 local time).
+DateTime _startOfWeek() {
+  final now = DateTime.now();
+  final monday = now.subtract(Duration(days: now.weekday - 1));
+  return DateTime(monday.year, monday.month, monday.day);
+}

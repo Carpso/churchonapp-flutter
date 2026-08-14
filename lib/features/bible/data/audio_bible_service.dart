@@ -25,7 +25,7 @@ class AudioBibleConfig {
   final String bucketName;
 
   const AudioBibleConfig({
-    this.translationCode = 'web',
+    this.translationCode = 'kjv',
     this.voiceName = 'en-US-Standard-A',
     this.speechRate = 0.5,
     this.pitch = 1.0,

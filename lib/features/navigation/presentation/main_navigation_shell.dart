@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../connect/data/call_service.dart';
 
 import '../../profile/data/notification_service.dart';
 import '../../transport/data/location_tracker_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/providers/auth_provider.dart';
 import 'package:church_on_app/features/admin/presentation/lockdown_overlay.dart';
 import 'package:church_on_app/core/widgets/global_media_player.dart';
 import 'package:church_on_app/core/services/session_guard_service.dart';
 import 'package:church_on_app/core/services/offline_service.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
 
 import 'package:go_router/go_router.dart';
 import 'package:church_on_app/core/utils/responsive.dart';
@@ -36,32 +39,71 @@ class MainNavigationShell extends ConsumerStatefulWidget {
       _MainNavigationShellState();
 }
 
-class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
+class _MainNavigationShellState extends ConsumerState<MainNavigationShell>
+    with WidgetsBindingObserver {
   DateTime? _lastBackPressTime;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(profileNotificationServiceProvider).init();
-      // Activate session guard (5-minute inactivity lockout)
+      // Activate session guard (remote-config inactivity lockout)
+      final timeoutMinutes = currentRemoteConfig(ref).getInt(
+        'session_inactivity_minutes',
+        5,
+      );
       ref
           .read(sessionGuardProvider)
           .startMonitoring(
-            onTimeout: () {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Session expired due to inactivity'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
-              }
-            },
+            timeout: Duration(minutes: timeoutMinutes),
+            onTimeout: _handleSessionTimeout,
           );
       // Activate offline write queue
       ref.read(offlineServiceProvider).startAutoSync();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Returning to the app counts as activity — restart the countdown.
+    if (state == AppLifecycleState.resumed) {
+      ref.read(sessionGuardProvider).registerActivity();
+    }
+  }
+
+  /// Real session timeout: signs the user out of Supabase, clears
+  /// remember-me + tenant context, and redirects to the login screen
+  /// (the router redirects automatically when authState.user becomes null).
+  Future<void> _handleSessionTimeout() async {
+    final client = Supabase.instance.client;
+    if (client.auth.currentSession == null) {
+      ref.read(sessionGuardProvider).unlock();
+      return;
+    }
+    try {
+      await ref.read(authProvider.notifier).signOut();
+    } catch (e) {
+      debugPrint('Session timeout sign-out failed: $e');
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Your session expired due to inactivity. Please sign in again.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+    ref.read(sessionGuardProvider).unlock();
   }
 
   void _onTap(int index) {

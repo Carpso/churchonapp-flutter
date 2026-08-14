@@ -1,6 +1,13 @@
-// Generates per-book KJV JSON files (chapter -> verses) from bible-api.com.
-// Output: build/bible-text/kjv/<Book>.json  (uploaded to R2 via bible-text-upload)
-// Usage: dart run tools/generate_bible_text.dart
+// Generates per-book Bible JSON files (chapter -> verses) for any translation.
+// Sources:
+//   - bible-api:  chapter-by-chapter fetches (codes: kjv, web, asv, bbe, ylt, dra)
+//   - scrollmapper: single CSV download per translation (ASV, BBE, YLT, Darby,
+//     Geneva1599, Webster, Tyndale, UKJV, MKJV, NHEB, OEB, CPDV, RNKJV, ACV,
+//     Jubilee2000, Noyes, Rotherham, RLT, DRC, ...)
+// Output: build/bible-text/<code>/<Book>.json  (uploaded to R2 as bible-text/<code>/<Book>.json)
+// Usage:
+//   dart run tools/generate_bible_text.dart --translation darby --source scrollmapper
+//   dart run tools/generate_bible_text.dart --translation web --source bible-api
 import 'dart:convert';
 import 'dart:io';
 
@@ -35,13 +42,49 @@ const chapterCounts = {
   '1 John': 5, '2 John': 1, '3 John': 1, 'Jude': 1, 'Revelation': 22,
 };
 
-Future<Map<String, dynamic>?> fetchChapter(String book, int chapter) async {
-  final url = 'https://bible-api.com/${Uri.encodeComponent(book)}+$chapter?translation=kjv';
+/// Book names in scrollmapper CSVs that differ from the app's canonical names.
+const bookRenames = {
+  'Revelation of John': 'Revelation',
+  'I Samuel': '1 Samuel',
+  'II Samuel': '2 Samuel',
+  'I Kings': '1 Kings',
+  'II Kings': '2 Kings',
+  'I Chronicles': '1 Chronicles',
+  'II Chronicles': '2 Chronicles',
+  'I Corinthians': '1 Corinthians',
+  'II Corinthians': '2 Corinthians',
+  'I Thessalonians': '1 Thessalonians',
+  'II Thessalonians': '2 Thessalonians',
+  'I Timothy': '1 Timothy',
+  'II Timothy': '2 Timothy',
+  'I Peter': '1 Peter',
+  'II Peter': '2 Peter',
+  'I John': '1 John',
+  'II John': '2 John',
+  'III John': '3 John',
+};
+
+const scrollmapperBase =
+    'https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/csv';
+
+Future<Map<String, dynamic>?> fetchChapter(String code, String book, int chapter) async {
+  // bible-api treats "<book> <n>" on single-chapter books as "verse n",
+  // so fetch the whole book without a chapter suffix for those.
+  final isSingleChapterBook = (chapterCounts[book] ?? 1) == 1;
+  final reference = isSingleChapterBook
+      ? Uri.encodeComponent(book)
+      : '${Uri.encodeComponent(book)}+$chapter';
+  final url = 'https://bible-api.com/$reference?translation=$code';
   final client = HttpClient();
   try {
     final req = await client.getUrl(Uri.parse(url));
     req.headers.set('User-Agent', 'churchonapp-bible-tool');
     final res = await req.close();
+    if (res.statusCode == 429) {
+      stderr.writeln('RATE LIMIT $book $chapter — waiting 8s');
+      await Future.delayed(const Duration(seconds: 8));
+      return const <String, dynamic>{'_ratelimited': true};
+    }
     if (res.statusCode != 200) return null;
     final body = await res.transform(utf8.decoder).join();
     final data = json.decode(body);
@@ -50,7 +93,12 @@ Future<Map<String, dynamic>?> fetchChapter(String book, int chapter) async {
       'verse': v['verse'],
       'text': v['text'],
     }).toList();
-    return {chapter.toString(): verses};
+    final byChapter = <String, List<Map<String, dynamic>>>{};
+    for (final v in verses) {
+      final ch = v['chapter'].toString();
+      byChapter.putIfAbsent(ch, () => []).add(v);
+    }
+    return byChapter;
   } catch (e) {
     stderr.writeln('FAIL $book $chapter: $e');
     return null;
@@ -59,37 +107,205 @@ Future<Map<String, dynamic>?> fetchChapter(String book, int chapter) async {
   }
 }
 
-Future<void> main() async {
-  final outDir = Directory('build/bible-text/kjv');
+/// Minimal RFC-4180 CSV row parser (handles quoted fields with commas and "" escapes).
+List<List<String>> parseCsv(String content) {
+  final rows = <List<String>>[];
+  var row = <String>[];
+  final buf = StringBuffer();
+  var inQuotes = false;
+  for (var i = 0; i < content.length; i++) {
+    final c = content[i];
+    if (inQuotes) {
+      if (c == '"') {
+        if (i + 1 < content.length && content[i + 1] == '"') {
+          buf.write('"');
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        buf.write(c);
+      }
+    } else if (c == '"') {
+      inQuotes = true;
+    } else if (c == ',') {
+      row.add(buf.toString());
+      buf.clear();
+    } else if (c == '\n' || c == '\r') {
+      if (c == '\r' && i + 1 < content.length && content[i + 1] == '\n') i++;
+      if (row.isNotEmpty || buf.isNotEmpty) {
+        row.add(buf.toString());
+        row = row.map((f) => f.trim()).toList();
+        if (row.isNotEmpty && row[0].isNotEmpty) rows.add(row);
+        row = <String>[];
+        buf.clear();
+      }
+    } else {
+      buf.write(c);
+    }
+  }
+  if (row.isNotEmpty || buf.isNotEmpty) {
+    row.add(buf.toString());
+    if (row.isNotEmpty && row[0].isNotEmpty) rows.add(row);
+  }
+  return rows;
+}
+
+Future<void> generateFromScrollmapper(String code, String? csvPath) async {
+  final outDir = Directory('build/bible-text/$code');
   if (!outDir.existsSync()) outDir.createSync(recursive: true);
+
+  String csv;
+  if (csvPath != null) {
+    csv = File(csvPath).readAsStringSync();
+  } else {
+    final cached = File('build/bible-text/_csv/$code.csv');
+    if (cached.existsSync()) {
+      stdout.writeln('$code: using cached CSV');
+      csv = cached.readAsStringSync();
+    } else {
+      stdout.writeln('$code: downloading CSV from scrollmapper...');
+      final url = '$scrollmapperBase/$code.csv';
+      final client = HttpClient();
+      try {
+        final req = await client.getUrl(Uri.parse(url));
+        req.headers.set('User-Agent', 'churchonapp-bible-tool');
+        final res = await req.close();
+        if (res.statusCode != 200) {
+          stderr.writeln('CSV download failed: HTTP ${res.statusCode}');
+          return;
+        }
+        csv = await res.transform(utf8.decoder).join();
+      } finally {
+        client.close();
+      }
+      cached.parent.createSync(recursive: true);
+      cached.writeAsStringSync(csv);
+    }
+  }
+
+  final rows = parseCsv(csv);
+  // Group by canonical book name -> chapter -> verses (skip header row).
+  final byBook = <String, Map<String, List<Map<String, dynamic>>>>{};
+  for (final r in rows) {
+    if (r.length < 4) continue;
+    final rawBook = r[0];
+    final book = bookRenames[rawBook] ?? rawBook;
+    if (!books.contains(book)) {
+      if (rawBook == 'Book') continue; // header
+      stderr.writeln('UNKNOWN BOOK: $rawBook');
+      continue;
+    }
+    final chapter = int.tryParse(r[1]);
+    final verse = int.tryParse(r[2]);
+    if (chapter == null || verse == null) continue;
+    final text = r[3].trim();
+    byBook.putIfAbsent(book, () => {});
+    byBook[book]!.putIfAbsent(chapter.toString(), () => []);
+    byBook[book]![chapter.toString()]!.add({
+      'chapter': chapter,
+      'verse': verse,
+      'text': text,
+    });
+  }
 
   var totalChapters = 0;
   var totalVerses = 0;
+  final missingBooks = <String>[];
+  var totalBytes = 0;
   for (final book in books) {
-    final count = chapterCounts[book] ?? 1;
+    final chapters = byBook[book];
     final outPath = '${outDir.path}/${book.replaceAll(' ', '_')}.json';
     if (File(outPath).existsSync() && File(outPath).lengthSync() > 1000) {
       stdout.writeln('$book: skipped (already generated)');
       continue;
     }
+    if (chapters == null || chapters.isEmpty) {
+      missingBooks.add(book);
+      continue;
+    }
+    final jsonStr = const JsonEncoder.withIndent(' ').convert({'book': book, 'chapters': chapters});
+    File(outPath).writeAsStringSync(jsonStr);
+    final verses = chapters.values.fold<int>(0, (sum, list) => sum + list.length);
+    totalChapters += chapters.length;
+    totalVerses += verses;
+    totalBytes += jsonStr.length;
+    stdout.writeln('$book: ${chapters.length}/${chapterCounts[book] ?? 1} chapters, $verses verses');
+  }
+  stdout.writeln('TOTAL: $totalChapters chapters, $totalVerses verses, ${(totalBytes / 1048576).toStringAsFixed(2)} MB -> ${outDir.path}');
+  if (missingBooks.isNotEmpty) {
+    stdout.writeln('MISSING BOOKS (not in source): ${missingBooks.join(', ')}');
+  }
+}
+
+Future<void> generateFromBibleApi(String code) async {
+  final outDir = Directory('build/bible-text/$code');
+  if (!outDir.existsSync()) outDir.createSync(recursive: true);
+
+  var totalChapters = 0;
+  var totalVerses = 0;
+  var totalBytes = 0;
+  for (final book in books) {
+    final count = chapterCounts[book] ?? 1;
+    final outPath = '${outDir.path}/${book.replaceAll(' ', '_')}.json';
+    if (File(outPath).existsSync()) {
+      final existing = File(outPath).readAsStringSync();
+      if (existing.length > 1000) {
+        try {
+          final prev = json.decode(existing) as Map<String, dynamic>;
+          final prevChapters = (prev['chapters'] as Map<String, dynamic>).length;
+          if (prevChapters >= count) {
+            stdout.writeln('$book: skipped (already generated)');
+            continue;
+          }
+          stdout.writeln('$book: partial ($prevChapters/$count) — regenerating');
+        } catch (_) {
+          stdout.writeln('$book: corrupt file — regenerating');
+        }
+      }
+    }
     final merged = <String, dynamic>{};
     for (var chapter = 1; chapter <= count; chapter++) {
       Map<String, dynamic>? data;
-      for (var attempt = 0; attempt < 4 && data == null; attempt++) {
-        data = await fetchChapter(book, chapter);
+      for (var attempt = 0; attempt < 6 && data == null; attempt++) {
+        data = await fetchChapter(code, book, chapter);
         if (data == null) {
-          await Future.delayed(const Duration(milliseconds: 800));
+          await Future.delayed(const Duration(seconds: 2));
+        } else if (data.containsKey('_ratelimited')) {
+          data = null;
         }
       }
       if (data != null) merged.addAll(data);
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 250));
     }
     final jsonStr = const JsonEncoder.withIndent(' ').convert({'book': book, 'chapters': merged});
     File(outPath).writeAsStringSync(jsonStr);
     final verses = merged.values.fold<int>(0, (sum, list) => sum + (list as List).length);
     totalChapters += merged.length;
     totalVerses += verses;
+    totalBytes += jsonStr.length;
     stdout.writeln('$book: ${merged.length}/$count chapters, $verses verses');
   }
-  stdout.writeln('TOTAL: $totalChapters chapters, $totalVerses verses -> ${outDir.path}');
+  stdout.writeln('TOTAL: $totalChapters chapters, $totalVerses verses, ${(totalBytes / 1048576).toStringAsFixed(2)} MB -> ${outDir.path}');
+}
+
+Future<void> main(List<String> args) async {
+  String code = 'kjv';
+  String source = 'bible-api';
+  String? csvPath;
+  for (var i = 0; i < args.length; i++) {
+    if (args[i] == '--translation' && i + 1 < args.length) {
+      code = args[i + 1];
+    } else if (args[i] == '--source' && i + 1 < args.length) {
+      source = args[i + 1];
+    } else if (args[i] == '--csv' && i + 1 < args.length) {
+      csvPath = args[i + 1];
+    }
+  }
+  stdout.writeln('Generating "$code" from source: $source');
+  if (source == 'scrollmapper') {
+    await generateFromScrollmapper(code, csvPath);
+  } else {
+    await generateFromBibleApi(code);
+  }
 }

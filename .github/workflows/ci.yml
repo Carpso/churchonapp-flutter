@@ -29,6 +29,8 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      # .env is gitignored but bundled as an asset — create it from the committed example
+      - run: cp .env.example .env
       # Key-flows smoke test is a hard gate (must pass).
       - run: flutter test test/key_flows_smoke_test.dart
       # Full suite runs but failures are informational (fragile mocks pre-date CI).
@@ -46,6 +48,8 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      # .env is gitignored but bundled as an asset — create it from the committed example
+      - run: cp .env.example .env
       - run: flutter build apk --release --no-tree-shake-icons
       - uses: actions/upload-artifact@v4
         with:

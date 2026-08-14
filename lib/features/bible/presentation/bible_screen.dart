@@ -40,7 +40,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
   String selectedBook = "John";
   int selectedChapter = 1;
   int? selectedVerse;
-  String selectedTranslation = "web";
+  String selectedTranslation = "kjv";
   List<BibleBook> _allBooks = [];
   final ScrollController _verseScrollController = ScrollController();
   bool _hasScrolledToVerse = false;
