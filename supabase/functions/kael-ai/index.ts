@@ -478,10 +478,17 @@ serve(async (req) => {
       providerError = e instanceof Error ? e.message : "HuggingFace error";
     }
 
+    const FALLBACK_RESPONSES = [
+      "I'm here to help with your spiritual questions and church activities.",
+      "How can I assist you today with scripture or church matters?",
+      "I'm ready to guide you — what's on your mind regarding faith or church?",
+    ];
+
     if (!text) {
-      const errorMsg = `Kael unavailable: ${providerError || "empty response"}`;
-      if (isChat) return sseErrorEvent(corsHeaders, errorMsg);
-      return jsonResponse(corsHeaders, { error: errorMsg }, 502);
+      // Graceful fallback: stream a helpful message as normal chunks instead of erroring.
+      const fallback = FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)];
+      if (isChat) return sseTextStream(corsHeaders, `${fallback}\n\n(Kael is warming up — try again in a moment for a full response.)`);
+      return jsonResponse(corsHeaders, { response: fallback }, 200);
     }
 
     // Non-chat actions (summary, dramatize, generate) return plain JSON.

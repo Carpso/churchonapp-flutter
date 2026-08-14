@@ -61,9 +61,8 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
                   const SizedBox(height: 25),
                   _buildEventGateway(context),
                   const SizedBox(height: 30),
-                  _buildSectionLabel('CHURCH GROUPS'),
-                  const SizedBox(height: 12),
-                ],
+                   _buildSectionLabel('CHURCH GROUPS'),
+                 ],
               ),
             ),
           ),
@@ -325,7 +324,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, decoration: TextDecoration.none)),
                   const SizedBox(height: 3),
                   Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 8),
@@ -404,8 +403,8 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                   Text(name,
+                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, decoration: TextDecoration.none)),
                   Text(
                     _formatRole(role),
                     style: const TextStyle(color: Colors.grey, fontSize: 11),
