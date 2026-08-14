@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import '../data/reading_plan_service.dart';
+import 'live_scripture_text.dart';
 import 'package:church_on_app/core/services/coins_service.dart';
 
 class StudyPlansScreen extends ConsumerWidget {
@@ -201,6 +202,18 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
                       ),
                     ),
                   ),
+                  subtitle: isDone
+                      ? null
+                      : LiveScriptureText(
+                          reference: verseRef,
+                          textAlign: TextAlign.left,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            height: 1.4,
+                            color: Colors.black54,
+                          ),
+                        ),
+                  isThreeLine: !isDone,
                   trailing: isNext
                       ? ElevatedButton(
                           onPressed: () async {

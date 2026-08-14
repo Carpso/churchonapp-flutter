@@ -200,10 +200,20 @@ class BibleVerseService {
     try {
       final searchQuery = query.trim();
       if (searchQuery.isEmpty) return [];
+      final escaped = searchQuery
+          .replaceAll('\\', '\\\\')
+          .replaceAll('%', '\\%')
+          .replaceAll('_', '\\_');
 
-      var queryBuilder = _client
+      dynamic queryBuilder = _client
           .from('bible_verses')
-          .select('id, reference, text, book_id, chapter, verse');
+          .select(
+            'id, reference, text, chapter, verse, '
+            'book:bible_books(name), translation:bible_translations(code)',
+          )
+          .ilike('text', '%$escaped%')
+          .order('verse', ascending: true)
+          .limit(limit);
 
       if (translationCode != null) {
         final translation = await _client
@@ -216,16 +226,23 @@ class BibleVerseService {
         }
       }
 
-      final data = await queryBuilder.limit(limit);
-      return (data as List<dynamic>)
-          .where((row) {
-            final text = (row['text'] ?? '').toString().toLowerCase();
-            final reference = (row['reference'] ?? '').toString().toLowerCase();
-            return text.contains(searchQuery.toLowerCase()) ||
-                reference.contains(searchQuery.toLowerCase());
-          })
-          .map((row) => Map<String, dynamic>.from(row))
-          .toList();
+      final data = await queryBuilder;
+      return (data as List<dynamic>).map((row) {
+        final book = row['book'];
+        final translation = row['translation'];
+        return {
+          'id': row['id'],
+          'reference': row['reference'],
+          'text': row['text'],
+          'chapter': row['chapter'],
+          'verse': row['verse'],
+          'book_name':
+              (book is Map ? book['name'] : null)?.toString() ?? '',
+          'translation_code':
+              (translation is Map ? translation['code'] : null)?.toString() ??
+                  '',
+        };
+      }).toList();
     } catch (e, s) {
       debugPrint('Search verses error: $e');
       debugPrint(s.toString());

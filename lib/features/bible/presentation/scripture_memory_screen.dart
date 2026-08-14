@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:church_on_app/features/bible/data/bible_service.dart';
+import 'package:church_on_app/features/bible/data/bible_translations.dart';
+import 'package:church_on_app/features/bible/data/study_settings_provider.dart';
 import '../data/memory_verses_data.dart' as memory_data;
 
-class ScriptureMemoryScreen extends StatefulWidget {
+class ScriptureMemoryScreen extends ConsumerStatefulWidget {
   const ScriptureMemoryScreen({super.key});
 
   @override
-  State<ScriptureMemoryScreen> createState() => _ScriptureMemoryScreenState();
+  ConsumerState<ScriptureMemoryScreen> createState() => _ScriptureMemoryScreenState();
 }
 
-class _ScriptureMemoryScreenState extends State<ScriptureMemoryScreen> {
+class _ScriptureMemoryScreenState extends ConsumerState<ScriptureMemoryScreen> {
   final List<memory_data.MemoryVerse> _verses = List.from(memory_data.memoryVerses);
 
   double _hideLevel = 0.0; // 0.0 to 1.0
@@ -47,7 +51,13 @@ class _ScriptureMemoryScreenState extends State<ScriptureMemoryScreen> {
   }
 
   Widget _buildVerseCard(memory_data.MemoryVerse verse) {
-    final maskedText = _applyMask(verse.text, _hideLevel);
+    final liveText = ref
+        .watch(bibleReferenceTextProvider(verse.reference))
+        .value;
+    final displayText =
+        (liveText != null && liveText.isNotEmpty) ? liveText : verse.text;
+    final translation = ref.watch(studySettingsProvider).preferredTranslation;
+    final maskedText = _applyMask(displayText, _hideLevel);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 5),
       padding: const EdgeInsets.all(30),
@@ -62,7 +72,12 @@ class _ScriptureMemoryScreenState extends State<ScriptureMemoryScreen> {
           const Icon(LucideIcons.brain, color: Colors.indigo, size: 50),
           const SizedBox(height: 25),
           Text(verse.reference, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.indigo)),
-          const SizedBox(height: 30),
+          const SizedBox(height: 4),
+          Text(
+            getTranslationShortName(translation),
+            style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1),
+          ),
+          const SizedBox(height: 25),
           Expanded(
             child: SingleChildScrollView(
               child: Text(

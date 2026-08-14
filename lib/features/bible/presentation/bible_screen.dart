@@ -10,6 +10,7 @@ import '../data/bible_service.dart';
 import '../data/bible_books_service.dart';
 import '../data/bible_book_model.dart';
 import '../data/bible_translations.dart';
+import '../data/study_settings_provider.dart';
 import '../data/biblical_atlas_data.dart';
 import '../data/audio_bible_service.dart';
 import '../data/bible_verse_service.dart';
@@ -1239,6 +1240,9 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                             selectedTranslation = v;
                             _persistReadingPosition();
                           });
+                          ref
+                              .read(studySettingsProvider.notifier)
+                              .setTranslation(v);
                           Navigator.pop(context);
                         }
                       },

@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/features/bible/data/bible_verse_service.dart';
+import 'package:church_on_app/features/bible/data/bible_service.dart';
+import 'package:church_on_app/features/bible/data/bible_translations.dart';
+import 'package:church_on_app/features/bible/data/study_settings_provider.dart';
 import 'package:church_on_app/features/bible/presentation/scripture_audio_button.dart';
 
 class HomeDailyVerse extends ConsumerWidget {
@@ -12,9 +15,21 @@ class HomeDailyVerse extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final verseAsync = ref.watch(dailyBibleVerseProvider);
+    final translation = ref.watch(studySettingsProvider).preferredTranslation;
 
     return verseAsync.when(
-      data: (verse) => Container(
+      data: (verse) {
+        final liveText = ref
+            .watch(bibleReferenceTextProvider(verse.reference))
+            .value;
+        final displayText =
+            (liveText != null && liveText.isNotEmpty)
+                ? liveText
+                : verse.text;
+        final displayLabel = liveText != null && liveText.isNotEmpty
+            ? getTranslationFullName(translation)
+            : null;
+        return Container(
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -71,15 +86,23 @@ class HomeDailyVerse extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 16),
-            Text('"${verse.text}"', style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.5, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500)),
+            Text('"$displayText"', style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.5, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500)),
             const SizedBox(height: 14),
             Align(
               alignment: Alignment.bottomRight,
-              child: Text("— ${verse.reference}", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.amber.shade200)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text("— ${verse.reference}", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.amber.shade200)),
+                  if (displayLabel != null)
+                    Text(displayLabel, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white54, letterSpacing: 1)),
+                ],
+              ),
             ),
           ],
         ),
-      ),
+      );
+      },
       loading: () => Container(
         height: 140,
         width: double.infinity,

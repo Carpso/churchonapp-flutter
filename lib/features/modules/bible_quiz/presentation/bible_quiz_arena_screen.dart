@@ -11,6 +11,7 @@ import '../data/pvp_service.dart';
 import '../data/quiz_event_service.dart';
 import '../../../../core/providers/profile_provider.dart';
 import '../../../bible/presentation/scripture_audio_button.dart';
+import '../../../bible/presentation/live_scripture_text.dart';
 import 'bible_quiz_results_screen.dart';
 
 enum GamePhase { matchmaking, vsReveal, countdown, playing, answering, feedback, review, finished }
@@ -978,6 +979,19 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
                               ),
                             ],
                           ),
+                        // Verse text in the user's preferred translation
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: LiveScriptureText(
+                            reference: q.scriptureReference!,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.65),
+                              fontSize: 13,
+                              height: 1.5,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
                         // Question text
                         Text(
                           q.question,
@@ -1693,6 +1707,16 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
                           color: theme.primaryColor.withAlpha(150),
                           fontSize: 12,
                           fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      LiveScriptureText(
+                        reference: q.scriptureReference!,
+                        textAlign: TextAlign.left,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          height: 1.4,
                         ),
                       ),
                     ],

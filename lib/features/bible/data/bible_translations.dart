@@ -61,6 +61,11 @@ String getTranslationFullName(String code) {
   return t != null ? '${t.name} (${t.shortName})' : code.toUpperCase();
 }
 
+String getTranslationShortName(String code) {
+  final t = getTranslationByCode(code);
+  return t != null ? t.shortName : code.toUpperCase();
+}
+
 const Map<String, String> kBookNameToMidvashSlug = {
   'Genesis': 'genesis',
   'Exodus': 'exodus',

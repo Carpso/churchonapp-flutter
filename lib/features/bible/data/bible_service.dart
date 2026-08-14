@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'study_settings_provider.dart';
+import 'bible_verse_service.dart';
 
 class BibleVerse {
   final int chapter;
@@ -20,6 +22,81 @@ class BibleVerse {
       text: json['text'],
     );
   }
+}
+
+class ParsedReference {
+  final String book; // canonical book name used for fetching
+  final int chapter;
+  final int? verseStart;
+  final int? verseEnd;
+  final String raw;
+
+  const ParsedReference({
+    required this.book,
+    required this.chapter,
+    this.verseStart,
+    this.verseEnd,
+    required this.raw,
+  });
+
+  bool get hasVerses => verseStart != null;
+}
+
+/// Parses "John 3:16", "Psalm 23:1-6", "1 Corinthians 13:4-5",
+/// "Exodus 20" (whole chapter) and normalizes book aliases
+/// (Psalm -> Psalms, Song of Songs -> Song of Solomon).
+ParsedReference? parseScriptureReference(String reference) {
+  final trimmed = reference.trim();
+  final colonIdx = trimmed.indexOf(':');
+  final left = colonIdx == -1 ? trimmed : trimmed.substring(0, colonIdx);
+  final right = colonIdx == -1 ? '' : trimmed.substring(colonIdx + 1);
+
+  final leftParts = left.trim().split(RegExp(r'\s+'));
+  if (leftParts.isEmpty) return null;
+  final chapterStr = leftParts.last.split('-').first.trim(); // "7-12" -> 7
+  final chapterNum = int.tryParse(chapterStr);
+  if (chapterNum == null) return null;
+  final rawBook = leftParts.sublist(0, leftParts.length - 1).join(' ');
+  if (rawBook.isEmpty) return null;
+
+  const aliases = {
+    'psalm': 'Psalms',
+    'song of songs': 'Song of Solomon',
+    'revelations': 'Revelation',
+    'canticle of canticles': 'Song of Solomon',
+  };
+  final book = aliases[rawBook.toLowerCase()] ?? rawBook;
+
+  int? verseStart;
+  int? verseEnd;
+  if (right.isNotEmpty) {
+    final range = right.split('-');
+    verseStart = int.tryParse(range[0].trim());
+    verseEnd = range.length > 1 ? int.tryParse(range[1].trim()) : verseStart;
+    if (verseEnd != null && verseEnd < (verseStart ?? 0)) verseEnd = verseStart;
+  }
+
+  return ParsedReference(
+    book: book,
+    chapter: chapterNum,
+    verseStart: verseStart,
+    verseEnd: verseEnd,
+    raw: trimmed,
+  );
+}
+
+class BibleSearchHit {
+  final String reference;
+  final String text;
+  final String book;
+  final String translation;
+
+  const BibleSearchHit({
+    required this.reference,
+    required this.text,
+    required this.book,
+    required this.translation,
+  });
 }
 
 class BibleService {
@@ -223,6 +300,81 @@ class BibleService {
       return [];
     }
   }
+
+  /// Fetches the text for a scripture reference ("John 3:16", "Psalm 23:1-6",
+  /// "Exodus 20") in the given translation. Returns '' when unavailable.
+  Future<String> getReferenceText(
+    String translation,
+    String reference,
+  ) async {
+    final parsed = parseScriptureReference(reference);
+    if (parsed == null) return '';
+    final verses = await getChapter(translation, parsed.book, parsed.chapter);
+    if (verses.isEmpty) return '';
+    if (!parsed.hasVerses) {
+      return verses.map((v) => v.text).join(' ');
+    }
+    final start = (parsed.verseStart ?? 1) - 1;
+    final end = (parsed.verseEnd ?? parsed.verseStart ?? 1) - 1;
+    final selected = <BibleVerse>[];
+    for (var i = start; i <= end && i < verses.length; i++) {
+      if (i >= 0) selected.add(verses[i]);
+    }
+    if (selected.isEmpty) return '';
+    return selected.map((v) => v.text).join(' ');
+  }
+
+  /// Searches locally cached R2 books (all translations the user has opened)
+  /// for [query]. Returns up to [limit] matches with references.
+  Future<List<BibleSearchHit>> searchCachedBooks(
+    String query, {
+    int limit = 30,
+  }) async {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return [];
+    final hits = <BibleSearchHit>[];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys().where((k) => k.startsWith('bible_book_'));
+      for (final key in keys) {
+        if (hits.length >= limit) break;
+        final parts = key.split('_');
+        // bible_book_<translation>_<book>
+        final translation = parts.length > 2 ? parts[2] : '';
+        final book = parts.sublist(3).join('_');
+        if (translation.isEmpty || book.isEmpty) continue;
+        final raw = prefs.getString(key);
+        if (raw == null) continue;
+        try {
+          final chapters = json.decode(raw) as Map<String, dynamic>;
+          for (final entry in chapters.entries) {
+            if (hits.length >= limit) break;
+            final verses = entry.value as List<dynamic>?;
+            if (verses == null) continue;
+            for (final v in verses) {
+              final text = (v['text'] ?? '').toString();
+              if (text.toLowerCase().contains(q)) {
+                hits.add(
+                  BibleSearchHit(
+                    reference: '$book ${entry.key}:${v['verse']}',
+                    text: text,
+                    book: book,
+                    translation: translation,
+                  ),
+                );
+                if (hits.length >= limit) break;
+              }
+            }
+          }
+        } catch (_) {
+          // skip malformed cache entry
+        }
+      }
+    } catch (e) {
+      debugPrint('BibleService cached search failed: $e');
+    }
+    return hits;
+  }
 }
 
 final bibleServiceProvider = Provider((ref) => BibleService());
@@ -239,4 +391,57 @@ final bibleChapterProvider =
             params['book'] ?? 'John',
             params['chapter'] ?? 1,
           );
+    });
+
+/// Fetches the text of a scripture reference in the user's preferred
+/// translation (falls back to '' when unavailable).
+final bibleReferenceTextProvider =
+    FutureProvider.family<String, String>((ref, reference) async {
+      final translation = ref
+          .watch(studySettingsProvider)
+          .preferredTranslation;
+      return ref
+          .watch(bibleServiceProvider)
+          .getReferenceText(translation, reference);
+    });
+
+/// Full-text search: live Supabase DB (all translations) + locally cached
+/// R2 books, merged and deduplicated by reference.
+final scriptureSearchProvider =
+    FutureProvider.family<List<BibleSearchHit>, String>((ref, query) async {
+      final q = query.trim();
+      if (q.isEmpty) return const [];
+      final hits = <BibleSearchHit>[];
+      final seen = <String>{};
+
+      final dbResults = await ref
+          .read(bibleVerseServiceProvider)
+          .searchVerses(query: q, limit: 40);
+      for (final row in dbResults) {
+        final refText = row['reference']?.toString() ?? '';
+        final text = row['text']?.toString() ?? '';
+        if (refText.isEmpty || text.isEmpty) continue;
+        final key = '$refText|$text';
+        if (seen.contains(key)) continue;
+        seen.add(key);
+        hits.add(
+          BibleSearchHit(
+            reference: refText,
+            text: text,
+            book: row['book_name']?.toString() ?? '',
+            translation: row['translation_code']?.toString() ?? '',
+          ),
+        );
+      }
+
+      final cached = await ref
+          .read(bibleServiceProvider)
+          .searchCachedBooks(q, limit: 30);
+      for (final hit in cached) {
+        if (seen.contains('${hit.reference}|${hit.text}')) continue;
+        seen.add('${hit.reference}|${hit.text}');
+        hits.add(hit);
+      }
+
+      return hits;
     });

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:church_on_app/features/bible/data/study_settings_provider.dart';
+import 'package:church_on_app/features/bible/data/bible_translations.dart';
+import 'live_scripture_text.dart';
 import '../data/devotion_service.dart';
 
 class DevotionDetailScreen extends ConsumerWidget {
@@ -132,6 +135,36 @@ class DevotionDetailScreen extends ConsumerWidget {
                         height: 1.7,
                         color: Color(0xFF2D3436),
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    Divider(
+                      height: 1,
+                      color: Colors.amber.withValues(alpha: 0.25),
+                    ),
+                    const SizedBox(height: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'In ${getTranslationFullName(ref.watch(studySettingsProvider).preferredTranslation)}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade600,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        LiveScriptureText(
+                          reference: devotion.reference,
+                          textAlign: TextAlign.left,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            height: 1.7,
+                            color: Color(0xFF2D3436),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

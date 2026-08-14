@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../data/bible_quiz_service.dart';
+import '../../../bible/presentation/live_scripture_text.dart';
 
 class BibleQuizResultsScreen extends ConsumerWidget {
   final QuizSessionResult result;
@@ -485,7 +486,7 @@ class BibleQuizResultsScreen extends ConsumerWidget {
                         fontSize: 13,
                       ),
                     ),
-                    if (q.scriptureReference != null)
+                    if (q.scriptureReference != null) ...[
                       Text(
                         q.scriptureReference!,
                         style: TextStyle(
@@ -494,6 +495,17 @@ class BibleQuizResultsScreen extends ConsumerWidget {
                           fontStyle: FontStyle.italic,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      LiveScriptureText(
+                        reference: q.scriptureReference!,
+                        textAlign: TextAlign.left,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

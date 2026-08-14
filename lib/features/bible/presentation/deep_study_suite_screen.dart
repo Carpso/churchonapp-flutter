@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/bible/data/study_settings_provider.dart';
 import 'package:church_on_app/features/bible/data/strongs_lexicon.dart';
+import 'package:church_on_app/features/bible/data/bible_translations.dart';
+import 'package:church_on_app/features/bible/data/bible_service.dart';
 import 'package:church_on_app/core/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'bible_podcast_screen.dart';
@@ -507,32 +509,30 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
   }
 
   String _translationLabel(String code) {
-    switch (code) {
-      case 'kjv': return 'King James Version (KJV)';
-      case 'web': return 'World English Bible (WEB)';
-      case 'niv': return 'New International Version (NIV)';
-      case 'nkjv': return 'New King James Version (NKJV)';
-      default: return code.toUpperCase();
-    }
+    return getTranslationFullName(code);
   }
 
   Widget _translationPicker(StudySettings settings, StudySettingsNotifier notifier, StateSetter setModalState) {
-    final translations = [
-      {'code': 'kjv', 'label': 'King James Version (KJV)'},
-      {'code': 'web', 'label': 'World English Bible (WEB)'},
-      {'code': 'nkjv', 'label': 'New King James Version (NKJV)'},
-    ];
+    final translations = kEnglishTranslations
+        .where(
+          (t) =>
+              t.remoteSupported ||
+              t.code == 'nkjv' ||
+              t.code == 'nlt',
+        )
+        .toList();
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: translations.map((t) {
-          final isSelected = settings.preferredTranslation == t['code'];
+          final isSelected = settings.preferredTranslation == t.code;
           return ListTile(
             leading: Icon(isSelected ? LucideIcons.checkCircle : LucideIcons.circle, color: isSelected ? Colors.blue : Colors.grey),
-            title: Text(t['label']?.toString() ?? 'Translation', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            title: Text(t.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            subtitle: Text(t.shortName, style: const TextStyle(fontSize: 11)),
             onTap: () async {
-              await notifier.setTranslation(t['code']?.toString() ?? '');
+              await notifier.setTranslation(t.code);
               setModalState(() {});
               if (!mounted) return;
               Navigator.pop(context);
@@ -896,6 +896,13 @@ class _VerseMemoryScreenState extends ConsumerState<_VerseMemoryScreen> {
     final displayVerses = _verses.take(maxVerses).toList();
     if (displayVerses.isEmpty) return const SizedBox.shrink();
     final verse = displayVerses[_currentIndex % displayVerses.length];
+    final liveText = ref
+        .watch(bibleReferenceTextProvider(verse['ref']?.toString() ?? ''))
+        .value;
+    final verseText =
+        (liveText != null && liveText.isNotEmpty)
+            ? liveText
+            : verse['text']?.toString() ?? '';
     return Scaffold(
       backgroundColor: const Color(0xFF1A1030),
       appBar: AppBar(
@@ -923,6 +930,8 @@ class _VerseMemoryScreenState extends ConsumerState<_VerseMemoryScreen> {
             ),
             const SizedBox(height: 40),
             Text(verse['ref']?.toString() ?? '', style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white)),
+            const SizedBox(height: 6),
+            Text(getTranslationFullName(settings.preferredTranslation), style: const TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
             const SizedBox(height: 10),
             const Text("Can you recite this verse?", style: TextStyle(color: Colors.white54)),
             const SizedBox(height: 40),
@@ -938,7 +947,7 @@ class _VerseMemoryScreenState extends ConsumerState<_VerseMemoryScreen> {
                   border: Border.all(color: _showVerse ? Colors.amber.withValues(alpha: 0.5) : Colors.white12),
                 ),
                 child: _showVerse
-                  ? Text(verse['text']?.toString() ?? '', style: const TextStyle(color: Colors.white, fontSize: 18, height: 1.6, fontStyle: FontStyle.italic), textAlign: TextAlign.center)
+                  ? Text(verseText, style: const TextStyle(color: Colors.white, fontSize: 18, height: 1.6, fontStyle: FontStyle.italic), textAlign: TextAlign.center)
                   : const Column(children: [
                       Icon(LucideIcons.eye, color: Colors.white54, size: 40),
                       SizedBox(height: 10),
@@ -995,42 +1004,79 @@ class _VerseMemoryScreenState extends ConsumerState<_VerseMemoryScreen> {
 // ═══════════════════════════════════════
 // SCRIPTURE SEARCH SCREEN
 // ═══════════════════════════════════════
-class _ScriptureSearchScreen extends StatelessWidget {
+class _ScriptureSearchScreen extends ConsumerStatefulWidget {
   final String query;
   const _ScriptureSearchScreen({required this.query});
 
   @override
+  ConsumerState<_ScriptureSearchScreen> createState() => _ScriptureSearchScreenState();
+}
+
+class _ScriptureSearchScreenState extends ConsumerState<_ScriptureSearchScreen> {
+  @override
   Widget build(BuildContext context) {
-    // Simulate search results
-    final results = [
-      {'ref': 'John 3:16', 'text': 'For God so loved the world...', 'book': 'John'},
-      {'ref': 'Romans 8:28', 'text': 'And we know that in all things God works...', 'book': 'Romans'},
-      {'ref': 'Psalm 23:1', 'text': 'The LORD is my shepherd, I lack nothing.', 'book': 'Psalms'},
-      {'ref': 'Philippians 4:13', 'text': 'I can do all this through him who gives me strength.', 'book': 'Philippians'},
-    ];
+    final resultsAsync = ref.watch(scriptureSearchProvider(widget.query));
 
     return Scaffold(
       appBar: AppBar(
-        title: Text("Results for \"$query\"", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 14)),
+        title: Text("Results for \"${widget.query}\"", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 14)),
         backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: results.map((r) => Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10)]),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(r['ref']?.toString() ?? '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo.shade700)),
-              const SizedBox(height: 5),
-              Text(r['text']?.toString() ?? '', style: const TextStyle(fontSize: 14, height: 1.5, color: Colors.black87)),
-              const SizedBox(height: 8),
-              Text(r['book']?.toString() ?? '', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
-            ],
-          ),
-        )).toList(),
+      body: resultsAsync.when(
+        data: (results) {
+          if (results.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(30),
+                child: Text(
+                  "No matches found. Open a book in the Bible reader to add its translation to search.",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.grey, fontSize: 14, height: 1.5),
+                ),
+              ),
+            );
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.all(20),
+            itemCount: results.length,
+            itemBuilder: (context, index) {
+              final r = results[index];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10)]),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(r.reference, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo.shade700)),
+                    const SizedBox(height: 5),
+                    Text(r.text, style: const TextStyle(fontSize: 14, height: 1.5, color: Colors.black87)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        if (r.book.isNotEmpty) ...[
+                          Text(r.book, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 8),
+                        ],
+                        if (r.translation.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.indigo.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(r.translation.toUpperCase(), style: const TextStyle(fontSize: 10, color: Colors.indigo, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text("Search failed: $e")),
       ),
     );
   }
