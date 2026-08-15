@@ -26,7 +26,7 @@ on:
 
 env:
   JAVA_VERSION: '17'
-  FLUTTER_CHANNEL: 'stable'
+  FLUTTER_VERSION: '3.35.1'
 
 jobs:
   # Linting and static analysis
@@ -43,7 +43,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: ${{ env.FLUTTER_CHANNEL }}
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
       - name: Install dependencies
@@ -72,7 +72,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: ${{ env.FLUTTER_CHANNEL }}
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
       - name: Install dependencies
@@ -105,7 +105,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: ${{ env.FLUTTER_CHANNEL }}
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
       - name: Setup Java
@@ -203,7 +203,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: ${{ env.FLUTTER_CHANNEL }}
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
       - name: Setup Java
@@ -299,7 +299,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: ${{ env.FLUTTER_CHANNEL }}
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
       - name: Install dependencies
@@ -320,9 +320,9 @@ jobs:
         env:
           BUILD_NUMBER: ${{ steps.build_number.outputs.BUILD_NUMBER }}
 
-      - name: Build iOS (unsigned)
+      - name: Build iOS (unsigned, simulator)
         run: |
-          flutter build ios --release --no-codesign \
+          flutter build ios --simulator --no-codesign \
             --build-name=1.0.0 \
             --build-number=${{ steps.build_number.outputs.BUILD_NUMBER }}
 
@@ -330,7 +330,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios-build
-          path: build/ios/iphoneos/Runner.app
+          path: build/ios/iphonesimulator/Runner.app
           retention-days: 7
 
   # Deploy to Play Store (internal testing)

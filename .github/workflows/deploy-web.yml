@@ -22,7 +22,7 @@ jobs:
         if: env.HAS_CF == 'true'
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: '3.35.1'
 
       # .env is gitignored but bundled as an asset — create it from the committed example
       - name: Create .env from example
