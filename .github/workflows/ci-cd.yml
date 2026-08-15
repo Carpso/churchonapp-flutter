@@ -156,6 +156,18 @@ jobs:
           VERSION_NAME: 1.0.0
           BUILD_NUMBER: ${{ steps.build_number.outputs.BUILD_NUMBER }}
 
+      - name: Free disk space
+        if: env.HAS_SIGNING == 'true'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - name: Check runner resources
         if: env.HAS_SIGNING == 'true'
         run: |
@@ -290,6 +302,18 @@ jobs:
         env:
           VERSION_NAME: 1.0.0
           BUILD_NUMBER: ${{ steps.build_number.outputs.BUILD_NUMBER }}
+
+      - name: Free disk space
+        if: env.HAS_SIGNING == 'true'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
 
       - name: Check runner resources
         if: env.HAS_SIGNING == 'true'
