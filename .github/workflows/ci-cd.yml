@@ -143,13 +143,41 @@ jobs:
       - name: Compute semantic version
         id: semver
         run: |
-          BUILD_NUMBER=$(git rev-list --count HEAD)
           VERSION_NAME="1.0.0"
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION_NAME="${GITHUB_REF_NAME#v}"
           fi
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_OUTPUT
+          # Monotonic build number: highest versionCode across ALL Play tracks + 1.
+          # (git rev-list count breaks when history is rewritten; pubspec is the fallback.)
+          BUILD_NUMBER=0
+          if [ "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}" != "" ]; then
+            echo '${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}' > /tmp/play-sa.json
+            gcloud auth activate-service-account --key-file=/tmp/play-sa.json --quiet >/dev/null 2>&1 || true
+            TOKEN=$(gcloud auth print-access-token 2>/dev/null) || TOKEN=""
+            MAX=0
+            if [ -n "$TOKEN" ]; then
+              for track in production internal alpha beta; do
+                CODE=$(curl -sf -H "Authorization: Bearer $TOKEN" \
+                  "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.churchonapp.churchonapp/tracks/$track" 2>/dev/null \
+                  | python3 -c "import sys,json
+try:
+  d=json.load(sys.stdin)
+  codes=[c for r in d.get('releases',[]) for c in (r.get('versionCodes') or [])]
+  print(max(codes) if codes else 0)
+except Exception:
+  print(0)" 2>/dev/null) || CODE=0
+                [ "${CODE:-0}" -gt "$MAX" ] && MAX=$CODE
+              done
+            fi
+            BUILD_NUMBER=$((MAX + 1))
+          fi
+          if [ "$BUILD_NUMBER" -le 0 ]; then
+            BUILD_NUMBER=$(sed -n 's/^version: [0-9.]*+//p' pubspec.yaml | head -1)
+            BUILD_NUMBER=${BUILD_NUMBER:-1}
+          fi
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "Computed version ${VERSION_NAME}+${BUILD_NUMBER}"
 
       - name: Update pubspec version
         run: |
@@ -293,13 +321,41 @@ jobs:
       - name: Compute semantic version
         id: semver
         run: |
-          BUILD_NUMBER=$(git rev-list --count HEAD)
           VERSION_NAME="1.0.0"
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION_NAME="${GITHUB_REF_NAME#v}"
           fi
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_OUTPUT
+          # Monotonic build number: highest versionCode across ALL Play tracks + 1.
+          # (git rev-list count breaks when history is rewritten; pubspec is the fallback.)
+          BUILD_NUMBER=0
+          if [ "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}" != "" ]; then
+            echo '${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}' > /tmp/play-sa.json
+            gcloud auth activate-service-account --key-file=/tmp/play-sa.json --quiet >/dev/null 2>&1 || true
+            TOKEN=$(gcloud auth print-access-token 2>/dev/null) || TOKEN=""
+            MAX=0
+            if [ -n "$TOKEN" ]; then
+              for track in production internal alpha beta; do
+                CODE=$(curl -sf -H "Authorization: Bearer $TOKEN" \
+                  "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.churchonapp.churchonapp/tracks/$track" 2>/dev/null \
+                  | python3 -c "import sys,json
+try:
+  d=json.load(sys.stdin)
+  codes=[c for r in d.get('releases',[]) for c in (r.get('versionCodes') or [])]
+  print(max(codes) if codes else 0)
+except Exception:
+  print(0)" 2>/dev/null) || CODE=0
+                [ "${CODE:-0}" -gt "$MAX" ] && MAX=$CODE
+              done
+            fi
+            BUILD_NUMBER=$((MAX + 1))
+          fi
+          if [ "$BUILD_NUMBER" -le 0 ]; then
+            BUILD_NUMBER=$(sed -n 's/^version: [0-9.]*+//p' pubspec.yaml | head -1)
+            BUILD_NUMBER=${BUILD_NUMBER:-1}
+          fi
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "Computed version ${VERSION_NAME}+${BUILD_NUMBER}"
 
       - name: Update pubspec version
         run: |
@@ -415,13 +471,40 @@ jobs:
       - name: Compute semantic version
         id: semver
         run: |
-          BUILD_NUMBER=$(git rev-list --count HEAD)
           VERSION_NAME="1.0.0"
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION_NAME="${GITHUB_REF_NAME#v}"
           fi
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_OUTPUT
+          # Monotonic build number: highest versionCode across ALL Play tracks + 1.
+          BUILD_NUMBER=0
+          if [ "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}" != "" ]; then
+            echo '${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}' > /tmp/play-sa.json
+            gcloud auth activate-service-account --key-file=/tmp/play-sa.json --quiet >/dev/null 2>&1 || true
+            TOKEN=$(gcloud auth print-access-token 2>/dev/null) || TOKEN=""
+            MAX=0
+            if [ -n "$TOKEN" ]; then
+              for track in production internal alpha beta; do
+                CODE=$(curl -sf -H "Authorization: Bearer $TOKEN" \
+                  "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.churchonapp.churchonapp/tracks/$track" 2>/dev/null \
+                  | python3 -c "import sys,json
+try:
+  d=json.load(sys.stdin)
+  codes=[c for r in d.get('releases',[]) for c in (r.get('versionCodes') or [])]
+  print(max(codes) if codes else 0)
+except Exception:
+  print(0)" 2>/dev/null) || CODE=0
+                [ "${CODE:-0}" -gt "$MAX" ] && MAX=$CODE
+              done
+            fi
+            BUILD_NUMBER=$((MAX + 1))
+          fi
+          if [ "$BUILD_NUMBER" -le 0 ]; then
+            BUILD_NUMBER=$(sed -n 's/^version: [0-9.]*+//p' pubspec.yaml | head -1)
+            BUILD_NUMBER=${BUILD_NUMBER:-1}
+          fi
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "Computed version ${VERSION_NAME}+${BUILD_NUMBER}"
 
       - name: Update pubspec version
         run: |
@@ -576,15 +659,23 @@ jobs:
             git log --oneline ${PREV_TAG}..HEAD > RELEASE_NOTES.md
           fi
 
+      - name: Materialize Firebase SA key
+        if: env.HAS_FIREBASE == 'true'
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > firebase-sa.json
+
       - name: Distribute to Firebase App Distribution
         if: env.HAS_FIREBASE == 'true'
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
-          serviceCredentialsJsonContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          serviceCredentialsFile: firebase-sa.json
           groups: ${{ secrets.FIREBASE_TESTER_GROUPS }}
           file: apk/app-release.apk
           releaseNotesFile: RELEASE_NOTES.md
+
+      - name: Remove Firebase SA key
+        if: always() && env.HAS_FIREBASE == 'true'
+        run: rm -f firebase-sa.json
 
   # Notify on failure
   notify-failure:
