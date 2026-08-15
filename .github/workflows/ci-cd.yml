@@ -160,7 +160,7 @@ jobs:
         if: env.HAS_SIGNING == 'true'
         uses: jlumbroso/free-disk-space@main
         with:
-          tool-cache: true
+          tool-cache: false
           android: true
           dotnet: true
           haskell: true
@@ -307,7 +307,7 @@ jobs:
         if: env.HAS_SIGNING == 'true'
         uses: jlumbroso/free-disk-space@main
         with:
-          tool-cache: true
+          tool-cache: false
           android: true
           dotnet: true
           haskell: true
