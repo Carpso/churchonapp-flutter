@@ -106,15 +106,21 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
         'role': _selectedRole,
       }).eq('id', user.id);
 
-      // Audit trail: record the role assignment for traceability
-      await client.from('role_assignments').insert({
-        'user_id': user.id,
-        'role_name': _selectedRole,
-        'tenant_id': tenantId,
-        'assigned_by': user.id,
-        'status': 'approved',
-        'created_at': DateTime.now().toIso8601String(),
-      });
+      // Audit trail: record the role assignment for traceability.
+      // Best-effort only — a policy miss must never roll back a successful
+      // registration (profiles.role is the authoritative role source).
+      try {
+        await client.from('role_assignments').insert({
+          'user_id': user.id,
+          'role_name': _selectedRole,
+          'tenant_id': tenantId,
+          'assigned_by': user.id,
+          'status': 'approved',
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      } catch (e) {
+        debugPrint('Role assignment audit insert skipped: $e');
+      }
 
       String? inviteCode;
       try {
