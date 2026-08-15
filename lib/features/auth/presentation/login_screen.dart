@@ -6,6 +6,7 @@ import '../../../core/widgets/app_feedback.dart';
 import '../../../core/theme/app_theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/widgets/google_g_logo.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -259,7 +260,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const SizedBox(height: 30),
                     _buildSocialButton(
                       "Continue with Google",
-                      LucideIcons.chrome,
                       _isGoogleLoading,
                       _handleGoogleSignIn,
                     ),
@@ -398,7 +398,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Widget _buildSocialButton(
     String label,
-    IconData icon,
     bool isLoading,
     VoidCallback onTap,
   ) {
@@ -430,35 +429,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           : Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Text(
-                        "G",
-                        style: TextStyle(
-                          fontFamily: 'GoogleSans',
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          foreground: Paint()
-                            ..shader =
-                                const LinearGradient(
-                                  colors: [
-                                    Colors.blue,
-                                    Colors.red,
-                                    Colors.yellow,
-                                    Colors.green,
-                                  ],
-                                ).createShader(
-                                  const Rect.fromLTWH(0.0, 0.0, 20.0, 20.0),
-                                ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                const GoogleGLogo(size: 22),
                 const SizedBox(width: 15),
                 Text(
                   label,

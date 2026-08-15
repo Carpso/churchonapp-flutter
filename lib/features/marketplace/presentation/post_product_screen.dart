@@ -269,7 +269,7 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Price (Church Coins)", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+        const Text("Price (Kwacha)", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
         const SizedBox(height: 8),
         TextFormField(
           controller: _priceCtrl,

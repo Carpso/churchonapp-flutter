@@ -52,6 +52,14 @@
                 <data android:scheme="churchonapp" />
             </intent-filter>
 
+            <!-- Supabase OAuth redirect (Google Sign-In callback) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="io.supabase.churchonapp" />
+            </intent-filter>
+
             <!-- App Links Deep Linking (churchonapp.com) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
