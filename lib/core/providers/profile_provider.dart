@@ -257,7 +257,15 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
         // UUIDs, otherwise PostgREST returns 400 and kills the whole profile.
         final isUuidTenant = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
             .hasMatch(effectiveTenantId ?? '');
-        if (effectiveTenantId != null && effectiveTenantId.isNotEmpty && isUuidTenant) {
+        // Platform-level roles (superadmin / coa_employee) are global — they
+        // must NEVER be overridden or demoted by tenant-scoped role_assignments.
+        final isPlatformRole =
+            profileData['role'] == 'superadmin' ||
+            profileData['role'] == 'coa_employee';
+        if (!isPlatformRole &&
+            effectiveTenantId != null &&
+            effectiveTenantId.isNotEmpty &&
+            isUuidTenant) {
           try {
             final assignment = await _client
                 .from('role_assignments')
