@@ -828,38 +828,157 @@ class _BiblicalAtlasScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          ...locations.map((loc) => Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-            child: Row(
+          ...locations.map((loc) => GestureDetector(
+            onTap: () => _showLocationDetails(context, loc),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+                    child: Icon(loc['icon'] as IconData, color: Colors.teal, size: 22),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(loc['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        const SizedBox(height: 3),
+                        Text(loc['desc'] as String, style: const TextStyle(color: Colors.grey, fontSize: 12), maxLines: 2),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                    child: Text(loc['era'] as String, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber)),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(LucideIcons.chevronRight, color: Colors.grey, size: 20),
+                ],
+              ),
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+
+  void _showLocationDetails(BuildContext context, Map<String, dynamic> loc) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.6,
+        decoration: const BoxDecoration(
+          color: Color(0xFFF0F4F8),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        padding: const EdgeInsets.all(25),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
-                  child: Icon(loc['icon'] as IconData, color: Colors.teal, size: 22),
+                  child: Icon(loc['icon'] as IconData, color: Colors.teal, size: 28),
                 ),
                 const SizedBox(width: 15),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(loc['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                      const SizedBox(height: 3),
-                      Text(loc['desc'] as String, style: const TextStyle(color: Colors.grey, fontSize: 12), maxLines: 2),
+                      Text(loc['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                        child: Text(loc['era'] as String, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber)),
+                      ),
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                  child: Text(loc['era'] as String, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber)),
-                ),
               ],
             ),
-          )),
-        ],
+            const SizedBox(height: 20),
+            const Text("Biblical Significance", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            Text(loc['desc'] as String, style: const TextStyle(fontSize: 15, color: Colors.grey, height: 1.5)),
+            const SizedBox(height: 20),
+            const Text("Key Events", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            _buildLocationEvents(loc['name'] as String),
+            const Spacer(),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  // TODO: Open in maps/external app
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Map integration coming soon!"), backgroundColor: Colors.amber),
+                  );
+                },
+                icon: const Icon(LucideIcons.mapPin, size: 18),
+                label: const Text("View on Map"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildLocationEvents(String locationName) {
+    final events = {
+      'Jerusalem': ['Temple dedication', 'Crucifixion & Resurrection', 'Pentecost', 'Early church center'],
+      'Bethlehem': ['Birth of Jesus', 'David anointed king', 'Ruth & Boaz story'],
+      'Nazareth': ['Jesus\' childhood', 'Annunciation to Mary', 'Rejection in synagogue'],
+      'Galilee': ['Feeding of 5000', 'Walking on water', 'Sermon on the Mount', 'Transfiguration'],
+      'Egypt': ['Israel\'s bondage', 'Moses\' birth', 'Flight of Holy Family', 'Joseph\'s rise'],
+      'Mount Sinai': ['Ten Commandments', 'Golden calf', 'Moses\' face shines'],
+      'Babylon': ['Daniel in lions\' den', 'Fiery furnace', 'Jewish exile', 'Writing on the wall'],
+      'Damascus': ['Paul\'s conversion', 'Ananias heals Paul', 'Early church persecution'],
+      'Corinth': ['Paul\'s 18-month stay', '1 & 2 Corinthians written', 'Isthmian games'],
+      'Rome': ['Paul\'s imprisonment', 'Peter\'s martyrdom', 'Catacombs', 'Constantine\'s conversion'],
+      'Garden of Eden': ['Creation of Adam & Eve', 'The Fall', 'First promise of Messiah'],
+      'Jericho': ['Walls fall down', 'Rahab saves spies', 'Good Samaritan road', 'Jesus heals blind man'],
+    };
+    
+    final locationEvents = events[locationName] ?? ['Historical biblical site'];
+    
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: locationEvents.map((event) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.teal.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.teal.withValues(alpha: 0.3)),
+        ),
+        child: Text(event, style: const TextStyle(fontSize: 12, color: Colors.teal, fontWeight: FontWeight.w600)),
+      )).toList(),
     );
   }
 }

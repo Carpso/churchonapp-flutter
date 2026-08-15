@@ -3,7 +3,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/bible_podcast_service.dart';
@@ -18,7 +17,6 @@ class BiblePodcastScreen extends ConsumerStatefulWidget {
 }
 
 class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
-  late AudioPlayer _player;
   BiblePodcastEpisode? _currentEpisode;
   bool _isPlaying = false;
   Duration _position = Duration.zero;
@@ -34,19 +32,25 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
   @override
   void initState() {
     super.initState();
-    _player = AudioPlayer();
-    
-    _player.onPositionChanged.listen((pos) {
-      if (mounted) setState(() => _position = pos);
-    });
-    _player.onDurationChanged.listen((dur) {
-      if (mounted) setState(() => _duration = dur);
-    });
-    _player.onPlayerComplete.listen((_) {
-      if (mounted) setState(() { _isPlaying = false; _position = Duration.zero; });
-    });
-
+    globalMediaPlayerController.init();
     _initTts();
+    
+    // Listen to global media player state
+    globalMediaPlayerController.state.addListener(_onGlobalPlayerStateChanged);
+  }
+
+  void _onGlobalPlayerStateChanged() {
+    if (mounted) {
+      final state = globalMediaPlayerController.state.value;
+      setState(() {
+        _isPlaying = state.isPlaying;
+        _position = state.position;
+        _duration = state.duration;
+        if (state.title.isEmpty) {
+          _currentEpisode = null;
+        }
+      });
+    }
   }
 
   Future<void> _initTts() async {
@@ -193,37 +197,45 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
 
   @override
   void dispose() {
-    _player.dispose();
     _tts.stop();
+    globalMediaPlayerController.state.removeListener(_onGlobalPlayerStateChanged);
     super.dispose();
   }
 
   Future<void> _playEpisode(BiblePodcastEpisode episode) async {
-    if (_currentEpisode?.id == episode.id && _isPlaying) {
-      await _player.pause();
-      setState(() => _isPlaying = false);
+    final state = globalMediaPlayerController.state.value;
+    
+    if (state.title == episode.title && _isPlaying) {
+      globalMediaPlayerController.togglePlayPause();
       return;
     }
     
-    if (_currentEpisode?.id == episode.id && !_isPlaying) {
-      await _player.resume();
-      setState(() => _isPlaying = true);
+    if (state.title == episode.title && !_isPlaying) {
+      globalMediaPlayerController.togglePlayPause();
       return;
     }
 
     try {
-      setState(() { _currentEpisode = episode; _isPlaying = true; });
-      await _player.stop();
-      await _player.play(UrlSource(episode.audioUrl));
-
-      globalMediaPlayerController.playEpisode(
+      // Create episode with thumbnail
+      final episodeWithThumb = BiblePodcastEpisode(
+        id: episode.id,
         title: episode.title,
-        subtitle: episode.book,
+        book: episode.book,
+        duration: episode.duration,
+        thumbnailUrl: _getBookThumbnail(episode.book),
         audioUrl: episode.audioUrl,
+        description: episode.description,
+        hasAudio: episode.hasAudio,
+      );
+      
+      setState(() { _currentEpisode = episodeWithThumb; });
+      globalMediaPlayerController.playEpisode(
+        title: episodeWithThumb.title,
+        subtitle: episodeWithThumb.book,
+        audioUrl: episodeWithThumb.audioUrl,
       );
     } catch (e) {
       if (mounted) {
-        setState(() => _isPlaying = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error playing audio: $e"), backgroundColor: Colors.red),
         );
@@ -327,7 +339,7 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
                 ),
                 IconButton(
                   icon: const Icon(LucideIcons.skipBack, color: Colors.white, size: 20),
-                  onPressed: () => _player.seek(Duration(seconds: (_position.inSeconds - 15).clamp(0, _duration.inSeconds))),
+                  onPressed: globalMediaPlayerController.skipBackward,
                 ),
                 GestureDetector(
                   onTap: () => _playEpisode(episode),
@@ -339,7 +351,7 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
                 ),
                 IconButton(
                   icon: const Icon(LucideIcons.skipForward, color: Colors.white, size: 20),
-                  onPressed: () => _player.seek(Duration(seconds: (_position.inSeconds + 15).clamp(0, _duration.inSeconds))),
+                  onPressed: globalMediaPlayerController.skipForward,
                 ),
               ],
             ),
@@ -353,6 +365,79 @@ class _BiblePodcastScreenState extends ConsumerState<BiblePodcastScreen> {
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return "$m:$s";
+  }
+
+  String _getBookThumbnail(String book) {
+    // Map of book names to thumbnail URLs (using free Christian art from various sources)
+    final Map<String, String> thumbnails = {
+      'Genesis': 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=400&q=80',
+      'Exodus': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      'Leviticus': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      'Numbers': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80',
+      'Deuteronomy': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      'Joshua': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      'Judges': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      'Ruth': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      '1 Samuel': 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=400&q=80',
+      '2 Samuel': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      '1 Kings': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      '2 Kings': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80',
+      '1 Chronicles': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      '2 Chronicles': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      'Ezra': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      'Nehemiah': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80',
+      'Esther': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      'Job': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      'Psalms': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      'Proverbs': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80',
+      'Ecclesiastes': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      'Song of Solomon': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      'Isaiah': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      'Jeremiah': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80',
+      'Lamentations': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      'Ezekiel': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      'Daniel': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      'Hosea': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80',
+      'Joel': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      'Amos': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      'Obadiah': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      'Jonah': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80',
+      'Micah': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      'Nahum': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      'Habakkuk': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      'Zephaniah': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80',
+      'Haggai': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      'Zechariah': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      'Malachi': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      'Matthew': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80',
+      'Mark': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      'Luke': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      'John': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      'Acts': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80',
+      'Romans': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      '1 Corinthians': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      '2 Corinthians': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      'Galatians': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80',
+      'Ephesians': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      'Philippians': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      'Colossians': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      '1 Thessalonians': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80',
+      '2 Thessalonians': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      '1 Timothy': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      '2 Timothy': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      'Titus': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80',
+      'Philemon': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      'Hebrews': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      'James': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      '1 Peter': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80',
+      '2 Peter': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      '1 John': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+      '2 John': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&q=80',
+      '3 John': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80',
+      'Jude': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      'Revelation': 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&q=80',
+    };
+    return thumbnails[book] ?? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80';
   }
 
   Widget _buildSliverAppBar(BuildContext context) {

@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
@@ -457,10 +458,14 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
         }),
         _buildActionItem(LucideIcons.share2, "Forward", onTap: () async {
           try {
-            await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'forward');
+            await SharePlus.instance.share(ShareParams(
+              text: 'Check out this sermon: ${widget.sermon.title} by ${widget.sermon.preacher}',
+              title: 'Share Sermon',
+            ));
             if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sharing spiritual wisdom...")));
           } catch (e) {
-            debugPrint("Forward reaction error: $e");
+            debugPrint("Share error: $e");
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to share: $e"), backgroundColor: Colors.red));
           }
         }),
         _buildActionItem(LucideIcons.bookOpen, "Notes", onTap: () {
@@ -523,8 +528,10 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                     try {
                       await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'discuss', content: value.trim());
                       commentCtrl.clear();
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insight shared successfully!"), backgroundColor: Colors.green));
                     } catch (e) {
                       debugPrint("Comment error: $e");
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to send: $e"), backgroundColor: Colors.red));
                     }
                   },
                   decoration: InputDecoration(
@@ -536,8 +543,10 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                         try {
                           await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'discuss', content: commentCtrl.text);
                           commentCtrl.clear();
+                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insight shared successfully!"), backgroundColor: Colors.green));
                         } catch (e) {
                           debugPrint("Comment error: $e");
+                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to send: $e"), backgroundColor: Colors.red));
                         }
                       },
                     ),
@@ -679,8 +688,10 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                     _commentCtrl.clear();
                     try {
                       await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'discuss', content: text);
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insight shared successfully!"), backgroundColor: Colors.green));
                     } catch (e) {
                       debugPrint("Comment error: $e");
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to send: $e"), backgroundColor: Colors.red));
                     }
                   },
                   decoration: InputDecoration(
@@ -701,8 +712,10 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                   _commentCtrl.clear();
                   try {
                     await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'discuss', content: text);
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insight shared successfully!"), backgroundColor: Colors.green));
                   } catch (e) {
                     debugPrint("Comment error: $e");
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to send: $e"), backgroundColor: Colors.red));
                   }
                 },
                 child: Container(

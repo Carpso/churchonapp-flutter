@@ -185,7 +185,10 @@ class BibleService {
           return versesJson.map((v) => BibleVerse.fromJson(v)).toList();
         }
       }
-      return [];
+      
+      // All online sources returned empty — try offline asset as final fallback
+      debugPrint('BibleService: All online sources empty for $translation $book $chapter, trying offline asset');
+      return _fetchFromOfflineAsset(translation, book, chapter);
     } catch (e) {
       debugPrint('Bible Error: $e — trying cache then offline asset');
       try {
@@ -198,27 +201,35 @@ class BibleService {
       } catch (e) {
         debugPrint('BibleService: Cache fallback failed: $e');
       }
-      try {
-        final jsonString = await rootBundle.loadString(
-          'assets/offline_bible_data.json',
-        );
-        final Map<String, dynamic> allData = json.decode(jsonString);
-        final Map<String, dynamic>? translationData =
-            allData[translation] as Map<String, dynamic>?;
-        final Map<String, dynamic>? bookData =
-            translationData?[book] as Map<String, dynamic>?;
-        final List<dynamic>? chapterData =
-            bookData?[chapter.toString()] as List<dynamic>?;
-        if (chapterData != null) {
-          return chapterData
-              .map((v) => BibleVerse.fromJson(v as Map<String, dynamic>))
-              .toList();
-        }
-      } catch (e2) {
-        debugPrint('Offline Bible fallback failed: $e2');
-      }
-      return [];
+      return _fetchFromOfflineAsset(translation, book, chapter);
     }
+  }
+
+  Future<List<BibleVerse>> _fetchFromOfflineAsset(
+    String translation,
+    String book,
+    int chapter,
+  ) async {
+    try {
+      final jsonString = await rootBundle.loadString(
+        'assets/offline_bible_data.json',
+      );
+      final Map<String, dynamic> allData = json.decode(jsonString);
+      final Map<String, dynamic>? translationData =
+          allData[translation] as Map<String, dynamic>?;
+      final Map<String, dynamic>? bookData =
+          translationData?[book] as Map<String, dynamic>?;
+      final List<dynamic>? chapterData =
+          bookData?[chapter.toString()] as List<dynamic>?;
+      if (chapterData != null) {
+        return chapterData
+            .map((v) => BibleVerse.fromJson(v as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('BibleService: Offline asset fallback failed: $e');
+    }
+    return [];
   }
 
   static const _r2Base = 'https://media.churchonapp.com/bible-text';

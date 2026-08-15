@@ -64,13 +64,31 @@ class SermonService {
 
   Future<void> reactToSermon(String sermonId, String type, {String? content}) async {
     final user = _client.auth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      debugPrint('SermonService: No authenticated user');
+      throw Exception('You must be logged in to react to sermons');
+    }
+
+    // Get user's tenant/church info for proper scoping
+    String? tenantId;
+    String? churchId;
+    try {
+      final profile = await _client.from('profiles').select('tenant_id, church_id').eq('id', user.id).maybeSingle();
+      if (profile != null) {
+        tenantId = profile['tenant_id'] as String?;
+        churchId = profile['church_id'] as String?;
+      }
+    } catch (e) {
+      debugPrint('SermonService: Could not fetch user tenant/church: $e');
+    }
 
     await _client.from('sermon_reactions').insert({
       'sermon_id': sermonId,
       'user_id': user.id,
       'reaction_type': type,
       'content': content,
+      'tenant_id': tenantId,
+      'church_id': churchId,
     });
   }
 
