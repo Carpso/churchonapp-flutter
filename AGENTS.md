@@ -500,7 +500,7 @@ Three GitHub Actions workflows automate the release train:
 |-----|---------|-------------|
 | `analyze` | `flutter analyze --no-fatal-infos` — warnings are FATAL | yes |
 | `test` | `key_flows_smoke_test.dart` is a hard gate; full suite is informational | key_flows only |
-| `secret-scan` | `scripts/ci/secret_scan.sh` — greps git-tracked files for live credentials (AWS/PATs/Stripe/OpenAI/Supabase/Lipila/Slack/HF/Resend/private keys/hardcoded JWTs). Whitelists `web/index.html` (PUBLIC Firebase web config) + `*.md` | yes |
+| `secret-scan` | `.github/scripts/secret_scan.sh` — greps git-tracked files for live credentials (AWS/PATs/Stripe/OpenAI/Supabase/Lipila/Slack/HF/Resend/private keys/hardcoded JWTs). Whitelists `web/index.html` (PUBLIC Firebase web config) + `*.md` | yes |
 | `codeql` | CodeQL TS/JS over `supabase/functions` + `web` — **only when repo var `ENABLE_CODEQL` = `true`** (requires GitHub Advanced Security) | yes |
 
 ### `ci-cd.yml` — Tag/deploy pipeline (main pushes, tags, dispatch)
@@ -518,7 +518,7 @@ Manual (`workflow_dispatch`) + on `v*` tags. Builds debug APK + `integration_tes
 
 ### Rules for agents
 - Never commit `google-services.json`/`GoogleService-Info.plist`/`.env`/keystores (all gitignored; CI materializes them from secrets).
-- New live-credential format in code ⇒ add its regex to `scripts/ci/secret_scan.sh` (and whitelist legit public config files explicitly).
+- New live-credential format in code ⇒ add its regex to `.github/scripts/secret_scan.sh` (and whitelist legit public config files explicitly).
 - `integration_test/app_smoke_test.dart` must keep compiling (`flutter analyze` covers it); it pumps `ChurchOnApp` and asserts first frame with no exception.
 
 ## How To: Build & Release

@@ -47,7 +47,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Run secret scanner
-        run: bash scripts/ci/secret_scan.sh
+        run: bash .github/scripts/secret_scan.sh
 
   # CodeQL (TypeScript/JavaScript) over the Supabase Edge Functions + web.
   # Optional: enable by setting the ENABLE_CODEQL repository variable to
