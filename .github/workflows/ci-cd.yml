@@ -93,9 +93,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     needs: [analyze, test]
-    # Requires the gitignored keystore + google-services.json — skip unless the
-    # repo has the secrets configured.
-    if: secrets.STORE_FILE != '' && secrets.GOOGLE_SERVICES_JSON != '' && (github.event.inputs.build_type == 'both' || github.event.inputs.build_type == 'apk' || github.event_name != 'workflow_dispatch')
+    env:
+      HAS_SIGNING: ${{ secrets.STORE_FILE != '' && secrets.GOOGLE_SERVICES_JSON != '' }}
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.build_type == 'both' || github.event.inputs.build_type == 'apk'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -121,10 +121,16 @@ jobs:
       - name: Create .env from example
         run: cp .env.example .env
 
+      - name: Check signing secrets
+        if: env.HAS_SIGNING != 'true'
+        run: echo "::warning::Signing secrets (STORE_FILE/GOOGLE_SERVICES_JSON) not configured - APK build skipped"
+
       - name: Materialize google-services.json from secret
+        if: env.HAS_SIGNING == 'true'
         run: echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
 
       - name: Materialize upload keystore from secret
+        if: env.HAS_SIGNING == 'true'
         run: echo "${{ secrets.STORE_FILE }}" | base64 -d > android/app/upload-keystore.jks
 
       - name: Generate build number
@@ -143,6 +149,7 @@ jobs:
           BUILD_NUMBER: ${{ steps.build_number.outputs.BUILD_NUMBER }}
 
       - name: Build APK
+        if: env.HAS_SIGNING == 'true'
         run: |
           flutter build apk --release \
             --build-name=1.0.0 \
@@ -150,6 +157,7 @@ jobs:
             --obfuscate --split-debug-info=build/app/outputs/symbols
 
       - name: Verify APK
+        if: env.HAS_SIGNING == 'true'
         run: |
           APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
           if [ -f "$APK_PATH" ]; then
@@ -162,6 +170,7 @@ jobs:
           fi
 
       - name: Upload APK artifact
+        if: env.HAS_SIGNING == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: apk-release
@@ -169,6 +178,7 @@ jobs:
           retention-days: 30
 
       - name: Upload mapping files
+        if: env.HAS_SIGNING == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: mapping-files
@@ -181,7 +191,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     needs: [analyze, test]
-    if: secrets.STORE_FILE != '' && secrets.GOOGLE_SERVICES_JSON != '' && (github.event.inputs.build_type == 'both' || github.event.inputs.build_type == 'aab' || github.event_name != 'workflow_dispatch')
+    env:
+      HAS_SIGNING: ${{ secrets.STORE_FILE != '' && secrets.GOOGLE_SERVICES_JSON != '' }}
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.build_type == 'both' || github.event.inputs.build_type == 'aab'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -207,10 +219,16 @@ jobs:
       - name: Create .env from example
         run: cp .env.example .env
 
+      - name: Check signing secrets
+        if: env.HAS_SIGNING != 'true'
+        run: echo "::warning::Signing secrets (STORE_FILE/GOOGLE_SERVICES_JSON) not configured - AAB build skipped"
+
       - name: Materialize google-services.json from secret
+        if: env.HAS_SIGNING == 'true'
         run: echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
 
       - name: Materialize upload keystore from secret
+        if: env.HAS_SIGNING == 'true'
         run: echo "${{ secrets.STORE_FILE }}" | base64 -d > android/app/upload-keystore.jks
 
       - name: Generate build number
@@ -229,6 +247,7 @@ jobs:
           BUILD_NUMBER: ${{ steps.build_number.outputs.BUILD_NUMBER }}
 
       - name: Build AAB
+        if: env.HAS_SIGNING == 'true'
         run: |
           flutter build appbundle --release \
             --build-name=1.0.0 \
@@ -236,6 +255,7 @@ jobs:
             --obfuscate --split-debug-info=build/app/outputs/symbols
 
       - name: Verify AAB
+        if: env.HAS_SIGNING == 'true'
         run: |
           AAB_PATH="build/app/outputs/bundle/release/app-release.aab"
           if [ -f "$AAB_PATH" ]; then
@@ -248,6 +268,7 @@ jobs:
           fi
 
       - name: Upload AAB artifact
+        if: env.HAS_SIGNING == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: aab-release
@@ -255,6 +276,7 @@ jobs:
           retention-days: 30
 
       - name: Upload mapping files
+        if: env.HAS_SIGNING == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: mapping-files
@@ -317,18 +339,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [build-aab]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && secrets.GOOGLE_PLAY_SERVICE_ACCOUNT != ''
+    env:
+      HAS_PLAY: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT != '' }}
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: read
       packages: write
     steps:
+      - name: Check Play service account secret
+        if: env.HAS_PLAY != 'true'
+        run: echo "::warning::GOOGLE_PLAY_SERVICE_ACCOUNT not configured - Play Store deploy skipped"
+
       - name: Download AAB
+        if: env.HAS_PLAY == 'true'
         uses: actions/download-artifact@v4
         with:
           name: aab-release
           path: ./build
 
       - name: Upload to Play Store (Internal Testing)
+        if: env.HAS_PLAY == 'true'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
@@ -339,7 +369,7 @@ jobs:
           inAppUpdatePriority: 2
 
       - name: Comment on PR/Commit
-        if: success()
+        if: success() && env.HAS_PLAY == 'true'
         run: |
           echo "✅ Successfully deployed to Play Store Internal Testing track"
         env:
@@ -351,23 +381,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [build-apk, build-aab]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.STORE_FILE != ''
+    env:
+      HAS_SIGNING: ${{ secrets.STORE_FILE != '' }}
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
     steps:
+      - name: Check signing secret
+        if: env.HAS_SIGNING != 'true'
+        run: echo "::warning::STORE_FILE not configured - GitHub Release skipped"
+
       - name: Download APK
+        if: env.HAS_SIGNING == 'true'
         uses: actions/download-artifact@v4
         with:
           name: apk-release
           path: ./apk
 
       - name: Download AAB
+        if: env.HAS_SIGNING == 'true'
         uses: actions/download-artifact@v4
         with:
           name: aab-release
           path: ./aab
 
       - name: Create Release
+        if: env.HAS_SIGNING == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
