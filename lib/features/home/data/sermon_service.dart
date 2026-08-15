@@ -8,8 +8,11 @@ class Sermon {
   final String preacher;
   final String thumbnailUrl;
   final String videoUrl;
+  final String audioUrl;
   final bool isLive;
   final int viewerCount;
+  final int amenCount;
+  final int insightCount;
   final String category;
   final int? durationMinutes;
   final String? transcript;
@@ -22,8 +25,11 @@ class Sermon {
     required this.preacher,
     required this.thumbnailUrl,
     required this.videoUrl,
+    this.audioUrl = '',
     this.isLive = false,
     this.viewerCount = 0,
+    this.amenCount = 0,
+    this.insightCount = 0,
     this.category = 'General',
     this.durationMinutes,
     this.transcript,
@@ -38,8 +44,11 @@ class Sermon {
       preacher: map['preacher'] ?? 'Unknown Preacher',
       thumbnailUrl: map['thumbnail_url'] ?? '',
       videoUrl: map['video_url'] ?? '',
+      audioUrl: map['audio_url'] ?? '',
       isLive: map['is_live'] ?? false,
       viewerCount: map['viewer_count'] ?? 0,
+      amenCount: (map['amen_count'] as num?)?.toInt() ?? 0,
+      insightCount: (map['insight_count'] as num?)?.toInt() ?? 0,
       category: map['category'] ?? 'General',
       durationMinutes: map['duration_minutes'] as int?,
       transcript: map['transcript'],
@@ -119,6 +128,22 @@ class SermonService {
       debugPrint('SermonService: Could not fetch user tenant/church: $e');
     }
 
+    // "Amen" is a toggle — one reaction per user per sermon so the count
+    // reflects distinct worshippers, not taps. Tapping again removes it.
+    if (type == 'amen') {
+      final existing = await _client
+          .from('sermon_reactions')
+          .select('id')
+          .eq('sermon_id', sermonId)
+          .eq('user_id', user.id)
+          .eq('reaction_type', 'amen')
+          .maybeSingle();
+      if (existing != null) {
+        await _client.from('sermon_reactions').delete().eq('id', existing['id']);
+        return;
+      }
+    }
+
     await _client.from('sermon_reactions').insert({
       'sermon_id': sermonId,
       'user_id': user.id,
@@ -127,6 +152,24 @@ class SermonService {
       'tenant_id': tenantId,
       'church_id': churchId,
     });
+  }
+
+  Future<bool> hasUserReacted(String sermonId, String type) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return false;
+    try {
+      final existing = await _client
+          .from('sermon_reactions')
+          .select('id')
+          .eq('sermon_id', sermonId)
+          .eq('user_id', user.id)
+          .eq('reaction_type', type)
+          .maybeSingle();
+      return existing != null;
+    } catch (e) {
+      debugPrint('SermonService: hasUserReacted error: $e');
+      return false;
+    }
   }
 
   Stream<List<Map<String, dynamic>>> streamSermonInsights(String sermonId) {

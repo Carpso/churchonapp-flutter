@@ -335,7 +335,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             route.startsWith('/streaming-config') ||
             route.startsWith('/crm-donors') ||
             route.startsWith('/stream-admin') ||
-            route.startsWith('/live-studio') ||
             route.startsWith('/volunteer-scheduling') ||
             route.startsWith('/role-approvals') ||
             route.startsWith('/custom-roles') ||
@@ -346,6 +345,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             route == '/poll-creator' ||
             route == '/report-creator') {
           return user.isPastorOrHigher || user.role == 'general_treasurer';
+        }
+
+        // Live studio: pastors, bishops and assigned tenant leaders may stream
+        if (route.startsWith('/live-studio')) {
+          return user.isLeadershipTeam || user.role == 'general_treasurer';
         }
 
         // Finance (Treasurer / Usher / Leadership)

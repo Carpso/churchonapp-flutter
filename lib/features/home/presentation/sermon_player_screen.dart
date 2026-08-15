@@ -24,18 +24,30 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
   bool _isLoading = true;
   bool _hasError = false;
   bool _isLiked = false;
+  int _amenCount = 0;
   final TextEditingController _commentCtrl = TextEditingController();
   String _resolvedVideoUrl = '';
 
   @override
   void initState() {
     super.initState();
+    _amenCount = widget.sermon.amenCount;
     _initializePlayer();
+    _loadUserReaction();
+  }
+
+  Future<void> _loadUserReaction() async {
+    try {
+      final service = ref.read(sermonServiceProvider);
+      final liked = await service.hasUserReacted(widget.sermon.id, 'amen');
+      if (mounted && liked) setState(() => _isLiked = true);
+    } catch (e) {
+      debugPrint("Amen state load error: $e");
+    }
   }
 
   bool get _hasValidMedia {
-    final url = widget.sermon.videoUrl;
-    return url.isNotEmpty;
+    return widget.sermon.videoUrl.isNotEmpty || widget.sermon.audioUrl.isNotEmpty;
   }
 
   Future<void> _initializePlayer() async {
@@ -54,8 +66,9 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
     try {
       final client = ref.read(supabaseServiceProvider).client;
       final r2 = R2Service(client);
-      final resolved = await r2.getSignedUrl(widget.sermon.videoUrl);
-      _resolvedVideoUrl = resolved ?? widget.sermon.videoUrl;
+      final rawUrl = widget.sermon.videoUrl.isNotEmpty ? widget.sermon.videoUrl : widget.sermon.audioUrl;
+      final resolved = await r2.getSignedUrl(rawUrl);
+      _resolvedVideoUrl = resolved ?? rawUrl;
 
       _videoController = VideoPlayerController.networkUrl(Uri.parse(_resolvedVideoUrl));
       _videoController.addListener(() {
@@ -441,18 +454,35 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
     return "$minutes:$seconds";
   }
 
+  Future<void> _toggleAmen() async {
+    final wasLiked = _isLiked;
+    setState(() {
+      _isLiked = !wasLiked;
+      _amenCount = _amenCount + (wasLiked ? -1 : 1);
+    });
+    try {
+      await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'amen');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(wasLiked ? "Amen removed." : "Amen! Seed of faith received."),
+        ));
+      }
+    } catch (e) {
+      debugPrint("Amen reaction error: $e");
+      if (mounted) {
+        setState(() {
+          _isLiked = wasLiked;
+          _amenCount = _amenCount + (wasLiked ? 1 : -1);
+        });
+      }
+    }
+  }
+
   Widget _buildActionRow() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        _buildActionItem(LucideIcons.heart, "Amen", onTap: () async {
-          try {
-            await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'amen');
-            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Amen! Seed of faith received.")));
-          } catch (e) {
-            debugPrint("Amen reaction error: $e");
-          }
-        }),
+        _buildActionItem(LucideIcons.heart, _isLiked ? "Amen ✓" : "Amen", onTap: _toggleAmen),
         _buildActionItem(LucideIcons.messageSquare, "Discuss", onTap: () {
           _showComments();
         }),
@@ -594,10 +624,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
           Row(
             children: [
               GestureDetector(
-                onTap: () async {
-                  setState(() => _isLiked = !_isLiked);
-                  await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'amen');
-                },
+                onTap: _toggleAmen,
                 child: Row(
                   children: [
                     Icon(
@@ -615,6 +642,13 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                         color: _isLiked ? Colors.red : Colors.grey,
                       ),
                     ),
+                    if (_amenCount > 0) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        '$_amenCount',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                      ),
+                    ],
                   ],
                 ),
               ),

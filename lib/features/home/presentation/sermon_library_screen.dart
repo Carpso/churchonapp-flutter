@@ -433,6 +433,30 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
+                  if (sermon.amenCount > 0 || sermon.insightCount > 0) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        if (sermon.amenCount > 0) ...[
+                          const Icon(LucideIcons.heart, color: Colors.redAccent, size: 12),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${sermon.amenCount}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+                        if (sermon.insightCount > 0) ...[
+                          const Icon(LucideIcons.messageSquare, color: Colors.amber, size: 12),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${sermon.insightCount}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -584,6 +608,38 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
                           ),
                         ),
                       ),
+                    ),
+                  ],
+                  if (sermon.amenCount > 0 || sermon.insightCount > 0) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        if (sermon.amenCount > 0) ...[
+                          Icon(LucideIcons.heart, size: 14, color: Colors.redAccent.shade200),
+                          const SizedBox(width: 5),
+                          Text(
+                            '${sermon.amenCount} Amen',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                        ],
+                        if (sermon.insightCount > 0) ...[
+                          Icon(LucideIcons.messageSquare, size: 14, color: Theme.of(context).colorScheme.secondary),
+                          const SizedBox(width: 5),
+                          Text(
+                            '${sermon.insightCount} Insight${sermon.insightCount == 1 ? '' : 's'}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ],

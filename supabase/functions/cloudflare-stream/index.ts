@@ -52,7 +52,7 @@ serve(async (req) => {
     });
   }
 
-  const leadershipRoles = ["superadmin", "coa_employee", "bishop", "general_secretary", "pastor", "admin"];
+  const leadershipRoles = ["superadmin", "coa_employee", "bishop", "general_secretary", "pastor", "admin", "leader", "department_leader"];
   if (!leadershipRoles.includes(profile.role)) {
     return new Response(JSON.stringify({ error: "Insufficient role", role: profile.role }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -200,8 +200,7 @@ async function createLiveInput(params: any, req: Request) {
         meta: params.meta || {},
         recording: {
           mode: "automatic",
-          requireSignedURLs: true,
-          allowedOrigins: ["https://churchonapp.com", "https://www.churchonapp.com", "https://app.churchonapp.com"],
+          requireSignedURLs: false,
         },
         rtmps: {
           enabled: true,
