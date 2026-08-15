@@ -141,20 +141,24 @@ jobs:
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
 
-      - name: Generate build number
-        id: build_number
+      - name: Compute semantic version
+        id: semver
         run: |
-          BUILD_NUMBER=$(date +%s)
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          VERSION_NAME="1.0.0"
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION_NAME="${GITHUB_REF_NAME#v}"
+          fi
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-          echo "VERSION_NAME=1.0.0" >> $GITHUB_OUTPUT
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_OUTPUT
 
       - name: Update pubspec version
         run: |
           sed -i "s/version: .*/version: ${VERSION_NAME}+${BUILD_NUMBER}/" pubspec.yaml
           echo "Updated pubspec.yaml to version ${VERSION_NAME}+${BUILD_NUMBER}"
         env:
-          VERSION_NAME: 1.0.0
-          BUILD_NUMBER: ${{ steps.build_number.outputs.BUILD_NUMBER }}
+          VERSION_NAME: ${{ steps.semver.outputs.VERSION_NAME }}
+          BUILD_NUMBER: ${{ steps.semver.outputs.BUILD_NUMBER }}
 
       - name: Free disk space
         if: env.HAS_SIGNING == 'true'
@@ -182,8 +186,8 @@ jobs:
         run: |
           ( i=0; while [ $i -lt 200 ]; do echo "HEARTBEAT $(date -u +%H:%M:%S) mem:$(free -m | awk '/Mem:/{print $3"MiB/"$2"MiB"}') disk:$(df -h / | awk 'NR==2{print $4}')"; sleep 20; i=$((i+1)); done ) >&2 &
           flutter build apk --release \
-            --build-name=1.0.0 \
-            --build-number=${{ steps.build_number.outputs.BUILD_NUMBER }} \
+            --build-name=${{ steps.semver.outputs.VERSION_NAME }} \
+            --build-number=${{ steps.semver.outputs.BUILD_NUMBER }} \
             --obfuscate --split-debug-info=build/app/outputs/symbols \
             > /tmp/apk_build.log 2>&1
           echo "exit=$?" >> "$GITHUB_OUTPUT"
@@ -288,20 +292,24 @@ jobs:
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
 
-      - name: Generate build number
-        id: build_number
+      - name: Compute semantic version
+        id: semver
         run: |
-          BUILD_NUMBER=$(date +%s)
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          VERSION_NAME="1.0.0"
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION_NAME="${GITHUB_REF_NAME#v}"
+          fi
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-          echo "VERSION_NAME=1.0.0" >> $GITHUB_OUTPUT
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_OUTPUT
 
       - name: Update pubspec version
         run: |
           sed -i "s/version: .*/version: ${VERSION_NAME}+${BUILD_NUMBER}/" pubspec.yaml
           echo "Updated pubspec.yaml to version ${VERSION_NAME}+${BUILD_NUMBER}"
         env:
-          VERSION_NAME: 1.0.0
-          BUILD_NUMBER: ${{ steps.build_number.outputs.BUILD_NUMBER }}
+          VERSION_NAME: ${{ steps.semver.outputs.VERSION_NAME }}
+          BUILD_NUMBER: ${{ steps.semver.outputs.BUILD_NUMBER }}
 
       - name: Free disk space
         if: env.HAS_SIGNING == 'true'
@@ -327,10 +335,10 @@ jobs:
         if: env.HAS_SIGNING == 'true'
         continue-on-error: true
         run: |
-          ( i=0; while [ $i -lt 80 ]; do echo "HEARTBEAT $(date -u +%H:%M:%S) mem:$(free -m | awk '/Mem:/{print $3"MiB/"$2"MiB"}') disk:$(df -h / | awk 'NR==2{print $4}')"; sleep 20; i=$((i+1)); done ) >&2 &
+          ( i=0; while [ $i -lt 200 ]; do echo "HEARTBEAT $(date -u +%H:%M:%S) mem:$(free -m | awk '/Mem:/{print $3"MiB/"$2"MiB"}') disk:$(df -h / | awk 'NR==2{print $4}')"; sleep 20; i=$((i+1)); done ) >&2 &
           flutter build appbundle --release \
-            --build-name=1.0.0 \
-            --build-number=${{ steps.build_number.outputs.BUILD_NUMBER }} \
+            --build-name=${{ steps.semver.outputs.VERSION_NAME }} \
+            --build-number=${{ steps.semver.outputs.BUILD_NUMBER }} \
             --obfuscate --split-debug-info=build/app/outputs/symbols \
             > /tmp/aab_build.log 2>&1
           echo "exit=$?" >> "$GITHUB_OUTPUT"
@@ -406,23 +414,29 @@ jobs:
       - name: Create .env from example
         run: cp .env.example .env
 
-      - name: Generate build number
-        id: build_number
+      - name: Compute semantic version
+        id: semver
         run: |
-          BUILD_NUMBER=$(date +%s)
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          VERSION_NAME="1.0.0"
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION_NAME="${GITHUB_REF_NAME#v}"
+          fi
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_OUTPUT
 
       - name: Update pubspec version
         run: |
-          sed -i '' "s/version: .*/version: 1.0.0+${BUILD_NUMBER}/" pubspec.yaml
+          sed -i '' "s/version: .*/version: ${VERSION_NAME}+${BUILD_NUMBER}/" pubspec.yaml
         env:
-          BUILD_NUMBER: ${{ steps.build_number.outputs.BUILD_NUMBER }}
+          VERSION_NAME: ${{ steps.semver.outputs.VERSION_NAME }}
+          BUILD_NUMBER: ${{ steps.semver.outputs.BUILD_NUMBER }}
 
       - name: Build iOS (unsigned, simulator)
         run: |
           flutter build ios --simulator --no-codesign \
-            --build-name=1.0.0 \
-            --build-number=${{ steps.build_number.outputs.BUILD_NUMBER }}
+            --build-name=${{ steps.semver.outputs.VERSION_NAME }} \
+            --build-number=${{ steps.semver.outputs.BUILD_NUMBER }}
 
       - name: Upload iOS build
         uses: actions/upload-artifact@v4
@@ -503,35 +517,69 @@ jobs:
           name: aab-release
           path: ./aab
 
+      - name: Generate changelog from git history
+        if: env.HAS_SIGNING == 'true'
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            git log --oneline -30 > RELEASE_NOTES.md
+          else
+            git log --oneline ${PREV_TAG}..HEAD > RELEASE_NOTES.md
+          fi
+          echo "--- Release notes (last ${PREV_TAG:-30 commits}) ---"
+          cat RELEASE_NOTES.md
+
       - name: Create Release
         if: env.HAS_SIGNING == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
-          body: |
-            ## Church On App Release ${{ github.ref_name }}
-
-            ### 📱 Android Builds
-            - **APK**: Ready for direct installation and testing
-            - **AAB**: Optimized for Google Play Store distribution
-
-            ### 📦 What's New
-            - Enhanced Bible reading experience
-            - New quiz features and competitions
-            - Improved radio streaming
-            - Bug fixes and performance improvements
-
-            ### 📱 Installation
-            1. Download the APK file
-            2. Enable "Install from unknown sources" in Android settings
-            3. Install and enjoy!
-
+          body_path: RELEASE_NOTES.md
+          generate_release_notes: true
           draft: false
           prerelease: false
           files: |
             apk/app-release.apk
             aab/app-release.aab
+
+  # Instant tester distribution — push the APK to Firebase App Distribution
+  # the moment code lands on main (no manual emailing of builds).
+  distribute-firebase:
+    name: 📲 Firebase App Distribution (OTA)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [build-apk]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && secrets.FIREBASE_SERVICE_ACCOUNT != '' && secrets.FIREBASE_ANDROID_APP_ID != ''
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: apk-release
+          path: ./apk
+
+      - name: Generate changelog from git history
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            git log --oneline -20 > RELEASE_NOTES.md
+          else
+            git log --oneline ${PREV_TAG}..HEAD > RELEASE_NOTES.md
+          fi
+
+      - name: Distribute to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          serviceCredentialsJsonContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          groups: ${{ secrets.FIREBASE_TESTER_GROUPS }}
+          file: apk/app-release.apk
+          releaseNotesFile: RELEASE_NOTES.md
 
   # Notify on failure
   notify-failure:
@@ -540,7 +588,21 @@ jobs:
     if: failure()
     needs: [analyze, test, build-apk, build-aab]
     steps:
-      - name: Send failure notification
+      - name: Notify Slack
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {"text":"❌ CI/CD FAILED for ${{ github.repository }} (${{ github.ref_name }})\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\nCommit: ${{ github.sha }}"}
+      - name: Notify Discord
+        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' && secrets.SLACK_WEBHOOK_URL == '' }}
+        run: |
+          curl -s -X POST -H "Content-Type: application/json" \
+            -d '{"content":"❌ CI/CD FAILED for ${{ github.repository }} (${{ github.ref_name }})\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
+            ${{ secrets.DISCORD_WEBHOOK_URL }}
+      - name: Fallback (no webhook configured)
+        if: ${{ secrets.SLACK_WEBHOOK_URL == '' && secrets.DISCORD_WEBHOOK_URL == '' }}
         run: |
           echo "❌ Build failed! Check the Actions tab for details."
           echo "Workflow: ${{ github.workflow }}"
@@ -554,7 +616,21 @@ jobs:
     if: success()
     needs: [analyze, test, build-apk, build-aab]
     steps:
-      - name: Send success notification
+      - name: Notify Slack
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {"text":"✅ CI/CD PASSED for ${{ github.repository }} (${{ github.ref_name }}) — APK/AAB artifacts ready.\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
+      - name: Notify Discord
+        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' && secrets.SLACK_WEBHOOK_URL == '' }}
+        run: |
+          curl -s -X POST -H "Content-Type: application/json" \
+            -d '{"content":"✅ CI/CD PASSED for ${{ github.repository }} (${{ github.ref_name }}) — APK/AAB artifacts ready.\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
+            ${{ secrets.DISCORD_WEBHOOK_URL }}
+      - name: Fallback (no webhook configured)
+        if: ${{ secrets.SLACK_WEBHOOK_URL == '' && secrets.DISCORD_WEBHOOK_URL == '' }}
         run: |
           echo "✅ All checks passed!"
           echo "Build artifacts are ready for deployment."

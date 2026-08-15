@@ -1,0 +1,79 @@
+name: Firebase Test Lab (Real Devices)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  test-lab:
+    name: 📱 Real-Device Instrumentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    # Requires Firebase service account + project (add secrets to enable):
+    #   GCLOUD_SERVICE_ACCOUNT  — service account JSON with Firebase Test Lab Admin
+    #   FIREBASE_PROJECT_ID     — Firebase project id
+    #   GOOGLE_SERVICES_JSON    — base64 android/app/google-services.json
+    if: ${{ secrets.GCLOUD_SERVICE_ACCOUNT != '' && secrets.FIREBASE_PROJECT_ID != '' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.1'
+          cache: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Create .env from example
+        run: cp .env.example .env
+
+      - name: Materialize google-services.json
+        run: echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
+
+      - name: Build app APK (debug)
+        run: flutter build apk --debug
+
+      - name: Build instrumentation test APK
+        run: flutter build apk --debug --target=integration_test/app_smoke_test.dart
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          service_account_key: ${{ secrets.GCLOUD_SERVICE_ACCOUNT }}
+          project_id: ${{ secrets.FIREBASE_PROJECT_ID }}
+          export_default_credentials: true
+
+      - name: Run on Firebase Test Lab devices
+        run: |
+          gcloud firebase test android run \
+            --type instrumentation \
+            --app build/app/outputs/apk/debug/app-debug.apk \
+            --test build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
+            --device model=Pixel7,version=33,locale=en,orientation=portrait \
+            --device model=Pixel5,version=30,locale=en,orientation=portrait \
+            --device model=Pixel4a,version=28,locale=en,orientation=portrait \
+            --timeout 20m \
+            --results-dir=coa-smoke-$(date +%Y%m%d-%H%M%S) \
+            --fail-fast
+
+      - name: Notify Test Lab outcome
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Firebase Test Lab passed on all devices"
+          else
+            echo "❌ Firebase Test Lab failed — see results in Firebase Console"
+            exit 1
+          fi

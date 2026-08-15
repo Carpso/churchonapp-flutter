@@ -491,6 +491,36 @@ Key tenant-scoped patterns in the codebase:
 
 If a user's `profiles.tenant_id` is NULL, they won't appear in tenant-scoped queries. When registering a user to a church, always set `tenant_id` on their profile.
 
+## How To: Use the Smart CI/CD Pipeline
+
+Three GitHub Actions workflows automate the release train:
+
+### `ci.yml` — Pull-request/push guard (fast)
+| Job | Purpose | Fails build? |
+|-----|---------|-------------|
+| `analyze` | `flutter analyze --no-fatal-infos` — warnings are FATAL | yes |
+| `test` | `key_flows_smoke_test.dart` is a hard gate; full suite is informational | key_flows only |
+| `secret-scan` | `scripts/ci/secret_scan.sh` — greps git-tracked files for live credentials (AWS/PATs/Stripe/OpenAI/Supabase/Lipila/Slack/HF/Resend/private keys/hardcoded JWTs). Whitelists `web/index.html` (PUBLIC Firebase web config) + `*.md` | yes |
+| `codeql` | CodeQL TS/JS over `supabase/functions` + `web` — **only when repo var `ENABLE_CODEQL` = `true`** (requires GitHub Advanced Security) | yes |
+
+### `ci-cd.yml` — Tag/deploy pipeline (main pushes, tags, dispatch)
+1. **Semantic versioning**: `BUILD_NUMBER = git rev-list --count HEAD` (auto-increments every commit); `VERSION_NAME` from the git tag (`v1.2.0` → `1.2.0`), else `1.0.0`. pubspec gets `version: {NAME}+{NUMBER}`. No manual version bumps needed.
+2. **Builds**: APK (75-min timeout + 200 heartbeat), AAB, iOS (unsigned simulator). Both gated on `STORE_FILE`/`KEY_*` secrets.
+3. **Create Release**: GitHub Release with `RELEASE_NOTES.md` auto-generated from `git log` between the previous tag and HEAD (+ `generate_release_notes: true`), APK + AAB attached. Fires only on **tag push**.
+4. **`distribute-firebase`**: Firebase App Distribution (OTA to testers) on every main push — gated on `FIREBASE_SERVICE_ACCOUNT` + `FIREBASE_ANDROID_APP_ID` secrets.
+5. **`notify-success`/`notify-failure`**: Slack via `SLACK_WEBHOOK_URL`; falls back to `DISCORD_WEBHOOK_URL`; else echo. No webhook = green anyway.
+
+### `test-lab.yml` — Real-device instrumentation
+Manual (`workflow_dispatch`) + on `v*` tags. Builds debug APK + `integration_test/app_smoke_test.dart` androidTest APK, runs on Pixel 7/5/4a (API 33/30/28) via `gcloud firebase test android run`. Gated on `GCLOUD_SERVICE_ACCOUNT` + `FIREBASE_PROJECT_ID` secrets.
+
+### Secrets to add (all jobs are gated — CI stays green without them)
+`FIREBASE_SERVICE_ACCOUNT`, `FIREBASE_ANDROID_APP_ID`, `FIREBASE_TESTER_GROUPS`, `SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`, `GCLOUD_SERVICE_ACCOUNT`, `FIREBASE_PROJECT_ID`. Already set: `STORE_FILE`, `STORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`, `GOOGLE_SERVICES_JSON`, `GOOGLE_PLAY_SERVICE_ACCOUNT`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`.
+
+### Rules for agents
+- Never commit `google-services.json`/`GoogleService-Info.plist`/`.env`/keystores (all gitignored; CI materializes them from secrets).
+- New live-credential format in code ⇒ add its regex to `scripts/ci/secret_scan.sh` (and whitelist legit public config files explicitly).
+- `integration_test/app_smoke_test.dart` must keep compiling (`flutter analyze` covers it); it pumps `ChurchOnApp` and asserts first frame with no exception.
+
 ## How To: Build & Release
 
 ```powershell

@@ -8,7 +8,7 @@ on:
 
 jobs:
   analyze:
-    name: Flutter Analyze
+    name: Flutter Analyze (warnings fatal)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,7 +17,8 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      # Warnings fail the build; info-level only tolerated.
+      - run: flutter analyze --no-fatal-infos
 
   test:
     name: Flutter Test
@@ -35,6 +36,37 @@ jobs:
       - run: flutter test test/key_flows_smoke_test.dart
       # Full suite runs but failures are informational (fragile mocks pre-date CI).
       - run: flutter test || true
+
+  # Blocks commits that contain live credentials (API keys, PATs, private
+  # keys, hardcoded JWTs). Scans only git-tracked files.
+  secret-scan:
+    name: 🔐 Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run secret scanner
+        run: bash scripts/ci/secret_scan.sh
+
+  # CodeQL (TypeScript/JavaScript) over the Supabase Edge Functions + web.
+  # Optional: enable by setting the ENABLE_CODEQL repository variable to
+  # 'true' (requires GitHub Advanced Security on this repository).
+  codeql:
+    name: 🔬 CodeQL (Edge Functions)
+    runs-on: ubuntu-latest
+    if: vars.ENABLE_CODEQL == 'true'
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v3
 
   # Android release builds need the signing keystore + google-services.json,
   # both gitignored. They live in ci-cd.yml, gated on repo secrets — skip them
