@@ -587,22 +587,25 @@ jobs:
     runs-on: ubuntu-latest
     if: failure()
     needs: [analyze, test, build-apk, build-aab]
+    env:
+      HAS_SLACK: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+      HAS_DISCORD: ${{ secrets.DISCORD_WEBHOOK_URL != '' }}
     steps:
       - name: Notify Slack
-        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        if: env.HAS_SLACK == 'true'
         uses: slackapi/slack-github-action@v2
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
           payload: |
             {"text":"❌ CI/CD FAILED for ${{ github.repository }} (${{ github.ref_name }})\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\nCommit: ${{ github.sha }}"}
       - name: Notify Discord
-        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' && secrets.SLACK_WEBHOOK_URL == '' }}
+        if: env.HAS_DISCORD == 'true' && env.HAS_SLACK != 'true'
         run: |
           curl -s -X POST -H "Content-Type: application/json" \
             -d '{"content":"❌ CI/CD FAILED for ${{ github.repository }} (${{ github.ref_name }})\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
             ${{ secrets.DISCORD_WEBHOOK_URL }}
       - name: Fallback (no webhook configured)
-        if: ${{ secrets.SLACK_WEBHOOK_URL == '' && secrets.DISCORD_WEBHOOK_URL == '' }}
+        if: env.HAS_SLACK != 'true' && env.HAS_DISCORD != 'true'
         run: |
           echo "❌ Build failed! Check the Actions tab for details."
           echo "Workflow: ${{ github.workflow }}"
@@ -615,22 +618,25 @@ jobs:
     runs-on: ubuntu-latest
     if: success()
     needs: [analyze, test, build-apk, build-aab]
+    env:
+      HAS_SLACK: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+      HAS_DISCORD: ${{ secrets.DISCORD_WEBHOOK_URL != '' }}
     steps:
       - name: Notify Slack
-        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        if: env.HAS_SLACK == 'true'
         uses: slackapi/slack-github-action@v2
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
           payload: |
             {"text":"✅ CI/CD PASSED for ${{ github.repository }} (${{ github.ref_name }}) — APK/AAB artifacts ready.\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
       - name: Notify Discord
-        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' && secrets.SLACK_WEBHOOK_URL == '' }}
+        if: env.HAS_DISCORD == 'true' && env.HAS_SLACK != 'true'
         run: |
           curl -s -X POST -H "Content-Type: application/json" \
             -d '{"content":"✅ CI/CD PASSED for ${{ github.repository }} (${{ github.ref_name }}) — APK/AAB artifacts ready.\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
             ${{ secrets.DISCORD_WEBHOOK_URL }}
       - name: Fallback (no webhook configured)
-        if: ${{ secrets.SLACK_WEBHOOK_URL == '' && secrets.DISCORD_WEBHOOK_URL == '' }}
+        if: env.HAS_SLACK != 'true' && env.HAS_DISCORD != 'true'
         run: |
           echo "✅ All checks passed!"
           echo "Build artifacts are ready for deployment."
