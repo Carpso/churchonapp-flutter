@@ -133,6 +133,14 @@ jobs:
         if: env.HAS_SIGNING == 'true'
         run: echo "${{ secrets.STORE_FILE }}" | base64 -d > android/app/upload-keystore.jks
 
+      - name: Create key.properties
+        if: env.HAS_SIGNING == 'true'
+        run: |
+          echo "storeFile=upload-keystore.jks" > android/key.properties
+          echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+
       - name: Generate build number
         id: build_number
         run: |
@@ -230,6 +238,14 @@ jobs:
       - name: Materialize upload keystore from secret
         if: env.HAS_SIGNING == 'true'
         run: echo "${{ secrets.STORE_FILE }}" | base64 -d > android/app/upload-keystore.jks
+
+      - name: Create key.properties
+        if: env.HAS_SIGNING == 'true'
+        run: |
+          echo "storeFile=upload-keystore.jks" > android/key.properties
+          echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
 
       - name: Generate build number
         id: build_number
