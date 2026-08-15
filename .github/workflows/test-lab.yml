@@ -15,18 +15,23 @@ jobs:
     #   GCLOUD_SERVICE_ACCOUNT  — service account JSON with Firebase Test Lab Admin
     #   FIREBASE_PROJECT_ID     — Firebase project id
     #   GOOGLE_SERVICES_JSON    — base64 android/app/google-services.json
-    if: ${{ secrets.GCLOUD_SERVICE_ACCOUNT != '' && secrets.FIREBASE_PROJECT_ID != '' }}
+    # secrets aren't allowed in `if:` — expose presence via job env instead.
+    env:
+      HAS_TESTLAB: ${{ secrets.GCLOUD_SERVICE_ACCOUNT != '' && secrets.FIREBASE_PROJECT_ID != '' }}
     steps:
       - name: Checkout repository
+        if: env.HAS_TESTLAB == 'true'
         uses: actions/checkout@v4
 
       - name: Setup Flutter
+        if: env.HAS_TESTLAB == 'true'
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.35.1'
           cache: true
 
       - name: Setup Java
+        if: env.HAS_TESTLAB == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -34,21 +39,27 @@ jobs:
           cache: 'gradle'
 
       - name: Install dependencies
+        if: env.HAS_TESTLAB == 'true'
         run: flutter pub get
 
       - name: Create .env from example
+        if: env.HAS_TESTLAB == 'true'
         run: cp .env.example .env
 
       - name: Materialize google-services.json
+        if: env.HAS_TESTLAB == 'true'
         run: echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
 
       - name: Build app APK (debug)
+        if: env.HAS_TESTLAB == 'true'
         run: flutter build apk --debug
 
       - name: Build instrumentation test APK
+        if: env.HAS_TESTLAB == 'true'
         run: flutter build apk --debug --target=integration_test/app_smoke_test.dart
 
       - name: Authenticate to Google Cloud
+        if: env.HAS_TESTLAB == 'true'
         uses: google-github-actions/setup-gcloud@v2
         with:
           service_account_key: ${{ secrets.GCLOUD_SERVICE_ACCOUNT }}
@@ -56,6 +67,7 @@ jobs:
           export_default_credentials: true
 
       - name: Run on Firebase Test Lab devices
+        if: env.HAS_TESTLAB == 'true'
         run: |
           gcloud firebase test android run \
             --type instrumentation \
@@ -69,7 +81,7 @@ jobs:
             --fail-fast
 
       - name: Notify Test Lab outcome
-        if: always()
+        if: always() && env.HAS_TESTLAB == 'true'
         run: |
           if [ "${{ job.status }}" == "success" ]; then
             echo "✅ Firebase Test Lab passed on all devices"

@@ -550,20 +550,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [build-apk]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && secrets.FIREBASE_SERVICE_ACCOUNT != '' && secrets.FIREBASE_ANDROID_APP_ID != ''
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      # secrets aren't allowed in `if:` — expose presence via job env instead.
+      HAS_FIREBASE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' && secrets.FIREBASE_ANDROID_APP_ID != '' }}
     steps:
       - name: Checkout repository
+        if: env.HAS_FIREBASE == 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Download APK
+        if: env.HAS_FIREBASE == 'true'
         uses: actions/download-artifact@v4
         with:
           name: apk-release
           path: ./apk
 
       - name: Generate changelog from git history
+        if: env.HAS_FIREBASE == 'true'
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
           if [ -z "$PREV_TAG" ]; then
@@ -573,6 +579,7 @@ jobs:
           fi
 
       - name: Distribute to Firebase App Distribution
+        if: env.HAS_FIREBASE == 'true'
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
