@@ -210,6 +210,14 @@ supabase db dump --linked --schema public -f schema_YYYYMMDD.sql
 | `FCM_SERVICE_ACCOUNT` | Edge env | No | Firebase → Service accounts |
 | `TURN_SECRET` | Edge env | No | Generate new |
 | `CRON_SECRET` | Edge env (set this!) | N/A | `openssl rand -hex 32` |
+| Upload keystore (`upload-keystore.jks`) | `android/app/` (gitignored) + GitHub secret `STORE_FILE` | No | Recreate key via Play Console → App signing → Replace upload key |
+| `key.properties` (passwords) | `android/` (gitignored) + GH secrets `STORE_PASSWORD`/`KEY_ALIAS`/`KEY_PASSWORD` | No | Change with upload-key replacement above |
+| `GOOGLE_SERVICES_JSON` (Firebase) | `android/app/` (gitignored) + GH secret | No | Firebase → Project settings → regenerate |
+| Play service account JSON | `Downloads\KINGDOM SPONSOR\` + GH secret `GOOGLE_PLAY_SERVICE_ACCOUNT` | No | Play Console → API access → create new key |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT` email | GH secret; needs "App Manager" invite in Play Console (email-recipient alone is NOT access) | No | Play Console → Users and permissions |
+| 3× Cloudflare `cfut_` tokens + 1× Supabase `sbp_` PAT | OneDrive\Documents `.txt` notes (plaintext) | **YES — plaintext on disk** | Rotate all in Cloudflare dashboard + Supabase dashboard, then delete the `.txt` files |
+| `CLOUDFLARE_API_TOKEN` (opencode-deploy) + `CLOUDFLARE_ACCOUNT_ID` | GH secrets `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` | Partially (same family as above) | Re-create Pages:Edit token → update GH secret |
+| Secrets backup (AES-256) | `OneDrive\Documents\COA-Security\COA-secrets-backup-*.bin` | Encrypted | Passphrase in Windows Credential Manager entry `COA-Secrets-Backup-Pass` |
 
 After rotating, update Edge Function env:
 ```powershell
