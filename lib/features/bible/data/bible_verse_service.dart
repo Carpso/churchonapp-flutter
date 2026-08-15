@@ -30,6 +30,8 @@ class DailyBibleVerse {
 
 class VerseNote {
   final String id;
+  final int? chapter;
+  final int? verse;
   final String note;
   final bool isBookmark;
   final bool isFavorite;
@@ -38,6 +40,8 @@ class VerseNote {
 
   VerseNote({
     required this.id,
+    this.chapter,
+    this.verse,
     required this.note,
     required this.isBookmark,
     required this.isFavorite,
@@ -48,6 +52,8 @@ class VerseNote {
   factory VerseNote.fromMap(Map<String, dynamic> map) {
     return VerseNote(
       id: map['id']?.toString() ?? '',
+      chapter: map['chapter'] as int?,
+      verse: map['verse'] as int?,
       note: map['note'] ?? '',
       isBookmark: map['is_bookmark'] ?? false,
       isFavorite: map['is_favorite'] ?? false,
@@ -261,7 +267,7 @@ class BibleVerseService {
 
       var queryBuilder = _client
           .from('verse_notes')
-          .select('id, note, is_bookmark, is_favorite, tags, created_at')
+          .select('id, note, is_bookmark, is_favorite, tags, created_at, chapter, verse')
           .eq('user_id', user.id);
 
       if (bookId != null) {

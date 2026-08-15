@@ -456,3 +456,32 @@ final scriptureSearchProvider =
 
       return hits;
     });
+
+/// Single-verse text in a parallel translation (used by the verse detail
+/// view for translation comparison).
+final parallelVerseTextProvider =
+    FutureProvider.family<String, Map<String, dynamic>>((ref, params) async {
+      final verses = await ref.read(bibleServiceProvider).getChapter(
+            params['translation'] as String,
+            params['book'] as String,
+            params['chapter'] as int,
+          );
+      final target = params['verse'] as int;
+      for (final v in verses) {
+        if (v.verse == target) return v.text;
+      }
+      return '';
+    });
+
+/// Cross-references for a single verse (tappable in the verse detail view).
+final verseCrossReferencesProvider =
+    FutureProvider.family<List<CrossReference>, Map<String, dynamic>>((
+      ref,
+      params,
+    ) async {
+      return ref.watch(bibleVerseServiceProvider).fetchCrossReferences(
+            bookId: params['bookId'] as int,
+            chapter: params['chapter'] as int,
+            verse: params['verse'] as int,
+          );
+    });

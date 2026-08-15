@@ -17,6 +17,7 @@ import '../data/bible_verse_service.dart';
 import '../data/streak_service.dart';
 import '../../notebook/presentation/notebook_screen.dart';
 import 'bible_audio_player.dart';
+import 'scripture_audio_button.dart';
 import 'study_plans_screen.dart';
 import '../../bible_study/presentation/bible_study_list_screen.dart';
 import 'scripture_memory_screen.dart';
@@ -342,62 +343,132 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                     itemCount: verses.length,
                     itemBuilder: (context, index) {
                       final v = verses[index];
-                      final isHighlighted = _highlightedVerses.contains(
-                        "${v.chapter}:${v.verse}",
-                      );
+                      final key = "${v.chapter}:${v.verse}";
+                      final isHighlighted = _highlightedVerses.contains(key);
+                      final bookOrder = _bookOrderFor(selectedBook);
+                      final chapterNotes = bookOrder == null
+                          ? const <VerseNote>[]
+                          : ref
+                                  .watch(
+                                    verseNotesProvider({
+                                      'bookId': bookOrder,
+                                      'chapter': selectedChapter,
+                                    }),
+                                  )
+                                  .value ??
+                              const <VerseNote>[];
+                      final notesForVerse =
+                          chapterNotes.where((n) => n.verse == v.verse);
+                      final hasBookmark =
+                          notesForVerse.any((n) => n.isBookmark);
+                      final hasFavorite =
+                          notesForVerse.any((n) => n.isFavorite);
+                      final hasNote = notesForVerse
+                          .any((n) => n.note.trim().isNotEmpty);
                       return GestureDetector(
                         onTap: () {
                           if (_activeBottomTab == 0) {
-                            // Highlight mode
+                            // Highlight mode — tap to toggle highlight
                             setState(() {
-                              final key = "${v.chapter}:${v.verse}";
                               if (_highlightedVerses.contains(key)) {
                                 _highlightedVerses.remove(key);
                               } else {
                                 _highlightedVerses.add(key);
                               }
                             });
-                          } else if (_activeBottomTab == 4) {
-                            setState(() => isStudyPaneOpen = !isStudyPaneOpen);
+                          } else {
+                            _showVerseDetail(v);
                           }
                         },
-                        onLongPress: () => _showVerseActions(v),
+                        onLongPress: () => _showVerseDetail(v),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                            horizontal: 8,
+                            vertical: 10,
+                            horizontal: 10,
                           ),
-                          margin: const EdgeInsets.only(bottom: 4),
-                          decoration: isHighlighted
-                              ? BoxDecoration(
-                                  color: Colors.amber.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(8),
-                                )
-                              : null,
-                          child: RichText(
-                            text: TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: "${v.verse} ",
+                          margin: const EdgeInsets.only(bottom: 6),
+                          decoration: BoxDecoration(
+                            color: isHighlighted
+                                ? Colors.amber.withValues(alpha: 0.15)
+                                : (isDarkTheme
+                                      ? Colors.white.withValues(alpha: 0.04)
+                                      : Colors.grey.withValues(alpha: 0.06)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 26,
+                                height: 26,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: isHighlighted
+                                      ? Colors.amber
+                                      : Colors.amber.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  '${v.verse}',
                                   style: TextStyle(
-                                    color: Colors.amber.shade700,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.w900,
-                                    fontSize: fontSize - 6,
+                                    color: isHighlighted
+                                        ? Colors.black
+                                        : Colors.amber.shade800,
                                   ),
                                 ),
-                                TextSpan(
-                                  text: v.text,
-                                  style: TextStyle(
-                                    color: isDarkTheme
-                                        ? Colors.white
-                                        : const Color(0xFF2D3436),
-                                    fontSize: fontSize,
-                                    height: 1.7,
-                                    fontFamily: 'Georgia',
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: RichText(
+                                  text: TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: v.text,
+                                        style: TextStyle(
+                                          color: isDarkTheme
+                                              ? Colors.white
+                                              : const Color(0xFF2D3436),
+                                          fontSize: fontSize,
+                                          height: 1.7,
+                                          fontFamily: 'Georgia',
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                              if (hasBookmark || hasFavorite || hasNote)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 6,
+                                    top: 2,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      if (hasBookmark)
+                                        const Icon(
+                                          LucideIcons.bookmark,
+                                          size: 13,
+                                          color: Colors.purple,
+                                        ),
+                                      if (hasFavorite)
+                                        const Icon(
+                                          LucideIcons.heart,
+                                          size: 13,
+                                          color: Colors.pink,
+                                        ),
+                                      if (hasNote)
+                                        const Icon(
+                                          LucideIcons.stickyNote,
+                                          size: 13,
+                                          color: Colors.orange,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       );
@@ -452,8 +523,9 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
         );
   }
 
-  void _showVerseActions(BibleVerse verse) {
+  void _showVerseDetail(BibleVerse verse) {
     final reference = "$selectedBook ${verse.chapter}:${verse.verse}";
+    final bookOrder = _bookOrderFor(selectedBook);
     final fullText = "${verse.text}\n— $reference";
 
     void saveNote(
@@ -463,7 +535,6 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
       String? noteText,
     }) async {
       final messenger = ScaffoldMessenger.of(context);
-      final bookOrder = _bookOrderFor(selectedBook);
       if (bookOrder == null) {
         messenger.showSnackBar(
           SnackBar(
@@ -483,6 +554,12 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
         isBookmark: isBookmark,
         isFavorite: isFavorite,
       );
+      ref.invalidate(
+        verseNotesProvider({
+          'bookId': bookOrder,
+          'chapter': verse.chapter,
+        }),
+      );
       messenger.showSnackBar(
         SnackBar(
           content: Text("$label saved"),
@@ -494,80 +571,431 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
 
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(25),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              reference,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              verse.text,
-              style: const TextStyle(
-                fontStyle: FontStyle.italic,
-                color: Colors.grey,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Consumer(
+        builder: (context, ref, _) {
+          final verseNotes = bookOrder == null
+              ? const <VerseNote>[]
+              : ref
+                      .watch(
+                        verseNotesProvider({
+                          'bookId': bookOrder,
+                          'chapter': verse.chapter,
+                          'verse': verse.verse,
+                        }),
+                      )
+                      .value ??
+                  const <VerseNote>[];
+          final existingNote = verseNotes.isEmpty ? null : verseNotes.first;
+          final isBookmarked = existingNote?.isBookmark ?? false;
+          final isFavorited = existingNote?.isFavorite ?? false;
+          final parallelCodes = ['kjv', 'web', 'nkjv']
+              .where((c) => c != selectedTranslation)
+              .toList();
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.75,
+            decoration: BoxDecoration(
+              color: isDarkTheme ? const Color(0xFF1E1E1E) : Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(30),
               ),
             ),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
+            child: Column(
               children: [
-                _actionChip(
-                  LucideIcons.highlighter,
-                  "Highlight",
-                  Colors.amber,
-                  onTap: () {
-                    saveNote("Highlight", isBookmark: true);
-                  },
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-                _actionChip(
-                  LucideIcons.copy,
-                  "Copy",
-                  Colors.blue,
-                  onTap: () async {
-                    final messenger = ScaffoldMessenger.of(context);
-                    await Clipboard.setData(ClipboardData(text: fullText));
-                    messenger.showSnackBar(
-                      const SnackBar(content: Text("Verse copied")),
-                    );
-                  },
-                ),
-                _actionChip(
-                  LucideIcons.share2,
-                  "Share",
-                  Colors.green,
-                  onTap: () {
-                    SharePlus.instance.share(ShareParams(text: fullText));
-                  },
-                ),
-                _actionChip(
-                  LucideIcons.bookmark,
-                  "Bookmark",
-                  Colors.purple,
-                  onTap: () {
-                    saveNote("Bookmark", isBookmark: true);
-                  },
-                ),
-                _actionChip(
-                  LucideIcons.pencil,
-                  "Note",
-                  Colors.orange,
-                  onTap: () {
-                    _showNoteDialog(reference, verse.text, saveNote);
-                  },
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(22, 16, 22, 30),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                reference,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                selectedTranslation.toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.amber,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          verse.text,
+                          style: TextStyle(
+                            fontSize: 17,
+                            height: 1.6,
+                            fontStyle: FontStyle.italic,
+                            fontFamily: 'Georgia',
+                            color: isDarkTheme
+                                ? Colors.white70
+                                : Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            ScriptureAudioButton(
+                              reference: reference,
+                              text: verse.text,
+                              iconColor: Colors.teal,
+                              iconSize: 20,
+                            ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'Listen',
+                              style: TextStyle(
+                                color: Colors.teal,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 28),
+                        const Text(
+                          'ACTIONS',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 11,
+                            letterSpacing: 1.5,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            _actionChip(
+                              isFavorited
+                                  ? LucideIcons.heartOff
+                                  : LucideIcons.highlighter,
+                              isFavorited ? 'Unhighlight' : 'Highlight',
+                              Colors.amber,
+                              onTap: () => saveNote(
+                                isFavorited ? 'Highlight removed' : 'Highlight',
+                                isFavorite: true,
+                              ),
+                            ),
+                            _actionChip(
+                              LucideIcons.copy,
+                              "Copy",
+                              Colors.blue,
+                              onTap: () async {
+                                final messenger =
+                                    ScaffoldMessenger.of(context);
+                                await Clipboard.setData(
+                                  ClipboardData(text: fullText),
+                                );
+                                messenger.showSnackBar(
+                                  const SnackBar(content: Text("Verse copied")),
+                                );
+                              },
+                            ),
+                            _actionChip(
+                              LucideIcons.share2,
+                              "Share",
+                              Colors.green,
+                              onTap: () {
+                                SharePlus.instance
+                                    .share(ShareParams(text: fullText));
+                              },
+                            ),
+                            _actionChip(
+                              LucideIcons.bookmark,
+                              isBookmarked ? 'Bookmarked' : "Bookmark",
+                              Colors.purple,
+                              onTap: () =>
+                                  saveNote("Bookmark", isBookmark: true),
+                            ),
+                            _actionChip(
+                              LucideIcons.pencil,
+                              "Note",
+                              Colors.orange,
+                              onTap: () {
+                                _showNoteDialog(
+                                  reference,
+                                  verse.text,
+                                  saveNote,
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        if (verseNotes.any((n) => n.note.trim().isNotEmpty)) ...[
+                          const SizedBox(height: 22),
+                          const Text(
+                            'YOUR NOTES',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 11,
+                              letterSpacing: 1.5,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          ...verseNotes
+                              .where((n) => n.note.trim().isNotEmpty)
+                              .map(
+                                (n) => Container(
+                                  width: double.infinity,
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withValues(
+                                      alpha: 0.08,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.orange.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    n.note,
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                ),
+                              ),
+                        ],
+                        const SizedBox(height: 22),
+                        const Text(
+                          'PARALLEL TRANSLATIONS',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 11,
+                            letterSpacing: 1.5,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        for (final code in parallelCodes) ...[
+                          _buildParallelTile(code, verse),
+                          const SizedBox(height: 10),
+                        ],
+                        const SizedBox(height: 12),
+                        const Text(
+                          'CROSS REFERENCES',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 11,
+                            letterSpacing: 1.5,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        if (bookOrder == null)
+                          const Text(
+                            'Unavailable',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                          )
+                        else
+                          ref
+                              .watch(
+                                verseCrossReferencesProvider({
+                                  'bookId': bookOrder,
+                                  'chapter': verse.chapter,
+                                  'verse': verse.verse,
+                                }),
+                              )
+                              .when(
+                                data: (refs) => refs.isEmpty
+                                    ? const Text(
+                                        'No cross-references found',
+                                        style: TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 12,
+                                        ),
+                                      )
+                                    : Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: refs
+                                            .map(
+                                              (r) => GestureDetector(
+                                                onTap: () {
+                                                  Navigator.pop(context);
+                                                  _openCrossReference(
+                                                    r.targetRef,
+                                                  );
+                                                },
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 6,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.indigo
+                                                        .withValues(
+                                                          alpha: 0.1,
+                                                        ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          20,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: Colors.indigo
+                                                          .withValues(
+                                                            alpha: 0.3,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    r.targetRef,
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.indigo,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                      ),
+                                loading: () => const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 8),
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                                error: (_, __) => const SizedBox.shrink(),
+                              ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-          ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildParallelTile(String code, BibleVerse verse) {
+    return ref
+        .watch(
+          parallelVerseTextProvider({
+            'translation': code,
+            'book': selectedBook,
+            'chapter': verse.chapter,
+            'verse': verse.verse,
+          }),
+        )
+        .when(
+          data: (text) => text.trim().isEmpty
+              ? const SizedBox.shrink()
+              : Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDarkTheme
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.grey.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        code.toUpperCase(),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 11,
+                          letterSpacing: 1,
+                          color: Colors.amber,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        text,
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 1.5,
+                          fontFamily: 'Georgia',
+                          color: isDarkTheme
+                              ? Colors.white70
+                              : Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+          loading: () => const SizedBox(
+            height: 40,
+            child: Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+          error: (_, __) => const SizedBox.shrink(),
+        );
+  }
+
+  void _openCrossReference(String targetRef) {
+    final parts = targetRef.split(' ');
+    if (parts.isEmpty) return;
+    final bookAbbr = parts.sublist(0, parts.length - 1).join(' ');
+    final cv = parts.last.split(':');
+    final book = _allBooks
+        .where(
+          (b) =>
+              b.abbreviation.toLowerCase() ==
+              bookAbbr.toLowerCase(),
+        )
+        .firstOrNull;
+    if (book == null) return;
+    final chapter = int.tryParse(cv[0]);
+    final verse = cv.length > 1 ? int.tryParse(cv[1].split('-').first) : null;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BibleScreen(
+          initialBook: book.name,
+          initialChapter: chapter ?? 1,
+          initialVerse: verse,
         ),
       ),
     );
@@ -612,7 +1040,6 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
             onPressed: () {
               final text = controller.text.trim();
               if (text.isEmpty) return;
-              Navigator.pop(context);
               Navigator.pop(context);
               saveNote("Note", noteText: text);
             },
