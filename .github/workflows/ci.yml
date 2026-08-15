@@ -17,6 +17,8 @@ jobs:
           flutter-version: '3.35.1'
           cache: true
       - run: flutter pub get
+      # .env is gitignored but bundled as an asset — create it from the committed example
+      - run: cp .env.example .env
       # Warnings fail the build; info-level only tolerated.
       - run: flutter analyze --no-fatal-infos
 
