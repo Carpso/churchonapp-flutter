@@ -113,7 +113,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: ${{ env.JAVA_VERSION }}
-          cache: 'gradle'
+          cache: 'none'
 
       - name: Install dependencies
         run: flutter pub get
@@ -264,7 +264,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: ${{ env.JAVA_VERSION }}
-          cache: 'gradle'
+          cache: 'none'
 
       - name: Install dependencies
         run: flutter pub get
