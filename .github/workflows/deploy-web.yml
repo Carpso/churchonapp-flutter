@@ -8,24 +8,29 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Skip unless Cloudflare credentials are configured in repo secrets.
+    if: secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != ''
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
+          channel: stable
 
       # .env is gitignored but bundled as an asset — create it from the committed example
       - name: Create .env from example
         run: cp .env.example .env
 
+      - name: Install dependencies
+        run: flutter pub get
+
       - name: Build web
-        run: flutter build web --release
+        run: flutter build web --release --dart-define=FLUTTER_WEB_CANVASKIT_URL=
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy build/web --project-name churchonapp
+          command: pages deploy build/web --project-name churchonapp --branch main
