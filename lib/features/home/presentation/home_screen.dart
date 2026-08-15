@@ -11,6 +11,7 @@ import 'package:church_on_app/core/services/birthday_service.dart';
 import 'package:church_on_app/core/services/smart_prefetch_service.dart';
 import 'package:church_on_app/core/services/offline_cache_service.dart';
 import 'package:church_on_app/core/widgets/live_stream_indicator.dart';
+import 'package:church_on_app/core/widgets/global_media_player.dart';
 import 'package:church_on_app/core/widgets/onboarding_quick_start.dart';
 import 'package:church_on_app/features/connect/presentation/create_social_post_screen.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_top_bar.dart';
@@ -58,6 +59,15 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with AutomaticKeepAliveClientMixin {
   bool _showAdminPromo = false;
+
+  final Map<String, GlobalKey> _sectionKeys = {
+    'actions': GlobalKey(),
+    'sparkle': GlobalKey(),
+    'sermons': GlobalKey(),
+    'events': GlobalKey(),
+    'recommended': GlobalKey(),
+    'news': GlobalKey(),
+  };
 
   @override
   bool get wantKeepAlive => true;
@@ -299,6 +309,212 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
+  void _scrollToSection(String id) {
+    final ctx = _sectionKeys[id]?.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeInOut,
+      alignment: 0.08,
+    );
+  }
+
+  Widget _buildQuickJumpBar() {
+    final items = <(String, IconData, String)>[
+      ('actions', LucideIcons.zap, 'Quick Actions'),
+      ('sparkle', LucideIcons.sparkles, 'Picks'),
+      ('sermons', LucideIcons.mic2, 'Sermons'),
+      ('events', LucideIcons.calendar, 'Events'),
+      ('recommended', LucideIcons.thumbsUp, 'For You'),
+      ('news', LucideIcons.newspaper, 'News'),
+    ];
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final (id, icon, label) = items[i];
+          return GestureDetector(
+            onTap: () => _scrollToSection(id),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 13),
+              decoration: BoxDecoration(
+                color: Theme.of(
+                  context,
+                ).colorScheme.surface.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(19),
+                border: Border.all(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    icon,
+                    size: 13,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildContinueListening() {
+    return ValueListenableBuilder<GlobalMediaState>(
+      valueListenable: globalMediaPlayerController.state,
+      builder: (context, m, _) {
+        if (m.title.isEmpty) return const SizedBox.shrink();
+        final progress = m.duration.inMilliseconds == 0
+            ? 0.0
+            : (m.position.inMilliseconds / m.duration.inMilliseconds).clamp(
+                0.0,
+                1.0,
+              );
+        return Container(
+          padding: const EdgeInsets.fromLTRB(14, 10, 8, 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A2E),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 12,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFDA03),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      LucideIcons.music,
+                      color: Colors.black,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "NOW PLAYING",
+                          style: TextStyle(
+                            color: Color(0xFFFFDA03),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          m.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (m.subtitle.isNotEmpty)
+                          Text(
+                            m.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () =>
+                        globalMediaPlayerController.skipBackward(),
+                    icon: const Icon(
+                      LucideIcons.skipBack,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  GestureDetector(
+                    onTap: () => globalMediaPlayerController.togglePlayPause(),
+                    child: Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFFDA03),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        m.isPlaying
+                            ? LucideIcons.pause
+                            : LucideIcons.play,
+                        color: Colors.black,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () =>
+                        globalMediaPlayerController.skipForward(),
+                    icon: const Icon(
+                      LucideIcons.skipForward,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: progress.toDouble(),
+                  minHeight: 3,
+                  backgroundColor: Colors.white12,
+                  valueColor: const AlwaysStoppedAnimation(
+                    Color(0xFFFFDA03),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -330,11 +546,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       )
                     : SliverList(
                         delegate: SliverChildListDelegate([
+                          _buildQuickJumpBar(),
+                          const SizedBox(height: 16),
                           const AnnouncementTicker(),
                           const SizedBox(height: 16),
                           const LiveStreamIndicator(),
                           const SizedBox(height: 20),
                           const HomeGreetingHeader(),
+                          const SizedBox(height: 16),
+                          _buildContinueListening(),
                           const SizedBox(height: 20),
                           const HomeDailyVerse(),
                           const SizedBox(height: 20),
@@ -347,22 +567,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           if (tenant == null) const HomeSmartReminder(),
                           const SizedBox(height: 20),
 
-                          const HomeQuickActions(),
+                          Padding(
+                            key: _sectionKeys['actions'],
+                            padding: EdgeInsets.zero,
+                            child: const HomeQuickActions(),
+                          ),
                           const SizedBox(height: 30),
 
                           // Collapsible Admin & Promo Section (Special Offer)
                           _buildAdminPromoSection(tenant),
 
-                          const HomeSectionTitle(title: "Sparkle Picks"),
+                          Padding(
+                            key: _sectionKeys['sparkle'],
+                            padding: EdgeInsets.zero,
+                            child: const HomeSectionTitle(
+                              title: "Sparkle Picks",
+                            ),
+                          ),
                           const HomeSparkleGrid(),
                           const SizedBox(height: 30),
-                          const HomeLatestSermon(),
+                          Padding(
+                            key: _sectionKeys['sermons'],
+                            padding: EdgeInsets.zero,
+                            child: const HomeLatestSermon(),
+                          ),
                           const SizedBox(height: 30),
-                          const HomeEventTimeline(),
+                          Padding(
+                            key: _sectionKeys['events'],
+                            padding: EdgeInsets.zero,
+                            child: const HomeEventTimeline(),
+                          ),
                           const SizedBox(height: 30),
-                          const RecommendationCarouselWidget(),
+                          Padding(
+                            key: _sectionKeys['recommended'],
+                            padding: EdgeInsets.zero,
+                            child: const RecommendationCarouselWidget(),
+                          ),
                           const SizedBox(height: 30),
-                          const HomeSectionTitle(title: "News"),
+                          Padding(
+                            key: _sectionKeys['news'],
+                            padding: EdgeInsets.zero,
+                            child: const HomeSectionTitle(title: "News"),
+                          ),
                           Padding(
                             padding: const EdgeInsets.only(
                               left: 10,

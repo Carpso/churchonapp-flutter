@@ -10,6 +10,8 @@ class Sermon {
   final String videoUrl;
   final bool isLive;
   final int viewerCount;
+  final String category;
+  final int? durationMinutes;
   final String? transcript;
   final String? aiSummary;
   final DateTime createdAt;
@@ -22,6 +24,8 @@ class Sermon {
     required this.videoUrl,
     this.isLive = false,
     this.viewerCount = 0,
+    this.category = 'General',
+    this.durationMinutes,
     this.transcript,
     this.aiSummary,
     required this.createdAt,
@@ -36,6 +40,8 @@ class Sermon {
       videoUrl: map['video_url'] ?? '',
       isLive: map['is_live'] ?? false,
       viewerCount: map['viewer_count'] ?? 0,
+      category: map['category'] ?? 'General',
+      durationMinutes: map['duration_minutes'] as int?,
       transcript: map['transcript'],
       aiSummary: map['ai_summary'],
       createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
@@ -47,18 +53,49 @@ class SermonService {
   final SupabaseClient _client;
   SermonService(this._client);
 
-  Future<List<Sermon>> fetchLatestSermons({int offset = 0, int limit = 10}) async {
+  Future<List<Sermon>> fetchLatestSermons({
+    int offset = 0,
+    int limit = 10,
+    String? category,
+  }) async {
     try {
-      final response = await _client
-          .from('sermons')
-          .select()
-          .order('created_at', ascending: false)
-          .range(offset, offset + limit - 1);
-      
+      final hasCategory = category != null && category.isNotEmpty;
+      final response = hasCategory
+          ? await _client
+              .from('sermons')
+              .select()
+              .eq('category', category)
+              .order('created_at', ascending: false)
+              .range(offset, offset + limit - 1)
+          : await _client
+              .from('sermons')
+              .select()
+              .order('created_at', ascending: false)
+              .range(offset, offset + limit - 1);
+
       return (response as List).map((s) => Sermon.fromMap(s)).toList();
     } catch (e) {
       debugPrint('Failed to fetch sermons: $e');
       return [];
+    }
+  }
+
+  Future<List<String>> fetchCategories() async {
+    try {
+      final response = await _client
+          .from('sermons')
+          .select('category')
+          .limit(300);
+      final categories = (response as List)
+          .map((r) => (r['category'] ?? '').toString())
+          .where((c) => c.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      return categories;
+    } catch (e) {
+      debugPrint('Failed to fetch sermon categories: $e');
+      return const [];
     }
   }
 

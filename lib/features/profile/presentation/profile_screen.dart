@@ -15,9 +15,11 @@ import '../../modules/events/presentation/events_screen.dart';
 
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/utils/money.dart';
 import '../../auth/presentation/two_factor_setup_screen.dart';
 import '../../../core/services/coins_service.dart';
 import '../../../core/services/r2_service.dart';
+import '../../finance/data/finance_service.dart';
 import '../../modules/bible_quiz/data/bible_quiz_service.dart';
 import '../../transport/presentation/driver_portal_screen.dart';
 import 'package:image_picker/image_picker.dart';
@@ -85,6 +87,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildCredentialsRow(profile),
+                      const SizedBox(height: 24),
+                      _buildActivityCard(context, ref),
                       const SizedBox(height: 24),
                       _buildPremiumWallet(context, profile, ref),
                       const SizedBox(height: 40),
@@ -387,7 +391,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
 
   Widget _buildAccountList(BuildContext context, WidgetRef ref, UserProfile profile) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildGroupHeader(context, "PROFILE & IDENTITY"),
         _buildPremiumItem(context, LucideIcons.user, "Personal Information", onTap: () => context.push('/account-settings')),
         _buildPremiumItem(context, LucideIcons.shield, "Security & Privacy", onTap: () => _showSecuritySettings(context)),
         _buildPremiumItem(context, LucideIcons.fileCheck, "KYC Verification", trailing: "UNVERIFIED", onTap: () => context.push('/kyc-verification')),
@@ -396,14 +402,188 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
         _buildPremiumItem(context, LucideIcons.trendingUp, "Role Onboarding", onTap: () => context.push('/onboarding/${profile.role}')),
         if (profile.role != 'writer')
           _buildPremiumItem(context, LucideIcons.penTool, "Apply as Writer", onTap: () => context.push('/apply-writer')),
+        const SizedBox(height: 8),
+        _buildGroupHeader(context, "PAYMENTS & ORDERS"),
         _buildPremiumItem(context, LucideIcons.package, "My Orders", onTap: () => context.push('/orders')),
         _buildPremiumItem(context, LucideIcons.gift, "Referral Program", onTap: () => context.push('/referral-program')),
-        _buildPremiumItem(context, LucideIcons.church, "Can't Find Your Church?", onTap: () => context.push('/refer-church')),
         _buildPremiumItem(context, LucideIcons.heart, "COA Missions Donate", onTap: () => context.push('/missions-donate')),
+        const SizedBox(height: 8),
+        _buildGroupHeader(context, "COMMUNITY & SUPPORT"),
+        _buildPremiumItem(context, LucideIcons.church, "Can't Find Your Church?", onTap: () => context.push('/refer-church')),
         _buildPremiumItem(context, LucideIcons.helpCircle, "Help & Support", onTap: () => context.push('/support')),
         _buildPremiumItem(context, LucideIcons.logOut, "Logout", isDestructive: true, onTap: () => _showLogoutConfirmation(context, ref)),
       ],
     );
+  }
+
+  Widget _buildGroupHeader(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12, top: 4),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 2,
+          color: Theme.of(context).primaryColor.withValues(alpha: 0.8),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActivityCard(BuildContext context, WidgetRef ref) {
+    final txAsync = ref.watch(transactionsStreamProvider);
+    final scheme = Theme.of(context).colorScheme;
+    final (icon, label) = txAsync.when(
+      data: (txs) {
+        final completed = txs.where((t) => t.status == 'completed').toList();
+        return (completed, "RECENT ACTIVITY");
+      },
+      loading: () => (const <Transaction>[], "RECENT ACTIVITY"),
+      error: (e, st) => (const <Transaction>[], "RECENT ACTIVITY"),
+    );
+    final txs = icon;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.activity, size: 16, color: scheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                  color: scheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (txs.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Text(
+                "No giving yet — start your giving journey from the Give tab.",
+                style: TextStyle(
+                  color: scheme.onSurface.withValues(alpha: 0.45),
+                  fontSize: 12,
+                ),
+              ),
+            )
+          else
+            ...txs.take(4).map((t) {
+              final (tIcon, tColor) = _activityStyle(t.category);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: tColor.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(tIcon, color: tColor, size: 15),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _capitalize(t.category),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            "${_relativeDate(t.createdAt)} · ${t.reference.isEmpty ? 'CoA' : t.reference}",
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: scheme.onSurface.withValues(alpha: 0.4),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      "+${formatKwacha(t.amount)}",
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.green.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          const Divider(height: 8),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => context.push('/giving-history'),
+            child: Row(
+              children: [
+                Text(
+                  "VIEW ALL HISTORY",
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                    color: scheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(LucideIcons.chevronRight, size: 14, color: scheme.primary),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  (IconData, Color) _activityStyle(String category) {
+    switch (category.toLowerCase()) {
+      case 'tithe':
+        return (LucideIcons.scrollText, Colors.purple);
+      case 'offering':
+        return (LucideIcons.heartHandshake, Colors.green);
+      case 'mission':
+        return (LucideIcons.globe, Colors.blue);
+      case 'building fund':
+        return (LucideIcons.building2, Colors.orange);
+      default:
+        return (LucideIcons.banknote, Colors.teal);
+    }
+  }
+
+  String _capitalize(String s) {
+    if (s.isEmpty) return s;
+    return s[0].toUpperCase() + s.substring(1);
+  }
+
+  String _relativeDate(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(dt.year, dt.month, dt.day);
+    final diff = today.difference(day).inDays;
+    if (diff <= 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    return '$diff days ago';
   }
 
   Widget _buildPremiumItem(BuildContext context, IconData icon, String title, {bool isDestructive = false, bool isHighlighted = false, String? trailing, VoidCallback? onTap}) {

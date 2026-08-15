@@ -25,17 +25,11 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
   bool get wantKeepAlive => true;
 
   late TabController _tabController;
-  int _currentTab = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this, initialIndex: 0);
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
-        setState(() => _currentTab = _tabController.index);
-      }
-    });
   }
 
   @override
@@ -47,38 +41,36 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final fab = _currentTab == 0
-        ? FloatingActionButton(
-            heroTag: null,
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen())),
-            backgroundColor: Theme.of(context).primaryColor,
-            child: Icon(LucideIcons.plus, color: Theme.of(context).colorScheme.onPrimary),
-          )
-        : null;
+    final fab = FloatingActionButton(
+      heroTag: null,
+      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen())),
+      backgroundColor: Theme.of(context).primaryColor,
+      child: Icon(LucideIcons.plus, color: Theme.of(context).colorScheme.onPrimary),
+    );
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(100),
+        preferredSize: const Size.fromHeight(88),
         child: Container(
-          padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 10, bottom: 10),
+          padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 8, bottom: 6),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
             boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
           ),
           child: TabBar(
             controller: _tabController,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
+            isScrollable: false,
+            indicatorSize: TabBarIndicatorSize.label,
             indicatorColor: Theme.of(context).primaryColor,
             dividerColor: Colors.transparent,
-            labelColor: Theme.of(context).colorScheme.onSurface,
+            labelColor: Theme.of(context).primaryColor,
             unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1),
-            tabs: const [
-              Tab(text: "CHURCH SOCIAL"),
-              Tab(text: "COMMUNITIES"),
-              Tab(text: "KLIPS"),
-              Tab(text: "GAMES"),
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+            tabs: [
+              Tab(icon: Icon(LucideIcons.rss, size: 20), text: "Feed"),
+              Tab(icon: Icon(LucideIcons.users, size: 20), text: "Communities"),
+              Tab(icon: Icon(LucideIcons.video, size: 20), text: "Klips"),
+              Tab(icon: Icon(LucideIcons.gamepad2, size: 20), text: "Games"),
             ],
           ),
         ),
@@ -285,6 +277,8 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
           ],
         ),
         const SizedBox(height: 12),
+        _buildComposerBar(),
+        const SizedBox(height: 16),
         Row(
           children: [
             _buildFilterChip(ref, "All", SocialFeedFilter.all, currentFilter),
@@ -293,6 +287,62 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
             const SizedBox(width: 8),
             _buildFilterChip(ref, "Friends", SocialFeedFilter.friends, currentFilter),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildComposerBar() {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(9),
+          decoration: BoxDecoration(
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(LucideIcons.user, size: 18, color: Theme.of(context).primaryColor),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: GestureDetector(
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen()));
+            },
+            child: Container(
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6)),
+              ),
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "Share a testimony, prayer or update...",
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                  fontSize: 13,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        GestureDetector(
+          onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen()));
+          },
+          child: Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(LucideIcons.camera, size: 18, color: Theme.of(context).colorScheme.onPrimary),
+          ),
         ),
       ],
     );

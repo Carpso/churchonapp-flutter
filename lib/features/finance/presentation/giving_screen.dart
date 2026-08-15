@@ -11,6 +11,7 @@ import 'package:church_on_app/core/utils/money.dart';
 import 'tithe_history_screen.dart';
 import 'lipila_payment_gateway.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
 import 'widgets/giving_category_selector.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 
@@ -71,6 +72,23 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
   }
 
   Widget _buildScreen(BuildContext context, UserProfile? profile) {
+    final txAsync = ref.watch(transactionsStreamProvider);
+    final churchAsync = ref.watch(churchGivingOverviewProvider);
+    final config = widgetRemoteConfig(ref);
+    final personalGoal = config.getInt('giving_monthly_goal_kwacha', 500);
+    final churchGoal = config.getInt('church_monthly_goal_kwacha', 10000);
+
+    double monthlyGiven = 0;
+    txAsync.whenData((txs) {
+      final now = DateTime.now();
+      monthlyGiven = txs
+          .where((t) =>
+              t.status == 'completed' &&
+              t.createdAt.year == now.year &&
+              t.createdAt.month == now.month)
+          .fold(0.0, (sum, t) => sum + t.amount);
+    });
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -87,7 +105,9 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
         padding: EdgeInsets.fromLTRB(25, 25, 25, 25 + MediaQuery.of(context).padding.bottom + 90),
         child: Column(
           children: [
-            _buildTotalGivenCard(profile),
+            _buildTotalGivenCard(profile, monthlyGiven, personalGoal),
+            const SizedBox(height: 16),
+            _buildChurchGoalCard(churchAsync, churchGoal),
             const SizedBox(height: 20),
              _buildFeatureTiles(context),
             const SizedBox(height: 16),
@@ -179,15 +199,23 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
     );
   }
 
-  Widget _buildTotalGivenCard(UserProfile? profile) {
+  Widget _buildTotalGivenCard(UserProfile? profile, double monthlyGiven, int goal) {
     final balanceZmw = profile?.balanceZmw ?? 0.0;
     final balanceCc = profile?.balanceCc ?? 0.0;
+    final progress = goal <= 0 ? 0.0 : (monthlyGiven / goal).clamp(0.0, 1.0);
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(30),
+      padding: const EdgeInsets.all(26),
       decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Theme.of(context).primaryColor,
+            Theme.of(context).primaryColor.withValues(alpha: 0.75),
+          ],
+        ),
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -201,29 +229,255 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text("MY GIVING", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-          const SizedBox(height: 15),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      formatKwacha(monthlyGiven),
+                      style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900),
+                    ),
+                    const Text("THIS MONTH", style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 78,
+                height: 78,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CircularProgressIndicator(
+                      value: progress.toDouble(),
+                      strokeWidth: 7,
+                      backgroundColor: Colors.white24,
+                      valueColor: const AlwaysStoppedAnimation(Color(0xFFFFDA03)),
+                    ),
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${(progress.toDouble() * 100).round()}%',
+                            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900),
+                          ),
+                          const Text("GOAL", style: TextStyle(color: Colors.white54, fontSize: 8, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress.toDouble(),
+              minHeight: 6,
+              backgroundColor: Colors.white24,
+              valueColor: const AlwaysStoppedAnimation(Color(0xFFFFDA03)),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "K${monthlyGiven.toStringAsFixed(0)} of K$goal monthly goal",
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
+          ),
+          const SizedBox(height: 16),
+          Container(height: 1, color: Colors.white24),
+          const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(formatKwacha(balanceZmw), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
-                  const Text("ZMW BALANCE", style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold)),
+                  Text(formatKwacha(balanceZmw), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+                  const Text("ZMW BALANCE", style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.bold)),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text("${balanceCc.toInt()} CC", style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
-                  const Text("REWARDS CC", style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold)),
+                  Text("${balanceCc.toInt()} CC", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+                  const Text("REWARDS CC", style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.bold)),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 15),
+          const SizedBox(height: 12),
           const Text("Material Rewards Active", style: TextStyle(color: Colors.white70, fontSize: 11)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildChurchGoalCard(
+    AsyncValue<ChurchGivingOverview> churchAsync,
+    int goal,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      child: churchAsync.when(
+        data: (overview) {
+          final raised = overview.monthlyTotal;
+          final progress = goal <= 0 ? 0.0 : (raised / goal).clamp(0.0, 1.0);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(LucideIcons.church, size: 18, color: Theme.of(context).primaryColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    "CHURCH GIVING GOAL",
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    formatKwacha(raised),
+                    style: TextStyle(
+                      color: Theme.of(context).primaryColor,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4, left: 6),
+                    child: Text(
+                      "of K$goal raised this month",
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${(progress.toDouble() * 100).round()}%',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.secondary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress.toDouble(),
+                  minHeight: 8,
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  valueColor: AlwaysStoppedAnimation(Theme.of(context).primaryColor),
+                ),
+              ),
+              if (overview.givers.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                Text(
+                  "TOP GIVERS THIS MONTH",
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ...overview.givers.take(3).map((g) {
+                  final initial = g.name.trim().isEmpty
+                      ? '?'
+                      : g.name.trim()[0].toUpperCase();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 15,
+                          backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.12),
+                          child: Text(
+                            initial,
+                            style: TextStyle(
+                              color: Theme.of(context).primaryColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            g.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        Text(
+                          formatKwacha(g.amount),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.secondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ],
+          );
+        },
+        loading: () => const Center(
+          child: Padding(
+            padding: EdgeInsets.all(12),
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
+          ),
+        ),
+        error: (e, _) => Row(
+          children: [
+            Icon(LucideIcons.info, size: 16, color: Theme.of(context).colorScheme.error),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                "Church giving goal unavailable",
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

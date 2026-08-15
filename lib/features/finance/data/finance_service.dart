@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/config/fee_config.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 
 class Transaction {
   final String id;
@@ -42,6 +43,28 @@ class Transaction {
       recipientPhone: map['recipient_phone'],
     );
   }
+}
+
+class RecentGiver {
+  final String name;
+  final double amount;
+  final DateTime createdAt;
+
+  const RecentGiver({
+    required this.name,
+    required this.amount,
+    required this.createdAt,
+  });
+}
+
+class ChurchGivingOverview {
+  final double monthlyTotal;
+  final List<RecentGiver> givers;
+
+  const ChurchGivingOverview({
+    required this.monthlyTotal,
+    required this.givers,
+  });
 }
 
 class FinanceService {
@@ -153,11 +176,41 @@ class FinanceService {
       debugPrint("Automatic settlement enqueue failed: $e");
     }
   }
+Future<ChurchGivingOverview> getChurchGivingOverview(String tenantId) async {
+    final res = await _client.rpc('get_church_giving_overview', params: {
+      'p_tenant_id': tenantId,
+    });
+    final map = (res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{});
+    final giversRaw = map['recent_givers'];
+    final givers = <RecentGiver>[];
+    if (giversRaw is List) {
+      for (final g in giversRaw) {
+        if (g is! Map) continue;
+        final gm = Map<String, dynamic>.from(g);
+        givers.add(RecentGiver(
+          name: gm['name']?.toString() ?? 'Giver',
+          amount: (gm['amount'] ?? 0).toDouble(),
+          createdAt: DateTime.tryParse(gm['created_at']?.toString() ?? '') ??
+              DateTime.now(),
+        ));
+      }
+    }
+    return ChurchGivingOverview(
+      monthlyTotal: (map['monthly_total'] ?? 0).toDouble(),
+      givers: givers,
+    );
+  }
 }
 
 final financeServiceProvider = Provider((ref) => FinanceService(Supabase.instance.client));
 
 final transactionsStreamProvider = StreamProvider<List<Transaction>>((ref) {
   return ref.watch(financeServiceProvider).getTransactionsStream();
+});
+
+final churchGivingOverviewProvider = FutureProvider<ChurchGivingOverview>((ref) {
+  final tenant = ref.watch(currentTenantProvider);
+  if (tenant == null) throw Exception('No church selected');
+  return ref.watch(financeServiceProvider).getChurchGivingOverview(tenant.id);
 });
 
