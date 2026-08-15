@@ -53,6 +53,7 @@ key_info*.txt
 # Diagnostics, build outputs, crash logs
 diagnostics/
 scripts/
+!scripts/ci/
 .wrangler/
 sql/archive/
 
