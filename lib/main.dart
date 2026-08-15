@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'core/utils/responsive.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/supabase_service.dart';
 import 'core/services/tenant_service.dart';
@@ -320,8 +321,10 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
         return SafeArea(
           top: true,
           bottom: true,
-          child: NotificationOverlay(
-            child: child ?? const SizedBox.shrink(),
+          child: Responsive.wrap(
+            NotificationOverlay(
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         );
       },

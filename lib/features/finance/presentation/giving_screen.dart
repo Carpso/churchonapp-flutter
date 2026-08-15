@@ -365,13 +365,17 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4, left: 6),
-                    child: Text(
-                      "of K$goal raised this month",
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                        fontSize: 12,
+                  Flexible(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 4, left: 6),
+                      child: Text(
+                        "of K$goal raised this month",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ),

@@ -388,15 +388,19 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
                   Row(
                     children: [
                       if (sermon.category.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            sermon.category.toUpperCase(),
-                            style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.8),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              sermon.category.toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.8),
+                            ),
                           ),
                         ),
                       const Spacer(),
@@ -425,6 +429,8 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
                   const SizedBox(height: 6),
                   Text(
                     '${sermon.preacher}  •  ${_formatDuration(DateTime.now().difference(sermon.createdAt))}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ],
@@ -526,8 +532,17 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Text(sermon.preacher, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
-                      const Spacer(),
+                      Expanded(
+                        child: Text(
+                          sermon.preacher,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                       if (sermon.durationMinutes != null) ...[
                         Icon(LucideIcons.clock, size: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
                         const SizedBox(width: 5),
