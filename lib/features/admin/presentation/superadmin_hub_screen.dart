@@ -26,6 +26,7 @@ import 'writer_approval_screen.dart';
 import 'custom_role_management_screen.dart';
 import 'order_tracking_screen.dart';
 import 'manage_partners_screen.dart';
+import 'church_directory_edit_screen.dart';
 import 'whatsapp_config_screen.dart';
 import '../../../features/profile/presentation/church_referral_screen.dart';
 
@@ -884,6 +885,9 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             }),
             _buildGlobalAction(LucideIcons.store, "Partner Tenants", "Manage coin redemption partners", Colors.teal, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const ManagePartnersScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.church, "Church Directory Editor", "Update registered church details", Colors.amber, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchDirectoryEditScreen()));
             }),
             _buildGlobalAction(LucideIcons.messageCircle, "WhatsApp Config", "Configure WhatsApp Business API", const Color(0xFF1A1A1A), () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const WhatsAppConfigScreen()));

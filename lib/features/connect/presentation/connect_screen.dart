@@ -378,7 +378,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _CommentsSheet(postId: postId),
+      builder: (_) => CommentsSheet(postId: postId),
     );
   }
 
@@ -390,15 +390,15 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
   }
 }
 
-class _CommentsSheet extends ConsumerStatefulWidget {
+class CommentsSheet extends ConsumerStatefulWidget {
   final String postId;
-  const _CommentsSheet({required this.postId});
+  const CommentsSheet({super.key, required this.postId});
 
   @override
-  ConsumerState<_CommentsSheet> createState() => _CommentsSheetState();
+  ConsumerState<CommentsSheet> createState() => CommentsSheetState();
 }
 
-class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
+class CommentsSheetState extends ConsumerState<CommentsSheet> {
   final _commentCtrl = TextEditingController();
   List<SocialComment> _comments = [];
   bool _loading = true;

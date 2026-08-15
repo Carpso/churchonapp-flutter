@@ -28,6 +28,9 @@ import 'camera_settings_screen.dart';
 import 'emergency_contacts_screen.dart';
 import 'rewards_screen.dart';
 import 'certificates_screen.dart';
+import '../../connect/data/social_service.dart';
+import '../../connect/presentation/widgets/social_post_card.dart';
+import '../../connect/presentation/connect_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   final String? userId;
@@ -89,6 +92,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
                       _buildCredentialsRow(profile),
                       const SizedBox(height: 24),
                       _buildActivityCard(context, ref),
+                      const SizedBox(height: 24),
+                      _buildMyPosts(context, profile),
                       const SizedBox(height: 24),
                       _buildPremiumWallet(context, profile, ref),
                       const SizedBox(height: 40),
@@ -339,6 +344,70 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
         ],
       ),
     );
+  }
+
+  Widget _buildMyPosts(BuildContext context, UserProfile profile) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(context, "MY POSTS"),
+        FutureBuilder<List<SocialPost>>(
+          future: ref.read(socialServiceProvider).fetchUserPosts(profile.id),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              );
+            }
+            final posts = snapshot.data ?? const <SocialPost>[];
+            if (posts.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  children: [
+                    Icon(LucideIcons.messageSquare, size: 40, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2)),
+                    const SizedBox(height: 10),
+                    Text(
+                      "No posts yet. Share what God is doing in your life on the Connect tab!",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return Column(
+              children: posts.map((post) {
+                return SocialPostCard(
+                  post: post,
+                  formatTimeAgo: _formatTimeAgo,
+                  onCommentTap: () => showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => CommentsSheet(postId: post.id),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  String _formatTimeAgo(DateTime time) {
+    final diff = DateTime.now().difference(time.toLocal());
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${time.day}/${time.month}/${time.year}';
   }
 
   Widget _buildSectionHeader(BuildContext context, String title) {

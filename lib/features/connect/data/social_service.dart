@@ -268,6 +268,37 @@ class SocialService {
       'user_id': user.id,
       'content': content,
     });
+
+    // Keep the post's comment counter in sync so counts show everywhere.
+    try {
+      final res = await _client
+          .from('social_posts')
+          .select('comments_count')
+          .eq('id', postId)
+          .maybeSingle();
+      final current = (res?['comments_count'] as int?) ?? 0;
+      await _client
+          .from('social_posts')
+          .update({'comments_count': current + 1})
+          .eq('id', postId);
+    } catch (e) {
+      debugPrint("social_service: failed to increment comment count: $e");
+    }
+  }
+
+  Future<List<SocialPost>> fetchUserPosts(String userId, {int limit = 50}) async {
+    try {
+      final res = await _client
+          .from('social_posts')
+          .select('*, profiles(full_name, avatar_url, role)')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return (res as List).map((map) => SocialPost.fromMap(map)).toList();
+    } catch (e) {
+      debugPrint("social_service: Error fetching user posts: $e");
+      return [];
+    }
   }
 }
 

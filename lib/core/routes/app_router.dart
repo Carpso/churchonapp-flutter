@@ -32,6 +32,7 @@ import 'package:church_on_app/features/modules/events/presentation/events_screen
 import 'package:church_on_app/features/events/data/event_service.dart';
 import 'package:church_on_app/features/finance/presentation/partner_redemption_screen.dart';
 import 'package:church_on_app/features/admin/presentation/manage_partners_screen.dart';
+import 'package:church_on_app/features/admin/presentation/church_directory_edit_screen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../services/tenant_service.dart';
@@ -314,6 +315,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             route == '/carpso-approval' ||
             route == '/manage-partners' ||
             route == '/news-management' ||
+            route == '/church-directory-edit' ||
             route == '/feature-toggles' ||
             route == '/platform-analytics' ||
             route == '/admin/radio-mgmt' ||
@@ -792,6 +794,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/manage-partners',
         builder: (context, state) => const ManagePartnersScreen(),
+      ),
+      GoRoute(
+        path: '/church-directory-edit',
+        builder: (context, state) => const ChurchDirectoryEditScreen(),
       ),
       // === ORPHAN SCREENS ===
       GoRoute(

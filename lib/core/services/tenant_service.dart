@@ -189,24 +189,9 @@ class TenantService {
   final SupabaseClient _client;
   TenantService(this._client);
 
-  static final List<Map<String, dynamic>> fallbackChurches = [
-    // ── ROCK OF AGES CHAPEL KABULONGA (ONLY registered church) ──
-    {
-      'id': '00000000-0000-0000-0000-000000000036',
-      'slug': 'rock-of-ages-kabulonga',
-      'name': 'Rock Of Ages Chapel Kabulonga',
-      'type': 'church',
-      'address': 'Kabulonga Road next to Dill restaurant, Lusaka',
-      'latitude': -15.4190,
-      'longitude': 28.3490,
-      'primary_color': '#DC2626',
-      'country': 'Zambia',
-      'seed_ref': 'zm_36',
-      'pastor_name': 'Pastor Leonard Kaweme',
-      'treasurer_phone': '0779686480',
-      'contact_phone': '0779686480',
-    },
-  ];
+  // Empty by design: churches are loaded from the database only. No church is
+  // hardcoded as a default for users — registration/verification data decides.
+  static final List<Map<String, dynamic>> fallbackChurches = [];
 
   /// Resolve a tenant by slug. Queries the `tenants` table first,
   /// then joins to `churches` for church-specific fields.
