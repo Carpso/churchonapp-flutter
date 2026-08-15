@@ -156,13 +156,42 @@ jobs:
           VERSION_NAME: 1.0.0
           BUILD_NUMBER: ${{ steps.build_number.outputs.BUILD_NUMBER }}
 
-      - name: Build APK
+      - name: Check runner resources
         if: env.HAS_SIGNING == 'true'
         run: |
+          echo "nproc: $(nproc)"
+          echo "MEM: $(free -m | awk '/Mem:/{print $2"MiB total, "$3"MiB used"}')"
+          echo "DISK: $(df -h / | awk 'NR==2{print $4" free of "$2}')"
+
+      - name: Build APK
+        id: build_apk
+        if: env.HAS_SIGNING == 'true'
+        continue-on-error: true
+        run: |
+          ( i=0; while [ $i -lt 80 ]; do echo "HEARTBEAT $(date -u +%H:%M:%S) mem:$(free -m | awk '/Mem:/{print $3"MiB/"$2"MiB"}') disk:$(df -h / | awk 'NR==2{print $4}')"; sleep 20; i=$((i+1)); done ) >&2 &
           flutter build apk --release \
             --build-name=1.0.0 \
             --build-number=${{ steps.build_number.outputs.BUILD_NUMBER }} \
-            --obfuscate --split-debug-info=build/app/outputs/symbols
+            --obfuscate --split-debug-info=build/app/outputs/symbols \
+            > /tmp/apk_build.log 2>&1
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Fail if APK build failed
+        if: env.HAS_SIGNING == 'true' && steps.build_apk.outputs.exit != '0'
+        run: |
+          echo "APK build exited ${{ steps.build_apk.outputs.exit }}"
+          echo "--- last 120 lines ---"
+          tail -120 /tmp/apk_build.log
+          exit 1
+
+      - name: Upload APK build log
+        if: env.HAS_SIGNING == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-build-log
+          path: /tmp/apk_build.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Verify APK
         if: env.HAS_SIGNING == 'true'
@@ -262,13 +291,42 @@ jobs:
           VERSION_NAME: 1.0.0
           BUILD_NUMBER: ${{ steps.build_number.outputs.BUILD_NUMBER }}
 
-      - name: Build AAB
+      - name: Check runner resources
         if: env.HAS_SIGNING == 'true'
         run: |
+          echo "nproc: $(nproc)"
+          echo "MEM: $(free -m | awk '/Mem:/{print $2"MiB total, "$3"MiB used"}')"
+          echo "DISK: $(df -h / | awk 'NR==2{print $4" free of "$2}')"
+
+      - name: Build AAB
+        id: build_aab
+        if: env.HAS_SIGNING == 'true'
+        continue-on-error: true
+        run: |
+          ( i=0; while [ $i -lt 80 ]; do echo "HEARTBEAT $(date -u +%H:%M:%S) mem:$(free -m | awk '/Mem:/{print $3"MiB/"$2"MiB"}') disk:$(df -h / | awk 'NR==2{print $4}')"; sleep 20; i=$((i+1)); done ) >&2 &
           flutter build appbundle --release \
             --build-name=1.0.0 \
             --build-number=${{ steps.build_number.outputs.BUILD_NUMBER }} \
-            --obfuscate --split-debug-info=build/app/outputs/symbols
+            --obfuscate --split-debug-info=build/app/outputs/symbols \
+            > /tmp/aab_build.log 2>&1
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Fail if AAB build failed
+        if: env.HAS_SIGNING == 'true' && steps.build_aab.outputs.exit != '0'
+        run: |
+          echo "AAB build exited ${{ steps.build_aab.outputs.exit }}"
+          echo "--- last 120 lines ---"
+          tail -120 /tmp/aab_build.log
+          exit 1
+
+      - name: Upload AAB build log
+        if: env.HAS_SIGNING == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aab-build-log
+          path: /tmp/aab_build.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Verify AAB
         if: env.HAS_SIGNING == 'true'
