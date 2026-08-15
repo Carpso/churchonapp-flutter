@@ -95,7 +95,7 @@ class R2Service {
           return url.isNotEmpty ? url : null;
         }
       }
-      return _uploadToSupabaseStorageFallback(file, path);
+      return await _uploadToSupabaseStorageFallback(file, path);
     } catch (e) {
       debugPrint("R2 Upload Error: $e, trying Supabase Storage fallback...");
       return _uploadToSupabaseStorageFallback(file, path);

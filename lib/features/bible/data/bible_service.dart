@@ -188,7 +188,7 @@ class BibleService {
       
       // All online sources returned empty — try offline asset as final fallback
       debugPrint('BibleService: All online sources empty for $translation $book $chapter, trying offline asset');
-      return _fetchFromOfflineAsset(translation, book, chapter);
+      return await _fetchFromOfflineAsset(translation, book, chapter);
     } catch (e) {
       debugPrint('Bible Error: $e — trying cache then offline asset');
       try {

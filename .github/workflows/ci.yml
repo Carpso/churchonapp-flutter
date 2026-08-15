@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: '3.35.1'
           cache: true
       - run: flutter pub get
       # Warnings fail the build; info-level only tolerated.
@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: '3.35.1'
           cache: true
       - run: flutter pub get
       # .env is gitignored but bundled as an asset — create it from the committed example

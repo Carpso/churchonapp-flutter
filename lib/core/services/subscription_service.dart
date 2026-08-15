@@ -125,7 +125,7 @@ class SubscriptionService {
           .order('created_at', ascending: false)
           .limit(1)
           .maybeSingle();
-      if (result == null) return _createDefaultSubscription(userId);
+      if (result == null) return await _createDefaultSubscription(userId);
       return UserSubscription.fromMap(result);
     } catch (e) {
       return _createDefaultSubscription(userId);
