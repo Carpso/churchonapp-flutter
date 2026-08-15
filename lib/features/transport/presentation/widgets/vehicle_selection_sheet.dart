@@ -190,9 +190,9 @@ class _VehicleSelectionSheetState extends ConsumerState<VehicleSelectionSheet> {
                     "K${perKmRate.toStringAsFixed(0)}/km × ${distance.toStringAsFixed(1)} km",
                     LucideIcons.ruler),
               if (isDelivery)
-                _infoChip(theme, "Fixed fare · No negotiation", LucideIcons.lock)
+                _infoChip(theme, "Negotiate with courier", LucideIcons.messageSquare)
               else
-                _infoChip(theme, "Negotiable with driver", LucideIcons.messageSquare),
+                _infoChip(theme, "Negotiate fare before payment", LucideIcons.messageSquare),
               if (tripMinutes != null)
                 _infoChip(theme, "~$tripMinutes min trip", LucideIcons.clock),
               if (driverPickupMinutes != null)

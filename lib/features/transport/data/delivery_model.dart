@@ -15,6 +15,11 @@ class DeliveryRequest {
   final String? vendorPhone;
   final String? vendorName;
   final double? itemPrice;
+  final String negotiationStatus; // 'none','passenger_offered','driver_countered','accepted'
+  final double? negotiatedFare;
+  final String paymentStatus; // 'unpaid','pending','paid'
+  final String? pickupLabel;
+  final String? destLabel;
 
   DeliveryRequest({
     required this.id,
@@ -31,6 +36,11 @@ class DeliveryRequest {
     this.vendorPhone,
     this.vendorName,
     this.itemPrice,
+    this.negotiationStatus = 'none',
+    this.negotiatedFare,
+    this.paymentStatus = 'unpaid',
+    this.pickupLabel,
+    this.destLabel,
   });
 
   factory DeliveryRequest.fromMap(Map<String, dynamic> map) {
@@ -49,8 +59,15 @@ class DeliveryRequest {
       vendorPhone: map['vendor_phone'],
       vendorName: map['vendor_name'],
       itemPrice: map['item_price'] != null ? (map['item_price'] as num).toDouble() : null,
+      negotiationStatus: map['negotiation_status'] ?? 'none',
+      negotiatedFare: map['negotiated_fare'] != null ? (map['negotiated_fare'] as num).toDouble() : null,
+      paymentStatus: map['payment_status'] ?? 'unpaid',
+      pickupLabel: map['pickup_label'],
+      destLabel: map['dest_label'],
     );
   }
+
+  double get currentFare => negotiatedFare ?? fare;
 
   Map<String, dynamic> toMap() {
     return {
@@ -70,6 +87,11 @@ class DeliveryRequest {
       'vendor_phone': vendorPhone,
       'vendor_name': vendorName,
       'item_price': itemPrice,
+      'negotiation_status': negotiationStatus,
+      'negotiated_fare': negotiatedFare,
+      'payment_status': paymentStatus,
+      'pickup_label': pickupLabel,
+      'dest_label': destLabel,
     };
   }
 }

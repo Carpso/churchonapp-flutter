@@ -10,6 +10,11 @@ class RideRequest {
   final String status; // 'pending', 'accepted', 'confirmed', 'completed', 'cancelled'
   final DateTime createdAt;
   final bool escrowHeld;
+  final String negotiationStatus; // 'none','passenger_offered','driver_countered','accepted'
+  final double? negotiatedFare;
+  final String paymentStatus; // 'unpaid','pending','paid'
+  final String? pickupLabel;
+  final String? destLabel;
 
   RideRequest({
     required this.id,
@@ -21,6 +26,11 @@ class RideRequest {
     required this.status,
     required this.createdAt,
     this.escrowHeld = false,
+    this.negotiationStatus = 'none',
+    this.negotiatedFare,
+    this.paymentStatus = 'unpaid',
+    this.pickupLabel,
+    this.destLabel,
   });
 
   factory RideRequest.fromMap(Map<String, dynamic> map) {
@@ -34,8 +44,15 @@ class RideRequest {
       status: map['status'],
       createdAt: DateTime.parse(map['created_at']),
       escrowHeld: map['escrow_held'] ?? false,
+      negotiationStatus: map['negotiation_status'] ?? 'none',
+      negotiatedFare: map['negotiated_fare'] != null ? (map['negotiated_fare'] as num).toDouble() : null,
+      paymentStatus: map['payment_status'] ?? 'unpaid',
+      pickupLabel: map['pickup_label'],
+      destLabel: map['dest_label'],
     );
   }
+
+  double get currentFare => negotiatedFare ?? fare;
 
   Map<String, dynamic> toMap() {
     return {
@@ -50,6 +67,11 @@ class RideRequest {
       'status': status,
       'created_at': createdAt.toIso8601String(),
       'escrow_held': escrowHeld,
+      'negotiation_status': negotiationStatus,
+      'negotiated_fare': negotiatedFare,
+      'payment_status': paymentStatus,
+      'pickup_label': pickupLabel,
+      'dest_label': destLabel,
     };
   }
 }

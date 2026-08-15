@@ -154,17 +154,21 @@ async function resolveSettlement(
       if (!task.source_ref) return { error: "missing_source_ref", recipient: "", gross: 0 };
       const { data: ride } = await supabase
         .from("ride_requests")
-        .select("status, driver_id, offered_fare")
+        .select("status, driver_id, offered_fare, negotiated_fare, payment_status")
         .eq("id", task.source_ref)
         .maybeSingle();
       if (!ride || (ride.status ?? "").toLowerCase() !== "completed") {
+        return { retry: true, recipient: "", gross: 0 };
+      }
+      // Only a ride that was actually paid may pay the driver.
+      if ((ride.payment_status ?? "unpaid") !== "paid") {
         return { retry: true, recipient: "", gross: 0 };
       }
       // Owner check: only the driver assigned to this ride may be paid for it.
       if (ride.driver_id !== task.user_id) return { error: "not_ride_owner", recipient: "", gross: 0 };
       const recipient = await loadProfilePhone(supabase, task.user_id);
       if (!recipient) return { error: "no_recipient", recipient: "", gross: 0 };
-      const fare = Number(ride.offered_fare);
+      const fare = Number(ride.negotiated_fare ?? ride.offered_fare);
       const gross = fare - fare * cfg.businessCutPercent;
       if (!(gross > 0)) return { error: "invalid_gross", recipient: "", gross: 0 };
       return { recipient, gross };
@@ -174,17 +178,56 @@ async function resolveSettlement(
       if (!task.source_ref) return { error: "missing_source_ref", recipient: "", gross: 0 };
       const { data: delivery } = await supabase
         .from("delivery_requests")
-        .select("status, driver_id, offered_fare")
+        .select("status, driver_id, offered_fare, negotiated_fare, payment_status")
         .eq("id", task.source_ref)
         .maybeSingle();
       if (!delivery || (delivery.status ?? "").toLowerCase() !== "delivered") {
         return { retry: true, recipient: "", gross: 0 };
       }
+      if ((delivery.payment_status ?? "unpaid") !== "paid") {
+        return { retry: true, recipient: "", gross: 0 };
+      }
       if (delivery.driver_id !== task.user_id) return { error: "not_delivery_owner", recipient: "", gross: 0 };
       const recipient = await loadProfilePhone(supabase, task.user_id);
       if (!recipient) return { error: "no_recipient", recipient: "", gross: 0 };
-      const fare = Number(delivery.offered_fare);
+      const fare = Number(delivery.negotiated_fare ?? delivery.offered_fare);
       const gross = fare - fare * cfg.businessCutPercent;
+      if (!(gross > 0)) return { error: "invalid_gross", recipient: "", gross: 0 };
+      return { recipient, gross };
+    }
+
+    case "ride_cut":
+    case "delivery_cut": {
+      // The COA platform cut of every Carpso ride/delivery is paid to the
+      // platform payout number set by superadmin/coa_employee. Tenants never
+      // touch ride money. Stays pending (retry) until the number is set.
+      if (!task.source_ref) return { error: "missing_source_ref", recipient: "", gross: 0 };
+      const table = task.source === "ride_cut" ? "ride_requests" : "delivery_requests";
+      const doneStatus = task.source === "ride_cut" ? "completed" : "delivered";
+      const { data: request } = await supabase
+        .from(table)
+        .select("status, offered_fare, negotiated_fare, payment_status")
+        .eq("id", task.source_ref)
+        .maybeSingle();
+      if (!request || (request.status ?? "").toLowerCase() !== doneStatus) {
+        return { retry: true, recipient: "", gross: 0 };
+      }
+      if ((request.payment_status ?? "unpaid") !== "paid") {
+        return { retry: true, recipient: "", gross: 0 };
+      }
+      const fare = Number(request.negotiated_fare ?? request.offered_fare);
+      const platformCut = Math.round(fare * cfg.businessCutPercent * 100) / 100;
+      if (!(platformCut > 0)) return { error: "invalid_gross", recipient: "", gross: 0 };
+      const { data: setting } = await supabase
+        .from("platform_settings")
+        .select("value")
+        .eq("key", "ride_payout_mobile")
+        .maybeSingle();
+      const recipient = normalizePhone(setting?.value as string | null | undefined);
+      if (!/^260\d{9}$/.test(recipient)) {
+        return { retry: true, recipient: "", gross: 0 }; // number not set yet
+      }
+      const gross = Math.min(Number(task.gross_amount), platformCut);
       if (!(gross > 0)) return { error: "invalid_gross", recipient: "", gross: 0 };
       return { recipient, gross };
     }

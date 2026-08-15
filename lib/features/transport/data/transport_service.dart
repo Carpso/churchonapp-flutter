@@ -119,7 +119,8 @@ class TransportService {
     }, onConflict: 'user_id');
   }
 
-  Future<String?> requestRide(LatLng start, LatLng dest, double price) async {
+  Future<String?> requestRide(LatLng start, LatLng dest, double price,
+      {String? pickupLabel, String? destLabel}) async {
     final user = _client.auth.currentUser;
     if (user == null) return null;
 
@@ -131,6 +132,8 @@ class TransportService {
       fare: price,
       status: 'pending',
       createdAt: DateTime.now(),
+      pickupLabel: pickupLabel,
+      destLabel: destLabel,
     );
 
     final inserted = await _client
@@ -189,7 +192,7 @@ class TransportService {
     await _client.from('notifications').insert({
       'user_id': riderId,
       'title': 'Driver Found!',
-      'body': 'A driver has accepted your ride request and is on the way.',
+      'body': 'A driver accepted your request at K${_rideFareLabel(requestId)}. Confirm payment to start the trip.',
       'is_read': false,
     });
 
@@ -209,6 +212,16 @@ class TransportService {
     }
   }
 
+  Future<String> _rideFareLabel(String requestId) async {
+    try {
+      final res = await _client.from('ride_requests').select('offered_fare, negotiated_fare').eq('id', requestId).maybeSingle();
+      final fare = res?['negotiated_fare'] ?? res?['offered_fare'];
+      return (fare as num?)?.toStringAsFixed(0) ?? '--';
+    } catch (_) {
+      return '--';
+    }
+  }
+
   // ── Fare negotiation (passenger ↔ driver) ──
 
   /// Passenger submits a fare offer (below estimated price).
@@ -219,12 +232,27 @@ class TransportService {
     }).eq('id', requestId);
   }
 
-  /// Driver counters with a different fare.
+  /// Driver counters with a different fare (notifies the passenger).
   Future<void> counterFare(String requestId, double counter) async {
+    final res = await _client
+        .from('ride_requests')
+        .select('rider_id')
+        .eq('id', requestId)
+        .single();
     await _client.from('ride_requests').update({
       'negotiated_fare': counter,
       'negotiation_status': 'driver_countered',
     }).eq('id', requestId);
+    try {
+      await _client.from('notifications').insert({
+        'user_id': res['rider_id'],
+        'title': 'New Fare Offer',
+        'body': 'The driver counter-offered K${counter.toStringAsFixed(0)}. Accept or decline to continue.',
+        'is_read': false,
+      });
+    } catch (e) {
+      debugPrint("transport_service: counter notification failed: $e");
+    }
   }
 
   /// Passenger accepts the driver's counter-offer → locks fare and accepts ride.
@@ -246,6 +274,128 @@ class TransportService {
     }).eq('id', requestId).eq('negotiation_status', 'driver_countered');
   }
 
+  /// Passenger paid — store the Lipila anchor + mark the ride paid.
+  Future<void> confirmRidePayment(String requestId, String txId) async {
+    await _client.from('ride_requests').update({
+      'payment_ref': txId,
+      'payment_status': 'paid',
+      'paid_at': DateTime.now().toIso8601String(),
+    }).eq('id', requestId);
+    try {
+      final res = await _client
+          .from('ride_requests')
+          .select('driver_id')
+          .eq('id', requestId)
+          .single();
+      if (res['driver_id'] != null) {
+        await _client.from('notifications').insert({
+          'user_id': res['driver_id'],
+          'title': 'Payment Confirmed',
+          'body': 'The passenger has paid for the ride. Head to the pickup point!',
+          'is_read': false,
+        });
+      }
+    } catch (e) {
+      debugPrint("transport_service: driver payment notification failed: $e");
+    }
+  }
+
+  // ── Delivery negotiation + payment ──
+
+  /// Driver counters a delivery fare (notifies the sender).
+  Future<void> counterDeliveryFare(String deliveryId, double counter) async {
+    final res = await _client
+        .from('delivery_requests')
+        .select('sender_id')
+        .eq('id', deliveryId)
+        .single();
+    await _client.from('delivery_requests').update({
+      'negotiated_fare': counter,
+      'negotiation_status': 'driver_countered',
+    }).eq('id', deliveryId);
+    try {
+      await _client.from('notifications').insert({
+        'user_id': res['sender_id'],
+        'title': 'New Cargo Fare Offer',
+        'body': 'The courier counter-offered K${counter.toStringAsFixed(0)}. Accept or decline to continue.',
+        'is_read': false,
+      });
+    } catch (e) {
+      debugPrint("transport_service: delivery counter notification failed: $e");
+    }
+  }
+
+  /// Sender accepts the courier's counter-offer → locks fare and accepts.
+  Future<void> acceptDeliveryCounterOffer(String deliveryId) async {
+    await _client.from('delivery_requests').update({
+      'status': 'accepted',
+      'negotiation_status': 'accepted',
+      'fare_locked_at': DateTime.now().toIso8601String(),
+    }).eq('id', deliveryId).eq('negotiation_status', 'driver_countered');
+  }
+
+  /// Sender declines the counter-offer, resets to pending.
+  Future<void> declineDeliveryCounterOffer(String deliveryId) async {
+    await _client.from('delivery_requests').update({
+      'negotiation_status': 'none',
+      'negotiated_fare': null,
+    }).eq('id', deliveryId).eq('negotiation_status', 'driver_countered');
+  }
+
+  /// Sender paid — store the Lipila anchor + mark the delivery paid.
+  Future<void> confirmDeliveryPayment(String deliveryId, String txId) async {
+    await _client.from('delivery_requests').update({
+      'payment_ref': txId,
+      'payment_status': 'paid',
+      'paid_at': DateTime.now().toIso8601String(),
+    }).eq('id', deliveryId);
+    try {
+      final res = await _client
+          .from('delivery_requests')
+          .select('driver_id')
+          .eq('id', deliveryId)
+          .single();
+      if (res['driver_id'] != null) {
+        await _client.from('notifications').insert({
+          'user_id': res['driver_id'],
+          'title': 'Payment Confirmed',
+          'body': 'The sender has paid for the cargo mission. Head to the pickup point!',
+          'is_read': false,
+        });
+      }
+    } catch (e) {
+      debugPrint("transport_service: courier payment notification failed: $e");
+    }
+  }
+
+  /// Driver's accepted requests that the passenger has NOT paid yet.
+  Stream<List<RideRequest>> getMyAcceptedRidesStream() {
+    final user = _client.auth.currentUser;
+    if (user == null) return const Stream.empty();
+    return _client
+        .from('ride_requests')
+        .stream(primaryKey: ['id'])
+        .eq('driver_id', user.id)
+        .map((data) => data
+            .where((e) => e['status'] == 'accepted')
+            .map((e) => RideRequest.fromMap(e))
+            .toList());
+  }
+
+  /// Couriers' accepted deliveries that the sender has NOT paid yet.
+  Stream<List<DeliveryRequest>> getMyAcceptedDeliveriesStream() {
+    final user = _client.auth.currentUser;
+    if (user == null) return const Stream.empty();
+    return _client
+        .from('delivery_requests')
+        .stream(primaryKey: ['id'])
+        .eq('driver_id', user.id)
+        .map((data) => data
+            .where((e) => e['status'] == 'accepted')
+            .map((e) => DeliveryRequest.fromMap(e))
+            .toList());
+  }
+
   Future<void> updateRideStatus(String requestId, String status) async {
     await _client.from('ride_requests').update({'status': status}).eq('id', requestId);
     
@@ -261,12 +411,21 @@ class TransportService {
 
   Future<void> _settleRide(String requestId) async {
     // 1. Fetch ride details
-    final res = await _client.from('ride_requests').select('rider_id, driver_id, offered_fare').eq('id', requestId).single();
+    final res = await _client
+        .from('ride_requests')
+        .select('rider_id, driver_id, offered_fare, negotiated_fare, payment_status')
+        .eq('id', requestId)
+        .single();
     final riderId = res['rider_id'];
     final driverId = res['driver_id'];
-    final fare = (res['offered_fare'] as num).toDouble();
+    final fare = ((res['negotiated_fare'] ?? res['offered_fare']) as num).toDouble();
 
     if (driverId == null) return;
+    // Never settle a ride the passenger has not paid for.
+    if ((res['payment_status'] ?? 'unpaid') != 'paid') {
+      debugPrint("transport_service: ride $requestId not paid — skipping settlement");
+      return;
+    }
 
     final cutPercent = _businessCutPercent;
     final platformCut = fare * cutPercent;
@@ -321,6 +480,22 @@ class TransportService {
     } catch (e) {
       debugPrint("transport_service: Driver settlement enqueue failed: $e");
     }
+
+    // 5. Enqueue the PLATFORM cut payout. The settlement engine disburses it
+    // to the number set by superadmin/coa_employee (platform_settings
+    // ride_payout_mobile). Tenants never access ride money.
+    try {
+      await _client.rpc('enqueue_payout_task', params: {
+        'p_source': 'ride_cut',
+        'p_source_ref': requestId,
+        'p_payment_ref': null,
+        'p_recipient_user_id': null,
+        'p_recipient_phone': '',
+        'p_gross_amount': platformCut,
+      });
+    } catch (e) {
+      debugPrint("transport_service: Platform ride cut enqueue failed: $e");
+    }
   }
 
   Stream<LatLng?> watchDriverLocation(String driverId) {
@@ -350,6 +525,8 @@ class TransportService {
     String? vendorPhone,
     String? vendorName,
     double? itemPrice,
+    String? pickupLabel,
+    String? destLabel,
   }) async {
     final user = _client.auth.currentUser;
     if (user == null) return null;
@@ -368,6 +545,8 @@ class TransportService {
       vendorPhone: vendorPhone,
       vendorName: vendorName,
       itemPrice: itemPrice,
+      pickupLabel: pickupLabel,
+      destLabel: destLabel,
     );
 
     final inserted = await _client
@@ -404,7 +583,7 @@ class TransportService {
     await _client.from('notifications').insert({
       'user_id': senderId,
       'title': 'Courier Found!',
-      'body': 'A Courier has accepted your cargo mission.',
+      'body': 'A Courier has accepted your cargo mission. Confirm payment to start.',
       'is_read': false,
     });
 
@@ -436,14 +615,19 @@ class TransportService {
   Future<void> _settleDelivery(String deliveryId) async {
     final res = await _client
         .from('delivery_requests')
-        .select('sender_id, driver_id, offered_fare, item_description, vendor_phone, vendor_name, item_price')
+        .select('sender_id, driver_id, offered_fare, negotiated_fare, payment_status, item_description, vendor_phone, vendor_name, item_price')
         .eq('id', deliveryId)
         .single();
     final senderId = res['sender_id'];
     final driverId = res['driver_id'];
-    final fare = (res['offered_fare'] as num).toDouble();
+    final fare = ((res['negotiated_fare'] ?? res['offered_fare']) as num).toDouble();
 
     if (driverId == null) return;
+    // Never settle a delivery the sender has not paid for.
+    if ((res['payment_status'] ?? 'unpaid') != 'paid') {
+      debugPrint("transport_service: delivery $deliveryId not paid — skipping settlement");
+      return;
+    }
 
     final cutPercent = _businessCutPercent;
     final platformCut = fare * cutPercent;
@@ -518,6 +702,20 @@ class TransportService {
         debugPrint("transport_service: Vendor escrow settlement enqueue failed: $e");
       }
     }
+
+    // 3. Enqueue the PLATFORM cut payout (ride_payout_mobile setting).
+    try {
+      await _client.rpc('enqueue_payout_task', params: {
+        'p_source': 'delivery_cut',
+        'p_source_ref': deliveryId,
+        'p_payment_ref': null,
+        'p_recipient_user_id': null,
+        'p_recipient_phone': '',
+        'p_gross_amount': platformCut,
+      });
+    } catch (e) {
+      debugPrint("transport_service: Platform delivery cut enqueue failed: $e");
+    }
   }
 
   Stream<DeliveryRequest?> getMyDeliveryStream() {
@@ -557,5 +755,13 @@ final pendingDeliveriesStreamProvider = StreamProvider<List<DeliveryRequest>>((r
 
 final myDeliveryStreamProvider = StreamProvider<DeliveryRequest?>((ref) {
   return ref.watch(transportServiceProvider).getMyDeliveryStream();
+});
+
+final myAcceptedRidesStreamProvider = StreamProvider<List<RideRequest>>((ref) {
+  return ref.watch(transportServiceProvider).getMyAcceptedRidesStream();
+});
+
+final myAcceptedDeliveriesStreamProvider = StreamProvider<List<DeliveryRequest>>((ref) {
+  return ref.watch(transportServiceProvider).getMyAcceptedDeliveriesStream();
 });
 

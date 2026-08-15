@@ -13,7 +13,9 @@ import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
 import 'package:geolocator/geolocator.dart';
 import '../data/transport_service.dart';
+import '../data/ride_request_model.dart';
 import '../data/ride_pricing_provider.dart';
+import '../data/delivery_model.dart';
 import 'active_ride_tracking_screen.dart';
 import 'widgets/ride_map_view.dart';
 import 'widgets/pickup_dropoff_inputs.dart';
@@ -35,6 +37,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
   LatLng? _pickupLatLng;
   LatLng? _destLatLng;
   StreamSubscription? _acceptanceSub;
+  StreamSubscription? _deliverySub;
   bool _isLocating = false;
 
   @override
@@ -145,6 +148,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
     _dropoffController.dispose();
     _itemDescController.dispose();
     _acceptanceSub?.cancel();
+    _deliverySub?.cancel();
     super.dispose();
   }
 
@@ -402,7 +406,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                                       _pickupLatLng ?? const LatLng(-15.3875, 28.3228),
                                   destLatLng:
                                       _destLatLng ?? const LatLng(-15.395, 28.35),
-                                  onRequestRide: () => _handleRidePayment(),
+                                  onRequestRide: () => _createRideRequest(),
                                 ),
                             ],
                           ),
@@ -496,41 +500,22 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
   }
 
   bool _isRequesting = false;
+  bool _paymentSheetOpen = false;
+  double? _counterShownFor;
 
-  Future<void> _handleRidePayment() async {
+  /// Request the ride FIRST (no payment). The driver negotiates / accepts, and
+  /// only after the fare is agreed does the passenger pay to start the trip.
+  Future<void> _createRideRequest() async {
+    if (_isRequesting) return;
     final pricing = ref.read(ridePricingProvider);
-    if (pricing.estimatedPrice == null || _isRequesting) return;
-
-    // Gross fare — the Lipila gateway adds the processing fee on top.
+    if (pricing.estimatedPrice == null) return;
     final fare = pricing.displayPrice;
     final isDelivery = pricing.selectedCategory == 'marketplace' ||
         pricing.selectedCategory == 'bookshop';
-
-    if (!mounted) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetCtx) => LipilaPaymentGateway(
-        amount: fare,
-        description: isDelivery ? 'Carpso Cargo Delivery' : 'Carpso Ride',
-        category: 'ride',
-        paymentReason: isDelivery ? 'Carpso Delivery Fare' : 'Carpso Ride Fare',
-        onComplete: (success, txId) {
-          Navigator.pop(sheetCtx);
-          if (success) {
-            _createRideRequest(fare, isDelivery);
-          }
-        },
-      ),
-    );
-  }
-
-  Future<void> _createRideRequest(double fare, bool isDelivery) async {
-    if (_isRequesting) return;
-    final pricing = ref.read(ridePricingProvider);
     final pickup = _pickupLatLng ?? const LatLng(-15.3875, 28.3228);
     final dest = _destLatLng ?? const LatLng(-15.395, 28.35);
+    final pickupLabel = _pickupController.text.trim().isEmpty ? null : _pickupController.text.trim();
+    final destLabel = _dropoffController.text.trim().isEmpty ? null : _dropoffController.text.trim();
 
     setState(() => _isRequesting = true);
     try {
@@ -543,9 +528,12 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
               category: pricing.selectedCategory,
               weight: pricing.selectedWeight,
               fare: fare,
+              pickupLabel: pickupLabel,
+              destLabel: destLabel,
             );
       } else {
-        requestId = await ref.read(transportServiceProvider).requestRide(pickup, dest, fare);
+        requestId = await ref.read(transportServiceProvider)
+            .requestRide(pickup, dest, fare, pickupLabel: pickupLabel, destLabel: destLabel);
       }
 
       if (!mounted) return;
@@ -560,12 +548,13 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
       }
 
       _listenForAcceptance(requestId);
+      _listenForDeliveryAcceptance(requestId);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             isDelivery
-                ? "Delivery requested! Waiting for a courier to confirm..."
-                : "Ride requested! Waiting for a driver to confirm...",
+                ? "Delivery requested! Waiting for a courier to negotiate/confirm..."
+                : "Ride requested! Waiting for a driver to negotiate/confirm...",
           ),
           backgroundColor: Theme.of(context).primaryColor,
         ),
@@ -582,19 +571,103 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
     }
   }
 
+  /// Opens the Lipila payment sheet for the CURRENT (possibly negotiated) fare.
+  /// On success marks the ride paid and opens live tracking.
+  void _payForRide(RideRequest ride, bool isDelivery) {
+    if (_paymentSheetOpen) return;
+    _paymentSheetOpen = true;
+    final amount = ride.currentFare;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => LipilaPaymentGateway(
+        amount: amount,
+        description: isDelivery ? 'Carpso Cargo Delivery' : 'Carpso Ride',
+        category: 'ride',
+        paymentReason: isDelivery ? 'Carpso Delivery Fare' : 'Carpso Ride Fare',
+        onComplete: (success, txId) {
+          Navigator.pop(sheetCtx);
+          _paymentSheetOpen = false;
+          if (success && txId != null) {
+            _confirmAndTrack(ride.id, ride.pickup, ride.destination, txId, isDelivery);
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _confirmAndTrack(
+      String requestId, LatLng pickup, LatLng dest, String txId, bool isDelivery) async {
+    try {
+      final service = ref.read(transportServiceProvider);
+      if (isDelivery) {
+        await service.confirmDeliveryPayment(requestId, txId);
+      } else {
+        await service.confirmRidePayment(requestId, txId);
+      }
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ActiveRideTrackingScreen(
+            startPos: _pickupLatLng ?? pickup,
+            destPos: _destLatLng ?? dest,
+            requestId: requestId,
+            type: isDelivery ? 'delivery' : 'ride',
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Payment confirm failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Payment recorded but tracking failed: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   void _listenForAcceptance([String? expectedRequestId]) {
     _acceptanceSub?.cancel();
     final service = ref.read(transportServiceProvider);
     _acceptanceSub = service.getMyRideRequestStream().listen((ride) {
+      if (!mounted) return;
       final matches = expectedRequestId == null || ride?.id == expectedRequestId;
-      if (ride != null && matches && ride.status == 'accepted' && mounted) {
+      if (ride == null || !matches) return;
+
+      if (ride.status == 'cancelled') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("This request was cancelled."), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      // Driver counter-offered → show accept/decline dialog (once per offer).
+      if (ride.status == 'pending' &&
+          ride.negotiationStatus == 'driver_countered' &&
+          ride.negotiatedFare != null &&
+          ride.negotiatedFare != _counterShownFor) {
+        _counterShownFor = ride.negotiatedFare;
+        _showCounterOfferDialog(ride);
+        return;
+      }
+
+      // Driver accepted the request (at any agreed fare) → pay to start.
+      if (ride.status == 'accepted' && ride.paymentStatus != 'paid') {
+        _payForRide(ride, false);
+        return;
+      }
+
+      // Paid → go to live tracking.
+      if (ride.status == 'accepted' && ride.paymentStatus == 'paid') {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => ActiveRideTrackingScreen(
-              startPos:
-                  _pickupLatLng ?? const LatLng(-15.3875, 28.3228),
-              destPos: _destLatLng ?? const LatLng(-15.395, 28.35),
+              startPos: _pickupLatLng ?? ride.pickup,
+              destPos: _destLatLng ?? ride.destination,
               requestId: ride.id,
               type: 'ride',
             ),
@@ -602,6 +675,159 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
         );
       }
     });
+  }
+
+  void _showCounterOfferDialog(RideRequest ride) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text("Driver Counter-Offer"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "The driver proposed a fare of K${ride.negotiatedFare!.toStringAsFixed(0)} "
+              "(your estimate was K${ride.fare.toStringAsFixed(0)}).",
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Accept the fare and pay now, or decline to keep waiting for other drivers.",
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(dialogCtx);
+              await ref.read(transportServiceProvider).declineCounterOffer(ride.id);
+            },
+            child: const Text("Decline"),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(dialogCtx);
+              final service = ref.read(transportServiceProvider);
+              await service.acceptCounterOffer(ride.id);
+              // acceptCounterOffer flips status to accepted → stream fires →
+              // _payForRide opens the payment sheet for the negotiated fare.
+            },
+            child: const Text("Accept & Pay"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Delivery mirror of [_listenForAcceptance] using the sender's delivery stream.
+  void _listenForDeliveryAcceptance([String? expectedRequestId]) {
+    _deliverySub?.cancel();
+    final service = ref.read(transportServiceProvider);
+    _deliverySub = service.getMyDeliveryStream().listen((delivery) {
+      if (!mounted) return;
+      final matches = expectedRequestId == null || delivery?.id == expectedRequestId;
+      if (delivery == null || !matches) return;
+
+      if (delivery.status == 'cancelled') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("This cargo request was cancelled."), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      // Courier counter-offered → accept/decline (once per offer).
+      if (delivery.status == 'pending' &&
+          delivery.negotiationStatus == 'driver_countered' &&
+          delivery.negotiatedFare != null &&
+          delivery.negotiatedFare != _counterShownFor) {
+        _counterShownFor = delivery.negotiatedFare;
+        _showDeliveryCounterDialog(delivery);
+        return;
+      }
+
+      // Courier accepted → pay to start.
+      if (delivery.status == 'accepted' && delivery.paymentStatus != 'paid') {
+        if (_paymentSheetOpen) return;
+        _paymentSheetOpen = true;
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (sheetCtx) => LipilaPaymentGateway(
+            amount: delivery.currentFare,
+            description: 'Carpso Cargo Delivery',
+            category: 'ride',
+            paymentReason: 'Carpso Delivery Fare',
+            onComplete: (success, txId) {
+              Navigator.pop(sheetCtx);
+              _paymentSheetOpen = false;
+              if (success && txId != null) {
+                _confirmAndTrack(delivery.id, delivery.pickup, delivery.destination, txId, true);
+              }
+            },
+          ),
+        );
+        return;
+      }
+
+      // Paid → live tracking.
+      if (delivery.status == 'accepted' && delivery.paymentStatus == 'paid') {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ActiveRideTrackingScreen(
+              startPos: _pickupLatLng ?? delivery.pickup,
+              destPos: _destLatLng ?? delivery.destination,
+              requestId: delivery.id,
+              type: 'delivery',
+            ),
+          ),
+        );
+      }
+    });
+  }
+
+  void _showDeliveryCounterDialog(DeliveryRequest delivery) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text("Courier Counter-Offer"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "The courier proposed a fare of K${delivery.negotiatedFare!.toStringAsFixed(0)} "
+              "(your estimate was K${delivery.fare.toStringAsFixed(0)}).",
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Accept the fare and pay now, or decline to keep waiting for other couriers.",
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(dialogCtx);
+              await ref.read(transportServiceProvider).declineDeliveryCounterOffer(delivery.id);
+            },
+            child: const Text("Decline"),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(dialogCtx);
+              await ref.read(transportServiceProvider).acceptDeliveryCounterOffer(delivery.id);
+            },
+            child: const Text("Accept & Pay"),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _searchAndSetLocation(String address) async {
