@@ -514,7 +514,8 @@ Three GitHub Actions workflows automate the release train:
 Manual (`workflow_dispatch`) + on `v*` tags. Builds debug APK + `integration_test/app_smoke_test.dart` androidTest APK, runs on Pixel 7/5/4a (API 33/30/28) via `gcloud firebase test android run`. Gated on `GCLOUD_SERVICE_ACCOUNT` + `FIREBASE_PROJECT_ID` secrets.
 
 ### Secrets to add (all jobs are gated — CI stays green without them)
-`FIREBASE_SERVICE_ACCOUNT`, `FIREBASE_ANDROID_APP_ID`, `FIREBASE_TESTER_GROUPS`, `SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`, `GCLOUD_SERVICE_ACCOUNT`, `FIREBASE_PROJECT_ID`. Already set: `STORE_FILE`, `STORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`, `GOOGLE_SERVICES_JSON`, `GOOGLE_PLAY_SERVICE_ACCOUNT`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`.
+`FIREBASE_SERVICE_ACCOUNT`, `FIREBASE_TESTER_GROUPS`, `SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`, `GCLOUD_SERVICE_ACCOUNT`, `FIREBASE_PROJECT_ID` (`studio-7483333628-db257`). Already set: `STORE_FILE`, `STORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`, `GOOGLE_SERVICES_JSON`, `GOOGLE_PLAY_SERVICE_ACCOUNT`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `FIREBASE_ANDROID_APP_ID` (`1:45750098887:android:49947b7979e42c599217e2`).
+**NOTE**: the `secrets` context is NOT available in `if:` expressions (job or step level) — GitHub rejects the whole workflow file. Use job-level `env: HAS_X: ${{ secrets.X != '' }}` + step `if: env.HAS_X == 'true'` (see `distribute-firebase`, `test-lab`, notify jobs).
 
 ### Rules for agents
 - Never commit `google-services.json`/`GoogleService-Info.plist`/`.env`/keystores (all gitignored; CI materializes them from secrets).
