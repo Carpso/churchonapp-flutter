@@ -383,6 +383,25 @@ class CurrentTenantNotifier extends Notifier<Tenant?> {
     }
   }
 
+  /// Re-fetch the currently selected tenant WITHOUT clearing state first.
+  /// Pull-to-refresh on the home tab must not bounce the router to
+  /// /select-church (invalidating the provider resets state to null and the
+  /// router redirect kicks in). The old tenant stays visible until the
+  /// refreshed one arrives.
+  Future<void> reload() async {
+    final current = state;
+    final prefs = await SharedPreferences.getInstance();
+    final tenantId = prefs.getString('selected_tenant_id') ?? current?.id;
+    if (tenantId == null) return;
+    try {
+      final service = ref.read(tenantServiceProvider);
+      final tenant = await service.getTenantById(tenantId);
+      if (tenant != null) state = tenant;
+    } catch (e) {
+      debugPrint('Error reloading tenant: $e');
+    }
+  }
+
   Future<void> setTenant(Tenant? tenant) async {
     state = tenant;
     final prefs = await SharedPreferences.getInstance();

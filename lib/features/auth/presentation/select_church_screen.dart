@@ -26,9 +26,14 @@ class SelectTenantScreen extends ConsumerStatefulWidget {
 class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
   List<Map<String, dynamic>> _tenants = [];
   List<Map<String, dynamic>> _filteredTenants = [];
+  /// Unregistered churches found on OpenStreetMap — shown as grey map pins
+  /// ONLY (never in the list). Tapping one toasts "not registered yet".
+  List<Map<String, dynamic>> _osmChurches = [];
   bool _loading = true;
   Position? _currentPosition;
   String _currentCountry = "Zambia";
+  /// Max distance (km) for the "nearby" list filter when location is known.
+  static const double _maxNearbyKm = 50.0;
   final List<String> _supportedCountries = [
     "Zambia", "Zimbabwe", "Kenya", "Nigeria", "Ghana",
     "South Africa", "Tanzania", "Uganda", "Rwanda", "Malawi",
@@ -38,7 +43,6 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
   ];
   /// Active countries that have live churches. Others show "Coming Soon".
   final Set<String> _activeCountries = {"Zambia"};
-  bool _showOnlyRegistered = false;
   final _searchController = TextEditingController();
   LatLng? _pinPosition;
 
@@ -132,10 +136,24 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
         return regA.compareTo(regB);
       });
 
+      // List = registered/platform churches near the user only. When the
+      // user's position is known, hide tenants farther than _maxNearbyKm;
+      // tenants without coordinates are kept (distance unknown) and sort last.
+      List<Map<String, dynamic>> nearby;
+      if (pos != null) {
+        nearby = allTenants.where((t) {
+          final d = (t['_distance'] as num?)?.toDouble();
+          return d == null || d <= _maxNearbyKm * 1000;
+        }).toList();
+      } else {
+        nearby = allTenants;
+      }
+
       if (mounted) {
         setState(() {
           _tenants = allTenants;
-          _filteredTenants = allTenants;
+          _filteredTenants = nearby;
+          _osmChurches = [];
           _loading = false;
         });
       }
@@ -161,10 +179,12 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
   void _filterTenants(String query) {
     setState(() {
       final countryFilter = _currentCountry.toLowerCase();
+      // List shows platform (DB) churches & bookshops only — unregistered
+      // OpenStreetMap results never appear here (they are map pins only).
       _filteredTenants = _tenants.where((c) {
+        if (c['_osm'] == true) return false;
         final country = (c['country'] ?? '').toString().toLowerCase();
         final matchesCountry = country.contains(countryFilter);
-
         if (!matchesCountry) return false;
 
         final name = (c['name'] ?? '').toString().toLowerCase();
@@ -176,8 +196,11 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
             country.contains(query.toLowerCase()) ||
             type.contains(query.toLowerCase());
 
-        if (_showOnlyRegistered) {
-          return matchesQuery && c['_registered'] == true;
+        // Keep the near-the-user filter applied on top of the search.
+        final pos = _currentPosition;
+        if (pos != null) {
+          final d = (c['_distance'] as num?)?.toDouble();
+          if (d != null && d > _maxNearbyKm * 1000) return false;
         }
         return matchesQuery;
       }).toList();
@@ -265,23 +288,10 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
       if (nearby.isEmpty || !mounted) return;
 
       setState(() {
-        final existingIds = _tenants.map((t) => t['id']).toSet();
-        _tenants.addAll(
-          nearby.where((n) => !existingIds.contains(n['id'])),
-        );
-        final query2 = _searchController.text;
-        _filteredTenants = _tenants.where((c) {
-          final country = (c['country'] ?? '').toString().toLowerCase();
-          final matchesCountry = country.contains(_currentCountry.toLowerCase());
-          if (!matchesCountry) return false;
-          final name = (c['name'] ?? '').toString().toLowerCase();
-          final address = (c['address'] ?? '').toString().toLowerCase();
-          final matchesQuery = query2.isEmpty ||
-              name.contains(query2.toLowerCase()) ||
-              address.contains(query2.toLowerCase());
-          if (_showOnlyRegistered) return matchesQuery && c['_registered'] == true;
-          return matchesQuery;
-        }).toList();
+        // Unregistered OSM churches become grey map pins only — they are NOT
+        // added to the selectable list. Tapping a pin toasts that the church
+        // has not registered on the platform yet.
+        _osmChurches = nearby;
       });
     } catch (e) {
       debugPrint('Error fetching nearby churches: $e');
@@ -321,15 +331,36 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                     name: tenant['name'] ?? 'Tenant',
                     color: isRegistered
                         ? (isBookshop ? Colors.blue : Theme.of(context).primaryColor)
-                        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                        : Colors.amber,
                     logoUrl: tenant['logo_url'],
                     isBookshop: isBookshop,
                     onTap: () {
                       if (isRegistered) {
                         _selectTenant(tenant);
                       } else {
-                        _showNotRegisteredDialog(tenant);
+                        _toast(
+                          "${tenant['name'] ?? 'This church'} is pending approval — its registration is being reviewed by our team.",
+                        );
                       }
+                    },
+                  );
+                }).toList() +
+                _osmChurches.map((tenant) {
+                  final lat = _parseDouble(tenant['latitude']) ?? -15.3875;
+                  final lng = _parseDouble(tenant['longitude']) ?? 28.3228;
+                  return buildChurchMarker(
+                    point: LatLng(lat, lng),
+                    name: tenant['name'] ?? 'Church',
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
+                    logoUrl: null,
+                    isBookshop: false,
+                    onTap: () {
+                      _toast(
+                        "${tenant['name'] ?? 'This church'} is not registered on Church On App yet.",
+                      );
                     },
                   );
                 }).toList() +
@@ -433,7 +464,9 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                             const SizedBox(height: 2),
                             Text(
                                 _activeCountries.contains(_currentCountry)
-                                    ? "Churches & Bookshops in $_currentCountry"
+                                    ? (_currentPosition != null
+                                        ? "Registered churches & bookshops near you in $_currentCountry"
+                                        : "Churches & Bookshops in $_currentCountry")
                                     : "$_currentCountry — Coming Soon",
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -530,65 +563,6 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _showOnlyRegistered = !_showOnlyRegistered;
-                            _filterTenants(_searchController.text);
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _showOnlyRegistered
-                                ? theme.primaryColor.withValues(alpha: 0.15)
-                                : theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.05,
-                                  ),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _showOnlyRegistered
-                                  ? theme.primaryColor
-                                  : theme.colorScheme.onSurface.withValues(
-                                      alpha: 0.15,
-                                    ),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _showOnlyRegistered
-                                    ? Icons.check_circle
-                                    : Icons.circle_outlined,
-                                size: 14,
-                                color: _showOnlyRegistered
-                                    ? theme.primaryColor
-                                    : theme.colorScheme.onSurface.withValues(
-                                        alpha: 0.5,
-                                      ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                "Registered Only",
-                                style: TextStyle(
-                                  color: _showOnlyRegistered
-                                      ? theme.primaryColor
-                                      : theme.colorScheme.onSurface.withValues(
-                                          alpha: 0.7,
-                                        ),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
                       GestureDetector(
                         onTap: _fetchTenants,
                         child: Container(
@@ -735,7 +709,9 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
         if (isRegistered || isBookshop) {
           _selectTenant(tenant);
         } else {
-          _showNotRegisteredDialog(tenant);
+          _toast(
+            "${tenant['name'] ?? 'This church'} is pending approval — its registration is being reviewed by our team.",
+          );
         }
       },
       child: Container(
@@ -887,21 +863,24 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
               )
             else
               GestureDetector(
-                onTap: () => _showNotRegisteredDialog(tenant),
+                onTap: () => _toast(
+                  "${tenant['name'] ?? 'This church'} is pending approval — its registration is being reviewed by our team.",
+                ),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                    color: Colors.amber.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber),
                   ),
                   child: Text(
-                    "Pending",
+                    "Pending Approval",
                     style: TextStyle(
                       fontSize: 11,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      color: Colors.orange.shade800,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1166,85 +1145,18 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
     );
   }
 
-  void _showNotRegisteredDialog(Map<String, dynamic> tenant) {
-    final theme = Theme.of(context);
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-        title: Row(
-          children: [
-            Icon(Icons.info, color: theme.primaryColor),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                "Not Yet Available",
-                style: TextStyle(
-                  fontSize: 18,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-            ),
-          ],
+  void _toast(String message, {Color? backgroundColor}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor:
+              backgroundColor ?? Theme.of(context).primaryColor,
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              tenant['name'] ?? 'This church',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "This church has not yet registered on Church On App. Once they sign up and activate their profile, you'll be able to join their community.",
-              style: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 15),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.notifications_active,
-                    size: 16,
-                    color: theme.primaryColor,
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "We'll notify you when they join!",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("OK", style: TextStyle(color: theme.primaryColor)),
-          ),
-        ],
-      ),
-    );
+      );
   }
 
   void _showCountryToggleMenu(String country) {

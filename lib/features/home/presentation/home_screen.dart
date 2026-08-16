@@ -532,8 +532,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(profileProvider);
-            ref.invalidate(currentTenantProvider);
-            await Future.delayed(const Duration(milliseconds: 500));
+            // In-place tenant reload — invalidating currentTenantProvider
+            // resets state to null, which makes the router redirect to
+            // /select-church while the home tab is being refreshed.
+            await ref.read(currentTenantProvider.notifier).reload();
+            await Future.delayed(const Duration(milliseconds: 300));
           },
           child: CustomScrollView(
             slivers: [
