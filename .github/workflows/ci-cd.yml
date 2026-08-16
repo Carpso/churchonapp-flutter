@@ -614,6 +614,66 @@ jobs:
         if: always() && env.HAS_FIREBASE == 'true'
         run: rm -f firebase-sa.json
 
+  # Upload the built APK + AAB to Google Drive (service account) so the team
+  # can grab the latest builds on personal devices. Gated on GOOGLE_DRIVE_SA —
+  # skipped with a warning when the secret is unset.
+  upload-drive:
+    name: 🚀 Upload Builds to Google Drive
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build-apk, build-aab]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      HAS_DRIVE: ${{ secrets.GOOGLE_DRIVE_SA != '' }}
+    steps:
+      - name: Check Drive secret
+        if: env.HAS_DRIVE != 'true'
+        run: echo "::warning::GOOGLE_DRIVE_SA not configured - Google Drive upload skipped"
+
+      - name: Download APK artifact
+        if: env.HAS_DRIVE == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: apk-release
+          path: ./artifacts
+
+      - name: Download AAB artifact
+        if: env.HAS_DRIVE == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: aab-release
+          path: ./artifacts
+
+      - name: Install rclone
+        if: env.HAS_DRIVE == 'true'
+        run: |
+          curl -fsSL -o rclone.zip https://downloads.rclone.org/rclone-current-linux-amd64.zip
+          unzip -qo rclone.zip
+          sudo cp rclone-*-linux-amd64/rclone /usr/local/bin/rclone
+          rclone version
+
+      - name: Configure rclone with Drive service account
+        if: env.HAS_DRIVE == 'true'
+        run: |
+          echo "${{ secrets.GOOGLE_DRIVE_SA }}" | base64 -d > drive-sa.json
+          if [ -n "$DRIVE_FOLDER_ID" ]; then
+            rclone config create gdrive drive service_account_file drive-sa.json root_folder_id "$DRIVE_FOLDER_ID"
+          else
+            rclone config create gdrive drive service_account_file drive-sa.json
+          fi
+        env:
+          DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+
+      - name: Upload APK + AAB to Google Drive
+        if: env.HAS_DRIVE == 'true'
+        run: |
+          DEST="ChurchOnApp-builds/$(date -u +%Y-%m-%d)-${GITHUB_SHA:0:7}"
+          rclone copy artifacts "gdrive:$DEST" -v
+
+      - name: Remove Drive SA key
+        if: always() && env.HAS_DRIVE == 'true'
+        run: rm -f drive-sa.json
+
   # Notify on failure
   notify-failure:
     name: 🔔 Notify on Failure
