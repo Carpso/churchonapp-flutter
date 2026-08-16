@@ -956,6 +956,14 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   }
 
   Widget _buildGameplay(ThemeData theme) {
+    if (_questions.isEmpty || _currentIndex >= _questions.length) {
+      return const Center(
+        child: Text(
+          'No questions available. Please try another category.',
+          style: TextStyle(color: Colors.white54),
+        ),
+      );
+    }
     final q = _questions[_currentIndex];
     final progress = _currentIndex / _questions.length;
 

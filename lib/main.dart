@@ -28,6 +28,7 @@ import 'core/providers/audio_provider.dart' as ap;
 import 'core/config/env.dart';
 import 'core/config/app_constants.dart';
 import 'package:app_links/app_links.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 // Core service imports (for init calls and provider lifecycle)
 import 'core/services/email_service.dart';
@@ -85,8 +86,14 @@ void main() async {
     await ErrorReporter.instance.init();
     ErrorReporter.instance.attachGlobal();
     
-    if (Env.supabaseUrl.isEmpty) {
-      debugPrint('WARNING: SUPABASE_URL is empty. check your .env file.');
+    if (!Env.isSupabaseConfigured) {
+      debugPrint(
+        'FATAL: SUPABASE_URL/SUPABASE_ANON_KEY are missing or placeholder '
+        '(your-project.supabase.co). This build was made without a real .env — '
+        'sign-in would fail with "you\'re offline". Blocking startup.',
+      );
+      runApp(const _EnvConfigErrorApp());
+      return;
     }
 
     // 2. Initialize performance detection early
@@ -328,6 +335,48 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
           ),
         );
       },
+    );
+  }
+}
+
+/// Shown when the bundled `.env` is missing or still contains the
+/// `your-project.supabase.co` placeholder. A placeholder build can NEVER
+/// sign in (DNS failure → "you're offline"), so block startup loudly instead
+/// of shipping a silently-broken app.
+class _EnvConfigErrorApp extends StatelessWidget {
+  const _EnvConfigErrorApp();
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: const Color(0xFF0D1117),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(LucideIcons.alertTriangle, color: Color(0xFFFFDA03), size: 48),
+                const SizedBox(height: 16),
+                const Text(
+                  'App is not configured',
+                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'This build was made without a real .env file '
+                  '(Supabase URL/key missing or still the placeholder).\n'
+                  'Please reinstall a build that includes the real configuration.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

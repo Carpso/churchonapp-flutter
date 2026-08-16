@@ -42,9 +42,12 @@ jobs:
         if: env.HAS_TESTLAB == 'true'
         run: flutter pub get
 
-      - name: Create .env from example
+      - name: Materialize .env (real values from ENV_FILE secret; example fallback)
         if: env.HAS_TESTLAB == 'true'
-        run: cp .env.example .env
+        run: |
+          if [ -n "$ENV_FILE" ]; then printf '%s' "$ENV_FILE" > .env; else cp .env.example .env; fi
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
 
       - name: Materialize google-services.json
         if: env.HAS_TESTLAB == 'true'

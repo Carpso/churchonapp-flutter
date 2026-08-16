@@ -1,4 +1,4 @@
-name: Church On App - CI/CD Pipeline
+﻿name: Church On App - CI/CD Pipeline
 
 on:
   push:
@@ -31,7 +31,7 @@ env:
 jobs:
   # Linting and static analysis
   analyze:
-    name: 🔍 Static Analysis
+    name: ðŸ” Static Analysis
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -49,8 +49,11 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Create .env from example
-        run: cp .env.example .env
+      - name: Materialize .env (real values from ENV_FILE secret; example fallback)
+        run: |
+          if [ -n "$ENV_FILE" ]; then printf '%s' "$ENV_FILE" > .env; else cp .env.example .env; fi
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
 
       - name: Run Flutter analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
@@ -60,7 +63,7 @@ jobs:
 
   # Unit and widget tests
   test:
-    name: 🧪 Run Tests
+    name: ðŸ§ª Run Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -78,8 +81,11 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Create .env from example
-        run: cp .env.example .env
+      - name: Materialize .env (real values from ENV_FILE secret; example fallback)
+        run: |
+          if [ -n "$ENV_FILE" ]; then printf '%s' "$ENV_FILE" > .env; else cp .env.example .env; fi
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
 
       - name: Run key-flows smoke test (hard gate)
         run: flutter test test/key_flows_smoke_test.dart
@@ -89,7 +95,7 @@ jobs:
 
   # Build Android APK
   build-apk:
-    name: 📱 Build Android APK
+    name: ðŸ“± Build Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 75
     needs: [analyze, test]
@@ -117,8 +123,11 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Create .env from example
-        run: cp .env.example .env
+      - name: Materialize .env (real values from ENV_FILE secret; example fallback)
+        run: |
+          if [ -n "$ENV_FILE" ]; then printf '%s' "$ENV_FILE" > .env; else cp .env.example .env; fi
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
 
       - name: Check signing secrets
         if: env.HAS_SIGNING != 'true'
@@ -271,7 +280,7 @@ jobs:
 
   # Build Android App Bundle (AAB)
   build-aab:
-    name: 📦 Build Android App Bundle
+    name: ðŸ“¦ Build Android App Bundle
     runs-on: ubuntu-latest
     timeout-minutes: 75
     needs: [analyze, test]
@@ -299,8 +308,11 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Create .env from example
-        run: cp .env.example .env
+      - name: Materialize .env (real values from ENV_FILE secret; example fallback)
+        run: |
+          if [ -n "$ENV_FILE" ]; then printf '%s' "$ENV_FILE" > .env; else cp .env.example .env; fi
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
 
       - name: Check signing secrets
         if: env.HAS_SIGNING != 'true'
@@ -453,7 +465,7 @@ jobs:
 
   # Deploy to Play Store (internal testing)
   deploy-play-store:
-    name: 🚀 Deploy to Play Store (Internal)
+    name: ðŸš€ Deploy to Play Store (Internal)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [build-aab]
@@ -489,13 +501,13 @@ jobs:
       - name: Comment on PR/Commit
         if: success() && env.HAS_PLAY == 'true'
         run: |
-          echo "✅ Successfully deployed to Play Store Internal Testing track"
+          echo "âœ… Successfully deployed to Play Store Internal Testing track"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Create GitHub Release
   create-release:
-    name: 🏷️ Create GitHub Release
+    name: ðŸ·ï¸ Create GitHub Release
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [build-apk, build-aab]
@@ -549,16 +561,16 @@ jobs:
             apk/app-release.apk
             aab/app-release.aab
 
-  # Instant tester distribution — push the APK to Firebase App Distribution
+  # Instant tester distribution â€” push the APK to Firebase App Distribution
   # the moment code lands on main (no manual emailing of builds).
   distribute-firebase:
-    name: 📲 Firebase App Distribution (OTA)
+    name: ðŸ“² Firebase App Distribution (OTA)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [build-apk]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     env:
-      # secrets aren't allowed in `if:` — expose presence via job env instead.
+      # secrets aren't allowed in `if:` â€” expose presence via job env instead.
       HAS_FIREBASE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' && secrets.FIREBASE_ANDROID_APP_ID != '' }}
     steps:
       - name: Checkout repository
@@ -604,7 +616,7 @@ jobs:
 
   # Notify on failure
   notify-failure:
-    name: 🔔 Notify on Failure
+    name: ðŸ”” Notify on Failure
     runs-on: ubuntu-latest
     if: failure()
     needs: [analyze, test, build-apk, build-aab]
@@ -618,24 +630,24 @@ jobs:
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
           payload: |
-            {"text":"❌ CI/CD FAILED for ${{ github.repository }} (${{ github.ref_name }})\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\nCommit: ${{ github.sha }}"}
+            {"text":"âŒ CI/CD FAILED for ${{ github.repository }} (${{ github.ref_name }})\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\nCommit: ${{ github.sha }}"}
       - name: Notify Discord
         if: env.HAS_DISCORD == 'true' && env.HAS_SLACK != 'true'
         run: |
           curl -s -X POST -H "Content-Type: application/json" \
-            -d '{"content":"❌ CI/CD FAILED for ${{ github.repository }} (${{ github.ref_name }})\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
+            -d '{"content":"âŒ CI/CD FAILED for ${{ github.repository }} (${{ github.ref_name }})\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
             ${{ secrets.DISCORD_WEBHOOK_URL }}
       - name: Fallback (no webhook configured)
         if: env.HAS_SLACK != 'true' && env.HAS_DISCORD != 'true'
         run: |
-          echo "❌ Build failed! Check the Actions tab for details."
+          echo "âŒ Build failed! Check the Actions tab for details."
           echo "Workflow: ${{ github.workflow }}"
           echo "Run: ${{ github.run_id }}"
           echo "Commit: ${{ github.sha }}"
 
   # Success notification
   notify-success:
-    name: ✅ Notify on Success
+    name: âœ… Notify on Success
     runs-on: ubuntu-latest
     if: success()
     needs: [analyze, test, build-apk, build-aab]
@@ -649,15 +661,15 @@ jobs:
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
           payload: |
-            {"text":"✅ CI/CD PASSED for ${{ github.repository }} (${{ github.ref_name }}) — APK/AAB artifacts ready.\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
+            {"text":"âœ… CI/CD PASSED for ${{ github.repository }} (${{ github.ref_name }}) â€” APK/AAB artifacts ready.\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
       - name: Notify Discord
         if: env.HAS_DISCORD == 'true' && env.HAS_SLACK != 'true'
         run: |
           curl -s -X POST -H "Content-Type: application/json" \
-            -d '{"content":"✅ CI/CD PASSED for ${{ github.repository }} (${{ github.ref_name }}) — APK/AAB artifacts ready.\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
+            -d '{"content":"âœ… CI/CD PASSED for ${{ github.repository }} (${{ github.ref_name }}) â€” APK/AAB artifacts ready.\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
             ${{ secrets.DISCORD_WEBHOOK_URL }}
       - name: Fallback (no webhook configured)
         if: env.HAS_SLACK != 'true' && env.HAS_DISCORD != 'true'
         run: |
-          echo "✅ All checks passed!"
+          echo "âœ… All checks passed!"
           echo "Build artifacts are ready for deployment."

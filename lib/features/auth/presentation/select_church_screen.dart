@@ -57,13 +57,22 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
     _getUserLocation()
         .then((_) {
           if (mounted) {
-            _fetchTenants();
-            _fetchNearbyChurches();
+            _refreshAll();
           }
         })
         .catchError((e) {
           debugPrint('Error loading user location: $e');
         });
+  }
+
+  /// Full refresh: tenants (+ proximity filter) AND the nearby unregistered
+  /// OSM map pins. A plain tenant re-fetch clears the OSM pins without
+  /// repopulating them, which made the Refresh button look broken.
+  Future<void> _refreshAll() async {
+    await _fetchTenants();
+    if (_currentPosition != null) {
+      await _fetchNearbyChurches();
+    }
   }
 
   Future<void> _getUserLocation() async {
@@ -564,7 +573,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                   Row(
                     children: [
                       GestureDetector(
-                        onTap: _fetchTenants,
+                        onTap: _refreshAll,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,

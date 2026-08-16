@@ -17,8 +17,14 @@ jobs:
           flutter-version: '3.35.1'
           cache: true
       - run: flutter pub get
-      # .env is gitignored but bundled as an asset — create it from the committed example
-      - run: cp .env.example .env
+      # .env is gitignored but bundled as an asset — use the real values from
+      # the ENV_FILE secret when configured (never ship the placeholder URL!),
+      # else fall back to the example so analyze stays green without secrets.
+      - name: Materialize .env
+        run: |
+          if [ -n "$ENV_FILE" ]; then printf '%s' "$ENV_FILE" > .env; else cp .env.example .env; fi
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
       # Warnings fail the build; info-level only tolerated.
       - run: flutter analyze --no-fatal-infos
 
@@ -32,8 +38,13 @@ jobs:
           flutter-version: '3.35.1'
           cache: true
       - run: flutter pub get
-      # .env is gitignored but bundled as an asset — create it from the committed example
-      - run: cp .env.example .env
+      # .env is gitignored but bundled as an asset — real values from the
+      # ENV_FILE secret when set, else the example (tests stay green either way).
+      - name: Materialize .env
+        run: |
+          if [ -n "$ENV_FILE" ]; then printf '%s' "$ENV_FILE" > .env; else cp .env.example .env; fi
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
       # Key-flows smoke test is a hard gate (must pass).
       - run: flutter test test/key_flows_smoke_test.dart
       # Full suite runs but failures are informational (fragile mocks pre-date CI).

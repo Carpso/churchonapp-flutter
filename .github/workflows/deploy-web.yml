@@ -24,10 +24,14 @@ jobs:
         with:
           flutter-version: '3.35.1'
 
-      # .env is gitignored but bundled as an asset — create it from the committed example
-      - name: Create .env from example
+      # .env is gitignored but bundled as an asset — real values from the
+      # ENV_FILE secret when set, else the example (never ship placeholder URL).
+      - name: Materialize .env
         if: env.HAS_CF == 'true'
-        run: cp .env.example .env
+        run: |
+          if [ -n "$ENV_FILE" ]; then printf '%s' "$ENV_FILE" > .env; else cp .env.example .env; fi
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
 
       - name: Install dependencies
         if: env.HAS_CF == 'true'

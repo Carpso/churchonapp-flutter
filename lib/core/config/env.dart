@@ -3,6 +3,20 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class Env {
   static String get supabaseUrl => dotenv.env['SUPABASE_URL'] ?? '';
   static String get supabaseAnonKey => dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+
+  /// True only when the bundled .env carries REAL Supabase credentials.
+  ///
+  /// Guards against placeholder builds (e.g. `.env.example` copied by CI or a
+  /// stale `.env`) that would otherwise silently break sign-in with a
+  /// "you're offline" error against `https://your-project.supabase.co`.
+  static bool get isSupabaseConfigured {
+    final url = supabaseUrl.trim();
+    if (url.isEmpty) return false;
+    if (url.contains('your-project') || url.contains('YOUR_PROJECT')) return false;
+    final key = supabaseAnonKey.trim();
+    if (key.isEmpty || !key.startsWith('eyJ')) return false;
+    return true;
+  }
   
   static String get mapsZambiaUrl => dotenv.env['MAPS_ZAMBIA_URL'] ?? 'https://maps.churchonapp.com/zambia.pmtiles';
   static String get mapsZimbabweUrl => dotenv.env['MAPS_ZIMBABWE_URL'] ?? 'https://maps.churchonapp.com/zimbabwe.pmtiles';
