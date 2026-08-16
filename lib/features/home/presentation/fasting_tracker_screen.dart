@@ -383,14 +383,14 @@ class _FastingTrackerScreenState extends ConsumerState<FastingTrackerScreen> wit
           const SizedBox(height: 20),
           Row(
             children: [
-              Icon(LucideIcons.moon, color: _dndEnabled ? Colors.indigo : Colors.grey, size: 20),
+              Icon(LucideIcons.moon, color: _dndEnabled ? Theme.of(context).primaryColor : Colors.grey, size: 20),
               const SizedBox(width: 8),
               const Text("Focus Mode", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
               const Spacer(),
               Switch(
                 value: _dndEnabled,
                 onChanged: _toggleDnd,
-                activeThumbColor: Colors.indigo,
+                activeThumbColor: Theme.of(context).primaryColor,
               ),
             ],
           ),

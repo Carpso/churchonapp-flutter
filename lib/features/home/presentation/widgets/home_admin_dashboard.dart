@@ -16,10 +16,11 @@ class HomeAdminDashboard extends ConsumerWidget {
     final profile = ref.watch(profileProvider).value;
     if (profile == null || !profile.isAdminOrHigher) return const SizedBox.shrink();
 
+    final brand = Theme.of(context).primaryColor;
     final chips = [
-      ("Dashboard", LucideIcons.layoutDashboard, Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminHubScreen()))),
-      ("Broadcast", LucideIcons.megaphone, Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GlobalBroadcastScreen()))),
-      ("Members", LucideIcons.users, Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MemberManagementScreen()))),
+      ("Dashboard", LucideIcons.layoutDashboard, brand, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminHubScreen()))),
+      ("Broadcast", LucideIcons.megaphone, brand.withValues(alpha: 0.8), () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GlobalBroadcastScreen()))),
+      ("Members", LucideIcons.users, brand.withValues(alpha: 0.6), () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MemberManagementScreen()))),
       ("Events", LucideIcons.calendarDays, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EventSchedulerScreen()))),
     ];
 

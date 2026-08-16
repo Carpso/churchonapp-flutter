@@ -10,25 +10,26 @@ class HomeQuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = Theme.of(context).primaryColor;
     final actions = [
       {"icon": LucideIcons.book, "label": "Bible", "color": Colors.green},
-      {"icon": LucideIcons.bookOpen, "label": "Sermons", "color": Colors.blue},
+      {"icon": LucideIcons.bookOpen, "label": "Sermons", "color": brand},
       {"icon": LucideIcons.calendar, "label": "Events", "color": Colors.orange},
-      {"icon": LucideIcons.qrCode, "label": "Check-in", "color": Colors.purple},
+      {"icon": LucideIcons.qrCode, "label": "Check-in", "color": brand.withValues(alpha: 0.8)},
       {"icon": LucideIcons.flame, "label": "Fasting", "color": Colors.orange},
       {"icon": LucideIcons.heart, "label": "Life", "color": Colors.red},
       {
         "icon": LucideIcons.helpCircle,
         "label": "Bible Quiz",
-        "color": Colors.indigo,
+        "color": brand.withValues(alpha: 0.6),
       },
       {
         "icon": LucideIcons.shoppingBag,
         "label": "Marketplace",
-        "color": Colors.teal,
+        "color": brand.withValues(alpha: 0.45),
       },
       {"icon": LucideIcons.penTool, "label": "Notebook", "color": Colors.brown},
-      {"icon": LucideIcons.car, "label": "Carpso Ride", "color": Colors.cyan},
+      {"icon": LucideIcons.car, "label": "Carpso Ride", "color": brand.withValues(alpha: 0.3)},
     ];
 
     return Column(

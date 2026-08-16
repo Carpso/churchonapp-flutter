@@ -830,7 +830,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
               const Divider(height: 30),
               Row(
                 children: [
-                  const Icon(LucideIcons.fileText, color: Colors.blue, size: 18),
+                  Icon(LucideIcons.fileText, color: Theme.of(context).primaryColor, size: 18),
                   const SizedBox(width: 10),
                   const Text("Full Transcription", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const Spacer(),
@@ -872,7 +872,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
             const SizedBox(height: 25),
             Row(
               children: [
-                const Icon(LucideIcons.fileText, color: Colors.blue),
+                Icon(LucideIcons.fileText, color: Theme.of(context).primaryColor),
                 const SizedBox(width: 15),
                 const Text("Sermon Transcription", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               ],

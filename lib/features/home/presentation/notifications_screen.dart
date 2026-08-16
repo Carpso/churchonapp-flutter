@@ -31,13 +31,14 @@ class NotificationsScreen extends ConsumerWidget {
     }
   }
 
-  Color _colorForType(String? type) {
+  Color _colorForType(BuildContext context, String? type) {
+    final brand = Theme.of(context).primaryColor;
     switch (type) {
       case 'prayer': return Colors.orange;
-      case 'sermon': return Colors.blue;
+      case 'sermon': return brand;
       case 'payment': return Colors.green;
-      case 'event': return Colors.purple;
-      case 'chat': return Colors.teal;
+      case 'event': return brand.withValues(alpha: 0.75);
+      case 'chat': return brand.withValues(alpha: 0.55);
       default: return Colors.grey;
     }
   }
@@ -68,7 +69,7 @@ class NotificationsScreen extends ConsumerWidget {
     final body = (n['body'] ?? n['message'] ?? n['content'] ?? 'You have a new notification.').toString();
     final time = _timeAgo(n['created_at'] as String?);
     final icon = _iconForType(type);
-    final color = _colorForType(type);
+    final color = _colorForType(context, type);
     final theme = Theme.of(context);
 
     showModalBottomSheet(
@@ -229,7 +230,7 @@ class NotificationsScreen extends ConsumerWidget {
                 final n = notifications[index];
                 final type = n['type'] as String?;
                 final icon = _iconForType(type);
-                final color = _colorForType(type);
+                final color = _colorForType(context, type);
                 final title = n['title'] as String? ?? 'Notification';
                 final body = n['body'] as String? ?? '';
                 final time = _timeAgo(n['created_at'] as String?);

@@ -26,7 +26,7 @@ class HomePromoCarousel extends StatelessWidget {
                   colors: [
                     Theme.of(context).primaryColor,
                     Theme.of(context).primaryColor.withValues(alpha: 0.7),
-                    Colors.teal.shade700,
+                    Theme.of(context).primaryColor.withValues(alpha: 0.45),
                   ],
                 ),
               ),

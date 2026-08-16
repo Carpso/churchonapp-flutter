@@ -81,13 +81,13 @@ class _TechFastBlockerState extends ConsumerState<TechFastBlocker> {
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: Colors.indigo.withValues(alpha: 0.1),
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       LucideIcons.smartphone,
                       size: 64,
-                      color: Colors.indigo,
+                      color: Theme.of(context).primaryColor,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -119,9 +119,9 @@ class _TechFastBlockerState extends ConsumerState<TechFastBlocker> {
                       return Chip(
                         label: Text(
                           label,
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black),
                         ),
-                        backgroundColor: Colors.indigo,
+                        backgroundColor: Theme.of(context).primaryColor,
                       );
                     }).toList(),
                   ),
@@ -168,8 +168,8 @@ class _TechFastBlockerState extends ConsumerState<TechFastBlocker> {
                       showDialog(
                         context: context,
                         barrierDismissible: false,
-                        builder: (ctx) => const Center(
-                          child: CircularProgressIndicator(color: Colors.indigo),
+                        builder: (ctx) => Center(
+                          child: CircularProgressIndicator(color: Theme.of(context).primaryColor),
                         ),
                       );
                       try {
@@ -199,8 +199,8 @@ class _TechFastBlockerState extends ConsumerState<TechFastBlocker> {
                     icon: const Icon(LucideIcons.unlock),
                     label: const Text("END FAST & UNLOCK"),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo,
-                      foregroundColor: Colors.white,
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.black,
                       minimumSize: const Size(200, 56),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18),

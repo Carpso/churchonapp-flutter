@@ -32,17 +32,17 @@ class HomeDailyVerse extends ConsumerWidget {
         return Container(
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             colors: [
-              Colors.deepPurple.shade900.withValues(alpha: 0.85),
-              Colors.indigo.shade800.withValues(alpha: 0.85),
+              Color(0xFF2A2F45),
+              Color(0xFF151A2E),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
-            BoxShadow(color: Colors.deepPurple.shade900.withValues(alpha: 0.2), blurRadius: 15, offset: const Offset(0, 6)),
+            BoxShadow(color: const Color(0xFF151A2E).withValues(alpha: 0.35), blurRadius: 15, offset: const Offset(0, 6)),
           ],
           border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1),
         ),
@@ -56,8 +56,8 @@ class HomeDailyVerse extends ConsumerWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(LucideIcons.bookOpen, color: Colors.amber, size: 16),
+                      decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
+                      child: Icon(LucideIcons.bookOpen, color: Theme.of(context).primaryColor, size: 16),
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -65,7 +65,7 @@ class HomeDailyVerse extends ConsumerWidget {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w900,
-              color: Colors.amber.shade300,
+              color: Theme.of(context).primaryColor,
               letterSpacing: 1.2,
             ),
           ),
@@ -76,13 +76,13 @@ class HomeDailyVerse extends ConsumerWidget {
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: '"${verse.text}" — ${verse.reference}'));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: const Text("Daily verse copied to clipboard!"), backgroundColor: Colors.indigo.shade700, behavior: SnackBarBehavior.floating),
+                      SnackBar(content: const Text("Daily verse copied to clipboard!"), backgroundColor: Theme.of(context).primaryColor, behavior: SnackBarBehavior.floating),
                     );
                   },
                   constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                   padding: EdgeInsets.zero,
                 ),
-                ScriptureAudioButton(reference: verse.reference, iconColor: Colors.amber.shade200, iconSize: 18),
+                ScriptureAudioButton(reference: verse.reference, iconColor: Theme.of(context).primaryColor, iconSize: 18),
               ],
             ),
             const SizedBox(height: 16),

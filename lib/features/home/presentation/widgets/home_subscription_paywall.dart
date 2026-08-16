@@ -153,7 +153,7 @@ class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywal
           const Divider(height: 16),
           _planRow("Gold", "K${goldMonthly.toStringAsFixed(0)}/mo", "500 members • 50 events • 10GB", Colors.amber),
           const Divider(height: 16),
-          _planRow("Platinum", "K${platinumMonthly.toStringAsFixed(0)}/mo", "Unlimited members • Host quizzes • Priority", Colors.blueAccent),
+          _planRow("Platinum", "K${platinumMonthly.toStringAsFixed(0)}/mo", "Unlimited members • Host quizzes • Priority", Theme.of(context).primaryColor),
         ],
       ),
     );
@@ -614,7 +614,7 @@ class _PlanCard extends StatelessWidget {
         ? Colors.grey
         : plan == TenantPlan.gold
             ? Colors.amber
-            : Colors.blueAccent;
+            : Theme.of(context).primaryColor;
     final priceDisplay = priceOverride != null
         ? 'K${priceOverride!.toStringAsFixed(0)}/mo'
         : limits.priceDisplay;
@@ -640,18 +640,18 @@ class _PlanCard extends StatelessWidget {
             Container(
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(LucideIcons.trophy, size: 12, color: Colors.blue.shade700),
+                  Icon(LucideIcons.trophy, size: 12, color: Theme.of(context).primaryColor),
                   const SizedBox(width: 4),
                   Text(
                     "Quiz hosting included",
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade700,
+                      color: Theme.of(context).primaryColor,
                     ),
                   ),
                 ],

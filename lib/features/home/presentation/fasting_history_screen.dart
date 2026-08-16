@@ -53,9 +53,9 @@ class FastingHistoryScreen extends ConsumerWidget {
               const SizedBox(height: 20),
             ],
             if (techList.isNotEmpty) ...[
-              _buildSectionHeader("Tech Fasts", LucideIcons.smartphone, Colors.indigo, techList.length),
+              _buildSectionHeader("Tech Fasts", LucideIcons.smartphone, Theme.of(context).primaryColor, techList.length),
               const SizedBox(height: 10),
-              ...techList.map((schedule) => _buildTechFastCard(schedule)),
+              ...techList.map((schedule) => _buildTechFastCard(context, schedule)),
               const SizedBox(height: 20),
             ],
             if (spiritualList.isEmpty && techList.isEmpty)
@@ -210,7 +210,7 @@ class FastingHistoryScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTechFastCard(FastSchedule schedule) {
+  Widget _buildTechFastCard(BuildContext context, FastSchedule schedule) {
     final isActive = schedule.isCurrentlyActive;
     final isCompleted = !isActive;
     final durationHours = schedule.endTime.difference(schedule.startTime).inHours;
@@ -222,7 +222,7 @@ class FastingHistoryScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isCompleted ? Colors.green.withValues(alpha: 0.2) : Colors.indigo.withValues(alpha: 0.2)),
+        border: Border.all(color: isCompleted ? Colors.green.withValues(alpha: 0.2) : Theme.of(context).primaryColor.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
@@ -230,12 +230,12 @@ class FastingHistoryScreen extends ConsumerWidget {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: isCompleted ? Colors.green.withValues(alpha: 0.1) : (isActive ? Colors.indigo.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1)),
+              color: isCompleted ? Colors.green.withValues(alpha: 0.1) : (isActive ? Theme.of(context).primaryColor.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1)),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               isCompleted ? LucideIcons.checkCircle2 : (isActive ? LucideIcons.smartphone : LucideIcons.xCircle),
-              color: isCompleted ? Colors.green : (isActive ? Colors.indigo : Colors.grey),
+              color: isCompleted ? Colors.green : (isActive ? Theme.of(context).primaryColor : Colors.grey),
               size: 24,
             ),
           ),
@@ -261,7 +261,7 @@ class FastingHistoryScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: isCompleted ? Colors.green.withValues(alpha: 0.1) : Colors.indigo.withValues(alpha: 0.1),
+              color: isCompleted ? Colors.green.withValues(alpha: 0.1) : Theme.of(context).primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
@@ -269,7 +269,7 @@ class FastingHistoryScreen extends ConsumerWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
-                color: isCompleted ? Colors.green : Colors.indigo,
+                color: isCompleted ? Colors.green : Theme.of(context).primaryColor,
               ),
             ),
           ),

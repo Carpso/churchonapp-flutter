@@ -91,43 +91,43 @@ class _WorshipLyricsScreenState extends State<WorshipLyricsScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Worship Lyrics", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.black,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           await _showAddLyricsSheet(context);
           _loadSongs();
         },
-        backgroundColor: Colors.teal,
-        child: const Icon(LucideIcons.plus, color: Colors.white),
+        backgroundColor: Theme.of(context).primaryColor,
+        child: const Icon(LucideIcons.plus, color: Colors.black),
       ),
       body: Column(
         children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            color: Colors.teal,
+            color: Theme.of(context).primaryColor,
             child: TextField(
               controller: _searchCtrl,
               onChanged: _onSearchChanged,
               decoration: InputDecoration(
                 hintText: "Search song or artist...",
-                hintStyle: const TextStyle(color: Colors.white54),
-                prefixIcon: const Icon(LucideIcons.search, color: Colors.white70),
+                hintStyle: const TextStyle(color: Colors.black45),
+                prefixIcon: const Icon(LucideIcons.search, color: Colors.black54),
                 filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.2),
+                fillColor: Colors.white.withValues(alpha: 0.35),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(15),
                   borderSide: BorderSide.none,
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               ),
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: Colors.black87),
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            color: Colors.teal,
+            color: Theme.of(context).primaryColor,
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -137,7 +137,7 @@ class _WorshipLyricsScreenState extends State<WorshipLyricsScreen> {
                     padding: const EdgeInsets.only(right: 8),
                     child: FilterChip(
                       label: Text(cat, style: TextStyle(
-                        color: isSelected ? Colors.teal : Colors.teal.shade700,
+                        color: isSelected ? Theme.of(context).primaryColor : const Color(0xFF7A5C00),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       )),
@@ -148,7 +148,7 @@ class _WorshipLyricsScreenState extends State<WorshipLyricsScreen> {
                       },
                       backgroundColor: Colors.white.withValues(alpha: 0.3),
                       selectedColor: Colors.white,
-                      checkmarkColor: Colors.teal,
+                      checkmarkColor: Theme.of(context).primaryColor,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
                   );
@@ -159,7 +159,7 @@ class _WorshipLyricsScreenState extends State<WorshipLyricsScreen> {
           const SizedBox(height: 12),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Colors.teal))
+                ? const Center(child: CircularProgressIndicator())
                 : _filteredSongs.isEmpty
                 ? Center(
                     child: Column(
@@ -196,14 +196,14 @@ class _WorshipLyricsScreenState extends State<WorshipLyricsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.teal.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         leading: Container(
           padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.1), shape: BoxShape.circle),
-          child: const Icon(LucideIcons.music, color: Colors.teal),
+          decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), shape: BoxShape.circle),
+          child: Icon(LucideIcons.music, color: Theme.of(context).primaryColor),
         ),
         title: Text(song.title, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text("${song.artist}  •  ${song.category}", style: const TextStyle(color: Colors.grey, fontSize: 13)),
@@ -234,15 +234,15 @@ class _WorshipLyricsScreenState extends State<WorshipLyricsScreen> {
               Center(child: Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(5)))),
               const SizedBox(height: 25),
               Text(song.title, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-              Text(song.artist, style: const TextStyle(color: Colors.tealAccent, fontSize: 14)),
+              Text(song.artist, style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 14)),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.tealAccent.withValues(alpha: 0.15),
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(song.category, style: const TextStyle(color: Colors.tealAccent, fontSize: 11, fontWeight: FontWeight.w600)),
+                child: Text(song.category, style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 11, fontWeight: FontWeight.w600)),
               ),
               const SizedBox(height: 24),
               Text(
@@ -288,8 +288,8 @@ class _WorshipLyricsScreenState extends State<WorshipLyricsScreen> {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                    child: const Icon(LucideIcons.music, color: Colors.teal, size: 22),
+                    decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                    child: Icon(LucideIcons.music, color: Theme.of(context).primaryColor, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Column(
@@ -391,13 +391,13 @@ class _WorshipLyricsScreenState extends State<WorshipLyricsScreen> {
                     }
                   },
                   icon: isSaving
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
                       : const Icon(LucideIcons.checkCircle, size: 20),
                   label: Text(isSaving ? "Saving..." : "Save Song", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.teal.shade300,
+                    backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.black,
+                    disabledBackgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.5),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                 ),

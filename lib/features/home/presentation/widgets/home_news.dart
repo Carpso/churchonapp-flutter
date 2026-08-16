@@ -84,7 +84,7 @@ class HomeNews extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: 8, top: 12),
                   child: Row(
                     children: [
-                      Container(width: 4, height: 16, decoration: BoxDecoration(color: Colors.blue, borderRadius: BorderRadius.circular(2))),
+                      Container(width: 4, height: 16, decoration: BoxDecoration(color: Theme.of(context).primaryColor, borderRadius: BorderRadius.circular(2))),
                       const SizedBox(width: 8),
                       const Text("Global News", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     ],

@@ -60,8 +60,8 @@ Consistency in communion and intercession leads to community miracles.
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-              child: const Text("TOPIC: THE MARKS OF A BELIEVER", style: TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
+              decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+              child: Text("TOPIC: THE MARKS OF A BELIEVER", style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 11, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 20),
             const Text("Scripture Reference: Acts 2:42-47", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
