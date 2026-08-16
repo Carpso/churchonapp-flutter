@@ -250,8 +250,8 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
               Center(
                 child: CircleAvatar(
                   radius: 35,
-                  backgroundColor: Colors.blue.shade100,
-                  child: Icon(LucideIcons.user, size: 35, color: Colors.blue.shade600),
+                  backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.15),
+                  child: Icon(LucideIcons.user, size: 35, color: Theme.of(context).primaryColor),
                 ),
               ),
               const SizedBox(height: 15),
@@ -372,11 +372,11 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
                     onTap: () => setState(() => _vehicleType = type),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: isSelected ? Colors.blue.shade50 : Colors.white,
+                        color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.15) : Colors.white,
                         borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: isSelected ? Colors.blue.shade600 : Colors.grey.shade200, width: 2),
+                        border: Border.all(color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade200, width: 2),
                       ),
-                      child: Center(child: Text(type.toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isSelected ? Colors.blue.shade800 : Colors.grey))),
+                      child: Center(child: Text(type.toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isSelected ? const Color(0xFF7A5C00) : Colors.grey))),
                     ),
                   );
                 }).toList(),
@@ -460,16 +460,16 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
         const SizedBox(height: 20),
         Container(
           padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(15)),
+          decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(15)),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(LucideIcons.shield, color: Colors.blue.shade600, size: 20),
+              Icon(LucideIcons.shield, color: Theme.of(context).primaryColor, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   "By proceeding, you verify that the information provided is accurate. We perform background checks on all riders to ensure community safety.",
-                  style: TextStyle(color: Colors.blue.shade800, fontSize: 11),
+                  style: TextStyle(color: const Color(0xFF7A5C00), fontSize: 11),
                 ),
               )
             ],
@@ -509,30 +509,30 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
             child: Container(
                width: double.infinity,
                padding: const EdgeInsets.symmetric(vertical: 12),
-               decoration: BoxDecoration(
-                 color: isUploaded ? Colors.green.shade50 : Colors.grey.shade50,
-                 borderRadius: BorderRadius.circular(10),
-                 border: Border.all(color: isUploaded ? Colors.green.shade200 : Colors.blue.shade100),
-               ),
-               child: Row(
-                 mainAxisAlignment: MainAxisAlignment.center,
-                 children: [
-                   Icon(
-                     isUploaded ? LucideIcons.check : LucideIcons.upload,
-                     size: 16,
-                     color: isUploaded ? Colors.green : Colors.blue,
-                   ),
-                   const SizedBox(width: 8),
-                   Text(
-                     isUploaded ? "Uploaded" : "Upload Document",
-                     style: TextStyle(
-                       color: isUploaded ? Colors.green.shade700 : Colors.blue,
-                       fontWeight: FontWeight.bold,
-                       fontSize: 12,
-                     ),
-                   ),
-                 ],
-               ),
+decoration: BoxDecoration(
+                  color: isUploaded ? Colors.green.shade50 : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isUploaded ? Colors.green.shade200 : Theme.of(context).primaryColor.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isUploaded ? LucideIcons.check : LucideIcons.upload,
+                      size: 16,
+                      color: isUploaded ? Colors.green : Theme.of(context).primaryColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isUploaded ? "Uploaded" : "Upload Document",
+                      style: TextStyle(
+                        color: isUploaded ? Colors.green.shade700 : const Color(0xFF7A5C00),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
             ),
           )
         ],

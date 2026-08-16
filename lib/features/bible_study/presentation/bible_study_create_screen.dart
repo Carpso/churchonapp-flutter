@@ -73,11 +73,11 @@ class _BibleStudyCreateScreenState extends ConsumerState<BibleStudyCreateScreen>
     final tenantId = tenant?.id;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F0FF),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(_isEditing ? 'Edit Bible Study' : 'New Bible Study'),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.black,
       ),
       body: tenantId == null
           ? const Center(child: Text('No church selected'))
@@ -141,18 +141,18 @@ class _BibleStudyCreateScreenState extends ConsumerState<BibleStudyCreateScreen>
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.indigo,
-                          foregroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).primaryColor,
+                          foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          disabledBackgroundColor: Colors.indigo.shade200,
+                          disabledBackgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.4),
                         ),
                         onPressed: _isSaving ? null : () => _save(tenantId),
                         child: _isSaving
-                            ? const SizedBox(
+                            ? SizedBox(
                                 height: 20,
                                 width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
                               )
                             : Text(_isEditing ? 'Update Study' : 'Create Study'),
                       ),
@@ -184,7 +184,7 @@ class _BibleStudyCreateScreenState extends ConsumerState<BibleStudyCreateScreen>
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.indigo, width: 2),
+          borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
         ),
       ),
       maxLines: maxLines,
@@ -205,7 +205,7 @@ class _BibleStudyCreateScreenState extends ConsumerState<BibleStudyCreateScreen>
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today, color: Colors.indigo, size: 20),
+            Icon(Icons.calendar_today, color: Theme.of(context).primaryColor, size: 20),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,7 +234,7 @@ class _BibleStudyCreateScreenState extends ConsumerState<BibleStudyCreateScreen>
         ),
         child: Row(
           children: [
-            const Icon(Icons.access_time, color: Colors.indigo, size: 20),
+            Icon(Icons.access_time, color: Theme.of(context).primaryColor, size: 20),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,

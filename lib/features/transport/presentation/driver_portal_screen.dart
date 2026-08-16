@@ -213,7 +213,7 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
             children: [
               const Column(
                 children: [
-                  Icon(LucideIcons.mapPin, color: Colors.blue, size: 18),
+                  Icon(LucideIcons.mapPin, color: Colors.amber, size: 18),
                   SizedBox(height: 20),
                   Icon(LucideIcons.navigation, color: Colors.green, size: 18),
                 ],
@@ -347,7 +347,7 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
           const Divider(height: 30),
           Row(
             children: [
-              const Icon(LucideIcons.mapPin, color: Colors.blue, size: 16),
+              const Icon(LucideIcons.mapPin, color: Colors.amber, size: 16),
               const SizedBox(width: 10),
               Expanded(child: Text(delivery.pickupLabel ?? "Pickup point", style: const TextStyle(fontSize: 13))),
             ],

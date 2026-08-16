@@ -39,7 +39,7 @@ class _YearPlannerScreenState extends ConsumerState<YearPlannerScreen> {
         actions: [
           if (isAdmin)
             IconButton(
-              icon: const Icon(LucideIcons.plusCircle, color: Colors.blue),
+              icon: Icon(LucideIcons.plusCircle, color: Theme.of(context).primaryColor),
               onPressed: () => _showAddProgramDialog(context, tenant.id),
             ),
         ],
@@ -105,11 +105,11 @@ class _YearPlannerScreenState extends ConsumerState<YearPlannerScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15)),
+            decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(15)),
             child: Column(
               children: [
-                Text(DateFormat('MMM').format(date).toUpperCase(), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 11)),
-                Text(DateFormat('dd').format(date), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w900, fontSize: 18)),
+                Text(DateFormat('MMM').format(date).toUpperCase(), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold, fontSize: 11)),
+                Text(DateFormat('dd').format(date), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w900, fontSize: 18)),
               ],
             ),
           ),
@@ -209,7 +209,7 @@ class _YearPlannerScreenState extends ConsumerState<YearPlannerScreen> {
                       Expanded(
                         child: Row(
                           children: [
-                            const Icon(LucideIcons.calendar, size: 16, color: Colors.blue),
+                            const Icon(LucideIcons.calendar, size: 16, color: Colors.amber),
                             const SizedBox(width: 8),
                             Flexible(
                               child: Text(DateFormat('MMM dd, yyyy').format(selectedDate), style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
@@ -332,7 +332,7 @@ class _YearPlannerScreenState extends ConsumerState<YearPlannerScreen> {
                       Expanded(
                         child: Row(
                           children: [
-                            const Icon(LucideIcons.calendar, size: 16, color: Colors.blue),
+                            const Icon(LucideIcons.calendar, size: 16, color: Colors.amber),
                             const SizedBox(width: 8),
                             Flexible(
                               child: Text(DateFormat('MMM dd, yyyy').format(selectedDate), style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),

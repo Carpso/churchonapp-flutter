@@ -29,11 +29,11 @@ class _BibleStudyListScreenState extends ConsumerState<BibleStudyListScreen> {
     final isLeader = profileAsync.value?.isLeadershipTeam ?? false;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F0FF),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text('${tenant?.name ?? 'Church'} Bible Studies'),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.black,
         elevation: 0,
         actions: [
           IconButton(
@@ -44,8 +44,8 @@ class _BibleStudyListScreenState extends ConsumerState<BibleStudyListScreen> {
       ),
       floatingActionButton: isLeader
           ? FloatingActionButton(
-              backgroundColor: Colors.indigo,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.black,
               onPressed: () => context.push('/bible-study/create'),
               child: const Icon(LucideIcons.plus),
             )
@@ -87,11 +87,11 @@ class _BibleStudyListScreenState extends ConsumerState<BibleStudyListScreen> {
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.calendarCheck, color: Colors.indigo, size: 20),
+                  Icon(LucideIcons.calendarCheck, color: Theme.of(context).primaryColor, size: 20),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'Upcoming Studies',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
                   ),
                 ],
               ),
@@ -133,14 +133,14 @@ class _BibleStudyListScreenState extends ConsumerState<BibleStudyListScreen> {
         margin: const EdgeInsets.only(right: 12),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+            colors: [Color(0xFFFFDA03), Color(0xFFE8A400)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.indigo.withValues(alpha: 0.3),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),
@@ -153,25 +153,25 @@ class _BibleStudyListScreenState extends ConsumerState<BibleStudyListScreen> {
             children: [
               Icon(
                 _statusIcon(study.status),
-                color: Colors.white.withValues(alpha: 0.8),
+                color: Colors.black.withValues(alpha: 0.7),
                 size: 24,
               ),
               const Spacer(),
               Text(
                 study.title,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 4),
               Text(
                 dateFormat.format(study.date),
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
+                style: TextStyle(color: Colors.black.withValues(alpha: 0.7), fontSize: 12),
               ),
               const SizedBox(height: 2),
               Text(
                 '${study.time}  •  ${study.leader}',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
+                style: TextStyle(color: Colors.black.withValues(alpha: 0.6), fontSize: 12),
               ),
             ],
           ),
@@ -201,11 +201,11 @@ class _BibleStudyListScreenState extends ConsumerState<BibleStudyListScreen> {
               padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.list, color: Colors.indigo, size: 20),
+                  Icon(LucideIcons.list, color: Theme.of(context).primaryColor, size: 20),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'All Studies',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
                   ),
                 ],
               ),
@@ -314,7 +314,7 @@ class _BibleStudyListScreenState extends ConsumerState<BibleStudyListScreen> {
   Color _statusColor(String status) {
     switch (status) {
       case 'scheduled':
-        return Colors.blue;
+        return Theme.of(context).primaryColor;
       case 'ongoing':
         return Colors.green;
       case 'completed':
@@ -468,14 +468,14 @@ class _LexiconResultsState extends ConsumerState<_LexiconResults> {
             decoration: BoxDecoration(
               color: word.isHebrew
                   ? Colors.amber.withValues(alpha: 0.15)
-                  : Colors.indigo.withValues(alpha: 0.1),
+                  : Theme.of(context).primaryColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Text(
               initial,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: word.isHebrew ? Colors.amber.shade800 : Colors.indigo,
+                color: word.isHebrew ? Colors.amber.shade800 : Theme.of(context).primaryColor,
                 fontSize: 16,
               ),
             ),
@@ -533,12 +533,12 @@ class _LexiconResultsState extends ConsumerState<_LexiconResults> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.indigo.withValues(alpha: 0.05),
+                        color: Theme.of(context).primaryColor.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         word.derivation,
-                        style: const TextStyle(fontSize: 12, color: Colors.indigo, height: 1.4),
+                        style: TextStyle(fontSize: 12, color: Theme.of(context).primaryColor, height: 1.4),
                       ),
                     ),
                   ],

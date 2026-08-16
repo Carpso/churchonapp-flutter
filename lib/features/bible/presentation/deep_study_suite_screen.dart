@@ -93,7 +93,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
             child: Column(
               children: [
                 Text("DEEP STUDY", style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-                Text("THEOLOGICAL SUITE", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 3, color: Colors.indigo)),
+                Text("THEOLOGICAL SUITE", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 3, color: Theme.of(context).primaryColor)),
                 const SizedBox(height: 15),
                 _buildSearchBar(),
               ],

@@ -230,7 +230,7 @@ class _ChurchOnboardingScreenState
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: Column(

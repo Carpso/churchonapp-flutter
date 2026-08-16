@@ -165,21 +165,21 @@ class _WhatsAppConfigScreenState extends ConsumerState<WhatsAppConfigScreen> {
                     Container(
                       padding: const EdgeInsets.all(15),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(15),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Set your WhatsApp webhook URL to:', style: TextStyle(fontSize: 12, color: Colors.blue.shade700)),
+                          Text('Set your WhatsApp webhook URL to:', style: TextStyle(fontSize: 12, color: const Color(0xFF7A5C00))),
                           const SizedBox(height: 5),
                           Text(
                             'https://daboihiudmglwhdfvsku.supabase.co/functions/v1/whatsapp-webhook',
-                            style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.blue.shade900),
+                            style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.black87),
                           ),
                           const SizedBox(height: 10),
                           Text('Verify Token: ${_verifyTokenController.text.isEmpty ? '(set above)' : _verifyTokenController.text}',
-                              style: TextStyle(fontSize: 11, color: Colors.blue.shade700)),
+                              style: TextStyle(fontSize: 11, color: const Color(0xFF7A5C00))),
                         ],
                       ),
                     ),

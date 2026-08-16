@@ -324,10 +324,10 @@ class _ActiveRideTrackingScreenState
                       const SizedBox(width: 8),
                       CircleAvatar(
                         backgroundColor:
-                            Colors.blue.withValues(alpha: 0.1),
+                            Theme.of(context).primaryColor.withValues(alpha: 0.1),
                         child: IconButton(
                           icon: const Icon(LucideIcons.messageCircle,
-                              color: Colors.blue),
+                              color: Colors.black87),
                           onPressed: () {
                             Navigator.push(
                               context,
@@ -345,10 +345,10 @@ class _ActiveRideTrackingScreenState
                       const SizedBox(width: 8),
                       CircleAvatar(
                         backgroundColor:
-                            Colors.indigo.withValues(alpha: 0.1),
+                            Theme.of(context).primaryColor.withValues(alpha: 0.1),
                         child: IconButton(
                           icon: const Icon(LucideIcons.info,
-                              color: Colors.indigo),
+                              color: Colors.black87),
                           onPressed: () => _showLiveTrackingSheet(),
                         ),
                       ),

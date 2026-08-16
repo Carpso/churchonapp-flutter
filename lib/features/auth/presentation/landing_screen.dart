@@ -423,7 +423,7 @@ class LandingScreen extends ConsumerWidget {
       child: Responsive.wrap(
         Column(
           children: [
-            Text("CHURCH OPERATING SYSTEM", style: TextStyle(letterSpacing: 2, color: Colors.blue[800], fontWeight: FontWeight.bold, fontSize: 12)),
+            Text("CHURCH OPERATING SYSTEM", style: TextStyle(letterSpacing: 2, color: const Color(0xFF7A5C00), fontWeight: FontWeight.bold, fontSize: 12)),
             const SizedBox(height: 20),
             Text("Uniting the Faithful.", style: GoogleFonts.plusJakartaSans(fontSize: titleSize, fontWeight: FontWeight.w900)),
             const SizedBox(height: 15),
@@ -536,7 +536,7 @@ class LandingScreen extends ConsumerWidget {
       child: Responsive.wrap(
         Column(
           children: [
-            Text("CHURCH PROMO 🚀", style: TextStyle(letterSpacing: 2, color: Colors.blue[800], fontWeight: FontWeight.bold, fontSize: 12)),
+            Text("CHURCH PROMO 🚀", style: TextStyle(letterSpacing: 2, color: const Color(0xFF7A5C00), fontWeight: FontWeight.bold, fontSize: 12)),
             const SizedBox(height: 20),
             Text("Invest in Your Digital Future.", style: GoogleFonts.plusJakartaSans(fontSize: titleSize, fontWeight: FontWeight.w900)),
             const SizedBox(height: 80),

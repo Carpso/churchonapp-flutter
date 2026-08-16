@@ -35,7 +35,7 @@ class WriterApprovalScreen extends ConsumerWidget {
                               if (app.writingSamplesUrl != null)
                                 InkWell(
                                   onTap: () {},
-                                  child: Text('Samples: ${app.writingSamplesUrl}', style: const TextStyle(color: Colors.blue)),
+                                  child: Text('Samples: ${app.writingSamplesUrl}', style: TextStyle(color: Theme.of(context).primaryColor)),
                                 ),
                               const SizedBox(height: 12),
                               Row(

@@ -128,6 +128,7 @@ class GivingHistoryList extends ConsumerWidget {
     IconData icon = LucideIcons.heart;
     Color iconColor = Colors.red.shade400;
     String categoryName = item.category.toUpperCase();
+    final brand = Theme.of(context).primaryColor;
 
     if (item.category == 'tithe') {
       categoryName = "Tithe Payment";
@@ -136,15 +137,15 @@ class GivingHistoryList extends ConsumerWidget {
     } else if (item.category == 'giving') {
       categoryName = "Offering";
       icon = LucideIcons.gift;
-      iconColor = Colors.purple;
+      iconColor = brand;
     } else if (item.category == 'top_up') {
       categoryName = "Wallet Top Up";
       icon = LucideIcons.arrowDownLeft;
-      iconColor = Colors.teal;
+      iconColor = brand.withValues(alpha: 0.75);
     } else if (item.category == 'transfer') {
       categoryName = "Coins Transfer";
       icon = LucideIcons.send;
-      iconColor = Colors.blue;
+      iconColor = brand.withValues(alpha: 0.55);
     } else if (item.category == 'withdrawal') {
       categoryName = "Wallet Withdrawal";
       icon = LucideIcons.arrowUpRight;
@@ -156,7 +157,7 @@ class GivingHistoryList extends ConsumerWidget {
     } else if (item.category == 'mission') {
       categoryName = "Mission Support";
       icon = LucideIcons.globe;
-      iconColor = Colors.indigo;
+      iconColor = brand.withValues(alpha: 0.8);
     }
 
     return GestureDetector(

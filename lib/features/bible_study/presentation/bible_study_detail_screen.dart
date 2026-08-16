@@ -45,15 +45,15 @@ class _BibleStudyDetailScreenState extends ConsumerState<BibleStudyDetailScreen>
 
     if (study == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF5F0FF),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          backgroundColor: Colors.indigo,
-          foregroundColor: Colors.white,
+          backgroundColor: Theme.of(context).primaryColor,
+          foregroundColor: Colors.black,
         ),
         body: Shimmer.fromColors(
           baseColor: Colors.grey[300]!,
           highlightColor: Colors.grey[100]!,
-          child: const Center(child: CircularProgressIndicator(color: Colors.indigo)),
+          child: Center(child: CircularProgressIndicator(color: Theme.of(context).primaryColor)),
         ),
       );
     }
@@ -61,10 +61,10 @@ class _BibleStudyDetailScreenState extends ConsumerState<BibleStudyDetailScreen>
     final s = study;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F0FF),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.black,
         title: const Text('Bible Study'),
         actions: isLeader
             ? [
@@ -116,8 +116,8 @@ class _BibleStudyDetailScreenState extends ConsumerState<BibleStudyDetailScreen>
                   icon: const Icon(LucideIcons.checkCircle),
                   label: const Text('Mark Attendance'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo,
-                    foregroundColor: Colors.white,
+                    backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -180,10 +180,10 @@ class _BibleStudyDetailScreenState extends ConsumerState<BibleStudyDetailScreen>
                         children: [
                           CircleAvatar(
                             radius: 18,
-                            backgroundColor: Colors.indigo.withValues(alpha: 0.1),
+                            backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                             child: Text(
                               record.userName.isNotEmpty ? record.userName[0].toUpperCase() : '?',
-                              style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -211,7 +211,7 @@ class _BibleStudyDetailScreenState extends ConsumerState<BibleStudyDetailScreen>
               loading: () => Shimmer.fromColors(
               baseColor: Colors.grey[300]!,
               highlightColor: Colors.grey[100]!,
-              child: const Center(child: CircularProgressIndicator(color: Colors.indigo)),
+              child: Center(child: CircularProgressIndicator(color: Theme.of(context).primaryColor)),
             ),
               error: (e, _) => Text('Error: $e'),
             ),
@@ -227,14 +227,14 @@ class _BibleStudyDetailScreenState extends ConsumerState<BibleStudyDetailScreen>
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+          colors: [Color(0xFFFFDA03), Color(0xFFE8A400)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.indigo.withValues(alpha: 0.3),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -245,18 +245,18 @@ class _BibleStudyDetailScreenState extends ConsumerState<BibleStudyDetailScreen>
         children: [
           Text(
             study.title,
-            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+            style: const TextStyle(color: Colors.black, fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: Colors.black.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               study.status[0].toUpperCase() + study.status.substring(1),
-              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+              style: const TextStyle(color: Colors.black87, fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -269,7 +269,7 @@ class _BibleStudyDetailScreenState extends ConsumerState<BibleStudyDetailScreen>
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Colors.indigo.shade300),
+          Icon(icon, size: 18, color: Theme.of(context).primaryColor),
           const SizedBox(width: 10),
           Text('$label: ', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
           Expanded(
@@ -287,9 +287,9 @@ class _BibleStudyDetailScreenState extends ConsumerState<BibleStudyDetailScreen>
   Widget _buildSectionTitle(String title) {
     return Row(
       children: [
-        Container(width: 4, height: 20, decoration: BoxDecoration(color: Colors.indigo, borderRadius: BorderRadius.circular(2))),
+        Container(width: 4, height: 20, decoration: BoxDecoration(color: Theme.of(context).primaryColor, borderRadius: BorderRadius.circular(2))),
         const SizedBox(width: 8),
-        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.indigo)),
+        Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
       ],
     );
   }

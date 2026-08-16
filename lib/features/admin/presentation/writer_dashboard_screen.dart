@@ -140,7 +140,7 @@ class _WriterDashboardScreenState extends ConsumerState<WriterDashboardScreen> {
     crossAxisCount: 2, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 1.2,
     children: [
       _statCard("Published", "$_publishedCount", LucideIcons.checkCircle, Colors.green),
-      _statCard("Total Views", _formatCompact(_totalViews), LucideIcons.eye, Colors.blue),
+      _statCard("Total Views", _formatCompact(_totalViews), LucideIcons.eye, Theme.of(context).primaryColor),
       _statCard("Book Sales", "$_totalSales", LucideIcons.shoppingCart, Colors.amber),
       _statCard("Pending", "$_pendingCount", LucideIcons.clock, Colors.orange),
     ],

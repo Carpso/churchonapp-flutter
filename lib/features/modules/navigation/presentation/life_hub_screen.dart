@@ -42,7 +42,7 @@ class LifeHubScreen extends StatelessWidget {
             "Prayer Wall",
             "Intercede for the Brethren",
             LucideIcons.helpingHand,
-            Colors.blue,
+            Theme.of(context).primaryColor,
             () => _navigateSafely(context, const PrayerWallScreen()),
           ),
         ],

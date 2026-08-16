@@ -180,19 +180,19 @@ class BibleBooksAuditScreen extends ConsumerWidget {
           'Old Testament',
           '${stats['oldTestamentBooks'] ?? 0}',
           LucideIcons.book,
-          Colors.indigo,
+          Colors.amber,
         ),
         _statCard(
           'New Testament',
           '${stats['newTestamentBooks'] ?? 0}',
           LucideIcons.bookOpen,
-          Colors.teal,
+          Theme.of(context).primaryColor,
         ),
         _statCard(
           'Total Chapters',
           '${stats['totalChapters'] ?? 0}',
           LucideIcons.list,
-          Colors.purple,
+          Theme.of(context).primaryColor.withValues(alpha: 0.7),
         ),
         _statCard(
           'With Descriptions',
@@ -336,9 +336,9 @@ class BibleBooksAuditScreen extends ConsumerWidget {
           style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        _buildTestamentSection('Old Testament (${otBooks.length})', otBooks, Colors.indigo),
+        _buildTestamentSection('Old Testament (${otBooks.length})', otBooks, Colors.amber),
         const SizedBox(height: 16),
-        _buildTestamentSection('New Testament (${ntBooks.length})', ntBooks, Colors.teal),
+        _buildTestamentSection('New Testament (${ntBooks.length})', ntBooks, Theme.of(context).primaryColor),
       ],
     );
   }
@@ -431,8 +431,8 @@ class BibleBooksAuditScreen extends ConsumerWidget {
             icon: const Icon(LucideIcons.downloadCloud, size: 18),
             label: const Text('Refresh from Public APIs'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.indigo,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.black,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
@@ -510,9 +510,9 @@ class BibleBooksDetailScreen extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildDetailSection('Old Testament (${otBooks.length} books)', otBooks, Colors.indigo),
+        _buildDetailSection('Old Testament (${otBooks.length} books)', otBooks, Colors.amber),
         const SizedBox(height: 24),
-        _buildDetailSection('New Testament (${ntBooks.length} books)', ntBooks, Colors.teal),
+        _buildDetailSection('New Testament (${ntBooks.length} books)', ntBooks, Theme.of(context).primaryColor),
       ],
     );
   }

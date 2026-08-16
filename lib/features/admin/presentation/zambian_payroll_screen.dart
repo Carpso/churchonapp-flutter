@@ -103,7 +103,7 @@ class _ZambianPayrollScreenState extends State<ZambianPayrollScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(emp['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text("Gross: K${gross.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+              Text("Gross: K${gross.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
             ],
           ),
           Text(emp['role'], style: const TextStyle(color: Colors.grey)),

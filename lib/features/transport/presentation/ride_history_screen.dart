@@ -66,7 +66,7 @@ class _RideHistoryScreenState extends ConsumerState<RideHistoryScreen> {
         return Colors.red;
       case 'accepted':
       case 'in_progress':
-        return Colors.blue;
+        return Theme.of(context).primaryColor;
       case 'pending':
         return Colors.orange;
       default:
