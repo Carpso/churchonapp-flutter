@@ -140,10 +140,6 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
     }
   }
 
-  final List<Map<String, String>> translations = kEnglishTranslations
-      .map((t) => {"id": t.code, "name": t.name})
-      .toList();
-
   @override
   Widget build(BuildContext context) {
     // Wire audio bible + streak services into bible feature lifecycle
@@ -247,7 +243,33 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                       "$selectedBook $selectedChapter",
                       style: const TextStyle(color: Colors.grey),
                     ),
+                    const SizedBox(height: 5),
+                    Text(
+                      BibleService.canResolve(selectedTranslation)
+                          ? "Check your connection and retry."
+                          : "This translation is not available yet — try KJV.",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
                     const SizedBox(height: 15),
+                    if (selectedTranslation != BibleService.fallbackTranslation)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: ElevatedButton.icon(
+                          icon: const Icon(LucideIcons.bookOpen, size: 18),
+                          onPressed: () {
+                            setState(() {
+                              selectedTranslation =
+                                  BibleService.fallbackTranslation;
+                              _persistReadingPosition();
+                            });
+                            ref
+                                .read(studySettingsProvider.notifier)
+                                .setTranslation(BibleService.fallbackTranslation);
+                          },
+                          label: const Text("SWITCH TO KJV"),
+                        ),
+                      ),
                     ElevatedButton(
                       onPressed: () => ref.invalidate(
                         bibleChapterProvider({
@@ -1640,17 +1662,12 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                           .map(
                             (t) => DropdownMenuItem<String>(
                               value: t.code,
-                              enabled:
-                                  t.remoteSupported ||
-                                  t.code == 'nkjv' ||
-                                  t.code == 'nlt',
+                              enabled: BibleService.canResolve(t.code),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(t.name),
-                                  if (!(t.remoteSupported ||
-                                      t.code == 'nkjv' ||
-                                      t.code == 'nlt'))
+                                  if (!BibleService.canResolve(t.code))
                                     const Padding(
                                       padding: EdgeInsets.only(left: 6),
                                       child: Text(

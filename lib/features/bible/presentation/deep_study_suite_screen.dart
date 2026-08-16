@@ -515,12 +515,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
 
   Widget _translationPicker(StudySettings settings, StudySettingsNotifier notifier, StateSetter setModalState) {
     final translations = kEnglishTranslations
-        .where(
-          (t) =>
-              t.remoteSupported ||
-              t.code == 'nkjv' ||
-              t.code == 'nlt',
-        )
+        .where((t) => BibleService.canResolve(t.code))
         .toList();
     return Padding(
       padding: const EdgeInsets.all(20),

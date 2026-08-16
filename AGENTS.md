@@ -1060,6 +1060,18 @@ projects can copy/reuse when they wire Lipila:
     {'kjv','nkjv','nlt'}` (DB-first = instant, offline-robust), R2 timeout
     20s→8s, bible-api timeout 15s→10s so fallbacks fail fast.
     `bible_verses` RLS = SELECT to `authenticated` only (verified OK).
+  - **Bible text audit (2026-08-16, live-DB verified)**: KJV = 31,102 verses,
+    all 66 books (Genesis 1533 ✓), seed UUIDs match real rows, DB path works
+    end-to-end. R2 `bible-text/` has ONLY `kjv, web, dra, darby` book JSONs
+    (all 17 other advertised translations 404). bible-api serves only
+    `kjv/web/asv/bbe/ylt/dra`. NKJV/NLT translation rows exist in
+    `bible_translations` but have **0 verses** (never seeded, can't be —
+    copyrighted). Result: `BibleService` sets are now reality-based
+    (`_dbCodes={'kjv'}`, `_r2Codes={kjv,web,dra,darby}`,
+    `_remoteCodes={kjv,web,asv,bbe,ylt,dra}`) + static `canResolve(code)`;
+    reader + deep-study translation pickers only enable resolvable codes
+    (others show "(soon)"); empty state now explains + offers "SWITCH TO
+    KJV". Scripture search now also hits KJV rows (search_vector GIN).
   - **Bottom nav icons LOCKED (permanent)**: Sermons tab icon changed
     `headphones`→`video` (per user request, verified `LucideIcons.video`
     exists) — then a PERMANENT RULE added to AGENTS.md: NEVER change bottom

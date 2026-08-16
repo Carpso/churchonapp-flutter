@@ -100,22 +100,29 @@ class BibleSearchHit {
 }
 
 class BibleService {
-  /// Translations that bible-api.com serves remotely (fallback layer).
+  /// Translations bible-api.com actually serves (remote fallback layer).
   static const _remoteCodes = {'kjv', 'web', 'asv', 'bbe', 'ylt', 'dra'};
 
-  /// Translations that are seeded in the local Supabase bible_verses table.
-  /// KJV is fully seeded (13 batch migrations); NKJV/NLT (not free to
-  /// self-host) also live here. Reading from the local table is instant and
-  /// never depends on external APIs — this is the primary KJV source.
-  static const _dbCodes = {'kjv', 'nkjv', 'nlt'};
+  /// Translations seeded in the local Supabase bible_verses table.
+  /// KJV is fully seeded (31,102 verses, all 66 books) — reading from the
+  /// local table is instant and never depends on external APIs.
+  /// (NKJV/NLT translation rows exist but have NO verse data — excluded.)
+  static const _dbCodes = {'kjv'};
 
   /// Translations self-hosted on Cloudflare R2 (media.churchonapp.com) —
-  /// whole books fetched once, then chapters read from the local cache.
-  static const _r2Codes = {
-    'kjv', 'web', 'dra', 'asv', 'bbe', 'ylt', 'geneva1599', 'acv', 'cpdv',
-    'darby', 'jubilee2000', 'mkjv', 'nheb', 'noyes', 'rlt', 'rnkjv',
-    'rotherham', 'ukjv', 'webster', 'tyndale', 'oeb',
-  };
+  /// verified live: only kjv, web, dra, darby book files exist
+  /// (checked 2026-08-16); whole books fetched once, cached locally.
+  static const _r2Codes = {'kjv', 'web', 'dra', 'darby'};
+
+  /// Whether [code] can actually resolve chapter text through any source.
+  /// UI uses this to enable/disable translation options honestly.
+  static bool canResolve(String code) =>
+      _dbCodes.contains(code) ||
+      _r2Codes.contains(code) ||
+      _remoteCodes.contains(code);
+
+  /// The default KJV-only fallback used by the reader empty state.
+  static const fallbackTranslation = 'kjv';
 
   Future<List<BibleVerse>> getChapter(
     String translation,
