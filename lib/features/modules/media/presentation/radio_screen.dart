@@ -51,6 +51,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
       stream: handler?.playbackState ?? Stream.value(PlaybackState()),
       builder: (context, snapshot) {
         final playing = snapshot.data?.playing ?? false;
+        final processing = snapshot.data?.processingState ?? AudioProcessingState.idle;
 
         return Scaffold(
           backgroundColor: const Color(0xFF0F172A), // Premium Dark Deep Blue
@@ -71,7 +72,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
                 SliverToBoxAdapter(
                   child: Column(
                     children: [
-                      _buildLiveIndicator(playing),
+                      _buildLiveIndicator(playing, processing),
                       const SizedBox(height: 40),
                       _buildVisualizerHub(playing),
                       const SizedBox(height: 50),
@@ -79,7 +80,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
                       const SizedBox(height: 50),
                       _buildMainControls(playing, radioService),
                       const SizedBox(height: 60),
-                      _buildStationDirectory(radioService, _selectedStationName, profile),
+                      _buildStationDirectory(radioService, _selectedStationName, profile, playing, processing),
                       _buildDisclaimer(),
                       const SizedBox(height: 100),
                     ],
@@ -106,13 +107,29 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildLiveIndicator(bool playing) {
+  Widget _buildLiveIndicator(bool playing, AudioProcessingState processing) {
+    // Three-state connectivity indicator for the player:
+    //  LIVE (streaming) → CONNECTING (buffering/loading) → OFFLINE (idle/stopped).
+    final isConnecting = !playing &&
+        (processing == AudioProcessingState.loading ||
+            processing == AudioProcessingState.buffering ||
+            processing == AudioProcessingState.ready);
+    final statusColor = playing
+        ? Colors.red
+        : isConnecting
+            ? Colors.amber
+            : Colors.grey;
+    final statusLabel = playing
+        ? "LIVE STREAMING"
+        : isConnecting
+            ? "CONNECTING..."
+            : "OFFLINE";
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: playing ? Colors.red.withValues(alpha: 0.1) : Colors.white10,
+        color: statusColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: playing ? Colors.red.withValues(alpha: 0.5) : Colors.white24),
+        border: Border.all(color: statusColor.withValues(alpha: 0.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -120,13 +137,13 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
           Container(
             width: 8, height: 8,
             decoration: BoxDecoration(
-              color: playing ? Colors.red : Colors.grey,
+              color: statusColor,
               shape: BoxShape.circle,
-              boxShadow: playing ? [BoxShadow(color: Colors.red, blurRadius: 10)] : [],
+              boxShadow: playing ? [BoxShadow(color: statusColor, blurRadius: 10)] : [],
             ),
           ),
           const SizedBox(width: 8),
-          Text(playing ? "LIVE STREAMING" : "OFFLINE", style: TextStyle(color: playing ? Colors.red : Colors.grey, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+          Text(statusLabel, style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
         ],
       ),
     );
@@ -346,7 +363,12 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildStationDirectory(RadioService service, String selectedName, UserProfile? profile) {
+  Widget _buildStationDirectory(
+    RadioService service,
+    String selectedName,
+    UserProfile? profile,
+    bool playing,
+    AudioProcessingState processing) {
     final stationsAsync = ref.watch(radioStationsFutureProvider);
     final globalAsync = ref.watch(globalChristianStationsProvider);
 
@@ -377,7 +399,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
                 return const Center(child: Text("No frequencies found.", style: TextStyle(color: Colors.white38)));
               }
               _syncDirectory(stations);
-              return _stationStrip(stations, service, selectedName);
+              return _stationStrip(stations, service, selectedName, playing, processing);
             },
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (err, stack) => Center(child: Text("Error: $err", style: const TextStyle(color: Colors.red))),
@@ -402,7 +424,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
               if (stations.isEmpty) {
                 return const Center(child: Text("No global stations found.", style: TextStyle(color: Colors.white38)));
               }
-              return _stationStrip(stations, service, selectedName);
+              return _stationStrip(stations, service, selectedName, playing, processing);
             },
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (_, __) => const Center(child: Text("Could not load global stations.", style: TextStyle(color: Colors.white38))),
@@ -427,7 +449,12 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
     }
   }
 
-  Widget _stationStrip(List<RadioStation> stations, RadioService service, String selectedName) {
+  Widget _stationStrip(
+    List<RadioStation> stations,
+    RadioService service,
+    String selectedName,
+    bool playing,
+    AudioProcessingState processing) {
     return ListView.builder(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -435,6 +462,11 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
       itemBuilder: (context, index) {
         final station = stations[index];
         final isCurrent = selectedName == station.name;
+        final isSelectedPlaying = isCurrent && playing;
+        final isSelectedConnecting = isCurrent &&
+            !playing &&
+            (processing == AudioProcessingState.loading ||
+                processing == AudioProcessingState.buffering);
         return GestureDetector(
           onTap: () {
             if (station.isPrivate) {
@@ -461,14 +493,25 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: isCurrent ? Colors.black12 : Colors.white10, shape: BoxShape.circle),
-                  child: Icon(
-                    station.isPrivate ? LucideIcons.lock : LucideIcons.radio,
-                    color: isCurrent ? Colors.black : Colors.amber,
-                    size: 20,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: isCurrent ? Colors.black12 : Colors.white10, shape: BoxShape.circle),
+                      child: Icon(
+                        station.isPrivate ? LucideIcons.lock : LucideIcons.radio,
+                        color: isCurrent ? Colors.black : Colors.amber,
+                        size: 20,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (isSelectedPlaying)
+                      _statusDot(Colors.green, "LIVE")
+                    else if (isSelectedConnecting)
+                      _statusDot(Colors.amber, "CONNECTING")
+                    else if (isCurrent)
+                      _statusDot(Colors.grey, "OFFLINE"),
+                  ],
                 ),
                 const Spacer(),
                 Text(station.name, style: TextStyle(color: isCurrent ? Colors.black : Colors.white, fontWeight: FontWeight.bold, fontSize: 14), maxLines: 2),
@@ -482,6 +525,36 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
           ),
         );
       },
+    );
+  }
+
+  Widget _statusDot(Color color, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

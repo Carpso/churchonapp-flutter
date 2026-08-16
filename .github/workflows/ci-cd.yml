@@ -641,12 +641,16 @@ jobs:
   # Upload the built APK + AAB to Google Drive (service account) so the team
   # can grab the latest builds on personal devices. Gated on GOOGLE_DRIVE_SA —
   # skipped with a warning when the secret is unset.
+  # PAUSED (2026-08-16): Drive upload job disabled while the Play Store service
+  # account is being granted Google Drive API access. Set `if: false` → the
+  # original gate `github.ref == 'refs/heads/main' && github.event_name == 'push'`
+  # when GOOGLE_DRIVE_SA + GOOGLE_DRIVE_FOLDER_ID are ready.
   upload-drive:
     name: 🚀 Upload Builds to Google Drive
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [build-apk, build-aab]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: false
     env:
       HAS_DRIVE: ${{ secrets.GOOGLE_DRIVE_SA != '' }}
     steps:

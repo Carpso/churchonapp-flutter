@@ -12,6 +12,7 @@ class MarketProduct {
   final String? description;
   final String? vendorName;
   final String? vendorId;
+  final String? tenantId;
   final String? condition;
   final String marketType;
   final bool isCurated;
@@ -25,6 +26,7 @@ class MarketProduct {
     this.description,
     this.vendorName,
     this.vendorId,
+    this.tenantId,
     this.condition,
     this.marketType = 'general',
     this.isCurated = false,
@@ -40,6 +42,7 @@ class MarketProduct {
       description: map['description'],
       vendorName: map['vendorName'] ?? map['vendor_name'],
       vendorId: map['vendorId'] ?? map['vendor_id'],
+      tenantId: map['tenant_id']?.toString(),
       condition: map['condition'],
       marketType: map['marketType'] ?? map['market_type'] ?? 'general',
       isCurated: map['is_curated'] ?? false,
@@ -52,7 +55,7 @@ class MarketplaceService {
   MarketplaceService(this._client);
 
   Future<List<MarketProduct>> fetchProducts({String? category, String? marketType, String? tenantId, int offset = 0, int limit = 30}) async {
-    var query = _client.from('marketplace_items').select('id, name, price, category, image, description, vendor_name, vendor_id, condition, market_type, is_curated').eq('status', 'active');
+    var query = _client.from('marketplace_items').select('id, name, price, category, image, description, vendor_name, vendor_id, tenant_id, condition, market_type, is_curated').eq('status', 'active');
     
     if (tenantId != null) {
       query = query.eq('tenant_id', tenantId);

@@ -18,6 +18,7 @@ import 'package:church_on_app/features/give/presentation/widgets/momo_phone_inpu
 import 'package:church_on_app/features/transport/data/transport_service.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 
 enum _PaymentPhase { idle, initiating, awaitingPin, succeeded, failed }
 
@@ -47,6 +48,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   _PaymentPhase _paymentPhase = _PaymentPhase.idle;
   String _paymentStatusMessage = '';
   Timer? _pollTimer;
+  Timer? _geocodeTimer;
+
+  // Pickup churches for cart items (sellers may belong to different tenants).
+  final Set<String> _pickupChurchNames = {};
+
+  // Carpso delivery: geocoded destination + distance-based fare.
+  LatLng? _geocodedDest;
+  bool _geocoding = false;
+  String? _geocodeError;
 
   final List<Map<String, dynamic>> _networks = [
     {"name": "MTN", "color": Colors.yellow, "id": "mtn", "logo": "assets/logo_mtn.png"},
@@ -68,12 +78,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         final user = Supabase.instance.client.auth.currentUser;
         _emailCtrl.text = user?.email ?? '';
       }
+      _loadPickupChurches();
+      _carpsoAddressCtrl.addListener(_onAddressChanged);
     });
   }
 
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _geocodeTimer?.cancel();
     _phoneCtrl.dispose();
     _firstNameCtrl.dispose();
     _lastNameCtrl.dispose();
@@ -82,13 +95,137 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     super.dispose();
   }
 
+  /// Resolve which church(es) the cart items are picked up from, so the
+  /// "Pickup at Church" option is never ambiguous when sellers belong to
+  /// different tenants.
+  Future<void> _loadPickupChurches() async {
+    final items = ref.read(cartProvider);
+    final tenantIds = items
+        .map((item) => item.product.tenantId)
+        .whereType<String>()
+        .where((t) => t.isNotEmpty)
+        .toSet()
+        .toList();
+    if (tenantIds.isEmpty) return;
+    try {
+      final supabase = Supabase.instance.client;
+      final rows = await supabase
+          .from('tenants')
+          .select('id, name')
+          .inFilter('id', tenantIds);
+      if (!mounted) return;
+      final names = (rows as List)
+          .map((r) => (r['name'] ?? '').toString())
+          .where((n) => n.isNotEmpty)
+          .toSet();
+      setState(() {
+        _pickupChurchNames.addAll(names);
+      });
+    } catch (e) {
+      debugPrint('Checkout: failed to load pickup churches: $e');
+    }
+  }
+
+  void _onAddressChanged() {
+    _geocodeTimer?.cancel();
+    _geocodeTimer = Timer(const Duration(milliseconds: 900), _geocodeAddress);
+  }
+
+  /// Geocode the delivery address via OpenStreetMap Nominatim (free, no key).
+  Future<void> _geocodeAddress() async {
+    final address = _carpsoAddressCtrl.text.trim();
+    if (address.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _geocodedDest = null;
+          _geocoding = false;
+          _geocodeError = null;
+        });
+      }
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        _geocoding = true;
+        _geocodeError = null;
+      });
+    }
+    try {
+      final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
+        'q': '$address, Zambia',
+        'format': 'json',
+        'limit': '1',
+      });
+      final res = await http.get(uri, headers: {
+        'User-Agent': 'ChurchOnApp/1.0 (church management app)',
+      });
+      final data = jsonDecode(res.body) as List;
+      if (data.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _geocoding = false;
+            _geocodedDest = null;
+            _geocodeError = 'Address not found. Add a landmark or area name.';
+          });
+        }
+        return;
+      }
+      final lat = double.tryParse(data[0]['lat']?.toString() ?? '');
+      final lng = double.tryParse(data[0]['lon']?.toString() ?? '');
+      if (lat == null || lng == null) {
+        if (mounted) {
+          setState(() {
+            _geocoding = false;
+            _geocodedDest = null;
+            _geocodeError = 'Could not locate that address.';
+          });
+        }
+        return;
+      }
+      if (mounted) {
+        setState(() {
+          _geocoding = false;
+          _geocodedDest = LatLng(lat, lng);
+          _geocodeError = null;
+        });
+      }
+    } catch (e) {
+      debugPrint('Checkout: geocoding failed: $e');
+      if (mounted) {
+        setState(() {
+          _geocoding = false;
+          _geocodedDest = null;
+          _geocodeError = 'Could not verify the address. Check your connection.';
+        });
+      }
+    }
+  }
+
+  /// Distance (km) between the pickup church and the geocoded destination.
+  double? get _deliveryDistanceKm {
+    final dest = _geocodedDest;
+    final tenant = ref.read(currentTenantProvider);
+    final lat = tenant?.latitude;
+    final lng = tenant?.longitude;
+    if (dest == null || lat == null || lng == null) return null;
+    return const Distance()
+        .as(LengthUnit.Kilometer, LatLng(lat, lng), dest);
+  }
+
   // Platform fee = 1% COA + Lipila fees (buyer pays this)
   FeeConfig get _fees => ref.read(feeConfigProvider).value ?? FeeConfig.defaults;
   double get _platformFee => _fees.platformFee(ref.read(cartProvider.notifier).total);
 
   double get _deliveryFee {
     if (_deliveryMethod == 'carpso') {
-      return widgetRemoteConfig(ref).getDouble('ride_delivery_min_fare_kwacha', 20.0);
+      final km = _deliveryDistanceKm;
+      if (km == null) return 0.0;
+      // Distance-based engine: base + per-km, never below the minimum fare.
+      final price = _fees.rideDeliveryBaseFareKwacha +
+          km * _fees.rideDeliveryPerKmKwacha;
+      final minFare =
+          widgetRemoteConfig(ref).getDouble('ride_delivery_min_fare_kwacha', 20.0);
+      return price < minFare ? minFare : price;
     }
     return _deliveryMethod == 'delivery'
         ? widgetRemoteConfig(ref).getDouble('marketplace_delivery_fee_kwacha', 15.0)
@@ -196,6 +333,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       setState(() {
         _isError = true;
         _errorMessage = "Delivery address is required for Carpso Delivery";
+      });
+      return;
+    }
+
+    if (_deliveryMethod == "carpso" && _geocodedDest == null) {
+      setState(() {
+        _isError = true;
+        _errorMessage =
+            _geocodeError ?? "Please wait for the delivery address to be verified.";
       });
       return;
     }
@@ -492,19 +638,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   /// Creates a Carpso courier request so a driver can deliver the order.
-  /// Uses the church's coordinates as pickup point (vendor pickup at church).
+  /// Pickup is the seller church; the destination is the geocoded customer
+  /// address; the fare is the engine-calculated delivery price.
   /// Non-blocking — the order is already placed and paid for.
   Future<void> _triggerCarpsoDelivery(String orderId, List<CartItem> items) async {
     try {
       final tenant = ref.read(currentTenantProvider);
       final lat = tenant?.latitude ?? -15.4190;
       final lng = tenant?.longitude ?? 28.3490;
+      final dest = _geocodedDest ?? LatLng(lat, lng);
       final address = _carpsoAddressCtrl.text.trim();
 
       final itemNames = items.map((i) => '${i.quantity}x ${i.product.name}').join(', ');
       await ref.read(transportServiceProvider).requestDelivery(
         pickup: LatLng(lat, lng),
-        dest: LatLng(lat + 0.001, lng + 0.001),
+        dest: dest,
         desc: 'Marketplace order #${orderId.substring(0, 8).toUpperCase()}: $itemNames. Deliver to: $address',
         category: 'marketplace',
         weight: 'Light',
@@ -774,7 +922,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   Widget _buildDeliveryMethodSelector() {
-    final carpsoFee = widgetRemoteConfig(ref).getDouble('ride_delivery_min_fare_kwacha', 20.0);
+    final carpsoFee = _deliveryFee;
+    final pickupLabel = _pickupChurchNames.isEmpty
+        ? "FREE"
+        : "FREE • ${_pickupChurchNames.join(', ')}";
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -832,7 +983,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         Icon(LucideIcons.car, color: _deliveryMethod == 'carpso' ? Theme.of(context).primaryColor : Colors.grey),
                         const SizedBox(height: 8),
                         const Text("Carpso Delivery", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        Text("K${carpsoFee.toStringAsFixed(2)}", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                        Text(
+                          _deliveryMethod == 'carpso' && carpsoFee > 0
+                              ? "K${carpsoFee.toStringAsFixed(2)}"
+                              : "By distance",
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                        ),
                       ],
                     ),
                   ),
@@ -857,7 +1013,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         Icon(LucideIcons.mapPin, color: _deliveryMethod == 'pickup' ? Theme.of(context).primaryColor : Colors.grey),
                         const SizedBox(height: 8),
                         const Text("Pickup at Church", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        Text("FREE", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                        Text(
+                          pickupLabel,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                        ),
                       ],
                     ),
                   ),
@@ -865,6 +1027,29 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               ),
             ],
           ),
+          if (_deliveryMethod == 'pickup' && _pickupChurchNames.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(LucideIcons.church, size: 16, color: Theme.of(context).primaryColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Collect your items from: ${_pickupChurchNames.join(', ')}",
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (_deliveryMethod == 'carpso') ...[
             const SizedBox(height: 16),
             TextField(
@@ -886,18 +1071,78 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(LucideIcons.car, size: 14, color: Colors.grey.shade600),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    "A Carpso courier picks up your order from the church and delivers to your address.",
+            if (_geocoding)
+              Row(
+                children: [
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Locating address...",
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                   ),
-                ),
-              ],
-            ),
+                ],
+              )
+            else if (_geocodeError != null)
+              Row(
+                children: [
+                  Icon(LucideIcons.alertCircle, size: 14, color: Colors.red.shade400),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _geocodeError!,
+                      style: TextStyle(color: Colors.red.shade400, fontSize: 12),
+                    ),
+                  ),
+                ],
+              )
+            else if (_geocodedDest != null)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(LucideIcons.mapPin, size: 14, color: Colors.green.shade600),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          "Address verified • ${(_deliveryDistanceKm ?? 0).toStringAsFixed(1)} km from ${ref.read(currentTenantProvider)?.name ?? 'church'} • K${_deliveryFee.toStringAsFixed(2)}",
+                          style: TextStyle(color: Colors.green.shade700, fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(LucideIcons.car, size: 14, color: Colors.grey.shade600),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          "Delivery price is calculated from the pickup church to your address.",
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Icon(LucideIcons.car, size: 14, color: Colors.grey.shade600),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      "A Carpso courier picks up your order from the church and delivers to your address. Price is calculated by distance.",
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
           ],
         ],
       ),
@@ -1109,7 +1354,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           ],
           if (_deliveryMethod == 'pickup') ...[
             const SizedBox(height: 8),
-            _buildTotalRow("Pickup at Church", "FREE", isTotal: false),
+            _buildTotalRow(
+              _pickupChurchNames.isEmpty
+                  ? "Pickup at Church"
+                  : "Pickup at ${_pickupChurchNames.join(', ')}",
+              "FREE",
+              isTotal: false,
+            ),
           ],
           const Divider(height: 24),
           _buildTotalRow("Total", "K ${total.toStringAsFixed(2)}", isTotal: true),
@@ -1200,6 +1451,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               const SizedBox(height: 8),
               Text(
                 "A Carpso courier has been requested to deliver to: ${_carpsoAddressCtrl.text.trim()}",
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+            ],
+            if (_deliveryMethod == 'pickup' && _pickupChurchNames.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                "Collect your items from: ${_pickupChurchNames.join(', ')}",
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.grey, fontSize: 13),
               ),

@@ -253,7 +253,7 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell>
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _buildNavItem(0, LucideIcons.home, "Home"),
-                        _buildNavItem(1, LucideIcons.headphones, "Sermons"),
+                        _buildNavItem(1, LucideIcons.video, "Sermons"),
                         _buildNavItem(2, LucideIcons.hand, "Give"),
                         _buildNavItem(3, LucideIcons.users, "Connect"),
                         _buildNavItem(4, LucideIcons.user, "Profile"),
@@ -301,7 +301,7 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell>
                   : NavigationRailLabelType.all,
               destinations: [
                 _buildRailDestination(0, LucideIcons.home, "Home"),
-                _buildRailDestination(1, LucideIcons.headphones, "Sermons"),
+                _buildRailDestination(1, LucideIcons.video, "Sermons"),
                 _buildRailDestination(2, LucideIcons.hand, "Give"),
                 _buildRailDestination(3, LucideIcons.users, "Connect"),
                 _buildRailDestination(4, LucideIcons.user, "Profile"),

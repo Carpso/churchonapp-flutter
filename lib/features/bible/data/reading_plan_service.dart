@@ -69,20 +69,26 @@ class ReadingPlanService {
     return _defaultPlans();
   }
 
-  Future<void> completeDay(String planId) async {
+  /// Marks one day of [planId] complete and returns the new completed-day
+  /// count (clamped to the plan length so it can't be farmed past the end).
+  Future<int> completeDay(String planId, {int totalDays = 1}) async {
     final user = _client.auth.currentUser;
-    if (user == null) return;
+    if (user == null) return 0;
 
     try {
       final existing = await _client.from('user_reading_progress').select().eq('user_id', user.id).eq('plan_id', planId).maybeSingle();
       final currentDays = existing != null ? (existing['completed_days'] as num?)?.toInt() ?? 0 : 0;
+      if (currentDays >= totalDays) return currentDays;
+      final newDays = (currentDays + 1).clamp(0, totalDays);
       if (existing != null) {
-        await _client.from('user_reading_progress').update({'completed_days': currentDays + 1, 'updated_at': DateTime.now().toIso8601String()}).eq('user_id', user.id).eq('plan_id', planId);
+        await _client.from('user_reading_progress').update({'completed_days': newDays, 'updated_at': DateTime.now().toIso8601String()}).eq('user_id', user.id).eq('plan_id', planId);
       } else {
-        await _client.from('user_reading_progress').insert({'user_id': user.id, 'plan_id': planId, 'completed_days': 1});
+        await _client.from('user_reading_progress').insert({'user_id': user.id, 'plan_id': planId, 'completed_days': newDays});
       }
+      return newDays;
     } catch (e) {
       debugPrint('Failed to save reading progress: $e');
+      return 0;
     }
   }
 }

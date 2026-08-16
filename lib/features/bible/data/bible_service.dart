@@ -104,8 +104,10 @@ class BibleService {
   static const _remoteCodes = {'kjv', 'web', 'asv', 'bbe', 'ylt', 'dra'};
 
   /// Translations that are seeded in the local Supabase bible_verses table.
-  /// NOTE: only NKJV/NLT (not free to self-host) use the local table.
-  static const _dbCodes = {'nkjv', 'nlt'};
+  /// KJV is fully seeded (13 batch migrations); NKJV/NLT (not free to
+  /// self-host) also live here. Reading from the local table is instant and
+  /// never depends on external APIs — this is the primary KJV source.
+  static const _dbCodes = {'kjv', 'nkjv', 'nlt'};
 
   /// Translations self-hosted on Cloudflare R2 (media.churchonapp.com) —
   /// whole books fetched once, then chapters read from the local cache.
@@ -172,7 +174,7 @@ class BibleService {
                 'https://bible-api.com/$encodedBook+$chapter?translation=$translation',
               ),
             )
-            .timeout(const Duration(seconds: 15));
+            .timeout(const Duration(seconds: 10));
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
@@ -253,7 +255,7 @@ class BibleService {
       final fileName = book.replaceAll(' ', '_');
       final response = await http
           .get(Uri.parse('$_r2Base/$translation/$fileName.json'))
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode != 200) return [];
       final data = json.decode(response.body) as Map<String, dynamic>;
       final chapters = data['chapters'] as Map<String, dynamic>? ?? {};

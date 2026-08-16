@@ -217,18 +217,38 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
                   trailing: isNext
                       ? ElevatedButton(
                           onPressed: () async {
-                            await widget.ref.read(readingPlanServiceProvider).completeDay(_plan.id);
-                            try {
-                              final coinsService = widget.ref.read(coinsServiceProvider);
-                              await coinsService.addStreakBonus(1);
-                            } catch (e) {
-                              debugPrint('Error adding streak bonus: $e');
+                            final wasFinished =
+                                _plan.completedDays >= _plan.totalDays;
+                            final newDays = await widget.ref
+                                .read(readingPlanServiceProvider)
+                                .completeDay(
+                                  _plan.id,
+                                  totalDays: _plan.totalDays,
+                                );
+                            // Coins are awarded ONCE per plan, only when the
+                            // whole plan is finished — never per verse/day.
+                            var coinsEarned = 0;
+                            if (!wasFinished &&
+                                newDays >= _plan.totalDays) {
+                              try {
+                                final coinsService =
+                                    widget.ref.read(coinsServiceProvider);
+                                await coinsService.addStreakBonus(1);
+                                coinsEarned = 50;
+                              } catch (e) {
+                                debugPrint(
+                                    'Error adding plan bonus: $e');
+                              }
                             }
                             widget.ref.invalidate(readingPlansProvider);
-                            setState(() => _plan.completedDays = (_plan.completedDays + 1).clamp(0, _plan.totalDays));
+                            setState(() => _plan.completedDays =
+                                newDays.clamp(0, _plan.totalDays));
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                                content: Text("Day completed! +10 Church Coins earned."),
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(
+                                content: Text(coinsEarned > 0
+                                    ? "Plan complete! +$coinsEarned Church Coins earned."
+                                    : "Day ${newDays.clamp(0, _plan.totalDays)} marked as read."),
                                 backgroundColor: Colors.green,
                               ));
                             }

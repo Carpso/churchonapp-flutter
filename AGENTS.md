@@ -9,6 +9,13 @@ unless the user explicitly says to build the Android release.** Android builds t
 APK/AAB requires the user to say something like *"build the apk"* / *"make the
 release"* first. This rule takes precedence over any prior instruction.
 
+## ⚠️ PERMANENT RULE — NEVER CHANGE BOTTOM NAV TAB ICONS
+
+**Do NOT change the bottom navigation bar tab icons** (`main_navigation_shell.dart`
+`_buildNavItem`/`_buildRailDestination`: Home / Sermons / Give / Connect / Profile).
+This was explicitly locked on 2026-08-16 — any future request to swap tab icons
+must be declined and referred to the user. Tab icon set is final.
+
 ## Project Overview
 
 Flutter-based church management platform with Supabase backend. Covers digital giving, marketplace, media streaming, events, logistics, Bible study, social features, and admin tools. Target market: Zambian churches (MTN/Airtel/Zamtel mobile money).
@@ -1044,3 +1051,42 @@ projects can copy/reuse when they wire Lipila:
     deployed (repo or live), and `push-notifications` cannot serve it (needs a
     user JWT, no `event_reminder` action). See SECURITY.md §6.
   - **`flutter analyze lib`:** 0 errors, 0 warnings (10 pre-existing info-level).
+- **Session 2026-08-16 (late) — Bible KJV fix, nav icon lock, marketplace delivery, buy-SMS payments, radio, expansion map**:
+  - **Bible KJV text fixed (root cause)**: KJV is FULLY seeded in the local
+    `bible_verses` table (13 `_seed_kjjv_text_p00X` batch migrations) but
+    `_dbCodes` only contained `{'nkjv','nlt'}` — so KJV went through
+    missing R2 JSON files (404) + slow bible-api.com (15s timeout) and ended
+    at "No content found". Fix: `bible_service.dart` `_dbCodes =
+    {'kjv','nkjv','nlt'}` (DB-first = instant, offline-robust), R2 timeout
+    20s→8s, bible-api timeout 15s→10s so fallbacks fail fast.
+    `bible_verses` RLS = SELECT to `authenticated` only (verified OK).
+  - **Bottom nav icons LOCKED (permanent)**: Sermons tab icon changed
+    `headphones`→`video` (per user request, verified `LucideIcons.video`
+    exists) — then a PERMANENT RULE added to AGENTS.md: NEVER change bottom
+    nav tab icons again; future requests must be declined.
+  - **Marketplace checkout**: `MarketProduct.tenantId` added; pickup-at-church
+    shows seller church names (from `tenants.id,name`); Carpso Delivery
+    requires customer address → Nominatim geocode (debounced 900ms,
+    User-Agent header) → distance-based fare (K15 base + K8/km, min K20,
+    remote keys `ride_delivery_min_fare_kwacha`/`rideDelivery*`), real
+    destination + fare passed to `requestDelivery` (was fake lat+0.001).
+    Express stays flat K15. Fixed `LucideIcons.mapPinCheck`→`mapPin`
+    (doesn't exist in 0.257.0), removed unused `_pickupChurchesLoaded`.
+  - **Buy SMS credits secured**: `buy-sms-credits` Edge Function previously
+    granted credits on ANY client-supplied `payment_ref` (free-credit exploit).
+    Rewritten: server-side `BUNDLES` map (100→K50, 250→K100, 600→K250),
+    client `amount_kwacha` ignored, idempotent via `tenant_sms_transactions`
+    (payment_ref + type='purchase' → `already_applied`), anchored on
+    confirmed `coa_payments` (status approved/completed/confirmed/settled,
+    amount ≥ price), errors 400/402/403/500. **Deployed.**
+  - **Radio**: `android:usesCleartextTraffic="true"` added to manifest (many
+    stream URLs are http:// — Android 9+ blocked them); 3-state indicator
+    LIVE (red)/CONNECTING (amber)/OFFLINE (grey) + per-station status dots.
+  - **Expansion map rewritten** (`map_screen.dart`): Zambia-only (zw_ IDs
+    filtered), plan filter badges (All/Silver/Gold/Platinum via `TenantPlan`
+    enum comparisons + `church.limits.label`), marker tap → church info sheet
+    + GET DIRECTIONS (Google Maps URL), branch count pill, refresh.
+  - **CI**: `upload-drive` job PAUSED (`if: false`) — restore = main-branch
+    push gate + `GOOGLE_DRIVE_SA`/`GOOGLE_DRIVE_FOLDER_ID` secrets (user adds
+    Drive API access to the Play SA first).
+  - **Deployed**: `generate-quiz-batch` (added `topic` param).

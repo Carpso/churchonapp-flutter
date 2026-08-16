@@ -13,6 +13,7 @@ import 'package:church_on_app/features/connect/presentation/prayer_wall_screen.d
 import 'package:church_on_app/features/home/presentation/sermon_notes_screen.dart';
 import 'package:church_on_app/features/home/presentation/worship_lyrics_screen.dart';
 import 'package:church_on_app/features/home/presentation/live_stream_screen.dart';
+import 'package:church_on_app/features/bible_study/presentation/bible_study_list_screen.dart';
 
 import '../../data/live_streaming_service.dart';
 
@@ -110,6 +111,8 @@ class HomeHeroCard extends ConsumerWidget {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
+                      _buildDeepLink(
+                          context, LucideIcons.bookOpen, "Bible Study"),
                       _buildDeepLink(context, LucideIcons.fileText, "Notes"),
                       _buildDeepLink(context, LucideIcons.music, "Lyrics"),
                       _buildDeepLink(context, LucideIcons.flame, "Prayer"),
@@ -221,6 +224,9 @@ class HomeHeroCard extends ConsumerWidget {
     } else if (label == "Lyrics") {
       actionDescription = "Add and manage worship lyrics";
       actionTitle = "Worship Lyrics";
+    } else if (label == "Bible Study") {
+      actionDescription = "View this church's Bible studies and group sessions";
+      actionTitle = "Bible Studies";
     } else {
       actionDescription = label;
       actionTitle = label;
@@ -258,6 +264,13 @@ class HomeHeroCard extends ConsumerWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => const WorshipLyricsScreen(),
+                ),
+              );
+            } else if (label == "Bible Study") {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const BibleStudyListScreen(),
                 ),
               );
             }
