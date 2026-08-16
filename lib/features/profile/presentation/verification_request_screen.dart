@@ -170,13 +170,13 @@ class _VerificationRequestScreenState extends ConsumerState<VerificationRequestS
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.blueAccent.withValues(alpha: 0.05),
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.2)),
+                border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.badgeCheck, color: Colors.blueAccent, size: 32),
+                  Icon(LucideIcons.badgeCheck, color: Theme.of(context).primaryColor, size: 32),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(

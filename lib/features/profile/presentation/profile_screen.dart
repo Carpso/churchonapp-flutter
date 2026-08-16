@@ -626,17 +626,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
   }
 
   (IconData, Color) _activityStyle(String category) {
+    final brand = Theme.of(context).primaryColor;
     switch (category.toLowerCase()) {
       case 'tithe':
-        return (LucideIcons.scrollText, Colors.purple);
+        return (LucideIcons.scrollText, brand);
       case 'offering':
         return (LucideIcons.heartHandshake, Colors.green);
       case 'mission':
-        return (LucideIcons.globe, Colors.blue);
+        return (LucideIcons.globe, brand.withValues(alpha: 0.8));
       case 'building fund':
-        return (LucideIcons.building2, Colors.orange);
+        return (LucideIcons.building2, brand.withValues(alpha: 0.6));
       default:
-        return (LucideIcons.banknote, Colors.teal);
+        return (LucideIcons.banknote, brand.withValues(alpha: 0.45));
     }
   }
 
@@ -797,14 +798,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
             runSpacing: 18,
             alignment: WrapAlignment.center,
             children: [
-              _buildDashboardMetric(context, "Church", (profile.tenantId ?? '').isNotEmpty ? 'Active' : '--', LucideIcons.building, Colors.blueAccent),
+              _buildDashboardMetric(context, "Church", (profile.tenantId ?? '').isNotEmpty ? 'Active' : '--', LucideIcons.building, Theme.of(context).primaryColor),
               _buildDashboardMetric(context, "Streak", "${profile.streakCount}d", LucideIcons.flame, Colors.orange),
               quizRankAsync.when(
-                data: (rank) => _buildDashboardMetric(context, "Quiz Rank", rank, LucideIcons.trophy, Colors.amber),
-                loading: () => _buildDashboardMetric(context, "Quiz Rank", "#--", LucideIcons.trophy, Colors.amber),
-                error: (e, st) => _buildDashboardMetric(context, "Quiz Rank", "#--", LucideIcons.trophy, Colors.amber),
+                data: (rank) => _buildDashboardMetric(context, "Quiz Rank", rank, LucideIcons.trophy, Theme.of(context).primaryColor),
+                loading: () => _buildDashboardMetric(context, "Quiz Rank", "#--", LucideIcons.trophy, Theme.of(context).primaryColor),
+                error: (e, st) => _buildDashboardMetric(context, "Quiz Rank", "#--", LucideIcons.trophy, Theme.of(context).primaryColor),
               ),
-              _buildDashboardMetric(context, "Tokens", "${profile.coins}", LucideIcons.zap, Colors.purpleAccent),
+              _buildDashboardMetric(context, "Tokens", "${profile.coins}", LucideIcons.zap, Theme.of(context).primaryColor.withValues(alpha: 0.7)),
               _buildDashboardMetric(context, "Giving", "K${profile.balanceZmw.toInt()}", LucideIcons.banknote, Colors.greenAccent),
             ],
           ),
@@ -858,9 +859,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
       child: Row(
         children: [
           if (profile.isBishop) _buildBadge(LucideIcons.crown, "BISHOP", Colors.amber),
-          if (profile.isPastor) _buildBadge(LucideIcons.scroll, "PASTOR", Colors.blueAccent),
+          if (profile.isPastor) _buildBadge(LucideIcons.scroll, "PASTOR", Theme.of(context).primaryColor),
           if (profile.isUsher) _buildBadge(LucideIcons.shieldCheck, "USHER", Colors.greenAccent),
-          if (profile.role == 'writer') _buildBadge(LucideIcons.penTool, "WRITER", Colors.purpleAccent),
+          if (profile.role == 'writer') _buildBadge(LucideIcons.penTool, "WRITER", Theme.of(context).primaryColor.withValues(alpha: 0.7)),
           if (profile.coins > 1000) _buildBadge(LucideIcons.star, "STEWARD", Colors.orangeAccent),
         ],
       ),
@@ -1000,7 +1001,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                       content: Text(val ? "Presence set to Anonymous!" : "Presence set to Public!"),
-                      backgroundColor: val ? Colors.indigo : Colors.grey,
+                      backgroundColor: val ? Theme.of(context).primaryColor : Colors.grey,
                     ));
                   }
                 } catch (e) {

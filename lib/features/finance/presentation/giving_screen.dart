@@ -487,11 +487,12 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
   }
 
   Widget _buildFeatureTiles(BuildContext context) {
+    final brand = Theme.of(context).primaryColor;
     final features = [
-      (LucideIcons.coins, "Fundraising", "Active campaigns", '/fundraising', Colors.orange),
-      (LucideIcons.users, "Group Giving", "Give together", '/fundraising/groups', Colors.blue),
-      (LucideIcons.scrollText, "My Pledges", "Track promises", '/my-pledges', Colors.purple),
-      (LucideIcons.history, "Giving History", "All transactions", '/giving-history', Colors.teal),
+      (LucideIcons.coins, "Fundraising", "Active campaigns", '/fundraising', brand),
+      (LucideIcons.users, "Group Giving", "Give together", '/fundraising/groups', brand.withValues(alpha: 0.8)),
+      (LucideIcons.scrollText, "My Pledges", "Track promises", '/my-pledges', brand.withValues(alpha: 0.6)),
+      (LucideIcons.history, "Giving History", "All transactions", '/giving-history', brand.withValues(alpha: 0.45)),
       (LucideIcons.wallet, "Wallet", "Manage funds", '/wallet', Colors.green),
     ];
 

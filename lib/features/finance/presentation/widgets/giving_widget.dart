@@ -274,11 +274,11 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
             const SizedBox(height: 10),
             Row(
               children: [
-                const Icon(LucideIcons.info, size: 12, color: Colors.blue),
+                Icon(LucideIcons.info, size: 12, color: Theme.of(context).primaryColor),
                 const SizedBox(width: 5),
                 Text(
                   "+ MoMo Transaction Fee (K${_fee.toStringAsFixed(2)})",
-                  style: const TextStyle(color: Colors.blue, fontSize: 11),
+                  style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 11),
                 ),
               ],
             ),

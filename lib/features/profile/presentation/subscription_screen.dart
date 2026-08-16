@@ -71,7 +71,7 @@ class SubscriptionBadge extends ConsumerWidget {
         Color color;
         if (sub.isTrialActive) {
           label = "Trial (${sub.trialDaysRemaining}d)";
-          color = Colors.blueAccent;
+          color = Theme.of(context).primaryColor;
         } else if (sub.isGold) {
           label = "Gold";
           color = Colors.amber;

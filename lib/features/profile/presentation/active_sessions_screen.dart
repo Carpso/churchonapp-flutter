@@ -195,8 +195,8 @@ class _ActiveSessionsScreenState extends ConsumerState<ActiveSessionsScreen> {
                     icon: const Icon(LucideIcons.refreshCw, size: 16),
                     label: const Text('Refresh Session'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.amber,
-                      side: const BorderSide(color: Colors.amber),
+                      foregroundColor: Theme.of(context).primaryColor,
+                      side: BorderSide(color: Theme.of(context).primaryColor),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),

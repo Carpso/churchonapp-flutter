@@ -147,7 +147,7 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
               icon: const Icon(LucideIcons.gift),
               label: const Text("Give Tithe"),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFB300),
+                backgroundColor: Theme.of(context).primaryColor,
                 foregroundColor: Colors.black,
                 minimumSize: const Size(200, 50),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -351,10 +351,10 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFB300).withValues(alpha: 0.1),
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(LucideIcons.barChart3, color: Color(0xFFFFB300), size: 20),
+                child: Icon(LucideIcons.barChart3, color: Theme.of(context).primaryColor, size: 20),
               ),
               const SizedBox(width: 12),
               const Text(
@@ -366,9 +366,9 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
           const SizedBox(height: 20),
           Row(
             children: [
-              _statBuilder("Lifetime Total", "K ${totalTithe.toStringAsFixed(2)}", const Color(0xFFFFB300)),
+              _statBuilder("Lifetime Total", "K ${totalTithe.toStringAsFixed(2)}", Theme.of(context).primaryColor),
               const SizedBox(width: 16),
-              _statBuilder("Times Tithed", "$titheCount", Colors.blue),
+              _statBuilder("Times Tithed", "$titheCount", Theme.of(context).primaryColor.withValues(alpha: 0.7)),
               const SizedBox(width: 16),
               _statBuilder("Avg. Tithe", "K ${avgTithe.toStringAsFixed(0)}", Colors.green),
             ],
@@ -408,7 +408,7 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
             child: LinearProgressIndicator(
               value: titheCount > 0 ? (titheCount % 52) / 52.0 : 0,
               backgroundColor: Colors.grey.shade200,
-              color: const Color(0xFFFFB300),
+              color: Theme.of(context).primaryColor,
               minHeight: 6,
             ),
           ),
@@ -443,13 +443,14 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
   }
 
   Color _frequencyColor(String frequency) {
+    final brand = Theme.of(context).primaryColor;
     switch (frequency) {
       case 'weekly':
         return Colors.green;
       case 'monthly':
-        return Colors.blue;
+        return brand;
       default:
-        return Colors.orange;
+        return brand.withValues(alpha: 0.7);
     }
   }
 
@@ -482,20 +483,20 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFB300).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(LucideIcons.clock, size: 20, color: Color(0xFFFFB300)),
+decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(width: 12),
-                  const Text("RECENT TITHES", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-                ],
-              ),
-              TextButton(
-                onPressed: () => context.push('/tithe-history'),
-                child: const Text("View All", style: TextStyle(color: Color(0xFFFFB300), fontWeight: FontWeight.bold)),
-              ),
+                  child: Icon(LucideIcons.clock, size: 20, color: Theme.of(context).primaryColor),
+                ),
+                const SizedBox(width: 12),
+                const Text("RECENT TITHES", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+              ],
+            ),
+            TextButton(
+              onPressed: () => context.push('/tithe-history'),
+              child: Text("View All", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+            ),
             ],
           ),
           const SizedBox(height: 16),
@@ -558,7 +559,7 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
             children: [
               Text(
                 "K ${record.amount.toStringAsFixed(2)}",
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFFFFB300)),
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Theme.of(context).primaryColor),
               ),
               const SizedBox(height: 2),
               Container(
@@ -588,17 +589,17 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
       children: [
         ElevatedButton.icon(
           onPressed: () => context.push('/giving'),
-          icon: const Icon(LucideIcons.gift, color: Colors.white),
+          icon: Icon(LucideIcons.gift, color: Colors.black),
           label: const Text(
             "Give Tithe Now",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black),
           ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFFFB300),
+            backgroundColor: Theme.of(context).primaryColor,
             minimumSize: const Size(double.infinity, 60),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             elevation: 4,
-            shadowColor: const Color(0xFFFFB300).withValues(alpha: 0.4),
+            shadowColor: Theme.of(context).primaryColor.withValues(alpha: 0.4),
           ),
         ),
         const SizedBox(height: 12),
@@ -607,8 +608,8 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
           icon: const Icon(LucideIcons.list, size: 18),
           label: const Text("View Full History", style: TextStyle(fontWeight: FontWeight.bold)),
           style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFFFFB300),
-            side: const BorderSide(color: Color(0xFFFFB300)),
+            foregroundColor: Theme.of(context).primaryColor,
+            side: BorderSide(color: Theme.of(context).primaryColor),
             minimumSize: const Size(double.infinity, 50),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),

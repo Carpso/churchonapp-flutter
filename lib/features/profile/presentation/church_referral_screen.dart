@@ -131,7 +131,7 @@ class _ChurchReferralScreenState extends ConsumerState<ChurchReferralScreen> {
                         return ListTile(
                           leading: Icon(
                             lead.status == 'converted' ? LucideIcons.checkCircle : lead.status == 'contacted' ? LucideIcons.phone : LucideIcons.clock,
-                            color: lead.status == 'converted' ? Colors.green : lead.status == 'contacted' ? Colors.blue : Colors.grey,
+                            color: lead.status == 'converted' ? Colors.green : lead.status == 'contacted' ? Theme.of(context).primaryColor : Colors.grey,
                           ),
                           title: Text(lead.pastorName),
                           subtitle: Text('${lead.churchName ?? "Unknown"} - ${lead.status}'),

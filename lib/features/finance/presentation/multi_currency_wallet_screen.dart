@@ -163,11 +163,11 @@ class MultiCurrencyWalletScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.1)),
+        border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.15)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(LucideIcons.globe, color: Colors.blueAccent),
+          Icon(LucideIcons.globe, color: Theme.of(context).primaryColor),
           SizedBox(width: 15),
           Expanded(
             child: Text(

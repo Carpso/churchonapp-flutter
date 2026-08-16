@@ -42,6 +42,7 @@ class GivingHistoryList extends ConsumerWidget {
     IconData icon = LucideIcons.heart;
     Color iconColor = Colors.red.shade400;
     String categoryName = item.category.toUpperCase();
+    final brand = Theme.of(context).primaryColor;
 
     if (item.category == 'tithe') {
       categoryName = "Tithe Payment";
@@ -50,15 +51,15 @@ class GivingHistoryList extends ConsumerWidget {
     } else if (item.category == 'giving') {
       categoryName = "Offering";
       icon = LucideIcons.gift;
-      iconColor = Colors.purple;
+      iconColor = brand;
     } else if (item.category == 'top_up') {
       categoryName = "Wallet Top Up";
       icon = LucideIcons.arrowDownLeft;
-      iconColor = Colors.teal;
+      iconColor = brand.withValues(alpha: 0.75);
     } else if (item.category == 'transfer') {
       categoryName = "Coins Transfer";
       icon = LucideIcons.send;
-      iconColor = Colors.blue;
+      iconColor = brand.withValues(alpha: 0.55);
     } else if (item.category == 'withdrawal') {
       categoryName = "Wallet Withdrawal";
       icon = LucideIcons.arrowUpRight;
@@ -96,7 +97,11 @@ class GivingHistoryList extends ConsumerWidget {
                       padding: const EdgeInsets.only(top: 2, bottom: 2),
                       child: Text(
                         "to ${item.recipientName}",
-                        style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.bold, fontSize: 12),
+                        style: const TextStyle(
+                          color: Color(0xFF7A5C00),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   Text(dateStr, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),

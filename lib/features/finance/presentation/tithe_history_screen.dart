@@ -62,7 +62,7 @@ class TitheHistoryScreen extends ConsumerWidget {
                   children: [
                     const Text("History Tracking", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     if (isPastor)
-                      const Text("PASTOR VIEW", style: TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
+                      const Text("PASTOR VIEW", style: TextStyle(color: Color(0xFF7A5C00), fontSize: 11, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 const SizedBox(height: 15),
@@ -149,7 +149,7 @@ class TitheHistoryScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text("K ${amount.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
-              Text(status, style: TextStyle(color: status == 'COMPLETED' ? Colors.blue : Colors.orange, fontSize: 11, fontWeight: FontWeight.bold)),
+              Text(status, style: TextStyle(color: status == 'COMPLETED' ? Colors.green : Colors.orange, fontSize: 11, fontWeight: FontWeight.bold)),
             ],
           ),
         ],

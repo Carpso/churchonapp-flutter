@@ -104,7 +104,7 @@ class ReferralSystemScreen extends ConsumerWidget {
                   icon: const Icon(LucideIcons.copy, color: Colors.grey),
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: referralCode));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Code copied to clipboard!"), backgroundColor: Colors.teal));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Code copied to clipboard!"), backgroundColor: Colors.green));
                   },
                 ),
               ],

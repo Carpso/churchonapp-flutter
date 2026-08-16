@@ -182,11 +182,11 @@ class WalletScreen extends ConsumerWidget {
       children: [
         _buildActionButton(context, LucideIcons.arrowUpRight, "Top Up", onTap: () => _showTopUpSheet(context, actionRef)),
         _buildActionButton(context, LucideIcons.send, "Send", onTap: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const TransactionPage(
+          Navigator.push(context, MaterialPageRoute(builder: (context) => TransactionPage(
             title: "Send",
             description: "Transfer church coins to another member safely.",
             icon: LucideIcons.send,
-            color: Colors.blue,
+            color: Theme.of(context).primaryColor,
           )));
         }),
         _buildActionButton(context, LucideIcons.gift, "Give", onTap: () {
@@ -329,6 +329,7 @@ class WalletScreen extends ConsumerWidget {
             String title = t.category;
             IconData icon = LucideIcons.arrowUpRight;
             Color iconColor = Colors.green;
+            final brand = Theme.of(context).primaryColor;
 
             if (t.category == 'tithe') {
               title = "Tithe Payment";
@@ -337,7 +338,7 @@ class WalletScreen extends ConsumerWidget {
             } else if (t.category == 'giving') {
               title = "Offering";
               icon = LucideIcons.gift;
-              iconColor = Colors.purple;
+              iconColor = brand;
             } else if (t.category == 'top_up') {
               title = "Wallet Top Up";
               icon = LucideIcons.arrowDownLeft;
@@ -345,7 +346,7 @@ class WalletScreen extends ConsumerWidget {
             } else if (t.category == 'transfer') {
               title = "Coins Transfer";
               icon = LucideIcons.send;
-              iconColor = Colors.blue;
+              iconColor = brand.withValues(alpha: 0.7);
             } else if (t.category == 'withdrawal') {
               title = "Wallet Withdrawal";
               icon = LucideIcons.arrowUpRight;

@@ -91,7 +91,7 @@ class PayoutRequestScreen extends ConsumerWidget {
                     icon: LucideIcons.gift,
                     title: "Rewards",
                     subtitle: "Daily collect,\nstreaks & bonuses",
-                    color: Colors.purple,
+                    color: Theme.of(context).primaryColor,
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardsScreen())),
                   ),
                 ),
@@ -102,7 +102,7 @@ class PayoutRequestScreen extends ConsumerWidget {
                     icon: LucideIcons.coins,
                     title: "Collect",
                     subtitle: "Claim your\nfree daily coins",
-                    color: Colors.orange,
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardsScreen())),
                   ),
                 ),
@@ -123,12 +123,12 @@ class PayoutRequestScreen extends ConsumerWidget {
             const SizedBox(height: 24),
             const Text("What You Can Redeem", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
-             _buildRedemptionOption(
+_buildRedemptionOption(
                context: context,
                icon: LucideIcons.bookOpen,
                title: "Partner Bookshops",
                subtitle: "Redeem coins for free books and Bibles at partner bookshops.",
-               color: Colors.orange,
+               color: Theme.of(context).primaryColor.withValues(alpha: 0.8),
              ),
              const SizedBox(height: 10),
              _buildRedemptionOption(
@@ -144,7 +144,7 @@ class PayoutRequestScreen extends ConsumerWidget {
                icon: LucideIcons.trophy,
               title: "Bible Quiz Merch",
               subtitle: "Redeem coins for exclusive Bible Quiz merchandise.",
-              color: Colors.blue,
+              color: Theme.of(context).primaryColor,
             ),
             const SizedBox(height: 24),
              _buildLegalDisclaimer(context),
@@ -162,12 +162,14 @@ class PayoutRequestScreen extends ConsumerWidget {
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(25),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFFD97706), Color(0xFFF59E0B)],
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF2A2F45), Color(0xFF151A2E)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.35)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,17 +178,17 @@ class PayoutRequestScreen extends ConsumerWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(LucideIcons.coins, color: Colors.white, size: 32),
+                  Icon(LucideIcons.coins, color: Theme.of(context).primaryColor, size: 32),
                   const SizedBox(width: 12),
                   Text("$balance CC", style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900)),
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: Theme.of(context).primaryColor,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text("BUY MORE", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                    child: const Text("BUY MORE", style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
