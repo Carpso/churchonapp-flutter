@@ -7,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/profile_provider.dart';
+import '../../../core/services/tenant_service.dart';
 import '../../../core/widgets/app_error_view.dart';
 import '../../../core/services/code_generator_service.dart';
 import '../../../core/utils/country_detection_util.dart';
@@ -105,6 +107,19 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
         'tenant_id': tenantId,
         'role': _selectedRole,
       }).eq('id', user.id);
+
+      // Make the new church the user's active tenant so the app switches
+      // straight to the home shell (router watches currentTenantProvider).
+      try {
+        final tenantService = ref.read(tenantServiceProvider);
+        final newTenant = await tenantService.getTenantById(tenantId);
+        if (newTenant != null) {
+          await ref.read(currentTenantProvider.notifier).setTenant(newTenant);
+        }
+      } catch (e) {
+        debugPrint('Tenant activation failed (best-effort): $e');
+      }
+      ref.invalidate(profileProvider);
 
       // Audit trail: record the role assignment for traceability.
       // Best-effort only — a policy miss must never roll back a successful
@@ -407,6 +422,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
         validator: (v) {
           if (v == null || v.trim().isEmpty) return 'Required';
           if (label == "Church Name" && v.trim().length < 2) return 'Min 2 characters';
+          if (label == "Church Name" && v.trim().length > 60) return 'Max 60 characters';
           if (label == "Treasurer / Financial Phone #" && v.replaceAll(RegExp(r'\D'), '').length < 10) return 'Min 10 digits';
           return null;
         },

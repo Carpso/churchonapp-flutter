@@ -48,13 +48,14 @@ class _YearPlannerScreenState extends ConsumerState<YearPlannerScreen> {
         stream: _client
             .from('year_planner')
             .stream(primaryKey: ['id'])
-            .eq('tenant_id', tenant.id)
-            .order('event_date', ascending: true),
+            .eq('tenant_id', tenant.id),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           final programs = snapshot.data ?? [];
+          programs.sort((a, b) =>
+              (a['event_date'] as String).compareTo(b['event_date'] as String));
           if (programs.isEmpty) {
             return _buildEmptyState(tenant.id, isAdmin);
           }

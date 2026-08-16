@@ -35,22 +35,22 @@ class HomeTopBar extends StatelessWidget {
                   builder: (context) => const SelectTenantScreen(),
                 ),
               ),
-              child: Row(
+child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const KingdomLogo(size: 32),
                    if (tenant != null) ...[
                      const SizedBox(width: 8),
-                     Flexible(
+                     ConstrainedBox(
+                       constraints: const BoxConstraints(maxWidth: 130),
                        child: Text(
-                         _abbreviateChurchName(tenant),
+                         _churchDisplayName(tenant),
                          style: GoogleFonts.plusJakartaSans(
                            fontWeight: FontWeight.bold,
                            fontSize: 12,
                          ),
-                         overflow: TextOverflow.fade,
+                         overflow: TextOverflow.ellipsis,
                          maxLines: 2,
-                         textAlign: TextAlign.right,
                        ),
                      ),
                   ],
@@ -60,7 +60,10 @@ class HomeTopBar extends StatelessWidget {
           ),
           const Spacer(),
           Flexible(
-            child: _buildWeatherChip(context),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 56),
+              child: _buildWeatherChip(context),
+            ),
           ),
           const SizedBox(width: 4),
           _buildNotificationBell(context),
@@ -111,12 +114,10 @@ class HomeTopBar extends StatelessWidget {
     );
   }
 
-String _abbreviateChurchName(Tenant? tenant) {
+String _churchDisplayName(Tenant? tenant) {
     if (tenant == null) return '';
-
     final name = tenant.name.trim();
-    if (name.isEmpty) return 'Church';
-    return name;
+    return name.isEmpty ? 'Church' : name;
   }
 
   Widget _buildWeatherChip(BuildContext context) {

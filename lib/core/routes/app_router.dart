@@ -51,6 +51,8 @@ import 'package:church_on_app/features/profile/presentation/terms_of_service_scr
 import 'package:church_on_app/features/profile/presentation/about_screen.dart';
 import 'package:church_on_app/features/support/presentation/support_hub_screen.dart';
 import 'package:church_on_app/features/admin/presentation/expansion_leads_screen.dart';
+import 'package:church_on_app/features/admin/presentation/member_management_screen.dart';
+import 'package:church_on_app/features/admin/presentation/event_scheduler_screen.dart';
 import 'package:church_on_app/features/admin/presentation/carpso_driver_approval_screen.dart';
 import 'package:church_on_app/features/admin/presentation/emergency_shutdown_screen.dart';
 import 'package:church_on_app/features/admin/presentation/ad_management_screen.dart';
@@ -357,8 +359,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         }
 
         // Live studio: pastors, bishops and assigned tenant leaders may stream
-        if (route.startsWith('/live-studio')) {
+        if (route.startsWith('/live-studio') || route == '/admin/live-studio') {
           return user.isLeadershipTeam || user.role == 'general_treasurer';
+        }
+
+        // Admin hub registry tiles (member mgmt / event scheduler)
+        if (route == '/admin/members' || route == '/admin/event-scheduler') {
+          return user.isPastorOrHigher || user.isLeadershipTeam;
         }
 
         // Finance (Treasurer / Usher / Leadership)
@@ -1236,6 +1243,22 @@ final routerProvider = Provider<GoRouter>((ref) {
           final tenantId = extra?['tenantId'] as String?;
           return LiveStreamStudioScreen(tenantId: tenantId);
         },
+      ),
+      GoRoute(
+        path: '/admin/live-studio',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          final tenantId = extra?['tenantId'] as String?;
+          return LiveStreamStudioScreen(tenantId: tenantId);
+        },
+      ),
+      GoRoute(
+        path: '/admin/members',
+        builder: (context, state) => const MemberManagementScreen(),
+      ),
+      GoRoute(
+        path: '/admin/event-scheduler',
+        builder: (context, state) => const EventSchedulerScreen(),
       ),
       GoRoute(
         path: '/flyer-studio',

@@ -94,8 +94,12 @@ class PlannerService {
         .from('year_planner')
         .stream(primaryKey: ['id'])
         .eq('user_id', userId)
-        .order('event_date', ascending: true)
-        .map((data) => data.map((m) => PlannerEvent.fromMap(m)).toList());
+        .map((data) {
+      final sorted = [...data]
+        ..sort((a, b) => (a['event_date']?.toString() ?? '')
+            .compareTo(b['event_date']?.toString() ?? ''));
+      return sorted.map((m) => PlannerEvent.fromMap(m)).toList();
+    });
   }
 
   Future<List<PlannerEvent>> fetchByMonth({required int year, required int month, String? tenantId, required String userId}) async {
