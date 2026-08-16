@@ -113,7 +113,7 @@ class _KingdomGameArenaScreenState extends ConsumerState<KingdomGameArenaScreen>
               const SizedBox(height: 40),
               _buildLargeButton("SOLO CHALLENGE", LucideIcons.user, Colors.white10, _startSolo),
               const SizedBox(height: 15),
-              _buildLargeButton("P2P MULTIPLAYER", LucideIcons.users, Colors.blueAccent.withValues(alpha: 0.2), _startMultiplayer),
+              _buildLargeButton("P2P MULTIPLAYER", LucideIcons.users, Theme.of(context).primaryColor.withValues(alpha: 0.2), _startMultiplayer),
             ] else if (_isSearching) ...[
               _buildMatchmakingUI(),
             ] else if (_isMatchFound) ...[
@@ -221,7 +221,7 @@ class _KingdomGameArenaScreenState extends ConsumerState<KingdomGameArenaScreen>
       children: [
         Container(
           padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: isMe ? Colors.blueAccent : Colors.pinkAccent, width: 3)),
+          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: isMe ? Theme.of(context).primaryColor : Theme.of(context).primaryColor.withValues(alpha: 0.5), width: 3)),
           child: CircleAvatar(radius: 40, backgroundImage: NetworkImage(avatar)),
         ),
         const SizedBox(height: 15),

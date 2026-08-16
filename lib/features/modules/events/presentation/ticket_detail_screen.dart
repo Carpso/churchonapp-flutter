@@ -437,8 +437,8 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: Colors.purple.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                    child: const Icon(LucideIcons.tag, color: Colors.purple, size: 24),
+decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                child: Icon(LucideIcons.tag, color: Theme.of(context).primaryColor, size: 24),
                   ),
                   const SizedBox(width: 15),
                   Expanded(
@@ -452,8 +452,8 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.purple.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
-                    child: Text((_ticketType ?? 'GENERAL').toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.purple)),
+decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+                child: Text((_ticketType ?? 'GENERAL').toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Theme.of(context).primaryColor)),
                   ),
                 ],
               ),

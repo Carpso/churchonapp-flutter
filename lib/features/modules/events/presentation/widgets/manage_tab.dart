@@ -163,7 +163,7 @@ class _ManageTabState extends ConsumerState<ManageTab> {
           ] else ...[
             Row(
               children: [
-                Expanded(child: _MetricCard(title: "Tickets Sold", value: "$_ticketsSold", icon: LucideIcons.ticket, color: Colors.blue)),
+                Expanded(child: _MetricCard(title: "Tickets Sold", value: "$_ticketsSold", icon: LucideIcons.ticket, color: Theme.of(context).primaryColor)),
                 const SizedBox(width: 15),
                 Expanded(child: _MetricCard(title: "Revenue (K)", value: _revenue.toStringAsFixed(2), icon: LucideIcons.wallet, color: Colors.green)),
               ],
@@ -173,15 +173,15 @@ class _ManageTabState extends ConsumerState<ManageTab> {
               children: [
                 Expanded(child: _MetricCard(title: "Events Hosted", value: "$_eventCount", icon: LucideIcons.calendarDays, color: Colors.orange)),
                 const SizedBox(width: 15),
-                Expanded(child: _MetricCard(title: "Attendance Rate", value: "${_attendanceRate.toStringAsFixed(0)}%", icon: LucideIcons.clipboardCheck, color: Colors.teal)),
+                Expanded(child: _MetricCard(title: "Attendance Rate", value: "${_attendanceRate.toStringAsFixed(0)}%", icon: LucideIcons.clipboardCheck, color: Theme.of(context).primaryColor.withValues(alpha: 0.75))),
               ],
             ),
             const SizedBox(height: 15),
             Row(
               children: [
-                Expanded(child: _MetricCard(title: "Upcoming Events", value: "$_upcomingCount", icon: LucideIcons.calendarClock, color: Colors.purple)),
+                Expanded(child: _MetricCard(title: "Upcoming Events", value: "$_upcomingCount", icon: LucideIcons.calendarClock, color: Theme.of(context).primaryColor.withValues(alpha: 0.55))),
                 const SizedBox(width: 15),
-                Expanded(child: _MetricCard(title: "Checked In", value: "$_checkedIn", icon: LucideIcons.userCheck, color: Colors.indigo)),
+                Expanded(child: _MetricCard(title: "Checked In", value: "$_checkedIn", icon: LucideIcons.userCheck, color: Theme.of(context).primaryColor.withValues(alpha: 0.45))),
               ],
             ),
             const SizedBox(height: 20),
@@ -250,9 +250,9 @@ class _ManageTabState extends ConsumerState<ManageTab> {
           const SizedBox(height: 10),
           Row(
             children: [
-              _miniStat("${stats.tickets} tickets", LucideIcons.ticket, Colors.blue),
+              _miniStat("${stats.tickets} tickets", LucideIcons.ticket, Theme.of(context).primaryColor),
               const SizedBox(width: 14),
-              _miniStat("${stats.checkedIn} checked in", LucideIcons.userCheck, Colors.indigo),
+              _miniStat("${stats.checkedIn} checked in", LucideIcons.userCheck, Theme.of(context).primaryColor.withValues(alpha: 0.6)),
               const SizedBox(width: 14),
               _miniStat("K${stats.revenue.toStringAsFixed(2)}", LucideIcons.wallet, Colors.green),
               const Spacer(),

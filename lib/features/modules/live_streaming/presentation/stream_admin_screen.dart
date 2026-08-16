@@ -151,7 +151,7 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: usage.canStream
-              ? [Colors.blue[50]!, Colors.green[50]!]
+              ? [Colors.green.shade100, Colors.green.shade200]
               : [Colors.red[50]!, Colors.orange[50]!],
         ),
         borderRadius: BorderRadius.circular(12),
@@ -163,7 +163,7 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
             children: [
               Icon(
                 usage.canStream ? Icons.timer : Icons.timer_off,
-                color: usage.canStream ? Colors.blue : Colors.red,
+                color: usage.canStream ? Colors.green : Colors.red,
               ),
               SizedBox(width: 8),
               Text(
@@ -180,7 +180,7 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
               value: percentage / 100,
               backgroundColor: Colors.grey[200],
               valueColor: AlwaysStoppedAnimation<Color>(
-                usage.canStream ? Colors.blue : Colors.red,
+                usage.canStream ? Colors.green : Colors.red,
               ),
               minHeight: 12,
             ),
@@ -192,7 +192,7 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
               Text(
                 '${usage.minutesUsed.toStringAsFixed(1)} / ${usage.isUnlimited ? "∞" : usage.minutesLimit.toStringAsFixed(0)} min used',
                 style: TextStyle(
-                  color: usage.canStream ? Colors.blue[800] : Colors.red[800],
+                  color: usage.canStream ? Colors.green[800] : Colors.red[800],
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -296,7 +296,7 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.blue[50]!, Colors.purple[50]!],
+          colors: [Theme.of(context).primaryColor.withValues(alpha: 0.1), Theme.of(context).primaryColor.withValues(alpha: 0.05)],
         ),
         borderRadius: BorderRadius.circular(12),
       ),
@@ -305,7 +305,7 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline, color: Colors.blue),
+              Icon(Icons.info_outline, color: Theme.of(context).primaryColor),
               SizedBox(width: 8),
               Text(
                 'How to Stream',
@@ -816,13 +816,13 @@ class _Step extends StatelessWidget {
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: Colors.blue,
+              color: Theme.of(context).primaryColor,
               shape: BoxShape.circle,
             ),
             child: Center(
               child: Text(
                 number,
-                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                style: TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.bold),
               ),
             ),
           ),

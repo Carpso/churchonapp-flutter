@@ -353,10 +353,10 @@ class _NotesTab extends StatelessWidget {
           margin: EdgeInsets.only(bottom: 12),
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: isAi ? Colors.purple[50] : Colors.white,
+            color: isAi ? Theme.of(context).primaryColor.withValues(alpha: 0.1) : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isAi ? Colors.purple[200]! : Colors.grey[200]!,
+              color: isAi ? Theme.of(context).primaryColor.withValues(alpha: 0.4) : Colors.grey[200]!,
             ),
           ),
           child: Column(
@@ -365,12 +365,12 @@ class _NotesTab extends StatelessWidget {
               Row(
                 children: [
                   if (isAi) ...[
-                    Icon(Icons.auto_awesome, size: 16, color: Colors.purple),
+                    Icon(Icons.auto_awesome, size: 16, color: const Color(0xFF7A5C00)),
                     SizedBox(width: 4),
                     Text(
                       'AI Generated',
                       style: TextStyle(
-                        color: Colors.purple,
+                        color: const Color(0xFF7A5C00),
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -450,7 +450,7 @@ class _AISummaryTab extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.auto_awesome, size: 64, color: Colors.purple[200]),
+            Icon(Icons.auto_awesome, size: 64, color: Theme.of(context).primaryColor.withValues(alpha: 0.4)),
             SizedBox(height: 16),
             Text(
               'Generate AI Summary',
@@ -474,8 +474,8 @@ class _AISummaryTab extends StatelessWidget {
                   : Icon(Icons.auto_awesome),
               label: Text(generating ? 'Generating...' : 'Generate Summary'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple,
-                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.black,
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
             ),
@@ -491,26 +491,26 @@ class _AISummaryTab extends StatelessWidget {
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.purple[50]!, Colors.blue[50]!],
+              colors: [Theme.of(context).primaryColor.withValues(alpha: 0.12), Theme.of(context).primaryColor.withValues(alpha: 0.06)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.purple[200]!),
+            border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.4)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.auto_awesome, color: Colors.purple),
+                  Icon(Icons.auto_awesome, color: const Color(0xFF7A5C00)),
                   SizedBox(width: 8),
                   Text(
                     'AI Summary',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.purple,
+                      color: const Color(0xFF7A5C00),
                     ),
                   ),
                 ],
@@ -628,7 +628,7 @@ class _StudyTab extends StatelessWidget {
               margin: EdgeInsets.only(bottom: 12),
               padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.blue[50],
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -637,12 +637,12 @@ class _StudyTab extends StatelessWidget {
                   Container(
                     padding: EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: Colors.blue,
+                      color: Theme.of(context).primaryColor,
                       shape: BoxShape.circle,
                     ),
                     child: Text(
                       '${entry.key + 1}',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
                     ),
                   ),
                   SizedBox(width: 12),

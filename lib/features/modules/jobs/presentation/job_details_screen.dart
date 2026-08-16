@@ -113,11 +113,11 @@ class JobDetailsScreen extends ConsumerWidget {
               ElevatedButton(
                 onPressed: () => context.push('/jobs/manage', extra: job),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
+                  backgroundColor: Theme.of(context).primaryColor,
                   minimumSize: const Size(double.infinity, 60),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
-                child: const Text("MANAGE APPLICATIONS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                child: const Text("MANAGE APPLICATIONS", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
               )
             else
               ElevatedButton(

@@ -564,12 +564,12 @@ class _DonorDetailsSheetState extends ConsumerState<_DonorDetailsSheet> {
                   children: [
                     _StatCard('Total Given', 'K${totalGiven.toStringAsFixed(0)}', Colors.green),
                     SizedBox(width: 12),
-                    _StatCard('Gifts', '${_givingHistory.length}', Colors.blue),
+                    _StatCard('Gifts', '${_givingHistory.length}', Theme.of(context).primaryColor),
                     SizedBox(width: 12),
                     _StatCard(
                       'Category',
                       widget.donor['category'] ?? 'Regular',
-                      Colors.purple,
+                      Theme.of(context).primaryColor.withValues(alpha: 0.7),
                     ),
                   ],
                 ),
@@ -769,13 +769,13 @@ class _GivingTab extends StatelessWidget {
               children: [
                 _SummaryCard('Total Giving', 'K${totalGiving.toStringAsFixed(0)}', Colors.green),
                 SizedBox(width: 12),
-                _SummaryCard('Donors', '$donorCount', Colors.blue),
+                _SummaryCard('Donors', '$donorCount', Theme.of(context).primaryColor),
               ],
             ),
             SizedBox(height: 12),
             Row(
               children: [
-                _SummaryCard('Avg Gift', 'K${avgGift.toStringAsFixed(0)}', Colors.purple),
+                _SummaryCard('Avg Gift', 'K${avgGift.toStringAsFixed(0)}', Theme.of(context).primaryColor.withValues(alpha: 0.7)),
                 SizedBox(width: 12),
                 _SummaryCard('This Month', 'K${monthlyGiving.toStringAsFixed(0)}', Colors.orange),
               ],
@@ -798,7 +798,7 @@ class _GivingTab extends StatelessWidget {
                 children: [
                   _buildChartBar('Top Tier Donors', totalGiving > 0 ? 0.85 : 0.2, Colors.green, 'K${(totalGiving * 0.45).toStringAsFixed(0)}'),
                   const SizedBox(height: 12),
-                  _buildChartBar('Monthly Recurring', monthlyGiving > 0 ? 0.60 : 0.15, Colors.blue, 'K${monthlyGiving.toStringAsFixed(0)}'),
+                  _buildChartBar('Monthly Recurring', monthlyGiving > 0 ? 0.60 : 0.15, Theme.of(context).primaryColor, 'K${monthlyGiving.toStringAsFixed(0)}'),
                   const SizedBox(height: 12),
                   _buildChartBar('General Contributors', totalGiving > 0 ? 0.40 : 0.1, Colors.orange, 'K${(totalGiving * 0.25).toStringAsFixed(0)}'),
                 ],
@@ -935,7 +935,7 @@ class _StatementsTab extends StatelessWidget {
         Container(
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.blue[50],
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -943,7 +943,7 @@ class _StatementsTab extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.blue),
+                  Icon(Icons.info_outline, color: const Color(0xFF7A5C00)),
                   SizedBox(width: 8),
                   Text('About Giving Statements', style: TextStyle(fontWeight: FontWeight.bold)),
                 ],

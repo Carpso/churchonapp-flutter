@@ -316,7 +316,7 @@ class _ChurchWebsiteBuilderScreenState
             Container(
               padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.blue[50],
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -324,7 +324,7 @@ class _ChurchWebsiteBuilderScreenState
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.info_outline, color: Colors.blue),
+                      Icon(Icons.info_outline, color: const Color(0xFF7A5C00)),
                       SizedBox(width: 8),
                       Text('How it works', style: TextStyle(fontWeight: FontWeight.bold)),
                     ],

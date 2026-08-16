@@ -490,17 +490,17 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
                 child: Row(
                   children: [
-                    const Icon(LucideIcons.info, color: Colors.blue, size: 18),
+                    Icon(LucideIcons.info, color: Theme.of(context).primaryColor, size: 18),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         _eventType == "Conference" 
                           ? "Platform Commission: K0.00 (Conferences are fee-free!)"
                           : "Platform Commission: K${platformCommission.toStringAsFixed(2)} per ticket",
-                        style: const TextStyle(color: Colors.blue, fontSize: 12),
+                        style: TextStyle(color: const Color(0xFF7A5C00), fontSize: 12),
                       ),
                     )
                   ],
@@ -538,7 +538,7 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
                           ),
                         ),
                         const SizedBox(height: 10),
-                        const Text("Change Banner", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
+                        Text("Change Banner", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold, fontSize: 12)),
                       ],
                     )
                   : const Column(
@@ -607,8 +607,8 @@ class HostBusinessMeetingSheet extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: Colors.blueAccent.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
-                child: const Icon(LucideIcons.video, color: Colors.blueAccent),
+                decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
+                child: Icon(LucideIcons.video, color: Theme.of(context).primaryColor),
               ),
               const SizedBox(width: 15),
               const Column(
@@ -670,12 +670,12 @@ class HostBusinessMeetingSheet extends StatelessWidget {
             );
           }),
           const SizedBox(height: 15),
-          _buildMeetingOption(context, "Whiteboard & Blueprint", "Interactive canvas for structural plans", LucideIcons.mousePointerClick, Colors.pinkAccent, () {
+          _buildMeetingOption(context, "Whiteboard & Blueprint", "Interactive canvas for structural plans", LucideIcons.mousePointerClick, Theme.of(context).primaryColor, () {
             Navigator.pop(context);
             Navigator.push(context, MaterialPageRoute(builder: (context) => const BusinessMeetingsScreen(meetingTitle: "Whiteboard Session")));
           }),
           const SizedBox(height: 15),
-          _buildMeetingOption(context, "Digital Voting System", "Secure anonymous polls for leadership", LucideIcons.barChart3, Colors.blue, () {
+          _buildMeetingOption(context, "Digital Voting System", "Secure anonymous polls for leadership", LucideIcons.barChart3, Theme.of(context).primaryColor.withValues(alpha: 0.7), () {
             Navigator.pop(context);
             Navigator.push(context, MaterialPageRoute(builder: (context) => const BusinessMeetingsScreen(meetingTitle: "Voting Session")));
           }),
@@ -687,11 +687,11 @@ class HostBusinessMeetingSheet extends StatelessWidget {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const BusinessMeetingsScreen()));
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blueAccent,
+              backgroundColor: Theme.of(context).primaryColor,
               minimumSize: const Size(double.infinity, 60),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             ),
-            child: const Text("START SECURE SESSION", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text("START SECURE SESSION", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

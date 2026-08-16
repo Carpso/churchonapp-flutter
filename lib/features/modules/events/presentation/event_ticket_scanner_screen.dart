@@ -316,7 +316,7 @@ class _EventTicketScannerScreenState extends State<EventTicketScannerScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildStatItem('CHECKED IN', _totalCheckedIn.toString(), Colors.green),
-                _buildStatItem('REGISTERED', _totalScanned.toString(), Colors.blue),
+                _buildStatItem('REGISTERED', _totalScanned.toString(), Theme.of(context).primaryColor),
                 _buildStatItem('REMAINING', (_totalScanned - _totalCheckedIn).toString(), Colors.orange),
               ],
             ),

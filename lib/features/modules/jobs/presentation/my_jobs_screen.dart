@@ -131,8 +131,8 @@ class MyJobsScreen extends ConsumerWidget {
                             icon: const Icon(LucideIcons.users, size: 14),
                             label: const Text("APPLICATIONS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.blue,
-                              side: const BorderSide(color: Colors.blue),
+foregroundColor: Theme.of(context).primaryColor,
+                side: BorderSide(color: Theme.of(context).primaryColor),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               padding: const EdgeInsets.symmetric(vertical: 12),
                             ),

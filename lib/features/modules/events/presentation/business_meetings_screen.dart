@@ -148,7 +148,7 @@ class _BusinessMeetingsScreenState extends ConsumerState<BusinessMeetingsScreen>
         children: [
           _buildControlButton(_isMuted ? LucideIcons.micOff : LucideIcons.mic, _isMuted ? Colors.redAccent : Colors.white, () => setState(() => _isMuted = !_isMuted)),
           _buildControlButton(_isVideoOff ? LucideIcons.videoOff : LucideIcons.video, _isVideoOff ? Colors.redAccent : Colors.white, () => setState(() => _isVideoOff = !_isVideoOff)),
-          _buildControlButton(LucideIcons.messageSquare, Colors.blueAccent, _showRecords),
+          _buildControlButton(LucideIcons.messageSquare, Theme.of(context).primaryColor, _showRecords),
           _buildControlButton(LucideIcons.bell, Colors.amberAccent, () => showModalBottomSheet(
             context: context,
             isScrollControlled: true,
@@ -219,7 +219,7 @@ class _MeetingRecordsPanel extends ConsumerWidget {
           const SizedBox(height: 25),
           
           // Voting Section
-          const Text("CURRENT MOTION: 'Approve Building Expansion'", style: TextStyle(color: Colors.blueAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+          const Text("CURRENT MOTION: 'Approve Building Expansion'", style: TextStyle(color: Colors.black87, fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -268,7 +268,7 @@ class _MeetingRecordsPanel extends ConsumerWidget {
                 fillColor: Colors.white.withValues(alpha: 0.05),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                 suffixIcon: IconButton(
-                  icon: const Icon(LucideIcons.send, color: Colors.blueAccent),
+                  icon: const Icon(LucideIcons.send, color: Colors.black87),
                   onPressed: () {
                     if (noteCtrl.text.isEmpty) return;
                     ref.read(meetingServiceProvider).saveNote(meetingId, noteCtrl.text);

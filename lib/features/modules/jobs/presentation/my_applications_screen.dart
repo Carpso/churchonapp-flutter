@@ -77,10 +77,10 @@ class _MyApplicationsScreenState extends ConsumerState<MyApplicationsScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
+                            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(LucideIcons.briefcase, color: Colors.blue.shade600, size: 24),
+                          child: Icon(LucideIcons.briefcase, color: Theme.of(context).primaryColor, size: 24),
                         ),
                         const SizedBox(width: 16),
                         Expanded(

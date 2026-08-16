@@ -416,11 +416,11 @@ class _GospelKeysState extends KingdomGameEngineState<GospelKeysGame> {
           gradient: const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.blueAccent, Colors.purpleAccent],
+            colors: [Color(0xFFFFDA03), Color(0xFFE8A400)],
           ),
-          boxShadow: [BoxShadow(color: Colors.blueAccent.withValues(alpha: 0.5), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Color(0xFFFFDA03).withValues(alpha: 0.5), blurRadius: 10)],
         ),
-        child: const Center(child: Icon(LucideIcons.music, color: Colors.white70)),
+        child: const Center(child: Icon(LucideIcons.music, color: Colors.black87)),
       ),
     )).toList();
   }
@@ -633,7 +633,7 @@ class _FisherOfWordsState extends KingdomGameEngineState<FisherOfWordsGame> {
   final List<String> _words = ["Faith", "Hope", "Love", "Grace", "Sin"];
   @override
   Widget build(BuildContext context) {
-    return Scaffold(backgroundColor: Colors.blue.shade900, body: Stack(children: _words.map((w) => Positioned(
+    return Scaffold(backgroundColor: const Color(0xFF151A2E), body: Stack(children: _words.map((w) => Positioned(
       left: Random().nextDouble() * 300, top: Random().nextDouble() * 600,
       child: ActionChip(label: Text(w), onPressed: () {
         setState(() { if (w != "Sin") {

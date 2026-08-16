@@ -73,8 +73,8 @@ class ManageApplicationsScreen extends ConsumerWidget {
             children: [
               CircleAvatar(
                 radius: 25,
-                backgroundColor: Colors.blue.withValues(alpha: 0.1),
-                child: const Icon(LucideIcons.user, color: Colors.blue),
+                backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                child: const Icon(LucideIcons.user, color: Colors.black87),
               ),
               const SizedBox(width: 15),
               Expanded(

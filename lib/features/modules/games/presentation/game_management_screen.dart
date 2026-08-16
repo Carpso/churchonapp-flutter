@@ -49,8 +49,8 @@ class GameManagementScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Colors.purpleAccent.withAlpha(40),
-                  Colors.blueAccent.withAlpha(20),
+                  Theme.of(context).primaryColor.withAlpha(40),
+                  Theme.of(context).primaryColor.withAlpha(20),
                 ],
               ),
               borderRadius: BorderRadius.circular(18),
@@ -101,7 +101,7 @@ class GameManagementScreen extends ConsumerWidget {
                   context,
                   LucideIcons.settings,
                   'Game Settings',
-                  Colors.blueAccent,
+                  Theme.of(context).primaryColor,
                   () => _showSettingsDialog(context),
                 ),
               ),

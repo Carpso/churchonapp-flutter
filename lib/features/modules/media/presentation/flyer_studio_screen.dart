@@ -30,7 +30,7 @@ class _FlyerStudioScreenState extends ConsumerState<FlyerStudioScreen> {
         title: const Text("Flyer Studio V2"),
         actions: [
           IconButton(
-            icon: const Icon(LucideIcons.download, color: Colors.blue),
+            icon: const Icon(LucideIcons.download, color: Colors.black87),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("Rendering ultra-high quality flyer to Gallery..."), backgroundColor: Colors.green),
@@ -147,7 +147,7 @@ class _FlyerStudioScreenState extends ConsumerState<FlyerStudioScreen> {
                 await ref.read(mediaServiceProvider).seedMedia();
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Template data synchronized with Cloud. Sharing..."), backgroundColor: Colors.blue),
+                  const SnackBar(content: Text("Template data synchronized with Cloud. Sharing..."), backgroundColor: Colors.black87),
                 );
               },
               style: ElevatedButton.styleFrom(

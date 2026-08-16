@@ -371,7 +371,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                         Column(
                           children: [
                             IconButton(
-                              icon: const Icon(LucideIcons.share, color: Colors.blue, size: 28),
+                              icon: const Icon(LucideIcons.share, color: Colors.amber, size: 28),
                               onPressed: _shareStream,
                             ),
                             const Text("Share Link", style: TextStyle(color: Colors.white, fontSize: 11)),

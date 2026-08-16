@@ -82,7 +82,7 @@ class _JobPromotionSheetState extends ConsumerState<JobPromotionSheet> {
             title: "1 Month Featured",
             subtitle: "Boost visibility for 30 days",
             amount: "K150",
-            color: Colors.deepPurple,
+            color: Theme.of(context).primaryColor,
             onPayWithMobile: () => _payWithMobileMoney(150),
           ),
 

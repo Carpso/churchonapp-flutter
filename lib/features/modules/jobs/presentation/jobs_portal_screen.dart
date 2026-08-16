@@ -148,12 +148,12 @@ class JobsPortalScreen extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: isVolunteer ? Colors.green.withValues(alpha: 0.1) : Colors.blue.withValues(alpha: 0.1),
+                  color: isVolunteer ? Colors.green.withValues(alpha: 0.1) : Theme.of(context).primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   job.type, 
-                  style: TextStyle(color: isVolunteer ? Colors.green : Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)
+                  style: TextStyle(color: isVolunteer ? Colors.green : Theme.of(context).primaryColor, fontWeight: FontWeight.bold, fontSize: 12)
                 ),
               ),
               ElevatedButton(

@@ -333,7 +333,7 @@ class _EventHostDashboardScreenState extends State<EventHostDashboardScreen> {
                                   color: Colors.amber,
                                 ),
                                 title: Text(res['title'] ?? 'Booklet', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                subtitle: Text(res['resource_url'] ?? '', style: const TextStyle(fontSize: 11, color: Colors.blue)),
+                                subtitle: Text(res['resource_url'] ?? '', style: TextStyle(fontSize: 11, color: Theme.of(context).primaryColor)),
                                 trailing: const Icon(LucideIcons.share2, size: 18),
                               ),
                             );
