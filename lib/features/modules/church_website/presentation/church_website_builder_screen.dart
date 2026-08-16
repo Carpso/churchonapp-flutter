@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 
 /// Church website builder service
@@ -332,8 +331,10 @@ class _ChurchWebsiteBuilderScreenState
                   SizedBox(height: 8),
                   Text(
                     'Your church website will be available at:\n'
-                    'churchonapp.com/church/[your-slug]\n\n'
-                    'Share this link on social media, business cards, and flyers.',
+                    'churchonapp.com/church/${widget.tenantId}\n\n'
+                    'Once published, anyone with this link can view your church '
+                    'profile — no app login needed. Share it on social media, '
+                    'business cards, and flyers.',
                     style: TextStyle(fontSize: 13, color: Colors.grey[700]),
                   ),
                 ],
@@ -499,8 +500,7 @@ class _ChurchWebsiteBuilderScreenState
   }
 
   void _previewWebsite() {
-    final tenantId = ref.read(profileProvider).value?.tenantId ?? 'demo';
-    final previewUrl = 'https://churchonapp.com/site/$tenantId';
+    final previewUrl = 'https://churchonapp.com/church/${widget.tenantId}';
     final uri = Uri.parse(previewUrl);
     canLaunchUrl(uri).then((canLaunch) {
       if (canLaunch) {

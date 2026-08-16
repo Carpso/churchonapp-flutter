@@ -304,10 +304,10 @@ class _MinistryScheduleScreenState extends ConsumerState<MinistryScheduleScreen>
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.05),
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(LucideIcons.edit2, size: 16, color: Colors.blue),
+                  child: Icon(LucideIcons.edit2, size: 16, color: Theme.of(context).primaryColor),
                 ),
               ),
               const SizedBox(height: 8),

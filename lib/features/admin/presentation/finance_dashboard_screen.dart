@@ -73,7 +73,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                _buildSummaryCard(totalBalance, thisMonthTotal, tithesTotal, offeringsTotal),
+                _buildSummaryCard(context, totalBalance, thisMonthTotal, tithesTotal, offeringsTotal),
                 const SizedBox(height: 30),
                 Text("Stewardship Analytics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                 const SizedBox(height: 20),
@@ -90,11 +90,11 @@ class FinanceDashboardScreen extends ConsumerWidget {
                   )
                 else
                   ...txs.take(5).map((tx) {
-                    Color catColor = Colors.blue;
+                    Color catColor = Theme.of(context).primaryColor;
                     final cat = tx.category.toLowerCase();
                     if (cat == 'tithe') catColor = Colors.green;
                     if (cat == 'offering') catColor = Colors.orange;
-                    if (cat == 'event') catColor = Colors.purple;
+                    if (cat == 'event') catColor = Theme.of(context).primaryColor.withValues(alpha: 0.7);
 
                     return _buildTransactionItem(theme,
                       "${tx.category.toUpperCase()} - ${tx.reference.substring(0, tx.reference.length > 8 ? 8 : tx.reference.length)}",
@@ -114,7 +114,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSummaryCard(double total, double monthly, double tithes, double offerings) {
+  Widget _buildSummaryCard(BuildContext context, double total, double monthly, double tithes, double offerings) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(25),
@@ -162,7 +162,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildMiniStat("This Month", "K ${NumberFormat.compact().format(monthly)}", LucideIcons.trendingUp, Colors.greenAccent),
-              _buildMiniStat("Tithes", "K ${NumberFormat.compact().format(tithes)}", LucideIcons.heart, Colors.pinkAccent),
+              _buildMiniStat("Tithes", "K ${NumberFormat.compact().format(tithes)}", LucideIcons.heart, Theme.of(context).primaryColor),
               _buildMiniStat("Offerings", "K ${NumberFormat.compact().format(offerings)}", LucideIcons.coins, Colors.amberAccent),
             ],
           ),
@@ -274,7 +274,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
             PieChartSectionData(
               value: events,
               title: 'Events (${(events/total*100).toStringAsFixed(0)}%)',
-              color: Colors.purple,
+              color: theme.primaryColor,
               radius: 50,
               titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
             ),
@@ -282,7 +282,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
             PieChartSectionData(
               value: products,
               title: 'Market (${(products/total*100).toStringAsFixed(0)}%)',
-              color: Colors.blue,
+              color: theme.primaryColor.withValues(alpha: 0.55),
               radius: 50,
               titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
             ),

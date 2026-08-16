@@ -68,6 +68,13 @@ class _SubscriptionPricingScreenState extends ConsumerState<SubscriptionPricingS
     {'key': 'giving_monthly_goal_kwacha', 'label': 'Personal Monthly Giving Goal (K)', 'default': '500'},
     {'key': 'church_monthly_goal_kwacha', 'label': 'Church Monthly Giving Goal (K)', 'default': '10000'},
     {'key': 'session_inactivity_minutes', 'label': 'Session Inactivity Timeout (minutes)', 'default': '5'},
+    {'key': 'turnover_tax_percent', 'label': 'ZRA Turnover Tax % (e.g. 3.0 = 3%)', 'default': '3.0'},
+    {'key': 'nhima_percent', 'label': 'NHIMA % of gross', 'default': '1.0'},
+    {'key': 'napsa_percent', 'label': 'NAPSA % of gross', 'default': '5.0'},
+    {'key': 'paye_threshold_kwacha', 'label': 'PAYE Tax-Free Threshold (K)', 'default': '5100'},
+    {'key': 'paye_rate_percent', 'label': 'PAYE Rate % above threshold', 'default': '25.0'},
+    {'key': 'coin_package_coins', 'label': 'Buy Coins: CC amounts (comma-separated)', 'default': '100,250,500,1000,2500'},
+    {'key': 'coin_package_prices_kwacha', 'label': 'Buy Coins: Prices K (comma-separated, matches CC list)', 'default': '10,22,40,70,150'},
   ];
 
   @override
@@ -171,17 +178,17 @@ class _SubscriptionPricingScreenState extends ConsumerState<SubscriptionPricingS
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.1),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, size: 16, color: Colors.blue.shade300),
+                Icon(Icons.info_outline, size: 16, color: Theme.of(context).primaryColor),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     "Customer Platform Fee = COA Fee + Lipila Fee. Business Cut is deducted from sellers/drivers at payout. Churches are exempt from business cut.",
-                    style: TextStyle(fontSize: 11, color: Colors.blue.shade200),
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF7A5C00)),
                   ),
                 ),
               ],

@@ -62,8 +62,8 @@ class _RewardManagementScreenState extends ConsumerState<RewardManagementScreen>
     Color color;
     switch (type) {
       case 'coins': icon = LucideIcons.coins; color = Colors.amber; break;
-      case 'xp': icon = LucideIcons.zap; color = Colors.blue; break;
-      case 'badge': icon = LucideIcons.award; color = Colors.purple; break;
+      case 'xp': icon = LucideIcons.zap; color = Theme.of(context).primaryColor; break;
+      case 'badge': icon = LucideIcons.award; color = Theme.of(context).primaryColor.withValues(alpha: 0.7); break;
       case 'subscription_days': icon = LucideIcons.calendar; color = Colors.green; break;
       default: icon = LucideIcons.gift; color = Colors.grey;
     }
@@ -81,9 +81,9 @@ class _RewardManagementScreenState extends ConsumerState<RewardManagementScreen>
         children: [
           _actionChip(LucideIcons.coins, 'Award Coins', Colors.amber, () => _showAwardDialog(type: 'coins')),
           const SizedBox(width: 8),
-          _actionChip(LucideIcons.zap, 'Award XP', Colors.blue, () => _showAwardDialog(type: 'xp')),
+          _actionChip(LucideIcons.zap, 'Award XP', Theme.of(context).primaryColor, () => _showAwardDialog(type: 'xp')),
           const SizedBox(width: 8),
-          _actionChip(LucideIcons.award, 'Grant Badge', Colors.purple, () => _showBadgeDialog()),
+          _actionChip(LucideIcons.award, 'Grant Badge', Theme.of(context).primaryColor.withValues(alpha: 0.7), () => _showBadgeDialog()),
         ],
       ),
     );

@@ -71,9 +71,9 @@ class BishopHubScreen extends ConsumerWidget {
               childAspectRatio: 1.5,
             ),
             delegate: SliverChildListDelegate([
-              _buildActionCard(context, LucideIcons.church, "Ministries & Branches", Colors.blue),
+              _buildActionCard(context, LucideIcons.church, "Ministries & Branches", Theme.of(context).primaryColor),
               _buildActionCard(context, LucideIcons.map, "Map", Colors.green, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BishopHeatmapScreen()))),
-              _buildActionCard(context, LucideIcons.fileText, "Pastor Reports", Colors.purple),
+              _buildActionCard(context, LucideIcons.fileText, "Pastor Reports", Theme.of(context).primaryColor),
               _buildActionCard(context, LucideIcons.banknote, "Central Treasury", Colors.orange, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FinanceDashboardScreen()))),
             ]),
           ),
@@ -198,8 +198,8 @@ class BishopHubScreen extends ConsumerWidget {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), shape: BoxShape.circle),
-                    child: const Icon(LucideIcons.map, color: Colors.blue, size: 18),
+                    decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), shape: BoxShape.circle),
+                    child: Icon(LucideIcons.map, color: Theme.of(context).primaryColor, size: 18),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -364,9 +364,9 @@ class BishopHubScreen extends ConsumerWidget {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
-                foregroundColor: Colors.blue,
+                foregroundColor: const Color(0xFF7A5C00),
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.blue)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Color(0xFF7A5C00))),
               ),
               icon: const Icon(LucideIcons.link, size: 16),
               label: const Text("LINK NEW BRANCH TO ORGANIZATION", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),

@@ -56,10 +56,10 @@ class _PlatformAdScreenState extends ConsumerState<PlatformAdScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                       decoration: BoxDecoration(
-                                        color: Colors.blue.withValues(alpha: 0.1),
+                                        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
-                                      child: const Text('PLATFORM', style: TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.bold)),
+                                      child: const Text('PLATFORM', style: TextStyle(fontSize: 11, color: Color(0xFF7A5C00), fontWeight: FontWeight.bold)),
                                     ),
                                   if (!ad.isPlatformWide) ...[
                                     const SizedBox(width: 6),

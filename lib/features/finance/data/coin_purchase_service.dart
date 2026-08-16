@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
 
 class CoinPackage {
@@ -38,6 +39,32 @@ class CoinPurchaseService {
     CoinPackage(coins: 1000, priceKwacha: 70, label: "Premium", bonus: "40% bonus"),
     CoinPackage(coins: 2500, priceKwacha: 150, label: "Champion", bonus: "50% bonus"),
   ];
+
+  /// Packages read from remote config (`coin_package_coins` +
+  /// `coin_package_prices_kwacha`, comma-separated lists) — COA can re-price
+  /// or add tiers without an app update. Falls back to [packages] when the
+  /// keys are missing or the lists don't align.
+  static List<CoinPackage> packagesFrom(RemoteConfig rc) {
+    const defaultCoins = [100, 250, 500, 1000, 2500];
+    const defaultPrices = [10, 22, 40, 70, 150];
+    const labels = ["Starter", "Popular", "Value", "Premium", "Champion"];
+    const bonuses = [null, "10% bonus", "20% bonus", "40% bonus", "50% bonus"];
+
+    final coins = rc.getIntList('coin_package_coins', defaultCoins);
+    final prices = rc.getIntList('coin_package_prices_kwacha', defaultPrices);
+    if (coins.isEmpty || prices.isEmpty || coins.length != prices.length) {
+      return packages;
+    }
+    return [
+      for (var i = 0; i < coins.length; i++)
+        CoinPackage(
+          coins: coins[i],
+          priceKwacha: prices[i],
+          label: i < labels.length ? labels[i] : "Package ${i + 1}",
+          bonus: i < bonuses.length ? bonuses[i] : null,
+        ),
+    ];
+  }
 
   Future<CoinPurchaseResult> purchaseCoins({
     required CoinPackage package,

@@ -581,7 +581,7 @@ class _ZambianComplianceDashboardState extends ConsumerState<ZambianComplianceDa
         statusLabel = 'ACTION REQUIRED';
         break;
       case 'monitoring':
-        statusColor = Colors.blueAccent;
+        statusColor = Theme.of(context).primaryColor;
         statusIcon = LucideIcons.eye;
         statusLabel = 'MONITORING';
         break;
@@ -638,15 +638,15 @@ class _ZambianComplianceDashboardState extends ConsumerState<ZambianComplianceDa
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.blueAccent.withValues(alpha: 0.1),
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.info, color: Colors.blueAccent, size: 12),
+                  Icon(LucideIcons.info, color: Theme.of(context).primaryColor, size: 12),
                   const SizedBox(width: 6),
                   Expanded(
-                    child: Text(obligation.exemptionNote, style: const TextStyle(color: Colors.blueAccent, fontSize: 11)),
+                    child: Text(obligation.exemptionNote, style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 11)),
                   ),
                 ],
               ),

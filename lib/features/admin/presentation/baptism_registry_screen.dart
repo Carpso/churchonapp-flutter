@@ -74,8 +74,8 @@ class _BaptismRegistryScreenState extends ConsumerState<BaptismRegistryScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Baptism Registry", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.black,
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -90,8 +90,8 @@ class _BaptismRegistryScreenState extends ConsumerState<BaptismRegistryScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddDialog,
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.black,
         icon: const Icon(LucideIcons.plus),
         label: const Text("Register Baptism"),
       ),
@@ -106,7 +106,7 @@ class _BaptismRegistryScreenState extends ConsumerState<BaptismRegistryScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.indigo.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,7 +114,7 @@ class _BaptismRegistryScreenState extends ConsumerState<BaptismRegistryScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(record.id, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo, fontSize: 13)),
+              Text(record.id, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF7A5C00), fontSize: 13)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -157,8 +157,8 @@ class _BaptismRegistryScreenState extends ConsumerState<BaptismRegistryScreen> {
               icon: const Icon(LucideIcons.award, size: 16),
               label: const Text("VIEW CERTIFICATE"),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.indigo.shade50,
-                foregroundColor: Colors.indigo,
+                backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                foregroundColor: const Color(0xFF7A5C00),
                 elevation: 0,
                 minimumSize: const Size(double.infinity, 45),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -183,7 +183,7 @@ class _BaptismRegistryScreenState extends ConsumerState<BaptismRegistryScreen> {
             children: [
               const Icon(LucideIcons.award, color: Colors.amber, size: 70),
               const SizedBox(height: 20),
-              const Text("CERTIFICATE OF BAPTISM", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.indigo)),
+              const Text("CERTIFICATE OF BAPTISM", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF7A5C00))),
               const SizedBox(height: 20),
               const Text("This is to certify that", style: TextStyle(fontStyle: FontStyle.italic, fontSize: 13)),
               const SizedBox(height: 10),
@@ -254,8 +254,8 @@ class _BaptismRegistryScreenState extends ConsumerState<BaptismRegistryScreen> {
               ElevatedButton(
                 onPressed: _addRecord,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo,
-                  foregroundColor: Colors.white,
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.black,
                   minimumSize: const Size(double.infinity, 60),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 ),

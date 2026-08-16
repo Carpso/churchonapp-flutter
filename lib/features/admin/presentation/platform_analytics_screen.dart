@@ -54,10 +54,10 @@ class _PlatformAnalyticsScreenState extends ConsumerState<PlatformAnalyticsScree
       body: ListView(padding: const EdgeInsets.all(16), children: [
         Text('Last ${_stats['period_days'] ?? 30} days', style: const TextStyle(fontSize: 13, color: Colors.grey)),
         const SizedBox(height: 16),
-        _metricCard('Bible Audio Plays', '${_stats['bible_audio_plays'] ?? 0}', LucideIcons.headphones, Colors.blue),
+        _metricCard('Bible Audio Plays', '${_stats['bible_audio_plays'] ?? 0}', LucideIcons.headphones, theme.primaryColor.withValues(alpha: 0.8)),
         _metricCard('Podcast Listens', '${_stats['podcast_listens'] ?? 0}', LucideIcons.radio, Colors.amber),
-        _metricCard('Kids Activities', '${_stats['kids_activities'] ?? 0}', LucideIcons.gamepad2, Colors.pink),
-        _metricCard('Kids Active Users', '${_stats['kids_active_users'] ?? 0}', LucideIcons.users, Colors.purple),
+        _metricCard('Kids Activities', '${_stats['kids_activities'] ?? 0}', LucideIcons.gamepad2, theme.primaryColor.withValues(alpha: 0.7)),
+        _metricCard('Kids Active Users', '${_stats['kids_active_users'] ?? 0}', LucideIcons.users, theme.primaryColor.withValues(alpha: 0.55)),
         _metricCard('Quiz Sessions', '${_stats['quiz_sessions'] ?? 0}', LucideIcons.helpCircle, Colors.orange),
         const SizedBox(height: 24),
         const Text('Distribution', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -100,9 +100,9 @@ class _PlatformAnalyticsScreenState extends ConsumerState<PlatformAnalyticsScree
 
     return PieChart(PieChartData(
       sections: [
-        _section(data[0], 'Bible Audio', Colors.blue, total),
+        _section(data[0], 'Bible Audio', Theme.of(context).primaryColor.withValues(alpha: 0.8), total),
         _section(data[1], 'Podcast', Colors.amber, total),
-        _section(data[2], 'Kids Zone', Colors.pink, total),
+        _section(data[2], 'Kids Zone', Theme.of(context).primaryColor.withValues(alpha: 0.55), total),
         _section(data[3], 'Quiz', Colors.orange, total),
       ],
       centerSpaceRadius: 40,

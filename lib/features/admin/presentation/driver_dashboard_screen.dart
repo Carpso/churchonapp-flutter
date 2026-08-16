@@ -137,7 +137,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                   const SizedBox(height: 30),
                   Text("Quick Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                   const SizedBox(height: 15),
-                  _actionBtn(theme, LucideIcons.map, "View Rides", "Browse available ride requests near you", Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DriverPortalScreen()))),
+                  _actionBtn(theme, LucideIcons.map, "View Rides", "Browse available ride requests near you", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DriverPortalScreen()))),
                   _actionBtn(theme, LucideIcons.package, "Deliveries", "Available cargo and package deliveries", Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DriverPortalScreen()))),
                   _actionBtn(theme, LucideIcons.barChart3, "Earnings Report", "Detailed payout and earnings history", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DriverEarningsScreen()))),
                 ]),
@@ -166,29 +166,29 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
     return Container(
       width: double.infinity, padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Colors.blue.shade800, Colors.blue.shade500], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: LinearGradient(colors: [theme.primaryColor, theme.primaryColor.withValues(alpha: 0.7)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.blue.shade200.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: theme.primaryColor.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
-            child: const Icon(LucideIcons.truck, color: Colors.white, size: 28)),
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16)),
+            child: const Icon(LucideIcons.truck, color: Colors.black, size: 28)),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text("Driver Dashboard", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
-            Text("${_rating > 0 ? '${_rating.toStringAsFixed(1)} ★' : 'No ratings yet'} • $_totalRides rides", style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+            const Text("Driver Dashboard", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20)),
+            Text("${_rating > 0 ? '${_rating.toStringAsFixed(1)} ★' : 'No ratings yet'} • $_totalRides rides", style: TextStyle(color: Colors.black.withValues(alpha: 0.55), fontSize: 12)),
           ])),
           GestureDetector(
             onTap: _toggleOnline,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: _isOnline ? Colors.greenAccent : Colors.white.withValues(alpha: 0.2),
+                color: _isOnline ? Colors.greenAccent : Colors.black.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(_isOnline ? "ONLINE" : "OFFLINE", style: TextStyle(
-                color: _isOnline ? Colors.black87 : Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                color: _isOnline ? Colors.black87 : Colors.black87, fontWeight: FontWeight.bold, fontSize: 11)),
             ),
           ),
         ]),
@@ -203,15 +203,15 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
   }
 
   Widget _bannerStat(String value, String label) => Column(children: [
-    Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-    Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
+    Text(value, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 18)),
+    Text(label, style: TextStyle(color: Colors.black.withValues(alpha: 0.55), fontSize: 11)),
   ]);
 
   Widget _buildStatsGrid(ThemeData theme) => GridView.count(
     physics: const NeverScrollableScrollPhysics(),
     crossAxisCount: 2, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 1.2,
     children: [
-      _statCard("Total Rides", "$_totalRides", LucideIcons.car, Colors.blue),
+      _statCard("Total Rides", "$_totalRides", LucideIcons.car, theme.primaryColor.withValues(alpha: 0.7)),
       _statCard("Deliveries", "$_totalDeliveries", LucideIcons.package, Colors.orange),
       _statCard("Rating", _rating > 0 ? _rating.toStringAsFixed(1) : "--", LucideIcons.star, Colors.amber),
       _statCard("Pending Requests", "$_pendingRequests", LucideIcons.clock, Colors.red),
@@ -230,7 +230,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
           Column(children: [Icon(LucideIcons.wallet, color: Colors.green), const SizedBox(height: 6),
             Text(currency.format(_totalEarnings), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
             Text("Total Earned", style: TextStyle(color: Colors.grey.shade500, fontSize: 11))]),
-          Column(children: [Icon(LucideIcons.calendar, color: Colors.blue), const SizedBox(height: 6),
+          Column(children: [Icon(LucideIcons.calendar, color: theme.primaryColor), const SizedBox(height: 6),
             Text(currency.format(_monthEarnings), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
             Text("This Month", style: TextStyle(color: Colors.grey.shade500, fontSize: 11))]),
         ]),

@@ -131,7 +131,7 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
   Widget _buildReportDetails(Map<String, double> data) {
     return Column(
       children: [
-        _buildFinancialItem("Rides", data['rides'] ?? 0, LucideIcons.car, Colors.blue),
+        _buildFinancialItem("Rides", data['rides'] ?? 0, LucideIcons.car, Theme.of(context).primaryColor),
         _buildFinancialItem("Cargo Missions", data['deliveries'] ?? 0, LucideIcons.package, Colors.orange),
         _buildFinancialItem("Spiritual Giving (Tithes)", data['tithes'] ?? 0, LucideIcons.heartPulse, Colors.red),
         const Divider(height: 40),

@@ -102,7 +102,7 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.activity, color: Colors.blue),
+                  Icon(LucideIcons.activity, color: Theme.of(context).primaryColor),
                   const SizedBox(width: 15),
                   const Expanded(
                     child: Column(

@@ -112,7 +112,7 @@ class _LogisticsDashboardScreenState extends ConsumerState<LogisticsDashboardScr
                   LucideIcons.car,
                   "Total Ride Requests",
                   "$_totalRides requests • $_completedRides completed • $_pendingRides pending",
-                  Colors.blue,
+                  theme.primaryColor,
                 ),
                 _buildOperationTile(
                   theme,
@@ -161,9 +161,9 @@ class _LogisticsDashboardScreenState extends ConsumerState<LogisticsDashboardScr
       childAspectRatio: 1.2,
       children: [
         _buildHighlightCard(theme, "SUCCESS RATE", _successRate, LucideIcons.checkCircle, Colors.green),
-        _buildHighlightCard(theme, "COMPLETED", "$_completedRides rides", LucideIcons.clock, Colors.blue),
+        _buildHighlightCard(theme, "COMPLETED", "$_completedRides rides", LucideIcons.clock, theme.primaryColor),
         _buildHighlightCard(theme, "ACTIVE MISSIONS", stats.totalMissions.toString(), LucideIcons.zap, Colors.amber),
-        _buildHighlightCard(theme, "FLEET HEALTH", _fleetHealth, LucideIcons.activity, Colors.purple),
+        _buildHighlightCard(theme, "FLEET HEALTH", _fleetHealth, LucideIcons.activity, theme.primaryColor.withValues(alpha: 0.7)),
       ],
     );
   }

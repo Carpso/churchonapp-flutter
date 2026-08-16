@@ -36,7 +36,7 @@ class LedgerScreen extends ConsumerWidget {
               SliverToBoxAdapter(child: _buildSummaryCard(context, txs, ref, tenant.id)),
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverToBoxAdapter(child: _buildAnalyticsSection(txs)),
+              sliver: SliverToBoxAdapter(child: _buildAnalyticsSection(context, txs)),
             ),
             const SliverPadding(
               padding: EdgeInsets.all(20),
@@ -48,7 +48,7 @@ class LedgerScreen extends ConsumerWidget {
               delegate: SliverChildBuilderDelegate(
                 (context, index) => Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _buildTxItem(txs[index]),
+                  child: _buildTxItem(context, txs[index]),
                 ),
                 childCount: txs.length,
               ),
@@ -63,17 +63,17 @@ class LedgerScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildAnalyticsSection(List<Transaction> txs) {
+  Widget _buildAnalyticsSection(BuildContext context, List<Transaction> txs) {
     return Column(
       children: [
-        _buildTrendChart(txs),
+        _buildTrendChart(context, txs),
         const SizedBox(height: 20),
-        _buildCategoryDistribution(txs),
+        _buildCategoryDistribution(context, txs),
       ],
     );
   }
 
-  Widget _buildTrendChart(List<Transaction> txs) {
+  Widget _buildTrendChart(BuildContext context, List<Transaction> txs) {
     // Group by date
     final Map<String, double> dailyTotals = {};
     for (var tx in txs) {
@@ -105,10 +105,10 @@ class LedgerScreen extends ConsumerWidget {
                   LineChartBarData(
                     spots: spots.isEmpty ? [const FlSpot(0, 0)] : spots,
                     isCurved: true,
-                    color: Colors.blue,
+                    color: Theme.of(context).primaryColor,
                     barWidth: 4,
                     dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(show: true, color: Colors.blue.withValues(alpha: 0.1)),
+                    belowBarData: BarAreaData(show: true, color: Theme.of(context).primaryColor.withValues(alpha: 0.1)),
                   ),
                 ],
               ),
@@ -119,7 +119,7 @@ class LedgerScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildCategoryDistribution(List<Transaction> txs) {
+  Widget _buildCategoryDistribution(BuildContext context, List<Transaction> txs) {
     double tithes = 0;
     double offerings = 0;
     double others = 0;
@@ -153,7 +153,7 @@ class LedgerScreen extends ConsumerWidget {
                 sectionsSpace: 5,
                 centerSpaceRadius: 40,
                 sections: [
-                  PieChartSectionData(value: tithes, color: Colors.blue, title: "Tithes", radius: 20, showTitle: false),
+                  PieChartSectionData(value: tithes, color: Theme.of(context).primaryColor, title: "Tithes", radius: 20, showTitle: false),
                   PieChartSectionData(value: offerings, color: Colors.amber, title: "Offerings", radius: 20, showTitle: false),
                   PieChartSectionData(value: others, color: Colors.grey[300], title: "Other", radius: 20, showTitle: false),
                 ],
@@ -164,7 +164,7 @@ class LedgerScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildLegendItem("Tithes", Colors.blue, (tithes / total * 100).toStringAsFixed(0)),
+              _buildLegendItem("Tithes", Theme.of(context).primaryColor, (tithes / total * 100).toStringAsFixed(0)),
               _buildLegendItem("Offerings", Colors.amber, (offerings / total * 100).toStringAsFixed(0)),
               _buildLegendItem("Other", Colors.grey, (others / total * 100).toStringAsFixed(0)),
             ],
@@ -213,7 +213,7 @@ class LedgerScreen extends ConsumerWidget {
               ),
               IconButton(
                 onPressed: () => LedgerPdfService.generateAndPrintLedger(txs, "My Church"),
-                icon: const Icon(LucideIcons.fileOutput, color: Colors.blue, size: 20),
+                icon: Icon(LucideIcons.fileOutput, color: Theme.of(context).primaryColor, size: 20),
                 style: IconButton.styleFrom(backgroundColor: Colors.white10),
               ),
             ],
@@ -275,7 +275,7 @@ class LedgerScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTxItem(Transaction tx) {
+  Widget _buildTxItem(BuildContext context, Transaction tx) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(15),
@@ -288,8 +288,8 @@ class LedgerScreen extends ConsumerWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(12)),
-            child: const Icon(LucideIcons.arrowDownLeft, color: Colors.blue, size: 20),
+            decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+            child: Icon(LucideIcons.arrowDownLeft, color: Theme.of(context).primaryColor, size: 20),
           ),
           const SizedBox(width: 15),
           Expanded(

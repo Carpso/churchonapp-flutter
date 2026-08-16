@@ -149,11 +149,11 @@ class _TenantLeaseManagementScreenState extends ConsumerState<TenantLeaseManagem
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? Colors.teal : Colors.white,
+          color: selected ? Theme.of(context).primaryColor : Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? Colors.teal : Colors.grey.shade300),
+          border: Border.all(color: selected ? Theme.of(context).primaryColor : Colors.grey.shade300),
         ),
-        child: Text(label, style: TextStyle(color: selected ? Colors.white : Colors.grey.shade700, fontWeight: FontWeight.w600, fontSize: 12)),
+        child: Text(label, style: TextStyle(color: selected ? Colors.black : Colors.grey.shade700, fontWeight: FontWeight.w600, fontSize: 12)),
       ),
     );
   }
@@ -197,7 +197,7 @@ class _TenantLeaseManagementScreenState extends ConsumerState<TenantLeaseManagem
           ),
           const SizedBox(height: 12),
           Row(children: [
-            _actionBtn(theme, "Extend Trial", LucideIcons.clock, Colors.teal, () => _extendTrial(id)),
+            _actionBtn(theme, "Extend Trial", LucideIcons.clock, theme.primaryColor, () => _extendTrial(id)),
             const SizedBox(width: 8),
             _actionBtn(theme, active ? "Suspend" : "Reactivate", active ? LucideIcons.shieldOff : LucideIcons.shield, active ? Colors.red : Colors.green, () => _toggleTenantStatus(tenant)),
           ]),

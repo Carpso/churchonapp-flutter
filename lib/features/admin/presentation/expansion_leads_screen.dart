@@ -124,7 +124,7 @@ class _ExpansionLeadsScreenState extends ConsumerState<ExpansionLeadsScreen> {
     final location = lead['location']?.toString() ?? '';
     final status = lead['status']?.toString() ?? 'new';
     final createdAt = lead['created_at']?.toString();
-    final statusColor = status == 'new' ? Colors.orange : (status == 'contacted' ? Colors.blue : Colors.green);
+    final statusColor = status == 'new' ? Colors.orange : (status == 'contacted' ? theme.primaryColor : Colors.green);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),

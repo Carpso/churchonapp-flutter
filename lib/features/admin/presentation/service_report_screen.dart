@@ -208,12 +208,12 @@ class _ServiceReportScreenState extends ConsumerState<ServiceReportScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: (isAnnouncement ? Colors.amber : Colors.blue).withValues(alpha: 0.1),
+                  color: (isAnnouncement ? Colors.amber : Theme.of(context).primaryColor).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   report.type.toUpperCase(),
-                  style: TextStyle(color: isAnnouncement ? Colors.orange : Colors.blue, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: isAnnouncement ? Colors.orange : Theme.of(context).primaryColor, fontSize: 11, fontWeight: FontWeight.bold),
                 ),
               ),
               Text(
@@ -243,7 +243,7 @@ class _ServiceReportScreenState extends ConsumerState<ServiceReportScreen> {
               decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade100)),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.quote, size: 14, color: Colors.blue),
+                  Icon(LucideIcons.quote, size: 14, color: Theme.of(context).primaryColor),
                   const SizedBox(width: 10),
                   Expanded(child: Text(report.testimony, style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic))),
                 ],

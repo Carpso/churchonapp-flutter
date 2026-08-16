@@ -154,15 +154,15 @@ class _PayslipDetailScreenState extends ConsumerState<PayslipDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Colors.indigo.shade700, Colors.indigo.shade500]),
+        gradient: LinearGradient(colors: [theme.primaryColor, theme.primaryColor.withValues(alpha: 0.7)]),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("${run.periodLabel} Payroll Summary", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+          Text("${run.periodLabel} Payroll Summary", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18)),
           const SizedBox(height: 4),
-          Text("${run.employeeCount} employees processed", style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
+          Text("${run.employeeCount} employees processed", style: TextStyle(color: Colors.black.withValues(alpha: 0.55), fontSize: 12)),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -173,9 +173,9 @@ class _PayslipDetailScreenState extends ConsumerState<PayslipDetailScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          const Divider(color: Colors.white24),
+          const Divider(color: Colors.black12),
           const SizedBox(height: 8),
-          Text("Statutory Remittances", style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.bold)),
+          Text("Statutory Remittances", style: TextStyle(color: Colors.black.withValues(alpha: 0.55), fontSize: 11, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -204,8 +204,8 @@ class _PayslipDetailScreenState extends ConsumerState<PayslipDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("K ${NumberFormat.decimalPattern().format(amount)}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
+        Text("K ${NumberFormat.decimalPattern().format(amount)}", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 18)),
+        Text(label, style: TextStyle(color: Colors.black.withValues(alpha: 0.55), fontSize: 11)),
       ],
     );
   }
@@ -213,8 +213,8 @@ class _PayslipDetailScreenState extends ConsumerState<PayslipDetailScreen> {
   Widget _remStat(String label, double amount) {
     return Column(
       children: [
-        Text("K ${amount.toStringAsFixed(0)}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11)),
+        Text("K ${amount.toStringAsFixed(0)}", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13)),
+        Text(label, style: TextStyle(color: Colors.black.withValues(alpha: 0.55), fontSize: 11)),
       ],
     );
   }

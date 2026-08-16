@@ -120,14 +120,14 @@ class _UnifiedFinancialAuditScreenState extends ConsumerState<UnifiedFinancialAu
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Colors.teal.shade800, Colors.teal.shade600], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: LinearGradient(colors: [theme.primaryColor, theme.primaryColor.withValues(alpha: 0.7)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.teal.shade200.withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 6))],
+        boxShadow: [BoxShadow(color: theme.primaryColor.withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 6))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Unified Ledger", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+          const Text("Unified Ledger", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18)),
           const SizedBox(height: 16),
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             _summaryItem("Total Volume", currency.format(_totalVolume)),
@@ -146,8 +146,8 @@ class _UnifiedFinancialAuditScreenState extends ConsumerState<UnifiedFinancialAu
 
   Widget _summaryItem(String label, String value) {
     return Column(children: [
-      Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-      Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
+      Text(value, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 18)),
+      Text(label, style: TextStyle(color: Colors.black.withValues(alpha: 0.55), fontSize: 11)),
     ]);
   }
 
@@ -168,11 +168,11 @@ class _UnifiedFinancialAuditScreenState extends ConsumerState<UnifiedFinancialAu
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? Colors.teal : Colors.white,
+          color: selected ? Theme.of(context).primaryColor : Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? Colors.teal : Colors.grey.shade300),
+          border: Border.all(color: selected ? Theme.of(context).primaryColor : Colors.grey.shade300),
         ),
-        child: Text(label, style: TextStyle(color: selected ? Colors.white : Colors.grey.shade700, fontWeight: FontWeight.w600, fontSize: 12)),
+        child: Text(label, style: TextStyle(color: selected ? Colors.black : Colors.grey.shade700, fontWeight: FontWeight.w600, fontSize: 12)),
       ),
     );
   }
@@ -202,7 +202,7 @@ class _UnifiedFinancialAuditScreenState extends ConsumerState<UnifiedFinancialAu
               Text(formattedDate, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
             ],
           )),
-          Text("K ${NumberFormat.decimalPattern().format(amount)}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.teal.shade700)),
+          Text("K ${NumberFormat.decimalPattern().format(amount)}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF7A5C00))),
         ]),
       );
     }).toList();
@@ -224,12 +224,12 @@ class _UnifiedFinancialAuditScreenState extends ConsumerState<UnifiedFinancialAu
           children: [
             Row(children: [
               Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-              Text("${(progress * 100).toStringAsFixed(0)}%", style: TextStyle(color: Colors.teal.shade600, fontWeight: FontWeight.bold, fontSize: 12)),
+              Text("${(progress * 100).toStringAsFixed(0)}%", style: TextStyle(color: const Color(0xFF7A5C00), fontWeight: FontWeight.bold, fontSize: 12)),
             ]),
             const SizedBox(height: 8),
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(value: progress, backgroundColor: Colors.grey.shade200, valueColor: AlwaysStoppedAnimation(Colors.teal.shade400), minHeight: 8),
+              child: LinearProgressIndicator(value: progress, backgroundColor: Colors.grey.shade200, valueColor: AlwaysStoppedAnimation(Theme.of(context).primaryColor), minHeight: 8),
             ),
             const SizedBox(height: 6),
             Text("K ${NumberFormat.decimalPattern().format(raised)} of K ${NumberFormat.decimalPattern().format(target)}", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
@@ -246,7 +246,7 @@ class _UnifiedFinancialAuditScreenState extends ConsumerState<UnifiedFinancialAu
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
           Column(children: [Text(_formatNum(_totalWalletTx), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22)), Text("Wallet TX", style: TextStyle(color: Colors.grey.shade500, fontSize: 11))]),
-          Column(children: [Icon(LucideIcons.arrowUpDown, color: Colors.teal.shade300), const Text("")]),
+          Column(children: [Icon(LucideIcons.arrowUpDown, color: Theme.of(context).primaryColor.withValues(alpha: 0.7)), const Text("")]),
         ]),
       ),
     ];
@@ -254,11 +254,11 @@ class _UnifiedFinancialAuditScreenState extends ConsumerState<UnifiedFinancialAu
 
   Color _txColor(String type) {
     switch (type) {
-      case 'tithe': return Colors.purple;
+      case 'tithe': return Theme.of(context).primaryColor;
       case 'giving': return Colors.green;
       case 'offering': return Colors.amber;
       case 'payout': return Colors.red;
-      default: return Colors.blue;
+      default: return Theme.of(context).primaryColor;
     }
   }
 

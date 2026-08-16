@@ -101,18 +101,18 @@ class _OnboardingManagerScreenState extends ConsumerState<OnboardingManagerScree
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.05),
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue.withValues(alpha: 0.15)),
+                border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.2)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(LucideIcons.info, color: Colors.blue, size: 16),
-                  SizedBox(width: 10),
-                  Expanded(
+                  Icon(LucideIcons.info, color: Theme.of(context).primaryColor, size: 16),
+                  const SizedBox(width: 10),
+                  const Expanded(
                     child: Text(
                       "Users without accounts are pre-registered and automatically linked when they sign up with the same phone number.",
-                      style: TextStyle(color: Colors.blue, fontSize: 11),
+                      style: TextStyle(color: Color(0xFF7A5C00), fontSize: 11),
                     ),
                   ),
                 ],

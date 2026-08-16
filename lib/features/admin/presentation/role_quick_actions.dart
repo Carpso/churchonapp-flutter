@@ -22,7 +22,7 @@ class RoleQuickActions extends StatelessWidget {
     actions.add(_ActionItem(
       LucideIcons.users,
       'My Members',
-      Colors.blue,
+      Theme.of(context).primaryColor,
       () => context.push('/member-management'),
     ));
     actions.add(_ActionItem(
@@ -46,7 +46,7 @@ class RoleQuickActions extends StatelessWidget {
     actions.add(_ActionItem(
       LucideIcons.megaphone,
       'Send Message',
-      Colors.purple,
+      Theme.of(context).primaryColor,
       () => context.push('/global-broadcast'),
     ));
     actions.add(_ActionItem(
@@ -58,7 +58,7 @@ class RoleQuickActions extends StatelessWidget {
     actions.add(_ActionItem(
       LucideIcons.map,
       'Growth Map',
-      Colors.teal,
+      Theme.of(context).primaryColor,
       () => context.push('/prophetic-heatmap'),
     ));
     actions.add(_ActionItem(
@@ -72,7 +72,7 @@ class RoleQuickActions extends StatelessWidget {
       actions.add(_ActionItem(
         LucideIcons.church,
         'My Churches',
-        Colors.indigo,
+        Theme.of(context).primaryColor,
         () => context.push('/select-church'),
       ));
       actions.add(_ActionItem(

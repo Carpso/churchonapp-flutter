@@ -115,17 +115,17 @@ class _MemberDirectoryScreenState
   Color _roleColor(String? role) {
     switch (role?.toLowerCase()) {
       case 'pastor':
-        return Colors.purple;
+        return Theme.of(context).primaryColor;
       case 'bishop':
-        return Colors.indigo;
+        return Theme.of(context).primaryColor.withValues(alpha: 0.8);
       case 'deacon':
-        return Colors.teal;
+        return Theme.of(context).primaryColor.withValues(alpha: 0.7);
       case 'elder':
         return Colors.amber.shade800;
       case 'treasurer':
         return Colors.green;
       case 'worship_leader':
-        return Colors.pink;
+        return Theme.of(context).primaryColor.withValues(alpha: 0.55);
       case 'youth_leader':
         return Colors.orange;
       default:

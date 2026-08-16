@@ -86,7 +86,7 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
                   const SizedBox(height: 30),
                   Text("Quick Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                   const SizedBox(height: 15),
-                  _actionBtn(theme, LucideIcons.map, "Book a Ride", "Request a Carpso Ride", Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RideRequestScreen()))),
+                  _actionBtn(theme, LucideIcons.map, "Book a Ride", "Request a Carpso Ride", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RideRequestScreen()))),
                   _actionBtn(theme, LucideIcons.heart, "Saved Places", "Your favorite locations", Colors.red, () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saved places — coming soon")))),
                   _actionBtn(theme, LucideIcons.clock, "Active Ride", "Track your current trip", Colors.amber, () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No active ride — book one first")))),
                   const SizedBox(height: 35),
@@ -120,17 +120,17 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
     return Container(
       width: double.infinity, padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Colors.teal.shade800, Colors.teal.shade500], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: LinearGradient(colors: [theme.primaryColor, theme.primaryColor.withValues(alpha: 0.7)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.teal.shade200.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: theme.primaryColor.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Row(children: [
-        Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
-          child: const Icon(LucideIcons.map, color: Colors.white, size: 28)),
+        Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16)),
+          child: const Icon(LucideIcons.map, color: Colors.black, size: 28)),
         const SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text("Rider Dashboard", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
-          Text("$_totalTrips trips • ${currency.format(_totalSpent)} spent", style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+          const Text("Rider Dashboard", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20)),
+          Text("$_totalTrips trips • ${currency.format(_totalSpent)} spent", style: TextStyle(color: Colors.black.withValues(alpha: 0.55), fontSize: 12)),
         ])),
       ]),
     );
@@ -142,7 +142,7 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
       shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 1.2,
       children: [
-        _statCard("Total Trips", "$_totalTrips", LucideIcons.car, Colors.blue),
+        _statCard("Total Trips", "$_totalTrips", LucideIcons.car, theme.primaryColor.withValues(alpha: 0.7)),
         _statCard("Total Spent", currency.format(_totalSpent), LucideIcons.wallet, Colors.green),
         _statCard("Distance", _totalDistance > 0 ? '${_totalDistance.toStringAsFixed(0)} km' : '--', LucideIcons.mapPin, Colors.amber),
         _statCard("Saved Places", "$_savedPlaces", LucideIcons.heart, Colors.red),
@@ -159,8 +159,8 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
       margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
       child: Row(children: [
-        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-          child: const Icon(LucideIcons.mapPin, color: Colors.teal, size: 16)),
+        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: theme.primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+          child: Icon(LucideIcons.mapPin, color: theme.primaryColor, size: 16)),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text("$pickup → $dropoff", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),

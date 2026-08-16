@@ -189,11 +189,11 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                   const SizedBox(height: 35),
                   Text("Quick Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                   const SizedBox(height: 15),
-                  _quickAction(theme, LucideIcons.fileText, "Pastor Reports", "Review weekly reports from branches", Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ServiceReportScreen()))),
+                  _quickAction(theme, LucideIcons.fileText, "Pastor Reports", "Review weekly reports from branches", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ServiceReportScreen()))),
                   _quickAction(theme, LucideIcons.map, "Map", "Geographic view of all branches", Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LiveViewerHeatmapScreen()))),
                   _quickAction(theme, LucideIcons.barChart3, "Central Treasury", "Multi-branch financial oversight", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FinanceDashboardScreen()))),
-                  _quickAction(theme, LucideIcons.users, "Clergy Management", "Manage pastors and ministry leaders", Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MemberManagementScreen()))),
-                  _quickAction(theme, LucideIcons.userPlus, "Invite Members", "Share invite link, QR & quick share", Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchInviteScreen()))),
+                  _quickAction(theme, LucideIcons.users, "Clergy Management", "Manage pastors and ministry leaders", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MemberManagementScreen()))),
+                  _quickAction(theme, LucideIcons.userPlus, "Invite Members", "Share invite link, QR & quick share", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchInviteScreen()))),
                   const SizedBox(height: 100),
                 ]),
               ),
@@ -240,10 +240,10 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
       shrinkWrap: true,
       crossAxisCount: 2, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 1.2,
       children: [
-        _statCard("Branches", "$_branchCount", LucideIcons.building, Colors.indigo),
+        _statCard("Branches", "$_branchCount", LucideIcons.building, theme.primaryColor.withValues(alpha: 0.8)),
         _statCard("Attendance", _formatCompact(_totalAttendance), LucideIcons.calendarCheck, Colors.green),
-        _statCard("Tithes (MTD)", currency.format(_totalTithes), LucideIcons.church, Colors.purple),
-        _statCard("Total Members", _formatCompact(_totalMembers), LucideIcons.users, Colors.blue),
+        _statCard("Tithes (MTD)", currency.format(_totalTithes), LucideIcons.church, theme.primaryColor.withValues(alpha: 0.7)),
+        _statCard("Total Members", _formatCompact(_totalMembers), LucideIcons.users, theme.primaryColor.withValues(alpha: 0.55)),
       ],
     );
   }

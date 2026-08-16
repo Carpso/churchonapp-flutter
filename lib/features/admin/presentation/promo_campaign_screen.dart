@@ -111,7 +111,7 @@ class _PromoCampaignScreenState extends ConsumerState<PromoCampaignScreen> {
                                 if (c.discountAmountZmw != null)
                                   _chip('K${c.discountAmountZmw!.toStringAsFixed(0)} off', Colors.green),
                                 if (c.budgetZmw != null)
-                                  _chip('K${c.budgetZmw!.toStringAsFixed(0)} budget', Colors.blue),
+                                  _chip('K${c.budgetZmw!.toStringAsFixed(0)} budget', Theme.of(context).primaryColor),
                               ],
                             ),
                           ),

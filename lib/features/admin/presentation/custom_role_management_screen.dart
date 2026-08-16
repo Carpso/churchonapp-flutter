@@ -57,10 +57,10 @@ class _CustomRoleManagementScreenState extends ConsumerState<CustomRoleManagemen
         _sectionHeader('Church Roles', 'Standard roles available in every church'),
         const SizedBox(height: 8),
         _builtInRoleTile(LucideIcons.crown, 'Pastor', 'Senior spiritual leader', Colors.amber),
-        _builtInRoleTile(LucideIcons.shield, 'Bishop', 'Overseer / diocese leader', Colors.indigo),
-        _builtInRoleTile(LucideIcons.eye, 'Prophet', 'Prophetic ministry', Colors.purple),
-        _builtInRoleTile(LucideIcons.star, 'Apostle', 'Foundational ministry', Colors.blue),
-        _builtInRoleTile(LucideIcons.settings, 'Church Admin', 'Day-to-day operations', Colors.teal),
+        _builtInRoleTile(LucideIcons.shield, 'Bishop', 'Overseer / diocese leader', Theme.of(context).primaryColor),
+        _builtInRoleTile(LucideIcons.eye, 'Prophet', 'Prophetic ministry', Theme.of(context).primaryColor),
+        _builtInRoleTile(LucideIcons.star, 'Apostle', 'Foundational ministry', Theme.of(context).primaryColor),
+        _builtInRoleTile(LucideIcons.settings, 'Church Admin', 'Day-to-day operations', Theme.of(context).primaryColor),
         const Divider(height: 32),
 
         // ── Section 2: Ministry & Department Roles ──────────────────
@@ -70,11 +70,11 @@ class _CustomRoleManagementScreenState extends ConsumerState<CustomRoleManagemen
         _builtInRoleTile(LucideIcons.fileText, 'Secretary', 'Administrative support', Colors.blueGrey),
         _builtInRoleTile(LucideIcons.users, 'Deacon', 'Service ministry', Colors.brown),
         _builtInRoleTile(LucideIcons.scroll, 'Elder', 'Governance & oversight', Colors.orange),
-        _builtInRoleTile(LucideIcons.zap, 'Youth Leader', 'Youth ministry', Colors.cyan),
-        _builtInRoleTile(LucideIcons.bookOpen, 'Sunday School Teacher', 'Children\'s education', Colors.pink),
-        _builtInRoleTile(LucideIcons.music, 'Worship Leader', 'Praise & worship team', Colors.deepPurple),
-        _builtInRoleTile(LucideIcons.layoutGrid, 'Department Leader', 'General department head', Colors.indigo),
-        _builtInRoleTile(LucideIcons.users, 'Leader', 'Small group / cell leader', Colors.teal),
+        _builtInRoleTile(LucideIcons.zap, 'Youth Leader', 'Youth ministry', Theme.of(context).primaryColor),
+        _builtInRoleTile(LucideIcons.bookOpen, 'Sunday School Teacher', 'Children\'s education', Theme.of(context).primaryColor),
+        _builtInRoleTile(LucideIcons.music, 'Worship Leader', 'Praise & worship team', Theme.of(context).primaryColor),
+        _builtInRoleTile(LucideIcons.layoutGrid, 'Department Leader', 'General department head', Theme.of(context).primaryColor),
+        _builtInRoleTile(LucideIcons.users, 'Leader', 'Small group / cell leader', Theme.of(context).primaryColor),
         _builtInRoleTile(LucideIcons.doorOpen, 'Usher', 'Hospitality & seating', Colors.amber),
         const Divider(height: 32),
 
@@ -95,8 +95,8 @@ class _CustomRoleManagementScreenState extends ConsumerState<CustomRoleManagemen
               children: roles.map((role) => Card(
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: Colors.teal.shade50,
-                    child: Icon(LucideIcons.shield, size: 18, color: Colors.teal),
+                    backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                    child: Icon(LucideIcons.shield, size: 18, color: Theme.of(context).primaryColor),
                   ),
                   title: Text(role.displayName ?? role.roleName),
                   subtitle: Text(role.description ?? 'Custom role', maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -181,13 +181,13 @@ class _CustomRoleManagementScreenState extends ConsumerState<CustomRoleManagemen
 
   Color _roleColor(String role) {
     if (['superadmin', 'coa_employee'].contains(role)) return Colors.red;
-    if (['pastor', 'bishop', 'prophet', 'apostle'].contains(role)) return Colors.indigo;
-    if (role == 'admin') return Colors.teal;
+    if (['pastor', 'bishop', 'prophet', 'apostle'].contains(role)) return Theme.of(context).primaryColor;
+    if (role == 'admin') return Theme.of(context).primaryColor;
     if (['treasurer', 'secretary'].contains(role)) return Colors.green;
     if (['deacon', 'elder'].contains(role)) return Colors.brown;
-    if (role.contains('youth')) return Colors.cyan;
-    if (role.contains('worship') || role.contains('music')) return Colors.purple;
-    if (role.contains('teacher') || role.contains('sunday')) return Colors.pink;
+    if (role.contains('youth')) return Theme.of(context).primaryColor;
+    if (role.contains('worship') || role.contains('music')) return Theme.of(context).primaryColor;
+    if (role.contains('teacher') || role.contains('sunday')) return Theme.of(context).primaryColor;
     if (role.contains('usher')) return Colors.amber;
     return Colors.blueGrey;
   }

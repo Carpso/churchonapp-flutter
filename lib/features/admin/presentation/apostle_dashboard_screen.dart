@@ -184,7 +184,7 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
                     ),
                     const SizedBox(height: 15),
-                    _buildQuickAction(context, LucideIcons.church, "Member Management", Colors.blue, () {
+                    _buildQuickAction(context, LucideIcons.church, "Member Management", Theme.of(context).primaryColor, () {
                       final tenant = ref.read(currentTenantProvider);
                       if (tenant == null) {
                         _noTenantSnack(context);
@@ -192,7 +192,7 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
                       }
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const MemberManagementScreen()));
                     }),
-                    _buildQuickAction(context, LucideIcons.fileText, "Ministry Reports", Colors.purple, () {
+                    _buildQuickAction(context, LucideIcons.fileText, "Ministry Reports", Theme.of(context).primaryColor, () {
                       final tenant = ref.read(currentTenantProvider);
                       if (tenant == null) {
                         _noTenantSnack(context);
@@ -274,12 +274,12 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.1),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
               "$members members",
-              style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12),
+              style: TextStyle(color: const Color(0xFF7A5C00), fontWeight: FontWeight.bold, fontSize: 12),
             ),
           ),
         ],
@@ -363,7 +363,7 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
     final color = status == 'IN_TRANSIT'
         ? Colors.orange
         : status == 'PICKED_UP'
-            ? Colors.teal
+            ? Theme.of(context).primaryColor
             : Colors.green;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),

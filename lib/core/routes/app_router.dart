@@ -156,6 +156,7 @@ import 'package:church_on_app/features/modules/bible_quiz/presentation/bible_qui
 import 'package:church_on_app/features/modules/bible_quiz/presentation/church_competition_lobby_screen.dart';
 import 'package:church_on_app/features/modules/bible_quiz/presentation/quiz_invite_handler_screen.dart';
 import 'package:church_on_app/features/modules/church_website/presentation/church_website_builder_screen.dart';
+import 'package:church_on_app/features/modules/church_website/presentation/public_church_website_screen.dart';
 import 'package:church_on_app/features/modules/crm_donor_management/presentation/crm_donor_screen.dart';
 import 'package:church_on_app/features/modules/events/presentation/event_ticket_scanner_screen.dart';
 import 'package:church_on_app/features/modules/events/presentation/ticket_detail_screen.dart';
@@ -211,6 +212,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     navigatorKey: NavigationService.navigatorKey,
     initialLocation: '/splash',
     redirect: (context, state) {
+      // Public church websites — no splash, login or tenant required.
+      // Shared links `churchonapp.com/church/<churchId>` and
+      // `churchonapp.com/site/<tenantId>` render a published website for
+      // anyone (the RLS policy exposes `is_published = true` rows to anon).
+      final publicPath = state.uri.path;
+      if (publicPath.startsWith('/church/') || publicPath.startsWith('/site/')) {
+        return null;
+      }
       final splashCompleted = ref.watch(splashCompletedProvider);
       if (!splashCompleted && state.uri.path != '/splash') {
         return '/splash';
@@ -1156,6 +1165,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final tenantId = state.pathParameters['tenantId']!;
           return ChurchWebsiteBuilderScreen(tenantId: tenantId);
+        },
+      ),
+      GoRoute(
+        path: '/church/:churchId',
+        builder: (context, state) {
+          final churchId = state.pathParameters['churchId']!;
+          return PublicChurchWebsiteScreen(churchId: churchId);
+        },
+      ),
+      GoRoute(
+        path: '/site/:tenantId',
+        builder: (context, state) {
+          final tenantId = state.pathParameters['tenantId']!;
+          return PublicChurchWebsiteScreen(churchId: tenantId);
         },
       ),
       GoRoute(

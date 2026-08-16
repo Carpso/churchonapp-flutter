@@ -101,6 +101,7 @@ flutter:
   assets:
     - .env
     - assets/app_logo.png
+    - assets/images/google_g.png
     - assets/logo_airtel.png
     - assets/logo_mtn.png
     - assets/logo_zamtel.png

@@ -228,7 +228,7 @@ class _ServiceReportFormScreenState
                     icon: LucideIcons.users,
                     value: _attendance,
                     onChanged: (v) => setState(() => _attendance = v),
-                    color: Colors.blue,
+                    color: Theme.of(context).primaryColor,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -262,7 +262,7 @@ class _ServiceReportFormScreenState
                     icon: LucideIcons.droplet,
                     value: _baptisms,
                     onChanged: (v) => setState(() => _baptisms = v),
-                    color: Colors.purple,
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
                   ),
                 ),
               ],
@@ -483,7 +483,7 @@ class _ServiceReportFormScreenState
     required IconData icon,
     required int value,
     required ValueChanged<int> onChanged,
-    Color color = Colors.blue,
+    Color color = const Color(0xFFFFDA03),
   }) {
     final theme = Theme.of(context);
     return Container(

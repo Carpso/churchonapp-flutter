@@ -55,7 +55,7 @@ class _KingdomAIModeratorScreenState extends ConsumerState<KingdomAIModeratorScr
       ),
       child: Row(
         children: [
-          const Icon(LucideIcons.shieldCheck, color: Colors.blue, size: 30),
+          Icon(LucideIcons.shieldCheck, color: Theme.of(context).primaryColor, size: 30),
           const SizedBox(width: 15),
           const Expanded(
             child: Column(
@@ -69,12 +69,12 @@ class _KingdomAIModeratorScreenState extends ConsumerState<KingdomAIModeratorScr
           ElevatedButton.icon(
             onPressed: _isModerating ? null : _runModeration,
             icon: _isModerating 
-              ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
               : const Icon(LucideIcons.zap, size: 16),
             label: Text(_isModerating ? "ANALYZING..." : "MODERATE ALL"),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.black,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             ),
@@ -140,8 +140,8 @@ class _KingdomAIModeratorScreenState extends ConsumerState<KingdomAIModeratorScr
               if (isModerated)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                  child: Text(category.toUpperCase(), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 11)),
+                  decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  child: Text(category.toUpperCase(), style: const TextStyle(color: Color(0xFF7A5C00), fontWeight: FontWeight.bold, fontSize: 11)),
                 ),
             ],
           ),

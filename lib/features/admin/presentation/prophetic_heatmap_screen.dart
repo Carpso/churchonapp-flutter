@@ -55,7 +55,7 @@ class PropheticHeatmapScreen extends ConsumerWidget {
                   );
                 }).toList(),
               ),
-              _buildLegend(),
+              _buildLegend(context),
               _buildControlPanel(context, ref, points.length),
             ],
           );
@@ -66,7 +66,7 @@ class PropheticHeatmapScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildLegend() {
+  Widget _buildLegend(BuildContext context) {
     return Positioned(
       top: 20,
       right: 20,
@@ -84,7 +84,7 @@ class PropheticHeatmapScreen extends ConsumerWidget {
             const SizedBox(height: 10),
             _buildLegendItem("High Density", Colors.red),
             _buildLegendItem("Active Missions", Colors.orange),
-            _buildLegendItem("New Converts", Colors.blue),
+            _buildLegendItem("New Converts", Theme.of(context).primaryColor),
           ],
         ),
       ),

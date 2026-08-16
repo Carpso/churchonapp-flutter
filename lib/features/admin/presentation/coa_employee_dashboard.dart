@@ -451,16 +451,16 @@ Widget _buildScreen(UserProfile profile) {
               const SizedBox(height: 35),
               const Text("Platform Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 15),
-              _buildAction(LucideIcons.userCheck, "Role Approvals", "Approve or elevate user roles", Colors.teal, () {
+              _buildAction(LucideIcons.userCheck, "Role Approvals", "Approve or elevate user roles", theme.primaryColor, () {
                 context.push('/role-approvals');
               }),
               _buildAction(LucideIcons.mapPin, "Expansion Leads", "Churches requesting to be added next", Colors.amber, () {
                 context.push('/expansion-leads');
               }),
-              _buildAction(LucideIcons.penTool, "Writer Approvals", "Approve writer applications", Colors.indigo, () {
+              _buildAction(LucideIcons.penTool, "Writer Approvals", "Approve writer applications", theme.primaryColor, () {
                 context.push('/writer-approvals');
               }),
-              _buildAction(LucideIcons.car, "Carpso Driver Approvals", "Approve driver applications for Carpso Ride", Colors.deepPurple, () {
+              _buildAction(LucideIcons.car, "Carpso Driver Approvals", "Approve driver applications for Carpso Ride", theme.primaryColor, () {
                 context.push('/carpso-approval');
               }),
               _buildAction(LucideIcons.scrollText, "Audit Log", "View admin actions and changes", Colors.orange, () => _showAuditLog()),
@@ -484,7 +484,7 @@ const SizedBox(height: 40),
       children: [
         Row(
           children: [
-            _buildStatItem("Active Tenants", _activeTenantsCount.toString(), LucideIcons.building, Colors.blue),
+            _buildStatItem("Active Tenants", _activeTenantsCount.toString(), LucideIcons.building, theme.primaryColor),
             const SizedBox(width: 15),
             _buildStatItem("Total Users", _totalUsersCount.toString(), LucideIcons.users, Colors.green),
           ],
@@ -542,17 +542,17 @@ const SizedBox(height: 40),
                   children: [
                     _feeRow("COA Fee (${(fees.coaFeePercent * 100).toStringAsFixed(1)}%)", "1% of every transaction", Colors.greenAccent, theme),
                     const SizedBox(height: 8),
-                    _feeRow("Lipila MoMo (${(fees.momoFeePercent * 100).toStringAsFixed(1)}%)", "Mobile money processing fee", Colors.blueAccent, theme),
+                    _feeRow("Lipila MoMo (${(fees.momoFeePercent * 100).toStringAsFixed(1)}%)", "Mobile money processing fee", theme.primaryColor.withValues(alpha: 0.8), theme),
                     const SizedBox(height: 8),
-                    _feeRow("Lipila Card (${(fees.cardFeePercent * 100).toStringAsFixed(1)}%)", "Card processing fee", Colors.purpleAccent, theme),
+                    _feeRow("Lipila Card (${(fees.cardFeePercent * 100).toStringAsFixed(1)}%)", "Card processing fee", theme.primaryColor.withValues(alpha: 0.7), theme),
                     const SizedBox(height: 8),
                     _feeRow("Business Cut (${(fees.businessCutPercent * 100).toStringAsFixed(0)}%)", "Deducted from sellers/drivers at settlement", Colors.orangeAccent, theme),
                     const SizedBox(height: 8),
-                    _feeRow("Lipila Disbursement (${(fees.lipilaDisbursementFeePercent * 100).toStringAsFixed(1)}%)", "Deducted from every payout (money out)", Colors.pinkAccent, theme),
+                    _feeRow("Lipila Disbursement (${(fees.lipilaDisbursementFeePercent * 100).toStringAsFixed(1)}%)", "Deducted from every payout (money out)", theme.primaryColor.withValues(alpha: 0.55), theme),
                     const SizedBox(height: 8),
                     _feeRow("COA Payout (${(fees.coaPayoutFeePercent * 100).toStringAsFixed(1)}%, min K${fees.minFeeKwacha.toStringAsFixed(0)})", "COA's cut on money out", Colors.amberAccent, theme),
                     const SizedBox(height: 8),
-                    _feeRow("Min Fee", "K${fees.minFeeKwacha.toStringAsFixed(0)} floor on all platform fees", Colors.tealAccent, theme),
+                    _feeRow("Min Fee", "K${fees.minFeeKwacha.toStringAsFixed(0)} floor on all platform fees", theme.primaryColor.withValues(alpha: 0.45), theme),
                   ],
                 ),
                 loading: () => Text("Loading fee config...", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 11)),
@@ -787,7 +787,7 @@ const SizedBox(height: 40),
           ),
           child: Row(
             children: [
-              CircleAvatar(radius: 24, backgroundColor: Colors.teal.withValues(alpha: 0.1), child: const Icon(LucideIcons.creditCard, color: Colors.teal)),
+              CircleAvatar(radius: 24, backgroundColor: theme.primaryColor.withValues(alpha: 0.1), child: Icon(LucideIcons.creditCard, color: theme.primaryColor)),
               const SizedBox(width: 15),
               Expanded(
                 child: Column(
@@ -795,7 +795,7 @@ const SizedBox(height: 40),
                   children: [
                     Text(svcLabel, style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                     const SizedBox(height: 4),
-                    Text("TXID: ${payment.paymentRef}", style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 12)),
+                    Text("TXID: ${payment.paymentRef}", style: TextStyle(color: theme.primaryColor, fontWeight: FontWeight.bold, fontSize: 12)),
                     Text("K${payment.amount.toStringAsFixed(2)} • ${payment.createdAt.day}/${payment.createdAt.month}/${payment.createdAt.year}", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
                   ],
                 ),

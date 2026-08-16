@@ -302,7 +302,7 @@ class _ChurchInviteScreenState extends ConsumerState<ChurchInviteScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -325,7 +325,7 @@ class _ChurchInviteScreenState extends ConsumerState<ChurchInviteScreen> {
 
   void _showCopied(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Copied!"), backgroundColor: Colors.teal, duration: Duration(seconds: 1)),
+      const SnackBar(content: Text("Copied!"), backgroundColor: Colors.green, duration: Duration(seconds: 1)),
     );
   }
 
@@ -500,11 +500,11 @@ class _HowStep extends StatelessWidget {
             width: 20,
             height: 20,
             decoration: BoxDecoration(
-              color: Colors.blue.shade600,
+              color: Theme.of(context).primaryColor,
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: Text(step, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+            child: Text(step, style: const TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 10),
           Expanded(

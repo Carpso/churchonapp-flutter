@@ -149,7 +149,7 @@ class _ChurchPayoutScreenState extends ConsumerState<ChurchPayoutScreen> {
 
     return Row(
       children: [
-        _kpi(theme, 'Eligible', '${_balances.length}', LucideIcons.building, Colors.indigo),
+        _kpi(theme, 'Eligible', '${_balances.length}', LucideIcons.building, theme.primaryColor),
         const SizedBox(width: 8),
         _kpi(theme, 'Withdrawable', 'K${_fmt(totalWithdrawable)}', LucideIcons.wallet, Colors.amber),
         const SizedBox(width: 8),
@@ -157,7 +157,7 @@ class _ChurchPayoutScreenState extends ConsumerState<ChurchPayoutScreen> {
         const SizedBox(width: 8),
         _kpi(theme, 'In-Flight', '$inFlight', LucideIcons.loader, Colors.orange),
         const SizedBox(width: 8),
-        _kpi(theme, 'Paid', 'K${_fmt(paid)}', LucideIcons.checkCircle, Colors.teal),
+        _kpi(theme, 'Paid', 'K${_fmt(paid)}', LucideIcons.checkCircle, theme.primaryColor.withValues(alpha: 0.55)),
       ],
     );
   }
@@ -267,7 +267,7 @@ class _ChurchPayoutScreenState extends ConsumerState<ChurchPayoutScreen> {
     final (color, label) = switch (w.status) {
       'paid' => (Colors.green, 'PAID'),
       'pending' => (Colors.orange, 'PENDING'),
-      'processing' => (Colors.blue, 'PROCESSING'),
+      'processing' => (theme.primaryColor, 'PROCESSING'),
       'failed' => (Colors.red, 'FAILED'),
       _ => (Colors.grey, w.status.toUpperCase()),
     };

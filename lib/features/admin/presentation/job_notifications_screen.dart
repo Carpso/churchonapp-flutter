@@ -36,14 +36,14 @@ class JobNotificationsScreen extends ConsumerWidget {
                   return ListTile(
                     leading: Icon(
                       notif.type == 'new_application' ? Icons.person_add : Icons.update,
-                      color: notif.isRead ? Colors.grey : Colors.blue,
+                      color: notif.isRead ? Colors.grey : Theme.of(context).primaryColor,
                     ),
                     title: Text(notif.message),
                     subtitle: Text(
                       _timeAgo(notif.createdAt),
                       style: const TextStyle(fontSize: 12),
                     ),
-                    trailing: notif.isRead ? null : Container(width: 10, height: 10, decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle)),
+                    trailing: notif.isRead ? null : Container(width: 10, height: 10, decoration: BoxDecoration(color: Theme.of(context).primaryColor, shape: BoxShape.circle)),
                     onTap: () async {
                       if (!notif.isRead) {
                         await ref.read(jobNotificationServiceProvider).markAsRead(notif.id);

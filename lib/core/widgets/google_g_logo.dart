@@ -2,8 +2,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-/// Official Google "G" logo drawn from the brand's 4-path SVG (48x48 viewBox).
-/// Rendered with a CustomPainter so no font or asset is required.
+/// The REAL Google "G" logo — the official production asset downloaded from
+/// `https://www.gstatic.com/images/branding/googleg/1x/googleg_standard_color_128dp.png`
+/// (Google's own CDN, the same mark used on Google sign-in buttons).
 class GoogleGLogo extends StatelessWidget {
   final double size;
 
@@ -11,15 +12,34 @@ class GoogleGLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return Image.asset(
+      'assets/google_g.png',
       width: size,
       height: size,
-      child: CustomPaint(painter: _GoogleGPainter()),
+      fit: BoxFit.contain,
+      cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+      errorBuilder: (context, error, stack) => _GoogleGFallback(size: size),
     );
   }
 }
 
-class _GoogleGPainter extends CustomPainter {
+/// Vector fallback (official 4-path SVG re-drawn) if the asset is missing.
+class _GoogleGFallback extends StatelessWidget {
+  final double size;
+
+  const _GoogleGFallback({required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(painter: _GoogleGFallbackPainter()),
+    );
+  }
+}
+
+class _GoogleGFallbackPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final s = size.width / 48.0;

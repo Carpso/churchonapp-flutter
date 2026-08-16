@@ -82,7 +82,7 @@ class _ApostolicResourcePlanningScreenState extends ConsumerState<ApostolicResou
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.church, color: Colors.blueAccent),
+              Icon(LucideIcons.church, color: Theme.of(context).primaryColor),
               const SizedBox(width: 15),
               Text(hub['name'] ?? "Regional Hub", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
             ],
@@ -96,8 +96,8 @@ class _ApostolicResourcePlanningScreenState extends ConsumerState<ApostolicResou
               icon: const Icon(LucideIcons.sparkles),
               label: const Text("PREDICT MATERIAL NEEDS"),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.black,
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               ),
@@ -115,7 +115,7 @@ class _ApostolicResourcePlanningScreenState extends ConsumerState<ApostolicResou
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("AI PREDICTED NEEDS (NXT 3 MO)", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+        const Text("AI PREDICTED NEEDS (NXT 3 MO)", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF7A5C00))),
         const SizedBox(height: 15),
         ...needs.map((n) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
@@ -123,14 +123,14 @@ class _ApostolicResourcePlanningScreenState extends ConsumerState<ApostolicResou
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(n['type']?.toString() ?? 'Needs', style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text("Qty: ${n['quantity']}", style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.w900)),
+              Text("Qty: ${n['quantity']}", style: const TextStyle(color: Color(0xFF7A5C00), fontWeight: FontWeight.w900)),
             ],
           ),
         )),
         const SizedBox(height: 15),
         Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: Colors.blueAccent.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(10)),
+          decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
           child: Text(
             prediction['prophetic_justification']?.toString() ?? '',
             style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.black87),

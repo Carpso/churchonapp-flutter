@@ -154,7 +154,7 @@ class _DriverSimulationHubScreenState extends ConsumerState<DriverSimulationHubS
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
       child: Row(
         children: [
-          const Icon(LucideIcons.info, color: Colors.blue),
+          Icon(LucideIcons.info, color: Theme.of(context).primaryColor),
           const SizedBox(width: 15),
           const Expanded(
             child: Text(

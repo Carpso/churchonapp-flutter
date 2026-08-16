@@ -119,10 +119,10 @@ class _PayrollProcessingScreenState extends ConsumerState<PayrollProcessingScree
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.teal.shade700, Colors.teal.shade500],
+              colors: [theme.primaryColor, theme.primaryColor.withValues(alpha: 0.7)],
             ),
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [BoxShadow(color: Colors.teal.withValues(alpha: 0.3), blurRadius: 12)],
+            boxShadow: [BoxShadow(color: theme.primaryColor.withValues(alpha: 0.3), blurRadius: 12)],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,11 +130,11 @@ class _PayrollProcessingScreenState extends ConsumerState<PayrollProcessingScree
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("${activeEmps.length} Active Employees", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text("${activeEmps.length} Active Employees", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
-                    child: Text("K${totalGross.toStringAsFixed(0)}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                    decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                    child: Text("K${totalGross.toStringAsFixed(0)}", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 14)),
                   ),
                 ],
               ),
@@ -156,12 +156,12 @@ class _PayrollProcessingScreenState extends ConsumerState<PayrollProcessingScree
                   onPressed: _isProcessing || activeEmps.isEmpty ? null : () => _processPayroll(activeEmps.length),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
-                    foregroundColor: Colors.teal.shade700,
+                    foregroundColor: const Color(0xFF7A5C00),
                     disabledBackgroundColor: Colors.white.withValues(alpha: 0.3),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   child: _isProcessing
-                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.teal))
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF7A5C00)))
                       : Text(
                           activeEmps.isEmpty ? "No Active Employees" : "PROCESS PAYROLL",
                           style: const TextStyle(fontWeight: FontWeight.bold),
@@ -183,12 +183,12 @@ class _PayrollProcessingScreenState extends ConsumerState<PayrollProcessingScree
         Text(
           "K${amount.toStringAsFixed(0)}",
           style: TextStyle(
-            color: Colors.white,
+            color: Colors.black,
             fontWeight: FontWeight.bold,
             fontSize: isHighlight ? 16 : 13,
           ),
         ),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
+        Text(label, style: TextStyle(color: Colors.black.withValues(alpha: 0.55), fontSize: 11)),
       ],
     );
   }
@@ -196,7 +196,7 @@ class _PayrollProcessingScreenState extends ConsumerState<PayrollProcessingScree
   Widget _buildRunCard(PayrollRun run, ThemeData theme) {
     final statusColor = switch (run.status) {
       'processed' => Colors.green,
-      'paid' => Colors.blue,
+      'paid' => theme.primaryColor,
       'draft' => Colors.orange,
       _ => Colors.grey,
     };
@@ -231,7 +231,7 @@ class _PayrollProcessingScreenState extends ConsumerState<PayrollProcessingScree
             children: [
               _runStat("PAYE", run.totalPaye, Colors.red),
               _runStat("NAPSA", run.totalNapsaEmployee + run.totalNapsaEmployer, Colors.orange),
-              _runStat("NHIMA", run.totalNhimaEmployee + run.totalNhimaEmployer, Colors.purple),
+              _runStat("NHIMA", run.totalNhimaEmployee + run.totalNhimaEmployer, theme.primaryColor.withValues(alpha: 0.7)),
               _runStat("Net", run.totalNetPay, Colors.green),
             ],
           ),

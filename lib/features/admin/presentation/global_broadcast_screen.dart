@@ -173,7 +173,7 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
         actions: [
           if (_selectedChannel == "SMS")
             IconButton(
-              icon: const Icon(LucideIcons.creditCard, color: Colors.blueAccent),
+              icon: Icon(LucideIcons.creditCard, color: Theme.of(context).primaryColor),
               tooltip: "Buy SMS Credits",
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BuySmsCreditsScreen())),
             ),
@@ -274,14 +274,14 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
                   return Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        Icon(LucideIcons.messageCircle, size: 16, color: Colors.blue.shade700),
+                        Icon(LucideIcons.messageCircle, size: 16, color: const Color(0xFF7A5C00)),
                         const SizedBox(width: 8),
-                        Text("$balanceVal SMS credits", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade800, fontSize: 13)),
+                        Text("$balanceVal SMS credits", style: TextStyle(fontWeight: FontWeight.bold, color: const Color(0xFF7A5C00), fontSize: 13)),
                         const Spacer(),
                         TextButton(
                           onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BuySmsCreditsScreen())),
@@ -299,10 +299,10 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
             ElevatedButton(
               onPressed: _sending ? null : _sendBroadcast,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _selectedChannel == "SMS" ? Colors.green : Colors.purple,
-                foregroundColor: Colors.white,
+                backgroundColor: _selectedChannel == "SMS" ? Colors.green : Theme.of(context).primaryColor,
+                foregroundColor: _selectedChannel == "SMS" ? Colors.white : Colors.black,
                 minimumSize: const Size(double.infinity, 60), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                elevation: 5, shadowColor: (_selectedChannel == "SMS" ? Colors.green : Colors.purple).withValues(alpha: 0.3),
+                elevation: 5, shadowColor: (_selectedChannel == "SMS" ? Colors.green : Theme.of(context).primaryColor).withValues(alpha: 0.3),
               ),
               child: _sending
                   ? const CircularProgressIndicator(color: Colors.white)
@@ -336,7 +336,7 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
         break;
       default:
         icon = LucideIcons.bellRing;
-        color = Colors.purple;
+        color = Theme.of(context).primaryColor;
     }
     return Row(
       children: [
@@ -374,20 +374,20 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: isSms ? Colors.green.withValues(alpha: 0.1) : Colors.purple.withValues(alpha: 0.1),
+                    color: isSms ? Colors.green.withValues(alpha: 0.1) : Theme.of(context).primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(h['target_audience'].toString(),
-                      style: TextStyle(color: isSms ? Colors.green : Colors.purple, fontSize: 11, fontWeight: FontWeight.bold)),
+                      style: TextStyle(color: isSms ? Colors.green : Theme.of(context).primaryColor, fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
               const SizedBox(width: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isSms ? Colors.green.withValues(alpha: 0.1) : Colors.blue.withValues(alpha: 0.1),
+                  color: isSms ? Colors.green.withValues(alpha: 0.1) : Theme.of(context).primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(channel, style: TextStyle(color: isSms ? Colors.green : Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
+                child: Text(channel, style: TextStyle(color: isSms ? Colors.green : Theme.of(context).primaryColor, fontSize: 11, fontWeight: FontWeight.bold)),
               ),
             ],
           ),

@@ -565,8 +565,8 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             child: ElevatedButton(
               onPressed: _isSavingMoMo ? null : _saveMoMo,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               ),
               child: _isSavingMoMo
@@ -746,7 +746,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             const SizedBox(height: 40),
             const Text("Global Overrides", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
-            _buildGlobalAction(LucideIcons.refreshCw, "Force Data Sync", "Triggers re-fetch for all data", Colors.blue, () async {
+            _buildGlobalAction(LucideIcons.refreshCw, "Force Data Sync", "Triggers re-fetch for all data", Theme.of(context).primaryColor, () async {
               try {
                 ref.invalidate(currentTenantProvider);
                 ref.invalidate(membersProvider);
@@ -782,21 +782,21 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
                 showAppSnackBar(context, AppErrorView.friendlyMessage(e), status: AppStatus.error);
               }
             }),
-            _buildGlobalAction(LucideIcons.hardDrive, "Create System Backup", "Download snapshot of database schema and settings", Colors.purple, () => _performBackup()),
+            _buildGlobalAction(LucideIcons.hardDrive, "Create System Backup", "Download snapshot of database schema and settings", Theme.of(context).primaryColor, () => _performBackup()),
             _buildGlobalAction(LucideIcons.scrollText, "Audit Log", "View all admin actions and changes", Colors.orange, () => _showAuditLog()),
             _buildGlobalAction(LucideIcons.lifeBuoy, "Resolution Hub", "Respond to tickets, disputes & error reports", Colors.redAccent, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const ResolutionHubScreen()));
             }),
-            _buildGlobalAction(LucideIcons.megaphone, "Sponsored Content", "Manage tenant ads and banners", Colors.cyan, () {
+            _buildGlobalAction(LucideIcons.megaphone, "Sponsored Content", "Manage tenant ads and banners", Theme.of(context).primaryColor, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const AdManagementScreen()));
             }),
-            _buildGlobalAction(LucideIcons.userCheck, "Role Approvals", "Approve or elevate user roles", Colors.teal, () {
+            _buildGlobalAction(LucideIcons.userCheck, "Role Approvals", "Approve or elevate user roles", Theme.of(context).primaryColor, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const RoleApprovalScreen()));
             }),
-            _buildGlobalAction(LucideIcons.penTool, "Writer Approvals", "Approve writer applications", Colors.indigo, () {
+            _buildGlobalAction(LucideIcons.penTool, "Writer Approvals", "Approve writer applications", Theme.of(context).primaryColor, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const WriterApprovalScreen()));
             }),
-            _buildGlobalAction(LucideIcons.users, "Custom Roles", "Manage custom tenant roles", Colors.pink, () {
+            _buildGlobalAction(LucideIcons.users, "Custom Roles", "Manage custom tenant roles", Theme.of(context).primaryColor, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomRoleManagementScreen()));
             }),
             _buildGlobalAction(LucideIcons.userPlus, "Quick Add Tenant Staff", "Create staff with department roles for any tenant", Colors.green, () async {
@@ -883,7 +883,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             _buildGlobalAction(LucideIcons.phoneCall, "Church Leads", "Manage pastor referrals", Colors.deepOrange, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchReferralScreen()));
             }),
-            _buildGlobalAction(LucideIcons.store, "Partner Tenants", "Manage coin redemption partners", Colors.teal, () {
+            _buildGlobalAction(LucideIcons.store, "Partner Tenants", "Manage coin redemption partners", Theme.of(context).primaryColor, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const ManagePartnersScreen()));
             }),
             _buildGlobalAction(LucideIcons.church, "Church Directory Editor", "Update registered church details", Colors.amber, () {
@@ -910,17 +910,17 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => const AlertDialog(
-        backgroundColor: Color(0xFF1E293B),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
         content: SizedBox(
           width: 200,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(color: Colors.purpleAccent),
-              SizedBox(height: 20),
-              Text("Backing up database...", style: TextStyle(color: Colors.white70)),
+              CircularProgressIndicator(color: Theme.of(ctx).primaryColor),
+              const SizedBox(height: 20),
+              const Text("Backing up database...", style: TextStyle(color: Colors.white70)),
             ],
           ),
         ),
@@ -966,7 +966,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text("OK", style: TextStyle(color: Colors.purpleAccent)),
+                child: Text("OK", style: TextStyle(color: Theme.of(ctx).primaryColor)),
               ),
             ],
           ),
@@ -1000,7 +1000,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       children: [
         Row(
           children: [
-            _buildStatItem("Active Tenants", _activeTenantsCount.toString(), LucideIcons.building, Colors.blue),
+            _buildStatItem("Active Tenants", _activeTenantsCount.toString(), LucideIcons.building, Theme.of(context).primaryColor),
             const SizedBox(width: 15),
             _buildStatItem("Total Users", _totalUsersCount.toString(), LucideIcons.users, Colors.green),
           ],
@@ -1051,17 +1051,17 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
                   children: [
                     _feeBreakdownRow("COA Fee (${(fees.coaFeePercent * 100).toStringAsFixed(1)}%)", "1% of every transaction", Colors.greenAccent),
                     const SizedBox(height: 8),
-                    _feeBreakdownRow("Lipila MoMo (${(fees.momoFeePercent * 100).toStringAsFixed(1)}%)", "Mobile money processing fee", Colors.blueAccent),
+                    _feeBreakdownRow("Lipila MoMo (${(fees.momoFeePercent * 100).toStringAsFixed(1)}%)", "Mobile money processing fee", Theme.of(context).primaryColor.withValues(alpha: 0.8)),
                     const SizedBox(height: 8),
-                    _feeBreakdownRow("Lipila Card (${(fees.cardFeePercent * 100).toStringAsFixed(1)}%)", "Card processing fee", Colors.purpleAccent),
+                    _feeBreakdownRow("Lipila Card (${(fees.cardFeePercent * 100).toStringAsFixed(1)}%)", "Card processing fee", Theme.of(context).primaryColor.withValues(alpha: 0.7)),
                     const SizedBox(height: 8),
                     _feeBreakdownRow("Business Cut (${(fees.businessCutPercent * 100).toStringAsFixed(0)}%)", "Deducted from sellers/drivers at settlement", Colors.orangeAccent),
                     const SizedBox(height: 8),
-                    _feeBreakdownRow("Lipila Disbursement (${(fees.lipilaDisbursementFeePercent * 100).toStringAsFixed(1)}%)", "Deducted from every payout (money out)", Colors.pinkAccent),
+                    _feeBreakdownRow("Lipila Disbursement (${(fees.lipilaDisbursementFeePercent * 100).toStringAsFixed(1)}%)", "Deducted from every payout (money out)", Theme.of(context).primaryColor.withValues(alpha: 0.55)),
                     const SizedBox(height: 8),
                     _feeBreakdownRow("COA Payout (${(fees.coaPayoutFeePercent * 100).toStringAsFixed(1)}%, min K${fees.minFeeKwacha.toStringAsFixed(0)})", "COA's cut on money out", Colors.amberAccent),
                     const SizedBox(height: 8),
-                    _feeBreakdownRow("Min Fee", "K${fees.minFeeKwacha.toStringAsFixed(0)} floor on all platform fees", Colors.tealAccent),
+                    _feeBreakdownRow("Min Fee", "K${fees.minFeeKwacha.toStringAsFixed(0)} floor on all platform fees", Theme.of(context).primaryColor.withValues(alpha: 0.45)),
                   ],
                 ),
                 loading: () => const Text("Loading fee config...", style: TextStyle(color: Colors.white38, fontSize: 11)),
@@ -1249,7 +1249,7 @@ class _AuditLogScreenState extends ConsumerState<_AuditLogScreen> {
                   icon = LucideIcons.creditCard; color = Colors.orangeAccent;
                   break;
                 case 'system_backup':
-                  icon = LucideIcons.hardDrive; color = Colors.purpleAccent;
+                  icon = LucideIcons.hardDrive; color = Theme.of(context).primaryColor;
                   break;
                 case 'role_change':
                   icon = LucideIcons.shield; color = Colors.amber;

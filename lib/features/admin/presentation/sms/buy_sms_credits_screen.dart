@@ -25,15 +25,15 @@ class BuySmsCreditsScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [Colors.blue.shade700, Colors.indigo.shade700]),
+                gradient: LinearGradient(colors: [Theme.of(context).primaryColor, Theme.of(context).primaryColor.withValues(alpha: 0.7)]),
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Column(
                 children: [
-                  const Text("SMS CREDIT BALANCE", style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  const Text("SMS CREDIT BALANCE", style: TextStyle(color: Colors.black54, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2)),
                   const SizedBox(height: 8),
-                  Text("$balance", style: const TextStyle(color: Colors.white, fontSize: 42, fontWeight: FontWeight.w900)),
-                  const Text("credits", style: TextStyle(color: Colors.white60, fontSize: 13)),
+                  Text("$balance", style: const TextStyle(color: Colors.black, fontSize: 42, fontWeight: FontWeight.w900)),
+                  const Text("credits", style: TextStyle(color: Colors.black54, fontSize: 13)),
                 ],
               ),
             ),
@@ -58,17 +58,17 @@ class BuySmsCreditsScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
                 children: [
-                  Icon(LucideIcons.info, size: 16, color: Colors.blue.shade700),
+                  Icon(LucideIcons.info, size: 16, color: const Color(0xFF7A5C00)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       "1 SMS = 1 credit. Credits never expire. Unused credits from expired bundles remain available.",
-                      style: TextStyle(fontSize: 11, color: Colors.blue.shade800, height: 1.4),
+                      style: TextStyle(fontSize: 11, color: const Color(0xFF7A5C00), height: 1.4),
                     ),
                   ),
                 ],
@@ -156,10 +156,10 @@ class _BundleCard extends StatelessWidget {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(LucideIcons.messageCircle, color: Colors.blue.shade600, size: 28),
+            child: Icon(LucideIcons.messageCircle, color: Theme.of(context).primaryColor, size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -183,8 +183,8 @@ class _BundleCard extends StatelessWidget {
             child: ElevatedButton(
               onPressed: onBuy,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade600,
-                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               child: const Text("Buy", style: TextStyle(fontWeight: FontWeight.bold)),

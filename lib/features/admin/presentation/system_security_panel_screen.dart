@@ -221,7 +221,7 @@ class _SystemSecurityPanelScreenState extends ConsumerState<SystemSecurityPanelS
           ..._recentAudits.take(5).map((a) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Row(children: [
-              Icon(LucideIcons.circle, size: 8, color: Colors.teal.shade400),
+              Icon(LucideIcons.circle, size: 8, color: theme.primaryColor),
               const SizedBox(width: 10),
               Expanded(child: Text(a['action'] as String? ?? '', style: const TextStyle(fontSize: 12))),
               Text(_formatDate(a['created_at']?.toString() ?? ''), style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
@@ -275,7 +275,7 @@ class _SystemSecurityPanelScreenState extends ConsumerState<SystemSecurityPanelS
         child: Row(children: [
           Icon(
             severity == 'critical' ? LucideIcons.alertTriangle : severity == 'warning' ? LucideIcons.alertCircle : LucideIcons.info,
-            size: 16, color: severity == 'critical' ? Colors.red : severity == 'warning' ? Colors.amber : Colors.blue,
+            size: 16, color: severity == 'critical' ? Colors.red : severity == 'warning' ? Colors.amber : theme.primaryColor,
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(
@@ -290,10 +290,10 @@ class _SystemSecurityPanelScreenState extends ConsumerState<SystemSecurityPanelS
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: severity == 'critical' ? Colors.red.withValues(alpha: 0.1) : severity == 'warning' ? Colors.amber.withValues(alpha: 0.1) : Colors.blue.withValues(alpha: 0.1),
+              color: severity == 'critical' ? Colors.red.withValues(alpha: 0.1) : severity == 'warning' ? Colors.amber.withValues(alpha: 0.1) : theme.primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Text(severity, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: severity == 'critical' ? Colors.red : severity == 'warning' ? Colors.amber.shade800 : Colors.blue)),
+            child: Text(severity, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: severity == 'critical' ? Colors.red : severity == 'warning' ? Colors.amber.shade800 : theme.primaryColor)),
           ),
         ]),
       );

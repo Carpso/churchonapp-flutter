@@ -21,7 +21,7 @@ class OrderTrackingScreen extends ConsumerWidget {
                   final order = orders[index];
                   final statusColor = switch (order.status) {
                     'delivered' => Colors.green,
-                    'shipped' => Colors.blue,
+                    'shipped' => Theme.of(context).primaryColor,
                     'processing' => Colors.orange,
                     'cancelled' => Colors.red,
                     _ => Colors.grey,
@@ -83,7 +83,7 @@ class OrderTrackingScreen extends ConsumerWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text('Delivery: ${delivery.status.toUpperCase()}',
-                                        style: TextStyle(fontWeight: FontWeight.bold, color: delivery.status == 'delivered' ? Colors.green : Colors.blue)),
+                                        style: TextStyle(fontWeight: FontWeight.bold, color: delivery.status == 'delivered' ? Colors.green : Theme.of(context).primaryColor)),
                                     if (delivery.recipientName != null) Text('Recipient: ${delivery.recipientName}'),
                                     if (delivery.proofOfDeliveryUrl != null)
                                       TextButton.icon(

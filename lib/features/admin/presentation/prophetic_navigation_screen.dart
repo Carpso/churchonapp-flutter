@@ -105,8 +105,8 @@ class _PropheticNavigationScreenState extends ConsumerState<PropheticNavigationS
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.blueAccent.withValues(alpha: 0.1), shape: BoxShape.circle),
-                child: const Icon(LucideIcons.package, color: Colors.blueAccent, size: 20),
+                decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), shape: BoxShape.circle),
+                child: Icon(LucideIcons.package, color: Theme.of(context).primaryColor, size: 20),
               ),
               const SizedBox(width: 15),
               Expanded(

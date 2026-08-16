@@ -116,14 +116,14 @@ class _PayrollReportsScreenState extends ConsumerState<PayrollReportsScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Colors.deepPurple.shade700, Colors.deepPurple.shade500]),
+        gradient: LinearGradient(colors: [theme.primaryColor, theme.primaryColor.withValues(alpha: 0.7)]),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Annual Payroll Summary", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-          Text("$_selectedYear • ${s['monthsProcessed']} months processed", style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+          const Text("Annual Payroll Summary", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18)),
+          Text("$_selectedYear • ${s['monthsProcessed']} months processed", style: TextStyle(color: Colors.black.withValues(alpha: 0.55), fontSize: 12)),
           const SizedBox(height: 20),
           _annualStat("Total Gross Pay", "K ${fmt.format(s['annualGross'])}"),
           const SizedBox(height: 12),
@@ -139,8 +139,8 @@ class _PayrollReportsScreenState extends ConsumerState<PayrollReportsScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+        Text(label, style: TextStyle(color: Colors.black.withValues(alpha: 0.55), fontSize: 13)),
+        Text(value, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 16)),
       ],
     );
   }
@@ -165,12 +165,12 @@ class _PayrollReportsScreenState extends ConsumerState<PayrollReportsScreen> {
           _remittanceRow("ZRA — PAYE", s['annualPaye'], "File monthly, pay by 14th", Colors.red, theme),
           _remittanceRow("NAPSA — Employee", s['annualNapsaEmployee'], "5% of gross (capped K1,861.80/mo)", Colors.orange, theme),
           _remittanceRow("NAPSA — Employer", s['annualNapsaEmployer'], "5% of gross (capped K1,861.80/mo)", Colors.deepOrange, theme),
-          _remittanceRow("NHIMA — Employee", s['annualNhimaEmployee'], "1% of gross", Colors.purple, theme),
-          _remittanceRow("NHIMA — Employer", s['annualNhimaEmployer'], "1% of gross", Colors.deepPurple, theme),
+          _remittanceRow("NHIMA — Employee", s['annualNhimaEmployee'], "1% of gross", theme.primaryColor.withValues(alpha: 0.8), theme),
+          _remittanceRow("NHIMA — Employer", s['annualNhimaEmployer'], "1% of gross", theme.primaryColor.withValues(alpha: 0.7), theme),
           if (s['annualSdl'] > 0)
-            _remittanceRow("SDL — Employer", s['annualSdl'], "0.5% of gross (5+ employees)", Colors.teal, theme),
+            _remittanceRow("SDL — Employer", s['annualSdl'], "0.5% of gross (5+ employees)", theme.primaryColor.withValues(alpha: 0.55), theme),
           const Divider(height: 24),
-          _remittanceRow("TOTAL REMITTANCES", s['totalRemittances'], "Annual total to all bodies", Colors.blue.shade700, theme, bold: true),
+          _remittanceRow("TOTAL REMITTANCES", s['totalRemittances'], "Annual total to all bodies", const Color(0xFF7A5C00), theme, bold: true),
         ],
       ),
     );
@@ -208,9 +208,9 @@ class _PayrollReportsScreenState extends ConsumerState<PayrollReportsScreen> {
       _PieItem("PAYE", s['annualPaye'] as double, Colors.red),
       _PieItem("NAPSA (EE)", s['annualNapsaEmployee'] as double, Colors.orange),
       _PieItem("NAPSA (ER)", s['annualNapsaEmployer'] as double, Colors.deepOrange),
-      _PieItem("NHIMA (EE)", s['annualNhimaEmployee'] as double, Colors.purple),
-      _PieItem("NHIMA (ER)", s['annualNhimaEmployer'] as double, Colors.deepPurple),
-      if (s['annualSdl'] > 0) _PieItem("SDL", s['annualSdl'] as double, Colors.teal),
+      _PieItem("NHIMA (EE)", s['annualNhimaEmployee'] as double, theme.primaryColor.withValues(alpha: 0.8)),
+      _PieItem("NHIMA (ER)", s['annualNhimaEmployer'] as double, theme.primaryColor.withValues(alpha: 0.7)),
+      if (s['annualSdl'] > 0) _PieItem("SDL", s['annualSdl'] as double, theme.primaryColor.withValues(alpha: 0.55)),
     ];
 
     return Container(

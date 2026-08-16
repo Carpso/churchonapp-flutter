@@ -181,7 +181,7 @@ class _SosAlertsManagementScreenState extends ConsumerState<SosAlertsManagementS
               children: [
                 if (contactPhone.isNotEmpty) ...[
                   IconButton(
-                    icon: const Icon(LucideIcons.phone, color: Colors.blue),
+                    icon: Icon(LucideIcons.phone, color: Theme.of(context).primaryColor),
                     onPressed: () async {
                       final url = Uri.parse("tel:$contactPhone");
                       if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.inAppWebView);

@@ -71,6 +71,18 @@ class RemoteConfig {
     return parsed.isEmpty ? fallback : parsed;
   }
 
+  /// Comma-separated integer list, e.g. `"100,250,500"`.
+  List<int> getIntList(String key, List<int> fallback) {
+    final v = _values[key];
+    if (v == null || v.isEmpty) return fallback;
+    final parsed = v
+        .split(',')
+        .map((e) => int.tryParse(e.trim()))
+        .whereType<int>()
+        .toList();
+    return parsed.isEmpty ? fallback : parsed;
+  }
+
   // ── Domain helpers ───────────────────────────────────────────────────
 
   /// Length of the free trial granted to a new church (30 days default).

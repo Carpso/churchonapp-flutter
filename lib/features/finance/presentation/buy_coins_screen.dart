@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/platform_settings_service.dart';
 import 'package:church_on_app/core/config/env.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
 import 'package:church_on_app/features/finance/data/coin_purchase_service.dart';
 import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
@@ -36,6 +37,7 @@ class _BuyCoinsScreenState extends ConsumerState<BuyCoinsScreen> {
 
   Widget _buildScreen(BuildContext context, UserProfile? profile) {
     final currentCoins = profile?.coins ?? 0;
+    final packages = CoinPurchaseService.packagesFrom(widgetRemoteConfig(ref));
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
@@ -61,7 +63,7 @@ class _BuyCoinsScreenState extends ConsumerState<BuyCoinsScreen> {
               style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
             ),
             const SizedBox(height: 16),
-            ...CoinPurchaseService.packages.map((pkg) => _buildPackageCard(pkg)),
+            ...packages.map((pkg) => _buildPackageCard(pkg)),
             const SizedBox(height: 24),
             if (_selectedPackage != null) ...[
               SizedBox(

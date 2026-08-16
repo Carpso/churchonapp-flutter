@@ -83,7 +83,7 @@ class _ManagePartnersScreenState extends ConsumerState<ManagePartnersScreen> {
                         title: Text(partner.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text("${partner.type.toUpperCase()} • ${partner.location ?? 'No location'}"),
                         trailing: IconButton(
-                          icon: const Icon(LucideIcons.plusSquare, color: Colors.blue),
+                          icon: Icon(LucideIcons.plusSquare, color: Theme.of(context).primaryColor),
                           tooltip: "Add Offer",
                           onPressed: () => _showAddOfferDialog(partner),
                         ),

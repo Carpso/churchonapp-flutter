@@ -118,14 +118,14 @@ class _AttendanceCheckinScreenState extends ConsumerState<AttendanceCheckinScree
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
               child: Row(children: [
-                Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(LucideIcons.calendarCheck, color: Colors.blue)),
+                Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                  child: Icon(LucideIcons.calendarCheck, color: Theme.of(context).primaryColor)),
                 const SizedBox(width: 14),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   Text(date, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
                 ])),
-                Text("$count${max != null ? '/$max' : ''}", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade600)),
+                Text("$count${max != null ? '/$max' : ''}", style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
                 const SizedBox(width: 8),
                 const Icon(LucideIcons.chevronRight, size: 16, color: Colors.grey),
               ]),
@@ -149,7 +149,7 @@ class _AttendanceCheckinScreenState extends ConsumerState<AttendanceCheckinScree
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
               Column(children: [
-                Text("$_attendeeCount", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 28, color: Colors.blue.shade700)),
+                Text("$_attendeeCount", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 28, color: Theme.of(context).primaryColor)),
                 Text("Attendees", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
               ]),
               Column(children: [

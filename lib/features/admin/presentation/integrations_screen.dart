@@ -31,13 +31,18 @@ class IntegrationsScreen extends StatefulWidget {
 }
 
 class _IntegrationsScreenState extends State<IntegrationsScreen> {
-  final List<Integration> _integrations = [
+  late final List<Integration> _integrations;
+
+  @override
+  void initState() {
+    super.initState();
+    _integrations = [
     Integration(
       id: "api", 
       title: "API & Developers", 
       desc: "Integrate custom microservices and database webhooks with Church On App.", 
       icon: LucideIcons.code, 
-      color: Colors.blue,
+      color: Theme.of(context).primaryColor,
       enabled: true,
       webhookUrl: "https://churchonapp.com/api/webhooks/stewardship",
     ),
@@ -60,7 +65,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
       title: "Accounting Sync", 
       desc: "Integrate real-time cash flow and tithe ledger logs directly with QuickBooks and Xero.", 
       icon: LucideIcons.calculator, 
-      color: Colors.indigo
+      color: Theme.of(context).primaryColor.withValues(alpha: 0.8)
     ),
     Integration(
       id: "parking", 
@@ -74,7 +79,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
       title: "RFID Attendance", 
       desc: "Connect physical lobby scanners and NFC tag readers to log service attendance.", 
       icon: LucideIcons.users, 
-      color: Colors.teal
+      color: Theme.of(context).primaryColor.withValues(alpha: 0.55)
     ),
     Integration(
       id: "tithe", 
@@ -85,7 +90,8 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
       enabled: true,
 
     ),
-  ];
+    ];
+  }
 
   void _configureIntegration(Integration item) {
     final keyCtrl = TextEditingController(text: item.apiKey);

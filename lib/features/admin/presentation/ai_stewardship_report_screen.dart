@@ -53,7 +53,7 @@ class _AIStewardshipReportScreenState extends ConsumerState<AIStewardshipReportS
             _buildAIBrainHeader(),
             const SizedBox(height: 40),
             if (_isLoading)
-              const Center(child: CircularProgressIndicator(color: Colors.blueAccent))
+              Center(child: CircularProgressIndicator(color: Theme.of(context).primaryColor))
             else if (_report != null)
               _buildReportContent()
             else
@@ -70,13 +70,13 @@ class _AIStewardshipReportScreenState extends ConsumerState<AIStewardshipReportS
     return Container(
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        color: Colors.blueAccent.withValues(alpha: 0.1),
+        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.3)),
+        border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          const Icon(LucideIcons.brainCircuit, color: Colors.blueAccent, size: 40),
+          Icon(LucideIcons.brainCircuit, color: Theme.of(context).primaryColor, size: 40),
           const SizedBox(width: 20),
           Expanded(
             child: Column(
@@ -136,8 +136,8 @@ class _AIStewardshipReportScreenState extends ConsumerState<AIStewardshipReportS
     return ElevatedButton(
       onPressed: _isLoading ? null : _generateReport,
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.blueAccent,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.black,
         minimumSize: const Size(double.infinity, 60),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),

@@ -97,7 +97,7 @@ class AdminHubScreen extends ConsumerWidget {
                 LucideIcons.users,
                 "Member Management",
                 "Track your flock, verify baptisms & attendance",
-                Colors.blue,
+                theme.primaryColor,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MemberManagementScreen())),
               ),
             if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
@@ -106,7 +106,7 @@ class AdminHubScreen extends ConsumerWidget {
                 LucideIcons.award,
                 "Baptism Registry",
                 "Official records, dates, and baptism certificates",
-                Colors.indigo,
+                theme.primaryColor,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BaptismRegistryScreen())),
               ),
             if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
@@ -124,7 +124,7 @@ class AdminHubScreen extends ConsumerWidget {
                 LucideIcons.calendarClock,
                 "Service Schedule",
                 "Set weekly service days & Carpso Ride prompts",
-                Colors.teal,
+                theme.primaryColor,
                 () => context.push('/church-schedule'),
               ),
             if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'bookshop_owner' || role == 'vendor' || role == 'merchant')
@@ -151,7 +151,7 @@ class AdminHubScreen extends ConsumerWidget {
                 LucideIcons.truck,
                 "Driver Dashboard",
                 "Ride history, earnings, and deliveries",
-                Colors.blue,
+                theme.primaryColor,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DriverDashboardScreen())),
               ),
             if (role == 'rider')
@@ -160,7 +160,7 @@ class AdminHubScreen extends ConsumerWidget {
                 LucideIcons.map,
                 "Rider Dashboard",
                 "Trip history, stats and saved places",
-                Colors.teal,
+                theme.primaryColor,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RiderDashboardScreen())),
               ),
             if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
@@ -196,7 +196,7 @@ class AdminHubScreen extends ConsumerWidget {
                 LucideIcons.megaphone,
                 "Global Broadcast",
                 "Send push notifications & church-wide alerts",
-                Colors.purple,
+                theme.primaryColor,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const GlobalBroadcastScreen())),
               ),
             if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
@@ -262,7 +262,7 @@ class AdminHubScreen extends ConsumerWidget {
       crossAxisSpacing: 15,
       childAspectRatio: 1.5,
       children: [
-        _buildStatCard(theme, "Total Members", stats.totalMembers.toString(), LucideIcons.users, Colors.blue),
+        _buildStatCard(theme, "Total Members", stats.totalMembers.toString(), LucideIcons.users, theme.primaryColor.withValues(alpha: 0.7)),
         _buildStatCard(theme, "Active Missions", stats.totalMissions.toString(), LucideIcons.zap, Colors.amber),
         _buildStatCard(theme, "Monthly Revenue", stats.recentGiving, LucideIcons.heartPulse, Colors.red),
         _buildStatCard(theme, "Active Couriers", stats.activeCouriers.toString(), LucideIcons.truck, Colors.green),

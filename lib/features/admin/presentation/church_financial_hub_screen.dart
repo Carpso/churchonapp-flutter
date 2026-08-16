@@ -135,10 +135,10 @@ class _ChurchFinancialHubScreenState extends ConsumerState<ChurchFinancialHubScr
       crossAxisSpacing: 12,
       childAspectRatio: 1.3,
       children: [
-        _summaryCard("Tithes (30d)", currency.format(_totalTithes), LucideIcons.church, Colors.purple),
+        _summaryCard("Tithes (30d)", currency.format(_totalTithes), LucideIcons.church, theme.primaryColor),
         _summaryCard("Giving (30d)", currency.format(_totalGiving), LucideIcons.heart, Colors.green),
         _summaryCard("Fundraising", currency.format(_fundraisingTotal), LucideIcons.trendingUp, Colors.amber),
-        _summaryCard("Group Contribs", currency.format(_groupContributionTotal), LucideIcons.users, Colors.teal),
+        _summaryCard("Group Contribs", currency.format(_groupContributionTotal), LucideIcons.users, theme.primaryColor.withValues(alpha: 0.55)),
       ],
     );
   }
@@ -192,7 +192,7 @@ class _ChurchFinancialHubScreenState extends ConsumerState<ChurchFinancialHubScr
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const SizedBox(height: 8),
-          ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: progress, backgroundColor: Colors.grey.shade200, valueColor: AlwaysStoppedAnimation(Colors.teal.shade400), minHeight: 8)),
+          ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: progress, backgroundColor: Colors.grey.shade200, valueColor: AlwaysStoppedAnimation(theme.primaryColor), minHeight: 8)),
           const SizedBox(height: 6),
           Text("K ${NumberFormat.decimalPattern().format(collected)} of K ${NumberFormat.decimalPattern().format(target)}", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
         ]),

@@ -116,10 +116,10 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
             children: [
               Container(
                 padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
                 child: Text(
                   'Cloudflare handles everything: RTMP ingest, transcoding, HLS delivery, and DDoS protection. \$5/mo base + usage.',
-                  style: TextStyle(fontSize: 12, color: Colors.blue[800]),
+                  style: TextStyle(fontSize: 12, color: const Color(0xFF7A5C00)),
                 ),
               ),
             ],
@@ -154,7 +154,7 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
                 '1. dash.cloudflare.com → Stream → Overview',
                 '2. Copy Account ID',
                 '3. My Profile → API Tokens → Create Stream token',
-              ], Colors.blue),
+              ], Theme.of(context).primaryColor),
             ]),
           ] else ...[
             _buildSection('MediaMTX Config', [

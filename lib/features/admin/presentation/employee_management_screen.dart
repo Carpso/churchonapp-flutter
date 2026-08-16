@@ -468,10 +468,10 @@ class _EmployeeManagementScreenState extends ConsumerState<EmployeeManagementScr
         children: [
           const Text("Live Payroll Preview", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const SizedBox(height: 8),
-          _previewRow("Gross", "K${gross.toStringAsFixed(2)}", Colors.blue),
+          _previewRow("Gross", "K${gross.toStringAsFixed(2)}", Theme.of(context).primaryColor),
           _previewRow("PAYE", "-K${payeResult['totalTax'].toStringAsFixed(2)}", Colors.red),
           _previewRow("NAPSA (5%)", "-K${napsa.toStringAsFixed(2)}", Colors.orange),
-          _previewRow("NHIMA (1%)", "-K${nhima.toStringAsFixed(2)}", Colors.purple),
+          _previewRow("NHIMA (1%)", "-K${nhima.toStringAsFixed(2)}", Theme.of(context).primaryColor.withValues(alpha: 0.7)),
           const Divider(),
           _previewRow("NET PAY", "K${net.toStringAsFixed(2)}", Colors.green, bold: true),
         ],

@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/config/fee_config.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
 import '../../../core/services/supabase_service.dart';
 
 class TaxLedgerEntry {
@@ -31,6 +32,7 @@ class TaxLedgerEntry {
 final turnoverTaxLedgerProvider = FutureProvider.family<List<TaxLedgerEntry>, DateTime>((ref, monthDate) async {
   final supabase = ref.read(supabaseServiceProvider);
   final fees = await ref.read(feeConfigProvider.future);
+  final taxRatePercent = currentRemoteConfig(ref).getDouble('turnover_tax_percent', 3.0);
   final startOfMonth = DateTime(monthDate.year, monthDate.month, 1);
   final endOfMonth = DateTime(monthDate.year, monthDate.month + 1, 0, 23, 59, 59);
 
@@ -56,7 +58,7 @@ final turnoverTaxLedgerProvider = FutureProvider.family<List<TaxLedgerEntry>, Da
       coaRevenue = fees.platformFee(amount);
     }
 
-    final tax3Pct = coaRevenue * 0.03;
+    final tax3Pct = coaRevenue * taxRatePercent / 100;
 
     entries.add(TaxLedgerEntry(
       id: map['id']?.toString() ?? '',
@@ -85,6 +87,7 @@ class _TurnoverTaxLedgerScreenState extends ConsumerState<TurnoverTaxLedgerScree
   @override
   Widget build(BuildContext context) {
     final ledgerAsync = ref.watch(turnoverTaxLedgerProvider(_selectedMonth));
+    final taxRatePercent = widgetRemoteConfig(ref).getDouble('turnover_tax_percent', 3.0);
     final monthLabel = DateFormat('MMMM yyyy').format(_selectedMonth);
     final dueDayLabel = DateFormat('MMMM 14, yyyy').format(
       DateTime(_selectedMonth.year, _selectedMonth.month + 1, 14),
@@ -141,7 +144,7 @@ class _TurnoverTaxLedgerScreenState extends ConsumerState<TurnoverTaxLedgerScree
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
-                            child: const Text('3% ZRA Turnover Tax', style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
+                            child: Text('$taxRatePercent% ZRA Turnover Tax', style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
                           ),
                         ],
                       ),
@@ -156,7 +159,7 @@ class _TurnoverTaxLedgerScreenState extends ConsumerState<TurnoverTaxLedgerScree
                 Row(
                   children: [
                     Expanded(
-                      child: _statCard('Gross Volume', 'K${totalGross.toStringAsFixed(2)}', LucideIcons.wallet, Colors.blue),
+                      child: _statCard('Gross Volume', 'K${totalGross.toStringAsFixed(2)}', LucideIcons.wallet, Theme.of(context).primaryColor),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -164,7 +167,7 @@ class _TurnoverTaxLedgerScreenState extends ConsumerState<TurnoverTaxLedgerScree
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: _statCard('Tax Due (3%)', 'K${totalTurnoverTaxDue.toStringAsFixed(2)}', LucideIcons.receipt, Colors.amber),
+                      child: _statCard('Tax Due ($taxRatePercent%)', 'K${totalTurnoverTaxDue.toStringAsFixed(2)}', LucideIcons.receipt, Colors.amber),
                     ),
                   ],
                 ),

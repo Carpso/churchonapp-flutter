@@ -150,10 +150,10 @@ class _AdPaymentSheetState extends ConsumerState<AdPaymentSheet> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(momoPrice, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 13)),
+                child: Text(momoPrice, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor, fontSize: 13)),
               ),
             ),
           ],
