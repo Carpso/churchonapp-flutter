@@ -907,6 +907,34 @@ flutter analyze --no-fatal-infos --no-fatal-warnings
   - **Release builds**: clean (flutter clean + pub get) ? APK `Church On App.apk` 205MB v1.0.0+262, AAB `app-release.aab` 119.1MB v1.0.0+263. Commits `60b0bfb`. Web deployed to Cloudflare Pages (0 exceptions).
   - **Bible audio now self-hosted on R2**: KJV dramatized (127 range files) + DBSOT dramatized OT stories (20 files + m4b) + TTS per-chapter (`audio/kjv/`) uploaded to `media.churchonapp.com`. App wired: chapter player, podcast, verse-of-the-day listen button, quiz scripture listen button, kids zone stories. Archive.org URLs removed. 93 stale `_kjv_128kb.mp3` duplicates deleted; 58 `.wav` placeholders remain (15 B – 352 KB, unused) — safe to delete.
   - **Remaining knowns**: Communities from Life/MoreHub uses the SAME CommunitiesScreen as Connect (no red styling in code); KYC flow is mobile-only (uses dart:io File); 11 info-level analyze issues remain (pre-existing, all in kids/data_import/quiz/wallet files).
+- **Session 2026-08-16 — Placeholder-URL sign-in bug killed (CRIT) + web redeploy**:
+  - **Root cause of "you're offline" / Google sign-in failure**: every CI workflow
+    (`ci.yml`, `ci-cd.yml`, `deploy-web.yml`, `test-lab.yml`) ran `cp .env.example
+    .env` — so EVERY CI-built APK/AAB/web bundle shipped `SUPABASE_URL=https://your-project.supabase.co`
+    (DNS unresolvable → auth requests fail → app reports "you're offline").
+    Local builds were fine (real `.env`).
+  - **Fix**: all 4 workflows now materialize `.env` from a new `ENV_FILE`
+    GitHub secret (`printf '%s' "$ENV_FILE" > .env`, step-level `env: ENV_FILE:
+    ${{ secrets.ENV_FILE }}`), falling back to `.env.example` only when the
+    secret is unset. **⚠ USER ACTION REQUIRED**: add repo secret `ENV_FILE` =
+    full contents of local `.env` (`gh secret set ENV_FILE --body "$(Get-Content .env -Raw)"`).
+    Without it, CI builds still ship the placeholder.
+  - **Startup guard (app)**: `Env.isSupabaseConfigured` (`lib/core/config/env.dart`)
+    = URL non-empty, not containing `your-project`, and anon key starts with
+    `eyJ`. `main.dart` now hard-stops with a `_EnvConfigErrorApp` screen
+    ("App is not configured") if the bundled .env is placeholder/missing —
+    a bad build can no longer silently masquerade as working.
+  - **Quiz arena crash guard**: `_buildGameplay` in `bible_quiz_arena_screen.dart`
+    returns a "No questions available" state instead of `_questions[_currentIndex]`
+    RangeError when the batch loads empty/out-of-range.
+  - **Select-tenant refresh**: `_refreshAll()` refetches tenants AND OSM pins;
+    Refresh chip + `_initTenants` use it (plain `_fetchTenants` cleared OSM pins).
+  - **Web redeployed**: `flutter build web --release` (real .env) →
+    `wrangler pages deploy build/web --project-name=churchonapp --branch=main`
+    (wrangler OAuth logged in, no token needed). Verified live via byte-identical
+    `main.dart.js` (8,642,671 bytes). Fixes churchonapp.com sign-in + public
+    church website white screens. Commit `d01bf8c` (pushed).
+  - **`flutter analyze`**: 0 errors, 0 warnings (10 pre-existing info).
 ## How To: Reuse Lipila + FX in Other Projects
 
 The Lipila payment integration now includes a **shared FX service** that other
