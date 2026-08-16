@@ -112,7 +112,11 @@ class _QuizCcStoreScreenState extends ConsumerState<QuizCcStoreScreen> {
         backgroundColor: Colors.transparent,
         title: const Text(
           "QUIZ CC STORE",
-          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.2,
+          ),
         ),
       ),
       body: RefreshIndicator(

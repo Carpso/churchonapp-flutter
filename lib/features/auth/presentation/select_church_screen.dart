@@ -348,7 +348,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                         _selectTenant(tenant);
                       } else {
                         _toast(
-                          "${tenant['name'] ?? 'This church'} is pending approval — its registration is being reviewed by our team.",
+                          "${tenant['name'] ?? 'This church'} is not on Church On App yet — coming soon!",
                         );
                       }
                     },
@@ -719,7 +719,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
           _selectTenant(tenant);
         } else {
           _toast(
-            "${tenant['name'] ?? 'This church'} is pending approval — its registration is being reviewed by our team.",
+            "${tenant['name'] ?? 'This church'} is not on Church On App yet — coming soon!",
           );
         }
       },
@@ -873,7 +873,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
             else
               GestureDetector(
                 onTap: () => _toast(
-                  "${tenant['name'] ?? 'This church'} is pending approval — its registration is being reviewed by our team.",
+                  "${tenant['name'] ?? 'This church'} is not on Church On App yet — coming soon!",
                 ),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -886,7 +886,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                     border: Border.all(color: Colors.amber),
                   ),
                   child: Text(
-                    "Pending Approval",
+                    "Coming Soon",
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.orange.shade800,

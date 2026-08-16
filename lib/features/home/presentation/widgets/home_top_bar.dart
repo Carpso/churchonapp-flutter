@@ -111,13 +111,12 @@ class HomeTopBar extends StatelessWidget {
     );
   }
 
-  String _abbreviateChurchName(Tenant? tenant) {
+String _abbreviateChurchName(Tenant? tenant) {
     if (tenant == null) return '';
 
     final name = tenant.name.trim();
     if (name.isEmpty) return 'Church';
-    if (name.length <= 12) return name;
-    return '${name.substring(0, 10)}...';
+    return name;
   }
 
   Widget _buildWeatherChip(BuildContext context) {

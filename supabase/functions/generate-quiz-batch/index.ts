@@ -31,11 +31,15 @@ function buildGeminiPrompt(
   category?: string,
   difficulty?: string,
   excludeQuestions?: string[],
+  topic?: string,
 ): string {
   const catHint = category ? `Focus on the "${category}" category. ` : "";
   const diffHint = difficulty
     ? `Target difficulty: "${difficulty}". `
     : "Mix of Easy, Medium, and Hard questions. ";
+  const topicHint = topic
+    ? `Topic/theme: "${topic}". Generate questions about this specific topic. `
+    : "";
   const excludeHint =
     excludeQuestions && excludeQuestions.length > 0
       ? `Do NOT repeat or closely resemble any of these questions: ${excludeQuestions.slice(0, 20).join("; ")}. `
@@ -43,7 +47,7 @@ function buildGeminiPrompt(
 
   return `You are a world-class Bible quiz content generator. Generate exactly ${count} multiple-choice Bible quiz questions for a competitive quiz app.
 
-${catHint}${diffHint}${excludeHint}
+${catHint}${diffHint}${topicHint}${excludeHint}
 Requirements:
 - Every question must be factually accurate and based on Scripture
 - 4 options per question, exactly ONE correct
@@ -204,11 +208,13 @@ Deno.serve(async (req) => {
       category = null,
       difficulty = null,
       excludeQuestions = [],
+      topic = null,
     } = body as {
       count?: number;
       category?: string | null;
       difficulty?: string | null;
       excludeQuestions?: string[];
+      topic?: string | null;
     };
 
     // Limit batch size
@@ -246,6 +252,7 @@ Deno.serve(async (req) => {
       category ?? undefined,
       difficulty ?? undefined,
       excludeQuestions,
+      topic ?? undefined,
     );
 
     const questions = await callGeminiAPI(prompt, geminiKey);

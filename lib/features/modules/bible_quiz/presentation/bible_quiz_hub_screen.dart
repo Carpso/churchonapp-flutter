@@ -1144,7 +1144,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             bottom: MediaQuery.of(context).viewInsets.bottom + 30,
           ),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
+            color: const Color(0xFF151A2E),
             borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
           ),
           child: Column(
@@ -1415,6 +1415,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   }
 
   void _showAiSeedingModal() {
+    final promptCtrl = TextEditingController();
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1423,7 +1424,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
         height: MediaQuery.of(context).size.height * 0.8,
         padding: const EdgeInsets.all(25),
         decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
+          color: const Color(0xFF151A2E),
           borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
         ),
         child: Column(
@@ -1489,10 +1490,11 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             ),
             const SizedBox(height: 10),
             TextField(
+              controller: promptCtrl,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 hintText: "e.g. Generate 50 questions on the Book of Acts...",
-                hintStyle: const TextStyle(color: Colors.white24),
+                hintStyle: const TextStyle(color: Colors.white38),
                 filled: true,
                 fillColor: Colors.black26,
                 border: OutlineInputBorder(
@@ -1505,13 +1507,26 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: () async {
+                final prompt = promptCtrl.text.trim();
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("AI Engine Processing & Seeding DB..."),
+                  SnackBar(
+                    content: Text(
+                      prompt.isEmpty
+                          ? "Seeding canonical question bank..."
+                          : "AI generating questions for: \"$prompt\"...",
+                    ),
                   ),
                 );
-                await ref.read(bibleQuizServiceProvider).seedQuestions();
+                try {
+                  if (prompt.isEmpty) {
+                    await ref.read(bibleQuizServiceProvider).seedQuestions();
+                  } else {
+                    await _seedViaAi(prompt);
+                  }
+                } catch (e) {
+                  debugPrint("AI seeding error: $e");
+                }
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -1542,6 +1557,33 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
         ),
       ),
     );
+  }
+
+  /// Seeds questions via the generate-quiz-batch Edge Function using a
+  /// free-text topic prompt (Gemini on the server).
+  Future<void> _seedViaAi(String topic) async {
+    try {
+      final existingRes = await Supabase.instance.client
+          .from('quiz_questions')
+          .select('question')
+          .limit(200);
+      final exclude = (existingRes as List)
+          .map((q) => q['question'] as String)
+          .toList();
+      final res = await Supabase.instance.client.functions.invoke(
+        'generate-quiz-batch',
+        body: {
+          'count': 50,
+          'topic': topic,
+          'excludeQuestions': exclude,
+        },
+      );
+      final data = res.data as Map<String, dynamic>?;
+      final inserted = (data?['inserted'] as int?) ?? 0;
+      debugPrint('[BibleQuiz] AI seeded $inserted questions for "$topic"');
+    } catch (e) {
+      debugPrint('[BibleQuiz] AI seeding failed: $e');
+    }
   }
 
   void _startSoloPlay() {
@@ -1781,10 +1823,21 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
     );
     if (!mounted) return;
     if (match == null) {
-      showBuyCoinsSheet(
-        context,
-        reason: 'Not enough Church Coins to send this challenge.',
-      );
+      if (wagerCoins > 0) {
+        showBuyCoinsSheet(
+          context,
+          reason: 'Not enough Church Coins to send this challenge.',
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not send the invite right now. Please try again.',
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1875,7 +1928,35 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                 const SizedBox(height: 16),
                 Expanded(
                   child: leaderboardAsync.when(
-                    data: (users) => ListView.builder(
+                    data: (users) => users.isEmpty
+                        ? const Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(LucideIcons.trophy,
+                                    color: Colors.white24, size: 48),
+                                SizedBox(height: 12),
+                                Text(
+                                  "No scores yet this week",
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  "Play a match or the daily challenge to claim the top spot!",
+                                  style: TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 13,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
                       itemCount: users.length,
                       itemBuilder: (context, index) {
                         final user = users[index];

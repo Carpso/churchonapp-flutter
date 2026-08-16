@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -6,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import '../data/chat_service.dart';
 import '../data/community_service.dart';
+import '../data/presence_service.dart';
 import 'chat_messenger_screen.dart';
 import 'group_details_screen.dart';
 import '../../modules/media/presentation/events_list_screen.dart';
@@ -21,11 +23,20 @@ class CommunitiesScreen extends ConsumerStatefulWidget {
 class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
   List<Map<String, dynamic>> _churchMembers = [];
   bool _loadingMembers = true;
+  Set<String> _onlineIds = {};
+  StreamSubscription<Set<String>>? _presenceSub;
 
   @override
   void initState() {
     super.initState();
+    ref.read(presenceServiceProvider).startHeartbeat();
     _loadMembers();
+  }
+
+  @override
+  void dispose() {
+    _presenceSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadMembers() async {
@@ -41,6 +52,23 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
         _loadingMembers = false;
       });
     }
+    _watchPresence(members);
+  }
+
+  void _watchPresence(List<Map<String, dynamic>> members) {
+    _presenceSub?.cancel();
+    final ids = members
+        .map((m) => m['id']?.toString())
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toList();
+    if (ids.isEmpty) return;
+    _presenceSub = ref
+        .read(presenceServiceProvider)
+        .watchOnlineIds(ids)
+        .listen((online) {
+      if (mounted) setState(() => _onlineIds = online);
+    });
   }
 
   @override
@@ -390,7 +418,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
                     width: 12,
                     height: 12,
                     decoration: BoxDecoration(
-                      color: Colors.green,
+                      color: _onlineIds.contains(id) ? Colors.green : Colors.grey,
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 2),
                     ),

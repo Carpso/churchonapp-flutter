@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -86,6 +87,10 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   PvPMatch? _pvpMatch;
   Map<String, dynamic>? _p1Profile;
   Map<String, dynamic>? _p2Profile;
+
+  /// When no human opponent joins, Kael AI steps in as the challenger.
+  bool _kaelOpponent = false;
+  final Random _random = Random();
 
   // Anti-cheat: track if app was backgrounded during a question
   bool _wasBackgroundedDuringQuestion = false;
@@ -222,37 +227,53 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
         );
         if (!mounted) return;
         if (match == null) {
-          setState(() => _loadingError = true);
-          return;
-        }
-        _pvpMatch = match;
+          // Match creation failed (RPC hiccup) — Kael AI steps in so the
+          // player is never stranded on the matchmaking screen.
+          _kaelOpponent = true;
+        } else {
+          _pvpMatch = match;
 
-        // If match is still pending (we created it), wait for opponent
-        if (match.status == 'pending') {
-          final accepted = await _pvpService!.waitForMatch(match.id,
-              timeout: const Duration(seconds: 25));
-          if (!mounted) return;
-          if (accepted == null) {
-            setState(() => _loadingError = true);
-            return;
+          // If match is still pending (we created it), wait for opponent.
+          // Nobody joined within 25s → Kael AI takes the challenge.
+          if (match.status == 'pending') {
+            final accepted = await _pvpService!.waitForMatch(match.id,
+                timeout: const Duration(seconds: 25));
+            if (!mounted) return;
+            if (accepted == null) {
+              _kaelOpponent = true;
+            } else {
+              _pvpMatch = accepted;
+            }
           }
-          _pvpMatch = accepted;
         }
 
-        // Connect to Realtime broadcast channel
-        _pvpService!.connectToChannel(_pvpMatch!);
+        if (_kaelOpponent) {
+          _p2Profile = {
+            'name': 'Kael AI',
+            'avatar': '',
+            'church': 'Church On App · AI Opponent',
+          };
+        } else if (!mounted) {
+          return;
+        } else {
+          // Connect to Realtime broadcast channel
+          _pvpService!.connectToChannel(_pvpMatch!);
 
-        // Listen for opponent answers → update opponent score via callback
-        _pvpService!.onOpponentAnswered = (payload) {
-          if (!mounted) return;
-          final score = payload['score'] as int? ?? 0;
-          setState(() => _opponentScore = score);
-        };
+          // Listen for opponent answers → update opponent score via callback
+          _pvpService!.onOpponentAnswered = (payload) {
+            if (!mounted) return;
+            final score = payload['score'] as int? ?? 0;
+            setState(() => _opponentScore = score);
+          };
 
-        // Fetch profiles for VS reveal
-        _p1Profile = await _fetchPlayerDetail(_pvpMatch!.player1Id);
-        if (_pvpMatch!.player2Id != null) {
-          _p2Profile = await _fetchPlayerDetail(_pvpMatch!.player2Id!);
+          // Fetch profiles for VS reveal
+          _p1Profile = await _fetchPlayerDetail(_pvpMatch!.player1Id);
+          if (_pvpMatch!.player2Id != null) {
+            _p2Profile = await _fetchPlayerDetail(_pvpMatch!.player2Id!);
+          }
+        }
+        if (_pvpMatch != null && _p1Profile == null) {
+          _p1Profile = await _fetchPlayerDetail(_pvpMatch!.player1Id);
         }
       } catch (e) {
         debugPrint('[PvP] Match setup failed: $e');
@@ -414,6 +435,15 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
         _doubleUsed = false;
         if (_fiftyFiftyIndex == _currentIndex) _fiftyFiftyIndex = null;
 
+        // Kael AI opponent answers with ~65% accuracy, mimicking streaks.
+        if (_kaelOpponent) {
+          final q = _questions[_currentIndex];
+          if (_random.nextDouble() < 0.65) {
+            _opponentScore += q.points;
+            if (_random.nextDouble() < 0.4) _opponentScore += 5;
+          }
+        }
+
         _phase = GamePhase.feedback;
       });
 
@@ -542,10 +572,10 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       }
     }
 
-    try {
+try {
       await _service.recordAnsweredQuestions(
         questionIds: _questions.map((q) => q.id).toList(),
-        matchId: _pvpMatch?.id,
+        matchId: _kaelOpponent ? null : _pvpMatch?.id,
         isCorrect: List.generate(_questions.length, (i) => _answers[i] == _questions[i].correctAnswer),
         answers: _answers.map((e) => e ?? -1).toList(),
         responseTimesMs: _responseTimesMs,
@@ -555,7 +585,10 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     }
 
     // Complete PvP match (server-side settlement: verified scores + ELO + wager)
-    if (widget.mode != 'Solo' && _pvpMatch != null && _pvpService != null) {
+    if (widget.mode != 'Solo' &&
+        !_kaelOpponent &&
+        _pvpMatch != null &&
+        _pvpService != null) {
       try {
         await _pvpService!.completeMatch(_pvpMatch!);
       } catch (e) {
@@ -875,7 +908,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     CircleAvatar(
-                      radius: 28,
+                      radius: 36,
                       backgroundColor: theme.primaryColor.withAlpha(80),
                       child: Icon(LucideIcons.user, color: theme.primaryColor),
                     ),
@@ -884,14 +917,20 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
                       child: Text('VS', style: TextStyle(color: theme.primaryColor, fontSize: 18, fontWeight: FontWeight.w900)),
                     ),
                     CircleAvatar(
-                      radius: 28,
+                      radius: 36,
                       backgroundColor: Theme.of(context).colorScheme.surface.withAlpha(20),
                       child: const SizedBox(
-                        width: 20, height: 20,
+                        width: 22, height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'If no challenger joins, Kael AI will step in.',
+                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                  textAlign: TextAlign.center,
                 ),
               ],
               const SizedBox(height: 30),
