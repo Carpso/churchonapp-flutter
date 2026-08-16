@@ -125,6 +125,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
     // Wire XP service into bible quiz feature lifecycle
     ref.watch(xpServiceProvider);
 
+    final theme = Theme.of(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFF0D1117),
       appBar: AppBar(
@@ -157,13 +159,15 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(25),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
+                  gradient: LinearGradient(
+                    colors: [theme.primaryColor, theme.primaryColor.withValues(alpha: 0.75)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(25),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF2575FC).withValues(alpha: 0.4),
+                      color: theme.primaryColor.withValues(alpha: 0.4),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
@@ -220,8 +224,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                     ElevatedButton.icon(
                       onPressed: _showJoinLiveModal,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF2575FC),
+                        backgroundColor: Colors.black,
+                        foregroundColor: theme.primaryColor,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 25,
                           vertical: 15,
@@ -268,28 +272,28 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                     "Any User",
                     "Global Match",
                     LucideIcons.users,
-                    Colors.blueAccent,
+                    theme.primaryColor,
                     "Global",
                   ),
                   _buildP2PCard(
                     "My Church",
                     "Same Church Only",
                     LucideIcons.home,
-                    Colors.greenAccent,
+                    theme.primaryColor.withValues(alpha: 0.75),
                     "Church",
                   ),
                   _buildP2PCard(
                     "Random",
                     "Instant Play",
                     LucideIcons.shuffle,
-                    Colors.purpleAccent,
+                    theme.primaryColor.withValues(alpha: 0.55),
                     "Random",
                   ),
                   _buildP2PCard(
                     "Any COA User",
                     "Play COA Staff",
                     LucideIcons.globe,
-                    Colors.pinkAccent,
+                    theme.primaryColor.withValues(alpha: 0.4),
                     "Any COA",
                   ),
                 ],
@@ -301,23 +305,23 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.blueAccent.withAlpha(20),
+                    color: theme.primaryColor.withAlpha(20),
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: Colors.blueAccent.withAlpha(50)),
+                    border: Border.all(color: theme.primaryColor.withAlpha(50)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         LucideIcons.userPlus,
-                        color: Colors.blueAccent,
+                        color: theme.primaryColor,
                         size: 20,
                       ),
                       const SizedBox(width: 10),
                       Text(
                         "Invite a Friend to PvP",
                         style: TextStyle(
-                          color: Colors.blueAccent,
+                          color: theme.primaryColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
@@ -348,7 +352,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                       "Solo Play",
                       "Engine Generated",
                       LucideIcons.smartphone,
-                      Colors.orangeAccent,
+                      theme.primaryColor,
                       _startSoloPlay,
                     ),
                   ),
@@ -358,7 +362,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                       "World Rank",
                       "Global Leaderboard",
                       LucideIcons.trophy,
-                      Colors.amber,
+                      theme.primaryColor.withValues(alpha: 0.75),
                       _showLeaderboard,
                     ),
                   ),
@@ -373,7 +377,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                       "Learning Mode",
                       "No Timer, Study",
                       LucideIcons.bookOpen,
-                      Colors.greenAccent,
+                      theme.primaryColor.withValues(alpha: 0.55),
                       _startLearningMode,
                     ),
                   ),
@@ -383,7 +387,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                       "Daily Challenge",
                       "Daily Questions",
                       LucideIcons.calendar,
-                      Colors.pinkAccent,
+                      theme.primaryColor.withValues(alpha: 0.4),
                       _startDailyChallenge,
                     ),
                   ),
@@ -410,26 +414,26 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Colors.greenAccent.withAlpha(30),
-                        Colors.tealAccent.withAlpha(15),
+                        theme.primaryColor.withAlpha(30),
+                        theme.primaryColor.withAlpha(15),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: Colors.greenAccent.withAlpha(50)),
+                    border: Border.all(color: theme.primaryColor.withAlpha(50)),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.greenAccent.withAlpha(25),
+                          color: theme.primaryColor.withAlpha(25),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           LucideIcons.trophy,
-                          color: Colors.greenAccent,
+                          color: theme.primaryColor,
                           size: 24,
                         ),
                       ),
@@ -487,28 +491,28 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                       "Interrogative",
                       "According to...",
                       LucideIcons.helpCircle,
-                      Colors.blueAccent,
+                      theme.primaryColor,
                     ),
                     const SizedBox(width: 15),
                     _buildFormatCard(
                       "Quotation",
                       "Quote...",
                       LucideIcons.quote,
-                      Colors.greenAccent,
+                      theme.primaryColor.withValues(alpha: 0.75),
                     ),
                     const SizedBox(width: 15),
                     _buildFormatCard(
                       "Chapter & Verse",
                       "In what chapter...",
                       LucideIcons.bookOpen,
-                      Colors.purpleAccent,
+                      theme.primaryColor.withValues(alpha: 0.55),
                     ),
                     const SizedBox(width: 15),
                     _buildFormatCard(
                       "Multiple Answer",
                       "Give a complete answer...",
                       LucideIcons.listOrdered,
-                      Colors.orangeAccent,
+                      theme.primaryColor.withValues(alpha: 0.4),
                     ),
                   ],
                 ),
@@ -531,7 +535,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                 "Host a Quiz Tournament",
                 "Lease the engine to host a live church event.",
                 LucideIcons.presentation,
-                Colors.tealAccent,
+                theme.primaryColor,
                 _showLeaseModal,
               ),
 
@@ -542,7 +546,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                   "Superadmin: AI Question Seeding",
                   "Extract canonical questions via AI",
                   LucideIcons.sparkles,
-                  Colors.pinkAccent,
+                  theme.primaryColor.withValues(alpha: 0.7),
                   _showAiSeedingModal,
                 ),
               ],
@@ -561,12 +565,14 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFFFD700), Color(0xFFFF8C00)],
+          colors: [Color(0xFFFFDA03), Color(0xFFE8A400)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: Colors.amber.withValues(alpha: 0.4),
+            color: Colors.black.withValues(alpha: 0.35),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -578,20 +584,20 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(LucideIcons.crown, color: Colors.white, size: 40),
+              const Icon(LucideIcons.crown, color: Colors.black, size: 40),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: Colors.black.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   _currentSeason,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Colors.black87,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
@@ -603,7 +609,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
           Text(
             _trophyTitle,
             style: const TextStyle(
-              color: Colors.white,
+              color: Colors.black,
               fontSize: 24,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.5,
@@ -613,13 +619,13 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
+              color: Colors.black.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               "Week $_weekNumber — $_seasonWeeks weeks remaining",
               style: const TextStyle(
-                color: Colors.white,
+                color: Colors.black87,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),
@@ -628,7 +634,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
           const SizedBox(height: 8),
           Text(
             _trophySubtitle,
-            style: const TextStyle(color: Colors.white70, fontSize: 13),
+            style: const TextStyle(color: Colors.black87, fontSize: 13),
           ),
           const SizedBox(height: 25),
           Row(
@@ -647,8 +653,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.deepOrange,
+                    backgroundColor: Colors.black,
+                    foregroundColor: const Color(0xFFFFDA03),
                     minimumSize: const Size(double.infinity, 55),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(15),
@@ -667,14 +673,14 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                   icon: const Icon(
                     LucideIcons.barChart3,
                     size: 15,
-                    color: Colors.white,
+                    color: Colors.black87,
                   ),
                   label: const FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
                       "LEADERBOARD",
                       style: TextStyle(
-                        color: Colors.white,
+                        color: Colors.black87,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,
@@ -682,7 +688,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                     ),
                   ),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.white38),
+                    side: const BorderSide(color: Colors.black38),
                     minimumSize: const Size(double.infinity, 55),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(15),
@@ -695,7 +701,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                 onPressed: () => _showTrophyInfo(context),
                 icon: const Icon(
                   LucideIcons.info,
-                  color: Colors.white54,
+                  color: Colors.black54,
                   size: 20,
                 ),
               ),
@@ -708,12 +714,12 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
               onPressed: _showEditTrophyDialog,
               icon: const Icon(
                 LucideIcons.settings,
-                color: Colors.white54,
+                color: Colors.black54,
                 size: 16,
               ),
               label: const Text(
                 "Edit Trophy Settings",
-                style: TextStyle(color: Colors.white54, fontSize: 12),
+                style: TextStyle(color: Colors.black54, fontSize: 12),
               ),
             ),
           ],
@@ -810,7 +816,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(LucideIcons.trophy, color: Colors.amber, size: 60),
+            Icon(LucideIcons.trophy,
+                color: Theme.of(context).primaryColor, size: 60),
             const SizedBox(height: 20),
             const Text(
               "Church On App Trophy",
@@ -841,8 +848,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                       const Text("🥇", style: TextStyle(fontSize: 28)),
                       Text(
                         "$_prize1 CC",
-                        style: const TextStyle(
-                          color: Colors.amber,
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -853,8 +860,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                       const Text("🥈", style: TextStyle(fontSize: 28)),
                       Text(
                         "$_prize2 CC",
-                        style: const TextStyle(
-                          color: Colors.amber,
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -865,8 +872,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                       const Text("🥉", style: TextStyle(fontSize: 28)),
                       Text(
                         "$_prize3 CC",
-                        style: const TextStyle(
-                          color: Colors.amber,
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -897,6 +904,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
     String mode,
   ) {
     final isThisConnecting = _isConnecting && _connectingMode == mode;
+    final theme = Theme.of(context);
 
     return GestureDetector(
       onTap: _isConnecting ? null : () => _startP2P(mode),
@@ -905,12 +913,12 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
           color: isThisConnecting
-              ? Colors.blue.withValues(alpha: 0.4)
+              ? theme.primaryColor.withValues(alpha: 0.25)
               : Color.lerp(iconColor, const Color(0xFF0D1117), 0.55),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isThisConnecting
-                ? Colors.blue
+                ? theme.primaryColor
                 : iconColor.withValues(alpha: 0.4),
             width: isThisConnecting ? 2 : 1,
           ),
@@ -1227,7 +1235,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                         }
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2575FC),
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.black,
                   minimumSize: const Size(double.infinity, 60),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
@@ -1236,7 +1245,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                 child: Text(
                   isVerifying ? "VERIFYING..." : "ENTER ARENA",
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Colors.black,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.5,
                   ),
@@ -1292,15 +1301,21 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.amber.shade50,
+                    color: Theme.of(context)
+                        .primaryColor
+                        .withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.amber.shade100),
+                    border: Border.all(
+                      color: Theme.of(context)
+                          .primaryColor
+                          .withValues(alpha: 0.25),
+                    ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         LucideIcons.crown,
-                        color: Colors.amber,
+                        color: Theme.of(context).primaryColor,
                         size: 30,
                       ),
                       const SizedBox(width: 15),
@@ -1325,9 +1340,9 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                             const SizedBox(height: 5),
                             Text(
                               "$leaseFeeCc CC",
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w900,
-                                color: Colors.amber,
+                                color: Theme.of(context).primaryColor,
                                 fontSize: 18,
                               ),
                             ),
@@ -1381,10 +1396,10 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                         reason: 'Buy Church Coins to lease the Quiz Engine.',
                       );
                     },
-                    child: const Text(
+                    child: Text(
                       "Need CC? Buy Church Coins",
                       style: TextStyle(
-                        color: Colors.amber,
+                        color: Theme.of(context).primaryColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
@@ -1416,7 +1431,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
           children: [
             const Row(
               children: [
-                Icon(LucideIcons.brainCircuit, color: Colors.pinkAccent),
+                Icon(LucideIcons.brainCircuit, color: Colors.white),
                 SizedBox(width: 10),
                 Text(
                   "AI Question Seeding",
@@ -1507,17 +1522,18 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.pinkAccent,
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.black,
                 minimumSize: const Size(double.infinity, 60),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15),
                 ),
               ),
-              icon: const Icon(LucideIcons.sparkles, color: Colors.white),
+              icon: const Icon(LucideIcons.sparkles, color: Colors.black),
               label: const Text(
                 "GENERATE & SEED DB",
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Colors.black,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -1590,6 +1606,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
 
   Widget _storeCard() {
     final coins = ref.read(profileProvider).value?.coins ?? 0;
+    final theme = Theme.of(context);
     return GestureDetector(
       onTap: _openStore,
       child: Container(
@@ -1602,28 +1619,28 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+          border: Border.all(color: theme.primaryColor.withValues(alpha: 0.4)),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.15),
+                color: theme.primaryColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(LucideIcons.store,
-                  color: Colors.amber, size: 26),
+              child: Icon(LucideIcons.store,
+                  color: theme.primaryColor, size: 26),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     "QUIZ CC STORE",
                     style: TextStyle(
-                      color: Colors.amber,
+                      color: theme.primaryColor,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.2,
                       fontSize: 14,
@@ -1638,8 +1655,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                 ],
               ),
             ),
-            const Icon(LucideIcons.chevronRight,
-                color: Colors.amber, size: 20),
+            Icon(LucideIcons.chevronRight,
+                color: theme.primaryColor, size: 20),
           ],
         ),
       ),
@@ -1676,6 +1693,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   }
 
   void _chooseWager(String memberId, String memberName) {
+    final theme = Theme.of(context);
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF151A2E),
@@ -1721,17 +1739,17 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                   .map((w) => ChoiceChip(
                         label: Text(
                           w == 0 ? "Free" : "$w CC",
-                          style: const TextStyle(
-                            color: Colors.amber,
+                          style: TextStyle(
+                            color: theme.primaryColor,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         selected: false,
-                        selectedColor: Colors.amber,
+                        selectedColor: theme.primaryColor,
                         backgroundColor: const Color(0xFF232845),
                         side: BorderSide(
-                            color: Colors.amber.withValues(alpha: 0.5)),
-                        labelStyle: const TextStyle(color: Colors.amber),
+                            color: theme.primaryColor.withValues(alpha: 0.5)),
+                        labelStyle: TextStyle(color: theme.primaryColor),
                         onSelected: (_) {
                           Navigator.pop(ctx);
                           _sendInvite(memberId, memberName, w);
@@ -1811,6 +1829,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
         builder: (context, ref, child) {
           final leaderboardAsync = ref.watch(quizLeaderboardProvider);
           final top3 = ['$_prize1 CC', '$_prize2 CC', '$_prize3 CC'];
+          final theme = Theme.of(context);
           return Container(
             height: MediaQuery.of(context).size.height * 0.75,
             padding: const EdgeInsets.all(25),
@@ -1820,7 +1839,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             ),
             child: Column(
               children: [
-                const Icon(LucideIcons.trophy, color: Colors.amber, size: 36),
+                Icon(LucideIcons.trophy, color: theme.primaryColor, size: 36),
                 const SizedBox(height: 6),
                 Text(
                   "$_trophyTitle — Week $_weekNumber",
@@ -1832,8 +1851,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                 ),
                 Text(
                   "Weekly rewards: $_prize1 CC | $_prize2 CC | $_prize3 CC",
-                  style: const TextStyle(
-                    color: Colors.amber,
+                  style: TextStyle(
+                    color: theme.primaryColor,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1845,12 +1864,12 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.15),
+                    color: theme.primaryColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     "Lasts $_seasonWeeks weeks — New winners every Monday!",
-                    style: const TextStyle(color: Colors.amber, fontSize: 11),
+                    style: TextStyle(color: theme.primaryColor, fontSize: 11),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1870,12 +1889,14 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: isTop3
-                                ? Colors.amber.withValues(alpha: 0.1)
+                                ? theme.primaryColor.withValues(alpha: 0.1)
                                 : Colors.white.withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(16),
                             border: isTop3
                                 ? Border.all(
-                                    color: Colors.amber.withValues(alpha: 0.3),
+                                    color: theme.primaryColor.withValues(
+                                      alpha: 0.3,
+                                    ),
                                   )
                                 : null,
                           ),
@@ -1886,7 +1907,9 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                                 height: 36,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: isTop3 ? Colors.amber : Colors.white10,
+                                  color: isTop3
+                                      ? theme.primaryColor
+                                      : Colors.white10,
                                 ),
                                 child: Center(
                                   child: isTop3
@@ -1919,8 +1942,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                                     if (isTop3)
                                       Text(
                                         "Reward: ${top3[index]}",
-                                        style: const TextStyle(
-                                          color: Colors.amber,
+                                        style: TextStyle(
+                                          color: theme.primaryColor,
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -1991,10 +2014,10 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           "NETWORK-WIDE COMPETITIONS",
           style: TextStyle(
-            color: Colors.amberAccent,
+            color: Theme.of(context).primaryColor,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.5,
             fontSize: 12,
@@ -2031,7 +2054,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                   comp.title,
                   "National Final • Join with PIN",
                   LucideIcons.crown,
-                  Colors.amber,
+                  Theme.of(context).primaryColor,
                   () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -2192,7 +2215,7 @@ class _FriendPickerSheetState extends ConsumerState<_FriendPickerSheet> {
           Expanded(
             child: _loading
                 ? const Center(
-                    child: CircularProgressIndicator(color: Colors.amber))
+                    child: CircularProgressIndicator(color: Colors.white))
                 : _filtered.isEmpty
                     ? const Center(
                         child: Text('No members found',
@@ -2206,8 +2229,8 @@ class _FriendPickerSheetState extends ConsumerState<_FriendPickerSheet> {
                               m['full_name']?.toString() ?? 'Member';
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: Colors.amber.withValues(
-                                  alpha: 0.2),
+                              backgroundColor: Colors.white.withValues(
+                                  alpha: 0.15),
                               foregroundImage: m['avatar_url'] != null &&
                                       m['avatar_url'].toString().isNotEmpty
                                   ? NetworkImage(m['avatar_url'].toString())
@@ -2216,7 +2239,7 @@ class _FriendPickerSheetState extends ConsumerState<_FriendPickerSheet> {
                                       m['avatar_url'].toString().isEmpty
                                   ? Text(name.isNotEmpty ? name[0] : '?',
                                       style: const TextStyle(
-                                          color: Colors.amber,
+                                          color: Colors.white,
                                           fontWeight: FontWeight.bold))
                                   : null,
                             ),
@@ -2334,13 +2357,15 @@ class _IncomingInvitesSectionState
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.orangeAccent.withValues(alpha: 0.2),
+                    color: Theme.of(context)
+                        .primaryColor
+                        .withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     '${invites.length} PENDING INVITE${invites.length > 1 ? 'S' : ''}',
-                    style: const TextStyle(
-                      color: Colors.orangeAccent,
+                    style: TextStyle(
+                      color: Theme.of(context).primaryColor,
                       fontSize: 11,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1,
@@ -2356,17 +2381,19 @@ class _IncomingInvitesSectionState
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.orangeAccent.withValues(alpha: 0.08),
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                      color: Colors.orangeAccent.withValues(alpha: 0.3)),
+                      color: Theme.of(context)
+                          .primaryColor
+                          .withValues(alpha: 0.3)),
                 ),
                 child: FutureBuilder<String>(
                   future: _nameFor(match.player1Id),
                   builder: (context, snap) => Row(
                     children: [
-                      const Icon(LucideIcons.swords,
-                          color: Colors.orangeAccent, size: 22),
+                      Icon(LucideIcons.swords,
+                          color: Theme.of(context).primaryColor, size: 22),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(

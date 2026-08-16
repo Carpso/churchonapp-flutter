@@ -256,13 +256,13 @@ class BibleQuizResultsScreen extends ConsumerWidget {
             _breakdownRow(
               'Streak Bonus (${result.streak}x)',
               '+$bonus',
-              Colors.orangeAccent,
+              theme.primaryColor,
             ),
           if (result.powerUpsUsed > 0)
             _breakdownRow(
               'Power-ups Used',
               '${result.powerUpsUsed}',
-              Colors.purpleAccent,
+              theme.primaryColor,
             ),
           const Divider(color: Colors.white12, height: 20),
           _breakdownRow('Total', '${result.score}', Colors.greenAccent),
@@ -560,7 +560,7 @@ class BibleQuizResultsScreen extends ConsumerWidget {
     final pct = score / max;
     if (pct >= 0.95) return _Grade('S', 'Divine Wisdom!', Colors.amberAccent, 'S');
     if (pct >= 0.8) return _Grade('A', 'Excellent!', Colors.greenAccent, 'A');
-    if (pct >= 0.65) return _Grade('B', 'Good Job!', Colors.blueAccent, 'B');
+    if (pct >= 0.65) return _Grade('B', 'Good Job!', Colors.amber, 'B');
     if (pct >= 0.5) return _Grade('C', 'Not Bad!', Colors.orangeAccent, 'C');
     return _Grade('D', 'Keep Studying!', Colors.redAccent, 'D');
   }

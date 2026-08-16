@@ -49,7 +49,7 @@ class _QuizEventHostScreenState extends ConsumerState<QuizEventHostScreen> {
       appBar: _appBar(context),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateDialog(context),
-        backgroundColor: Colors.greenAccent,
+        backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.black,
         icon: const Icon(LucideIcons.plus),
         label: const Text('Create Event'),
@@ -110,7 +110,7 @@ class _EventsList extends ConsumerWidget {
           itemBuilder: (context, i) => _HostEventCard(event: events[i]),
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator(color: Colors.amber)),
+      loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
       error: (e, _) => Center(
         child: Text('Error: $e', style: const TextStyle(color: Colors.white54)),
       ),
@@ -181,8 +181,8 @@ class _HostEventCardState extends ConsumerState<_HostEventCard> {
                     : (widget.event.isFree ? 'FREE' : 'K${widget.event.passPriceZmw.toStringAsFixed(0)}'),
                 style: TextStyle(
                   color: widget.event.hasWager
-                      ? Colors.amberAccent
-                      : (widget.event.isFree ? Colors.blueAccent : Colors.greenAccent),
+                      ? Theme.of(context).primaryColor
+                      : (widget.event.isFree ? Theme.of(context).primaryColor : Colors.greenAccent),
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                 ),
@@ -251,7 +251,7 @@ class _HostEventCardState extends ConsumerState<_HostEventCard> {
                 Expanded(
                   child: _actionBtn(
                     'Test Run',
-                    Colors.blueAccent,
+                    theme.primaryColor,
                     () => Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => BibleQuizArenaScreen(
@@ -280,7 +280,7 @@ class _HostEventCardState extends ConsumerState<_HostEventCard> {
       case 'upcoming':
         return Colors.amberAccent;
       case 'completed':
-        return Colors.blueGrey;
+        return Colors.white54;
       case 'cancelled':
         return Colors.redAccent;
       default:
@@ -408,7 +408,7 @@ class _LeaderboardSheetState extends ConsumerState<_LeaderboardSheet> {
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(
-                          child: CircularProgressIndicator(color: Colors.amber));
+                          child: CircularProgressIndicator(color: Colors.white));
                     }
                     final entries = snapshot.data ?? [];
                     if (entries.isEmpty) {
@@ -435,7 +435,7 @@ class _LeaderboardSheetState extends ConsumerState<_LeaderboardSheet> {
                         return Container(
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           color: isMe
-                              ? Colors.amber.withAlpha(15)
+                              ? Theme.of(context).primaryColor.withAlpha(15)
                               : Colors.transparent,
                           child: Row(
                             children: [
@@ -468,7 +468,7 @@ class _LeaderboardSheetState extends ConsumerState<_LeaderboardSheet> {
                                   name,
                                   style: TextStyle(
                                     color: isMe
-                                        ? Colors.amberAccent
+                                        ? Theme.of(context).primaryColor
                                         : Colors.white,
                                     fontSize: 14,
                                     fontWeight: isMe
@@ -486,8 +486,8 @@ class _LeaderboardSheetState extends ConsumerState<_LeaderboardSheet> {
                               const SizedBox(width: 8),
                               Text(
                                 '$score',
-                                style: const TextStyle(
-                                  color: Colors.amberAccent,
+                                style: TextStyle(
+                                  color: Theme.of(context).primaryColor,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -630,7 +630,7 @@ class _CreateEventDialogState extends ConsumerState<_CreateEventDialog> {
                   Switch(
                     value: _isFeatured,
                     onChanged: (v) => setState(() => _isFeatured = v),
-                    activeThumbColor: Colors.amberAccent,
+                    activeThumbColor: Theme.of(context).primaryColor,
                   ),
                 ],
               ),
@@ -640,7 +640,7 @@ class _CreateEventDialogState extends ConsumerState<_CreateEventDialog> {
                 child: FilledButton(
                   onPressed: _isSubmitting ? null : _submit,
                   style: FilledButton.styleFrom(
-                    backgroundColor: Colors.greenAccent,
+                    backgroundColor: Theme.of(context).primaryColor,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -758,7 +758,8 @@ class _CreateEventDialogState extends ConsumerState<_CreateEventDialog> {
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(primary: Colors.amberAccent),
+          colorScheme: const ColorScheme.dark(
+              primary: Color(0xFFFFDA03), onPrimary: Colors.black),
         ),
         child: child!,
       ),
@@ -770,7 +771,8 @@ class _CreateEventDialogState extends ConsumerState<_CreateEventDialog> {
       initialTime: TimeOfDay.fromDateTime(_startTime),
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(primary: Colors.amberAccent),
+          colorScheme: const ColorScheme.dark(
+              primary: Color(0xFFFFDA03), onPrimary: Colors.black),
         ),
         child: child!,
       ),

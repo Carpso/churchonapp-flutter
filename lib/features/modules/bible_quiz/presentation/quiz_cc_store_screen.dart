@@ -121,7 +121,7 @@ class _QuizCcStoreScreenState extends ConsumerState<QuizCcStoreScreen> {
           ref.invalidate(quizCcHistoryProvider);
           await Future<void>.delayed(const Duration(milliseconds: 300));
         },
-        color: Colors.amber,
+        color: Theme.of(context).primaryColor,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -192,14 +192,15 @@ class _QuizCcStoreScreenState extends ConsumerState<QuizCcStoreScreen> {
                           .map((r) => _historyRow(r))
                           .toList(),
                     ),
-              loading: () => const Padding(
-                padding: EdgeInsets.all(20),
+              loading: () => Padding(
+                padding: const EdgeInsets.all(20),
                 child: Center(
                   child: SizedBox(
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(
-                        color: Colors.amber, strokeWidth: 2),
+                        color: Theme.of(context).primaryColor,
+                        strokeWidth: 2),
                   ),
                 ),
               ),
@@ -222,14 +223,16 @@ class _QuizCcStoreScreenState extends ConsumerState<QuizCcStoreScreen> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.35)),
+        border: Border.all(
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.coins, color: Colors.amber, size: 26),
+              Icon(LucideIcons.coins,
+                  color: Theme.of(context).primaryColor, size: 26),
               const SizedBox(width: 8),
               const Text(
                 "CHURCH COIN BALANCE",
@@ -256,12 +259,12 @@ class _QuizCcStoreScreenState extends ConsumerState<QuizCcStoreScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 6),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
                 child: Text(
                   "CC",
                   style: TextStyle(
-                    color: Colors.amber,
+                    color: Theme.of(context).primaryColor,
                     fontWeight: FontWeight.w900,
                     fontSize: 16,
                   ),
@@ -293,7 +296,7 @@ class _QuizCcStoreScreenState extends ConsumerState<QuizCcStoreScreen> {
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amber,
+                backgroundColor: Theme.of(context).primaryColor,
                 foregroundColor: Colors.black,
                 minimumSize: const Size(double.infinity, 46),
                 shape: RoundedRectangleBorder(
@@ -313,7 +316,7 @@ class _QuizCcStoreScreenState extends ConsumerState<QuizCcStoreScreen> {
       children: [
         Row(
           children: [
-            Icon(icon, color: Colors.amber, size: 18),
+            Icon(icon, color: Theme.of(context).primaryColor, size: 18),
             const SizedBox(width: 8),
             Text(
               title,
@@ -336,12 +339,13 @@ class _QuizCcStoreScreenState extends ConsumerState<QuizCcStoreScreen> {
   }
 
   Widget _buyCard() {
+    final accent = Theme.of(context).primaryColor;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.amber.withValues(alpha: 0.08),
+        color: accent.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.25)),
+        border: Border.all(color: accent.withValues(alpha: 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -359,10 +363,10 @@ class _QuizCcStoreScreenState extends ConsumerState<QuizCcStoreScreen> {
               ),
               TextButton(
                 onPressed: _buyCoins,
-                child: const Text(
+                child: Text(
                   "OPEN BUY COINS",
                   style: TextStyle(
-                    color: Colors.amber,
+                    color: Theme.of(context).primaryColor,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -401,10 +405,10 @@ class _QuizCcStoreScreenState extends ConsumerState<QuizCcStoreScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha: 0.12),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: Colors.amber, size: 20),
+            child: Icon(icon, color: Theme.of(context).primaryColor, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -429,18 +433,18 @@ class _QuizCcStoreScreenState extends ConsumerState<QuizCcStoreScreen> {
             ),
           ),
           busy
-              ? const SizedBox(
+              ? SizedBox(
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(
-                      color: Colors.amber, strokeWidth: 2),
+                      color: Theme.of(context).primaryColor, strokeWidth: 2),
                 )
               : TextButton(
                   onPressed: onTap,
                   child: Text(
                     action,
-                    style: const TextStyle(
-                      color: Colors.amber,
+                    style: TextStyle(
+                      color: Theme.of(context).primaryColor,
                       fontWeight: FontWeight.w900,
                       fontSize: 12,
                     ),
@@ -466,8 +470,8 @@ class _QuizCcStoreScreenState extends ConsumerState<QuizCcStoreScreen> {
           ),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.amber,
+            style: TextStyle(
+              color: Theme.of(context).primaryColor,
               fontWeight: FontWeight.bold,
               fontSize: 13,
             ),
@@ -523,7 +527,8 @@ class _QuizCcStoreScreenState extends ConsumerState<QuizCcStoreScreen> {
               Text(
                 '${isCredit ? '+' : ''}$amount CC',
                 style: TextStyle(
-                  color: isCredit ? Colors.greenAccent : Colors.orangeAccent,
+                  color:
+                      isCredit ? Colors.greenAccent : Theme.of(context).primaryColor,
                   fontWeight: FontWeight.w900,
                   fontSize: 13,
                 ),

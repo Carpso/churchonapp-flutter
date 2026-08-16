@@ -38,7 +38,7 @@ void showBuyCoinsSheet(BuildContext context,
           const SizedBox(height: 20),
           Row(
             children: [
-              const Icon(LucideIcons.coins, color: Colors.amber, size: 28),
+              const Icon(LucideIcons.coins, color: Colors.white, size: 28),
               const SizedBox(width: 12),
               const Expanded(
                 child: Text(
@@ -139,7 +139,7 @@ class QuizEventLobbyScreen extends ConsumerWidget {
             itemBuilder: (context, i) => _EventCard(event: events[i]),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator(color: Colors.amber)),
+        loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
         error: (e, _) => Center(
           child: Text('Could not load events: $e',
               style: const TextStyle(color: Colors.white54)),
@@ -227,14 +227,14 @@ class _EventCard extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.amberAccent.withAlpha(20),
+                          color: theme.primaryColor.withAlpha(20),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.amberAccent.withAlpha(50)),
+                          border: Border.all(color: theme.primaryColor.withAlpha(50)),
                         ),
                         child: Text(
                           '${event.wagerCoins} CC wager',
-                          style: const TextStyle(
-                            color: Colors.amberAccent,
+                          style: TextStyle(
+                            color: theme.primaryColor,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -261,13 +261,13 @@ class _EventCard extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.blueAccent.withAlpha(20),
+                          color: theme.primaryColor.withAlpha(20),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Text(
+                        child: Text(
                           'FREE',
                           style: TextStyle(
-                            color: Colors.blueAccent,
+                            color: theme.primaryColor,
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
@@ -426,16 +426,17 @@ class _EventDetailSheetState extends ConsumerState<_EventDetailSheet> {
                   _showPayment();
                 },
                 icon: const Icon(LucideIcons.smartphone,
-                    color: Colors.white, size: 18),
+                    color: Colors.black, size: 18),
                 label: Text(
                   'Pay K${widget.event.passPriceZmw.toStringAsFixed(2)} (Mobile Money)',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Colors.black,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2575FC),
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.black,
                   minimumSize: const Size(double.infinity, 54),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -461,7 +462,7 @@ class _EventDetailSheetState extends ConsumerState<_EventDetailSheet> {
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.amber,
+                  backgroundColor: Theme.of(context).primaryColor,
                   minimumSize: const Size(double.infinity, 54),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -665,7 +666,7 @@ class _EventDetailSheetState extends ConsumerState<_EventDetailSheet> {
                         : Icon(LucideIcons.ticket, size: 18),
                     label: Text(widget.event.isFree ? 'Join Free' : 'Buy Pass'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: Colors.greenAccent,
+                      backgroundColor: theme.primaryColor,
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(

@@ -688,9 +688,9 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text(
+          Text(
             "MATCH FOUND!",
-            style: TextStyle(color: Colors.amberAccent, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 2),
+            style: TextStyle(color: theme.primaryColor, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 2),
           ),
           const SizedBox(height: 40),
           Padding(
@@ -716,10 +716,10 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
                   child: Container(
                     padding: const EdgeInsets.all(15),
                     decoration: BoxDecoration(
-                      color: Colors.amber,
+                      color: theme.primaryColor,
                       shape: BoxShape.circle,
                       boxShadow: [
-                        BoxShadow(color: Colors.amber.withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 5),
+                        BoxShadow(color: theme.primaryColor.withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 5),
                       ],
                     ),
                     child: const Text("VS", style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 22)),
@@ -771,7 +771,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       width: 60, height: 60,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.amber, width: 2),
+        border: Border.all(color: Theme.of(context).primaryColor, width: 2),
         image: url != null && url.isNotEmpty
             ? DecorationImage(image: NetworkImage(url), fit: BoxFit.cover)
             : null,
@@ -879,9 +879,9 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
                       backgroundColor: theme.primaryColor.withAlpha(80),
                       child: Icon(LucideIcons.user, color: theme.primaryColor),
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20),
-                      child: Text('VS', style: TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.w900)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text('VS', style: TextStyle(color: theme.primaryColor, fontSize: 18, fontWeight: FontWeight.w900)),
                     ),
                     CircleAvatar(
                       radius: 28,
@@ -1181,7 +1181,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       children: [
         _badge(q.category.toUpperCase(), theme.primaryColor, theme),
         const SizedBox(width: 10),
-        _badge(q.difficulty.toUpperCase(), _difficultyColor(q.difficulty), theme),
+        _badge(q.difficulty.toUpperCase(), _difficultyColor(q.difficulty, theme), theme),
       ],
     );
   }
@@ -1219,7 +1219,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     );
   }
 
-  Color _difficultyColor(String diff) {
+  Color _difficultyColor(String diff, ThemeData theme) {
     switch (diff) {
       case 'Easy':
         return Colors.greenAccent;
@@ -1228,7 +1228,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       case 'Hard':
         return Colors.redAccent;
       default:
-        return Colors.blueAccent;
+        return theme.primaryColor;
     }
   }
 
@@ -1320,28 +1320,28 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
             label: '50:50',
             used: _fiftyFiftyUsed,
             onTap: _useFiftyFifty,
-            color: Colors.blueAccent,
+            color: theme.primaryColor,
           ),
           _powerUpButton(
             icon: LucideIcons.skipForward,
             label: 'Skip',
             used: _skipUsed,
             onTap: _useSkip,
-            color: Colors.purpleAccent,
+            color: theme.primaryColor,
           ),
           _powerUpButton(
             icon: LucideIcons.dice2,
             label: '2x',
             used: _doubleUsed,
             onTap: _useDoublePoints,
-            color: Colors.orangeAccent,
+            color: theme.primaryColor,
           ),
           _powerUpButton(
             icon: LucideIcons.clock,
             label: 'Freeze',
             used: _timeFreezeUsed,
             onTap: _useTimeFreeze,
-            color: Colors.tealAccent,
+            color: theme.primaryColor,
           ),
         ],
       ),
@@ -1410,9 +1410,9 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: accuracy >= 0.8
-                    ? Colors.amber.withAlpha(40)
+                    ? theme.primaryColor.withAlpha(40)
                     : accuracy >= 0.5
-                        ? Colors.blueGrey.withAlpha(40)
+                        ? theme.primaryColor.withAlpha(20)
                         : Colors.white.withAlpha(15),
               ),
               child: Icon(
@@ -1423,9 +1423,9 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
                         : LucideIcons.target,
                 size: 40,
                 color: accuracy >= 0.8
-                    ? Colors.amberAccent
+                    ? theme.primaryColor
                     : accuracy >= 0.5
-                        ? Colors.blueGrey
+                        ? theme.primaryColor.withValues(alpha: 0.6)
                         : Colors.white54,
               ),
             ),
@@ -1485,7 +1485,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
                       ),
                       label: Text(_rematchRequested ? 'Invite Sent!' : 'Rematch'),
                       style: FilledButton.styleFrom(
-                        backgroundColor: _rematchRequested ? Colors.greenAccent : Colors.orangeAccent,
+                        backgroundColor: _rematchRequested ? Colors.greenAccent : theme.primaryColor,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -1551,19 +1551,19 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
                 LucideIcons.trendingUp,
                 '$_bestStreak',
                 'Best Streak',
-                Colors.orangeAccent,
+                theme.primaryColor,
               ),
               _statItem(
                 LucideIcons.zap,
                 '$_powerUpsUsed',
                 'Power-ups',
-                Colors.purpleAccent,
+                theme.primaryColor,
               ),
               _statItem(
                 LucideIcons.clock,
                 _avgTimeText(),
                 'Avg Time',
-                Colors.tealAccent,
+                theme.primaryColor.withValues(alpha: 0.7),
               ),
             ],
           ),

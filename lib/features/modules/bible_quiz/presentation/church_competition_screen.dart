@@ -127,16 +127,21 @@ class _ChurchCompetitionScreenState extends ConsumerState<ChurchCompetitionScree
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF6A11CB), Color(0xFF2575FC)]),
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).primaryColor,
+                    Theme.of(context).primaryColor.withValues(alpha: 0.7),
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(LucideIcons.trophy, color: Colors.white, size: 32),
+                  const Icon(LucideIcons.trophy, color: Colors.black, size: 32),
                   const SizedBox(height: 10),
-                  const Text("Church Bible Quizzing", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
-                  const Text("Set up a competition for your church members", style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const Text("Church Bible Quizzing", style: TextStyle(color: Colors.black, fontSize: 22, fontWeight: FontWeight.w900)),
+                  const Text("Set up a competition for your church members", style: TextStyle(color: Colors.black87, fontSize: 13)),
                 ],
               ),
             ),
@@ -147,13 +152,13 @@ class _ChurchCompetitionScreenState extends ConsumerState<ChurchCompetitionScree
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.amber.withAlpha(15),
+                color: Theme.of(context).primaryColor.withAlpha(15),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.amber.withAlpha(50)),
+                border: Border.all(color: Theme.of(context).primaryColor.withAlpha(50)),
               ),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.crown, color: Colors.amber, size: 24),
+                  Icon(LucideIcons.crown, color: Theme.of(context).primaryColor, size: 24),
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Column(
@@ -174,7 +179,7 @@ class _ChurchCompetitionScreenState extends ConsumerState<ChurchCompetitionScree
                         _difficulty = 'Mixed';
                       }
                     }),
-                    activeThumbColor: Colors.amber,
+                    activeThumbColor: Theme.of(context).primaryColor,
                   ),
                 ],
               ),
@@ -314,12 +319,12 @@ class _ChurchCompetitionScreenState extends ConsumerState<ChurchCompetitionScree
                 ),
                 const SizedBox(width: 10),
                 ChoiceChip(
-                  label: Text("Paid", style: TextStyle(color: _isPaid ? Colors.orangeAccent : Colors.white70, fontWeight: FontWeight.bold)),
+                  label: Text("Paid", style: TextStyle(color: _isPaid ? Theme.of(context).primaryColor : Colors.white70, fontWeight: FontWeight.bold)),
                   selected: _isPaid,
-                  selectedColor: Colors.orangeAccent.withAlpha(45),
+                  selectedColor: Theme.of(context).primaryColor.withAlpha(45),
                   backgroundColor: Colors.white.withAlpha(10),
-                  checkmarkColor: Colors.orangeAccent,
-                  side: BorderSide(color: _isPaid ? Colors.orangeAccent : Colors.white10),
+                  checkmarkColor: Theme.of(context).primaryColor,
+                  side: BorderSide(color: _isPaid ? Theme.of(context).primaryColor : Colors.white10),
                   onSelected: (v) => setState(() => _isPaid = true),
                 ),
                 if (_isPaid) ...[
@@ -352,15 +357,15 @@ class _ChurchCompetitionScreenState extends ConsumerState<ChurchCompetitionScree
               child: ElevatedButton.icon(
                 onPressed: _isCreating ? null : _createCompetition,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.greenAccent.shade700,
-                  foregroundColor: Colors.white,
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
                 icon: _isCreating
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(LucideIcons.sparkles),
-                label: Text(_isCreating ? "CREATING..." : "CREATE COMPETITION", style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                    : const Icon(LucideIcons.sparkles, color: Colors.black),
+                label: Text(_isCreating ? "CREATING..." : "CREATE COMPETITION", style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.black)),
               ),
             ),
 
@@ -423,13 +428,13 @@ class _ChurchCompetitionScreenState extends ConsumerState<ChurchCompetitionScree
                       child: ElevatedButton.icon(
                         onPressed: _shareCompetition,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueAccent,
-                          foregroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).primaryColor,
+                          foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        icon: const Icon(LucideIcons.share2, size: 18),
-                        label: const Text("SHARE COMPETITION", style: TextStyle(fontWeight: FontWeight.bold)),
+                        icon: const Icon(LucideIcons.share2, size: 18, color: Colors.black),
+                        label: const Text("SHARE COMPETITION", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -458,8 +463,8 @@ class _ChurchCompetitionScreenState extends ConsumerState<ChurchCompetitionScree
                             );
                           },
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.orangeAccent,
-                            side: const BorderSide(color: Colors.orangeAccent),
+                            foregroundColor: Theme.of(context).primaryColor,
+                            side: BorderSide(color: Theme.of(context).primaryColor),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),

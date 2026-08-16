@@ -202,7 +202,7 @@ class _ChurchCompetitionLobbyScreenState extends ConsumerState<ChurchCompetition
           ? Shimmer.fromColors(
               baseColor: Colors.grey[300]!,
               highlightColor: Colors.grey[100]!,
-              child: const Center(child: CircularProgressIndicator(color: Colors.amber)),
+              child: const Center(child: CircularProgressIndicator(color: Colors.white)),
             )
           : _competition == null
               ? _buildPinEntry()
@@ -220,11 +220,12 @@ class _ChurchCompetitionLobbyScreenState extends ConsumerState<ChurchCompetition
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.greenAccent.withAlpha(15),
+                color: Theme.of(context).primaryColor.withAlpha(15),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.greenAccent.withAlpha(40)),
+                border: Border.all(color: Theme.of(context).primaryColor.withAlpha(40)),
               ),
-              child: const Icon(LucideIcons.radioTower, color: Colors.greenAccent, size: 60),
+              child: Icon(LucideIcons.radioTower,
+                  color: Theme.of(context).primaryColor, size: 60),
             ),
             const SizedBox(height: 25),
             const Text("Enter Competition PIN", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
@@ -252,15 +253,15 @@ class _ChurchCompetitionLobbyScreenState extends ConsumerState<ChurchCompetition
               child: ElevatedButton.icon(
                 onPressed: _isVerifying ? null : _verifyPin,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.greenAccent.shade700,
-                  foregroundColor: Colors.white,
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
                 icon: _isVerifying
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(LucideIcons.logIn, size: 20),
-                label: Text(_isVerifying ? "VERIFYING..." : "JOIN COMPETITION", style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                    : const Icon(LucideIcons.logIn, size: 20, color: Colors.black),
+                label: Text(_isVerifying ? "VERIFYING..." : "JOIN COMPETITION", style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.black)),
               ),
             ),
           ],
@@ -283,22 +284,33 @@ class _ChurchCompetitionLobbyScreenState extends ConsumerState<ChurchCompetition
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF6A11CB), Color(0xFF2575FC)]),
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).primaryColor,
+                  Theme.of(context).primaryColor.withValues(alpha: 0.7),
+                ],
+              ),
               borderRadius: BorderRadius.circular(24),
-              boxShadow: [BoxShadow(color: const Color(0xFF2575FC).withAlpha(80), blurRadius: 20, offset: const Offset(0, 10))],
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(context).primaryColor.withAlpha(80),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: Column(
               children: [
-                const Icon(LucideIcons.trophy, color: Colors.white, size: 48),
+                const Icon(LucideIcons.trophy, color: Colors.black, size: 48),
                 const SizedBox(height: 12),
-                Text(comp.title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                Text(comp.title, style: const TextStyle(color: Colors.black, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
                 const SizedBox(height: 8),
-                Text(DateFormat.yMMMd().add_jm().format(comp.date.toLocal()), style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                Text(DateFormat.yMMMd().add_jm().format(comp.date.toLocal()), style: const TextStyle(color: Colors.black87, fontSize: 13)),
                 const SizedBox(height: 4),
-                Text("${comp.questionCount} Questions", style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                Text("${comp.questionCount} Questions", style: const TextStyle(color: Colors.black87, fontSize: 13)),
                 if (comp.difficulty != null) ...[
                   const SizedBox(height: 4),
-                  Text("Difficulty: ${comp.difficulty}", style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                  Text("Difficulty: ${comp.difficulty}", style: const TextStyle(color: Colors.black87, fontSize: 13)),
                 ],
               ],
             ),
@@ -356,13 +368,13 @@ class _ChurchCompetitionLobbyScreenState extends ConsumerState<ChurchCompetition
               child: ElevatedButton.icon(
                 onPressed: _payEntryFee,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orangeAccent,
-                  foregroundColor: Colors.white,
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
-                icon: const Icon(LucideIcons.banknote, size: 20),
-                label: Text("PAY ENTRY FEE (K${comp.entryFee.toStringAsFixed(0)})", style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                icon: const Icon(LucideIcons.banknote, size: 20, color: Colors.black),
+                label: Text("PAY ENTRY FEE (K${comp.entryFee.toStringAsFixed(0)})", style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.black)),
               ),
             ),
             const SizedBox(height: 15),
@@ -373,13 +385,13 @@ class _ChurchCompetitionLobbyScreenState extends ConsumerState<ChurchCompetition
             child: ElevatedButton.icon(
               onPressed: _startQuiz,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.greenAccent.shade700,
-                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.black,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               ),
-              icon: const Icon(LucideIcons.zap, size: 20),
-              label: const Text("START QUIZ", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              icon: const Icon(LucideIcons.zap, size: 20, color: Colors.black),
+              label: const Text("START QUIZ", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, color: Colors.black)),
             ),
           ),
           const SizedBox(height: 40),

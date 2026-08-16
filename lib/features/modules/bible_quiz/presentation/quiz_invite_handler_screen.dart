@@ -88,7 +88,8 @@ class _QuizInviteHandlerScreenState extends ConsumerState<QuizInviteHandlerScree
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_error) ...[
-              const Icon(LucideIcons.alertTriangle, color: Colors.amber, size: 48),
+              const Icon(LucideIcons.alertTriangle,
+                  color: Colors.white54, size: 48),
               const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -97,11 +98,16 @@ class _QuizInviteHandlerScreenState extends ConsumerState<QuizInviteHandlerScree
               const SizedBox(height: 30),
               ElevatedButton(
                 onPressed: () => context.go('/'),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor),
                 child: const Text('Go Home', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
               ),
             ] else ...[
-              const SizedBox(width: 40, height: 40, child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 3)),
+              const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 3)),
               const SizedBox(height: 20),
               const Text('Joining Bible Quiz Challenge...',
                 style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
