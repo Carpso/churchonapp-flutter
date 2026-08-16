@@ -37,8 +37,8 @@ class _ScriptureMemoryScreenState extends ConsumerState<ScriptureMemoryScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Scripture Memory", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.black,
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 30),
@@ -64,14 +64,14 @@ class _ScriptureMemoryScreenState extends ConsumerState<ScriptureMemoryScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.indigo.withValues(alpha: 0.04), blurRadius: 15, offset: const Offset(0, 5))],
+        boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.06), blurRadius: 15, offset: const Offset(0, 5))],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(LucideIcons.brain, color: Colors.indigo, size: 50),
+          Icon(LucideIcons.brain, color: Theme.of(context).primaryColor, size: 50),
           const SizedBox(height: 25),
-          Text(verse.reference, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.indigo)),
+          Text(verse.reference, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Theme.of(context).primaryColor)),
           const SizedBox(height: 4),
           Text(
             getTranslationShortName(translation),
@@ -93,7 +93,7 @@ class _ScriptureMemoryScreenState extends ConsumerState<ScriptureMemoryScreen> {
           Slider(
             value: _hideLevel,
             onChanged: (val) => setState(() => _hideLevel = val),
-            activeColor: Colors.indigo,
+            activeColor: Theme.of(context).primaryColor,
             inactiveColor: const Color(0xFFF1F5F9),
           ),
           Row(

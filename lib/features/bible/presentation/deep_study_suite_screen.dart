@@ -136,9 +136,9 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(30),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Colors.indigo.shade600, Colors.purple.shade600], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: const LinearGradient(colors: [Color(0xFFFFDA03), Color(0xFFE8A400)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.indigo.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,16 +147,16 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(12)),
-                child: const Icon(LucideIcons.bookOpen, color: Colors.white, size: 24),
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(LucideIcons.bookOpen, color: Colors.black, size: 24),
               ),
               const SizedBox(width: 15),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Bible Reader", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text(_translationLabel(settings.preferredTranslation), style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    const Text("Bible Reader", style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(_translationLabel(settings.preferredTranslation), style: const TextStyle(color: Colors.black87, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
@@ -165,25 +165,26 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
           const SizedBox(height: 25),
           const Text(
             "\"I have hidden your word in my heart that I might not sin against you.\"",
-            style: TextStyle(color: Colors.white, fontSize: 18, fontStyle: FontStyle.italic, fontWeight: FontWeight.w300),
+            style: TextStyle(color: Colors.black, fontSize: 18, fontStyle: FontStyle.italic, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 10),
-          const Text("— PSALM 119:11", style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2)),
+          const Text("— PSALM 119:11", style: TextStyle(color: Colors.black87, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2)),
         ],
       ),
     );
   }
 
   Widget _buildToolMatrix(BuildContext context) {
+    final brand = Theme.of(context).primaryColor;
     final tools = [
       {"icon": LucideIcons.mic, "title": "Podcast", "sub": "Audio Bible", "color": Colors.red, "screen": const BiblePodcastScreen()},
       {"icon": LucideIcons.sword, "title": "Match", "sub": "Bible Quiz P2P", "color": Colors.orange, "screen": const BibleQuizHubScreen()},
-      {"icon": LucideIcons.brain, "title": "Exegesis", "sub": "Word Study", "color": Colors.blue, "action": "exegesis"},
+      {"icon": LucideIcons.brain, "title": "Exegesis", "sub": "Word Study", "color": brand, "action": "exegesis"},
       {"icon": LucideIcons.map, "title": "Atlas", "sub": "Historic Maps", "color": const Color(0xFF10B981), "action": "atlas"},
-      {"icon": LucideIcons.target, "title": "Memory", "sub": "Master Verses", "color": Colors.purple, "action": "memory"},
+      {"icon": LucideIcons.target, "title": "Memory", "sub": "Master Verses", "color": brand.withValues(alpha: 0.8), "action": "memory"},
       {"icon": LucideIcons.sunrise, "title": "Devotions", "sub": "Daily Devotionals", "color": Colors.amber, "screen": const DailyDevotionsScreen()},
-      {"icon": LucideIcons.brainCircuit, "title": "Scripture", "sub": "Verse Memorizer", "color": Colors.indigo, "screen": const ScriptureMemoryScreen()},
-      {"icon": LucideIcons.layers, "title": "Study Plans", "sub": "Track Progress", "color": Colors.teal, "screen": const StudyPlansScreen()},
+      {"icon": LucideIcons.brainCircuit, "title": "Scripture", "sub": "Verse Memorizer", "color": brand.withValues(alpha: 0.6), "screen": const ScriptureMemoryScreen()},
+      {"icon": LucideIcons.layers, "title": "Study Plans", "sub": "Track Progress", "color": brand.withValues(alpha: 0.45), "screen": const StudyPlansScreen()},
     ];
 
     return GridView.builder(
@@ -352,7 +353,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
                   const Text("Customize your Deep Study Theological Suite settings.", style: TextStyle(color: Colors.grey, fontSize: 12)),
                   const Divider(height: 30),
                   ListTile(
-                    leading: const Icon(LucideIcons.globe, color: Colors.blue),
+                    leading: Icon(LucideIcons.globe, color: Theme.of(context).primaryColor),
                     title: const Text("Study Translation", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     subtitle: Text(_translationLabel(settings.preferredTranslation), style: const TextStyle(fontSize: 12)),
                     trailing: const Icon(LucideIcons.chevronRight, size: 16),
@@ -421,7 +422,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
                   ),
                   if (settings.dailyReminders)
                     ListTile(
-                      leading: const Icon(LucideIcons.clock, color: Colors.purple),
+                      leading: Icon(LucideIcons.clock, color: Theme.of(context).primaryColor.withValues(alpha: 0.8)),
                       title: const Text("Reminder Time", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       subtitle: Text(settings.reminderTime.formatted, style: const TextStyle(fontSize: 12)),
                       trailing: const Icon(LucideIcons.chevronRight, size: 16),
@@ -450,7 +451,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
                     ),
                   const SizedBox(height: 8),
                   ListTile(
-                    leading: const Icon(LucideIcons.calendarClock, color: Colors.indigo),
+                    leading: Icon(LucideIcons.calendarClock, color: Theme.of(context).primaryColor),
                     title: const Text("Set Weekly Reminder", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     subtitle: const Text("Pick a day & time for weekly study alert", style: TextStyle(fontSize: 12)),
                     trailing: const Icon(LucideIcons.chevronRight, size: 16),
@@ -491,8 +492,8 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo,
-                      foregroundColor: Colors.white,
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.black,
                       minimumSize: const Size(double.infinity, 50),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                     ),
@@ -528,7 +529,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
         children: translations.map((t) {
           final isSelected = settings.preferredTranslation == t.code;
           return ListTile(
-            leading: Icon(isSelected ? LucideIcons.checkCircle : LucideIcons.circle, color: isSelected ? Colors.blue : Colors.grey),
+            leading: Icon(isSelected ? LucideIcons.checkCircle : LucideIcons.circle, color: isSelected ? Theme.of(context).primaryColor : Colors.grey),
             title: Text(t.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             subtitle: Text(t.shortName, style: const TextStyle(fontSize: 11)),
             onTap: () async {
@@ -552,7 +553,7 @@ class _DeepStudySuiteScreenState extends ConsumerState<DeepStudySuiteScreen> {
           final goal = i + 1;
           final isSelected = settings.dailyMemoryVerseGoal == goal;
           return ListTile(
-            leading: Icon(isSelected ? LucideIcons.checkCircle : LucideIcons.circle, color: isSelected ? Colors.blue : Colors.grey),
+            leading: Icon(isSelected ? LucideIcons.checkCircle : LucideIcons.circle, color: isSelected ? Theme.of(context).primaryColor : Colors.grey),
             title: Text("$goal verse${goal > 1 ? 's' : ''} per day", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             onTap: () async {
               await notifier.setDailyMemoryVerseGoal(goal);
@@ -622,12 +623,12 @@ class _ExegesisScreenState extends ConsumerState<_ExegesisScreen> {
             children: [
               Row(
                 children: [
-                  Text("WORD STUDY", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.blue)),
+                  Text("WORD STUDY", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2, color: Theme.of(context).primaryColor)),
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                    child: Text(translationLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue)),
+                    decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                    child: Text(translationLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
                   ),
                 ],
               ),
@@ -731,8 +732,8 @@ class _LexiconCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: isGreek ? Colors.blue.withValues(alpha: 0.1) : Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                child: Text(isGreek ? "GREEK" : "HEBREW", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: isGreek ? Colors.blue : Colors.amber, letterSpacing: 1)),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: isGreek ? Theme.of(context).primaryColor.withValues(alpha: 0.1) : Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                child: Text(isGreek ? "GREEK" : "HEBREW", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: isGreek ? Theme.of(context).primaryColor : Colors.amber, letterSpacing: 1)),
               ),
               const SizedBox(width: 8),
               Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
@@ -771,7 +772,7 @@ class _LexiconCard extends StatelessWidget {
             const SizedBox(height: 15),
             const Text("KJV RENDERINGS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1, color: Colors.grey)),
             const SizedBox(height: 8),
-            Text(entry.kjvRenderings, style: TextStyle(fontSize: 14, color: Colors.blue.shade700, fontWeight: FontWeight.w500)),
+            Text(entry.kjvRenderings, style: TextStyle(fontSize: 14, color: const Color(0xFF7A5C00), fontWeight: FontWeight.w500)),
           ],
         ],
       ),
@@ -814,16 +815,16 @@ class _BiblicalAtlasScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [Colors.teal.shade600, Colors.teal.shade800]),
+              gradient: const LinearGradient(colors: [Color(0xFFFFDA03), Color(0xFFE8A400)]),
               borderRadius: BorderRadius.circular(25),
             ),
             child: const Column(
               children: [
-                Icon(LucideIcons.globe, color: Colors.white, size: 40),
+                Icon(LucideIcons.globe, color: Colors.black, size: 40),
                 SizedBox(height: 10),
-                Text("Biblical Geography", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                Text("Biblical Geography", style: TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold)),
                 SizedBox(height: 5),
-                Text("Explore the lands of the Bible", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                Text("Explore the lands of the Bible", style: TextStyle(color: Colors.black87, fontSize: 12)),
               ],
             ),
           ),
@@ -838,8 +839,8 @@ class _BiblicalAtlasScreen extends StatelessWidget {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
-                    child: Icon(loc['icon'] as IconData, color: Colors.teal, size: 22),
+                    decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+                    child: Icon(loc['icon'] as IconData, color: Theme.of(context).primaryColor, size: 22),
                   ),
                   const SizedBox(width: 15),
                   Expanded(
@@ -894,8 +895,8 @@ class _BiblicalAtlasScreen extends StatelessWidget {
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
-                  child: Icon(loc['icon'] as IconData, color: Colors.teal, size: 28),
+                  decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+                  child: Icon(loc['icon'] as IconData, color: Theme.of(context).primaryColor, size: 28),
                 ),
                 const SizedBox(width: 15),
                 Expanded(
@@ -921,7 +922,7 @@ class _BiblicalAtlasScreen extends StatelessWidget {
             const SizedBox(height: 20),
             const Text("Key Events", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            _buildLocationEvents(loc['name'] as String),
+            _buildLocationEvents(context, loc['name'] as String),
             const Spacer(),
             SizedBox(
               width: double.infinity,
@@ -936,8 +937,8 @@ class _BiblicalAtlasScreen extends StatelessWidget {
                 icon: const Icon(LucideIcons.mapPin, size: 18),
                 label: const Text("View on Map"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  foregroundColor: Colors.white,
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
@@ -949,7 +950,7 @@ class _BiblicalAtlasScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLocationEvents(String locationName) {
+  Widget _buildLocationEvents(BuildContext context, String locationName) {
     final events = {
       'Jerusalem': ['Temple dedication', 'Crucifixion & Resurrection', 'Pentecost', 'Early church center'],
       'Bethlehem': ['Birth of Jesus', 'David anointed king', 'Ruth & Boaz story'],
@@ -973,11 +974,11 @@ class _BiblicalAtlasScreen extends StatelessWidget {
       children: locationEvents.map((event) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.teal.withValues(alpha: 0.1),
+          color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.teal.withValues(alpha: 0.3)),
+          border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.3)),
         ),
-        child: Text(event, style: const TextStyle(fontSize: 12, color: Colors.teal, fontWeight: FontWeight.w600)),
+        child: Text(event, style: TextStyle(fontSize: 12, color: Theme.of(context).primaryColor, fontWeight: FontWeight.w600)),
       )).toList(),
     );
   }
@@ -1167,7 +1168,7 @@ class _ScriptureSearchScreenState extends ConsumerState<_ScriptureSearchScreen> 
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(r.reference, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo.shade700)),
+                    Text(r.reference, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).primaryColor)),
                     const SizedBox(height: 5),
                     Text(r.text, style: const TextStyle(fontSize: 14, height: 1.5, color: Colors.black87)),
                     const SizedBox(height: 8),
@@ -1181,10 +1182,10 @@ class _ScriptureSearchScreenState extends ConsumerState<_ScriptureSearchScreen> 
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.indigo.withValues(alpha: 0.08),
+                              color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Text(r.translation.toUpperCase(), style: const TextStyle(fontSize: 10, color: Colors.indigo, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                            child: Text(r.translation.toUpperCase(), style: TextStyle(fontSize: 10, color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                           ),
                       ],
                     ),

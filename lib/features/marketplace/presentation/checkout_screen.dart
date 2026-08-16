@@ -557,13 +557,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const SizedBox(
+                child: SizedBox(
                   width: 50,
                   height: 50,
-                  child: CircularProgressIndicator(strokeWidth: 4, color: Colors.blue),
+                  child: CircularProgressIndicator(strokeWidth: 4, color: Theme.of(context).primaryColor),
                 ),
               ),
               const SizedBox(height: 25),

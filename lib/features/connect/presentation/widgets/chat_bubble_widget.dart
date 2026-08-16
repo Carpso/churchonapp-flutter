@@ -151,13 +151,13 @@ class ChatBubble extends StatelessWidget {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(LucideIcons.fileText, color: Colors.indigo, size: 20),
+                              Icon(LucideIcons.fileText, color: Theme.of(context).primaryColor, size: 20),
                               const SizedBox(width: 8),
                               Flexible(
                                 child: Text(
                                   msg.fileName ?? 'Document',
-                                  style: const TextStyle(
-                                      fontSize: 13, fontWeight: FontWeight.bold, color: Colors.indigo),
+                                  style: TextStyle(
+                                      fontSize: 13, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
                                 ),
                               ),
                             ],

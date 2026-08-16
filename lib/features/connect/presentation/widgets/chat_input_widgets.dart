@@ -225,8 +225,8 @@ class AttachmentMenu extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildOption(LucideIcons.fileText, 'Document', Colors.indigo, onDocument),
-          _buildOption(LucideIcons.image, 'Gallery', Colors.purple, onGallery),
+          _buildOption(LucideIcons.fileText, 'Document', Theme.of(context).primaryColor, onDocument),
+          _buildOption(LucideIcons.image, 'Gallery', Theme.of(context).primaryColor.withValues(alpha: 0.7), onGallery),
           _buildOption(LucideIcons.mapPin, 'Location', Colors.orange, onLocation),
           _buildOption(LucideIcons.headphones, 'Audio', Colors.green, onAudio),
         ],

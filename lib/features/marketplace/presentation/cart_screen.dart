@@ -316,13 +316,13 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(LucideIcons.info, size: 14, color: Colors.blue),
+                    Icon(LucideIcons.info, size: 14, color: Theme.of(context).primaryColor),
                     const SizedBox(width: 5),
                     Text(
                       "Platform Fee",
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.blue.shade600,
+                        color: Theme.of(context).primaryColor.withValues(alpha: 0.85),
                       ),
                     ),
                   ],
@@ -331,7 +331,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   "+ K ${fee.toStringAsFixed(2)}",
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.blue.shade600,
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.85),
                   ),
                 ),
               ],

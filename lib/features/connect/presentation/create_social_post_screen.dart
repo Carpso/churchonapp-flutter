@@ -197,7 +197,7 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
             onPressed: _isPosting ? null : _handlePost,
             child: _isPosting 
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text("POST", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.blue)),
+              : Text("POST", style: TextStyle(fontWeight: FontWeight.w900, color: Theme.of(context).primaryColor)),
           ),
         ],
       ),
@@ -326,7 +326,7 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
               decoration: const BoxDecoration(border: Border(top: BorderSide(color: Colors.black12))),
               child: Row(
                 children: [
-                  IconButton(icon: const Icon(LucideIcons.camera, color: Colors.blue), onPressed: () => _pickImages(ImageSource.camera)),
+                  IconButton(icon: Icon(LucideIcons.camera, color: Theme.of(context).primaryColor), onPressed: () => _pickImages(ImageSource.camera)),
                   IconButton(icon: const Icon(LucideIcons.image, color: Colors.green), onPressed: () => _pickImages(ImageSource.gallery)),
                   IconButton(icon: const Icon(LucideIcons.mapPin, color: Colors.red), onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(

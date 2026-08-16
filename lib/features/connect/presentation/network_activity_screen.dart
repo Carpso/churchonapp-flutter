@@ -74,7 +74,7 @@ class NetworkActivityScreen extends ConsumerWidget {
     switch (activity.type) {
       case 'sermon':
         icon = LucideIcons.bookOpen;
-        color = Colors.blue;
+        color = Theme.of(context).primaryColor;
         typeLabel = 'Sermon';
         break;
       case 'event':
@@ -89,7 +89,7 @@ class NetworkActivityScreen extends ConsumerWidget {
         break;
       default:
         icon = LucideIcons.radio;
-        color = Colors.purple;
+        color = Theme.of(context).primaryColor.withValues(alpha: 0.7);
         typeLabel = 'Update';
     }
 

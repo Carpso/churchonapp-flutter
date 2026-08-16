@@ -210,7 +210,7 @@ class _VendorDashboardScreenState extends ConsumerState<VendorDashboardScreen> {
       crossAxisSpacing: 15,
       childAspectRatio: 1.5,
       children: [
-        _buildStatCard("Total Products", "${stats['products']}", LucideIcons.package, Colors.blue),
+        _buildStatCard("Total Products", "${stats['products']}", LucideIcons.package, Theme.of(context).primaryColor),
         _buildStatCard("Active Listings", "${stats['active']}", LucideIcons.checkCircle, Colors.green),
         _buildStatCard("Total Orders", "${stats['orders']}", LucideIcons.shoppingCart, Colors.orange),
         _buildStatCard("Total Revenue", "K ${(stats['revenue'] as num).toStringAsFixed(0)}", LucideIcons.coins, Colors.amber),

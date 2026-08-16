@@ -18,8 +18,8 @@ class StudyPlansScreen extends ConsumerWidget {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Study Plans", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.black,
       ),
       body: plansAsync.when(
         data: (plans) {
@@ -57,7 +57,7 @@ class StudyPlansScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.indigo.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,10 +69,10 @@ class StudyPlansScreen extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.indigo.withValues(alpha: 0.1),
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text("${plan.totalDays} Days", style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold, fontSize: 11)),
+                child: Text("${plan.totalDays} Days", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold, fontSize: 11)),
               ),
             ],
           ),
@@ -82,7 +82,7 @@ class StudyPlansScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("${plan.completedDays} / ${plan.totalDays} completed", style: TextStyle(color: Colors.indigo.shade800, fontWeight: FontWeight.bold, fontSize: 12)),
+              Text("${plan.completedDays} / ${plan.totalDays} completed", style: TextStyle(color: Theme.of(context).primaryColor.withValues(alpha: 0.9), fontWeight: FontWeight.bold, fontSize: 12)),
               Text("${(progress * 100).toInt()}%", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
             ],
           ),
@@ -90,7 +90,7 @@ class StudyPlansScreen extends ConsumerWidget {
           LinearProgressIndicator(
             value: progress,
             backgroundColor: const Color(0xFFF1F5F9),
-            color: Colors.indigo,
+            color: Theme.of(context).primaryColor,
             minHeight: 8,
             borderRadius: BorderRadius.circular(4),
           ),
@@ -98,8 +98,8 @@ class StudyPlansScreen extends ConsumerWidget {
           ElevatedButton(
             onPressed: () => _openPlanDetails(context, ref, plan),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.indigo,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.black,
               minimumSize: const Size(double.infinity, 45),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             ),
@@ -175,7 +175,7 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
           const SizedBox(height: 5),
           Text(_plan.description, style: const TextStyle(color: Colors.grey, fontSize: 13)),
           const SizedBox(height: 25),
-          const Text("DAILY SCRIPTURE GUIDES", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo, fontSize: 11, letterSpacing: 1)),
+          const Text("DAILY SCRIPTURE GUIDES", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1)),
           const SizedBox(height: 15),
           Flexible(
             child: ListView.builder(
@@ -189,7 +189,7 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
                     isDone ? LucideIcons.checkCircle2 : LucideIcons.circle,
-                    color: isDone ? Colors.green : (isNext ? Colors.indigo : Colors.grey),
+                    color: isDone ? Colors.green : (isNext ? Theme.of(context).primaryColor : Colors.grey),
                   ),
                   title: GestureDetector(
                     onTap: () => _navigateToVerse(verseRef),
@@ -234,8 +234,8 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
                             }
                           },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.indigo,
-                          foregroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).primaryColor,
+                          foregroundColor: Colors.black,
                           minimumSize: const Size(60, 30),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),

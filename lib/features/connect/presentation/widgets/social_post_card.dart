@@ -247,7 +247,7 @@ class _SocialPostActionsState extends ConsumerState<SocialPostActions> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(_saved ? "Post saved!" : "Post unsaved!"),
-                backgroundColor: _saved ? Colors.indigo : Colors.grey,
+                backgroundColor: _saved ? Theme.of(context).primaryColor : Colors.grey,
               ),
             );
           },

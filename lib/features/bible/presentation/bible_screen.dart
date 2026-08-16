@@ -448,22 +448,22 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                                   child: Column(
                                     children: [
                                       if (hasBookmark)
-                                        const Icon(
+                                        Icon(
                                           LucideIcons.bookmark,
                                           size: 13,
-                                          color: Colors.purple,
+                                          color: Theme.of(context).primaryColor,
                                         ),
                                       if (hasFavorite)
-                                        const Icon(
+                                        Icon(
                                           LucideIcons.heart,
                                           size: 13,
-                                          color: Colors.pink,
+                                          color: Theme.of(context).primaryColor.withValues(alpha: 0.75),
                                         ),
                                       if (hasNote)
-                                        const Icon(
+                                        Icon(
                                           LucideIcons.stickyNote,
                                           size: 13,
-                                          color: Colors.orange,
+                                          color: Theme.of(context).primaryColor.withValues(alpha: 0.55),
                                         ),
                                     ],
                                   ),
@@ -671,14 +671,14 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                             ScriptureAudioButton(
                               reference: reference,
                               text: verse.text,
-                              iconColor: Colors.teal,
+                              iconColor: Theme.of(context).primaryColor,
                               iconSize: 20,
                             ),
                             const SizedBox(width: 4),
-                            const Text(
+                            Text(
                               'Listen',
                               style: TextStyle(
-                                color: Colors.teal,
+                                color: Theme.of(context).primaryColor,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -714,7 +714,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                             _actionChip(
                               LucideIcons.copy,
                               "Copy",
-                              Colors.blue,
+                              Theme.of(context).primaryColor,
                               onTap: () async {
                                 final messenger =
                                     ScaffoldMessenger.of(context);
@@ -738,7 +738,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                             _actionChip(
                               LucideIcons.bookmark,
                               isBookmarked ? 'Bookmarked' : "Bookmark",
-                              Colors.purple,
+                              Theme.of(context).primaryColor.withValues(alpha: 0.7),
                               onTap: () =>
                                   saveNote("Bookmark", isBookmark: true),
                             ),
@@ -864,7 +864,8 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                                                         vertical: 6,
                                                       ),
                                                   decoration: BoxDecoration(
-                                                    color: Colors.indigo
+                                                    color: Theme.of(context)
+                                                        .primaryColor
                                                         .withValues(
                                                           alpha: 0.1,
                                                         ),
@@ -873,7 +874,8 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                                                           20,
                                                         ),
                                                     border: Border.all(
-                                                      color: Colors.indigo
+                                                      color: Theme.of(context)
+                                                          .primaryColor
                                                           .withValues(
                                                             alpha: 0.3,
                                                           ),
@@ -881,9 +883,10 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                                                   ),
                                                   child: Text(
                                                     r.targetRef,
-                                                    style: const TextStyle(
+                                                    style: TextStyle(
                                                       fontSize: 12,
-                                                      color: Colors.indigo,
+                                                      color: Theme.of(context)
+                                                          .primaryColor,
                                                       fontWeight:
                                                           FontWeight.w600,
                                                     ),
@@ -1418,11 +1421,11 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         decoration: BoxDecoration(
                           color: _bookSelectorTab == 1
-                              ? Colors.blue.withValues(alpha: 0.2)
-                              : Colors.blue.withValues(alpha: 0.05),
+                              ? Theme.of(context).primaryColor.withValues(alpha: 0.2)
+                              : Theme.of(context).primaryColor.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(10),
                           border: _bookSelectorTab == 1
-                              ? Border.all(color: Colors.blue, width: 1.5)
+                              ? Border.all(color: Theme.of(context).primaryColor, width: 1.5)
                               : null,
                         ),
                         child: Center(
@@ -1432,8 +1435,8 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
                               color: _bookSelectorTab == 1
-                                  ? Colors.blue
-                                  : Colors.blue.withValues(alpha: 0.6),
+                                  ? Theme.of(context).primaryColor
+                                  : Theme.of(context).primaryColor.withValues(alpha: 0.6),
                             ),
                           ),
                         ),
@@ -1785,7 +1788,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               icon: LucideIcons.calendarCheck,
               title: "My Reading Plans",
               subtitle: "Daily scripture journeys with progress tracking",
-              color: Colors.indigo,
+              color: Theme.of(context).primaryColor,
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -1799,7 +1802,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               icon: LucideIcons.users,
               title: "Church Bible Studies",
               subtitle: "Join group study sessions with your church",
-              color: Colors.teal,
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.75),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
