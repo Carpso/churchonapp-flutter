@@ -167,26 +167,38 @@ jobs:
             printf '%s' "$PK" > /tmp/play-key.pem
             SIG=$(printf '%s' "$SI" | openssl dgst -sha256 -sign /tmp/play-key.pem -binary | base64 -w0 | tr '+/' '-_' | tr -d '=')
             JWT="$SI.$SIG"
-            TOKEN=$(curl -s -X POST --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer" --data-urlencode "assertion=$JWT" https://oauth2.googleapis.com/token | python3 -c "import sys,json;print(json.load(sys.stdin).get('access_token',''))")
+            TOKEN=$(curl -s --max-time 20 -X POST --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer" --data-urlencode "assertion=$JWT" https://oauth2.googleapis.com/token | python3 -c "import sys,json;print(json.load(sys.stdin).get('access_token',''))")
             echo "play token length: ${#TOKEN}"
             MAX=0
+            FOUND=0
             if [ -n "$TOKEN" ]; then
               for track in production internal alpha beta; do
-                CODE=$(curl -sf -H "Authorization: Bearer $TOKEN" "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.churchonapp.churchonapp/tracks/$track" 2>/dev/null | python3 -c "import sys,json;d=json.load(sys.stdin);c=[x for r in d.get('releases',[]) for x in (r.get('versionCodes') or [])];print(max(c) if c else 0)" 2>/dev/null) || CODE=0
-                echo "$track track max: ${CODE:-0}"
-                [ "${CODE:-0}" -gt "$MAX" ] && MAX=$CODE
+                CODE=$(curl -sf --max-time 20 -H "Authorization: Bearer $TOKEN" "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.churchonapp.churchonapp/tracks/$track" 2>/dev/null | python3 -c "import sys,json;d=json.load(sys.stdin);c=[int(x) for r in d.get('releases',[]) for x in (r.get('versionCodes') or [])];print(max(c) if c else 0)" 2>/dev/null) || CODE=-1
+                echo "$track track max: $CODE"
+                if [ "$CODE" != "-1" ]; then
+                  FOUND=1
+                  [ "$CODE" -gt "$MAX" ] && MAX=$CODE
+                fi
               done
             else
-              echo "WARNING: could not mint Play access token - falling back to pubspec"
+              echo "WARNING: could not mint Play access token"
             fi
-            BUILD_NUMBER=$((MAX + 1))
+            if [ "$FOUND" = "1" ]; then
+              BUILD_NUMBER=$((MAX + 1))
+            else
+              echo "WARNING: Play track queries failed - falling back to pubspec"
+              BUILD_NUMBER=$(sed -n 's/^version: [0-9.]*+//p' pubspec.yaml | head -1)
+              BUILD_NUMBER=${BUILD_NUMBER:-0}
+              BUILD_NUMBER=$((BUILD_NUMBER + 1))
+            fi
           else
             echo "WARNING: GOOGLE_PLAY_SERVICE_ACCOUNT not set - falling back to pubspec"
-          fi
-          if [ "$BUILD_NUMBER" -le 0 ]; then
             BUILD_NUMBER=$(sed -n 's/^version: [0-9.]*+//p' pubspec.yaml | head -1)
             BUILD_NUMBER=${BUILD_NUMBER:-0}
             BUILD_NUMBER=$((BUILD_NUMBER + 1))
+          fi
+          if [ "$BUILD_NUMBER" -le 0 ]; then
+            BUILD_NUMBER=1
           fi
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_OUTPUT"
@@ -352,26 +364,38 @@ jobs:
             printf '%s' "$PK" > /tmp/play-key.pem
             SIG=$(printf '%s' "$SI" | openssl dgst -sha256 -sign /tmp/play-key.pem -binary | base64 -w0 | tr '+/' '-_' | tr -d '=')
             JWT="$SI.$SIG"
-            TOKEN=$(curl -s -X POST --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer" --data-urlencode "assertion=$JWT" https://oauth2.googleapis.com/token | python3 -c "import sys,json;print(json.load(sys.stdin).get('access_token',''))")
+            TOKEN=$(curl -s --max-time 20 -X POST --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer" --data-urlencode "assertion=$JWT" https://oauth2.googleapis.com/token | python3 -c "import sys,json;print(json.load(sys.stdin).get('access_token',''))")
             echo "play token length: ${#TOKEN}"
             MAX=0
+            FOUND=0
             if [ -n "$TOKEN" ]; then
               for track in production internal alpha beta; do
-                CODE=$(curl -sf -H "Authorization: Bearer $TOKEN" "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.churchonapp.churchonapp/tracks/$track" 2>/dev/null | python3 -c "import sys,json;d=json.load(sys.stdin);c=[x for r in d.get('releases',[]) for x in (r.get('versionCodes') or [])];print(max(c) if c else 0)" 2>/dev/null) || CODE=0
-                echo "$track track max: ${CODE:-0}"
-                [ "${CODE:-0}" -gt "$MAX" ] && MAX=$CODE
+                CODE=$(curl -sf --max-time 20 -H "Authorization: Bearer $TOKEN" "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.churchonapp.churchonapp/tracks/$track" 2>/dev/null | python3 -c "import sys,json;d=json.load(sys.stdin);c=[int(x) for r in d.get('releases',[]) for x in (r.get('versionCodes') or [])];print(max(c) if c else 0)" 2>/dev/null) || CODE=-1
+                echo "$track track max: $CODE"
+                if [ "$CODE" != "-1" ]; then
+                  FOUND=1
+                  [ "$CODE" -gt "$MAX" ] && MAX=$CODE
+                fi
               done
             else
-              echo "WARNING: could not mint Play access token - falling back to pubspec"
+              echo "WARNING: could not mint Play access token"
             fi
-            BUILD_NUMBER=$((MAX + 1))
+            if [ "$FOUND" = "1" ]; then
+              BUILD_NUMBER=$((MAX + 1))
+            else
+              echo "WARNING: Play track queries failed - falling back to pubspec"
+              BUILD_NUMBER=$(sed -n 's/^version: [0-9.]*+//p' pubspec.yaml | head -1)
+              BUILD_NUMBER=${BUILD_NUMBER:-0}
+              BUILD_NUMBER=$((BUILD_NUMBER + 1))
+            fi
           else
             echo "WARNING: GOOGLE_PLAY_SERVICE_ACCOUNT not set - falling back to pubspec"
-          fi
-          if [ "$BUILD_NUMBER" -le 0 ]; then
             BUILD_NUMBER=$(sed -n 's/^version: [0-9.]*+//p' pubspec.yaml | head -1)
             BUILD_NUMBER=${BUILD_NUMBER:-0}
             BUILD_NUMBER=$((BUILD_NUMBER + 1))
+          fi
+          if [ "$BUILD_NUMBER" -le 0 ]; then
+            BUILD_NUMBER=1
           fi
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_OUTPUT"
