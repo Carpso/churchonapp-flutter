@@ -234,8 +234,11 @@ $migrations = @(
        "20260903_year_planner_rls_fix.sql"
          "20260904_quiz_cc_leaderboard_and_fixes.sql"
          "20260905_church_branding_and_special_offers.sql"
-         "20260906_website_pastoral_analytics.sql"
-    )
+          "20260906_website_pastoral_analytics.sql"
+          "20260907_secdef_hardening_round2.sql"
+          "20260908_secdef_hardening_round3.sql"
+          "20260909_secdef_hardening_round3b.sql"
+     )
 
 foreach ($m in $migrations) {
     $path = "supabase\migrations\$m"
