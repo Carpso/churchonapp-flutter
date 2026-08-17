@@ -8,6 +8,7 @@ import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
 import 'package:church_on_app/features/admin/presentation/widgets/pastor_telemetry_widget.dart';
+import 'package:go_router/go_router.dart';
 import 'church_invite_screen.dart';
 import 'global_broadcast_screen.dart';
 import 'member_management_screen.dart';
@@ -639,6 +640,8 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BaptismRegistryScreen()))),
         _actionTile(theme, LucideIcons.fileText, "Service Reports", "Record and view service reports", theme.primaryColor,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ServiceReportScreen()))),
+        _actionTile(theme, LucideIcons.bookOpen, "Financial Ledger", "Church income, expenses & payouts", Colors.indigo,
+          () => context.push('/ledger')),
         _actionTile(theme, LucideIcons.shieldCheck, "Content Moderation", "Review prayers & testimonies", theme.primaryColor,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContentModerationScreen()))),
         _actionTile(theme, LucideIcons.qrCode, "QR Check-in", "Scan QR codes for attendance tracking", theme.primaryColor,

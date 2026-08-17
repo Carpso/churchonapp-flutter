@@ -476,7 +476,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
       children: [
         _buildPremiumItem(context, LucideIcons.plusCircle, "Register Your Church", onTap: () => context.push('/register-church')),
         if (profile.isExecutiveOffice) ...[
-          _buildPremiumItem(context, LucideIcons.crown, "BISHOP COMMAND HUB", isHighlighted: true, onTap: () => context.push('/bishop-hub')),
+          _buildPremiumItem(context, LucideIcons.crown, "Bishops Dashboard", isHighlighted: true, onTap: () => context.push('/bishop-hub')),
         ],
         _buildPremiumItem(context, LucideIcons.calendar, "Yearly Program Planner", onTap: () => context.push('/year-planner')),
         if (profile.isPastor) ...[
@@ -485,14 +485,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
         ],
         if (profile.isLedgerManager) ...[
           _buildPremiumItem(context, LucideIcons.qrCode, "Scan Attendance", onTap: () => context.push('/attendance-scanner')),
-          _buildPremiumItem(context, LucideIcons.barChart3, "Ministry Reports", onTap: () => context.push('/service-report')),
-          _buildPremiumItem(context, LucideIcons.bookOpen, "Financial Ledger", onTap: () => context.push('/ledger')),
         ],
         if (profile.isAdminOrHigher) ...[
           _buildPremiumItem(context, LucideIcons.settings, "SYSTEM ADMIN HUB", onTap: () => context.push('/admin-hub')),
         ],
         if (profile.role == 'apostle') ...[
           _buildPremiumItem(context, LucideIcons.globe, "APOSTLE DASHBOARD", isHighlighted: true, onTap: () => context.push('/apostle-dashboard')),
+        ],
+        if (profile.isEmployee) ...[
+          _buildPremiumItem(context, LucideIcons.briefcase, "COA EMPLOYEE DASHBOARD", isHighlighted: true, onTap: () => context.push('/coa-employee-dashboard')),
         ],
         if (profile.isSuperadmin) ...[
           _buildPremiumItem(context, LucideIcons.zap, "SUPERADMIN CONSOLE", isHighlighted: true, onTap: () => context.push('/superadmin-hub')),

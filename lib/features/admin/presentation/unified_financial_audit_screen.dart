@@ -35,7 +35,7 @@ class _UnifiedFinancialAuditScreenState extends ConsumerState<UnifiedFinancialAu
     try {
       final txsRes = await Supabase.instance.client
           .from('transactions')
-          .select('id, amount, platform_fee, type, created_at, user_id, tenant_id')
+          .select('id, amount, platform_fee, category, created_at, user_id, tenant_id')
           .order('created_at', ascending: false)
           .limit(50);
 
@@ -181,7 +181,7 @@ class _UnifiedFinancialAuditScreenState extends ConsumerState<UnifiedFinancialAu
     if (_recentTransactions.isEmpty) return [Center(child: Padding(padding: const EdgeInsets.all(40), child: Text("No transactions", style: TextStyle(color: Colors.grey.shade500))))];
     return _recentTransactions.map((tx) {
       final amount = (tx['amount'] as num?)?.toDouble() ?? 0;
-      final type = tx['type'] as String? ?? 'unknown';
+      final type = tx['category'] as String? ?? 'general';
       final date = tx['created_at']?.toString() ?? '';
       final formattedDate = date.isNotEmpty ? DateFormat('MMM d, HH:mm').format(DateTime.tryParse(date) ?? DateTime.now()) : '';
       return Container(

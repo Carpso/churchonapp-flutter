@@ -30,9 +30,36 @@ class _CarpsoDriverApprovalScreenState extends ConsumerState<CarpsoDriverApprova
       final supabase = Supabase.instance.client;
       final data = await supabase
           .from('driver_applications')
-          .select('*, profiles!inner(full_name, phone_number)')
+          .select('*')
           .order('created_at', ascending: false);
-      _applications = (data as List).cast<Map<String, dynamic>>();
+      final rows = (data as List).cast<Map<String, dynamic>>();
+
+      final userIds = rows
+          .map((r) => r['user_id']?.toString())
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+      Map<String, Map<String, dynamic>> profiles = {};
+      if (userIds.isNotEmpty) {
+        try {
+          final res = await supabase
+              .from('profiles')
+              .select('id, full_name, phone_number')
+              .inFilter('id', userIds);
+          profiles = {
+            for (final p in (res as List).cast<Map<String, dynamic>>())
+              p['id'].toString(): p,
+          };
+        } catch (e) {
+          debugPrint('Driver approvals: profiles fetch error: $e');
+        }
+      }
+      for (final r in rows) {
+        final uid = r['user_id']?.toString();
+        if (uid != null) r['profiles'] = profiles[uid];
+      }
+      _applications = rows;
     } catch (e) {
       debugPrint('Failed to fetch driver applications: $e');
     }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/features/admin/data/ad_service.dart';
 import 'package:church_on_app/features/admin/presentation/ad_payment_sheet.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 import '../../../core/widgets/app_image.dart';
 import '../../../core/providers/profile_provider.dart';
 
@@ -134,6 +135,9 @@ class _AdManagementScreenState extends ConsumerState<AdManagementScreen> {
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
+                final tenantId =
+                    ref.read(currentTenantProvider)?.id ??
+                    ref.read(profileProvider).value?.tenantId;
                 final data = {
                   'title': titleC.text,
                   'description': descC.text,
@@ -142,6 +146,8 @@ class _AdManagementScreenState extends ConsumerState<AdManagementScreen> {
                   'ad_type': type,
                   'placement': placement,
                   'is_active': true,
+                  if (tenantId != null && tenantId.isNotEmpty)
+                    'tenant_id': tenantId,
                 };
                 try {
                   if (existing == null) {

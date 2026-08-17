@@ -240,8 +240,9 @@ $migrations = @(
            "20260909_secdef_hardening_round3b.sql"
            "20260910_subscribe_tier_anchor.sql"
            "20260911_2fa_server_side.sql"
-           "20260912_fix_role_assignments_rls_coa.sql"
-     )
+"20260912_fix_role_assignments_rls_coa.sql"
+           "20260913_superadmin_ops_fixes.sql"
+      )
 
 foreach ($m in $migrations) {
     $path = "supabase\migrations\$m"

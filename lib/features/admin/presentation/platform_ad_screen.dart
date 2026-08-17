@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import '../data/ad_service.dart';
@@ -159,6 +160,16 @@ class _PlatformAdScreenState extends ConsumerState<PlatformAdScreen> {
                 try {
                   final supabase = ref.read(supabaseServiceProvider);
                   final userId = supabase.client.auth.currentUser?.id ?? '';
+                  final fromContext = ref.read(currentTenantProvider)?.id;
+                  String? tenantId = fromContext;
+                  if ((tenantId == null || tenantId.isEmpty) && userId.isNotEmpty) {
+                    final p = await supabase.client
+                        .from('profiles')
+                        .select('tenant_id')
+                        .eq('id', userId)
+                        .maybeSingle();
+                    tenantId = p?['tenant_id']?.toString();
+                  }
                   final data = {
                     'title': titleC.text,
                     'description': descC.text.isNotEmpty ? descC.text : null,
@@ -169,7 +180,8 @@ class _PlatformAdScreenState extends ConsumerState<PlatformAdScreen> {
                     'is_active': true,
                     'is_platform_wide': isPlatformWide,
                     'priority': priority,
-                    'tenant_id': isPlatformWide ? null : null,
+                    if (tenantId != null && tenantId.isNotEmpty)
+                      'tenant_id': tenantId,
                     'created_by': userId,
                   };
                   if (existing == null) {

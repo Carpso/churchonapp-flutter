@@ -437,9 +437,9 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                 children: [
                   Expanded(
                     child: _buildModeCard(
-                      "Sudden Death",
+                      "Last Stand",
                       "1 mistake ends the run",
-                      LucideIcons.skull,
+                      LucideIcons.shieldAlert,
                       const Color(0xFFFF5A5A),
                       () => _startStyle(QuizStyle.suddenDeath),
                     ),
@@ -1590,22 +1590,32 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                   ),
                 );
                 try {
+                  int inserted;
                   if (prompt.isEmpty) {
-                    await ref.read(bibleQuizServiceProvider).seedQuestions();
+                    inserted = await ref
+                        .read(bibleQuizServiceProvider)
+                        .seedQuestions();
                   } else {
-                    await _seedViaAi(prompt);
+                    inserted = await _seedViaAi(prompt);
                   }
-                } catch (e) {
-                  debugPrint("AI seeding error: $e");
-                }
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      "Database seeded with 200+ canonical questions! 🚀",
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        inserted > 0
+                            ? "$inserted questions inserted into the quiz bank! 🚀"
+                            : "Seeding found no new questions (bank already full).",
+                      ),
                     ),
-                  ),
-                );
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("Seeding failed: $e"),
+                    ),
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).primaryColor,
@@ -1631,8 +1641,10 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   }
 
   /// Seeds questions via the generate-quiz-batch Edge Function using a
-  /// free-text topic prompt (Gemini on the server).
-  Future<void> _seedViaAi(String topic) async {
+  /// free-text topic prompt (Gemini on the server). Falls back to the local
+  /// canonical seed bank when the Edge Function is unavailable or inserts 0.
+  /// Returns the number of questions actually inserted.
+  Future<int> _seedViaAi(String topic) async {
     try {
       final existingRes = await Supabase.instance.client
           .from('quiz_questions')
@@ -1652,9 +1664,13 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       final data = res.data as Map<String, dynamic>?;
       final inserted = (data?['inserted'] as int?) ?? 0;
       debugPrint('[BibleQuiz] AI seeded $inserted questions for "$topic"');
+      if (inserted > 0) return inserted;
+      debugPrint('[BibleQuiz] Edge Function inserted 0 — falling back to seed bank');
     } catch (e) {
-      debugPrint('[BibleQuiz] AI seeding failed: $e');
+      debugPrint('[BibleQuiz] AI seeding failed: $e — falling back to seed bank');
     }
+    final seeded = await ref.read(bibleQuizServiceProvider).seedQuestions();
+    return seeded;
   }
 
   void _startSoloPlay() {
@@ -1950,29 +1966,42 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   Future<void> _sendInvite(
       String memberId, String memberName, int wagerCoins) async {
     final pvpService = ref.read(pvpServiceProvider);
-    final match = await pvpService.createInvite(
-      opponentId: memberId,
-      wagerCoins: wagerCoins,
-      questionCount: 10,
-      timePerQuestion: 15,
-    );
-    if (!mounted) return;
-    if (match == null) {
-      if (wagerCoins > 0) {
+    PvPMatch? match;
+    try {
+      match = await pvpService.createInvite(
+        opponentId: memberId,
+        wagerCoins: wagerCoins,
+        questionCount: 10,
+        timePerQuestion: 15,
+      );
+    } catch (e) {
+      final reason = e.toString().replaceFirst('Exception: ', '');
+      if (!mounted) return;
+      if (wagerCoins > 0 && reason.toLowerCase().contains('coin')) {
         showBuyCoinsSheet(
           context,
           reason: 'Not enough Church Coins to send this challenge.',
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Could not send the invite right now. Please try again.',
-            ),
+          SnackBar(
+            content: Text('Invite failed: $reason'),
             backgroundColor: Colors.orange,
           ),
         );
       }
+      return;
+    }
+    if (!mounted) return;
+    if (match == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not send the invite right now. Please try again.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(

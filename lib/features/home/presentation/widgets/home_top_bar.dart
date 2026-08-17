@@ -162,56 +162,63 @@ String _churchDisplayName(Tenant? tenant) {
                   ),
                 ],
               ),
-              child: weatherAsync.when(
-                data: (weather) {
-                  final emoji = weather.isHot
-                      ? '🔥'
-                      : WeatherService.weatherEmoji(weather.weatherCode);
-                  return Row(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: weatherAsync.when(
+                  data: (weather) {
+                    final emoji = weather.isHot
+                        ? '🔥'
+                        : WeatherService.weatherEmoji(weather.weatherCode);
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          emoji,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          "${weather.temperature.isFinite ? weather.temperature.round() : 0}°C",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black38,
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                  loading: () => const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Icon(LucideIcons.sun, color: Colors.white, size: 14),
+                      SizedBox(width: 4),
                       Text(
-                        emoji,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        "${weather.temperature.isFinite ? weather.temperature.round() : 0}°C",
-                        style: const TextStyle(
+                        "--°",
+                        style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black38,
-                              blurRadius: 4,
-                            ),
-                          ],
                         ),
                       ),
                     ],
-                  );
-                },
-                loading: () => const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(LucideIcons.sun, color: Colors.white, size: 14),
-                    SizedBox(width: 4),
-                    Text(
-                      "--°",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
+                  ),
+                  error: (_, __) => const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.cloudOff,
+                        color: Colors.white70,
+                        size: 14,
                       ),
-                    ),
-                  ],
-                ),
-                error: (_, __) => const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(LucideIcons.cloudOff, color: Colors.white70, size: 14),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

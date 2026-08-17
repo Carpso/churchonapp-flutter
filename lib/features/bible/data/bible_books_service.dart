@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'bible_book_model.dart';
 
 class BibleBooksService {
@@ -27,7 +28,8 @@ class BibleBooksService {
     _client.close();
   }
 
-  /// Fetch Bible books from public APIs with fallback chain
+  /// Fetch Bible books from Supabase (source of truth), then public APIs
+  /// as fallback, then built-in defaults.
 Future<List<BibleBook>> fetchAllBooks({bool forceRefresh = false}) async {
     // Try cache first unless forced refresh
     if (!forceRefresh) {
@@ -36,6 +38,42 @@ Future<List<BibleBook>> fetchAllBooks({bool forceRefresh = false}) async {
         debugPrint('BibleBooksService: Returning ${cached.length} books from cache');
         return cached;
       }
+    }
+
+    // Local Supabase bible_books table first — instant, offline-robust, and
+    // guaranteed to match the verse rows in bible_verses (all 66 books).
+    try {
+      final client = Supabase.instance.client;
+      final rows = await client
+          .from('bible_books')
+          .select('name, abbreviation, testament, chapters, book_order, description')
+          .order('book_order', ascending: true);
+      if (rows.isNotEmpty) {
+        final books = (rows as List)
+            .map((row) => BibleBook(
+                  name: row['name']?.toString() ?? '',
+                  abbreviation: row['abbreviation']?.toString() ?? '',
+                  testament: row['testament']?.toString() == 'OT'
+                      ? Testament.old
+                      : Testament.nt,
+                  chapters: (row['chapters'] as num?)?.toInt() ?? 0,
+                  description: row['description']?.toString() ?? '',
+                  testamentOrder: row['testament']?.toString() == 'OT'
+                      ? 'OT'
+                      : 'NT',
+                  bookOrder: (row['book_order'] as num?)?.toInt() ?? 0,
+                ))
+            .where((b) => b.name.isNotEmpty)
+            .toList();
+        if (books.length == 66) {
+          await _saveToCache(books);
+          debugPrint(
+              'BibleBooksService: Returning ${books.length} books from Supabase');
+          return books;
+        }
+      }
+    } catch (e) {
+      debugPrint('BibleBooksService: Supabase fetch failed: $e');
     }
 
     // Try each API endpoint in order

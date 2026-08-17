@@ -397,8 +397,9 @@ class PvPService {
       });
       final data = res as Map<String, dynamic>?;
       if (data?['success'] != true) {
-        debugPrint('[PvP] Invite rejected: ${data?['error']}');
-        return null;
+        final reason = data?['error']?.toString() ?? 'Unknown error';
+        debugPrint('[PvP] Invite rejected: $reason');
+        throw Exception(reason);
       }
       return PvPMatch(
         id: data!['match_id'] as String,

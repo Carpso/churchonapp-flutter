@@ -101,7 +101,7 @@ class MoreHubScreen extends ConsumerWidget {
                 _buildModuleCard(context, "Testimonies", LucideIcons.flame, Colors.orange, () => context.push('/testimonies')),
                 _buildModuleCard(context, "Prayer Wall", LucideIcons.helpingHand, Theme.of(context).primaryColor.withValues(alpha: 0.75), () => context.push('/prayer-wall')),
                 _buildModuleCard(context, "Communities", LucideIcons.users, Theme.of(context).primaryColor.withValues(alpha: 0.6), () => context.push('/communities')),
-                _buildModuleCard(context, "Kingdom Klips", LucideIcons.video, Theme.of(context).primaryColor.withValues(alpha: 0.45), () => context.push('/kingdom-klips')),
+                _buildModuleCard(context, "Klips", LucideIcons.video, Theme.of(context).primaryColor.withValues(alpha: 0.45), () => context.push('/kingdom-klips')),
               ],
             ),
             const SizedBox(height: 40),

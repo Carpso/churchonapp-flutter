@@ -122,7 +122,19 @@ class MembershipCardScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 15),
                     Expanded(
-                      child: Text(tenant?.name ?? "CHURCH", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          tenant?.name ?? "CHURCH",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                          maxLines: 1,
+                        ),
+                      ),
                     ),
                   ],
                 ),

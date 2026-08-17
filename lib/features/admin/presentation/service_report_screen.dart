@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/reporting_service.dart';
 
 class ServiceReportScreen extends ConsumerStatefulWidget {
@@ -384,7 +385,10 @@ class _ServiceReportScreenState extends ConsumerState<ServiceReportScreen> {
         offering: double.tryParse(_offeringCtrl.text) ?? 0.0,
         testimony: _testimonyCtrl.text,
         date: DateTime.now(),
-        reporterId: profile?.id ?? 'unknown',
+        serviceDate: DateTime.now(),
+        reporterId: profile?.id ??
+            Supabase.instance.client.auth.currentUser?.id ??
+            'unknown',
         type: _reportType,
       );
 

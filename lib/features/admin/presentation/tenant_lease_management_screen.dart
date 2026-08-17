@@ -46,6 +46,29 @@ class _TenantLeaseManagementScreenState extends ConsumerState<TenantLeaseManagem
   Future<void> _toggleTenantStatus(Map<String, dynamic> tenant) async {
     final id = tenant['id'] as String;
     final active = tenant['is_active'] == true;
+    final name = tenant['name'] as String? ?? 'This tenant';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(active ? "Deactivate $name?" : "Reactivate $name?"),
+        content: Text(
+          active
+              ? "This will deactivate the tenant and its church on the platform. Members will no longer be able to select it. You can reactivate it anytime."
+              : "This will reactivate the tenant and its church on the platform.",
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: active ? Colors.red : Colors.green),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(active ? "Deactivate" : "Reactivate"),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
     try {
       await Supabase.instance.client.rpc(
         active ? 'suspend_tenant' : 'reactivate_tenant',
@@ -53,7 +76,7 @@ class _TenantLeaseManagementScreenState extends ConsumerState<TenantLeaseManagem
       );
       await _loadTenants();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(active ? "Tenant suspended" : "Tenant reactivated")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(active ? "Tenant deactivated" : "Tenant reactivated")));
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
@@ -199,7 +222,7 @@ class _TenantLeaseManagementScreenState extends ConsumerState<TenantLeaseManagem
           Row(children: [
             _actionBtn(theme, "Extend Trial", LucideIcons.clock, theme.primaryColor, () => _extendTrial(id)),
             const SizedBox(width: 8),
-            _actionBtn(theme, active ? "Suspend" : "Reactivate", active ? LucideIcons.shieldOff : LucideIcons.shield, active ? Colors.red : Colors.green, () => _toggleTenantStatus(tenant)),
+            _actionBtn(theme, active ? "Deactivate" : "Reactivate", active ? LucideIcons.shieldOff : LucideIcons.shield, active ? Colors.red : Colors.green, () => _toggleTenantStatus(tenant)),
           ]),
         ],
       ),

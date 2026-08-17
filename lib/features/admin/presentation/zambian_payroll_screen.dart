@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/config/remote_config.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
+import '../data/payroll_service.dart';
 
 class ZambianPayrollScreen extends ConsumerStatefulWidget {
   const ZambianPayrollScreen({super.key});
@@ -11,11 +14,63 @@ class ZambianPayrollScreen extends ConsumerStatefulWidget {
 }
 
 class _ZambianPayrollScreenState extends ConsumerState<ZambianPayrollScreen> {
-  final List<Map<String, dynamic>> _staff = [
-    {"name": "Pastor John", "role": "Senior Pastor", "gross": 15000.0},
-    {"name": "Sarah Banda", "role": "Media Director", "gross": 8500.0},
-    {"name": "Moses Phiri", "role": "Logistics Mgr", "gross": 7000.0},
-  ];
+  bool _isLoading = true;
+  String? _error;
+  List<Employee> _employees = [];
+  bool _isProcessing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEmployees();
+  }
+
+  Future<void> _loadEmployees() async {
+    setState(() { _isLoading = true; _error = null; });
+    try {
+      final tenant = ref.read(currentTenantProvider);
+      if (tenant == null) {
+        if (mounted) setState(() { _isLoading = false; _error = 'No church selected'; });
+        return;
+      }
+      final emps = await ref.read(payrollServiceProvider).getEmployees(tenant.id);
+      if (mounted) setState(() { _employees = emps; _isLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _isLoading = false; _error = e.toString(); });
+    }
+  }
+
+  Future<void> _processStatutoryRun() async {
+    final tenant = ref.read(currentTenantProvider);
+    final user = Supabase.instance.client.auth.currentUser;
+    if (tenant == null || user == null) return;
+    setState(() => _isProcessing = true);
+    try {
+      final now = DateTime.now();
+      final run = await ref.read(payrollServiceProvider).processPayroll(
+        tenant.id,
+        now.month,
+        now.year,
+        user.id,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Statutory run ${run.status}: ${run.employeeCount} employees, net pay K${run.totalNetPay.toStringAsFixed(2)}"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Payroll run failed: $e"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +79,6 @@ class _ZambianPayrollScreenState extends ConsumerState<ZambianPayrollScreen> {
     final nhimaPercent = config.getDouble('nhima_percent', 1.0);
     final napsaPercent = config.getDouble('napsa_percent', 5.0);
     final payeThreshold = config.getDouble('paye_threshold_kwacha', 5100.0);
-    final payeRatePercent = config.getDouble('paye_rate_percent', 25.0);
     final turnoverTaxPercent = config.getDouble('turnover_tax_percent', 3.0);
 
     double totalGross = 0;
@@ -34,18 +88,18 @@ class _ZambianPayrollScreenState extends ConsumerState<ZambianPayrollScreen> {
     double totalTurnoverTax = 0;
     double totalNet = 0;
 
-    for (final emp in _staff) {
-      final gross = emp['gross'] as double;
+    for (final emp in _employees) {
+      final gross = emp.totalEarnings;
+      final calc = PayrollService.calculateEmployeePayroll(emp, taxFreeThreshold: payeThreshold);
       final nhima = gross * nhimaPercent / 100;
       final napsa = gross * napsaPercent / 100;
-      final paye = gross > payeThreshold ? (gross - payeThreshold) * payeRatePercent / 100 : 0.0;
       final turnoverTax = gross * turnoverTaxPercent / 100;
       totalGross += gross;
       totalNhima += nhima;
       totalNapsa += napsa;
-      totalPaye += paye;
+      totalPaye += (calc['paye'] as num?)?.toDouble() ?? 0;
       totalTurnoverTax += turnoverTax;
-      totalNet += gross - nhima - napsa - paye;
+      totalNet += (calc['netPay'] as num?)?.toDouble() ?? 0;
     }
 
     return Scaffold(
@@ -54,101 +108,118 @@ class _ZambianPayrollScreenState extends ConsumerState<ZambianPayrollScreen> {
         title: const Text("Zambian Payroll & Deductions"),
         actions: [
           IconButton(
-            icon: const Icon(LucideIcons.fileText),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Payroll report generated")),
-              );
-            },
+            icon: const Icon(LucideIcons.refreshCw),
+            onPressed: _isLoading ? null : _loadEmployees,
           )
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFFDA03), Color(0xFFE8A400)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("Total Monthly Payroll", style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 5),
-                  Text("ZMW ${totalGross.toStringAsFixed(2)}", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.black)),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text("Turnover Tax (${'$turnoverTaxPercent'.replaceFirst(RegExp(r'\.0$'), '')}%)",
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87)),
-                      Text("- ZMW ${totalTurnoverTax.toStringAsFixed(2)}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.black)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text("Total Net Pay", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87)),
-                      Text("ZMW ${totalNet.toStringAsFixed(2)}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.black)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: _summaryStat("Deductions", "ZMW ${(totalNhima + totalNapsa + totalPaye).toStringAsFixed(2)}", LucideIcons.scissors, Theme.of(context).primaryColor),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _summaryStat("Turnover Tax", "ZMW ${totalTurnoverTax.toStringAsFixed(2)}", LucideIcons.receipt, Colors.amber),
-                ),
-              ],
-            ),
-            const SizedBox(height: 30),
-            Text("Staff Deductions (NHIMA / NAPSA / PAYE + Turnover Tax)",
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Text(
-              "Rates are remote-configurable in Platform Settings: NHIMA $nhimaPercent%, NAPSA $napsaPercent%, PAYE $payeRatePercent% above K${payeThreshold.toStringAsFixed(0)}, Turnover Tax $turnoverTaxPercent%.",
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
-            ),
-            const SizedBox(height: 15),
-            ..._staff.map((employee) => _buildPayrollCard(
-              employee,
-              nhimaPercent: nhimaPercent,
-              napsaPercent: napsaPercent,
-              payeThreshold: payeThreshold,
-              payeRatePercent: payeRatePercent,
-              turnoverTaxPercent: turnoverTaxPercent,
-            )),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Processing Payroll with Lipila ZRA Integration..."), backgroundColor: Colors.green),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 55),
-              ),
-              child: const Text("Process ZRA Statutory Run"),
-            )
-          ],
-        ),
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(child: Text("Error: $_error"))
+              : _employees.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(30),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(LucideIcons.users, size: 44, color: Colors.grey.shade400),
+                            const SizedBox(height: 12),
+                            const Text("No employees registered for this church yet", textAlign: TextAlign.center),
+                            const SizedBox(height: 6),
+                            Text(
+                              "Add employees in Payroll Processing to run the ZRA statutory run here.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFFDA03), Color(0xFFE8A400)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text("Total Monthly Payroll", style: TextStyle(fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 5),
+                                Text("ZMW ${totalGross.toStringAsFixed(2)}", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.black)),
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text("Turnover Tax (${'$turnoverTaxPercent'.replaceFirst(RegExp(r'\.0$'), '')}%)",
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87)),
+                                    Text("- ZMW ${totalTurnoverTax.toStringAsFixed(2)}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.black)),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text("Total Net Pay", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87)),
+                                    Text("ZMW ${totalNet.toStringAsFixed(2)}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.black)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _summaryStat("Deductions", "ZMW ${(totalNhima + totalNapsa + totalPaye).toStringAsFixed(2)}", LucideIcons.scissors, Theme.of(context).primaryColor),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _summaryStat("Turnover Tax", "ZMW ${totalTurnoverTax.toStringAsFixed(2)}", LucideIcons.receipt, Colors.amber),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 30),
+                          Text("Staff Deductions (NHIMA / NAPSA / PAYE + Turnover Tax)",
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 6),
+                          Text(
+                            "PAYE uses progressive ZRA bands (K4,500 tax-free). NHIMA $nhimaPercent%, NAPSA $napsaPercent%, Turnover Tax $turnoverTaxPercent% are remote-configurable in Platform Settings.",
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+                          ),
+                          const SizedBox(height: 15),
+                          ..._employees.map((employee) => _buildPayrollCard(
+                            employee,
+                            nhimaPercent: nhimaPercent,
+                            napsaPercent: napsaPercent,
+                            payeThreshold: payeThreshold,
+                            turnoverTaxPercent: turnoverTaxPercent,
+                          )),
+                          const SizedBox(height: 20),
+                          ElevatedButton(
+                            onPressed: _isProcessing || _employees.isEmpty ? null : _processStatutoryRun,
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 55),
+                            ),
+                            child: _isProcessing
+                                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
+                                : const Text("Process ZRA Statutory Run"),
+                          ),
+                        ],
+                      ),
+                    ),
     );
   }
 
@@ -182,19 +253,19 @@ class _ZambianPayrollScreenState extends ConsumerState<ZambianPayrollScreen> {
   }
 
   Widget _buildPayrollCard(
-    Map<String, dynamic> emp, {
+    Employee emp, {
     required double nhimaPercent,
     required double napsaPercent,
     required double payeThreshold,
-    required double payeRatePercent,
     required double turnoverTaxPercent,
   }) {
-    double gross = emp['gross'];
-    double nhima = gross * nhimaPercent / 100;
-    double napsa = gross * napsaPercent / 100;
-    double paye = gross > payeThreshold ? (gross - payeThreshold) * payeRatePercent / 100 : 0;
-    double turnoverTax = gross * turnoverTaxPercent / 100;
-    double net = gross - nhima - napsa - paye - turnoverTax;
+    final gross = emp.totalEarnings;
+    final calc = PayrollService.calculateEmployeePayroll(emp, taxFreeThreshold: payeThreshold);
+    final nhima = gross * nhimaPercent / 100;
+    final napsa = gross * napsaPercent / 100;
+    final paye = (calc['paye'] as num?)?.toDouble() ?? 0;
+    final turnoverTax = gross * turnoverTaxPercent / 100;
+    final net = (calc['netPay'] as num?)?.toDouble() ?? 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
@@ -209,11 +280,11 @@ class _ZambianPayrollScreenState extends ConsumerState<ZambianPayrollScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(emp['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Expanded(child: Text(emp.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), overflow: TextOverflow.ellipsis)),
               Text("Gross: K${gross.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
             ],
           ),
-          Text(emp['role'], style: const TextStyle(color: Colors.grey)),
+          Text(emp.roleTitle, style: const TextStyle(color: Colors.grey)),
           const Divider(),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -232,7 +303,7 @@ class _ZambianPayrollScreenState extends ConsumerState<ZambianPayrollScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("PAYE ($payeRatePercent% above K${payeThreshold.toStringAsFixed(0)})", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text("PAYE (progressive bands)", style: const TextStyle(fontSize: 12, color: Colors.grey)),
               Text("- K${paye.toStringAsFixed(2)}", style: const TextStyle(color: Colors.red, fontSize: 12)),
             ],
           ),

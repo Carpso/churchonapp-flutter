@@ -20,6 +20,16 @@ import '../../events/data/event_service.dart';
 import '../data/audit_service.dart';
 import 'resolution_hub_screen.dart';
 import 'emergency_shutdown_screen.dart';
+import 'apostle_dashboard_screen.dart';
+import 'bishop_dashboard_screen.dart';
+import 'pastor_dashboard_screen.dart';
+import 'finance_dashboard_screen.dart';
+import 'logistics_dashboard_screen.dart';
+import 'driver_dashboard_screen.dart';
+import 'rider_dashboard_screen.dart';
+import 'writer_dashboard_screen.dart';
+import 'bookshop_dashboard_screen.dart';
+import '../../marketplace/presentation/vendor_dashboard_screen.dart';
 import 'ad_management_screen.dart';
 import 'role_approval_screen.dart';
 import 'writer_approval_screen.dart';
@@ -682,7 +692,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
     'Bible Quiz',
     'Live Streaming',
     'Sermon Library',
-    'Kingdom Klips',
+    'Klips',
     'Direct Chat',
     'Community Chat',
     'Audio/Video Calls',
@@ -755,6 +765,25 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildStatCards(),
+            const SizedBox(height: 35),
+            const Text("All Dashboards", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _dashboardChip(LucideIcons.crown, "Apostle", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ApostleDashboardScreen()))),
+                _dashboardChip(LucideIcons.gem, "Bishop", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BishopDashboardScreen()))),
+                _dashboardChip(LucideIcons.layoutDashboard, "Pastor", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PastorDashboardScreen()))),
+                _dashboardChip(LucideIcons.banknote, "Finance", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FinanceDashboardScreen()))),
+                _dashboardChip(LucideIcons.truck, "Logistics", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LogisticsDashboardScreen()))),
+                _dashboardChip(LucideIcons.car, "Driver", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DriverDashboardScreen()))),
+                _dashboardChip(LucideIcons.map, "Rider", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RiderDashboardScreen()))),
+                _dashboardChip(LucideIcons.feather, "Writer", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WriterDashboardScreen()))),
+                _dashboardChip(LucideIcons.store, "Vendor", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VendorDashboardScreen()))),
+                _dashboardChip(LucideIcons.bookOpen, "Bookshop", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BookshopDashboardScreen()))),
+              ],
+            ),
             const SizedBox(height: 35),
             const Text("Pending Church Registrations", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
@@ -984,7 +1013,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             _buildGlobalAction(LucideIcons.send, "Global Payout Command", "Send payouts to any user", Colors.redAccent, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const GlobalPayoutCommandScreen()));
             }),
-            _buildGlobalAction(LucideIcons.sparkles, "Kingdom AI Moderator", "AI moderation of posts & comments", Colors.deepPurple, () {
+            _buildGlobalAction(LucideIcons.sparkles, "AI Moderator", "AI moderation of posts & comments", Colors.deepPurple, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const KingdomAIModeratorScreen()));
             }),
             _buildGlobalAction(LucideIcons.compass, "Prophetic Navigation", "Prophetic declarations & guidance", Colors.amber, () {
@@ -1326,6 +1355,28 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
     ),
     );
   }
+
+  Widget _dashboardChip(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: const Color(0xFFFFDA03)),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _AuditLogScreen extends ConsumerStatefulWidget {
@@ -1434,7 +1485,7 @@ class _AuditLogScreenState extends ConsumerState<_AuditLogScreen> {
             },
           );
         },
-      ),
+),
     );
   }
 }

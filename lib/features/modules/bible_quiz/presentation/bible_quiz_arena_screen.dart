@@ -29,7 +29,7 @@ extension QuizStyleX on QuizStyle {
       case QuizStyle.marathon:
         return 'Marathon';
       case QuizStyle.suddenDeath:
-        return 'Sudden Death';
+        return 'Last Stand';
       case QuizStyle.blitz:
         return 'Blitz';
       case QuizStyle.classic:
@@ -280,14 +280,28 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     try {
       final res = await Supabase.instance.client
           .from('profiles')
-          .select('full_name, avatar_url, tenant_id, churches(name)')
+          .select('full_name, avatar_url, tenant_id')
           .eq('id', userId)
           .maybeSingle();
       if (res == null) return null;
+      String churchName = 'Independent';
+      final tenantId = res['tenant_id']?.toString();
+      if (tenantId != null && tenantId.isNotEmpty) {
+        try {
+          final tenant = await Supabase.instance.client
+              .from('tenants')
+              .select('name')
+              .filter('id::text', 'eq', tenantId)
+              .maybeSingle();
+          churchName = tenant?['name']?.toString() ?? 'Independent';
+        } catch (e) {
+          debugPrint('Error fetching player church: $e');
+        }
+      }
       return {
         'name': res['full_name'] ?? 'Believer',
         'avatar': res['avatar_url'] ?? '',
-        'church': (res['churches'] as Map?)?['name'] ?? 'Independent',
+        'church': churchName,
       };
     } catch (e) {
       debugPrint('Error fetching player detail: $e');

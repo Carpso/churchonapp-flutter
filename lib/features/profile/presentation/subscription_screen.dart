@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/services/subscription_service.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shimmer/shimmer.dart';
 
 class _TierCard extends StatelessWidget {
@@ -104,45 +105,97 @@ class SubscriptionManagementScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final subAsync = ref.watch(userSubscriptionProvider);
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(title: const Text("My Subscription")),
       body: subAsync.when(
         data: (sub) {
-          if (sub == null) return const Center(child: Text("No subscription found"));
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
               Card(
                 child: ListTile(
-                  title: Text("Current Plan: ${sub.tier.name.toUpperCase()}"),
-                  subtitle: sub.isTrialActive
-                      ? Text("Trial ends in ${sub.trialDaysRemaining} days")
-                      : sub.isSubscriptionActive
-                          ? Text("Active until ${sub.subscriptionEndsAt?.toLocal().toString().split(' ')[0]}")
-                          : const Text("Inactive"),
+                  leading: Icon(
+                    LucideIcons.crown,
+                    color: sub?.isPremium == true
+                        ? Colors.amber
+                        : theme.primaryColor,
+                  ),
+                  title: Text(
+                    "Current Plan: ${(sub?.tier ?? SubscriptionTier.free).name.toUpperCase()}",
+                  ),
+                  subtitle: Text(
+                    "Memberships are free — churches pay, members enjoy.",
+                  ),
+                  trailing: sub == null ? null : const SubscriptionBadge(),
                 ),
               ),
               const SizedBox(height: 20),
-              if (!sub.isPremium) ...[
-                const Text("Upgrade to unlock premium features:", style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                _TierCard(
-                  name: "Silver",
-                  price: "K150",
-                  period: "/month",
-                  features: ["HD Video", "Priority Support"],
-                  color: Colors.grey,
+              const Text(
+                "Member Tiers",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                "Every member starts on Silver for free. Gold and Platinum are premium member tiers unlocked by your church.",
+                style: TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              _TierCard(
+                name: "Silver",
+                price: "Free",
+                period: "forever",
+                features: [
+                  "Bible, radio & live streams",
+                  "Giving, events & marketplace",
+                  "Bible Quiz, Church Coins & rewards",
+                  "Carpso Rides & community",
+                ],
+                color: Colors.grey,
+              ),
+              const SizedBox(height: 12),
+              _TierCard(
+                name: "Gold",
+                price: "—",
+                period: "",
+                features: [
+                  "All Silver features",
+                  "Priority support",
+                  "Early access to new features",
+                ],
+                color: Colors.amber,
+              ),
+              const SizedBox(height: 12),
+              _TierCard(
+                name: "Platinum",
+                price: "—",
+                period: "",
+                features: [
+                  "All Gold features",
+                  "Exclusive offers & partner rewards",
+                ],
+                color: Colors.deepPurple,
+              ),
+              const SizedBox(height: 20),
+              Card(
+                color: theme.primaryColor.withValues(alpha: 0.08),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(LucideIcons.coins, color: theme.primaryColor),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          "Quiz Engine leases are paid in Church Coins (CC), not cash. Buy CC from the Buy Coins screen when your wallet runs low.",
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-                _TierCard(
-                  name: "Gold",
-                  price: "K1,500",
-                  period: "/year",
-                  features: ["4K Video", "Unlimited Support", "Custom Branding"],
-                  color: Colors.amber,
-                ),
-              ],
+              ),
             ],
           );
         },
@@ -162,7 +215,7 @@ class SubscriptionManagementScreen extends ConsumerWidget {
             ),
           ),
         ),
-        error: (e, _) => Center(child: Text("Error: $e")),
+error: (e, _) => Center(child: Text("Error: $e")),
       ),
     );
   }

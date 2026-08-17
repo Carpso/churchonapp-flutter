@@ -447,6 +447,40 @@ final membersStreamProvider = StreamProvider<List<UserProfile>>((ref) {
 
 final postsStreamProvider = StreamProvider<List<SocialPost>>((ref) {
   final client = Supabase.instance.client;
-  return client.from('social_posts').stream(primaryKey: ['id']).order('created_at').map((data) => data.map((e) => SocialPost.fromMap(e)).toList());
+  return client
+      .from('social_posts')
+      .stream(primaryKey: ['id'])
+      .order('created_at')
+      .asyncMap((data) async {
+        final posts = (data as List).cast<Map<String, dynamic>>();
+        final userIds = posts
+            .map((p) => p['user_id']?.toString())
+            .whereType<String>()
+            .where((id) => id.isNotEmpty)
+            .toSet();
+        final profiles = <String, Map<String, dynamic>>{};
+        if (userIds.isNotEmpty) {
+          try {
+            final res = await client
+                .from('profiles')
+                .select('id, full_name, avatar_url, role')
+                .inFilter('id', userIds.toList());
+            for (final row in (res as List)) {
+              final map = Map<String, dynamic>.from(row);
+              profiles[map['id']?.toString() ?? ''] = map;
+            }
+          } catch (e) {
+            debugPrint('admin_service: profile enrich error: $e');
+          }
+        }
+        return posts.map((map) {
+          final enriched = Map<String, dynamic>.from(map);
+          final pid = map['user_id']?.toString() ?? '';
+          if (profiles.containsKey(pid)) {
+            enriched['profiles'] = profiles[pid];
+          }
+          return SocialPost.fromMap(enriched);
+        }).toList();
+      });
 });
 

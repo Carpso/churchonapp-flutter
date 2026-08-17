@@ -19,7 +19,7 @@ class PropheticHeatmapScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text("Prophetic Surveillance Hub", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text("Prophetic Navigation", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         leading: IconButton(
           icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
           onPressed: () => Navigator.pop(context),

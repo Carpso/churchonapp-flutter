@@ -96,17 +96,18 @@ class _ServiceReportFormScreenState
     try {
       await Supabase.instance.client.from('service_reports').insert({
         'tenant_id': tenant.id,
-        'church_id': tenant.id,
+        'title': '${_serviceType.toUpperCase()} SERVICE — ${DateFormat('MMM d, yyyy').format(_serviceDate)}',
+        'description': _notesController.text.trim().isEmpty
+            ? 'Service report for ${DateFormat('EEEE, MMMM d').format(_serviceDate)}'
+            : _notesController.text.trim(),
         'service_date': _serviceDate.toIso8601String().split('T')[0],
-        'service_type': _serviceType,
+        'type': 'service',
         'attendance': _attendance,
-        'new_members': _newMembers,
+        'visitors': _newMembers,
         'salvations': _salvations,
-        'baptisms': _baptisms,
-        'offering_amount': _offeringAmount,
-        'tithe_amount': _titheAmount,
+        'offering': _offeringAmount + _titheAmount,
         'notes': _notesController.text.trim(),
-        'created_by': user.id,
+        'reporter_id': user.id,
       });
 
       if (mounted) {

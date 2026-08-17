@@ -87,10 +87,16 @@ final marketplaceServiceProvider = Provider((ref) => MarketplaceService(Supabase
 
 final productsProvider = FutureProvider.family<List<MarketProduct>, Map<String, String?>>((ref, filters) async {
   final tenant = ref.watch(currentTenantProvider);
-  return ref.watch(marketplaceServiceProvider).fetchProducts(
+  final service = ref.watch(marketplaceServiceProvider);
+  final tenantProducts = await service.fetchProducts(
     category: filters['category'],
     marketType: filters['marketType'],
     tenantId: tenant?.id,
+  );
+  if (tenantProducts.isNotEmpty || tenant == null) return tenantProducts;
+  return service.fetchProducts(
+    category: filters['category'],
+    marketType: filters['marketType'],
   );
 });
 

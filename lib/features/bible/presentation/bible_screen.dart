@@ -156,9 +156,13 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                "$selectedBook $selectedChapter",
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              Flexible(
+                child: Text(
+                  "$selectedBook $selectedChapter",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
               const SizedBox(width: 5),
               const Icon(LucideIcons.chevronDown, size: 16),
@@ -170,6 +174,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
             icon: const Icon(LucideIcons.listTodo),
             onPressed: _showStudyHub,
             tooltip: "Study Plans",
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 40),
           ),
           IconButton(
             icon: const Icon(LucideIcons.brain),
@@ -178,24 +183,29 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               MaterialPageRoute(builder: (_) => const ScriptureMemoryScreen()),
             ),
             tooltip: "Scripture Memory",
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 40),
           ),
           IconButton(
             icon: const Icon(LucideIcons.map),
             onPressed: _showBiblicalAtlas,
             tooltip: "Biblical Atlas",
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 40),
           ),
           IconButton(
             icon: const Icon(LucideIcons.type),
             onPressed: _showAppearanceSettings,
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 40),
           ),
           IconButton(
             icon: const Icon(LucideIcons.search),
             onPressed: _showSearchDialog,
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 40),
           ),
           IconButton(
             icon: const Icon(LucideIcons.mic, color: Colors.amber),
             onPressed: _voiceSearch,
             tooltip: 'Voice Search',
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 40),
           ),
         ],
       ),
@@ -1112,8 +1122,9 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
   }
 
   Widget _buildStudyPane() {
+    final screenW = MediaQuery.sizeOf(context).width;
     return Container(
-      width: 300,
+      width: screenW < 640 ? double.infinity : 300,
       decoration: BoxDecoration(
         color: isDarkTheme ? const Color(0xFF1E1E1E) : Colors.white,
         border: const Border(left: BorderSide(color: Colors.black12)),

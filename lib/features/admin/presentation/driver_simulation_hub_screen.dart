@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../transport/data/transport_service.dart';
 import '../../../core/providers/profile_provider.dart';
+import '../../../core/utils/location_permission_helper.dart';
 
 class DriverSimulationHubScreen extends ConsumerStatefulWidget {
   const DriverSimulationHubScreen({super.key});
@@ -17,17 +19,14 @@ class _DriverSimulationHubScreenState extends ConsumerState<DriverSimulationHubS
   Timer? _simTimer;
   bool _isSimulating = false;
   LatLng _currentPos = const LatLng(-15.3875, 28.3228); // Lusaka Center
-  String _statusMessage = "Simulator Ready";
-
-  // Simulate a path toward a destination
-  final LatLng _destination = const LatLng(-15.4166, 28.2833); // Cathedral Hill
+  String _statusMessage = "Live GPS Ready";
 
   void _toggleSimulation() async {
     if (_isSimulating) {
       _simTimer?.cancel();
       setState(() {
         _isSimulating = false;
-        _statusMessage = "Simulator Stopped";
+        _statusMessage = "Live GPS Stopped";
       });
     } else {
       final profile = ref.read(profileProvider).value;
@@ -36,30 +35,52 @@ class _DriverSimulationHubScreenState extends ConsumerState<DriverSimulationHubS
         return;
       }
 
-      setState(() {
-        _isSimulating = true;
-        _statusMessage = "Simulating Driver Movement...";
-      });
-
-      _simTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
-        if (!mounted) return;
-
-        // Move 1% closer to destination each step
-        double latStep = (_destination.latitude - _currentPos.latitude) * 0.05;
-        double lngStep = (_destination.longitude - _currentPos.longitude) * 0.05;
-
-        setState(() {
-          _currentPos = LatLng(
-            _currentPos.latitude + latStep,
-            _currentPos.longitude + lngStep,
+      final granted = await LocationPermissionHelper.showDisclosureIfNeeded(
+        context,
+        purpose: 'Push your live GPS position to the church VPS so ride requests can reach you.',
+      );
+      if (!granted || !mounted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Location permission required to broadcast live GPS")),
           );
-        });
+        }
+        return;
+      }
 
-        // Push update to VPS
-        await ref.read(transportServiceProvider).updateLocation(
-          _currentPos.latitude,
-          _currentPos.longitude,
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
         );
+        setState(() {
+          _currentPos = LatLng(pos.latitude, pos.longitude);
+          _isSimulating = true;
+          _statusMessage = "Broadcasting Live GPS...";
+        });
+        await ref.read(transportServiceProvider).updateLocation(pos.latitude, pos.longitude);
+      } catch (e) {
+        if (mounted) {
+          setState(() => _statusMessage = "GPS Error: $e");
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Could not read device GPS: $e"), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+
+      _simTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+        if (!mounted) return;
+        try {
+          final pos = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+          );
+          setState(() {
+            _currentPos = LatLng(pos.latitude, pos.longitude);
+          });
+          await ref.read(transportServiceProvider).updateLocation(pos.latitude, pos.longitude);
+        } catch (e) {
+          debugPrint('Live GPS broadcast error: $e');
+        }
       });
     }
   }
@@ -75,7 +96,7 @@ class _DriverSimulationHubScreenState extends ConsumerState<DriverSimulationHubS
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("GPS Simulator", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Live GPS Broadcast", style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: Padding(
         padding: const EdgeInsets.all(25),
@@ -122,7 +143,7 @@ class _DriverSimulationHubScreenState extends ConsumerState<DriverSimulationHubS
         ElevatedButton.icon(
           onPressed: _toggleSimulation,
           icon: Icon(_isSimulating ? LucideIcons.stopCircle : LucideIcons.playCircle),
-          label: Text(_isSimulating ? "TERMINATE SIMULATION" : "INITIATE LIVE MOVEMENT"),
+          label: Text(_isSimulating ? "STOP BROADCASTING" : "INITIATE LIVE GPS"),
           style: ElevatedButton.styleFrom(
             backgroundColor: _isSimulating ? Colors.red : Colors.amber,
             foregroundColor: Colors.black,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
@@ -8,6 +9,7 @@ import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
 import 'church_invite_screen.dart';
 import 'finance_dashboard_screen.dart';
+import 'media_upload_screen.dart';
 import 'member_management_screen.dart';
 import 'service_report_screen.dart';
 import 'live_viewer_heatmap_screen.dart';
@@ -194,6 +196,8 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                   _quickAction(theme, LucideIcons.barChart3, "Central Treasury", "Multi-branch financial oversight", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FinanceDashboardScreen()))),
                   _quickAction(theme, LucideIcons.users, "Clergy Management", "Manage pastors and ministry leaders", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MemberManagementScreen()))),
                   _quickAction(theme, LucideIcons.userPlus, "Invite Members", "Share invite link, QR & quick share", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchInviteScreen()))),
+                  _quickAction(theme, LucideIcons.video, "Live Studio", "Go live with a church-wide broadcast", Colors.red, () => context.push('/live-studio')),
+                  _quickAction(theme, LucideIcons.uploadCloud, "Media Hub (R2)", "Upload sermons, trailers & Klips", Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MediaUploadScreen()))),
                   const SizedBox(height: 100),
                 ]),
               ),

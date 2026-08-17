@@ -18,6 +18,7 @@ String _resolveSocialName(dynamic profiles, dynamic userId) {
 class SocialPost {
   final String id;
   final String userId;
+  final String? tenantId;
   final String? content;
   final String? mediaUrl;
   final List<String> images;
@@ -34,6 +35,7 @@ class SocialPost {
   SocialPost({
     required this.id,
     required this.userId,
+    this.tenantId,
     this.content,
     this.mediaUrl,
     this.images = const [],
@@ -52,6 +54,7 @@ class SocialPost {
     return SocialPost(
       id: map['id']?.toString() ?? '',
       userId: map['user_id']?.toString() ?? '',
+      tenantId: map['tenant_id']?.toString(),
       content: map['content'] ?? '',
       mediaUrl: map['media_url'],
       images: map['images'] != null ? List<String>.from(map['images']) : [],

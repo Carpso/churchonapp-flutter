@@ -90,16 +90,48 @@ class _ResolutionHubScreenState extends ConsumerState<ResolutionHubScreen> {
     );
   }
 
+  Future<List<Map<String, dynamic>>> _loadRows(String table) async {
+    final client = Supabase.instance.client;
+    final rows = (await client
+            .from(table)
+            .select('*')
+            .order('created_at', ascending: false)
+            .limit(200) as List)
+        .cast<Map<String, dynamic>>();
+
+    final userIds = rows
+        .map((r) => r['user_id']?.toString())
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    Map<String, Map<String, dynamic>> profiles = {};
+    if (userIds.isNotEmpty) {
+      try {
+        final res = await client
+            .from('profiles')
+            .select('id, full_name, phone_number, email')
+            .inFilter('id', userIds);
+        profiles = {
+          for (final p in (res as List).cast<Map<String, dynamic>>())
+            p['id'].toString(): p,
+        };
+      } catch (e) {
+        debugPrint('ResolutionHub: profiles fetch error: $e');
+      }
+    }
+    for (final r in rows) {
+      final uid = r['user_id']?.toString();
+      if (uid != null) r['profiles'] = profiles[uid];
+    }
+    return rows;
+  }
+
   Widget _buildList(ThemeData theme) {
     final table = _tableFor[_tab];
-    final client = Supabase.instance.client;
 
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: client
-          .from(table)
-          .select('*, profiles:user_id(full_name, phone_number, email)')
-          .order('created_at', ascending: false)
-          .limit(200),
+      future: _loadRows(table),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -150,7 +182,8 @@ class _ResolutionHubScreenState extends ConsumerState<ResolutionHubScreen> {
     final status = (row['status'] ?? 'open').toString();
     final color = StatusColor.fromString(context, status);
     final profile = row['profiles'] as Map<String, dynamic>?;
-    final name = profile?['full_name']?.toString() ?? 'User ${row['user_id']?.toString().substring(0, 8)}';
+    final rawUid = row['user_id']?.toString() ?? '';
+    final name = profile?['full_name']?.toString() ?? (rawUid.length >= 8 ? 'User ${rawUid.substring(0, 8)}' : 'User');
     final created = row['created_at'] != null
         ? DateTime.tryParse(row['created_at'].toString())?.toLocal()
         : null;

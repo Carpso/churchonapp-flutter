@@ -43,7 +43,7 @@ class AdminHubScreen extends ConsumerWidget {
 
     return profileAsync.when(
       data: (profile) {
-        if (profile == null || !profile.isTenantAdmin) {
+        if (profile == null || !profile.isLeadershipTeam) {
           return const SizedBox.shrink();
         }
         return _buildScreen(context, ref, statsAsync, profile, tenant);
@@ -62,6 +62,7 @@ class AdminHubScreen extends ConsumerWidget {
 
   Widget _buildScreen(BuildContext context, WidgetRef ref, AsyncValue<AdminStats> statsAsync, UserProfile profile, Tenant? tenant) {
     final role = profile.role;
+    final isLeadership = profile.isLeadershipTeam;
     final churchName = tenant?.name ?? 'Church';
 
     final theme = Theme.of(context);
@@ -100,7 +101,7 @@ class AdminHubScreen extends ConsumerWidget {
             Text("Management Console", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
             const SizedBox(height: 20),
             // Tenant-scoped features only - no SuperAdmin/Employee features
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.users,
@@ -109,7 +110,7 @@ class AdminHubScreen extends ConsumerWidget {
                 theme.primaryColor,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MemberManagementScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.award,
@@ -118,7 +119,7 @@ class AdminHubScreen extends ConsumerWidget {
                 theme.primaryColor,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BaptismRegistryScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.church,
@@ -127,7 +128,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.amber,
                  () => context.push('/ministry-management'),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.calendarClock,
@@ -172,7 +173,7 @@ class AdminHubScreen extends ConsumerWidget {
                 theme.primaryColor,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RiderDashboardScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.video,
@@ -181,7 +182,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.red,
                  () => context.push('/live-studio'),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.uploadCloud,
@@ -190,7 +191,25 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.orange,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MediaUploadScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
+              _buildAdminTile(
+                context,
+                LucideIcons.barChart3,
+                "Ministry Reports",
+                "Service dashboard, attendance & offerings",
+                Colors.teal,
+                () => context.push('/service-report'),
+              ),
+            if (isLeadership)
+              _buildAdminTile(
+                context,
+                LucideIcons.bookOpen,
+                "Financial Ledger",
+                "Church income, expenses & payouts",
+                Colors.indigo,
+                () => context.push('/ledger'),
+              ),
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.paintbrush,
@@ -199,7 +218,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.amber,
                  () => context.push('/flyer-studio'),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.image,
@@ -208,7 +227,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.purple,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ChurchBrandingScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.globe,
@@ -217,7 +236,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.teal,
                 () => context.push('/church-website/${tenant?.id ?? ''}'),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.heartHandshake,
@@ -226,7 +245,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.deepOrange,
                 () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PastoralFollowupScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.megaphone,
@@ -235,7 +254,7 @@ class AdminHubScreen extends ConsumerWidget {
                 theme.primaryColor,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const GlobalBroadcastScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.calendarDays,
@@ -244,7 +263,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.red,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EventSchedulerScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.map,
@@ -273,7 +292,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.amber,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LogisticsDashboardScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.map,
@@ -303,7 +322,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.teal,
                 () => Navigator.push(context, MaterialPageRoute(builder: (_) => CRMDonorScreen(tenantId: tenant?.id ?? ''))),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.newspaper,
@@ -312,7 +331,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.orange,
                 () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewsManagementScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.radio,
@@ -330,7 +349,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.green,
                 () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DataImportScreen())),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+            if (isLeadership)
               _buildAdminTile(
                 context,
                 LucideIcons.calendarCheck,

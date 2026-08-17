@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -94,13 +95,40 @@ class RoleHierarchyService {
   Future<List<RoleApproval>> getPendingApprovals() async {
     final result = await _supabase.client
         .from('role_assignments')
-        .select('*, profiles!inner(full_name, email), churches!left(name)')
+        .select('*, churches!left(name)')
         .eq('status', 'pending')
         .order('created_at', ascending: false);
-    return (result as List).map((e) {
-      final profile = e['profiles'] as Map<String, dynamic>?;
+    final rows = (result as List).cast<Map<String, dynamic>>();
+
+    final userIds = rows
+        .map((e) => e['user_id']?.toString())
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    Map<String, Map<String, dynamic>> profiles = {};
+    if (userIds.isNotEmpty) {
+      try {
+        final res = await _supabase.client
+            .from('profiles')
+            .select('id, full_name, email')
+            .inFilter('id', userIds);
+        profiles = {
+          for (final p in (res as List).cast<Map<String, dynamic>>())
+            p['id'].toString(): p,
+        };
+      } catch (e) {
+        debugPrint('RoleHierarchyService: profiles fetch error: $e');
+      }
+    }
+
+    return rows.map((e) {
       final church = e['churches'] as Map<String, dynamic>?;
-      return RoleApproval.fromMap(e, profile: profile, church: church);
+      return RoleApproval.fromMap(
+        e,
+        profile: profiles[e['user_id']?.toString()],
+        church: church,
+      );
     }).toList();
   }
 

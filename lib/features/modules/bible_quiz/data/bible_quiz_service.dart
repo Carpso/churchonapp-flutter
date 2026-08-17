@@ -145,7 +145,15 @@ class BibleQuizService {
         final questions = res.map((e) => QuizQuestion.fromMap(e as Map<String, dynamic>)).toList();
         if (questions.length >= count) return questions.take(count).toList();
         _triggerAutoGenerateIfNeeded(category: category, difficulty: difficulty);
-        return questions;
+        // Pad to the requested count with seed-bank questions (dedup by id)
+        // so competitive styles (Marathon 40, Blitz 30, ...) never run short.
+        final seen = questions.map((q) => q.id).toSet();
+        final padding = getFallbackQuestions(
+          count,
+          category: category,
+          difficulty: difficulty,
+        ).where((q) => !seen.contains(q.id)).take(count - questions.length).toList();
+        return [...questions, ...padding];
       }
     } catch (e) {
       debugPrint("Error fetching unseen questions: $e");
@@ -306,9 +314,9 @@ class BibleQuizService {
     return filtered.take(count).toList();
   }
 
-  Future<void> seedQuestions() async {
+  Future<int> seedQuestions() async {
     final user = _client.auth.currentUser;
-    if (user == null) return;
+    if (user == null) return 0;
 
     final profileRes = await _client
         .from('profiles')
@@ -330,6 +338,7 @@ class BibleQuizService {
       }
     }
     debugPrint('Seeded $seeded questions successfully.');
+    return seeded;
   }
 
   Future<Map<String, dynamic>> findOpponent() async {

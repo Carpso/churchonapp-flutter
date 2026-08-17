@@ -144,6 +144,13 @@ class NetworkService {
   Future<void> connectToChurch(String churchId) async {
     final user = _client.auth.currentUser;
     if (user == null) return;
+    final existing = await _client
+        .from('church_connections')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('connected_church_id', churchId)
+        .maybeSingle();
+    if (existing != null) return;
     await _client.from('church_connections').insert({
       'user_id': user.id,
       'connected_church_id': churchId,

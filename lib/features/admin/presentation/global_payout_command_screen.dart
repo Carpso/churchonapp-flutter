@@ -30,10 +30,20 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
   }
 
   void _executePayout(Map<String, dynamic> request) async {
-    final name = request['profiles']?['full_name'] ?? 'Unknown';
+    final profile = request['profiles'];
+    final name = profile is Map ? (profile['full_name'] as String? ?? 'Unknown') : 'Unknown';
     final amount = (request['amount'] as num).toDouble();
-    final phone = request['mobile_number'] ?? '';
-    final network = request['network'] ?? '';
+    final phone = request['mobile_number']?.toString() ?? '';
+    final network = request['network']?.toString() ?? 'mtn';
+
+    if (phone.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Payout failed: recipient mobile number is missing"), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -177,8 +187,8 @@ class _GlobalPayoutCommandScreenState extends ConsumerState<GlobalPayoutCommandS
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(request['profiles']['full_name'] ?? "Worker", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    Text("${request['network'].toUpperCase()} | ${request['mobile_number']}", style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                    Text(request['profiles'] is Map ? (request['profiles']!['full_name'] as String? ?? "Worker") : "Worker", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    Text("${(request['network']?.toString() ?? 'mtn').toUpperCase()} | ${request['mobile_number'] ?? '—'}", style: const TextStyle(color: Colors.white38, fontSize: 11)),
                   ],
                 ),
               ),

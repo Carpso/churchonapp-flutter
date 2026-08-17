@@ -10,6 +10,7 @@ import 'package:church_on_app/features/admin/presentation/bishop_heatmap_screen.
 import 'package:church_on_app/features/admin/presentation/finance_dashboard_screen.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:go_router/go_router.dart';
 
 class BishopHubScreen extends ConsumerWidget {
   const BishopHubScreen({super.key});
@@ -33,7 +34,7 @@ class BishopHubScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text("BISHOP'S COMMAND HUB", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+        title: Text("Bishops Dashboard", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
@@ -73,6 +74,8 @@ class BishopHubScreen extends ConsumerWidget {
             delegate: SliverChildListDelegate([
               _buildActionCard(context, LucideIcons.church, "Ministries & Branches", Theme.of(context).primaryColor),
               _buildActionCard(context, LucideIcons.map, "Map", Colors.green, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BishopHeatmapScreen()))),
+              _buildActionCard(context, LucideIcons.barChart3, "Ministry Reports", Colors.teal, onTap: () => context.push('/service-report')),
+              _buildActionCard(context, LucideIcons.bookOpen, "Financial Ledger", Colors.indigo, onTap: () => context.push('/ledger')),
               _buildActionCard(context, LucideIcons.fileText, "Pastor Reports", Theme.of(context).primaryColor),
               _buildActionCard(context, LucideIcons.banknote, "Central Treasury", Colors.orange, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FinanceDashboardScreen()))),
             ]),

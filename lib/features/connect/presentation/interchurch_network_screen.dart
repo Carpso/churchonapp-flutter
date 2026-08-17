@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/widgets/app_image.dart';
+import '../../../core/providers/profile_provider.dart';
 import '../data/network_service.dart';
 
 class InterchurchNetworkScreen extends ConsumerStatefulWidget {
@@ -195,6 +196,65 @@ class _InterchurchNetworkScreenState extends ConsumerState<InterchurchNetworkScr
     );
   }
 
+  Future<void> _confirmConnect(BuildContext context, ConnectedChurch church) async {
+    final profile = ref.read(profileProvider).value;
+    if (profile == null || profile.tenantId == null || profile.tenantId!.isEmpty) {
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("No Church Selected"),
+          content: const Text(
+            "You need to belong to a church before you can connect to other churches on the network. Please join your church first from the home screen.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("OK"),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text("Connect to ${church.name}?"),
+        content: const Text(
+          "This will link your church to this one on the network so you can follow each other's updates, events and prayer requests.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Connect"),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref.read(networkServiceProvider).connectToChurch(church.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Connected to ${church.name}"), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Connection failed: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   void _showChurchOptions(BuildContext context, ConnectedChurch church) {
     showModalBottomSheet(
       context: context,
@@ -225,8 +285,7 @@ class _InterchurchNetworkScreenState extends ConsumerState<InterchurchNetworkScr
               child: ElevatedButton.icon(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  ref.read(networkServiceProvider).connectToChurch(church.id);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Connected to ${church.name}")));
+                  _confirmConnect(context, church);
                 },
                 icon: const Icon(LucideIcons.plusCircle, size: 18),
                 label: const Text("Connect to this Church"),
