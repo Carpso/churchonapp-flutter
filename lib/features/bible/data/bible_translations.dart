@@ -47,6 +47,8 @@ const List<BibleTranslation> kEnglishTranslations = [
   BibleTranslation(code: 'rotherham', name: "Rotherham's Emphasized Bible", shortName: 'ROTH', remoteSupported: true),
   BibleTranslation(code: 'ukjv', name: 'Updated King James Version', shortName: 'UKJV', remoteSupported: true),
   BibleTranslation(code: 'webster', name: "Webster's Bible 1833", shortName: 'WEBSTER', remoteSupported: true),
+  BibleTranslation(code: 'oeb', name: 'Open English Bible', shortName: 'OEB', remoteSupported: true),
+  BibleTranslation(code: 'tyndale', name: "Tyndale's Bible (1526-1534)", shortName: 'TYNDALE', remoteSupported: true),
 ];
 
 BibleTranslation? getTranslationByCode(String code) {

@@ -110,9 +110,30 @@ class BibleService {
   static const _dbCodes = {'kjv'};
 
   /// Translations self-hosted on Cloudflare R2 (media.churchonapp.com) —
-  /// verified live: only kjv, web, dra, darby book files exist
-  /// (checked 2026-08-16); whole books fetched once, cached locally.
-  static const _r2Codes = {'kjv', 'web', 'dra', 'darby'};
+  /// verified live 2026-08-17: EVERY folder below has all 66 book files
+  /// (kjv/web/dra/darby lowercase, the rest uppercase folders). Whole books
+  /// fetched once, cached locally. NOTE: the earlier "only 4 translations"
+  /// audit was wrong — a Python-urllib UA was blocked by Cloudflare's bot
+  /// filter (403), while the app's Dart http UA is served fine (200).
+  static const _r2Codes = {
+    'kjv', 'web', 'dra', 'darby',
+    'acv', 'asv', 'bbe', 'cpdv', 'geneva1599', 'jubilee2000', 'mkjv',
+    'nheb', 'noyes', 'oeb', 'rlt', 'rnkjv', 'rotherham', 'tyndale',
+    'ukjv', 'webster', 'ylt',
+  };
+
+  /// R2 folder name for each translation code (folder casing differs per
+  /// translation; kjv/web/dra/darby are lowercase, scrollmapper uploads
+  /// are TitleCase/ALL-CAPS).
+  static const _r2Folder = {
+    'kjv': 'kjv', 'web': 'web', 'dra': 'dra', 'darby': 'darby',
+    'acv': 'ACV', 'asv': 'ASV', 'bbe': 'BBE', 'cpdv': 'CPDV',
+    'geneva1599': 'Geneva1599', 'jubilee2000': 'Jubilee2000',
+    'mkjv': 'MKJV', 'nheb': 'NHEB', 'noyes': 'Noyes', 'oeb': 'OEB',
+    'rlt': 'RLT', 'rnkjv': 'RNKJV', 'rotherham': 'Rotherham',
+    'tyndale': 'Tyndale', 'ukjv': 'UKJV', 'webster': 'Webster',
+    'ylt': 'YLT',
+  };
 
   /// Whether [code] can actually resolve chapter text through any source.
   /// UI uses this to enable/disable translation options honestly.
@@ -260,8 +281,9 @@ class BibleService {
         }
       }
       final fileName = book.replaceAll(' ', '_');
+      final folder = _r2Folder[translation] ?? translation;
       final response = await http
-          .get(Uri.parse('$_r2Base/$translation/$fileName.json'))
+          .get(Uri.parse('$_r2Base/$folder/$fileName.json'))
           .timeout(const Duration(seconds: 8));
       if (response.statusCode != 200) return [];
       final data = json.decode(response.body) as Map<String, dynamic>;
