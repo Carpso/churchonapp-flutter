@@ -951,7 +951,70 @@ flutter analyze --no-fatal-infos --no-fatal-warnings
     `main.dart.js` (8,642,671 bytes). Fixes churchonapp.com sign-in + public
     church website white screens. Commit `d01bf8c` (pushed).
   - **`flutter analyze`**: 0 errors, 0 warnings (10 pre-existing info).
-## How To: Reuse Lipila + FX in Other Projects
+- **Session 2026-08-17 — Select-tenant fix, subscribe-tier anchor, server-side 2FA, offline giving, i18n, orphan wiring**:
+  - **Select-tenant fix (root cause)**: `tenant_service.dart` `getAllTenants`
+    hardcoded `'_registered': map['slug'] == 'rock-of-ages-kabulonga'` — only
+    one church was ever selectable. Now `'_registered': map['is_verified'] == true`
+    (all 18 verified churches selectable). Superadmin map counter badge
+    (`_buildMapCounter`) added under the search overlay in `select_church_screen.dart`.
+  - **`subscribe_user_to_tier` bypass FIXED (migration `20260910`, applied live)**:
+    old body set `subscription_ends_at = now()+365` with `payment_status 'pending'`
+    and client-supplied ref/amount; `user_has_feature_access` checked dates only.
+    Now anchored: requires a confirmed `coa_payments` row (own user, status
+    approved/completed/confirmed/settled, amount ≥ `user_silver_monthly_price`
+    (50) / `user_gold_yearly_price` (500) from `platform_settings`), writes the
+    subscription as 'paid'; `user_has_feature_access` also requires payment_status
+    paid. Fixed `feature_key = feature_key` shadowing. Client bug fixed:
+    `subscription_service.dart` `hasFeatureAccess` passed wrong param names
+    (`p_user_id`,`p_feature_key`) → PostgREST always failed → gate always false;
+    now passes `{'feature_key': featureKey}` only.
+  - **2FA FIXED (server-side, migration `20260911` applied live)**: was
+    broken-by-design — client-encrypted `totp_secret` in `profiles` (key
+    `sha256('$userId-coa-totp-v2')` derivable client-side), never enrolled
+    server-side; login set `requires2FA` but never navigated. Now `two_factor_service.dart`
+    uses `auth.mfa.enroll()`/`challengeAndVerify`/`unenroll`; setup screen shows
+    server-generated QR + secret; `auth_provider.signIn` checks
+    `user?.factors.any((f) => f.status == FactorStatus.verified)`;
+    `complete2FA` = `listFactors()` + `challengeAndVerify` (gotrue 2.22 has NO
+    `session.mfaChallenge` and NO `recoveryCodes`); `login_screen.dart` routes
+    to `/two-factor-verify`. `profiles.totp_secret`/`totp_enabled` dropped.
+  - **Offline giving queue**: `lib/features/finance/data/offline_giving_queue.dart`
+    (SharedPreferences, idempotent enqueue by paymentRef, replay via
+    `insert_transaction_idempotent` key `offline-gift-{ref}` + `enqueue_payout_task`,
+    5 retries w/ backoff, auto-sync on connectivity). `finance_service.logTransaction`
+    falls back to the queue on insert failure; giving screen shows amber
+    "N offline gifts queued" banner with SYNC NOW.
+  - **i18n (core surfaces)**: `lib/core/i18n/` — `app_languages.dart` (enum +
+    `appLanguageProvider`, persisted), `translations.dart` (curated Bemba/Nyanja/
+    Lozi/Tonga dictionaries, English fallback by design), `l10n.dart`
+    (`context.tr('Key')`). Language picker in Account Settings. Wired: bottom nav
+    labels, home quick actions + quick-jump, giving categories/header, profile
+    posts header + see-all, verse/nav labels. Untranslated strings fall back to
+    English. Extend `kTranslations` to translate more of the app.
+  - **Orphan wiring (NOTHING deleted)**: Superadmin Hub gained "Platform Tools"
+    (~32 dead console screens: Subscription Pricing, Church Payouts, Employee
+    Management, KYC Review, Onboarding Manager, Promo Campaigns, Reward Mgmt,
+    System Security, Tenant Lease, Unified Audit, Withdrawal Approvals, Zambian
+    Compliance/Payroll, Payroll Processing/Reports, AI Stewardship, Apostolic
+    Resource Planning, Driver Simulation, Global Payout, Kingdom AI Moderator,
+    Prophetic Navigation, Wallet Command Centre, Integrations, Platform Ads,
+    SOS Alerts, System Docs, Feature Toggles, Platform Analytics, Expansion
+    Leads, Turnover Tax, Game Management, Quiz Event Host). Admin Hub gained
+    "Ministry Tools" (Member Directory, CRM Donors, News Management, Radio
+    Stations, Data Import, Volunteer Schedule). More Hub gained "More to
+    Explore" (~19 cards: Discover, Discipleship, Interchurch Network, Network
+    Activity, Song Lyrics, Tithe Card, Pastors Corner, My Jobs, My Applications,
+    Sovereign Matchmaking, Poll Creator, Create Klip, Ride History, News,
+    Branch Locator, SOS Emergency, Life Hub…). Connect header icons for
+    Interchurch/Network Activity/Pastors Corner. Give tab gained Tithe Card +
+    Transaction Alerts tiles. Profile gained My Subscription / Notification
+    Preferences / Request a Feature. **Fixed broken `/jobs/post` route**
+    (FAB crashed GoRouter "no route"). Full audit: 50 unreachable files →
+    all user-facing + admin ones wired; only dead-dedup/utility files remain
+    (planner_screen, life_hub duplicates, dead core helpers — kept per
+    do-not-delete rule).
+  - **`flutter analyze`**: 0 errors, 0 warnings (10 pre-existing info).
+    Commit `8803c37` (pushed).
 
 The Lipila payment integration now includes a **shared FX service** that other
 projects can copy/reuse when they wire Lipila:
