@@ -9,7 +9,9 @@ enum AppLanguage {
   bemba('bem', 'Bemba', 'Icibemba'),
   nyanja('nya', 'Nyanja', 'Chinyanja'),
   lozi('loz', 'Lozi', 'Silozi'),
-  tonga('tog', 'Tonga', 'Chitonga');
+  tonga('tog', 'Tonga', 'Chitonga'),
+  shona('sn', 'Shona', 'chiShona'),
+  ndebele('nd', 'Ndebele', 'isiNdebele');
 
   const AppLanguage(this.code, this.name, this.nativeName);
 
