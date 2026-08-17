@@ -30,6 +30,7 @@ import '../../../core/providers/stats_provider.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
+import 'package:church_on_app/features/finance/data/tithe_automation_service.dart';
 
 class AdminHubScreen extends ConsumerWidget {
   const AdminHubScreen({super.key});
@@ -338,11 +339,50 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.purple,
                 () => Navigator.push(context, MaterialPageRoute(builder: (_) => VolunteerSchedulingScreen(tenantId: tenant?.id ?? ''))),
               ),
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'treasurer')
+              _buildAdminTile(
+                context,
+                LucideIcons.bellRing,
+                "Tithe Reminders",
+                "SMS reminders to members who haven't tithed",
+                Colors.brown,
+                () => _sendTitheReminders(context, ref),
+              ),
           ],
         ),
       ),
     );
 }
+
+  Future<void> _sendTitheReminders(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Send Tithe Reminders"),
+        content: const Text(
+            "Send SMS reminders to all members who haven't tithed this month? This may use SMS credits."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Send")),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await ref.read(titheAutomationServiceProvider).sendMonthlyReminders();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Tithe reminders sent!"), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed: ${e.toString().replaceFirst('Exception: ', '')}"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   Widget _buildStatGrid(BuildContext ctx, AdminStats stats) {
     final theme = Theme.of(ctx);

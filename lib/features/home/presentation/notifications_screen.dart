@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/widgets/app_empty_view.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 
 final notificationsStreamProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
@@ -206,17 +207,10 @@ class NotificationsScreen extends ConsumerWidget {
       body: notificationsAsync.when(
         data: (notifications) {
           if (notifications.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(LucideIcons.bellOff, size: 64, color: Colors.grey.shade400),
-                  const SizedBox(height: 16),
-                  Text("No notifications yet", style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
-                  const SizedBox(height: 8),
-                  Text("You'll see alerts here when something happens", style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
-                ],
-              ),
+            return const AppEmptyView(
+              title: "No notifications yet",
+              message: "You'll see alerts here when something happens",
+              icon: LucideIcons.bellOff,
             );
           }
           return RefreshIndicator(

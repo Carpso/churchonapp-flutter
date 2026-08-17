@@ -132,6 +132,7 @@ class MoreHubScreen extends ConsumerWidget {
                 _buildModuleCard(context, "Branch Locator", LucideIcons.mapPin, Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BranchLocatorScreen()))),
                 _buildModuleCard(context, "SOS Emergency", LucideIcons.siren, Colors.redAccent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SosTriggerScreen()))),
                 _buildModuleCard(context, "Life Hub", LucideIcons.heart, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LifeHubScreen()))),
+                _buildModuleCard(context, "Year Planner", LucideIcons.calendarDays, Colors.indigo, () => context.push('/year-planner')),
               ],
             ),
             const SizedBox(height: 40),

@@ -12,6 +12,7 @@ import 'package:church_on_app/core/services/birthday_service.dart';
 import 'package:church_on_app/core/services/smart_prefetch_service.dart';
 import 'package:church_on_app/core/services/offline_cache_service.dart';
 import 'package:church_on_app/core/widgets/live_stream_indicator.dart';
+import 'package:church_on_app/core/widgets/feature_lock.dart';
 import 'package:church_on_app/core/widgets/global_media_player.dart';
 import 'package:church_on_app/core/widgets/onboarding_quick_start.dart';
 import 'package:church_on_app/features/connect/presentation/create_social_post_screen.dart';
@@ -611,7 +612,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           const SizedBox(height: 16),
                           const AnnouncementTicker(),
                           const SizedBox(height: 16),
-                          const LiveStreamIndicator(),
+                          FeatureLock(
+                            featureKey: 'live_streaming',
+                            showLockIcon: false,
+                            child: const LiveStreamIndicator(),
+                          ),
                           const SizedBox(height: 20),
                           const HomeGreetingHeader(),
                           const SizedBox(height: 16),

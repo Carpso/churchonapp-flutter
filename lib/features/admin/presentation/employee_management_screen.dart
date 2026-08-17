@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/tenant_service.dart';
+import '../../../core/widgets/app_loading_view.dart';
 import '../data/payroll_service.dart';
+import '../data/tenant_employee_service.dart';
 
 final _employeesProvider = StreamProvider.autoDispose<List<Employee>>((ref) {
   final tenantId = ref.watch(currentTenantProvider)?.id;
@@ -66,7 +69,7 @@ class _EmployeeManagementScreenState extends ConsumerState<EmployeeManagementScr
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AppLoadingView(message: "Loading employees..."),
         error: (e, _) => Center(child: Text('Error: $e')),
       ),
     );
@@ -219,6 +222,7 @@ class _EmployeeManagementScreenState extends ConsumerState<EmployeeManagementScr
                 itemBuilder: (_) => [
                   const PopupMenuItem(value: 'edit', child: Text('Edit')),
                   const PopupMenuItem(value: 'payslip', child: Text('View Payslips')),
+                  const PopupMenuItem(value: 'grant', child: Text('Grant App Access')),
                   if (emp.isActive) const PopupMenuItem(value: 'deactivate', child: Text('Deactivate', style: TextStyle(color: Colors.red))),
                 ],
                 onSelected: (action) => _handleAction(action, emp),
@@ -264,6 +268,63 @@ class _EmployeeManagementScreenState extends ConsumerState<EmployeeManagementScr
       case 'deactivate':
         _confirmDeactivate(emp);
         break;
+      case 'grant':
+        _grantAppAccess(emp);
+        break;
+    }
+  }
+
+  Future<void> _grantAppAccess(Employee emp) async {
+    final tenant = ref.read(currentTenantProvider);
+    if (tenant == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("No tenant selected"), backgroundColor: Colors.orange),
+        );
+      }
+      return;
+    }
+    final phone = emp.mobileNumber;
+    if (phone == null || phone.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Employee has no mobile number to match an app account"), backgroundColor: Colors.orange),
+        );
+      }
+      return;
+    }
+    try {
+      final client = Supabase.instance.client;
+      final profile = await client
+          .from('profiles')
+          .select('id')
+          .eq('phone', phone)
+          .maybeSingle();
+      if (profile == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("No app account found for this phone number"), backgroundColor: Colors.orange),
+          );
+        }
+        return;
+      }
+      final svc = TenantEmployeeService(client);
+      await svc.assignTenantEmployee(
+        userId: profile['id'] as String,
+        tenantId: tenant.id,
+        tenantName: tenant.name,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("App access granted to ${emp.fullName} as staff"), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed: ${e.toString().replaceFirst('Exception: ', '')}"), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 

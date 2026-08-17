@@ -16,6 +16,7 @@ import 'package:church_on_app/core/i18n/l10n.dart';
 import 'package:church_on_app/features/finance/data/offline_giving_queue.dart';
 import 'widgets/giving_category_selector.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
+import 'package:church_on_app/core/widgets/entity_selector.dart';
 
 class GivingScreen extends ConsumerStatefulWidget {
   const GivingScreen({super.key});
@@ -671,25 +672,51 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
         const Text("Tithe Recipient",
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3)),
+        GestureDetector(
+          onTap: () => showEntitySelector(
+            context: context,
+            title: 'Tithe Recipient',
+            options: _titheRecipients
+                .map((r) => EntityOption(
+                      id: r,
+                      name: r,
+                      subtitle: 'Send tithe to the $r',
+                      icon: r == 'Pastor'
+                          ? LucideIcons.mic2
+                          : r == 'Bishop'
+                              ? LucideIcons.crown
+                              : LucideIcons.wallet,
+                    ))
+                .toList(),
+            onSelected: (selected) =>
+                setState(() => _selectedTitheRecipient = selected.id),
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _selectedTitheRecipient,
-              isExpanded: true,
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14, fontWeight: FontWeight.bold),
-              items: _titheRecipients.map((r) {
-                return DropdownMenuItem(
-                  value: r,
-                  child: Text(r),
-                );
-              }).toList(),
-              onChanged: (v) => setState(() => _selectedTitheRecipient = v!),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .outline
+                      .withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _selectedTitheRecipient,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const Icon(LucideIcons.chevronDown,
+                    size: 18, color: Colors.grey),
+              ],
             ),
           ),
         ),

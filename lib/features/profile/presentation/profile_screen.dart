@@ -19,6 +19,7 @@ import '../../../core/providers/auth_provider.dart';
 import '../../../core/utils/money.dart';
 import '../../auth/presentation/two_factor_setup_screen.dart';
 import '../../../core/services/coins_service.dart';
+import '../../../core/services/rating_service.dart';
 import '../../../core/services/r2_service.dart';
 import '../../finance/data/finance_service.dart';
 import '../../modules/bible_quiz/data/bible_quiz_service.dart';
@@ -530,6 +531,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
         _buildPremiumItem(context, LucideIcons.lightbulb, "Request a Feature", onTap: () => context.push('/feature-request')),
         _buildPremiumItem(context, LucideIcons.church, "Can't Find Your Church?", onTap: () => context.push('/refer-church')),
         _buildPremiumItem(context, LucideIcons.helpCircle, "Help & Support", onTap: () => context.push('/support')),
+        _buildPremiumItem(context, LucideIcons.star, "Rate the App", onTap: () => RatingService.openStoreListing()),
         _buildPremiumItem(context, LucideIcons.logOut, "Logout", isDestructive: true, onTap: () => _showLogoutConfirmation(context, ref)),
       ],
     );

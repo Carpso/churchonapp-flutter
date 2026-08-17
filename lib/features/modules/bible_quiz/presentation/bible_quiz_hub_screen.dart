@@ -14,6 +14,7 @@ import '../data/quiz_event_service.dart';
 import '../data/xp_service.dart';
 import 'bible_quiz_arena_screen.dart';
 import 'church_competition_lobby_screen.dart';
+import 'church_competition_screen.dart';
 import 'quiz_cc_store_screen.dart';
 import 'quiz_event_lobby_screen.dart';
 import 'quiz_question_upload_screen.dart';
@@ -2284,6 +2285,22 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
             fontWeight: FontWeight.bold,
             letterSpacing: 1.5,
             fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 15),
+        ElevatedButton.icon(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ChurchCompetitionScreen()),
+          ),
+          icon: const Icon(LucideIcons.trophy, size: 18),
+          label: const Text("HOST A COMPETITION",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Theme.of(context).primaryColor,
+            foregroundColor: Colors.black,
+            minimumSize: const Size(double.infinity, 52),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
         ),
         const SizedBox(height: 15),
