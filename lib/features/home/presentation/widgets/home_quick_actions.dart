@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/i18n/l10n.dart';
 import 'package:go_router/go_router.dart';
 import 'home_section_title.dart';
 
@@ -35,7 +36,7 @@ class HomeQuickActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const HomeSectionTitle(title: "Quick Actions"),
+        HomeSectionTitle(title: context.tr('Quick Actions')),
         LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
@@ -52,7 +53,7 @@ class HomeQuickActions extends StatelessWidget {
                       child: GestureDetector(
                         onTap: () =>
                             _handleTap(context, actions[index]['label'] as String),
-                        child: _buildTile(actions[index], 80),
+                        child: _buildTile(context, actions[index], 80),
                       ),
                     );
                   },
@@ -70,7 +71,7 @@ class HomeQuickActions extends StatelessWidget {
                   GestureDetector(
                     onTap: () =>
                         _handleTap(context, action['label'] as String),
-                    child: _buildTile(action, tileWidth),
+                    child: _buildTile(context, action, tileWidth),
                   ),
               ],
             );
@@ -80,7 +81,7 @@ class HomeQuickActions extends StatelessWidget {
     );
   }
 
-  Widget _buildTile(Map<String, Object> action, double width) {
+  Widget _buildTile(BuildContext context, Map<String, Object> action, double width) {
     return Container(
       width: width,
       height: 100,
@@ -112,7 +113,7 @@ class HomeQuickActions extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            action['label'] as String,
+            context.tr(action['label'] as String),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 11,

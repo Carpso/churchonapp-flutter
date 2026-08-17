@@ -13,6 +13,23 @@ import '../../bible_quiz/presentation/bible_quiz_hub_screen.dart';
 import 'package:church_on_app/features/logistics/presentation/church_commute_screen.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/features/home/presentation/discover_screen.dart';
+import 'package:church_on_app/features/disciple/presentation/discipleship_screen.dart';
+import 'package:church_on_app/features/connect/presentation/interchurch_network_screen.dart';
+import 'package:church_on_app/features/connect/presentation/network_activity_screen.dart';
+import 'package:church_on_app/features/home/presentation/song_lyrics_screen.dart';
+import 'package:church_on_app/features/finance/presentation/tithe_card_screen.dart';
+import 'package:church_on_app/features/connect/presentation/pastors_corner_screen.dart';
+import 'package:church_on_app/features/modules/jobs/presentation/my_jobs_screen.dart';
+import 'package:church_on_app/features/modules/jobs/presentation/my_applications_screen.dart';
+import 'package:church_on_app/features/connect/presentation/sovereign_matchmaking_screen.dart';
+import 'package:church_on_app/features/connect/presentation/poll_creator_screen.dart';
+import 'package:church_on_app/features/connect/presentation/create_klip_screen.dart';
+import 'package:church_on_app/features/transport/presentation/ride_history_screen.dart';
+import 'package:church_on_app/features/home/presentation/news_list_screen.dart';
+import 'package:church_on_app/features/home/presentation/branch_locator_screen.dart';
+import 'package:church_on_app/features/transport/presentation/sos_trigger_screen.dart';
+import 'life_hub_screen.dart';
 
 class MoreHubScreen extends ConsumerWidget {
   const MoreHubScreen({super.key});
@@ -85,6 +102,36 @@ class MoreHubScreen extends ConsumerWidget {
                 _buildModuleCard(context, "Prayer Wall", LucideIcons.helpingHand, Theme.of(context).primaryColor.withValues(alpha: 0.75), () => context.push('/prayer-wall')),
                 _buildModuleCard(context, "Communities", LucideIcons.users, Theme.of(context).primaryColor.withValues(alpha: 0.6), () => context.push('/communities')),
                 _buildModuleCard(context, "Kingdom Klips", LucideIcons.video, Theme.of(context).primaryColor.withValues(alpha: 0.45), () => context.push('/kingdom-klips')),
+              ],
+            ),
+            const SizedBox(height: 40),
+            const Text("More to Explore", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              mainAxisSpacing: 15,
+              crossAxisSpacing: 15,
+              childAspectRatio: 1.1,
+              children: [
+                _buildModuleCard(context, "Discover", LucideIcons.compass, Theme.of(context).primaryColor.withValues(alpha: 0.8), () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DiscoverScreen()))),
+                _buildModuleCard(context, "Discipleship", LucideIcons.graduationCap, Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DiscipleshipScreen()))),
+                _buildModuleCard(context, "Interchurch Network", LucideIcons.network, Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InterchurchNetworkScreen()))),
+                _buildModuleCard(context, "Network Activity", LucideIcons.activity, Colors.cyan, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NetworkActivityScreen()))),
+                _buildModuleCard(context, "Song Lyrics", LucideIcons.music, Colors.pink, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SongLyricsScreen()))),
+                _buildModuleCard(context, "Tithe Card", LucideIcons.creditCard, Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TitheCardScreen()))),
+                _buildModuleCard(context, "Pastors Corner", LucideIcons.mic2, Colors.deepOrange, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PastorsCornerScreen()))),
+                _buildModuleCard(context, "My Jobs", LucideIcons.briefcase, Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyJobsScreen()))),
+                _buildModuleCard(context, "My Applications", LucideIcons.fileText, Colors.lightBlue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyApplicationsScreen()))),
+                _buildModuleCard(context, "Sovereign Matchmaking", LucideIcons.heartHandshake, Colors.pink, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SovereignMatchmakingScreen()))),
+                _buildModuleCard(context, "Poll Creator", LucideIcons.vote, Colors.deepPurple, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PollCreatorScreen()))),
+                _buildModuleCard(context, "Create Klip", LucideIcons.clapperboard, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateKlipScreen()))),
+                _buildModuleCard(context, "Ride History", LucideIcons.car, Colors.blueGrey, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RideHistoryScreen()))),
+                _buildModuleCard(context, "News", LucideIcons.newspaper, Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewsListScreen()))),
+                _buildModuleCard(context, "Branch Locator", LucideIcons.mapPin, Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BranchLocatorScreen()))),
+                _buildModuleCard(context, "SOS Emergency", LucideIcons.siren, Colors.redAccent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SosTriggerScreen()))),
+                _buildModuleCard(context, "Life Hub", LucideIcons.heart, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LifeHubScreen()))),
               ],
             ),
             const SizedBox(height: 40),

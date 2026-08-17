@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/i18n/l10n.dart';
 import '../../connect/data/call_service.dart';
 
 import '../../profile/data/notification_service.dart';
@@ -252,11 +253,11 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildNavItem(0, LucideIcons.home, "Home"),
-                        _buildNavItem(1, LucideIcons.video, "Sermons"),
-                        _buildNavItem(2, LucideIcons.hand, "Give"),
-                        _buildNavItem(3, LucideIcons.users, "Connect"),
-                        _buildNavItem(4, LucideIcons.user, "Profile"),
+                        _buildNavItem(0, LucideIcons.home, context.tr('Home')),
+                        _buildNavItem(1, LucideIcons.video, context.tr('Sermons')),
+                        _buildNavItem(2, LucideIcons.hand, context.tr('Give')),
+                        _buildNavItem(3, LucideIcons.users, context.tr('Connect')),
+                        _buildNavItem(4, LucideIcons.user, context.tr('Profile')),
                       ],
                     ),
                   ),
@@ -300,11 +301,11 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell>
                   ? NavigationRailLabelType.none
                   : NavigationRailLabelType.all,
               destinations: [
-                _buildRailDestination(0, LucideIcons.home, "Home"),
-                _buildRailDestination(1, LucideIcons.video, "Sermons"),
-                _buildRailDestination(2, LucideIcons.hand, "Give"),
-                _buildRailDestination(3, LucideIcons.users, "Connect"),
-                _buildRailDestination(4, LucideIcons.user, "Profile"),
+                _buildRailDestination(0, LucideIcons.home, context.tr('Home')),
+                _buildRailDestination(1, LucideIcons.video, context.tr('Sermons')),
+                _buildRailDestination(2, LucideIcons.hand, context.tr('Give')),
+                _buildRailDestination(3, LucideIcons.users, context.tr('Connect')),
+                _buildRailDestination(4, LucideIcons.user, context.tr('Profile')),
               ],
             ),
           ),

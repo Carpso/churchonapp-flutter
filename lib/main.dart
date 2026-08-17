@@ -9,6 +9,7 @@ import 'core/services/tenant_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/fcm_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'core/i18n/app_languages.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart'
   if (dart.library.html) 'package:church_on_app/core/services/crashlytics_stub.dart';
@@ -162,6 +163,7 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
     WidgetsBinding.instance.addObserver(this);
     _initNotifications();
     _initDeepLinks();
+    ref.read(appLanguageProvider.notifier).load();
     // Opt into edge-to-edge via the NON-deprecated API. Android 15 (targetSdk 35)
     // enforces edge-to-edge anyway; this keeps transparent bars on older Androids.
     // IMPORTANT (Google Play compliance): NEVER pass statusBarColor /

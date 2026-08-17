@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/two_factor_service.dart';
 import 'package:church_on_app/core/widgets/qr_code_with_logo.dart';
 
@@ -13,8 +12,9 @@ class TwoFactorSetupScreen extends ConsumerStatefulWidget {
 }
 
 class _TwoFactorSetupScreenState extends ConsumerState<TwoFactorSetupScreen> {
-  late String _secret;
-  late String _qrData;
+  String? _factorId;
+  String? _qrData;
+  String? _manualSecret;
   String _verificationCode = '';
   bool _isVerified = false;
   bool _isLoading = true;
@@ -28,48 +28,45 @@ class _TwoFactorSetupScreenState extends ConsumerState<TwoFactorSetupScreen> {
   Future<void> _init2fa() async {
     final service = ref.read(twoFactorServiceProvider);
     final enabled = await service.is2faEnabled();
-    final secret = await service.getSecret();
 
-    if (enabled && secret != null) {
+    if (enabled) {
       setState(() {
-        _secret = secret;
         _isVerified = true;
         _isLoading = false;
       });
     } else {
-      final newSecret = service.generateSecretBase32();
-      final user = Supabase.instance.client.auth.currentUser;
-      final email = user?.email ?? user?.id ?? 'user';
-      final qrData = service.generateOtpAuthUrl(newSecret, email);
+      // Enroll server-side — the secret never touches the client DB.
+      final enrollResponse = await service.enroll();
       setState(() {
-        _secret = newSecret;
-        _qrData = qrData;
+        _factorId = enrollResponse.id;
+        _qrData = enrollResponse.totp?.qrCode;
+        _manualSecret = enrollResponse.totp?.secret;
         _isLoading = false;
       });
     }
   }
 
   Future<void> _verifyAndEnable() async {
-    final code = int.tryParse(_verificationCode);
-    if (code == null) {
+    final code = _verificationCode.trim();
+    if (code.length != 6 || _factorId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Enter a valid 6-digit code"), backgroundColor: Colors.red),
       );
       return;
     }
 
-    final service = ref.read(twoFactorServiceProvider);
-    final isValid = service.verifyTotp(_secret, code);
-
-    if (isValid) {
-      await service.enable2fa(_secret);
+    try {
+      // Server-side verification: challenge + verify in one call.
+      await ref
+          .read(twoFactorServiceProvider)
+          .verifyAndActivate(factorId: _factorId!, code: code);
       setState(() => _isVerified = true);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("2FA enabled successfully!"), backgroundColor: Colors.green),
         );
       }
-    } else {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Invalid code. Try again."), backgroundColor: Colors.red),
@@ -93,13 +90,14 @@ class _TwoFactorSetupScreenState extends ConsumerState<TwoFactorSetupScreen> {
 
     if (confirm == true) {
       await ref.read(twoFactorServiceProvider).disable2fa();
-      final newSecret = ref.read(twoFactorServiceProvider).generateSecretBase32();
-      final user = Supabase.instance.client.auth.currentUser;
-      final email = user?.email ?? user?.id ?? 'user';
+      // Re-enroll a fresh factor for the setup flow.
+      final enrollResponse =
+          await ref.read(twoFactorServiceProvider).enroll();
       setState(() {
         _isVerified = false;
-        _secret = newSecret;
-        _qrData = ref.read(twoFactorServiceProvider).generateOtpAuthUrl(newSecret, email);
+        _factorId = enrollResponse.id;
+        _qrData = enrollResponse.totp?.qrCode;
+        _manualSecret = enrollResponse.totp?.secret;
         _verificationCode = '';
       });
     }
@@ -165,7 +163,7 @@ class _TwoFactorSetupScreenState extends ConsumerState<TwoFactorSetupScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: QrCodeWithLogo(
-                  data: _qrData,
+                  data: _qrData ?? '',
                   size: 200,
                   logoSize: 40,
                 ),
@@ -183,7 +181,7 @@ class _TwoFactorSetupScreenState extends ConsumerState<TwoFactorSetupScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: SelectableText(
-                  _secret,
+                  _manualSecret ?? '',
                   style: const TextStyle(
                     color: Colors.amber,
                     fontSize: 12,

@@ -68,6 +68,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           authState.errorMessage ?? 'Authentication failed',
           status: AppStatus.error,
         );
+      } else if (mounted && authState.requires2FA) {
+        context.go('/two-factor-verify');
       } else if (mounted && authState.user != null) {
         showAppSnackBar(
           context,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:church_on_app/core/i18n/l10n.dart';
 
 class GivingCategorySelector extends StatelessWidget {
   final List<String> categories;
@@ -66,9 +67,9 @@ class GivingCategorySelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Giving Category",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        Text(
+          context.tr("Giving Category"),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 12),
         SizedBox(
@@ -115,7 +116,7 @@ class GivingCategorySelector extends StatelessWidget {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        cat,
+                        context.tr(cat),
                         style: TextStyle(
                           color: isSelected ? Colors.white : Colors.grey,
                           fontWeight: FontWeight.bold,

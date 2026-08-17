@@ -379,8 +379,78 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                 ],
           ),
           _buildSearchOverlay(),
+          if (isSuperadmin) _buildMapCounter(),
           _buildTenantList(isSuperadmin),
         ],
+      ),
+    );
+  }
+
+  /// Superadmin-only overlay: total registered churches on the platform,
+  /// plus the number of OSM pins currently on the map.
+  Widget _buildMapCounter() {
+    final theme = Theme.of(context);
+    final totalChurches = _tenants.where((t) => t['type'] == 'church').length;
+    final registeredChurches =
+        _tenants.where((t) => t['type'] == 'church' && t['_registered'] == true).length;
+    final bookshops = _tenants.where((t) => t['type'] == 'bookshop').length;
+    final osmNearby = _osmChurches.length;
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 92,
+      left: 20,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withValues(alpha: 0.95),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 10,
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.church, size: 16, color: Color(0xFFFFD700)),
+            const SizedBox(width: 8),
+            Text(
+              "$registeredChurches / $totalChurches churches",
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            if (bookshops > 0) ...[
+              const SizedBox(width: 10),
+              Icon(Icons.store, size: 14, color: Colors.blue.shade600),
+              const SizedBox(width: 4),
+              Text(
+                "$bookshops",
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
+            if (osmNearby > 0) ...[
+              const SizedBox(width: 10),
+              Icon(Icons.place_outlined, size: 14, color: Colors.grey),
+              const SizedBox(width: 4),
+              Text(
+                "+$osmNearby nearby",
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

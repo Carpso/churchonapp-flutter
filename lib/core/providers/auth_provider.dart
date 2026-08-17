@@ -68,16 +68,14 @@ class AuthNotifier extends Notifier<AuthState> {
         debugPrint('Failed to log login history: $logErr');
       }
 
-      // Check if 2FA is enabled — if so, do NOT set user yet
+      // Check if 2FA is enabled (server-side factor check) — if so, do NOT
+      // set user yet; the session is at AAL1 until the code is verified.
       if (authResult.user != null) {
         try {
-          final profile = await _client
-              .from('profiles')
-              .select('totp_enabled')
-              .eq('id', authResult.user!.id)
-              .maybeSingle();
-          final totpEnabled = profile?['totp_enabled'] == true;
-          if (totpEnabled) {
+          final factors = authResult.user?.factors ?? const <Factor>[];
+          final requires2fa =
+              factors.any((f) => f.status == FactorStatus.verified);
+          if (requires2fa) {
             state = AuthState(user: null, isLoading: false, requires2FA: true);
             return;
           }

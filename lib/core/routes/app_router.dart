@@ -165,6 +165,7 @@ import 'package:church_on_app/features/modules/events/presentation/ticket_detail
 import 'package:church_on_app/features/modules/games/presentation/game_arena_screen.dart';
 import 'package:church_on_app/features/modules/jobs/presentation/my_applications_screen.dart';
 import 'package:church_on_app/features/modules/jobs/presentation/my_jobs_screen.dart';
+import 'package:church_on_app/features/modules/jobs/presentation/post_job_screen.dart';
 import 'package:church_on_app/features/modules/live_streaming/presentation/live_streaming_screen.dart';
 import 'package:church_on_app/features/modules/live_streaming/presentation/stream_admin_screen.dart';
 import 'package:church_on_app/features/modules/media/presentation/flyer_studio_screen.dart';
@@ -699,6 +700,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               final job = state.extra as Job;
               return ManageApplicationsScreen(job: job);
             },
+          ),
+          GoRoute(
+            path: 'post',
+            builder: (context, state) => const PostJobScreen(),
           ),
         ],
       ),

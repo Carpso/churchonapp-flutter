@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/config/fee_config.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/features/finance/data/offline_giving_queue.dart';
 
 class Transaction {
   final String id;
@@ -124,20 +125,38 @@ class FinanceService {
       }
     }
 
-    await _client.from('transactions').insert({
-      'user_id': user.id,
-      'amount': amount,
-      'category': category,
-      'reference': reference,
-      'status': 'completed',
-      'tenant_id': tenantId,
-      'platform_fee': platformFee,
-      'recipient_name': finalName,
-      'recipient_phone': finalPhone,
-      'payment_method': paymentMethod ?? 'momo',
-    });
-    
-    // Also update profile coins (stewardship points)
+    try {
+      await _client.from('transactions').insert({
+        'user_id': user.id,
+        'amount': amount,
+        'category': category,
+        'reference': reference,
+        'status': 'completed',
+        'tenant_id': tenantId,
+        'platform_fee': platformFee,
+        'recipient_name': finalName,
+        'recipient_phone': finalPhone,
+        'payment_method': paymentMethod ?? 'momo',
+      });
+    } catch (e) {
+      // OFFLINE GIVING QUEUE: when the network is down (payment already
+      // confirmed via Lipila), persist the intent locally and replay it
+      // idempotently via the server-side RPCs once connectivity returns.
+      debugPrint('logTransaction insert failed — queueing offline giving: $e');
+      await OfflineGivingQueue(Supabase.instance.client).enqueue(
+        OfflineGivingIntent(
+          paymentRef: reference,
+          userId: user.id,
+          tenantId: tenantId,
+          amount: amount,
+          category: category,
+          paymentMethod: paymentMethod ?? 'momo',
+          recipientPhone: finalPhone,
+          recipientName: finalName,
+        ),
+      );
+      return;
+    }
     final profile = await _client.from('profiles').select('coins').eq('id', user.id).single();
     final currentCoins = profile['coins'] ?? 0;
     await _client.from('profiles').update({'coins': currentCoins + amount.toInt()}).eq('id', user.id);

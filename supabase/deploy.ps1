@@ -237,7 +237,9 @@ $migrations = @(
           "20260906_website_pastoral_analytics.sql"
           "20260907_secdef_hardening_round2.sql"
           "20260908_secdef_hardening_round3.sql"
-          "20260909_secdef_hardening_round3b.sql"
+           "20260909_secdef_hardening_round3b.sql"
+           "20260910_subscribe_tier_anchor.sql"
+           "20260911_2fa_server_side.sql"
      )
 
 foreach ($m in $migrations) {

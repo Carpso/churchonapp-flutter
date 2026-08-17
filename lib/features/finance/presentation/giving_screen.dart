@@ -12,6 +12,8 @@ import 'tithe_history_screen.dart';
 import 'lipila_payment_gateway.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/config/remote_config.dart';
+import 'package:church_on_app/core/i18n/l10n.dart';
+import 'package:church_on_app/features/finance/data/offline_giving_queue.dart';
 import 'widgets/giving_category_selector.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 
@@ -92,7 +94,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Giving", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(context.tr('Give'), style: const TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           TextButton.icon(
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TitheHistoryScreen())),
@@ -105,6 +107,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
         padding: EdgeInsets.fromLTRB(25, 25, 25, 25 + MediaQuery.of(context).padding.bottom + 90),
         child: Column(
           children: [
+            _buildOfflineQueueBanner(),
             _buildTotalGivenCard(profile, monthlyGiven, personalGoal),
             const SizedBox(height: 16),
             _buildChurchGoalCard(churchAsync, churchGoal),
@@ -199,6 +202,63 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
     );
   }
 
+  Widget _buildOfflineQueueBanner() {
+    final pendingAsync = ref.watch(offlineGivingPendingProvider);
+    return pendingAsync.when(
+      data: (pending) {
+        if (pending.isEmpty) return const SizedBox.shrink();
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.amber.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+          ),
+          child: Row(
+            children: [
+              const Icon(LucideIcons.wifiOff, color: Colors.amber, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "${pending.length} offline gift${pending.length == 1 ? '' : 's'} queued",
+                      style: const TextStyle(
+                        color: Colors.amber,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "Your giving is saved and will sync automatically when you're back online.",
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.amber.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  await ref.read(offlineGivingQueueProvider).syncNow();
+                  if (mounted) ref.invalidate(offlineGivingPendingProvider);
+                },
+                child: const Text("SYNC NOW", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (e, st) => const SizedBox.shrink(),
+    );
+  }
+
   Widget _buildTotalGivenCard(UserProfile? profile, double monthlyGiven, int goal) {
     final balanceZmw = profile?.balanceZmw ?? 0.0;
     final balanceCc = profile?.balanceCc ?? 0.0;
@@ -228,7 +288,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("MY GIVING", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          Text(context.tr('My Giving').toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           const SizedBox(height: 18),
           Row(
             children: [
@@ -493,6 +553,8 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
       (LucideIcons.users, "Group Giving", "Give together", '/fundraising/groups', brand.withValues(alpha: 0.8)),
       (LucideIcons.scrollText, "My Pledges", "Track promises", '/my-pledges', brand.withValues(alpha: 0.6)),
       (LucideIcons.history, "Giving History", "All transactions", '/giving-history', brand.withValues(alpha: 0.45)),
+      (LucideIcons.creditCard, "Tithe Card", "Physical giving card", '/tithe-card', Colors.amber),
+      (LucideIcons.bellRing, "Transaction Alerts", "Monitor giving activity", '/alerts', Colors.deepOrange),
       (LucideIcons.wallet, "Wallet", "Manage funds", '/wallet', Colors.green),
     ];
 

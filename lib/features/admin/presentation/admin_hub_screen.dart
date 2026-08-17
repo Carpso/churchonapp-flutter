@@ -15,6 +15,12 @@ import 'logistics_dashboard_screen.dart';
 import 'prophetic_heatmap_screen.dart';
 import 'church_branding_screen.dart';
 import 'pastoral_followup_screen.dart';
+import 'member_directory_screen.dart';
+import 'news_management_screen.dart';
+import 'radio_station_management_screen.dart';
+import '../../../features/modules/crm_donor_management/presentation/crm_donor_screen.dart';
+import '../../../features/modules/volunteer_scheduling/presentation/volunteer_scheduling_screen.dart';
+import '../../../features/data_import/presentation/data_import_screen.dart';
 
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/features/admin/presentation/widgets/admin_navigation_registry.dart';
@@ -274,6 +280,63 @@ class AdminHubScreen extends ConsumerWidget {
                 "Strategic expansion and mission planning",
                 Colors.redAccent,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PropheticHeatmapScreen())),
+              ),
+            Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
+            Text("Ministry Tools", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+            const SizedBox(height: 20),
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'treasurer')
+              _buildAdminTile(
+                context,
+                LucideIcons.contact,
+                "Member Directory",
+                "Browse every member of the church",
+                theme.primaryColor,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MemberDirectoryScreen())),
+              ),
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'treasurer')
+              _buildAdminTile(
+                context,
+                LucideIcons.heartHandshake,
+                "CRM Donors",
+                "Manage donor relationships & giving insights",
+                Colors.teal,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => CRMDonorScreen(tenantId: tenant?.id ?? ''))),
+              ),
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+              _buildAdminTile(
+                context,
+                LucideIcons.newspaper,
+                "News Management",
+                "Publish & manage church news articles",
+                Colors.orange,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewsManagementScreen())),
+              ),
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+              _buildAdminTile(
+                context,
+                LucideIcons.radio,
+                "Radio Stations",
+                "Manage church radio stations & streams",
+                Colors.redAccent,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RadioStationManagementScreen())),
+              ),
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'employee' || role == 'coa_employee')
+              _buildAdminTile(
+                context,
+                LucideIcons.fileUp,
+                "Data Import",
+                "Bulk import members, transactions & events",
+                Colors.green,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DataImportScreen())),
+              ),
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+              _buildAdminTile(
+                context,
+                LucideIcons.calendarCheck,
+                "Volunteer Schedule",
+                "Plan volunteer shifts & roles",
+                Colors.purple,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => VolunteerSchedulingScreen(tenantId: tenant?.id ?? ''))),
               ),
           ],
         ),

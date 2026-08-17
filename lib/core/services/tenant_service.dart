@@ -312,9 +312,9 @@ class TenantService {
         result.add({
           ...map,
           'type': 'church',
-          // Only Rock of Ages Chapel Kabulonga is registered on the platform
-          // right now; every other church shows as "Coming Soon".
-          '_registered': map['slug'] == 'rock-of-ages-kabulonga',
+          // A church is selectable when it is verified on the platform
+          // (DB-backed; seed/fallback data still special-cases Rock of Ages).
+          '_registered': map['is_verified'] == true,
         });
       }
 

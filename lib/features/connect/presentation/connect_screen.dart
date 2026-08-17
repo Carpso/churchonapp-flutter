@@ -9,6 +9,9 @@ import 'widgets/social_post_card.dart';
 import 'kingdom_klips_screen.dart';
 import 'communities_screen.dart';
 import 'create_social_post_screen.dart';
+import 'interchurch_network_screen.dart';
+import 'network_activity_screen.dart';
+import 'pastors_corner_screen.dart';
 import '../../modules/games/presentation/game_hub_screen.dart';
 import '../../../core/utils/connectivity_util.dart';
 import 'package:church_on_app/features/navigation/presentation/main_navigation_shell.dart';
@@ -286,6 +289,28 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
             _buildFilterChip(ref, "My Church", SocialFeedFilter.church, currentFilter),
             const SizedBox(width: 8),
             _buildFilterChip(ref, "Friends", SocialFeedFilter.friends, currentFilter),
+            const Spacer(),
+            IconButton(
+              tooltip: "Interchurch Network",
+              icon: const Icon(LucideIcons.network, size: 20),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const InterchurchNetworkScreen()));
+              },
+            ),
+            IconButton(
+              tooltip: "Network Activity",
+              icon: const Icon(LucideIcons.activity, size: 20),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const NetworkActivityScreen()));
+              },
+            ),
+            IconButton(
+              tooltip: "Pastors Corner",
+              icon: const Icon(LucideIcons.mic2, size: 20),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const PastorsCornerScreen()));
+              },
+            ),
           ],
         ),
       ],

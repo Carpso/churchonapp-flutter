@@ -152,8 +152,7 @@ class SubscriptionService {
     if (userId == null) return false;
     try {
       final result = await _client.rpc('user_has_feature_access', params: {
-        'p_user_id': userId,
-        'p_feature_key': featureKey,
+        'feature_key': featureKey,
       });
       return result == true;
     } catch (e) {

@@ -6,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/services/r2_service.dart';
 import '../../../core/widgets/error_retry_widget.dart';
+import '../../../core/i18n/app_languages.dart';
+import '../../../core/i18n/l10n.dart';
 
 class AccountSettingsScreen extends ConsumerStatefulWidget {
   const AccountSettingsScreen({super.key});
@@ -106,6 +108,8 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
             _buildSettingsInput("ROLE", profile?.role.toUpperCase() ?? "MEMBER"),
             const SizedBox(height: 15),
             _buildSettingsInput("USER CODE", profile?.walletId ?? profile?.id.substring(0, 8).toUpperCase() ?? "N/A"),
+            const SizedBox(height: 15),
+            _buildLanguageSelector(context),
             const SizedBox(height: 40),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
@@ -116,6 +120,86 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
               ),
               child: const Text("CLOSE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLanguageSelector(BuildContext context) {
+    final language = ref.watch(appLanguageProvider);
+    return InkWell(
+      onTap: () => showModalBottomSheet(
+        context: context,
+        builder: (sheetCtx) {
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    context.tr('Language'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+                for (final lang in AppLanguage.values)
+                  ListTile(
+                    leading: Icon(
+                      lang == language
+                          ? LucideIcons.checkCircle
+                          : LucideIcons.globe,
+                      color: lang == language
+                          ? Theme.of(context).colorScheme.secondary
+                          : null,
+                    ),
+                    title: Text(lang.nativeName),
+                    subtitle: Text(lang.name),
+                    trailing: lang == language
+                        ? Icon(
+                            LucideIcons.check,
+                            color: Theme.of(context).colorScheme.secondary,
+                          )
+                        : null,
+                    onTap: () {
+                      ref.read(appLanguageProvider.notifier).setLanguage(lang);
+                      Navigator.pop(sheetCtx);
+                    },
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            const Icon(LucideIcons.languages),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.tr('Language'),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    language.nativeName,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(LucideIcons.chevronDown, size: 18),
           ],
         ),
       ),

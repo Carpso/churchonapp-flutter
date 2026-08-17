@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/i18n/l10n.dart';
 import 'package:church_on_app/core/services/recommendation_engine_service.dart';
 import 'package:church_on_app/core/services/app_update_service.dart';
 import 'package:church_on_app/core/services/birthday_service.dart';
@@ -379,10 +380,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildQuickJumpBar() {
     final items = <(String, IconData, String)>[
-      ('actions', LucideIcons.zap, 'Quick Actions'),
+      ('actions', LucideIcons.zap, context.tr('Quick Actions')),
       ('sparkle', LucideIcons.sparkles, 'Picks'),
-      ('sermons', LucideIcons.mic2, 'Sermons'),
-      ('events', LucideIcons.calendar, 'Events'),
+      ('sermons', LucideIcons.mic2, context.tr('Sermons')),
+      ('events', LucideIcons.calendar, context.tr('Events')),
       ('recommended', LucideIcons.thumbsUp, 'For You'),
       ('news', LucideIcons.newspaper, 'News'),
     ];

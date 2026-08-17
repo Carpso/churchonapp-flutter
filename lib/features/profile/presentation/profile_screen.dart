@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/services/prediction_service.dart';
+import 'package:church_on_app/core/i18n/l10n.dart';
 import 'package:church_on_app/core/widgets/qr_code_with_logo.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 import 'package:church_on_app/core/widgets/verification_badge.dart';
@@ -41,6 +42,8 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKeepAliveClientMixin {
+  bool _showAllPosts = false;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -350,14 +353,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader(context, "MY POSTS"),
         FutureBuilder<List<SocialPost>>(
           future: ref.read(socialServiceProvider).fetchUserPosts(profile.id),
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              return Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    Text('MY POSTS',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                            letterSpacing: 2.5)),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).primaryColor)),
+                  ],
+                ),
               );
             }
             final posts = snapshot.data ?? const <SocialPost>[];
@@ -381,19 +397,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
                 ),
               );
             }
+            const previewCount = 2;
+            final visible = _showAllPosts ? posts : posts.take(previewCount).toList();
             return Column(
-              children: posts.map((post) {
-                return SocialPostCard(
-                  post: post,
-                  formatTimeAgo: _formatTimeAgo,
-                  onCommentTap: () => showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => CommentsSheet(postId: post.id),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionHeader(context, "${context.tr('My Posts').toUpperCase()} (${posts.length})"),
+                ...visible.map((post) {
+                  return SocialPostCard(
+                    post: post,
+                    formatTimeAgo: _formatTimeAgo,
+                    onCommentTap: () => showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => CommentsSheet(postId: post.id),
+                    ),
+                  );
+                }),
+                if (posts.length > previewCount)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Center(
+                      child: OutlinedButton.icon(
+                        onPressed: () => setState(() => _showAllPosts = !_showAllPosts),
+                        icon: Icon(
+                          _showAllPosts ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                          size: 16,
+                        ),
+                        label: Text(
+                          _showAllPosts
+                              ? context.tr('Show less').toUpperCase()
+                              : "${context.tr('See all').toUpperCase()} ${posts.length} ${context.tr('Posts')}",
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Theme.of(context).primaryColor,
+                          side: BorderSide(color: Theme.of(context).primaryColor.withValues(alpha: 0.5)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                        ),
+                      ),
+                    ),
                   ),
-                );
-              }).toList(),
+              ],
             );
           },
         ),
@@ -473,11 +520,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
           _buildPremiumItem(context, LucideIcons.penTool, "Apply as Writer", onTap: () => context.push('/apply-writer')),
         const SizedBox(height: 8),
         _buildGroupHeader(context, "PAYMENTS & ORDERS"),
+        _buildPremiumItem(context, LucideIcons.crown, "My Subscription", onTap: () => context.push('/subscription')),
         _buildPremiumItem(context, LucideIcons.package, "My Orders", onTap: () => context.push('/orders')),
         _buildPremiumItem(context, LucideIcons.gift, "Referral Program", onTap: () => context.push('/referral-program')),
         _buildPremiumItem(context, LucideIcons.heart, "COA Missions Donate", onTap: () => context.push('/missions-donate')),
         const SizedBox(height: 8),
         _buildGroupHeader(context, "COMMUNITY & SUPPORT"),
+        _buildPremiumItem(context, LucideIcons.bell, "Notification Preferences", onTap: () => context.push('/notification-preferences')),
+        _buildPremiumItem(context, LucideIcons.lightbulb, "Request a Feature", onTap: () => context.push('/feature-request')),
         _buildPremiumItem(context, LucideIcons.church, "Can't Find Your Church?", onTap: () => context.push('/refer-church')),
         _buildPremiumItem(context, LucideIcons.helpCircle, "Help & Support", onTap: () => context.push('/support')),
         _buildPremiumItem(context, LucideIcons.logOut, "Logout", isDestructive: true, onTap: () => _showLogoutConfirmation(context, ref)),

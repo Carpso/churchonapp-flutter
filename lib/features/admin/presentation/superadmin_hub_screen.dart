@@ -28,6 +28,38 @@ import 'order_tracking_screen.dart';
 import 'manage_partners_screen.dart';
 import 'church_directory_edit_screen.dart';
 import 'whatsapp_config_screen.dart';
+import 'subscription_pricing_screen.dart';
+import 'church_payout_screen.dart';
+import 'employee_management_screen.dart';
+import 'kyc_review_screen.dart';
+import 'onboarding_manager_screen.dart';
+import 'promo_campaign_screen.dart';
+import 'reward_management_screen.dart';
+import 'system_security_panel_screen.dart';
+import 'tenant_lease_management_screen.dart';
+import 'unified_financial_audit_screen.dart';
+import 'withdrawal_approval_screen.dart';
+import 'zambian_compliance_dashboard.dart';
+import 'zambian_payroll_screen.dart';
+import 'payroll_processing_screen.dart';
+import 'payroll_reports_screen.dart';
+import 'ai_stewardship_report_screen.dart';
+import 'apostolic_resource_planning_screen.dart';
+import 'driver_simulation_hub_screen.dart';
+import 'global_payout_command_screen.dart';
+import 'kingdom_ai_moderator_screen.dart';
+import 'prophetic_navigation_screen.dart';
+import 'wallet_command_centre_screen.dart';
+import 'integrations_screen.dart';
+import 'platform_ad_screen.dart';
+import 'sos_alerts_management_screen.dart';
+import 'system_docs_screen.dart';
+import 'feature_toggles_screen.dart';
+import 'platform_analytics_screen.dart';
+import 'expansion_leads_screen.dart';
+import 'turnover_tax_ledger_screen.dart';
+import '../../../features/modules/games/presentation/game_management_screen.dart';
+import '../../../features/modules/bible_quiz/presentation/quiz_event_host_screen.dart';
 import '../../../features/profile/presentation/church_referral_screen.dart';
 
 class SuperadminHubScreen extends ConsumerStatefulWidget {
@@ -891,6 +923,105 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             }),
             _buildGlobalAction(LucideIcons.messageCircle, "WhatsApp Config", "Configure WhatsApp Business API", const Color(0xFF1A1A1A), () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const WhatsAppConfigScreen()));
+            }),
+            const SizedBox(height: 40),
+            const Text("Platform Tools", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            _buildGlobalAction(LucideIcons.coins, "Subscription Pricing", "Edit plan fees, trials & remote config keys", Colors.amber, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionPricingScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.banknote, "Church Payouts", "Withdrawable balances, ledger & settlement", Colors.green, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchPayoutScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.userCog, "Employee Management", "Manage COA employees & permissions", Theme.of(context).primaryColor, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const EmployeeManagementScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.fingerprint, "KYC Review", "Approve user identity verifications", Colors.orange, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const KycReviewScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.graduationCap, "Onboarding Manager", "Configure church onboarding flow", Theme.of(context).primaryColor, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const OnboardingManagerScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.megaphone, "Promo Campaigns", "Create & manage promotional campaigns", Colors.deepOrange, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const PromoCampaignScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.gift, "Reward Management", "Manage coins & reward catalog", Colors.purple, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardManagementScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.shield, "System Security Panel", "Security monitoring & threat alerts", Colors.red, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const SystemSecurityPanelScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.keyRound, "Tenant Lease Management", "Manage tenant plans, leases & renewals", Theme.of(context).primaryColor, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const TenantLeaseManagementScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.scroll, "Unified Financial Audit", "Full ledger & audit trail across tenants", Colors.brown, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const UnifiedFinancialAuditScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.badgeCheck, "Withdrawal Approvals", "Approve user & partner withdrawals", Colors.teal, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const WithdrawalApprovalScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.scale, "Zambian Compliance", "BoZ / ZRA compliance dashboard", Colors.green, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ZambianComplianceDashboard()));
+            }),
+            _buildGlobalAction(LucideIcons.calculator, "Zambian Payroll", "Run payroll & statutory deductions", Colors.indigo, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ZambianPayrollScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.briefcase, "Payroll Processing", "Process payroll runs & payslips", Colors.blueGrey, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const PayrollProcessingScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.barChart3, "Payroll Reports", "Payroll summaries & statutory reports", Colors.cyan, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const PayrollReportsScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.brain, "AI Stewardship Report", "AI-generated stewardship insights", Colors.pink, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AIStewardshipReportScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.map, "Apostolic Resource Planning", "Org-wide resource & territory planning", Colors.lightBlue, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ApostolicResourcePlanningScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.car, "Driver Simulation Hub", "Simulate driver trips & deliveries", Colors.orange, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const DriverSimulationHubScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.send, "Global Payout Command", "Send payouts to any user", Colors.redAccent, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const GlobalPayoutCommandScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.sparkles, "Kingdom AI Moderator", "AI moderation of posts & comments", Colors.deepPurple, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const KingdomAIModeratorScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.compass, "Prophetic Navigation", "Prophetic declarations & guidance", Colors.amber, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const PropheticNavigationScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.wallet, "Wallet Command Centre", "Platform-wide wallet management", Colors.green, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletCommandCentreScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.link2, "Integrations", "External service integrations", Colors.blueGrey, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const IntegrationsScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.megaphone, "Platform Ads", "Platform-wide ad management", Colors.orange, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const PlatformAdScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.siren, "SOS Alerts Management", "Review & manage SOS alerts", Colors.red, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const SosAlertsManagementScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.bookOpen, "System Docs", "Documentation & system reference", Colors.indigo, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const SystemDocsScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.toggleLeft, "Feature Toggles", "Global feature switches", Theme.of(context).primaryColor, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const FeatureTogglesScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.pieChart, "Platform Analytics", "Platform-wide engagement analytics", Colors.cyan, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const PlatformAnalyticsScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.userPlus, "Expansion Leads", "New-church expansion pipeline", Colors.green, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ExpansionLeadsScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.receipt, "Turnover Tax Ledger", "ZRA turnover tax tracking", Colors.brown, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const TurnoverTaxLedgerScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.gamepad2, "Game Management", "Manage quiz events & competitions", Colors.deepPurple, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const GameManagementScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.trophy, "Quiz Event Host", "Host & configure quiz tournaments", Colors.amber, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const QuizEventHostScreen()));
             }),
           ],
         ),
