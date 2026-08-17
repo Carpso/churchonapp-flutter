@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/services/analytics_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/finance/data/payment_state.dart';
 import 'package:church_on_app/features/give/presentation/widgets/momo_phone_input_widget.dart';
@@ -99,6 +100,15 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
       return;
     }
     setState(() => _errorMessage = null);
+    ref.read(analyticsServiceProvider).logEvent(
+          'payment_initiated',
+          properties: {
+            'method': 'momo',
+            'amount': widget.amount,
+            'reason': widget.paymentReason,
+          },
+          tenantId: ref.read(currentTenantProvider)?.id,
+        );
     ref
         .read(lipilaPaymentProvider.notifier)
         .initiatePayment(
@@ -115,6 +125,15 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
       return;
     }
     setState(() => _errorMessage = null);
+    ref.read(analyticsServiceProvider).logEvent(
+          'payment_initiated',
+          properties: {
+            'method': 'card',
+            'amount': widget.amount,
+            'reason': widget.paymentReason,
+          },
+          tenantId: ref.read(currentTenantProvider)?.id,
+        );
     ref
         .read(lipilaPaymentProvider.notifier)
         .initiateCardPayment(
@@ -152,6 +171,15 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
       final data = next.value;
       if (data == null) return;
       if (data.status == PaymentStatus.succeeded) {
+        ref.read(analyticsServiceProvider).logEvent(
+              'payment_succeeded',
+              properties: {
+                'amount': widget.amount,
+                'reference': data.referenceId,
+                'reason': widget.paymentReason,
+              },
+              tenantId: ref.read(currentTenantProvider)?.id,
+            );
         widget.onComplete(true, data.referenceId);
       } else if (data.status == PaymentStatus.cancelled) {
         widget.onComplete(false, null);

@@ -41,10 +41,18 @@ jobs:
         if: env.HAS_CF == 'true'
         run: flutter build web --release --dart-define=FLUTTER_WEB_CANVASKIT_URL=
 
+      # Pages Functions (OG/SEO meta injection for /church/, /site/, /c/ URLs)
+      # must live next to the deploy directory — wrangler only picks up a
+      # `functions/` folder when the deploy command runs with that as CWD.
+      - name: Copy Pages Functions into build output
+        if: env.HAS_CF == 'true'
+        run: |
+          cp -r web/functions build/web/functions
+
       - name: Deploy to Cloudflare Pages
         if: env.HAS_CF == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy build/web --project-name churchonapp --branch main
+          command: pages deploy . --cwd build/web --project-name churchonapp --branch main

@@ -13,8 +13,13 @@ import 'package:church_on_app/core/widgets/app_image.dart';
 /// a published church website.
 class PublicChurchWebsiteScreen extends ConsumerStatefulWidget {
   final String churchId;
+  final String? slug;
 
-  const PublicChurchWebsiteScreen({super.key, required this.churchId});
+  const PublicChurchWebsiteScreen({
+    super.key,
+    required this.churchId,
+    this.slug,
+  });
 
   @override
   ConsumerState<PublicChurchWebsiteScreen> createState() =>
@@ -35,11 +40,21 @@ class _PublicChurchWebsiteScreenState
 
   Future<void> _loadWebsite() async {
     try {
-      final result = await Supabase.instance.client
-          .from('church_websites')
-          .select()
-          .eq('church_id', widget.churchId)
-          .maybeSingle();
+      final client = Supabase.instance.client;
+      Map<String, dynamic>? result;
+      if (widget.slug != null && widget.slug!.isNotEmpty) {
+        result = await client
+            .from('church_websites')
+            .select()
+            .eq('slug', widget.slug!.toLowerCase())
+            .maybeSingle();
+      } else {
+        result = await client
+            .from('church_websites')
+            .select()
+            .eq('church_id', widget.churchId)
+            .maybeSingle();
+      }
       if (result == null) {
         setState(() {
           _error =
@@ -47,6 +62,12 @@ class _PublicChurchWebsiteScreenState
         });
       } else {
         setState(() => _website = result);
+        // Fire-and-forget anonymous view counter.
+        try {
+          await client.rpc('increment_website_view', params: {
+            'p_website_id': result['id'],
+          });
+        } catch (_) {}
       }
     } catch (e) {
       setState(() {
@@ -230,6 +251,7 @@ class _PublicChurchWebsiteScreenState
                   child: Text(about, style: const TextStyle(fontSize: 14, height: 1.5)),
                 ),
               ],
+              ..._buildCustomSections(website['sections']),
               if (serviceTimes.isNotEmpty) ...[
                 const SizedBox(height: 24),
                 _sectionTitle('Service Times'),
@@ -352,6 +374,34 @@ class _PublicChurchWebsiteScreenState
         ),
       ],
     );
+  }
+
+  List<Widget> _buildCustomSections(dynamic sectionsRaw) {
+    if (sectionsRaw is! List || sectionsRaw.isEmpty) return const [];
+    final widgets = <Widget>[];
+    for (final raw in sectionsRaw) {
+      if (raw is! Map) continue;
+      final title = raw['title']?.toString().trim() ?? '';
+      final content = raw['content']?.toString().trim() ?? '';
+      if (title.isEmpty && content.isEmpty) continue;
+      widgets.add(const SizedBox(height: 24));
+      if (title.isNotEmpty) {
+        widgets.add(_sectionTitle(title));
+        widgets.add(const SizedBox(height: 10));
+      }
+      if (content.isNotEmpty) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              content,
+              style: const TextStyle(fontSize: 14, height: 1.5),
+            ),
+          ),
+        );
+      }
+    }
+    return widgets;
   }
 
   Widget _sectionTitle(String text) {

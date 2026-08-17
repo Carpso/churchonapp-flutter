@@ -732,10 +732,19 @@ Edge Functions (29 total):
 
 ```powershell
 flutter build web --release --dart-define=FLUTTER_WEB_CANVASKIT_URL=
-npx wrangler pages deploy build/web --project-name=churchonapp --branch=main
+Copy-Item -Recurse web\functions build\web\functions
+npx wrangler pages deploy . --cwd build/web --project-name=churchonapp --branch=main
 ```
 
-Requires `CLOUDFLARE_API_TOKEN` env var with **Cloudflare Pages:Edit** permission.
+- **CRITICAL**: `web/functions` (Pages Functions: OG/SEO meta injection for
+  `/church/`, `/site/`, `/c/` URLs) MUST be copied into `build/web/functions`
+  and deployed with `--cwd build/web` (or `pages deploy .` from inside
+  `build/web`). `wrangler pages deploy build/web` from the repo root silently
+  SKIPS the functions folder — the site deploys but OG meta never injects.
+- Requires `CLOUDFLARE_API_TOKEN` env var with **Cloudflare Pages:Edit** permission.
+- Pages Function secrets (public values — safe in env): `SUPABASE_URL` +
+  `SUPABASE_ANON_KEY` via `wrangler pages secret bulk` (per-project, not per-deployment).
+  Without them the function still serves pages with generic fallback meta.
 
 **Key web files:**
 - `web/_redirects` — SPA routing + `/.well-known/*` redirects to Supabase Edge Function

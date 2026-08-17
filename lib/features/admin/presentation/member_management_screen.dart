@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/admin_service.dart';
+import 'member_360_screen.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/services/tenant_service.dart';
 import '../../../core/widgets/app_image.dart';
@@ -210,7 +211,21 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
-      child: Row(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => Member360Screen(
+                memberId: member.id,
+                initialName: member.name,
+                initialAvatar: member.avatarUrl,
+              ),
+            ),
+          );
+        },
+        child: Row(
         children: [
           CircleAvatar(
             radius: 25,
@@ -281,6 +296,7 @@ class _MemberManagementScreenState extends ConsumerState<MemberManagementScreen>
             },
           ),
         ],
+        ),
       ),
     );
   }

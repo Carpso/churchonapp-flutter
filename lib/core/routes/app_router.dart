@@ -219,7 +219,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       // `churchonapp.com/site/<tenantId>` render a published website for
       // anyone (the RLS policy exposes `is_published = true` rows to anon).
       final publicPath = state.uri.path;
-      if (publicPath.startsWith('/church/') || publicPath.startsWith('/site/')) {
+      if (publicPath.startsWith('/church/') ||
+          publicPath.startsWith('/site/') ||
+          publicPath.startsWith('/c/')) {
         return null;
       }
       final splashCompleted = ref.watch(splashCompletedProvider);
@@ -1179,6 +1181,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final churchId = state.pathParameters['churchId']!;
           return PublicChurchWebsiteScreen(churchId: churchId);
+        },
+      ),
+      GoRoute(
+        path: '/c/:slug',
+        builder: (context, state) {
+          final slug = state.pathParameters['slug']!;
+          return PublicChurchWebsiteScreen(churchId: slug, slug: slug);
         },
       ),
       GoRoute(

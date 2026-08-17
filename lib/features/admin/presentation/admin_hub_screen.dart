@@ -14,6 +14,7 @@ import 'live_viewer_heatmap_screen.dart';
 import 'logistics_dashboard_screen.dart';
 import 'prophetic_heatmap_screen.dart';
 import 'church_branding_screen.dart';
+import 'pastoral_followup_screen.dart';
 
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/features/admin/presentation/widgets/admin_navigation_registry.dart';
@@ -199,6 +200,24 @@ class AdminHubScreen extends ConsumerWidget {
                 "Set your hero banner & logo shown on the home screen",
                 Colors.purple,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ChurchBrandingScreen())),
+              ),
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+              _buildAdminTile(
+                context,
+                LucideIcons.globe,
+                "Church Website",
+                "Build & publish your public website (churchonapp.com/c/...)",
+                Colors.teal,
+                () => context.push('/church-website/${tenant?.id ?? ''}'),
+              ),
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+              _buildAdminTile(
+                context,
+                LucideIcons.heartHandshake,
+                "Pastoral Follow-ups",
+                "Log visits, calls & WhatsApp check-ins with members",
+                Colors.deepOrange,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PastoralFollowupScreen())),
               ),
             if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(

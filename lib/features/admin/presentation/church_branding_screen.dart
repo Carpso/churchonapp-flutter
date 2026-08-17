@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -51,6 +52,19 @@ class _ChurchBrandingScreenState extends ConsumerState<ChurchBrandingScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildPreviewCard(theme, tenant),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  if (tenant != null) {
+                    context.push('/church-website/${tenant.id}');
+                  }
+                },
+                icon: const Icon(LucideIcons.globe, size: 18),
+                label: const Text('Edit Public Church Website'),
+              ),
+            ),
             const SizedBox(height: 28),
             Text(
               'HERO BANNER',

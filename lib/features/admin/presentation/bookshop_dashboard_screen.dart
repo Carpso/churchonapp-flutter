@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
 import 'package:church_on_app/features/admin/data/role_hierarchy_service.dart';
@@ -166,6 +168,17 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
             ).then((_) => _loadDashboard()),
           ),
           IconButton(icon: const Icon(LucideIcons.users), onPressed: _addStaffMember, tooltip: "Add Staff"),
+          IconButton(
+            icon: const Icon(LucideIcons.globe),
+            tooltip: "Website Builder",
+            onPressed: () {
+              final tenantId = ref.read(currentTenantProvider)?.id ??
+                  ref.read(profileProvider).value?.tenantId;
+              if (tenantId != null) {
+                context.push('/church-website/$tenantId');
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(LucideIcons.refreshCw),
             onPressed: _isLoading ? null : _loadDashboard,

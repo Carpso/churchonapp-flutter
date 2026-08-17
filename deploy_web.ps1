@@ -20,9 +20,19 @@ if (Test-Path "build/app/outputs/flutter-apk/app-release.apk") {
     Write-Host "APK copied to web folder." -ForegroundColor Gray
 }
 
-# 3. Deploy to Cloudflare Pages
+# 3. Copy Pages Functions (OG/SEO meta injection) into build output
+Write-Host "Copying Pages Functions..." -ForegroundColor Yellow
+Copy-Item -Recurse "web\functions" "build\web\" -Force
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Functions copy failed!" -ForegroundColor Red
+}
+
+# 4. Deploy to Cloudflare Pages
+# NOTE: --cwd build/web is required — wrangler only picks up the `functions/`
+# folder relative to the current working directory. Deploying `build/web` from
+# the repo root silently skips the Functions folder.
 Write-Host "Deploying to Cloudflare Pages..." -ForegroundColor Yellow
-npx wrangler pages deploy build/web --project-name=churchonapp --branch=main
+npx wrangler pages deploy . --cwd build/web --project-name=churchonapp --branch=main
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
     Write-Host "Manual alternative: Upload 'build/web' folder via Cloudflare Dashboard" -ForegroundColor Yellow
