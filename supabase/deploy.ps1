@@ -232,6 +232,7 @@ $migrations = @(
        "20260901_zra_payroll_remote_config.sql"
        "20260902_church_registration_rls.sql"
        "20260903_year_planner_rls_fix.sql"
+        "20260904_quiz_cc_leaderboard_and_fixes.sql"
     )
 
 foreach ($m in $migrations) {
@@ -295,6 +296,7 @@ $functions = @(
      "turn-credentials"
      "well-known"
      "generate-quiz-batch"
+     "quiz-import"
      "data-import"
      "send-email"
      "send-security-alert"

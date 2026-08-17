@@ -16,6 +16,7 @@ import 'bible_quiz_arena_screen.dart';
 import 'church_competition_lobby_screen.dart';
 import 'quiz_cc_store_screen.dart';
 import 'quiz_event_lobby_screen.dart';
+import 'quiz_question_upload_screen.dart';
 
 class BibleQuizHubScreen extends ConsumerStatefulWidget {
   const BibleQuizHubScreen({super.key});
@@ -392,6 +393,75 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 30),
+
+              const Text(
+                "COMPETITIVE STYLES",
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 15),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildModeCard(
+                      "Rapid Fire",
+                      "8s · 15 Qs · 2× points",
+                      LucideIcons.zap,
+                      const Color(0xFFFFB020),
+                      () => _startStyle(QuizStyle.rapidFire),
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: _buildModeCard(
+                      "Marathon",
+                      "12s · 40 Qs · big streaks",
+                      LucideIcons.footprints,
+                      const Color(0xFF4FC3F7),
+                      () => _startStyle(QuizStyle.marathon),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 15),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildModeCard(
+                      "Sudden Death",
+                      "1 mistake ends the run",
+                      LucideIcons.skull,
+                      const Color(0xFFFF5A5A),
+                      () => _startStyle(QuizStyle.suddenDeath),
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: _buildModeCard(
+                      "Blitz",
+                      "90s total clock",
+                      LucideIcons.timer,
+                      const Color(0xFFB388FF),
+                      () => _startStyle(QuizStyle.blitz),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              ref.watch(canManageQuizContentProvider).when(
+                data: (canManage) => canManage
+                    ? _buildImportTile(theme)
+                    : const SizedBox.shrink(),
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
               ),
               const SizedBox(height: 30),
 
@@ -1638,6 +1708,70 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
         ),
       );
     }
+  }
+
+  void _startStyle(QuizStyle style) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BibleQuizArenaScreen(
+          mode: 'Solo',
+          style: style,
+          questionCount: style.defaultCount,
+          timePerQuestionSec: style.defaultSeconds,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImportTile(ThemeData theme) {
+    return GestureDetector(
+      onTap: _openQuestionImport,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.primaryColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: theme.primaryColor.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            Icon(LucideIcons.upload, color: theme.primaryColor, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "IMPORT QUESTIONS",
+                    style: TextStyle(
+                      color: theme.primaryColor,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.1,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    "Admins & Quiz Engine churches: paste text or upload TXT/PDF/DOC",
+                    style: TextStyle(color: Colors.white54, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            Icon(LucideIcons.chevronRight, color: theme.primaryColor, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openQuestionImport() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const QuizQuestionUploadScreen()),
+    );
   }
 
   void _openStore() {

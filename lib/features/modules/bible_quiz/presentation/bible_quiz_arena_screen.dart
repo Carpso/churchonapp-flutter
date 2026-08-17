@@ -18,6 +18,89 @@ import 'bible_quiz_results_screen.dart';
 
 enum GamePhase { matchmaking, vsReveal, countdown, playing, answering, feedback, review, finished }
 
+/// Competitive play styles (Solo). Each tweaks timer, question count, scoring.
+enum QuizStyle { classic, rapidFire, marathon, suddenDeath, blitz }
+
+extension QuizStyleX on QuizStyle {
+  String get label {
+    switch (this) {
+      case QuizStyle.rapidFire:
+        return 'Rapid Fire';
+      case QuizStyle.marathon:
+        return 'Marathon';
+      case QuizStyle.suddenDeath:
+        return 'Sudden Death';
+      case QuizStyle.blitz:
+        return 'Blitz';
+      case QuizStyle.classic:
+        return 'Classic';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case QuizStyle.rapidFire:
+        return '8s per question · 15 Qs · 2× points';
+      case QuizStyle.marathon:
+        return '12s per question · 40 Qs · big streaks';
+      case QuizStyle.suddenDeath:
+        return '10s per question · 1 mistake ends the run';
+      case QuizStyle.blitz:
+        return '10s per question · 90s total clock';
+      case QuizStyle.classic:
+        return 'Standard timed rounds';
+    }
+  }
+
+  int get defaultSeconds {
+    switch (this) {
+      case QuizStyle.rapidFire:
+        return 8;
+      case QuizStyle.marathon:
+        return 12;
+      case QuizStyle.suddenDeath:
+        return 10;
+      case QuizStyle.blitz:
+        return 10;
+      case QuizStyle.classic:
+        return 15;
+    }
+  }
+
+  int get defaultCount {
+    switch (this) {
+      case QuizStyle.rapidFire:
+        return 15;
+      case QuizStyle.marathon:
+        return 40;
+      case QuizStyle.suddenDeath:
+        return 25;
+      case QuizStyle.blitz:
+        return 30;
+      case QuizStyle.classic:
+        return 10;
+    }
+  }
+
+  int get pointsMultiplier {
+    switch (this) {
+      case QuizStyle.rapidFire:
+        return 2;
+      default:
+        return 1;
+    }
+  }
+
+  int get streakBonus {
+    switch (this) {
+      case QuizStyle.marathon:
+        return 10;
+      default:
+        return 5;
+    }
+  }
+}
+
 class BibleQuizArenaScreen extends ConsumerStatefulWidget {
   final String mode;
   final int questionCount;
@@ -27,6 +110,7 @@ class BibleQuizArenaScreen extends ConsumerStatefulWidget {
   final String? difficultyFilter;
   final PvPMatch? initialPvPMatch;
   final WagerTier wagerTier;
+  final QuizStyle style;
 
   const BibleQuizArenaScreen({
     super.key,
@@ -38,6 +122,7 @@ class BibleQuizArenaScreen extends ConsumerStatefulWidget {
     this.difficultyFilter,
     this.initialPvPMatch,
     this.wagerTier = WagerTier.free,
+    this.style = QuizStyle.classic,
   });
 
   @override
@@ -102,11 +187,19 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   // Rematch state
   bool _rematchRequested = false;
 
+  // Style helpers
+  int get _effectiveTimePerQuestionSec =>
+      widget.style != QuizStyle.classic ? widget.style.defaultSeconds : widget.timePerQuestionSec;
+
+  int? _blitzStartedAt;
+  bool _suddenDeathOut = false;
+  static const int _blitzTotalMs = 90 * 1000;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _timerMs = widget.timePerQuestionSec * 1000;
+    _timerMs = _effectiveTimePerQuestionSec * 1000;
     _service = BibleQuizService();
     if (widget.mode != 'Solo') {
       _pvpService = PvPService();
@@ -368,7 +461,18 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   }
 
   void _startTimer() {
-    _timerMs = widget.timePerQuestionSec * 1000;
+    _timerMs = _effectiveTimePerQuestionSec * 1000;
+    // Blitz: cap the per-question timer at the remaining total clock.
+    if (widget.style == QuizStyle.blitz) {
+      _blitzStartedAt ??= DateTime.now().millisecondsSinceEpoch;
+      final remaining = _blitzTotalMs -
+          (DateTime.now().millisecondsSinceEpoch - _blitzStartedAt!);
+      if (remaining <= 0) {
+        _timerMs = 0;
+      } else {
+        _timerMs = _timerMs > remaining ? remaining : _timerMs;
+      }
+    }
     _startTime = DateTime.now().millisecondsSinceEpoch;
     _timer = Timer.periodic(Duration(milliseconds: _timerIntervalMs), (t) {
       if (!mounted) { t.cancel(); return; }
@@ -422,13 +526,17 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
 
         if (isCorrect) {
           int pts = _questions[_currentIndex].points;
+          pts *= widget.style.pointsMultiplier;
           if (_doubleUsed) pts *= 2;
           _score += pts;
           _streak++;
           if (_streak > _bestStreak) _bestStreak = _streak;
-          if (_streak >= 3) _score += 5;
+          if (_streak >= 3) _score += widget.style.streakBonus;
         } else {
           _streak = 0;
+          if (widget.style == QuizStyle.suddenDeath) {
+            _suddenDeathOut = true;
+          }
         }
 
         _eliminatedOptions.clear();
@@ -473,6 +581,19 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   }
 
   void _nextQuestion() {
+    // Sudden death: first mistake ends the run.
+    if (widget.style == QuizStyle.suddenDeath && _suddenDeathOut) {
+      setState(() => _phase = GamePhase.finished);
+      return;
+    }
+    // Blitz: total 90s clock.
+    if (widget.style == QuizStyle.blitz && _blitzStartedAt != null) {
+      final elapsed = DateTime.now().millisecondsSinceEpoch - _blitzStartedAt!;
+      if (elapsed >= _blitzTotalMs) {
+        setState(() => _phase = GamePhase.finished);
+        return;
+      }
+    }
     if (_currentIndex + 1 >= _questions.length) {
       setState(() => _phase = GamePhase.finished);
       return;
@@ -483,7 +604,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       _currentIndex++;
       _selectedAnswer = null;
       _phase = GamePhase.playing;
-      _timerMs = widget.timePerQuestionSec * 1000;
+      _timerMs = _effectiveTimePerQuestionSec * 1000;
     });
 
     _slideController.forward();
@@ -519,6 +640,9 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     _responseTimesMs[_currentIndex] =
         _startTime != null ? DateTime.now().millisecondsSinceEpoch - _startTime! : 0;
     _streak = 0;
+    if (widget.style == QuizStyle.suddenDeath) {
+      _suddenDeathOut = true;
+    }
 
     setState(() => _phase = GamePhase.feedback);
     Future.delayed(const Duration(milliseconds: 400), () {
@@ -538,12 +662,12 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     if (_timeFreezeUsed) return;
     _timeFreezeUsed = true;
     _powerUpsUsed++;
-    _timerMs = widget.timePerQuestionSec * 1000;
+    _timerMs = _effectiveTimePerQuestionSec * 1000;
     setState(() {});
   }
 
   Color _timerColor() {
-    final ratio = _timerMs / (widget.timePerQuestionSec * 1000);
+    final ratio = _timerMs / (_effectiveTimePerQuestionSec * 1000);
     if (ratio > 0.5) return Colors.greenAccent;
     if (ratio > 0.25) return Colors.orangeAccent;
     return Colors.redAccent;

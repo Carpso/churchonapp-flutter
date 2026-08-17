@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/config/env.dart';
-import '../../../../core/services/tenant_service.dart';
 
 class QuizQuestion {
   final String id;
@@ -182,6 +181,7 @@ class BibleQuizService {
           'count': 100,
           'category': category,
           'difficulty': difficulty,
+          'auto': true,
         }),
       ).then((res) {
         if (res.statusCode == 200) {
@@ -576,15 +576,16 @@ class ChurchQuizCompetition {
 
 final bibleQuizServiceProvider = Provider((ref) => BibleQuizService());
 
+/// Global Church Coin leaderboard: ALL tenants, ranked by CC balance.
+/// "Public" players = registered church members who haven't opted out
+/// (profiles.hide_from_leaderboard).
 final quizLeaderboardProvider =
-    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   final client = Supabase.instance.client;
   try {
-    final tenantId = ref.read(currentTenantProvider)?.id;
-    final res = await client.rpc('get_quiz_leaderboard', params: {
-      'p_limit': 10,
-      'p_since': _startOfWeek().toIso8601String(),
-      if (tenantId != null) 'p_tenant_id': tenantId,
+    final res = await client.rpc('get_quiz_cc_leaderboard', params: {
+      'p_limit': 50,
+      'p_min_coins': 0,
     });
     return List<Map<String, dynamic>>.from(res as List);
   } catch (_) {
@@ -598,9 +599,9 @@ final myQuizRankProvider = FutureProvider<String>((ref) async {
   if (user == null) return "N/A";
 
   try {
-    final res = await client.rpc('get_quiz_leaderboard', params: {
+    final res = await client.rpc('get_quiz_cc_leaderboard', params: {
       'p_limit': 1000,
-      'p_since': _startOfWeek().toIso8601String(),
+      'p_min_coins': 0,
     });
     final list = List<Map<String, dynamic>>.from(res as List);
     int rank = list.indexWhere((p) => p['user_id'] == user.id) + 1;
@@ -610,9 +611,16 @@ final myQuizRankProvider = FutureProvider<String>((ref) async {
   }
 });
 
-/// Start of the current competition week (Monday 00:00 local time).
-DateTime _startOfWeek() {
-  final now = DateTime.now();
-  final monday = now.subtract(Duration(days: now.weekday - 1));
-  return DateTime(monday.year, monday.month, monday.day);
-}
+/// Whether the current user may manage quiz content (superadmin / coa_employee
+/// / employee / any member of a Quiz Engine leasing church).
+final canManageQuizContentProvider =
+    FutureProvider.autoDispose<bool>((ref) async {
+  final client = Supabase.instance.client;
+  try {
+    final res = await client.rpc('can_manage_quiz_content');
+    final data = res is Map<String, dynamic> ? res : <String, dynamic>{};
+    return data['allowed'] == true;
+  } catch (_) {
+    return false;
+  }
+});

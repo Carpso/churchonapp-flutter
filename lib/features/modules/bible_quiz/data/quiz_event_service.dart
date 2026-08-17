@@ -604,6 +604,7 @@ class QuizEventService {
           'category': category,
           'difficulty': difficulty,
           'excludeQuestions': excludeQuestions,
+          'auto': true,
         }),
       );
 
@@ -612,6 +613,9 @@ class QuizEventService {
         final inserted = data['inserted'] as int? ?? 0;
         debugPrint('[QuizEvent] Auto-generated $inserted questions');
         return inserted;
+      } else if (response.statusCode == 429) {
+        debugPrint('[QuizEvent] Auto-generate throttled: ${response.body}');
+        return 0;
       } else {
         debugPrint('[QuizEvent] Auto-generate failed: ${response.statusCode}');
         return 0;

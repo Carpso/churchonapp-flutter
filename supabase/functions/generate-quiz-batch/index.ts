@@ -3,7 +3,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 
 const GEMINI_API_BASE =
   "https://generativelanguage.googleapis.com/v1beta/models";
-const GEMINI_MODEL = "gemini-1.5-flash";
+const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.0-flash";
 
 interface QuizQuestion {
   question: string;
@@ -185,16 +185,39 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Check role — allow superadmin, employee, or anyone if auto-triggered
+  // Parse body early — the `auto` flag decides whether regular members may
+  // trigger generation (client-side "pool running low" auto-refill).
+  let body: {
+    count?: number;
+    category?: string | null;
+    difficulty?: string | null;
+    excludeQuestions?: string[];
+    topic?: string | null;
+    auto?: boolean;
+  } = {};
+  try {
+    body = await req.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
+    });
+  }
+
+  const auto = body.auto === true;
+
+  // Check role — privileged roles may generate on demand; regular members may
+  // only auto-trigger (rate-limited below).
   const profile = await supabase
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
   const role = profile?.data?.role ?? "member";
-  const isPrivileged = role === "superadmin" || role === "coa_employee";
+  const isPrivileged =
+    role === "superadmin" || role === "coa_employee" || role === "employee";
 
-  if (!isPrivileged) {
+  if (!isPrivileged && !auto) {
     return new Response(JSON.stringify({ error: "Forbidden: superadmin/coa_employee only" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 403,
@@ -202,23 +225,44 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
     const {
       count = 50,
       category = null,
       difficulty = null,
       excludeQuestions = [],
       topic = null,
-    } = body as {
-      count?: number;
-      category?: string | null;
-      difficulty?: string | null;
-      excludeQuestions?: string[];
-      topic?: string | null;
-    };
+    } = body;
 
     // Limit batch size
     const batchSize = Math.min(Math.max(1, count), 100);
+
+    // ── Auto-trigger throttle (members only) ──────────────────────────────
+    // 1. Pool must be under 200 questions (a genuinely low pool).
+    // 2. At most 1 auto-batch per user every 15 minutes.
+    if (auto && !isPrivileged) {
+      const { count: poolCount } = await supabase
+        .from("quiz_questions")
+        .select("id", { count: "exact", head: true });
+      const pool = poolCount ?? 0;
+      if (pool >= 200) {
+        return new Response(
+          JSON.stringify({ success: true, inserted: 0, skipped: "pool_full" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+        );
+      }
+      const { count: recentCount } = await supabase
+        .from("quiz_generation_log")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("source", "auto")
+        .gte("created_at", new Date(Date.now() - 15 * 60 * 1000).toISOString());
+      if ((recentCount ?? 0) >= 1) {
+        return new Response(
+          JSON.stringify({ success: true, inserted: 0, skipped: "rate_limited" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+        );
+      }
+    }
 
     // Fetch existing question hashes for dedup
     const { data: existingQs } = await supabase
@@ -293,6 +337,18 @@ Deno.serve(async (req) => {
         existingHashes.add(hash);
         insertedCount++;
       }
+    }
+
+    // Audit + rate-limit log (service role).
+    try {
+      await supabase.from("quiz_generation_log").insert({
+        user_id: user.id,
+        batch_id: batchId,
+        source: auto ? "auto" : "manual",
+        inserted: insertedCount,
+      });
+    } catch (logErr) {
+      console.error("quiz_generation_log insert failed:", logErr);
     }
 
     return new Response(
