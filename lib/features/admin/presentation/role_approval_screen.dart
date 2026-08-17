@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/admin/data/role_hierarchy_service.dart';
-import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
 
 class RoleApprovalScreen extends ConsumerWidget {
@@ -65,15 +64,43 @@ class RoleApprovalScreen extends ConsumerWidget {
     );
   }
 
+  static const List<String> _assignableRoles = [
+    'superadmin',
+    'coa_employee',
+    'admin',
+    'pastor',
+    'bishop',
+    'prophet',
+    'apostle',
+    'general_secretary',
+    'general_treasurer',
+    'treasurer',
+    'bookshop_owner',
+    'store_manager',
+    'assistant',
+    'cashier',
+    'driver',
+    'rider',
+    'vendor',
+    'merchant',
+    'writer',
+    'leader',
+    'usher',
+    'department_leader',
+    'worship_leader',
+    'praise_team_leader',
+    'praise_team_member',
+    'member',
+  ];
+
   void _showElevateDialog(BuildContext context, WidgetRef ref) {
     final emailC = TextEditingController();
     final roleC = TextEditingController();
-    final tenants = ref.watch(currentTenantProvider);
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Elevate User Role'),
+        title: const Text('Assign Role'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -81,8 +108,9 @@ class RoleApprovalScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: null,
-              items: 'superadmin,coa_employee,admin,pastor,bishop,prophet,apostle,bookshop_owner,driver,rider,writer,leader,vendor,usher,merchant'
-                  .split(',').map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+              items: _assignableRoles
+                  .map((r) => DropdownMenuItem(value: r, child: Text(r.replaceAll('_', ' '))))
+                  .toList(),
               onChanged: (v) => roleC.text = v ?? '',
               decoration: const InputDecoration(labelText: 'Role'),
             ),
@@ -92,10 +120,15 @@ class RoleApprovalScreen extends ConsumerWidget {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () async {
+              if (roleC.text.isEmpty) {
+                if (!ctx.mounted) return;
+                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Select a role'), backgroundColor: Colors.orange));
+                return;
+              }
               try {
                 final userResult = await ref.read(supabaseServiceProvider).client
                     .from('profiles')
-                    .select('id')
+                    .select('id, tenant_id')
                     .eq('email', emailC.text.trim())
                     .maybeSingle();
                 if (userResult == null) {
@@ -106,18 +139,18 @@ class RoleApprovalScreen extends ConsumerWidget {
                 await ref.read(roleHierarchyServiceProvider).elevateRole(
                   userId: userResult['id'],
                   roleName: roleC.text,
-                  tenantId: tenants?.id,
+                  tenantId: userResult['tenant_id'] as String?,
                 );
                 ref.invalidate(pendingRoleApprovalsProvider);
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Role elevated!'), backgroundColor: Colors.green));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Role assigned!'), backgroundColor: Colors.green));
               } catch (e) {
                 if (!ctx.mounted) return;
                 ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.red));
               }
             },
-            child: const Text('Elevate'),
+            child: const Text('Assign'),
           ),
         ],
       ),
