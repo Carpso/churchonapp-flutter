@@ -1029,6 +1029,32 @@ projects can copy/reuse when they wire Lipila:
   wallet live-rate card.
 - Constructor takes `baseCurrency`/`targetCurrency` (default ZMW->USD) so other
   projects can convert any supported pair.
+- **Session 2026-08-17 (late) — COA role-assignment RLS fix + Shona/Ndebele i18n**:
+  - **COA employee role assignment FIXED (root cause)**: migration `20260848`
+    renamed `employee` → `coa_employee` in `profiles.role`/`role_assignments`
+    data, but the `role_assignments` RLS policies (20260709 "Superadmins/
+    employees can manage all assignments" + 20260840 `role_assignments_insert/
+    update/select`) still gated on `role IN ('superadmin','employee',...)` —
+    so COA staff got "permission denied" on SELECT/INSERT/UPDATE and the whole
+    COA role-assignment flow (approve/reject/elevate in Role Approval screen)
+    was dead server-side for them. Migration `20260912_fix_role_assignments_rls_coa.sql`
+    (applied live, verified via `pg_policy`) recreates all 6 policies with
+    `coa_employee` (+ legacy `employee`/`super_admin`) included.
+  - **Client**: `role_approval_screen.dart` "Assign Role" dialog now has the
+    full 26-role list (`_assignableRoles`: superadmin, coa_employee, admin,
+    pastor, bishop, prophet, apostle, general_secretary, general_treasurer,
+    treasurer, bookshop_owner, store_manager, assistant, cashier, driver,
+    rider, vendor, merchant, writer, leader, usher, department_leader,
+    worship_leader, praise_team_leader, praise_team_member, member) and the
+    assignment is tenant-scoped via the **target user's own `tenant_id`**
+    (was: COA's null tenant). Removed unused `tenant_service` import.
+  - **Shona + Ndebele added to i18n**: `AppLanguage.shona('sn', chiShona)` +
+    `AppLanguage.ndebele('nd', isiNdebele)` in `app_languages.dart` (Zimbabwe
+    expansion market — `zw_` churches); first-pass 45-key dictionaries in
+    `translations.dart` `kTranslations` (`'sn'`, `'nd'`); language picker picks
+    them up automatically via `AppLanguage.values`.
+  - **`flutter analyze`**: 0 errors, 0 warnings (10 pre-existing info).
+    Commits `97141d8` (RLS + dialog) + `9e8f026` (languages), pushed.
 - **Session 2026-08-13 — Security Hardening Sprint**:
   - **Full 3-agent security audit** (Flutter client, Supabase backend,
     infra/config/secrets). Findings → fixes below.
