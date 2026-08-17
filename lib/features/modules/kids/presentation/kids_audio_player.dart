@@ -194,7 +194,7 @@ class _KidsAudioPlayerState extends ConsumerState<KidsAudioPlayer> {
         await ref.read(coinsServiceProvider).addAttendanceCoins();
       } catch (_) {}
     }
-    if (!context.mounted) return;
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

@@ -148,7 +148,7 @@ class _WalletCommandCentreScreenState extends ConsumerState<WalletCommandCentreS
       const SizedBox(width: 8),
       Expanded(
         child: DropdownButtonFormField<String>(
-          value: _statusFilter.isEmpty ? null : _statusFilter,
+          initialValue: _statusFilter.isEmpty ? null : _statusFilter,
           items: const [
             DropdownMenuItem(value: '', child: Text('All')),
             DropdownMenuItem(value: 'pending', child: Text('Pending')),

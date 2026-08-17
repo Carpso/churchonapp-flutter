@@ -181,7 +181,7 @@ class _DataImportScreenState extends ConsumerState<DataImportScreen> with Single
         padding: const EdgeInsets.all(16),
         children: [
           DropdownButtonFormField<String>(
-            value: _entity,
+            initialValue: _entity,
             items: DataImportService.entities.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
             onChanged: _setEntity,
             decoration: const InputDecoration(labelText: 'Entity'),
@@ -205,7 +205,7 @@ class _DataImportScreenState extends ConsumerState<DataImportScreen> with Single
           if (entityColumns.isNotEmpty) const SizedBox(height: 12),
           if (_rows.isNotEmpty) Text('${_rows.length} rows parsed; ${_columns.length} columns', style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(value: _conflictOn, items: entityColumns.map((c) => DropdownMenuItem(value: c, child: Text('Conflict on: $c'))).toList(), onChanged: (v) => setState(() => _conflictOn = v), decoration: const InputDecoration(labelText: 'Upsert key (optional)')),
+          DropdownButtonFormField<String>(initialValue: _conflictOn, items: entityColumns.map((c) => DropdownMenuItem(value: c, child: Text('Conflict on: $c'))).toList(), onChanged: (v) => setState(() => _conflictOn = v), decoration: const InputDecoration(labelText: 'Upsert key (optional)')),
         ],
       );
 

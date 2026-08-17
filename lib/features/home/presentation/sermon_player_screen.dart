@@ -558,10 +558,10 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                     try {
                       await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'discuss', content: value.trim());
                       commentCtrl.clear();
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insight shared successfully!"), backgroundColor: Colors.green));
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insight shared successfully!"), backgroundColor: Colors.green));
                     } catch (e) {
                       debugPrint("Comment error: $e");
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to send: $e"), backgroundColor: Colors.red));
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to send: $e"), backgroundColor: Colors.red));
                     }
                   },
                   decoration: InputDecoration(

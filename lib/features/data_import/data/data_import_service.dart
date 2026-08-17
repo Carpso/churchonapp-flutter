@@ -147,7 +147,7 @@ class DataImportService {
     final field = StringBuffer();
     final row = <String>[];
     bool inQuotes = false;
-    void _endRow() {
+    void endRow() {
       row.add(field.toString());
       field.clear();
       out.add(List<String>.from(row));
@@ -176,7 +176,7 @@ class DataImportService {
         } else if (c == '\r') {
           // ignore CR
         } else if (c == '\n') {
-          _endRow();
+          endRow();
         } else {
           field.write(c);
         }

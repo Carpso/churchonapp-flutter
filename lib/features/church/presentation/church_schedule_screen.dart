@@ -200,7 +200,7 @@ class _ServiceEditorCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<int>(
-              value: service.dayOfWeek,
+              initialValue: service.dayOfWeek,
               decoration: const InputDecoration(labelText: 'Day of Week', border: OutlineInputBorder()),
               items: List.generate(7, (i) => DropdownMenuItem(value: i + 1, child: Text(_days[i]))),
               onChanged: editable ? (v) { if (v != null) onChanged(service.copyWith(dayOfWeek: v)); } : null,

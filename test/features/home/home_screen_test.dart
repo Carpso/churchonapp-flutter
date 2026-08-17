@@ -126,7 +126,7 @@ void main() {
 
   testWidgets('Home screen renders without error', (tester) async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    await tester.runAsync(() => Supabase.initialize(url: 'http://localhost:54321', anonKey: 'test-anon-key'));
+    await tester.runAsync(() => Supabase.initialize(url: 'http://localhost:54321', publishableKey: 'test-anon-key'));
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -154,7 +154,7 @@ void main() {
 
   testWidgets('Home screen contains Scaffold', (tester) async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    await tester.runAsync(() => Supabase.initialize(url: 'http://localhost:54321', anonKey: 'test-anon-key'));
+    await tester.runAsync(() => Supabase.initialize(url: 'http://localhost:54321', publishableKey: 'test-anon-key'));
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
