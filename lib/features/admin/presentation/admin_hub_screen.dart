@@ -13,6 +13,7 @@ import 'event_scheduler_screen.dart';
 import 'live_viewer_heatmap_screen.dart';
 import 'logistics_dashboard_screen.dart';
 import 'prophetic_heatmap_screen.dart';
+import 'church_branding_screen.dart';
 
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/features/admin/presentation/widgets/admin_navigation_registry.dart';
@@ -189,6 +190,15 @@ class AdminHubScreen extends ConsumerWidget {
                 "Design visual announcement templates for events",
                 Colors.amber,
                  () => context.push('/flyer-studio'),
+              ),
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
+              _buildAdminTile(
+                context,
+                LucideIcons.image,
+                "Church Branding",
+                "Set your hero banner & logo shown on the home screen",
+                Colors.purple,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ChurchBrandingScreen())),
               ),
             if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(

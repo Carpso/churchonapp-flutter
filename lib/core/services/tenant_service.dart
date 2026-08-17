@@ -12,6 +12,7 @@ class Tenant {
   final String type;
 
   final String? logoUrl;
+  final String? bannerUrl;
   final Color primaryColor;
   final Color accentColor;
   final Color surfaceColor;
@@ -39,6 +40,7 @@ class Tenant {
     this.type = 'church',
 
     this.logoUrl,
+    this.bannerUrl,
     required this.primaryColor,
     required this.accentColor,
     required this.surfaceColor,
@@ -94,6 +96,7 @@ class Tenant {
       name: (map['name'] ?? 'Church On App').toString().trim(),
       type: map['type']?.toString() ?? 'church',
       logoUrl: (map['logo_url'] ?? map['logo'])?.toString(),
+      bannerUrl: map['banner_url']?.toString(),
       primaryColor: _parseColor(
         map['primary_color']?.toString(),
         const Color(0xFFFFD700),
@@ -212,7 +215,7 @@ class TenantService {
       final data = await _client
           .from('churches')
           .select(
-            'id, slug, name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
+            'id, slug, name, logo_url, logo, banner_url, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
           )
           .eq('slug', slug.toLowerCase())
           .maybeSingle();
@@ -250,7 +253,7 @@ class TenantService {
           final churchData = await _client
               .from('churches')
               .select(
-                'id, slug, name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
+                'id, slug, name, logo_url, logo, banner_url, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
               )
               .eq('id', id)
               .maybeSingle();
@@ -267,7 +270,7 @@ class TenantService {
       final data = await _client
           .from('churches')
           .select(
-            'id, slug, name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
+            'id, slug, name, logo_url, logo, banner_url, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
           )
           .eq('id', id)
           .maybeSingle();
@@ -351,7 +354,7 @@ class TenantService {
       final data = await _client
           .from('churches')
           .select(
-            'id, slug, name, logo_url, logo, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
+            'id, slug, name, logo_url, logo, banner_url, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
           )
           .not('latitude', 'is', null);
 

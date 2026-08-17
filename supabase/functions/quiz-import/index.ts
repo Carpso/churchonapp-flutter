@@ -40,34 +40,52 @@ function generateQuestionHash(q: QuizQuestion): string {
   return `ai_${Math.abs(hash).toString(16)}`;
 }
 
+const VALID_DIFFICULTIES = new Set(["Easy", "Medium", "Hard"]);
+
 function validateQuestion(item: Record<string, unknown>): QuizQuestion | null {
-  if (
-    typeof item.question !== "string" ||
-    item.question.trim().length < 5 ||
-    !Array.isArray(item.options) ||
-    item.options.length !== 4 ||
-    typeof item.correct_answer !== "number" ||
-    item.correct_answer < 0 ||
-    item.correct_answer > 3
-  ) {
+  if (typeof item.question !== "string") return null;
+  if (!Array.isArray(item.options)) return null;
+
+  const question = item.question.trim();
+  if (question.length < 10) return null;
+
+  const opts = item.options.map((o) => String(o).trim());
+  if (opts.length !== 4) return null;
+  if (opts.some((o) => o.length === 0)) return null;
+
+  // Distinct options (case-insensitive) — duplicates make answers ambiguous.
+  const seen = new Set<string>();
+  for (const o of opts) {
+    const key = o.toLowerCase();
+    if (seen.has(key)) return null;
+    seen.add(key);
+  }
+
+  const correct = item.correct_answer;
+  if (typeof correct !== "number" || !Number.isInteger(correct)) return null;
+  if (correct < 0 || correct >= opts.length) return null;
+
+  const reference =
+    typeof item.scripture_reference === "string" ? item.scripture_reference.trim() : "";
+  if (!reference) return null;
+
+  const correctText = opts[correct].toLowerCase();
+  // Answer leaking into the question is a strong signal of a bad question.
+  if (question.toLowerCase().includes(correctText) && correctText.length > 3) {
     return null;
   }
-  const opts = item.options.map((o) => String(o).trim());
-  if (opts.some((o) => o.length === 0)) return null;
+
   return {
-    question: item.question.trim(),
+    question,
     options: opts,
-    correct_answer: item.correct_answer,
-    difficulty: ["Easy", "Medium", "Hard"].includes(String(item.difficulty))
+    correct_answer: correct,
+    difficulty: VALID_DIFFICULTIES.has(String(item.difficulty))
       ? String(item.difficulty)
       : "Medium",
     category: typeof item.category === "string" && item.category.trim()
       ? item.category.trim()
       : "General",
-    scripture_reference:
-      typeof item.scripture_reference === "string"
-        ? item.scripture_reference.trim()
-        : "",
+    scripture_reference: reference,
   };
 }
 
@@ -77,9 +95,12 @@ function buildExtractionPrompt(text: string, fileName?: string): string {
 Rules:
 - Produce a separate question for each quiz question found (dedupe repeats).
 - Exactly 4 options per question, exactly ONE correct.
+- The correct_answer index MUST point at the option that exactly answers the question — verify the mapping.
+- Options must be distinct from each other; never duplicate an option.
 - Add a real scripture reference (book chapter:verse) when the document gives one or you can infer it confidently.
 - Difficulty: Easy / Medium / Hard. Category: short label (People, History, NT, OT, Miracles, Prophecy, Law, Language, Scripture...).
 - Skip anything that is not a quiz question (headers, instructions, answers without questions).
+- If a question's answer is uncertain or ambiguous, skip it — accuracy matters more than quantity.
 
 Return ONLY a valid JSON array (no markdown, no code fences). Each item:
 {

@@ -57,6 +57,10 @@ class QuizSessionResult {
   final List<int> responseTimesMs;
   final int streak;
   final int powerUpsUsed;
+  final int? opponentScore;
+  final String? opponentName;
+  final String? opponentAvatar;
+  final String? opponentChurch;
 
   QuizSessionResult({
     required this.questions,
@@ -64,6 +68,10 @@ class QuizSessionResult {
     required this.responseTimesMs,
     required this.streak,
     required this.powerUpsUsed,
+    this.opponentScore,
+    this.opponentName,
+    this.opponentAvatar,
+    this.opponentChurch,
   });
 
   int get score {
@@ -328,7 +336,7 @@ class BibleQuizService {
     try {
       final res = await _client
           .from('profiles')
-          .select('full_name, id')
+          .select('full_name, avatar_url, id')
           .neq('id', _client.auth.currentUser?.id ?? '')
           .limit(10);
 
@@ -338,7 +346,7 @@ class BibleQuizService {
         return {
           "name": list.first['full_name'],
           "id": list.first['id'],
-          "avatar": '',
+          "avatar": list.first['avatar_url']?.toString() ?? '',
         };
       }
     } catch (e) {

@@ -26,6 +26,65 @@ function generateQuestionHash(q: QuizQuestion): string {
   return `ai_${Math.abs(hash).toString(16)}`;
 }
 
+const VALID_DIFFICULTIES = new Set(["Easy", "Medium", "Hard"]);
+
+/**
+ * Structural quality gate. Rejects questions that would produce wrong,
+ * ambiguous, or leaked answers:
+ *  - correct_answer must be an integer index within options
+ *  - exactly 4 options, all non-empty and distinct (case-insensitive)
+ *  - the correct option must not appear inside the question text
+ *  - a scripture reference is mandatory
+ */
+function validateQuestion(raw: Record<string, unknown>): QuizQuestion | null {
+  if (typeof raw.question !== "string") return null;
+  if (!Array.isArray(raw.options)) return null;
+
+  const question = raw.question.trim();
+  if (question.length < 10) return null;
+
+  const options = (raw.options as unknown[])
+    .filter((o): o is string => typeof o === "string")
+    .map((o) => o.trim());
+
+  if (options.length !== 4) return null;
+  if (options.some((o) => o.length === 0)) return null;
+
+  // Distinct options (case-insensitive) — duplicates make answers ambiguous.
+  const seen = new Set<string>();
+  for (const o of options) {
+    const key = o.toLowerCase();
+    if (seen.has(key)) return null;
+    seen.add(key);
+  }
+
+  const correct = raw.correct_answer;
+  if (typeof correct !== "number" || !Number.isInteger(correct)) return null;
+  if (correct < 0 || correct >= options.length) return null;
+
+  const reference = (raw.scripture_reference as string | undefined) ?? "";
+  if (!reference.trim()) return null;
+
+  const correctText = options[correct].toLowerCase();
+  // Answer leaking into the question is a strong signal of a bad question.
+  if (question.toLowerCase().includes(correctText) && correctText.length > 3) {
+    return null;
+  }
+
+  const difficulty = VALID_DIFFICULTIES.has(raw.difficulty as string)
+    ? (raw.difficulty as string)
+    : "Medium";
+
+  return {
+    question,
+    options,
+    correct_answer: correct,
+    difficulty,
+    category: ((raw.category as string | undefined) || "General").trim() || "General",
+    scripture_reference: reference.trim(),
+  };
+}
+
 function buildGeminiPrompt(
   count: number,
   category?: string,
@@ -48,13 +107,16 @@ function buildGeminiPrompt(
   return `You are a world-class Bible quiz content generator. Generate exactly ${count} multiple-choice Bible quiz questions for a competitive quiz app.
 
 ${catHint}${diffHint}${topicHint}${excludeHint}
-Requirements:
-- Every question must be factually accurate and based on Scripture
-- 4 options per question, exactly ONE correct
-- Include a real scripture reference (book chapter:verse) for each question
-- Questions should be diverse — cover different books, themes, and difficulty levels
-- Avoid trick questions or ambiguous wording
-- Mix testaments: some Old Testament, some New Testament
+ACCURACY RULES (non-negotiable):
+- Every question must be factually accurate per the KJV Bible. When in doubt, only use facts you are certain of — never guess.
+- The ${"`correct_answer`"} index MUST point to the option that exactly and uniquely answers the question. Double-check this mapping before answering.
+- Scripture references MUST be real (book chapter:verse) and must actually support the answer.
+- 4 options per question, exactly ONE correct; the other three must be plausible but clearly wrong.
+- Options must all be different from each other (no duplicates, no near-identical wording).
+- Never embed the answer (or a paraphrase of it) inside the question text.
+- Avoid trick questions, ambiguous wording, and questions that depend on translation differences.
+- If a question cannot be answered with certainty, do NOT include it — generate a different one instead.
+- Mix testaments: some Old Testament, some New Testament.
 
 Return ONLY a valid JSON array (no markdown, no code fences). Each item:
 {
@@ -79,8 +141,8 @@ async function callGeminiAPI(
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.8,
-          topP: 0.95,
+          temperature: 0.4,
+          topP: 0.9,
           maxOutputTokens: 8192,
           responseMimeType: "application/json",
         },
@@ -120,25 +182,11 @@ async function callGeminiAPI(
     }
   }
 
-  // Validate each question has required fields
+  // Validate each question — strict structural quality gate
   const valid: QuizQuestion[] = [];
   for (const item of parsed) {
-    const q = item as Record<string, unknown>;
-    if (
-      typeof q.question === "string" &&
-      Array.isArray(q.options) &&
-      q.options.length === 4 &&
-      typeof q.correct_answer === "number"
-    ) {
-      valid.push({
-        question: q.question as string,
-        options: q.options as string[],
-        correct_answer: q.correct_answer as number,
-        difficulty: (q.difficulty as string) || "Medium",
-        category: (q.category as string) || "General",
-        scripture_reference: (q.scripture_reference as string) || "",
-      });
-    }
+    const q = validateQuestion(item as Record<string, unknown>);
+    if (q) valid.push(q);
   }
 
   return valid;

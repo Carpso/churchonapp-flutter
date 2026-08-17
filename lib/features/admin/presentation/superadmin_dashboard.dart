@@ -27,6 +27,7 @@ import 'export_data_screen.dart';
 import 'live_viewer_heatmap_screen.dart';
 import 'kingdom_ai_moderator_screen.dart';
 import 'promo_campaign_screen.dart';
+import 'special_offer_manager_screen.dart';
 import 'reward_management_screen.dart';
 import 'integrations_screen.dart';
 import 'subscription_pricing_screen.dart';
@@ -251,6 +252,7 @@ class SuperAdminDashboard extends ConsumerWidget {
       _tile(context, theme, LucideIcons.barChart3, "Payroll Reports", "Annual summaries, remittance schedules, compliance", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PayrollReportsScreen()))),
       _tile(context, theme, LucideIcons.fileSpreadsheet, "Zambian Statutory Payroll", "Calculate NHIMA, NAPSA, & PAYE deductions", Colors.blueGrey, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ZambianPayrollScreen()))),
       _tile(context, theme, LucideIcons.clipboardCheck, "Zambian Compliance Dashboard", "ZRA, NAPSA, NHIMA, ECZ — full statutory view", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ZambianComplianceDashboard()))),
+      _tile(context, theme, LucideIcons.tag, "Special Offers", "Create & promote home-screen offers", Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SpecialOfferManagerScreen()))),
       _tile(context, theme, LucideIcons.megaphone, "Ad Campaigns", "Manage platform ads and promotions", Colors.orange, () => context.push('/ads')),
       _tile(context, theme, LucideIcons.store, "Partner Management", "Manage partner tenants for coin redemption", theme.primaryColor, () => context.push('/manage-partners')),
       _tile(context, theme, LucideIcons.userCheck, "Role Approvals", "Approve or elevate user roles", theme.primaryColor, () => context.push('/role-approvals')),

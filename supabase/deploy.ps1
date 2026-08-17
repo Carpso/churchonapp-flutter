@@ -232,7 +232,8 @@ $migrations = @(
        "20260901_zra_payroll_remote_config.sql"
        "20260902_church_registration_rls.sql"
        "20260903_year_planner_rls_fix.sql"
-        "20260904_quiz_cc_leaderboard_and_fixes.sql"
+         "20260904_quiz_cc_leaderboard_and_fixes.sql"
+        "20260905_church_branding_and_special_offers.sql"
     )
 
 foreach ($m in $migrations) {

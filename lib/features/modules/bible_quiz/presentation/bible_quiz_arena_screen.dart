@@ -719,6 +719,44 @@ try {
         debugPrint('Failed to complete PvP match: $e');
       }
     }
+    // Fetch the opponent's final score (settled server-side) for the results.
+    int? oppScore;
+    String? oppName;
+    String? oppAvatar;
+    String? oppChurch;
+    if (widget.mode != 'Solo') {
+      if (_kaelOpponent) {
+        oppScore = _opponentScore;
+        oppName = 'Kael AI';
+        oppChurch = 'Church On App · AI Opponent';
+      } else if (_pvpMatch != null) {
+        try {
+          final settled = await Supabase.instance.client
+              .from('pvp_matches')
+              .select('player1_score, player2_score, player1_id, player2_id')
+              .eq('id', _pvpMatch!.id)
+              .maybeSingle();
+          if (settled != null) {
+            final me = _pvpService!.currentUserId;
+            oppScore = me == settled['player1_id']
+                ? (settled['player2_score'] as num?)?.toInt()
+                : (settled['player1_score'] as num?)?.toInt();
+          }
+          final oppId = _pvpService!.currentUserId == _pvpMatch!.player1Id
+              ? _pvpMatch!.player2Id
+              : _pvpMatch!.player1Id;
+          final oppProfile = oppId != null
+              ? await _fetchPlayerDetail(oppId)
+              : null;
+          oppName = oppProfile?['name'] as String?;
+          oppAvatar = oppProfile?['avatar'] as String?;
+          oppChurch = oppProfile?['church'] as String?;
+        } catch (e) {
+          debugPrint('Failed to fetch settled match scores: $e');
+          oppScore = _opponentScore;
+        }
+      }
+    }
 
     if (widget.categoryFilter == 'Daily') {
       var dailyRecorded = false;
@@ -757,7 +795,19 @@ try {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => BibleQuizResultsScreen(result: results),
+          builder: (_) => BibleQuizResultsScreen(
+            result: QuizSessionResult(
+              questions: results.questions,
+              answers: results.answers,
+              responseTimesMs: results.responseTimesMs,
+              streak: results.streak,
+              powerUpsUsed: results.powerUpsUsed,
+              opponentScore: oppScore,
+              opponentName: oppName,
+              opponentAvatar: oppAvatar,
+              opponentChurch: oppChurch,
+            ),
+          ),
         ),
       );
     });
@@ -1292,7 +1342,7 @@ try {
                       width: 24,
                       height: 24,
                       child: CircularProgressIndicator(
-                        value: (_timerMs / (widget.timePerQuestionSec * 1000)).clamp(0.0, 1.0),
+                        value: (_timerMs / (_effectiveTimePerQuestionSec * 1000)).clamp(0.0, 1.0),
                         strokeWidth: 3,
                         color: _timerColor(),
                         backgroundColor: Colors.white.withValues(alpha: 0.1),
@@ -1624,6 +1674,69 @@ try {
               ),
             ),
             const SizedBox(height: 24),
+            if (widget.mode != 'Solo') ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(8),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _opponentScore > _score
+                        ? Colors.redAccent.withAlpha(60)
+                        : _opponentScore == _score
+                            ? Colors.white.withAlpha(30)
+                            : Colors.greenAccent.withAlpha(60),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _opponentScore > _score
+                          ? LucideIcons.swords
+                          : _opponentScore == _score
+                              ? LucideIcons.scale
+                              : LucideIcons.trophy,
+                      color: _opponentScore > _score
+                          ? Colors.redAccent
+                          : _opponentScore == _score
+                              ? Colors.white70
+                              : Colors.greenAccent,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Opponent: $_opponentScore pts',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      _opponentScore > _score
+                          ? 'OPPONENT WINS'
+                          : _opponentScore == _score
+                              ? 'DRAW'
+                              : 'YOU WIN',
+                      style: TextStyle(
+                        color: _opponentScore > _score
+                            ? Colors.redAccent
+                            : _opponentScore == _score
+                                ? Colors.white70
+                                : Colors.greenAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             // Stats grid
             _buildStatsGrid(theme, correctCount, accuracy),
             const SizedBox(height: 24),

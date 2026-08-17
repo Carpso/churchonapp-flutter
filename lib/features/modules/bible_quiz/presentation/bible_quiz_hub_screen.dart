@@ -2015,7 +2015,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       builder: (context) => Consumer(
         builder: (context, ref, child) {
           final leaderboardAsync = ref.watch(quizLeaderboardProvider);
-          final top3 = ['$_prize1 CC', '$_prize2 CC', '$_prize3 CC'];
+          final myRankAsync = ref.watch(myQuizRankProvider);
           final theme = Theme.of(context);
           return Container(
             height: MediaQuery.of(context).size.height * 0.75,
@@ -2028,16 +2028,16 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
               children: [
                 Icon(LucideIcons.trophy, color: theme.primaryColor, size: 36),
                 const SizedBox(height: 6),
-                Text(
-                  "$_trophyTitle — Week $_weekNumber",
-                  style: const TextStyle(
+                const Text(
+                  "GLOBAL CHURCH COIN LEADERBOARD",
+                  style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  "Weekly rewards: $_prize1 CC | $_prize2 CC | $_prize3 CC",
+                  "All churches · ranked by CC balance",
                   style: TextStyle(
                     color: theme.primaryColor,
                     fontSize: 12,
@@ -2045,19 +2045,27 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
+                myRankAsync.when(
+                  data: (rank) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      "MY RANK: $rank",
+                      style: TextStyle(
+                        color: theme.primaryColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
-                  decoration: BoxDecoration(
-                    color: theme.primaryColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    "Lasts $_seasonWeeks weeks — New winners every Monday!",
-                    style: TextStyle(color: theme.primaryColor, fontSize: 11),
-                  ),
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
                 ),
                 const SizedBox(height: 16),
                 Expanded(
@@ -2071,7 +2079,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                                     color: Colors.white24, size: 48),
                                 SizedBox(height: 12),
                                 Text(
-                                  "No scores yet this week",
+                                  "No ranked players yet",
                                   style: TextStyle(
                                     color: Colors.white70,
                                     fontSize: 16,
@@ -2080,7 +2088,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  "Play a match or the daily challenge to claim the top spot!",
+                                  "Earn Church Coins by playing quizzes, daily challenges and streaks!",
                                   style: TextStyle(
                                     color: Colors.white38,
                                     fontSize: 13,
@@ -2141,50 +2149,90 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                                         ),
                                 ),
                               ),
-                              const SizedBox(width: 14),
+                              const SizedBox(width: 12),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                child: Row(
                                   children: [
-                                    Text(
-                                      user['full_name'] ?? 'Anonymous',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: theme.primaryColor,
+                                          width: 2,
+                                        ),
+                                        image: user['avatar_url'] != null &&
+                                                user['avatar_url'].toString().isNotEmpty
+                                            ? DecorationImage(
+                                                image: NetworkImage(
+                                                  user['avatar_url'].toString(),
+                                                ),
+                                                fit: BoxFit.cover,
+                                              )
+                                            : null,
+                                      ),
+                                      child: user['avatar_url'] == null ||
+                                              user['avatar_url'].toString().isEmpty
+                                          ? const Icon(
+                                              LucideIcons.user,
+                                              color: Colors.white38,
+                                              size: 20,
+                                            )
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            user['full_name'] ?? 'Anonymous',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          if (user['church_name'] != null &&
+                                              user['church_name'].toString().isNotEmpty)
+                                            Text(
+                                              user['church_name'].toString(),
+                                              style: const TextStyle(
+                                                color: Colors.white54,
+                                                fontSize: 11,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                        ],
                                       ),
                                     ),
-                                    if (isTop3)
-                                      Text(
-                                        "Reward: ${top3[index]}",
-                                        style: TextStyle(
-                                          color: theme.primaryColor,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
                                   ],
                                 ),
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.greenAccent.withValues(
-                                    alpha: 0.15,
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    "${user['coins'] ?? 0} CC",
+                                    style: TextStyle(
+                                      color: theme.primaryColor,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 14,
+                                    ),
                                   ),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  "${user['correct_answers'] ?? 0} correct",
-                                  style: const TextStyle(
-                                    color: Colors.greenAccent,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
+                                  Text(
+                                    "${user['correct_answers'] ?? 0} correct · ${user['games_played'] ?? 0} games",
+                                    style: const TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: 10,
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
                             ],
                           ),

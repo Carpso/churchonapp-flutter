@@ -47,6 +47,10 @@ class BibleQuizResultsScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               // Hero section
               _buildHero(theme, grade, accuracy, correctCount, wrongCount),
+              if (result.opponentScore != null) ...[
+                const SizedBox(height: 16),
+                _buildMatchResult(theme),
+              ],
               const SizedBox(height: 24),
               // Score breakdown
               _buildScoreBreakdown(theme),
@@ -211,6 +215,138 @@ class BibleQuizResultsScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// Head-to-head match summary: YOU vs OPPONENT with avatars and the
+  /// verified (server-settled) opponent score.
+  Widget _buildMatchResult(ThemeData theme) {
+    final myScore = result.score;
+    final oppScore = result.opponentScore ?? 0;
+    final won = myScore > oppScore;
+    final draw = myScore == oppScore;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: won
+            ? Colors.greenAccent.withAlpha(14)
+            : draw
+                ? Colors.white.withAlpha(8)
+                : Colors.redAccent.withAlpha(14),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: won
+              ? Colors.greenAccent.withAlpha(70)
+              : draw
+                  ? Colors.white24
+                  : Colors.redAccent.withAlpha(70),
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(
+            won
+                ? 'YOU WIN!'
+                : draw
+                    ? "IT'S A DRAW"
+                    : 'OPPONENT WINS',
+            style: TextStyle(
+              color: won
+                  ? Colors.greenAccent
+                  : draw
+                      ? Colors.white70
+                      : Colors.redAccent,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: _matchPlayer(theme, 'YOU', null, myScore)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  'VS',
+                  style: TextStyle(
+                    color: theme.primaryColor,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: _matchPlayer(
+                  theme,
+                  result.opponentName ?? 'Opponent',
+                  result.opponentAvatar,
+                  oppScore,
+                ),
+              ),
+            ],
+          ),
+          if (result.opponentChurch != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              result.opponentChurch!,
+              style: const TextStyle(color: Colors.white38, fontSize: 11),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _matchPlayer(
+    ThemeData theme,
+    String name,
+    String? avatar,
+    int score,
+  ) {
+    return Column(
+      children: [
+        Container(
+          width: 54,
+          height: 54,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: theme.primaryColor, width: 2),
+            image: avatar != null && avatar.isNotEmpty
+                ? DecorationImage(
+                    image: NetworkImage(avatar),
+                    fit: BoxFit.cover,
+                  )
+                : null,
+          ),
+          child: avatar == null || avatar.isEmpty
+              ? Icon(LucideIcons.user, color: Colors.white38, size: 26)
+              : null,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          name,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '$score pts',
+          style: TextStyle(
+            color: theme.primaryColor,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
     );
   }
 

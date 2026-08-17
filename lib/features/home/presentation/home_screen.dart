@@ -30,6 +30,7 @@ import 'package:church_on_app/features/home/presentation/widgets/home_admin_dash
 import 'package:church_on_app/features/home/presentation/widgets/home_hero_carousel.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_promo_carousel.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_subscription_paywall.dart';
+import 'package:church_on_app/features/admin/presentation/special_offer_manager_screen.dart';
 import 'package:church_on_app/features/admin/presentation/widgets/ad_banner_widget.dart';
 import '../widgets/announcement_ticker.dart';
 
@@ -243,6 +244,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _buildAdminPromoSection(Tenant? tenant) {
     final profile = ref.watch(profileProvider).value;
     final bool isAdmin = profile?.isAdminOrHigher ?? false;
+    final bool isOwnerTeam = profile?.role == 'superadmin' ||
+        profile?.role == 'coa_employee' ||
+        profile?.role == 'employee';
 
     return Column(
       children: [
@@ -293,6 +297,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           if (_showAdminPromo) ...[
             const HomeAdminDashboard(),
             const SizedBox(height: 30),
+            if (isOwnerTeam) ...[
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SpecialOfferManagerScreen(),
+                  ),
+                ),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).primaryColor.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        LucideIcons.tag,
+                        size: 18,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          "MANAGE SPECIAL OFFERS",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        LucideIcons.chevronRight,
+                        size: 18,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.4),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             const HomePromoCarousel(),
             const SizedBox(height: 16),
             const AdBannerWidget(placement: 'home'),

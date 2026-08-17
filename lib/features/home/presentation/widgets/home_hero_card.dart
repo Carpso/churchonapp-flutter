@@ -40,7 +40,10 @@ class HomeHeroCard extends ConsumerWidget {
         ? "${liveStatus?.viewerCount ?? 0} watching"
         : (tenant != null ? "Next Service: Sunday 09:00" : "Starts in 45 mins");
 
-    final String bgImage = tenant?.logoUrl ?? "";
+    final String? banner = tenant?.bannerUrl;
+    final String bgImage = (banner != null && banner.isNotEmpty)
+        ? banner
+        : (tenant?.logoUrl ?? "");
 
     return Container(
       height: 245,
@@ -50,7 +53,12 @@ class HomeHeroCard extends ConsumerWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          AppImage(bgImage, fit: BoxFit.cover),
+          AppImage(
+            bgImage,
+            fit: BoxFit.cover,
+            placeholder: _buildFallback(context, tenant),
+            errorWidget: (_, __) => _buildFallback(context, tenant),
+          ),
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(30),
@@ -189,6 +197,29 @@ class HomeHeroCard extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFallback(BuildContext context, Tenant? tenant) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.primaryColor,
+            theme.colorScheme.surfaceContainerHighest,
+          ],
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          LucideIcons.church,
+          size: 72,
+          color: Colors.white.withValues(alpha: 0.35),
+        ),
       ),
     );
   }
