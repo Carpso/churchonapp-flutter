@@ -125,7 +125,7 @@ class _ExportDataScreenState extends ConsumerState<ExportDataScreen> {
       List<Map<String, dynamic>> data = [];
       switch (type.label) {
         case 'Ledger (All Transactions)':
-          final ledger = await _exportService.client.from('ledger').select().order('created_at', ascending: false).limit(500);
+          final ledger = await _exportService.client.from('transactions').select().order('created_at', ascending: false).limit(500);
           data = List<Map<String, dynamic>>.from(ledger);
           break;
         case 'Members':
@@ -133,16 +133,39 @@ class _ExportDataScreenState extends ConsumerState<ExportDataScreen> {
           data = List<Map<String, dynamic>>.from(members);
           break;
         case 'Giving & Tithes':
-          final giving = await _exportService.client.from('giving').select('id, user_id, amount, category, currency, payment_method, payment_ref, status, created_at, tenant_id, church_id').order('created_at', ascending: false).limit(500);
+          final giving = await _exportService.client.from('transactions').select('id, user_id, amount, transaction_type, payment_method, payment_reference, status, created_at, tenant_id, church_id').order('created_at', ascending: false).limit(500);
           data = List<Map<String, dynamic>>.from(giving);
           break;
         case 'Events':
           final events = await _exportService.client.from('events').select('id, title, description, event_date, event_time, location, category, type, price, currency, max_attendees, is_public, status, created_at, tenant_id, church_id').order('event_date', ascending: false).limit(500);
           data = List<Map<String, dynamic>>.from(events);
           break;
+        case 'Attendance':
+          final attendance = await _exportService.client.from('attendance_logs').select().order('created_at', ascending: false).limit(500);
+          data = List<Map<String, dynamic>>.from(attendance);
+          break;
+        case 'Sermons':
+          final sermons = await _exportService.client.from('sermons').select().order('created_at', ascending: false).limit(500);
+          data = List<Map<String, dynamic>>.from(sermons);
+          break;
+        case 'Marketplace Orders':
+          final orders = await _exportService.client.from('orders').select().order('created_at', ascending: false).limit(500);
+          data = List<Map<String, dynamic>>.from(orders);
+          break;
+        case 'Bible Quiz Scores':
+          final quiz = await _exportService.client.from('daily_challenge_results').select().order('completed_at', ascending: false).limit(500);
+          data = List<Map<String, dynamic>>.from(quiz);
+          break;
+        case 'Ride & Delivery History':
+          final rides = await _exportService.client.from('ride_requests').select().order('created_at', ascending: false).limit(500);
+          data = List<Map<String, dynamic>>.from(rides);
+          break;
+        case 'Financial Reports':
+          final reports = await _exportService.client.from('service_reports').select().order('created_at', ascending: false).limit(500);
+          data = List<Map<String, dynamic>>.from(reports);
+          break;
         default:
-          final generic = await _exportService.client.from(type.label.toLowerCase().replaceAll(' ', '_')).select().limit(100);
-          data = List<Map<String, dynamic>>.from(generic);
+          data = [];
       }
 
       final rows = data.map((d) => ExportRow(d)).toList();

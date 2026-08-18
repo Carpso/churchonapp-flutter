@@ -66,6 +66,8 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
   Widget _buildScreen(BuildContext context, UserProfile? profile) {
     final userName = profile?.name ?? "Believer";
     final avatar = profile?.avatarUrl ?? '';
+    final userId = profile?.id;
+    final userCode = userId != null && userId.length >= 8 ? userId.substring(0, 8).toUpperCase() : "N/A";
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -107,7 +109,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
             const SizedBox(height: 15),
             _buildSettingsInput("ROLE", profile?.role.toUpperCase() ?? "MEMBER"),
             const SizedBox(height: 15),
-            _buildSettingsInput("USER CODE", profile?.walletId ?? profile?.id.substring(0, 8).toUpperCase() ?? "N/A"),
+            _buildSettingsInput("USER CODE", profile?.walletId ?? userCode),
             const SizedBox(height: 15),
             _buildLanguageSelector(context),
             const SizedBox(height: 40),
@@ -133,40 +135,47 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
         context: context,
         builder: (sheetCtx) {
           return SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    context.tr('Language'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ),
-                for (final lang in AppLanguage.values)
-                  ListTile(
-                    leading: Icon(
-                      lang == language
-                          ? LucideIcons.checkCircle
-                          : LucideIcons.globe,
-                      color: lang == language
-                          ? Theme.of(context).colorScheme.secondary
-                          : null,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(sheetCtx).size.height * 0.7,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        context.tr('Language'),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
                     ),
-                    title: Text(lang.nativeName),
-                    subtitle: Text(lang.name),
-                    trailing: lang == language
-                        ? Icon(
-                            LucideIcons.check,
-                            color: Theme.of(context).colorScheme.secondary,
-                          )
-                        : null,
-                    onTap: () {
-                      ref.read(appLanguageProvider.notifier).setLanguage(lang);
-                      Navigator.pop(sheetCtx);
-                    },
-                  ),
-              ],
+                    for (final lang in AppLanguage.values)
+                      ListTile(
+                        leading: Icon(
+                          lang == language
+                              ? LucideIcons.checkCircle
+                              : LucideIcons.globe,
+                          color: lang == language
+                              ? Theme.of(context).colorScheme.secondary
+                              : null,
+                        ),
+                        title: Text(lang.nativeName),
+                        subtitle: Text(lang.name),
+                        trailing: lang == language
+                            ? Icon(
+                                LucideIcons.check,
+                                color: Theme.of(context).colorScheme.secondary,
+                              )
+                            : null,
+                        onTap: () {
+                          ref.read(appLanguageProvider.notifier).setLanguage(lang);
+                          Navigator.pop(sheetCtx);
+                        },
+                      ),
+                  ],
+                ),
+              ),
             ),
           );
         },

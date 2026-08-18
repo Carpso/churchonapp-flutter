@@ -288,6 +288,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (loggedIn &&
+          seenOnboarding &&
           (isLoggingIn ||
               isLanding ||
               state.uri.path == '/onboarding' ||

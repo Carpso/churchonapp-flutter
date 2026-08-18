@@ -86,9 +86,28 @@ class AuthNotifier extends Notifier<AuthState> {
 
       state = AuthState(user: authResult.user, isLoading: false);
     } catch (e) {
-      state = AuthState(user: state.user, isLoading: false, errorMessage: e.toString());
+      var message = _friendlyAuthError(e);
+      state = AuthState(user: state.user, isLoading: false, errorMessage: message);
       rethrow;
     }
+  }
+
+  static String _friendlyAuthError(Object e) {
+    final msg = e.toString();
+    final lower = msg.toLowerCase();
+    if (lower.contains('invalid login credentials') || lower.contains('invalid_credentials')) {
+      return 'Wrong email or password. Please check and try again.';
+    }
+    if (lower.contains('email not confirmed')) {
+      return 'Please confirm your email address first, then sign in.';
+    }
+    if (lower.contains('rate limit') || lower.contains('too many')) {
+      return 'Too many attempts. Please wait a minute and try again.';
+    }
+    if (e is AuthException && e.message.isNotEmpty) {
+      return e.message;
+    }
+    return msg;
   }
 
   Future<void> signInWithGoogle() async {
@@ -151,7 +170,7 @@ class AuthNotifier extends Notifier<AuthState> {
         debugPrint('Failed to log login history: $logErr');
       }
     } catch (e) {
-      state = AuthState(user: state.user, isLoading: false, errorMessage: e.toString());
+      state = AuthState(user: state.user, isLoading: false, errorMessage: _friendlyAuthError(e));
       rethrow;
     } finally {
       state = AuthState(user: state.user, isLoading: false, errorMessage: state.errorMessage);

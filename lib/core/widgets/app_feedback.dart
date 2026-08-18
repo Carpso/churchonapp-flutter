@@ -107,13 +107,19 @@ class AppErrorView extends StatelessWidget {
     String fallback = 'Something went wrong. Please try again.',
   ]) {
     final s = error.toString().toLowerCase();
+    if (s.contains('invalid login credentials') || s.contains('invalid_credentials')) {
+      return 'Wrong email or password. Please check and try again.';
+    }
+    if (s.contains('email not confirmed')) {
+      return 'Please confirm your email address first, then sign in.';
+    }
     if (s.contains('socketexception') || s.contains('network')) {
       return 'You appear to be offline. Check your connection and try again.';
     }
     if (s.contains('timeout')) {
       return 'The request took too long. Please try again.';
     }
-    if (s.contains('not authenticated') || s.contains('auth')) {
+    if (s.contains('not authenticated') || s.contains('no access token')) {
       return 'Please sign in again to continue.';
     }
     if (s.contains('permission')) {

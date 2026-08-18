@@ -381,20 +381,21 @@ class AdminService {
 
   // --- Prophetic Surveillance (Heatmap) ---
 
-  Stream<List<Map<String, dynamic>>> getHeatmapData() {
-    return _client
-        .from('growth_heatmap_data')
-        .stream(primaryKey: ['id'])
-        .map((data) => List<Map<String, dynamic>>.from(data));
+  /// Real expansion data: every church with coordinates + live member count.
+  Future<List<Map<String, dynamic>>> fetchPropheticHeatmap() async {
+    final res = await _client.rpc('get_prophetic_heatmap_data');
+    return List<Map<String, dynamic>>.from(res);
   }
 
-  Future<void> generatePropheticDataPoint(double lat, double lng, {double weight = 1.0, String? region}) async {
-    await _client.from('growth_heatmap_data').insert({
-      'lat': lat,
-      'lng': lng,
-      'weight': weight,
-      'region_name': region,
-    });
+  /// Legacy manual data points (kept as low-weight extras).
+  Future<List<Map<String, dynamic>>> fetchLegacyHeatmapPoints() async {
+    try {
+      final res = await _client.rpc('get_prophetic_heatmap_legacy');
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      debugPrint('Prophetic heatmap legacy points unavailable: $e');
+      return [];
+    }
   }
 
   // --- Kingdom AI Moderator ---

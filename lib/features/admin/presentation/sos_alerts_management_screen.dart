@@ -19,7 +19,7 @@ class _SosAlertsManagementScreenState extends ConsumerState<SosAlertsManagementS
   Widget build(BuildContext context) {
     final client = Supabase.instance.client;
 
-    dynamic query = client.from('sos_alerts').select('*, profiles(full_name)');
+    dynamic query = client.from('sos_alerts').select('*, profiles(full_name), tenants(name)');
     if (_selectedFilter != 'all') {
       query = query.eq('status', _selectedFilter);
     }
@@ -122,6 +122,8 @@ class _SosAlertsManagementScreenState extends ConsumerState<SosAlertsManagementS
     
     final profiles = alert['profiles'] as Map<String, dynamic>?;
     final senderName = profiles?['full_name'] ?? 'Unknown Member';
+    final tenant = alert['tenants'] as Map<String, dynamic>?;
+    final tenantName = tenant?['name']?.toString() ?? '—';
 
     Color statusColor = Colors.red;
     if (status == 'resolved') statusColor = Colors.green;
@@ -160,6 +162,19 @@ class _SosAlertsManagementScreenState extends ConsumerState<SosAlertsManagementS
               "Sender: $senderName",
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(LucideIcons.church, size: 13, color: Colors.grey.shade500),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    tenantName,
+                    style: const TextStyle(color: Colors.black54, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             Text(
               "Emergency Contact: $contactName ($contactPhone)",
@@ -184,7 +199,7 @@ class _SosAlertsManagementScreenState extends ConsumerState<SosAlertsManagementS
                     icon: Icon(LucideIcons.phone, color: Theme.of(context).primaryColor),
                     onPressed: () async {
                       final url = Uri.parse("tel:$contactPhone");
-                      if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.inAppWebView);
+                      if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
                     },
                   ),
                   const Spacer(),

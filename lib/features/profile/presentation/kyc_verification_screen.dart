@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:universal_io/io.dart';
 import '../data/kyc_service.dart';
 
 class KycVerificationScreen extends ConsumerStatefulWidget {
@@ -17,34 +20,76 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
   String? _selfiePath;
   bool _isSubmitting = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _retrieveLostCaptures();
+  }
+
+  /// Recovers photos captured by the system camera app if Android killed
+  /// this activity while the camera was open (common cause of "not capturing").
+  Future<void> _retrieveLostCaptures() async {
+    try {
+      final response = await _picker.retrieveLostData();
+      if (response.isEmpty || response.file == null) return;
+      final path = _resolvePath(response.file!);
+      if (path == null) return;
+      if (!mounted) return;
+      setState(() {
+        _selfiePath ??= path;
+        _idFilePath ??= path;
+      });
+    } catch (e) {
+      debugPrint('Lost capture recovery failed: $e');
+    }
+  }
+
+  String? _resolvePath(XFile file) {
+    if (!kIsWeb) return file.path;
+    // Web stores picks in memory — persist to a temp blob path is not
+    // supported for the encrypted pipeline; KYC is mobile-first.
+    return null;
+  }
+
   Future<void> _pickDocument() async {
     try {
       final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 1920, maxHeight: 1920);
       if (file != null && mounted) {
-        setState(() => _idFilePath = file.path);
+        setState(() => _idFilePath = _resolvePath(file) ?? _idFilePath);
+      } else if (mounted) {
+        _snack("Document selection cancelled.", Colors.orange);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error picking document: $e"), backgroundColor: Colors.red),
-        );
+        _snack("Error picking document: $e", Colors.red);
       }
     }
   }
 
   Future<void> _takeSelfie() async {
+    // Some OEMs require the camera permission to be granted explicitly
+    // before the system camera intent will return a photo.
+    final status = await Permission.camera.request();
+    if (!status.isGranted) {
+      if (mounted) _snack("Camera permission is required to take a selfie.", Colors.orange);
+      return;
+    }
     try {
       final file = await _picker.pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 512, maxHeight: 512);
       if (file != null && mounted) {
-        setState(() => _selfiePath = file.path);
+        setState(() => _selfiePath = _resolvePath(file) ?? _selfiePath);
+      } else if (mounted) {
+        _snack("Selfie capture cancelled or camera unavailable.", Colors.orange);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error taking selfie: $e"), backgroundColor: Colors.red),
-        );
+        _snack("Error taking selfie: $e", Colors.red);
       }
     }
+  }
+
+  void _snack(String msg, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
   }
 
   Future<void> _submit() async {
@@ -171,14 +216,28 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
         ),
         child: Row(
           children: [
-            Icon(filePath != null ? LucideIcons.checkCircle : icon, color: filePath != null ? Colors.green : Colors.amber, size: 24),
+            if (filePath != null && !kIsWeb)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.file(
+                  File(filePath),
+                  width: 56,
+                  height: 56,
+                  fit: BoxFit.cover,
+                  cacheWidth: 112,
+                  cacheHeight: 112,
+                  errorBuilder: (_, __, ___) => Icon(icon, color: Colors.green, size: 24),
+                ),
+              )
+            else
+              Icon(filePath != null ? LucideIcons.checkCircle : icon, color: filePath != null ? Colors.green : Colors.amber, size: 24),
             const SizedBox(width: 20),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(step, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
-                  Text(filePath != null ? "Uploaded!" : desc, style: TextStyle(color: filePath != null ? Colors.green : Colors.white38, fontSize: 11)),
+                  Text(filePath != null ? "Captured — tap to retake" : desc, style: TextStyle(color: filePath != null ? Colors.green : Colors.white38, fontSize: 11)),
                 ],
               ),
             ),

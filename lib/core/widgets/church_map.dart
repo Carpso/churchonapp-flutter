@@ -31,6 +31,9 @@ class ChurchMap extends StatefulWidget {
   // Interaction
   final ValueChanged<LatLng>? onMapTapped;
 
+  // Optional external controller (for programmatic map movement)
+  final MapController? mapController;
+
   const ChurchMap({
     super.key,
     this.center = const LatLng(-15.3875, 28.3228),
@@ -46,6 +49,7 @@ class ChurchMap extends StatefulWidget {
     this.addressSearchHint,
     this.onAddressSelected,
     this.onMapTapped,
+    this.mapController,
   });
 
   @override
@@ -160,7 +164,7 @@ class _ChurchMapState extends State<ChurchMap> {
           future: _tileProvider,
           builder: (context, snapshot) {
             return FlutterMap(
-              mapController: _mapController,
+              mapController: widget.mapController ?? _mapController,
               options: MapOptions(
                 initialCenter: widget.center,
                 initialZoom: widget.zoom,

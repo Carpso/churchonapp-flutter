@@ -242,6 +242,12 @@ $migrations = @(
            "20260911_2fa_server_side.sql"
 "20260912_fix_role_assignments_rls_coa.sql"
            "20260913_superadmin_ops_fixes.sql"
+            "20260914_live_stream_enhancements.sql"
+             "20260915_tenant_ads_platform_nullable.sql"
+             "20260916_fix_churches_update_rls.sql"
+             "20260917_fix_sos_alerts_rls_coa.sql"
+             "20260918_prophetic_heatmap_real_data.sql"
+             "20260919_fix_church_buses_rls_coa.sql"
       )
 
 foreach ($m in $migrations) {

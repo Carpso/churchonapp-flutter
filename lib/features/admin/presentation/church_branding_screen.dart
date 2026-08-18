@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -359,13 +360,20 @@ class _ChurchBrandingScreenState extends ConsumerState<ChurchBrandingScreen> {
       }
     });
     try {
-      final file = File(picked.path);
       final folder = kind == 'banner' ? 'church-banners' : 'church-logos';
       final fileName =
           '${tenant.id}-${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final url = await ref
-          .read(r2ServiceProvider)
-          .uploadFile(file, '$folder/$fileName');
+      final r2 = ref.read(r2ServiceProvider);
+      final String? url;
+      if (kIsWeb) {
+        // Web has no dart:io File — upload the picked bytes directly.
+        final bytes = await picked.readAsBytes();
+        url = await r2.uploadBytes(bytes, '$folder/$fileName',
+            contentType: 'image/jpeg');
+      } else {
+        final file = File(picked.path);
+        url = await r2.uploadFile(file, '$folder/$fileName');
+      }
       if (url == null) {
         if (!mounted) return;
         showAppSnackBar(

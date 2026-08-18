@@ -12,7 +12,6 @@ import 'rider_dashboard_screen.dart';
 import 'event_scheduler_screen.dart';
 import 'live_viewer_heatmap_screen.dart';
 import 'logistics_dashboard_screen.dart';
-import 'prophetic_heatmap_screen.dart';
 import 'church_branding_screen.dart';
 import 'pastoral_followup_screen.dart';
 import 'member_directory_screen.dart';
@@ -137,7 +136,7 @@ class AdminHubScreen extends ConsumerWidget {
                 theme.primaryColor,
                 () => context.push('/church-schedule'),
               ),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'bookshop_owner' || role == 'vendor' || role == 'merchant')
+            if (role == 'bookshop_owner' || role == 'store_manager' || role == 'cashier' || role == 'assistant')
               _buildAdminTile(
                 context,
                 LucideIcons.bookOpen,
@@ -146,7 +145,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.orange,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BookshopDashboardScreen())),
               ),
-            if (role == 'admin' || role == 'writer' || role == 'author')
+            if (role == 'writer' || role == 'author')
               _buildAdminTile(
                 context,
                 LucideIcons.feather,
@@ -263,15 +262,6 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.red,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EventSchedulerScreen())),
               ),
-            if (isLeadership)
-              _buildAdminTile(
-                context,
-                LucideIcons.map,
-                "Member Live Heatmap",
-                "See where members are watching from",
-                Colors.redAccent,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LiveViewerHeatmapScreen())),
-              ),
             Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
             ...AdminNavigationRegistry.buildAccessibleTiles(
               context,
@@ -283,23 +273,23 @@ class AdminHubScreen extends ConsumerWidget {
             Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
             Text("Logistics & Finance", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
             const SizedBox(height: 20),
-            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'treasurer')
+            if (role == 'admin' || role == 'pastor' || role == 'treasurer')
               _buildAdminTile(
                 context,
                 LucideIcons.truck,
                 "Logistics Command",
-                "Monitor real-time rides, cargo & couriers",
+                "Monitor church bus trips, routes & deliveries",
                 Colors.amber,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LogisticsDashboardScreen())),
               ),
-            if (isLeadership)
+            if (role == 'admin' || role == 'pastor' || role == 'prophet' || role == 'apostle')
               _buildAdminTile(
                 context,
                 LucideIcons.map,
-                "Prophetic Heatmap",
-                "Strategic expansion and mission planning",
+                "Member Live Heatmap",
+                "See where members are watching from",
                 Colors.redAccent,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PropheticHeatmapScreen())),
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LiveViewerHeatmapScreen())),
               ),
             Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
             Text("Ministry Tools", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),

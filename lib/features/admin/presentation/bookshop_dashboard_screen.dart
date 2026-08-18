@@ -58,7 +58,7 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
       }
 
       final ordersRes = await Supabase.instance.client
-          .from('marketplace_orders')
+          .from('orders')
           .select('id, total_amount, status, created_at')
           .eq('tenant_id', tenantId)
           .order('created_at', ascending: false)

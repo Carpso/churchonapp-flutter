@@ -15,11 +15,20 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
   bool _generating = false;
   Map<String, double>? _reportData;
 
+  static const _months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+
+  String get _monthYear {
+    final now = DateTime.now();
+    return "${_months[now.month - 1]} ${now.year}";
+  }
+
   void _generateReport() async {
     setState(() => _generating = true);
     try {
       final data = await ref.read(adminServiceProvider).getMonthlyFinancialStats();
-      await Future.delayed(const Duration(seconds: 2)); // Artificial weight for "generating"
       if (!mounted) return;
       setState(() {
         _reportData = data;
@@ -51,7 +60,7 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
                   children: [
                     CircularProgressIndicator(color: Colors.amber),
                     SizedBox(height: 20),
-                    Text("Compiling VPS Audit Logs...", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text("Compiling monthly financial summary...", style: TextStyle(color: Colors.grey, fontSize: 12)),
                   ],
                 ),
               )
@@ -79,21 +88,21 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
           const Icon(LucideIcons.fileText, color: Colors.amber, size: 40),
           const SizedBox(height: 20),
           const Text(
-            "Financial Sovereignty Report",
+            "Financial Stewardship Report",
             style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          const Text(
-            "February 2026 Summary",
-            style: TextStyle(color: Colors.white60, fontSize: 12),
+          Text(
+            "$_monthYear Summary",
+            style: const TextStyle(color: Colors.white60, fontSize: 12),
           ),
           const SizedBox(height: 30),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Semantics(
-                label: "Generate financial stewardship report for February 2026",
+                label: "Generate financial stewardship report for $_monthYear",
                 button: true,
-                hint: "Compiles tithes, offerings, ride earnings, and cargo mission revenue into a comprehensive PDF audit report",
+                hint: "Compiles tithes, offerings, ride earnings, and cargo mission revenue into a comprehensive financial summary",
                 child: ElevatedButton(
                   onPressed: _generating ? null : _generateReport,
                   style: ElevatedButton.styleFrom(
@@ -185,21 +194,21 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
         children: [
           Icon(LucideIcons.shieldCheck, color: Colors.grey, size: 14),
           SizedBox(width: 8),
-          Text("VERIFIED BY VPS BLOCKCHAIN LEDGER", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+          Text("MONTHLY FINANCIAL AUDIT", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 
   Widget _buildEmptyPlaceholder() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 50),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 50),
       child: Column(
         children: [
-          Icon(LucideIcons.info, color: Colors.grey, size: 50),
-          SizedBox(height: 20),
-          Text("No report generated yet.", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-          Text("Click the button above to audit Feb 2026.", style: TextStyle(color: Colors.grey, fontSize: 12)),
+          const Icon(LucideIcons.info, color: Colors.grey, size: 50),
+          const SizedBox(height: 20),
+          const Text("No report generated yet.", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+          Text("Click the button above to audit $_monthYear.", style: const TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),
     );

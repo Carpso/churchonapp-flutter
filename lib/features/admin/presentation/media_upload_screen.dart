@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:universal_io/io.dart';
 import '../../../core/services/r2_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 
 class MediaUploadScreen extends ConsumerStatefulWidget {
   const MediaUploadScreen({super.key});
@@ -17,6 +18,7 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
   bool _isUploading = false;
   double _progress = 0.0;
   String _targetFolder = 'klips';
+  String _mediaType = 'video';
   File? _selectedFile;
   final _titleController = TextEditingController();
   final _speakerController = TextEditingController();
@@ -25,15 +27,32 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
 
   Future<void> _pickFile() async {
     final picker = ImagePicker();
-    final file = await picker.pickVideo(source: ImageSource.gallery);
-    if (file != null) {
-      setState(() => _selectedFile = File(file.path));
+    try {
+      if (_mediaType == 'image') {
+        final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+        if (file != null && mounted) {
+          setState(() => _selectedFile = File(file.path));
+        }
+      } else {
+        final file = await picker.pickVideo(source: ImageSource.gallery);
+        if (file != null && mounted) {
+          setState(() => _selectedFile = File(file.path));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Pick error: $e")));
+      }
     }
   }
 
   Future<void> _startUpload() async {
     if (_titleController.text.isEmpty || _selectedFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Title and File are required")));
+      return;
+    }
+    if (_targetFolder == 'marketplace' && _mediaType != 'image') {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Marketplace assets must be images")));
       return;
     }
 
@@ -44,29 +63,59 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
 
     try {
       final r2Service = ref.read(r2ServiceProvider);
-      final user = Supabase.instance.client.auth.currentUser;
-      
-      final fileName = "${DateTime.now().millisecondsSinceEpoch}_${_selectedFile!.path.split('/').last}";
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
+      final tenant = ref.read(currentTenantProvider);
+
+      final ext = _selectedFile!.path.split('.').last.toLowerCase();
+      final fileName = "${DateTime.now().millisecondsSinceEpoch}_${_titleController.text.trim().replaceAll(RegExp(r'[^a-zA-Z0-9]+'), '_')}.$ext";
       final publicUrl = await r2Service.uploadFile(_selectedFile!, "$_targetFolder/$fileName");
 
-      if (publicUrl != null) {
-        setState(() => _progress = 0.8);
-        
-        // Save to DB
-        await Supabase.instance.client.from('klips').insert({
+      if (publicUrl == null) {
+        throw Exception("R2 Upload Failed");
+      }
+      setState(() => _progress = 0.8);
+
+      final tenantId = tenant?.id;
+      final churchId = tenant?.id;
+
+      if (_targetFolder == 'klips') {
+        await client.from('klips').insert({
           'user_id': user?.id,
+          'user_name': user?.email,
           'title': _titleController.text,
           'video_url': publicUrl,
           'speaker': _speakerController.text.isEmpty ? 'Member' : _speakerController.text,
           'description': 'Uploaded via Media Manager',
           'thumbnail_url': '',
+          'tenant_id': tenantId,
+          'church_id': churchId,
         });
-
-        setState(() => _progress = 1.0);
-        if (mounted) _showSuccessDialog();
+      } else if (_targetFolder == 'sermons') {
+        await client.from('sermons').insert({
+          'tenant_id': tenantId,
+          'church_id': churchId,
+          'title': _titleController.text,
+          'speaker': _speakerController.text.isEmpty ? 'Church Ministry' : _speakerController.text,
+          'preacher': _speakerController.text.isEmpty ? 'Church Ministry' : _speakerController.text,
+          'video_url': _mediaType == 'video' ? publicUrl : null,
+          'audio_url': null,
+          'thumbnail_url': '',
+          'is_live': false,
+          'viewer_count': 0,
+          'duration_minutes': 0,
+          'category': 'Media Manager',
+        });
       } else {
-        throw Exception("R2 Upload Failed");
+        // Marketplace asset: stored on R2 for use in product listings.
+        if (mounted) _showAssetUrlDialog(publicUrl);
+        setState(() => _progress = 1.0);
+        if (mounted) setState(() => _isUploading = false);
+        return;
       }
+
+      setState(() => _progress = 1.0);
+      if (mounted) _showSuccessDialog();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Upload Error: $e")));
@@ -74,6 +123,34 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
+  }
+
+  void _showAssetUrlDialog(String url) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(LucideIcons.checkCircle, color: Colors.green, size: 60),
+            const SizedBox(height: 20),
+            const Text("Asset Uploaded!", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            const Text("This image is stored on R2. Use its URL when creating a product in the Marketplace.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 15),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+              child: SelectableText(url, style: const TextStyle(fontSize: 11, color: Colors.black87)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("DONE")),
+        ],
+      ),
+    );
   }
 
   void _showSuccessDialog() {
@@ -105,40 +182,37 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
       appBar: AppBar(
         title: const Text("Media Manager"),
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await Future.delayed(const Duration(seconds: 1));
-        },
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(25),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(25),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             const Text("Upload Content", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const Text("All assets are served via Cloudflare R2 Edge", style: TextStyle(color: Colors.grey, fontSize: 12)),
             const SizedBox(height: 30),
-            
+
+            _buildInputLabel("MEDIA TYPE"),
+            _buildTypeSelector(),
+
+            const SizedBox(height: 20),
             _buildInputLabel("CONTENT TITLE"),
             _buildTextField(_titleController, "e.g. Sunday Morning Miracle"),
-            
+
             const SizedBox(height: 20),
             _buildInputLabel("SPEAKER / AUTHOR"),
             _buildTextField(_speakerController, "e.g. Pastor John Doe"),
-            
+
             const SizedBox(height: 25),
-            
             _buildInputLabel("TARGET FOLDER"),
             _buildFolderSelector(),
-            
+
             const SizedBox(height: 40),
-            
             GestureDetector(
               onTap: _pickFile,
               child: _buildUploadZone(),
             ),
-            
+
             const SizedBox(height: 50),
-            
             if (_isUploading)
               _buildProgressIndicator()
             else
@@ -151,9 +225,49 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
                 ),
                 child: const Text("START SECURE UPLOAD", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
               ),
-            ],
-          ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTypeSelector() {
+    final types = [
+      {'id': 'video', 'label': 'VIDEO'},
+      {'id': 'image', 'label': 'IMAGE'},
+    ];
+    return SizedBox(
+      height: 45,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: types.length,
+        itemBuilder: (context, index) {
+          final isSelected = _mediaType == types[index]['id'];
+          return GestureDetector(
+            onTap: () => setState(() {
+              _mediaType = types[index]['id'] as String;
+              _selectedFile = null;
+            }),
+            child: Container(
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.white,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Center(
+                child: Text(
+                  types[index]['label'] as String,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.grey,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -189,7 +303,10 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
         itemBuilder: (context, index) {
           final isSelected = _targetFolder == _folders[index];
           return GestureDetector(
-            onTap: () => setState(() => _targetFolder = _folders[index]),
+            onTap: () => setState(() {
+              _targetFolder = _folders[index];
+              _selectedFile = null;
+            }),
             child: Container(
               margin: const EdgeInsets.only(right: 12),
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -215,6 +332,7 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
   }
 
   Widget _buildUploadZone() {
+    final isImage = _mediaType == 'image';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 50),
@@ -226,13 +344,16 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
       child: Column(
         children: [
           Icon(
-            _selectedFile == null ? LucideIcons.fileVideo : LucideIcons.checkCircle, 
-            size: 50, 
-            color: _selectedFile == null ? Theme.of(context).primaryColor : Colors.green
+            _selectedFile == null ? (isImage ? LucideIcons.image : LucideIcons.fileVideo) : LucideIcons.checkCircle,
+            size: 50,
+            color: _selectedFile == null ? Theme.of(context).primaryColor : Colors.green,
           ),
           const SizedBox(height: 20),
           const Text("TAP TO SELECT MEDIA", style: TextStyle(fontWeight: FontWeight.bold)),
-          const Text("Supports MP4, JPG, PNG up to 5GB", style: TextStyle(color: Colors.grey, fontSize: 11)),
+          Text(
+            _selectedFile != null ? _selectedFile!.path.split('\\').last.split('/').last : (isImage ? "Supports JPG, PNG" : "Supports MP4, MKV"),
+            style: const TextStyle(color: Colors.grey, fontSize: 11),
+          ),
         ],
       ),
     );
@@ -254,4 +375,3 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
     );
   }
 }
-

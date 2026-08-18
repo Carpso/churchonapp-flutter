@@ -1,19 +1,31 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/services/r2_service.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 
-class FlyerStudioScreen extends StatefulWidget {
+class FlyerStudioScreen extends ConsumerStatefulWidget {
   const FlyerStudioScreen({super.key});
 
   @override
-  State<FlyerStudioScreen> createState() => _FlyerStudioScreenState();
+  ConsumerState<FlyerStudioScreen> createState() => _FlyerStudioScreenState();
 }
 
-class _FlyerStudioScreenState extends State<FlyerStudioScreen> {
+class _FlyerStudioScreenState extends ConsumerState<FlyerStudioScreen> {
+  final GlobalKey _flyerKey = GlobalKey();
   final _titleController = TextEditingController(text: "SUNDAY PRAISE EXPLOSION");
   final _speakerController = TextEditingController(text: "Pastor Matthew Chanda");
   final _timeController = TextEditingController(text: "Sunday at 09:00 AM");
   final _venueController = TextEditingController(text: "St. Peters Cathedral, Lusaka");
+
+  bool _isSharing = false;
+  bool _isPosting = false;
 
   String _selectedCategory = "Event Invitation";
   String _selectedTemplate = "Royal Gold"; // Royal Gold, Midnight Purple, Sacred White, Forest Green
@@ -37,6 +49,109 @@ class _FlyerStudioScreenState extends State<FlyerStudioScreen> {
     _timeController.dispose();
     _venueController.dispose();
     super.dispose();
+  }
+
+  String get _announcementText {
+    return """
+========================================
+🌟 CHURCH ON APP - FLYER ANNOUNCEMENT 🌟
+========================================
+Category: $_selectedCategory
+Title: ${_titleController.text.toUpperCase()}
+Speaker: ${_speakerController.text}
+Time: ${_timeController.text}
+Venue: ${_venueController.text}
+
+✨ "Connecting Churches Through Technology" ✨
+========================================
+""";
+  }
+
+  Future<Uint8List> _renderFlyerPng() async {
+    final boundary = _flyerKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    final image = await boundary.toImage(pixelRatio: 3.0);
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    return byteData!.buffer.asUint8List();
+  }
+
+  Future<void> _generateFlyer() async {
+    await Clipboard.setData(ClipboardData(text: _announcementText));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Flyer details compiled & copied to clipboard!"),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  Future<void> _shareFlyer() async {
+    if (_isSharing) return;
+    setState(() => _isSharing = true);
+    try {
+      final png = await _renderFlyerPng();
+      final dir = await getTemporaryDirectory();
+      final file = XFile.fromData(
+        png,
+        path: '${dir.path}/church_on_app_flyer.png',
+        mimeType: 'image/png',
+        name: 'church_on_app_flyer.png',
+      );
+      await SharePlus.instance.share(ShareParams(
+        files: [file],
+        text: _announcementText.trim(),
+        sharePositionOrigin: Rect.fromLTWH(0, 0, 600, 800),
+      ));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Share error: $e"), backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _isSharing = false);
+    }
+  }
+
+  Future<void> _postToConnect() async {
+    if (_isPosting) return;
+    setState(() => _isPosting = true);
+    try {
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
+      final tenant = ref.read(currentTenantProvider);
+      if (user == null) {
+        throw Exception("Not signed in");
+      }
+      final png = await _renderFlyerPng();
+      final r2 = ref.read(r2ServiceProvider);
+      final fileName = 'flyers/${DateTime.now().millisecondsSinceEpoch}_${user.id}.png';
+      final url = await r2.uploadBytes(png, fileName, contentType: 'image/png');
+      if (url == null) {
+        throw Exception("R2 upload failed");
+      }
+      final content = "${_titleController.text.toUpperCase()}\n$_selectedCategory • ${_timeController.text} • ${_venueController.text}\n#ChurchOnApp";
+      await client.from('social_posts').insert({
+        'user_id': user.id,
+        'content': content,
+        'media_url': url,
+        'media_type': 'image',
+        'images': [url],
+        'category': _selectedCategory,
+        'tenant_id': tenant?.id,
+        'church_id': tenant?.id,
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Flyer posted to Connect feed!"), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Post error: $e"), backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _isPosting = false);
+    }
   }
 
   // Gradient helper for backgrounds
@@ -88,30 +203,6 @@ class _FlyerStudioScreenState extends State<FlyerStudioScreen> {
     return _selectedTemplate == "Sacred White" ? Colors.black87 : Colors.white;
   }
 
-  void _generateFlyer() {
-    final text = """
-========================================
-🌟 CHURCH ON APP - FLYER ANNOUNCEMENT 🌟
-========================================
-Category: $_selectedCategory
-Title: ${_titleController.text.toUpperCase()}
-Speaker: ${_speakerController.text}
-Time: ${_timeController.text}
-Venue: ${_venueController.text}
-
-✨ "Connecting Churches Through Technology" ✨
-========================================
-""";
-
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Flyer details compiled & copied to clipboard!"),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -135,9 +226,11 @@ Venue: ${_venueController.text}
             const Text("PREVIEW BANNER", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
             const SizedBox(height: 10),
             Center(
-              child: AspectRatio(
-                aspectRatio: 1.2,
-                child: Container(
+              child: RepaintBoundary(
+                key: _flyerKey,
+                child: AspectRatio(
+                  aspectRatio: 1.2,
+                  child: Container(
                   decoration: BoxDecoration(
                     gradient: _getTemplateGradient(),
                     borderRadius: BorderRadius.circular(24),
@@ -264,6 +357,7 @@ Venue: ${_venueController.text}
                 ),
               ),
             ),
+            ),
             const SizedBox(height: 30),
 
             // Design Configuration Controls
@@ -383,6 +477,42 @@ Venue: ${_venueController.text}
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 55),
               ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isSharing ? null : _shareFlyer,
+                    icon: _isSharing
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(LucideIcons.share2),
+                    label: const Text("SHARE IMAGE"),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 52),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isPosting ? null : _postToConnect,
+                    icon: _isPosting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(LucideIcons.send),
+                    label: const Text("POST TO CONNECT"),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 52),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "SHARE IMAGE sends the flyer to WhatsApp, email or any app — POST TO CONNECT publishes it to your church's Connect feed.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
             ),
             const SizedBox(height: 30),
           ],

@@ -11,6 +11,7 @@ class TenantAd {
   final String placement;
   final bool isActive;
   final String tenantId;
+  final bool isPlatformWide;
   final DateTime? endsAt;
   final int? maxImpressions;
 
@@ -24,14 +25,17 @@ class TenantAd {
     required this.placement,
     this.isActive = true,
     required this.tenantId,
+    this.isPlatformWide = false,
     this.endsAt,
     this.maxImpressions,
   });
 
-  bool get isPlatformWide => tenantId == 'global' || placement == 'all';
   int get priority => maxImpressions ?? 0;
 
   factory TenantAd.fromMap(Map<String, dynamic> map) {
+    final platformWide = (map['is_platform_wide'] as bool? ?? false) ||
+        map['placement'] == 'all' ||
+        map['tenant_id'] == null;
     return TenantAd(
       id: map['id'] as String,
       title: map['title'] as String,
@@ -41,7 +45,8 @@ class TenantAd {
       adType: map['ad_type'] as String? ?? 'banner',
       placement: map['placement'] as String? ?? 'home',
       isActive: map['is_active'] as bool? ?? true,
-      tenantId: map['tenant_id'] as String? ?? '',
+      tenantId: map['tenant_id']?.toString() ?? '',
+      isPlatformWide: platformWide,
       endsAt: map['ends_at'] != null ? DateTime.parse(map['ends_at'] as String) : null,
       maxImpressions: map['max_impressions'] as int?,
     );
@@ -55,7 +60,7 @@ class AdService {
 
   Future<List<TenantAd>> getAllAds() async {
     final result = await _supabase.client.from('tenant_ads')
-        .select('id, title, description, image_url, target_url, ad_type, placement, is_active, tenant_id, ends_at, max_impressions')
+        .select('id, title, description, image_url, target_url, ad_type, placement, is_active, tenant_id, is_platform_wide, ends_at, max_impressions')
         .order('created_at', ascending: false);
     return (result as List).map((e) => TenantAd.fromMap(e)).toList();
   }
@@ -63,7 +68,7 @@ class AdService {
   Future<List<TenantAd>> getActiveAds({String? tenantId, String? placement}) async {
     var query = _supabase.client
         .from('tenant_ads')
-        .select('id, title, description, image_url, target_url, ad_type, placement, is_active, tenant_id, ends_at, max_impressions')
+        .select('id, title, description, image_url, target_url, ad_type, placement, is_active, tenant_id, is_platform_wide, ends_at, max_impressions')
         .eq('is_active', true);
 
     if (tenantId != null) {

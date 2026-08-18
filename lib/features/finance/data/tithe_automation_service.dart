@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
 import 'package:church_on_app/core/services/sms_service.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
 
 class TitheAutomationService {
   final SupabaseClient _client;
@@ -14,11 +15,18 @@ class TitheAutomationService {
     final now = DateTime.now();
     final currentPeriod = "${_getMonthName(now.month)} ${now.year}";
 
-    // 1. Get all members with phone numbers
-    final profiles = await _client
+    // Tenant-scoped: only remind the calling admin's own congregation.
+    final tenantId = _ref.read(profileProvider).value?.tenantId;
+
+    // 1. Get all members with phone numbers (scoped to tenant when available)
+    var query = _client
         .from('profiles')
         .select('id, full_name, phone_number')
         .not('phone_number', 'is', null);
+    if (tenantId != null && tenantId.isNotEmpty) {
+      query = query.eq('tenant_id', tenantId);
+    }
+    final profiles = await query;
 
     final smsService = _ref.read(smsServiceProvider);
 
@@ -34,10 +42,10 @@ class TitheAutomationService {
           .maybeSingle();
 
       if (existing == null) {
-        // 3. Send gentle reminder
+        // 3. Send gentle reminder with a link to the giving/paywall page
         final name = profile['full_name'];
         final phone = profile['phone_number'];
-        final message = "Peace be with you $name. As we conclude $currentPeriod, this is a gentle reminder to honor your Tithe. God bless your faithfulness! - Church On App";
+        final message = "Peace be with you $name. As we conclude $currentPeriod, this is a gentle reminder to honor your Tithe. Give in seconds on Church On App: https://churchonapp.com/giving . God bless your faithfulness!";
         
         await smsService.sendLogisticsAlert(phoneNumber: phone, message: message);
         

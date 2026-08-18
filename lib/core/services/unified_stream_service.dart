@@ -178,6 +178,8 @@ class UnifiedStreamService {
     final hlsUrl = data['hls'] as String? ?? '';
     final dashUrl = data['dash'] as String? ?? '';
     final previewUrl = data['webRTCPlayback'] is Map ? (data['webRTCPlayback'] as Map)['url'] as String? : null;
+    final whipInfo = data['whip'] is Map ? (data['whip'] as Map).cast<String, dynamic>() : <String, dynamic>{};
+    final whipUrl = whipInfo['url'] as String?;
 
     final result = await _client
         .from('live_streams')
@@ -195,6 +197,7 @@ class UnifiedStreamService {
           'hls_url': hlsUrl,
           'dash_url': dashUrl,
           'preview_url': previewUrl,
+          'whip_url': whipUrl,
           'created_by': _client.auth.currentUser?.id,
         })
         .select()
@@ -208,6 +211,7 @@ class UnifiedStreamService {
       hlsUrl: hlsUrl,
       dashUrl: dashUrl,
       previewUrl: previewUrl,
+      whipUrl: whipUrl,
     );
   }
 
@@ -536,6 +540,7 @@ class StreamResult {
   final String hlsUrl;
   final String? dashUrl;
   final String? previewUrl;
+  final String? whipUrl;
 
   StreamResult({
     required this.streamId,
@@ -545,6 +550,7 @@ class StreamResult {
     required this.hlsUrl,
     this.dashUrl,
     this.previewUrl,
+    this.whipUrl,
   });
 }
 

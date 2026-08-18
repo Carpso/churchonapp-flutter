@@ -30,8 +30,8 @@ class SpiritualPrediction {
     required int coins,
     required String role,
   }) {
-    // Prediction logic based on user engagement signals
-    final baseScore = (streakDays * 8 + (coins > 100 ? 20 : 10)).clamp(35, 98);
+    // Honest fallback — computed only when live data cannot be fetched.
+    final baseScore = (streakDays * 8 + (coins > 100 ? 20 : 10)).clamp(5, 98);
     final velocity = streakDays > 5 ? 18 : (streakDays > 2 ? 10 : 5);
     final forecast = (streakDays + 7).clamp(7, 90);
     final rating = (baseScore / 20.0).clamp(1.0, 5.0);
@@ -70,41 +70,166 @@ class PredictionService {
   final SupabaseClient _client;
   PredictionService(this._client);
 
+  /// Real spiritual-momentum score computed from live engagement signals:
+  /// bible-study streak, verse notes, quiz challenges and church attendance
+  /// over the last 14 days.
   Future<SpiritualPrediction> calculatePrediction(String userId) async {
+    final now = DateTime.now();
+final today = DateTime(now.year, now.month, now.day);
+      DateTime daysAgo(int days) => today.subtract(Duration(days: days));
+      String isoDaysAgo(int days) => daysAgo(days).toIso8601String();
+
     try {
-      final res = await _client
-          .from('profiles')
-          .select('coins, role, created_at')
-          .eq('id', userId)
-          .maybeSingle();
-
-      final coins = (res?['coins'] as num?)?.toInt() ?? 0;
-      final role = res?['role']?.toString() ?? 'member';
-
-      // Fetch streak if available
-      int streak = 3;
-      try {
-        final streakRes = await _client
-            .from('user_streaks')
-            .select('current_streak')
+      final results = await Future.wait<dynamic>([
+        _client
+            .from('profiles')
+            .select('coins')
+            .eq('id', userId)
+            .maybeSingle(),
+        _client
+            .from('user_study_streaks')
+            .select('current_streak, last_activity_date')
             .eq('user_id', userId)
-            .maybeSingle();
-        if (streakRes != null) {
-          streak = (streakRes['current_streak'] as num?)?.toInt() ?? 3;
+            .maybeSingle(),
+        _client
+            .from('verse_notes')
+            .select('created_at')
+            .eq('user_id', userId)
+            .gte('created_at', isoDaysAgo(14)),
+        _client
+            .from('daily_challenge_results')
+            .select('completed_at')
+            .eq('user_id', userId)
+            .gte('completed_at', isoDaysAgo(14)),
+        _client
+            .from('attendance_logs')
+            .select('check_in_time')
+            .eq('user_id', userId)
+            .gte('check_in_time', isoDaysAgo(14)),
+      ]);
+
+      final profile = results[0] as Map<String, dynamic>?;
+      final streakRow = results[1] as Map<String, dynamic>?;
+      final verseNotes = (results[2] as List).cast<Map<String, dynamic>>();
+      final challenges = (results[3] as List).cast<Map<String, dynamic>>();
+      final attendance = (results[4] as List).cast<Map<String, dynamic>>();
+
+      final coins = (profile?['coins'] as num?)?.toInt() ?? 0;
+      final streak = (streakRow?['current_streak'] as num?)?.toInt() ?? 0;
+      final lastActivity = streakRow?['last_activity_date']?.toString();
+
+      // Distinct active days over the last 7 and previous 7 days.
+      int dayKey(DateTime dt) => DateTime(dt.year, dt.month, dt.day).millisecondsSinceEpoch;
+      final activeRecent = <int>{};
+      final activePrior = <int>{};
+      for (final row in verseNotes) {
+        final dt = DateTime.tryParse(row['created_at']?.toString() ?? '');
+        if (dt == null) continue;
+        final d = dayKey(dt);
+        if (dt.isAfter(daysAgo(7))) {
+          activeRecent.add(d);
+        } else if (dt.isAfter(daysAgo(14))) {
+          activePrior.add(d);
         }
-      } catch (e) {
-        debugPrint('PredictionService: Error fetching streak: $e');
+      }
+      for (final row in challenges) {
+        final dt = DateTime.tryParse(row['completed_at']?.toString() ?? '');
+        if (dt == null) continue;
+        final d = dayKey(dt);
+        if (dt.isAfter(daysAgo(7))) {
+          activeRecent.add(d);
+        } else if (dt.isAfter(daysAgo(14))) {
+          activePrior.add(d);
+        }
+      }
+      for (final row in attendance) {
+        final dt = DateTime.tryParse(row['check_in_time']?.toString() ?? '');
+        if (dt == null) continue;
+        final d = dayKey(dt);
+        if (dt.isAfter(daysAgo(7))) {
+          activeRecent.add(d);
+        } else if (dt.isAfter(daysAgo(14))) {
+          activePrior.add(d);
+        }
       }
 
-      return SpiritualPrediction.fromProfileData(
-        streakDays: streak,
-        coins: coins,
-        role: role,
+      final recentDays = activeRecent.length;
+      final priorDays = activePrior.length;
+
+      // Score: 40% streak, 40% weekly consistency, 20% coin engagement.
+      final streakScore = (streak / 30.0).clamp(0.0, 1.0) * 40;
+      final activityScore = (recentDays / 7.0).clamp(0.0, 1.0) * 40;
+      final engagementScore = (coins / 1000.0).clamp(0.0, 1.0) * 20;
+      final score = (streakScore + activityScore + engagementScore).round();
+
+      // Velocity: engagement change week-over-week (real, not guessed).
+      var velocity = 0;
+      if (priorDays > 0) {
+        velocity = (((recentDays - priorDays) / priorDays) * 100).round();
+      } else if (recentDays > 0) {
+        velocity = 100;
+      }
+      velocity = velocity.clamp(-100, 100);
+
+      final consistency = (recentDays / 7.0).clamp(0.0, 1.0) * 5;
+      final streakAlive = lastActivity == today.toIso8601String();
+      final forecast = streakAlive ? streak + 7 : streak;
+
+      String momentum;
+      if (score >= 80) {
+        momentum = '🔥 High Momentum';
+      } else if (score >= 50) {
+        momentum = 'Steady Growth';
+      } else if (recentDays > 0 || streak > 0) {
+        momentum = '🌱 Building Momentum';
+      } else {
+        momentum = 'Needs Revival';
+      }
+
+      String milestone;
+      String action;
+      if (streak >= 30) {
+        milestone = '30-day study streak achieved — keep it alive!';
+        action = 'Share today\'s verse with a friend to encourage them.';
+      } else if (streak > 0) {
+        final to30 = 30 - streak;
+        milestone = '30-day study streak in $to30 day${to30 == 1 ? '' : 's'}';
+        action = 'Complete today\'s devotional to protect your streak.';
+      } else if (recentDays >= 5) {
+        milestone = 'Active on $recentDays of the last 7 days';
+        action = 'Aim for 7 straight days to ignite a study streak.';
+      } else if (recentDays > 0) {
+        milestone = 'Active on $recentDays of the last 7 days';
+        action = 'Read one Bible chapter today and log a verse note.';
+      } else {
+        milestone = 'No recent activity recorded';
+        action = 'Read a chapter and save your first verse note today.';
+      }
+
+      final scriptures = [
+        '“Your word is a lamp for my feet, a light on my path.” — Psalm 119:105',
+        '“He who began a good work in you will carry it on to completion.” — Philippians 1:6',
+        '“Create in me a pure heart, O God, and renew a steadfast spirit within me.” — Psalm 51:10',
+        '“Faith comes by hearing, and hearing by the word of God.” — Romans 10:17',
+        '“Do not grow weary in doing good, for in due season you will reap.” — Galatians 6:9',
+      ];
+      final scripture = scriptures[score % scriptures.length];
+
+      return SpiritualPrediction(
+        spiritualScore: score,
+        growthVelocityPercent: velocity,
+        streakDaysForecast: forecast,
+        consistencyRating: double.parse(consistency.toStringAsFixed(1)),
+        momentumLabel: momentum,
+        predictedMilestone: milestone,
+        recommendedAction: action,
+        scripturalEncouragement: scripture,
       );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('PredictionService: live calculation failed ($e) — using fallback');
       return SpiritualPrediction.fromProfileData(
-        streakDays: 4,
-        coins: 50,
+        streakDays: 0,
+        coins: 0,
         role: 'member',
       );
     }

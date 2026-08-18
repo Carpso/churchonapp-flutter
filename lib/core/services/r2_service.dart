@@ -102,6 +102,51 @@ class R2Service {
     }
   }
 
+  Future<String?> uploadBytes(Uint8List bytes, String path, {String? contentType}) async {
+    try {
+      final extension = path.split('.').last.toLowerCase();
+      if (!_allowedExtensions.contains('.$extension')) {
+        debugPrint("R2 Upload Error: File type .$extension not allowed");
+        return null;
+      }
+      if (bytes.length > _maxImageSize && (contentType?.startsWith('image/') ?? false)) {
+        debugPrint("R2 Upload Error: Image exceeds 10MB limit");
+        return null;
+      }
+
+      final response = await _client.functions.invoke('r2-sign', body: {
+        'filename': path.split('/').last,
+        'contentType': contentType ?? 'application/octet-stream',
+        'folder': path.split('/').first,
+      });
+
+      if (response.status == 200) {
+        final signedUrl = response.data['signedUrl'];
+        final publicUrl = response.data['publicUrl'];
+
+        final uploadResponse = await http.put(
+          Uri.parse(signedUrl),
+          body: bytes,
+          headers: {'Content-Type': contentType ?? 'application/octet-stream'},
+        );
+
+        if (uploadResponse.statusCode == 200) {
+          String url = publicUrl ?? '';
+          if (url.contains("media.church-on-app.com")) {
+            url = url.replaceAll("media.church-on-app.com", publicDomain);
+          }
+          return url.isNotEmpty ? url : null;
+        }
+        debugPrint('R2 Upload Error: PUT failed with ${uploadResponse.statusCode}');
+      } else {
+        debugPrint('R2 Upload Error: r2-sign failed with ${response.status}');
+      }
+    } catch (e) {
+      debugPrint('R2 Upload Error: $e');
+    }
+    return null;
+  }
+
   Future<String?> getSignedUrl(String url, {int expiresIn = 3600}) async {
     try {
       final pubDomain = publicDomain.replaceAll('https://', '');

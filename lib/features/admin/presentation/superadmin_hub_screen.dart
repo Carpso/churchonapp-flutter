@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/tenant_service.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/widgets/app_error_view.dart';
-import '../../../core/utils/db_seeder.dart';
 import '../../../core/services/platform_settings_service.dart';
 import '../../../core/services/plan_service.dart';
 import '../../../core/config/fee_config.dart';
@@ -828,16 +827,6 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
                 await prefs.clear();
                 if (!context.mounted) return;
                 showAppSnackBar(context, "Local cache cleared!", status: AppStatus.warning);
-              } catch (e) {
-                if (!context.mounted) return;
-                showAppSnackBar(context, AppErrorView.friendlyMessage(e), status: AppStatus.error);
-              }
-            }),
-            _buildGlobalAction(LucideIcons.sparkles, "Seed Mock Data", "Populate all tables with demo data", Colors.green, () async {
-              try {
-                await DbSeeder.seedAll();
-                if (!context.mounted) return;
-                showAppSnackBar(context, "Mock data seeded successfully! ✅", status: AppStatus.success);
               } catch (e) {
                 if (!context.mounted) return;
                 showAppSnackBar(context, AppErrorView.friendlyMessage(e), status: AppStatus.error);

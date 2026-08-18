@@ -180,8 +180,8 @@ class _PlatformAdScreenState extends ConsumerState<PlatformAdScreen> {
                     'is_active': true,
                     'is_platform_wide': isPlatformWide,
                     'priority': priority,
-                    if (tenantId != null && tenantId.isNotEmpty)
-                      'tenant_id': tenantId,
+                    'tenant_id':
+                        isPlatformWide ? null : (tenantId != null && tenantId.isNotEmpty ? tenantId : null),
                     'created_by': userId,
                   };
                   if (existing == null) {
