@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.0.0+277 — 2026-08-18
+
+### New
+- **KYC works on web** — `KycService` is now bytes-based (`submitDocumentBytes`/`submitSelfieBytes` + `EncryptionService.encryptBytes`); ID + selfie upload works identically on churchonapp.com and mobile
+- **Spiritual Momentum forecast** rewritten with real logic (streaks, verse notes, daily challenges, attendance; 40/40/20 weighting + week-over-week velocity) — no more fake growth
+- **Flyer Studio** can render a PNG, share it (share_plus), and POST it straight to Connect
+- **Media Manager** routes uploads to real tables (klips, sermons, marketplace → R2 URL)
+- **Member Live Heatmap** + **Prophetic Surveillance heatmap** now use real church/user location data
+
+### Fixed
+- **Livestream 500** — studio rebuilt on `UnifiedStreamService` with real Cloudflare live input + WHIP ingest; `whip_offer` Edge Function relay now POSTs SDP to the live input's `webRTC.url` (the api.cloudflare.com `/whip` endpoint doesn't exist)
+- **Login redirect loop** (go_router pushReplacement + session flag)
+- **Bookshop checkout crash** (missing `orders` table fixed)
+- **Logistics Command** rewritten on the real `church_buses` table (tenant-scoped, live/offline detection)
+- **Financial Stewardship report** de-faked (real month, no fake "VPS blockchain" badge/delay); **Export Data** all 10 types map to real tables
+- **Schedule save RLS** (migration 20260916), **SOS manager** tenant name + external `tel:` + coa_employee RLS (20260917)
+- **Church logo upload on web** (bytes → uploadBytes)
+- **CI test gate** — `key_flows_smoke_test.dart` wrapped in `ProviderScope` (l10n regression)
+
+### Data
+- Duplicate Rock Of Ages tenant merged into the verified church (11 child rows repointed, backup kept in `_backup_dup_tenant_merge`); junk "Kabs" tenants deleted
+
+### Infrastructure
+- `flutter analyze`: **0 issues**
+- Builds: AAB 121.8 MB + APK 210.0 MB (`v1.0.0+277`)
+
 ## v1.0.0+224 — 2026-07-29
 
 ### New

@@ -1,6 +1,6 @@
 # Church On App — Enterprise Architecture Blueprint
 
-> **v1.0.0+252 | August 2026 | Flutter + Supabase + Cloudflare**
+> **v1.0.0+277 | August 2026 | Flutter + Supabase + Cloudflare**
 
 ---
 
@@ -100,13 +100,22 @@ OBS / RTMP Encoder → Cloudflare Stream Live Input
   → Flutter: AdaptiveStreamPlayer (video_player + Chewie)
   → HLS .m3u8 playlist for adaptive bitrate
 
-Phone camera (WHIP) → cloudflare-stream Edge Function → Cloudflare Stream WebRTC ingest
+Phone camera (WHIP) → app POSTs SDP to live input's `webRTC.url` (client-side)
+  → cloudflare-stream `whip_offer` action (server-side relay: resolves the live
+    input via the API, extracts `webRTC.url` — the publish URL IS the credential,
+    no auth header) → Cloudflare Stream WebRTC ingest
 
 Supabase:
   live_streams(cloudflare_stream_id, church_id, stream_key, hls_url, viewer_count)
   church_live_status(church_id, status)
   church_stream_config(church_id, is_paid, max_quality, max_minutes_per_week, ...)
 ```
+
+**WHIP gotcha (fixed 2026-08-18):** Cloudflare's WHIP publish endpoint is the
+live input's `webRTC.url` (`https://customer-<CODE>.cloudflarestream.com/<SECRET>/webRTC/publish`)
+— there is NO `api.cloudflare.com/.../live_inputs/{id}/whip` endpoint. The
+Edge Function relay must resolve it server-side so the secret publish URL
+never ships in the app.
 
 **Cost controls (per church):**
 
@@ -199,9 +208,26 @@ supabase/
 │   ├── 20260860  organization_church_member_counts (bounded org-scoped RPC)
 │   ├── 20260861  data_import_system (import tables + validation RPC)
 │   ├── 20260863  service_reporting_enhancements (P5 reporting fields + aggregate RPCs)
+│   ├── 20260910  subscribe-to-tier anchored on confirmed coa_payments
+│   ├── 20260911  server-side 2FA (auth.mfa, no client-side TOTP secrets)
+│   ├── 20260917  SOS alerts RLS incl. coa_employee
+│   ├── 20260918  prophetic heatmap real-data RPC
+│   └── 20260919  church_buses RLS incl. coa_employee
 │   └── ...
 └── deploy.ps1          unified deploy script (migrations + functions + secrets check + analyze)
 ```
+
+**KYC (Trust & Identity):** documents/selfie are AES-256-CBC encrypted
+(`EncryptionService.encryptBytes`, key derived from user id + app secret,
+salt+IV persisted on the `kyc_documents` row) before upload to R2 `kyc/`
+folder (r2-sign user-scoped). Pipeline is fully bytes-based — works identically
+on mobile and web (no `dart:io` File/temp-dir dependencies).
+
+**Tenant hygiene:** duplicate tenant rows (e.g. the 2026-07-26 registration-bug
+duplicates) are merged live — child rows repointed via
+`tenant_id::text = '<dup>'` scans, dup row deleted, originals preserved in
+`public._backup_dup_tenant_merge` (11 rows, 2026-08-18). Run the same pattern
+before deleting any tenant row.
 
 ---
 

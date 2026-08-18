@@ -2,16 +2,16 @@
 
 A comprehensive church management and community platform built with Flutter, connecting congregations through digital giving, marketplace, media, events, and more.
 
-**v1.0.0+263 — 1.0.0 | Flutter 3.35.1 | 0 errors, 0 warnings | August 2026**
+**v1.0.0+277 — 1.0.0 | Flutter 3.35.1 | 0 errors, 0 warnings | August 2026**
 
 ## Features
 
-- **Auth & Profiles** — Email/Google authentication with role-based access (member, admin, pastor, bishop, superadmin). Android SHA-1/256 fingerprint registered; web OAuth authorized origins configured; Supabase site_url → https://churchonapp.com
+- **Auth & Profiles** — Email/Google authentication with role-based access (member, admin, pastor, bishop, superadmin). Android SHA-1/256 fingerprint registered; web OAuth authorized origins configured; Supabase site_url → https://churchonapp.com. **Trust & Identity (KYC)** — AES-256 encrypted ID + selfie upload (works on mobile AND web), admin verification workflow
 - **Church Discovery** — Select-church screen fetches ALL nearby Christian churches from OpenStreetMap Overpass API (not just registered ones). Unregistered churches appear on the map with animated logo pins and show a "Not Yet Available" dialog on tap. Registered churches are highlighted.
 - **Expansion Leads** — Website footer "Tell us which church to add" form writes to `expansion_leads`; Superadmin & COA Employee dashboards have an Expansion Leads screen to track new/contacted/onboarded leads.
 - **Digital Giving** — Mobile money payments via Lipila gateway (MTN/Airtel/Zamtel), tithe tracking, QR giving, wallet coins
 - **Marketplace** — Multi-vendor marketplace with cart, checkout, and order management
-- **Media & Streaming** — Sermon uploads (R2), live streaming studio (Cloudflare Stream RTMP/HLS with role-gated access), Kingdom Radio
+- **Media & Streaming** — Sermon uploads (R2), live streaming studio (Cloudflare Stream RTMP/HLS + WebRTC WHIP ingest, role-gated with tenant-ownership enforcement), Kingdom Radio
 - **Bible Study** — Reading plans, verse of the day, deep study suite, memory verses; NKJV/NLT translations, full-text search, verse notes/bookmarks, cross-references, AI-powered chapter summaries via Kael
 - **Data Import** — Enterprise-grade CSV/JSON import system with column mapping, entity presets (Breeze/PlanningCenter/RockRMS/MTN-bank), leadership-only role gate, document extraction via kael-ai, per-row error audit trail, and tenant-scoped import logs
 - **Enterprise Reporting** — Church service reports (attendance, offering, visitors, salvations, online viewers, ministries participation), organization-wide service aggregation feeds bishop/apostle dashboards, month-over-month trends
@@ -137,7 +137,7 @@ The KJV Bible text (31,102 verses) was originally a single 7.3MB SQL file that e
 
 ### Migration Health
 
-All migrations apply cleanly — **0 failures** across the full deploy list (153+ applied). Latest additions: `20260861_data_import_system.sql` (import tables + validation RPC), `20260863_service_reporting_enhancements.sql` (enterprise reporting fields + org-level aggregation RPCs), `20260877_expansion_leads_rls.sql` (expansion leads RLS: superadmin/employee/coa_employee manage + anonymous submit).
+All migrations apply cleanly — **0 failures** across the full deploy list (153+ applied). Latest additions: `20260910` (subscribe-to-tier anchored on confirmed coa_payments), `20260911` (server-side 2FA via auth.mfa), `20260912` (COA role-assignment RLS fix), `20260913` (offline giving replay), `20260914` (livestream studio tables), `20260915` (platform ads tenant scoping), `20260916` (churches UPDATE RLS), `20260917` (SOS alerts RLS incl. coa_employee), `20260918` (prophetic heatmap real-data RPC), `20260919` (church_buses RLS incl. coa_employee).
 
 ### Deployment
 
@@ -157,14 +157,14 @@ supabase functions deploy kael-ai --no-verify-jwt
 
 | Platform | Command | Size |
 |----------|---------|------|
-| Android (AAB) | `.\build_release.ps1` | ~118 MB |
-| Android (APK) | `.\build_release.ps1 -Type apk` | ~203 MB universal |
+| Android (AAB) | `.\build_release.ps1` | ~122 MB |
+| Android (APK) | `.\build_release.ps1 -Type apk` | ~210 MB universal |
 | iOS | `flutter build ios --release` | Requires Apple developer account |
 | Web | `flutter build web` | Hosted via Cloudflare Pages |
 
 - **Package**: com.churchonapp.churchonapp
 - **Supabase**: Self-hosted or managed project
-- **Edge Functions**: 28 Edge Functions (push notifications, payments, AI, streaming management, data import, SMS, email, WhatsApp, export tools, database backup)
+- **Edge Functions**: 29 Edge Functions (push notifications, payments, AI, streaming management, data import, SMS, email, WhatsApp, export tools, database backup)
 - **Storage**: Cloudflare R2 for media uploads
 
 ## Security
