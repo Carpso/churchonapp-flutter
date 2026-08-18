@@ -23,12 +23,14 @@ void main() {
     testWidgets('GivingCategorySelector renders categories and selects', (tester) async {
       String? selected;
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: GivingCategorySelector(
-              categories: ['Tithe', 'Offering', 'Mission'],
-              selectedCategory: 'Tithe',
-              onCategoryChanged: (c) => selected = c,
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: GivingCategorySelector(
+                categories: ['Tithe', 'Offering', 'Mission'],
+                selectedCategory: 'Tithe',
+                onCategoryChanged: (c) => selected = c,
+              ),
             ),
           ),
         ),

@@ -322,8 +322,12 @@ async function createSignedUrl(params: any, signingKey: string, corsHeaders: Rec
   });
 }
 
-// WebRTC WHIP (WebRTC HTTP Ingestion Protocol) for phone camera streaming
-// Allows phones to push camera feed directly to Cloudflare Stream via WebRTC
+// WebRTC WHIP (WebRTC HTTP Ingestion Protocol) for phone camera streaming.
+// Allows phones to push camera feed directly to Cloudflare Stream via WebRTC.
+// The WHIP publish URL is the live input's `webRTC.url`
+// (https://customer-<CODE>.cloudflarestream.com/<SECRET>/webRTC/publish) —
+// NOT the account API. This relay resolves it server-side so the secret
+// publish URL never has to live in the app.
 async function whipOffer(params: any, req: Request) {
   const { input_id, sdp } = params;
 
@@ -331,13 +335,27 @@ async function whipOffer(params: any, req: Request) {
     throw new Error("input_id and sdp are required");
   }
 
-  // Send SDP offer to Cloudflare's WHIP endpoint
-  const whipUrl = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${input_id}/whip`;
+  // Resolve the WHIP publish URL for the caller-owned live input.
+  const inputRes = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${input_id}`,
+    { headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` } }
+  );
+  const inputData = await inputRes.json();
+  if (!inputRes.ok || !inputData?.success) {
+    throw new Error(
+      inputData?.errors?.[0]?.message || `Live input lookup failed (${inputRes.status})`
+    );
+  }
+  const whipUrl = inputData.result?.webRTC?.url;
+  if (!whipUrl) {
+    throw new Error("Live input does not expose a WebRTC (WHIP) publish URL");
+  }
 
+  // Send SDP offer to the WHIP endpoint. No Authorization header — the
+  // publish URL itself is the credential.
   const response = await fetch(whipUrl, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}`,
       "Content-Type": "application/sdp",
     },
     body: sdp,

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:universal_io/io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -52,22 +53,22 @@ class KycService {
   }
 
   Future<void> submitDocument({required String filePath, required String documentType}) async {
+    final file = File(filePath);
+    final bytes = await file.readAsBytes();
+    return submitDocumentBytes(bytes: bytes, documentType: documentType);
+  }
+
+  Future<void> submitDocumentBytes({required Uint8List bytes, required String documentType}) async {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception("Not authenticated");
 
     final userSecret = _deriveEncryptionKey(user.id);
-    final file = File(filePath);
-    final encrypted = await EncryptionService.encryptFile(file, userSecret);
-
-    final tempDir = Directory.systemTemp;
-    final encryptedFile = File('${tempDir.path}/enc_${DateTime.now().millisecondsSinceEpoch}.enc');
-    await encryptedFile.writeAsBytes(encrypted.data);
+    final encrypted = EncryptionService.encryptBytes(bytes, userSecret);
 
     final fileName = '${user.id}_${documentType}_${DateTime.now().millisecondsSinceEpoch}.enc';
     final r2 = R2Service(_client);
-    final url = await r2.uploadFile(encryptedFile, 'kyc/$fileName');
-
-    await encryptedFile.delete();
+    final url = await r2.uploadBytes(encrypted.data, 'kyc/$fileName', contentType: 'application/octet-stream');
+    if (url == null) throw Exception("Upload failed");
 
     await _client.from('kyc_documents').insert({
       'user_id': user.id,
@@ -82,22 +83,22 @@ class KycService {
   }
 
   Future<void> submitSelfie({required String filePath}) async {
+    final file = File(filePath);
+    final bytes = await file.readAsBytes();
+    return submitSelfieBytes(bytes: bytes);
+  }
+
+  Future<void> submitSelfieBytes({required Uint8List bytes}) async {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception("Not authenticated");
 
     final userSecret = _deriveEncryptionKey(user.id);
-    final file = File(filePath);
-    final encrypted = await EncryptionService.encryptFile(file, userSecret);
-
-    final tempDir = Directory.systemTemp;
-    final encryptedFile = File('${tempDir.path}/enc_selfie_${DateTime.now().millisecondsSinceEpoch}.enc');
-    await encryptedFile.writeAsBytes(encrypted.data);
+    final encrypted = EncryptionService.encryptBytes(bytes, userSecret);
 
     final fileName = '${user.id}_selfie_${DateTime.now().millisecondsSinceEpoch}.enc';
     final r2 = R2Service(_client);
-    final url = await r2.uploadFile(encryptedFile, 'kyc/$fileName');
-
-    await encryptedFile.delete();
+    final url = await r2.uploadBytes(encrypted.data, 'kyc/$fileName', contentType: 'application/octet-stream');
+    if (url == null) throw Exception("Upload failed");
 
     await _client.from('kyc_documents').insert({
       'user_id': user.id,

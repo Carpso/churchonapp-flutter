@@ -16,8 +16,10 @@ class KycVerificationScreen extends ConsumerStatefulWidget {
 
 class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
   final ImagePicker _picker = ImagePicker();
-  String? _idFilePath;
-  String? _selfiePath;
+  XFile? _idFile;
+  XFile? _selfieFile;
+  Uint8List? _idPreviewBytes;
+  Uint8List? _selfiePreviewBytes;
   bool _isSubmitting = false;
 
   @override
@@ -32,30 +34,36 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
     try {
       final response = await _picker.retrieveLostData();
       if (response.isEmpty || response.file == null) return;
-      final path = _resolvePath(response.file!);
-      if (path == null) return;
+      final file = response.file!;
       if (!mounted) return;
       setState(() {
-        _selfiePath ??= path;
-        _idFilePath ??= path;
+        _selfieFile ??= file;
+        _idFile ??= file;
       });
     } catch (e) {
       debugPrint('Lost capture recovery failed: $e');
     }
   }
 
-  String? _resolvePath(XFile file) {
-    if (!kIsWeb) return file.path;
-    // Web stores picks in memory — persist to a temp blob path is not
-    // supported for the encrypted pipeline; KYC is mobile-first.
-    return null;
+  Future<Uint8List?> _readBytes(XFile file) async {
+    try {
+      return await file.readAsBytes();
+    } catch (e) {
+      debugPrint('Failed to read picked file bytes: $e');
+      return null;
+    }
   }
 
   Future<void> _pickDocument() async {
     try {
       final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 1920, maxHeight: 1920);
       if (file != null && mounted) {
-        setState(() => _idFilePath = _resolvePath(file) ?? _idFilePath);
+        setState(() {
+          _idFile = file;
+          _idPreviewBytes = null;
+        });
+        final bytes = await _readBytes(file);
+        if (bytes != null && mounted) setState(() => _idPreviewBytes = bytes);
       } else if (mounted) {
         _snack("Document selection cancelled.", Colors.orange);
       }
@@ -77,7 +85,12 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
     try {
       final file = await _picker.pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 512, maxHeight: 512);
       if (file != null && mounted) {
-        setState(() => _selfiePath = _resolvePath(file) ?? _selfiePath);
+        setState(() {
+          _selfieFile = file;
+          _selfiePreviewBytes = null;
+        });
+        final bytes = await _readBytes(file);
+        if (bytes != null && mounted) setState(() => _selfiePreviewBytes = bytes);
       } else if (mounted) {
         _snack("Selfie capture cancelled or camera unavailable.", Colors.orange);
       }
@@ -93,7 +106,7 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
   }
 
   Future<void> _submit() async {
-    if (_idFilePath == null) {
+    if (_idFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please upload an ID document first"), backgroundColor: Colors.orange));
       return;
     }
@@ -101,9 +114,11 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
     setState(() => _isSubmitting = true);
     try {
       final service = ref.read(kycServiceProvider);
-      await service.submitDocument(filePath: _idFilePath!, documentType: 'national_id');
-      if (_selfiePath != null) {
-        await service.submitSelfie(filePath: _selfiePath!);
+      final idBytes = await _idFile!.readAsBytes();
+      await service.submitDocumentBytes(bytes: idBytes, documentType: 'national_id');
+      if (_selfieFile != null) {
+        final selfieBytes = await _selfieFile!.readAsBytes();
+        await service.submitSelfieBytes(bytes: selfieBytes);
       }
       ref.invalidate(kycStatusProvider);
       if (mounted) {
@@ -168,7 +183,8 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
               step: "Step 1: ID Submission",
               desc: "Upload National ID, Passport, or Driver's License",
               icon: LucideIcons.fileText,
-              filePath: _idFilePath,
+              file: _idFile,
+              previewBytes: _idPreviewBytes,
               onTap: _pickDocument,
             ),
             const SizedBox(height: 16),
@@ -176,7 +192,8 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
               step: "Step 2: Live Selfie",
               desc: "Take a quick selfie for verification",
               icon: LucideIcons.camera,
-              filePath: _selfiePath,
+              file: _selfieFile,
+              previewBytes: _selfiePreviewBytes,
               onTap: _takeSelfie,
             ),
             const SizedBox(height: 16),
@@ -204,23 +221,37 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
     );
   }
 
-  Widget _buildUploadStep({required String step, required String desc, required IconData icon, String? filePath, VoidCallback? onTap}) {
+  Widget _buildUploadStep({required String step, required String desc, required IconData icon, XFile? file, Uint8List? previewBytes, VoidCallback? onTap}) {
+    final captured = file != null;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: filePath != null ? Colors.green.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.05),
+          color: captured ? Colors.green.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: filePath != null ? Colors.green.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.1)),
+          border: Border.all(color: captured ? Colors.green.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.1)),
         ),
         child: Row(
           children: [
-            if (filePath != null && !kIsWeb)
+            if (captured && kIsWeb && previewBytes != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.memory(
+                  previewBytes,
+                  width: 56,
+                  height: 56,
+                  fit: BoxFit.cover,
+                  cacheWidth: 112,
+                  cacheHeight: 112,
+                  errorBuilder: (_, __, ___) => Icon(icon, color: Colors.green, size: 24),
+                ),
+              )
+            else if (captured && !kIsWeb)
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.file(
-                  File(filePath),
+                  File(file.path),
                   width: 56,
                   height: 56,
                   fit: BoxFit.cover,
@@ -230,18 +261,18 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
                 ),
               )
             else
-              Icon(filePath != null ? LucideIcons.checkCircle : icon, color: filePath != null ? Colors.green : Colors.amber, size: 24),
+              Icon(captured ? LucideIcons.checkCircle : icon, color: captured ? Colors.green : Colors.amber, size: 24),
             const SizedBox(width: 20),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(step, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
-                  Text(filePath != null ? "Captured — tap to retake" : desc, style: TextStyle(color: filePath != null ? Colors.green : Colors.white38, fontSize: 11)),
+                  Text(captured ? "Captured — tap to retake" : desc, style: TextStyle(color: captured ? Colors.green : Colors.white38, fontSize: 11)),
                 ],
               ),
             ),
-            Icon(filePath != null ? LucideIcons.check : LucideIcons.circle, color: filePath != null ? Colors.green : Colors.white12, size: 20),
+            Icon(captured ? LucideIcons.check : LucideIcons.circle, color: captured ? Colors.green : Colors.white12, size: 20),
           ],
         ),
       ),

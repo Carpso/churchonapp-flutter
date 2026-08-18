@@ -27,10 +27,14 @@ class EncryptionService {
   }
 
   static Future<EncryptedDocument> encryptFile(File file, String userSecret) async {
+    final fileBytes = await file.readAsBytes();
+    return encryptBytes(fileBytes, userSecret);
+  }
+
+  static EncryptedDocument encryptBytes(Uint8List fileBytes, String userSecret) {
     final salt = _generateSalt();
     final iv = _generateIv();
     final key = deriveKey(userSecret, salt);
-    final fileBytes = await file.readAsBytes();
 
     final encrypter = encrypt.Encrypter(encrypt.AES(encrypt.Key(key), mode: encrypt.AESMode.cbc));
     final encrypted = encrypter.encryptBytes(fileBytes, iv: encrypt.IV(iv));
