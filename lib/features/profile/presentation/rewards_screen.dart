@@ -202,7 +202,7 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
 
   Widget _buildDailyCollect(ThemeData theme) {
     final scheme = theme.colorScheme;
-    final dailyCoins = currentRemoteConfig(ref).getInt('coins_daily_open_reward', 25);
+    final dailyCoins = widgetRemoteConfig(ref).getInt('coins_daily_open_reward', 25);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),

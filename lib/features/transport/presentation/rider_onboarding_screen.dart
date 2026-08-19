@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/providers/auth_provider.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/give/presentation/widgets/momo_phone_input_widget.dart';
 
@@ -44,7 +45,7 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
       if (name.isNotEmpty) _fullName = name;
       final phone = profile.phoneNumber ?? '';
       if (phone.isNotEmpty) _phone = phone;
-      final email = profile.email ?? '';
+      final email = ref.read(authProvider).user?.email ?? '';
       if (email.isNotEmpty) _email = email;
       if (_phone.isNotEmpty) {
         _payoutNumber = _phone;

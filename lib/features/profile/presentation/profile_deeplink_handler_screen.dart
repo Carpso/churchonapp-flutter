@@ -39,9 +39,10 @@ class ProfileDeepLinkHandlerScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildProfile(BuildContext context, Map<String, dynamic>? data) {
+  Widget _buildProfile(BuildContext context, WidgetRef ref, Map<String, dynamic>? data) {
     if (data == null) return _buildError(context, 'User not found.');
 
+    final current = ref.watch(profileProvider).value;
     final name = (data['full_name'] as String?)?.trim().isNotEmpty == true
         ? data['full_name'] as String
         : 'Believer';
@@ -107,7 +108,7 @@ class ProfileDeepLinkHandlerScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 24),
-        _buildPostsSection(context, data['id']?.toString() ?? ''),
+        _buildPostsSection(context, ref, data['id']?.toString() ?? ''),
         const SizedBox(height: 24),
         if (current != null && current.id == data['id']) ...[
           const Center(
@@ -131,7 +132,7 @@ class ProfileDeepLinkHandlerScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPostsSection(BuildContext context, String userId) {
+  Widget _buildPostsSection(BuildContext context, WidgetRef ref, String userId) {
     final postsAsync = ref.watch(_memberPostsProvider(userId));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,7 +151,7 @@ class ProfileDeepLinkHandlerScreen extends ConsumerWidget {
                 ),
                 child: Column(
                   children: [
-                    Icon(LucideIcons.messageSquareText, size: 32, color: Colors.grey.shade400),
+                    Icon(LucideIcons.messageSquare, size: 32, color: Colors.grey.shade400),
                     const SizedBox(height: 8),
                     Text(
                       'No posts yet. Share what God is doing in your life on the Connect tab!',

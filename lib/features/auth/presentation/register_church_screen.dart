@@ -76,7 +76,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
             barrierDismissible: false,
             builder: (ctx) => AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: const Icon(LucideIcons.warningCircle, color: Colors.orange, size: 40),
+              title: const Icon(Icons.warning, color: Colors.orange, size: 40),
               content: const Text("This church is already registered"),
               actions: [
                 TextButton(
