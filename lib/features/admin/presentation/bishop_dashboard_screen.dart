@@ -37,6 +37,15 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    ref.listen(profileProvider, (prev, next) {
+      if (next.hasValue && next.value != null) _loadDashboard();
+      if (next.hasError) {
+        setState(() {
+          _isLoading = false;
+          _error = next.error.toString();
+        });
+      }
+    });
     _loadDashboard();
   }
 
@@ -44,10 +53,7 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
     setState(() => _isLoading = true);
     final profile = ref.read(profileProvider).value;
     if (profile == null) {
-      setState(() {
-        _isLoading = false;
-        _error = "Profile not found";
-      });
+      setState(() => _isLoading = false);
       return;
     }
 

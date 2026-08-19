@@ -251,6 +251,7 @@ $migrations = @(
     "20260921_coa_employee_rls_batch.sql"
     "20260922_network_programs.sql"
     "20260923_production_hardening_applied.sql"
+    "20260925_fix_bishop_rpc_gates.sql"
     )
 
 foreach ($m in $migrations) {
