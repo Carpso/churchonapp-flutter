@@ -2,7 +2,7 @@ name: church_on_app
 description: "Church On App — Flutter-based church management platform with Supabase backend. Covers digital giving, marketplace, media streaming, events, logistics, Bible study, social features, and admin tools."
 publish_to: "none"
 
-version: 1.0.0+286
+version: 1.0.0+288
 
 environment:
   sdk: ^3.9.0

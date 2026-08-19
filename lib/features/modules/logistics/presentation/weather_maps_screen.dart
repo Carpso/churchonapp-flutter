@@ -422,9 +422,9 @@ class _WeatherMapsScreenState extends ConsumerState<WeatherMapsScreen> {
           ),
           const SizedBox(height: 20),
 
-          // 5-Day Daily Forecast
+          // 7-Day Weekly Forecast
           const Text(
-            "5-Day Forecast",
+            "7-Day Weekly Forecast",
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,

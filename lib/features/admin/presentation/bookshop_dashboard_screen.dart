@@ -31,12 +31,26 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
   @override
   void initState() {
     super.initState();
+    ref.listen(profileProvider, (prev, next) {
+      if (next.hasValue && next.value != null) _loadDashboard();
+      if (next.hasError) {
+        setState(() {
+          _isLoading = false;
+          _error = next.error.toString();
+        });
+      }
+    });
     _loadDashboard();
   }
 
   Future<void> _loadDashboard() async {
     setState(() => _isLoading = true);
-    final tenantId = ref.read(profileProvider).value?.tenantId;
+    final profile = ref.read(profileProvider).value;
+    if (profile == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+    final tenantId = profile.tenantId;
     if (tenantId == null) { setState(() { _isLoading = false; _error = "No shop assigned"; }); return; }
 
     final now = DateTime.now();
@@ -44,17 +58,26 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
 
     try {
       final productsRes = await Supabase.instance.client
-          .from('marketplace_products')
-          .select('id, title, price, stock, sale_count, status, created_at')
+          .from('marketplace_items')
+          .select('id, name, price, stock, status, created_at')
           .eq('tenant_id', tenantId)
           .order('created_at', ascending: false);
 
       final products = List<Map<String, dynamic>>.from(productsRes);
-      int lowStock = 0, sales = 0;
+      int lowStock = 0;
       for (final p in products) {
         final stock = (p['stock'] as num?)?.toInt() ?? 0;
         if (stock < 10) lowStock++;
-        sales += (p['sale_count'] as num?)?.toInt() ?? 0;
+      }
+
+      final orderItemsRes = await Supabase.instance.client
+          .from('order_items')
+          .select('quantity')
+          .eq('tenant_id', tenantId);
+
+      int sales = 0;
+      for (final oi in orderItemsRes) {
+        sales += (oi['quantity'] as num?)?.toInt() ?? 0;
       }
 
       final ordersRes = await Supabase.instance.client
@@ -292,7 +315,7 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
   }
 
   Widget _productTile(ThemeData theme, Map<String, dynamic> product) {
-    final title = product['title'] as String? ?? 'Untitled';
+    final title = product['name'] as String? ?? 'Untitled';
     final price = (product['price'] as num?)?.toDouble() ?? 0;
     final stock = (product['stock'] as num?)?.toInt() ?? 0;
     final status = stock == 0 ? 'Out of Stock' : stock < 10 ? 'Low Stock' : 'In Stock';

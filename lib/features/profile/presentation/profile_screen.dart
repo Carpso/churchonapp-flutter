@@ -369,8 +369,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
     return Column(
       children: [
         _buildPremiumItem(context, LucideIcons.plusCircle, "Register Your Church", onTap: () => context.push('/register-church')),
-        if (profile.isExecutiveOffice) ...[
-          _buildPremiumItem(context, LucideIcons.crown, "Bishops Dashboard", isHighlighted: true, onTap: () => context.push('/bishop-hub')),
+        if (profile.isBishopOrHigher) ...[
+          _buildPremiumItem(context, LucideIcons.crown, "Bishop Dashboard", isHighlighted: true, onTap: () => context.push('/bishop-hub')),
         ],
         _buildPremiumItem(context, LucideIcons.calendar, "Yearly Program Planner", onTap: () => context.push('/year-planner')),
         if (profile.isPastor) ...[

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:universal_io/io.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path_provider/path_provider.dart';
@@ -20,7 +21,6 @@ import '../data/audit_service.dart';
 import 'resolution_hub_screen.dart';
 import 'emergency_shutdown_screen.dart';
 import 'apostle_dashboard_screen.dart';
-import 'bishop_dashboard_screen.dart';
 import 'pastor_dashboard_screen.dart';
 import 'finance_dashboard_screen.dart';
 import 'logistics_dashboard_screen.dart';
@@ -772,7 +772,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
               runSpacing: 10,
               children: [
                 _dashboardChip(LucideIcons.crown, "Apostle", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ApostleDashboardScreen()))),
-                _dashboardChip(LucideIcons.gem, "Bishop", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BishopDashboardScreen()))),
+                _dashboardChip(LucideIcons.gem, "Bishop", () => context.push('/bishop-hub')),
                 _dashboardChip(LucideIcons.layoutDashboard, "Pastor", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PastorDashboardScreen()))),
                 _dashboardChip(LucideIcons.banknote, "Finance", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FinanceDashboardScreen()))),
                 _dashboardChip(LucideIcons.truck, "Logistics", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LogisticsDashboardScreen()))),

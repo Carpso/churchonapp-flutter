@@ -241,8 +241,8 @@ class WeatherData {
     } catch (e) {
       debugPrint('WeatherModel: Error parsing hourly forecast: $e');
     }
+// Parse 7-day weekly forecast
 
-    // Parse 5-day daily forecast
     final parsedDaily = <DailyForecast>[];
     try {
       final days = dailyJson['time'] as List? ?? [];
@@ -250,7 +250,7 @@ class WeatherData {
       final mins = dailyJson['temperature_2m_min'] as List? ?? [];
       final dCodes = dailyJson['weather_code'] as List? ?? [];
 
-      for (int i = 0; i < days.length && i < 5; i++) {
+      for (int i = 0; i < days.length && i < 7; i++) {
         parsedDaily.add(
           DailyForecast(
             dayName: _formatDayName(days[i].toString()),
@@ -301,9 +301,11 @@ class WeatherData {
     return [
       DailyForecast(dayName: 'Today', maxTemp: 31, minTemp: 19, weatherCode: 0),
       DailyForecast(dayName: 'Tomorrow', maxTemp: 29, minTemp: 18, weatherCode: 2),
-      DailyForecast(dayName: 'Thu', maxTemp: 28, minTemp: 17, weatherCode: 61),
-      DailyForecast(dayName: 'Fri', maxTemp: 30, minTemp: 19, weatherCode: 0),
-      DailyForecast(dayName: 'Sat', maxTemp: 32, minTemp: 20, weatherCode: 0),
+      DailyForecast(dayName: 'Wed', maxTemp: 28, minTemp: 17, weatherCode: 61),
+      DailyForecast(dayName: 'Thu', maxTemp: 30, minTemp: 19, weatherCode: 0),
+      DailyForecast(dayName: 'Fri', maxTemp: 32, minTemp: 20, weatherCode: 0),
+      DailyForecast(dayName: 'Sat', maxTemp: 31, minTemp: 18, weatherCode: 1),
+      DailyForecast(dayName: 'Sun', maxTemp: 27, minTemp: 16, weatherCode: 3),
     ];
   }
 }

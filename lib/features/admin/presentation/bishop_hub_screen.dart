@@ -34,7 +34,7 @@ class BishopHubScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text("Bishops Dashboard", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+        title: Text("Bishop Dashboard", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,

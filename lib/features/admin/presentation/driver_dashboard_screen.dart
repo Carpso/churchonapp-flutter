@@ -29,13 +29,26 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    ref.listen(profileProvider, (prev, next) {
+      if (next.hasValue && next.value != null) _loadDashboard();
+      if (next.hasError) {
+        setState(() {
+          _isLoading = false;
+          _error = next.error.toString();
+        });
+      }
+    });
     _loadDashboard();
   }
 
   Future<void> _loadDashboard() async {
     setState(() => _isLoading = true);
-    final userId = ref.read(profileProvider).value?.id;
-    if (userId == null) { setState(() { _isLoading = false; _error = "Not logged in"; }); return; }
+    final profile = ref.read(profileProvider).value;
+    if (profile == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+    final userId = profile.id;
 
     final now = DateTime.now();
     final firstOfMonth = DateTime(now.year, now.month, 1);

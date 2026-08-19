@@ -342,33 +342,49 @@ class BishopCommandHubStats {
 final bishopCommandHubStatsProvider = FutureProvider<BishopCommandHubStats>((ref) async {
   final profile = ref.watch(profileProvider).value;
   final orgId = profile?.organizationId;
-  if (orgId == null || orgId.isEmpty) {
-    throw Exception("No organization assigned to this bishop account.");
-  }
-
   final orgSvc = ref.watch(organizationServiceProvider);
-  final orgStats = await orgSvc.getOrganizationStats(orgId);
 
-  final nodes = await orgSvc.getOrganizationNodes(orgId);
-  final presbyteries = nodes.where((n) => n.parentNodeId == null).toList();
+  // GLOBAL EXECUTIVE MODE: org-wide stats via server-side RPCs
+  if (orgId != null && orgId.isNotEmpty) {
+    final orgStats = await orgSvc.getOrganizationStats(orgId);
 
-  int networkAttendance = 0;
-  for (final node in presbyteries) {
-    try {
-      final nodeStats = await orgSvc.getNodeAggregatedStats(node.id);
-      networkAttendance += (nodeStats['attendance'] as num?)?.toInt() ?? 0;
-    } catch (e) {
-      debugPrint('Failed aggregating node ${node.id}: $e');
+    final nodes = await orgSvc.getOrganizationNodes(orgId);
+    final presbyteries = nodes.where((n) => n.parentNodeId == null).toList();
+
+    int networkAttendance = 0;
+    for (final node in presbyteries) {
+      try {
+        final nodeStats = await orgSvc.getNodeAggregatedStats(node.id);
+        networkAttendance += (nodeStats['attendance'] as num?)?.toInt() ?? 0;
+      } catch (e) {
+        debugPrint('Failed aggregating node ${node.id}: $e');
+      }
     }
+
+    return BishopCommandHubStats(
+      branches: (orgStats['branches'] as num?)?.toInt() ?? 0,
+      members: (orgStats['members'] as num?)?.toInt() ?? 0,
+      activeStreams: (orgStats['active_streams'] as num?)?.toInt() ?? 0,
+      monthlyGiving: (orgStats['monthly_giving'] as num?)?.toDouble() ?? 0,
+      networkAttendance: networkAttendance,
+      presbyteries: presbyteries,
+    );
   }
 
+  // LOCAL BISHOP MODE: single-tenant oversight when no org is assigned yet
+  final tenantId = profile?.tenantId;
+  if (tenantId == null || tenantId.isEmpty) {
+    throw Exception("No church or organization assigned to this bishop account.");
+  }
+
+  final stats = await orgSvc.getChurchMonthlyStats(tenantId);
   return BishopCommandHubStats(
-    branches: (orgStats['branches'] as num?)?.toInt() ?? 0,
-    members: (orgStats['members'] as num?)?.toInt() ?? 0,
-    activeStreams: (orgStats['active_streams'] as num?)?.toInt() ?? 0,
-    monthlyGiving: (orgStats['monthly_giving'] as num?)?.toDouble() ?? 0,
-    networkAttendance: networkAttendance,
-    presbyteries: presbyteries,
+    branches: 1,
+    members: (stats['members'] as num?)?.toInt() ?? 0,
+    activeStreams: 0,
+    monthlyGiving: (stats['tithes_mtd'] as num?)?.toDouble() ?? 0,
+    networkAttendance: (stats['attendance_mtd'] as num?)?.toInt() ?? 0,
+    presbyteries: const [],
   );
 });
 

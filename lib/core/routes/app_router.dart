@@ -392,9 +392,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           return user.canWork || user.isEmployee;
         }
 
-        // Marketplace (Vendor / Bookshop Staff / Employee)
+        // Marketplace (Vendor / Merchant / Bookshop Staff / Employee)
         if (route == '/vendor-dashboard' || route == '/bookshop-dashboard') {
-          return user.isBookshopStaff || user.isEmployee;
+          return user.isBookshopStaff ||
+              user.isEmployee ||
+              user.role == 'vendor' ||
+              user.role == 'merchant';
         }
 
         return true;

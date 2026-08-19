@@ -228,6 +228,15 @@ String _churchDisplayName(Tenant? tenant) {
                         color: Colors.white70,
                         size: 14,
                       ),
+                      SizedBox(width: 4),
+                      Text(
+                        "--°",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
                     ],
                   ),
                 ),

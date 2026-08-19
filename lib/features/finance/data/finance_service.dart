@@ -89,8 +89,11 @@ class FinanceService {
         .from('transactions')
         .stream(primaryKey: ['id'])
         .eq('tenant_id', tenantId)
-        .order('created_at', ascending: false)
-        .map((data) => data.map((map) => Transaction.fromMap(map)).toList());
+        .map((data) {
+          final list = data.map((map) => Transaction.fromMap(map)).toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
   }
 
   Future<void> logTransaction(

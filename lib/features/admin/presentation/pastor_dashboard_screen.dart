@@ -48,13 +48,26 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    ref.listen(profileProvider, (prev, next) {
+      if (next.hasValue && next.value != null) _loadDashboard();
+      if (next.hasError) {
+        setState(() {
+          _isLoading = false;
+          _error = next.error.toString();
+        });
+      }
+    });
     _loadDashboard();
   }
 
   Future<void> _loadDashboard() async {
     setState(() => _isLoading = true);
     final profile = ref.read(profileProvider).value;
-    final tenantId = profile?.tenantId;
+    if (profile == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+    final tenantId = profile.tenantId;
     if (tenantId == null) {
       if (mounted) setState(() { _isLoading = false; _error = "No church assigned"; });
       return;
@@ -101,16 +114,16 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
 
       final givingRes = await client
           .from('transactions')
-          .select('amount, type')
+          .select('amount, category')
           .eq('tenant_id', tenantId)
-          .inFilter('type', ['giving', 'tithe', 'offering'])
+          .inFilter('category', ['giving', 'tithe', 'offering'])
           .gte('created_at', firstOfMonth.toIso8601String());
 
       final givingLastRes = await client
           .from('transactions')
           .select('amount')
           .eq('tenant_id', tenantId)
-          .inFilter('type', ['giving', 'tithe', 'offering'])
+          .inFilter('category', ['giving', 'tithe', 'offering'])
           .gte('created_at', firstOfLastMonth.toIso8601String())
           .lt('created_at', firstOfMonth.toIso8601String());
 
@@ -133,8 +146,8 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
       for (final item in givingRes) {
         final amt = (item['amount'] as num?)?.toDouble() ?? 0;
         totalGiving += amt;
-        if (item['type'] == 'tithe') tithes += amt;
-        if (item['type'] == 'offering') offerings += amt;
+        if (item['category'] == 'tithe') tithes += amt;
+        if (item['category'] == 'offering') offerings += amt;
       }
       
       double lastGiving = 0;
