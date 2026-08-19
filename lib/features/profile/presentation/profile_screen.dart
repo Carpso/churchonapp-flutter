@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/services/prediction_service.dart';
-import 'package:church_on_app/core/i18n/l10n.dart';
 import 'package:church_on_app/core/widgets/qr_code_with_logo.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 import 'package:church_on_app/core/widgets/verification_badge.dart';
@@ -30,8 +29,6 @@ import 'camera_settings_screen.dart';
 import 'emergency_contacts_screen.dart';
 import 'rewards_screen.dart';
 import 'certificates_screen.dart';
-
-import '../../connect/presentation/connect_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   final String? userId;
@@ -345,6 +342,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
     );
   }
 
+  // ignore: unused_element
   String _formatTimeAgo(DateTime time) {
     final diff = DateTime.now().difference(time.toLocal());
     if (diff.inMinutes < 1) return 'Just now';
