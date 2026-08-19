@@ -202,15 +202,15 @@ static const _fallbackResponses = [
               'action': 'chat',
             });
 
-          final streamed = await httpClient.send(request).timeout(sseTimeout, onTimeout: (sink) {
-            sink.addError(TimeoutException('SSE connection timed out after $sseTimeout'));
+          final streamed = await httpClient.send(request).timeout(sseTimeout, onTimeout: () {
+            throw TimeoutException('SSE connection timed out after $sseTimeout');
           });
           if (streamed.statusCode == 200) {
             var handled = false;
             await for (final line in streamed.stream
                 .transform(utf8.decoder)
                 .transform(const LineSplitter())
-                .timeout(sseTimeout, onTimeout: (sink, time) {
+                .timeout(sseTimeout, onTimeout: (sink) {
                   sink.addError(TimeoutException('SSE stream timed out after $sseTimeout'));
                 })) {
               final trimmed = line.trim();

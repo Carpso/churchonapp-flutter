@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/providers/profile_provider.dart';
@@ -32,7 +31,7 @@ class ProfileDeepLinkHandlerScreen extends ConsumerWidget {
         ),
       ),
       body: ref.watch(_publicProfileProvider(userId)).when(
-            data: (data) => _buildProfile(context, data),
+            data: (data) => _buildProfile(context, ref, data),
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => _buildError(context, e.toString()),
           ),
