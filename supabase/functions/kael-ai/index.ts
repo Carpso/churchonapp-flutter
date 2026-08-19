@@ -5,9 +5,12 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 
 // ─── Provider ──────────────────────────────────────────────────────────────
 // HuggingFace free-tier inference. Model override via HF_MODEL_ID env var.
-// Default: Qwen2.5-1.5B-Instruct — 1.5B params, fast, strong reasoning, free.
-const HF_API_BASE = "https://api-inference.huggingface.co/models";
-const HF_MODEL = Deno.env.get("HF_MODEL_ID") ?? "Qwen/Qwen2.5-1.5B-Instruct";
+// Router endpoint is OpenAI-compatible and resolves from the Supabase edge
+// runtime (api-inference.huggingface.co does NOT — verified via dns-probe).
+// Default: meta-llama/Llama-3.1-8B-Instruct — verified on this account's free
+// tier via the router (Qwen2.5-1.5B-Instruct is not provider-enabled).
+const HF_API_BASE = "https://router.huggingface.co/v1";
+const HF_MODEL = Deno.env.get("HF_MODEL_ID") ?? "meta-llama/Llama-3.1-8B-Instruct";
 
 const KAEL_SYSTEM_PROMPT = `You are Kael, a warm, wise, and spiritually grounded AI assistant built into the Church On App — a comprehensive Christian church management platform for the Zambian (and African) market.
 
@@ -328,36 +331,47 @@ async function callHuggingFace(
     ? buildChatPrompt(messages, userContext, systemPrompt)
     : buildDirectPrompt(directPrompt ?? "", systemPrompt);
 
+  const chatMessages: Array<{ role: string; content: string }> = isChat
+    ? [
+        { role: "system", content: buildSystemPrompt(systemPrompt, userContext) },
+        ...messages.slice(0, -1),
+        { role: "user", content: messages.length > 0 ? messages[messages.length - 1].content : prompt },
+      ]
+    : [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: directPrompt ?? "" },
+      ];
+
+  const chatBody = JSON.stringify({
+    model: HF_MODEL,
+    messages: chatMessages,
+    max_tokens: 512,
+    temperature: 0.7,
+    top_p: 0.9,
+  });
+
   // First attempt: fast (model should be warm from cron).
   // If model is loading (503), retry with wait_for_model: true and longer timeout.
-  let hfResponse = await fetch(`${HF_API_BASE}/${HF_MODEL}`, {
+  let hfResponse = await fetch(`${HF_API_BASE}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${hfToken}`,
       "Content-Type": "application/json",
     },
     signal: AbortSignal.timeout(30_000),
-    body: JSON.stringify({
-      inputs: prompt,
-      parameters: { max_new_tokens: 512, temperature: 0.7, top_p: 0.9, do_sample: true, return_full_text: false },
-      options: { wait_for_model: false },
-    }),
+    body: chatBody,
   });
 
   // Cold-start: model is loading → wait for it
   if (hfResponse.status === 503) {
-    hfResponse = await fetch(`${HF_API_BASE}/${HF_MODEL}`, {
+    hfResponse = await fetch(`${HF_API_BASE}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${hfToken}`,
         "Content-Type": "application/json",
       },
       signal: AbortSignal.timeout(90_000),
-      body: JSON.stringify({
-        inputs: prompt,
-        parameters: { max_new_tokens: 512, temperature: 0.7, top_p: 0.9, do_sample: true, return_full_text: false },
-        options: { wait_for_model: true },
-      }),
+      body: chatBody,
     });
   }
 
@@ -367,13 +381,13 @@ async function callHuggingFace(
   }
 
   const data = await hfResponse.json();
-  let generatedText = Array.isArray(data)
-    ? (data[0] as { generated_text?: string })?.generated_text?.trim()
-    : null;
+  let generatedText = (data as { choices?: Array<{ message?: { content?: string } }> })
+    ?.choices?.[0]?.message?.content?.trim() ??
+    null;
 
   if (!generatedText) throw new Error("HuggingFace returned empty response");
 
-  // Strip Qwen format tokens if the model echoes them
+  // Strip chat-format tokens if the model echoes them
   generatedText = generatedText
     .replace(/<\|im_start\|>[\s\S]*?<\|im_end\|>/g, "")
     .replace(/<\|im_start\|>/g, "")
@@ -487,6 +501,7 @@ serve(async (req) => {
     if (!text) {
       // Graceful fallback: stream a helpful message as normal chunks instead of erroring.
       const fallback = FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)];
+      console.error("Kael HF error:", providerError);
       if (isChat) return sseTextStream(corsHeaders, `${fallback}\n\n(Kael is warming up — try again in a moment for a full response.)`);
       return jsonResponse(corsHeaders, { response: fallback }, 200);
     }

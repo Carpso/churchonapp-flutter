@@ -5,6 +5,14 @@ const GEMINI_API_BASE =
   "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.0-flash";
 
+// HuggingFace free-tier fallback (no Gemini key required). Router endpoint is
+// OpenAI-compatible and resolves from the Supabase edge runtime
+// (api-inference.huggingface.co does not — verified via dns-probe). Default is
+// Llama-3.1-8B-Instruct — verified reachable on this account's free tier via
+// the router and strong at structured JSON output.
+const HF_API_BASE = "https://router.huggingface.co/v1";
+const HF_MODEL = Deno.env.get("HF_MODEL_ID") ?? "meta-llama/Llama-3.1-8B-Instruct";
+
 interface QuizQuestion {
   question: string;
   options: string[];
@@ -192,6 +200,117 @@ async function callGeminiAPI(
   return valid;
 }
 
+/**
+ * HuggingFace free-tier fallback generator. Small-batch loop because the
+ * free inference API has tight max-token limits (a 1.5B model cannot emit
+ * 100 valid questions in a single call). Each round requests `perCall`
+ * questions; only structurally valid ones (validateQuestion) are kept.
+ */
+async function callHuggingFace(
+  prompt: string,
+  perCall: number,
+  maxRounds: number,
+): Promise<QuizQuestion[]> {
+  const hfToken = Deno.env.get("HUGGINGFACE_TOKEN");
+  if (!hfToken) throw new Error("HUGGINGFACE_TOKEN not configured");
+
+  const systemMsg = `You are a Bible quiz question writer. Produce only factually accurate Bible questions with 4 options and exactly one correct answer index (0-3). Difficulty: Easy, Medium, or Hard. Categories: History, People, Scripture, New Testament, Miracles, Prophecy, Law, Language, Angels, General.`;
+
+  const roundPrompt = `${prompt}
+
+Return ${perCall} questions. Strictly output ONLY a valid JSON array (no markdown, no code fences), exactly this shape:
+[{"question": "...", "options": ["A", "B", "C", "D"], "correct_answer": 0, "difficulty": "Easy", "category": "History", "scripture_reference": "Genesis 6:14"}]`;
+
+  const collected: QuizQuestion[] = [];
+  for (let round = 0; round < maxRounds; round++) {
+    // Router is OpenAI-compatible; api-inference.huggingface.co does not
+    // resolve from the Supabase edge runtime (verified via dns-probe).
+    const requestBody = JSON.stringify({
+      model: HF_MODEL,
+      messages: [
+        { role: "system", content: systemMsg },
+        { role: "user", content: roundPrompt },
+      ],
+      max_tokens: 1024,
+      temperature: 0.7,
+      top_p: 0.9,
+    });
+
+    let hfResponse = await fetch(`${HF_API_BASE}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${hfToken}`,
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(60_000),
+      body: requestBody,
+    });
+
+    // Cold start: model is loading → wait for it
+    if (hfResponse.status === 503) {
+      hfResponse = await fetch(`${HF_API_BASE}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${hfToken}`,
+          "Content-Type": "application/json",
+        },
+        signal: AbortSignal.timeout(90_000),
+        body: requestBody,
+      });
+    }
+
+    if (!hfResponse.ok) {
+      const errBody = await hfResponse.text().catch(() => "");
+      throw new Error(`HuggingFace error ${hfResponse.status}: ${errBody.slice(0, 200)}`);
+    }
+
+    const data = await hfResponse.json();
+    const generatedText = (data as { choices?: Array<{ message?: { content?: string } }> })
+      ?.choices?.[0]?.message?.content?.trim();
+    if (!generatedText) {
+      // A full round that yields no text is a model problem — bail.
+      if (round > 0) break;
+      continue;
+    }
+
+    const cleaned = generatedText
+      .replace(/```json\s*/g, "")
+      .replace(/```\s*/g, "")
+      .replace(/<\|im_start\|>[\s\S]*?<\|im_end\|>/g, "")
+      .replace(/<\|im_start\|>/g, "")
+      .replace(/<\|im_end\|>/g, "")
+      .trim();
+
+    let parsed: unknown[] = [];
+    try {
+      parsed = JSON.parse(cleaned) as unknown[];
+    } catch {
+      const match = /\[[\s\S]*\]/.exec(cleaned);
+      if (match) {
+        try {
+          parsed = JSON.parse(match[0]) as unknown[];
+        } catch {
+          parsed = [];
+        }
+      }
+    }
+
+    let validInRound = 0;
+    for (const item of parsed) {
+      const q = validateQuestion(item as Record<string, unknown>);
+      if (q) {
+        collected.push(q);
+        validInRound++;
+      }
+    }
+
+    // Early exit: two consecutive rounds yielding nothing valid → stop.
+    if (validInRound === 0 && collected.length > 0) break;
+  }
+
+  return collected;
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") {
@@ -322,12 +441,13 @@ Deno.serve(async (req) => {
       (existingQs ?? []).map((q) => q.question_hash as string),
     );
 
-    // Call Gemini API
+    // Call Gemini API (primary provider)
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!geminiKey) {
+    const hfToken = Deno.env.get("HUGGINGFACE_TOKEN");
+    if (!geminiKey && !hfToken) {
       return new Response(
         JSON.stringify({
-          error: "GEMINI_API_KEY not configured on server",
+          error: "Neither GEMINI_API_KEY nor HUGGINGFACE_TOKEN configured on server",
           inserted: 0,
         }),
         {
@@ -347,7 +467,34 @@ Deno.serve(async (req) => {
       topic ?? undefined,
     );
 
-    const questions = await callGeminiAPI(prompt, geminiKey);
+    let questions: QuizQuestion[] = [];
+    let provider = "gemini";
+    if (geminiKey) {
+      try {
+        questions = await callGeminiAPI(prompt, geminiKey);
+      } catch (geminiErr) {
+        console.error("Gemini generation failed, falling back to HuggingFace:", geminiErr);
+        provider = "huggingface";
+      }
+    }
+    if (questions.length === 0 && hfToken) {
+      provider = "huggingface";
+      // HF free tier: one call for the whole batch (probe: 3 Qs ≈ 9s warm,
+      // ~90s cold), capped at 8 per call; at most 2 rounds to stay within
+      // the edge function wall-clock budget.
+      const perCall = Math.min(batchSize, 8);
+      const maxRounds = 2;
+      questions = await callHuggingFace(prompt, perCall, maxRounds);
+    }
+    if (questions.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Question generation failed: no provider produced questions", inserted: 0 }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
     // Insert questions with hash dedup
     let insertedCount = 0;
@@ -405,6 +552,7 @@ Deno.serve(async (req) => {
         inserted: insertedCount,
         total_generated: questions.length,
         batch_id: batchId,
+        provider,
         category: category ?? "mixed",
         difficulty: difficulty ?? "mixed",
       }),

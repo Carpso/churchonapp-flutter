@@ -117,7 +117,7 @@ Migration files are in `supabase/migrations/`. Apply via Supabase dashboard SQL 
 
 Kael is the in-app AI assistant. Edge Function: `supabase/functions/kael-ai/index.ts`. Client: `lib/features/modules/media/data/ai_chat_service.dart`.
 
-**Provider order**: Gemini Flash (`GEMINI_API_KEY`, env `GEMINI_MODEL` default `gemini-2.0-flash`) → HuggingFace free-tier (`HUGGINGFACE_TOKEN`; env `HF_MODEL_ID` default `HuggingFaceH4/zephyr-7b-beta` — never a PRO-gated model like `mistralai/Mistral-7B-Instruct-v0.3`).
+**Provider order**: Gemini Flash (`GEMINI_API_KEY`, env `GEMINI_MODEL` default `gemini-2.0-flash`) → HuggingFace free-tier (`HUGGINGFACE_TOKEN`; env `HF_MODEL_ID` default `meta-llama/Llama-3.1-8B-Instruct` — verified working on this account's free tier via the router). **IMPORTANT**: all HF calls MUST use the OpenAI-compatible router endpoint `https://router.huggingface.co/v1` (`/chat/completions` shape with `choices[0].message.content`) — the legacy `api-inference.huggingface.co` host does NOT resolve from the Supabase edge runtime (DNS failure, verified). Qwen2.5-1.5B and zephyr-7b-beta are NOT provider-enabled on this account via the router — use Llama-3.1-8B-Instruct (or any model the user enables).
 
 **Request contract (unified)** — `action` decides the response format:
 - `action: 'chat'` (default, requires `messages[]` + optional `userContext`) → **SSE** (`data: {"chunk": ...}` then `data: {"done": true}` or `data: {"error": ...}`)
