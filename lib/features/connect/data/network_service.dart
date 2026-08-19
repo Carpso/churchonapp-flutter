@@ -10,6 +10,8 @@ class ConnectedChurch {
   final String? logoUrl;
   final int memberCount;
   final bool isConnected;
+  final String? nextProgramName;
+  final DateTime? nextProgramDate;
 
   ConnectedChurch({
     required this.id,
@@ -18,9 +20,20 @@ class ConnectedChurch {
     this.logoUrl,
     this.memberCount = 0,
     this.isConnected = false,
+    this.nextProgramName,
+    this.nextProgramDate,
   });
 
   factory ConnectedChurch.fromMap(Map<String, dynamic> map) {
+    DateTime? parseDate(dynamic v) {
+      if (v == null) return null;
+      try {
+        return DateTime.parse(v.toString());
+      } catch (_) {
+        return null;
+      }
+    }
+
     return ConnectedChurch(
       id: map['id']?.toString() ?? '',
       name: map['name'] ?? 'Unknown Church',
@@ -28,6 +41,8 @@ class ConnectedChurch {
       logoUrl: map['logo_url'] ?? map['logo'],
       memberCount: map['member_count'] ?? 0,
       isConnected: map['is_connected'] ?? false,
+      nextProgramName: map['next_program_name'],
+      nextProgramDate: parseDate(map['next_program_date']),
     );
   }
 }
@@ -135,10 +150,31 @@ class NetworkService {
         debugPrint('Error fetching member counts: $e');
       }
 
+      final programs = <String, Map<String, dynamic>>{};
+      try {
+        final progs = await _client.rpc('get_connected_church_programs', params: {'p_limit': 50});
+        if (progs is List) {
+          for (final row in progs) {
+            final churchId = (row as Map)['church_id']?.toString();
+            if (churchId != null) {
+              programs[churchId] = Map<String, dynamic>.from(row);
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching connected church programs: $e');
+      }
+
       return (data as List).map((map) {
+        final churchId = map['id']?.toString() ?? '';
+        final prog = programs[churchId];
         return ConnectedChurch.fromMap({
           ...map,
-          'member_count': memberCounts[map['id']?.toString()] ?? 0,
+          'member_count': memberCounts[churchId] ?? 0,
+          'next_program_name': prog?['ministry_name'] != null
+              ? '${prog!['ministry_name']} • ${prog['scheduled_for'] != null ? prog['scheduled_for'].toString().split('T').first : ''}'
+              : null,
+          'next_program_date': prog?['scheduled_for'],
         });
       }).toList();
     } catch (e) {

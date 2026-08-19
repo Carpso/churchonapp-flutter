@@ -570,6 +570,8 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
         'end_time': end.toIso8601String(),
         'type': 'service',
         'status': 'scheduled',
+        'user_id': Supabase.instance.client.auth.currentUser?.id,
+        'hosted_by': Supabase.instance.client.auth.currentUser?.id,
       });
       if (mounted) {
         showAppSnackBar(

@@ -171,6 +171,17 @@ class _InterchurchNetworkScreenState extends ConsumerState<InterchurchNetworkScr
               Icon(LucideIcons.users, size: 14, color: Colors.grey.shade400),
               const SizedBox(width: 6),
               Text("${church.memberCount} members", style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.w600)),
+              if (church.nextProgramName != null) ...[
+                const SizedBox(width: 12),
+                Icon(LucideIcons.calendar, size: 14, color: Colors.amber),
+                const SizedBox(width: 4),
+                Text(
+                  church.nextProgramName!,
+                  style: TextStyle(color: Colors.amber.shade800, fontSize: 12, fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
               const Spacer(),
               GestureDetector(
                 onTap: () => _showChurchOptions(context, church),

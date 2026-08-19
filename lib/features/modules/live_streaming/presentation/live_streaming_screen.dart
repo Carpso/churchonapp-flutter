@@ -79,7 +79,13 @@ class LiveStreamingScreen extends ConsumerWidget {
                     const Text('LIVE NOW', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.red)),
                     const SizedBox(height: 12),
                     ...streams.map((stream) => Card(
-                      child: ListTile(title: Text(stream['title'] ?? 'Live Stream'), subtitle: Text("${stream['viewer_count'] ?? 0} watching")),
+                      child: ListTile(
+                        title: Text(
+                          stream['title'] ?? 'Live Stream',
+                          style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text("${stream['viewer_count'] ?? 0} watching", style: const TextStyle(color: Colors.black54)),
+                      ),
                     )),
                   ],
                 );
@@ -106,7 +112,14 @@ class LiveStreamingScreen extends ConsumerWidget {
                   children: [
                     const Text('UPCOMING', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
-                    ...streams.map((stream) => Card(child: ListTile(title: Text(stream['title'] ?? 'Scheduled Stream')))),
+                    ...streams.map((stream) => Card(
+                      child: ListTile(
+                        title: Text(
+                          stream['title'] ?? 'Scheduled Stream',
+                          style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    )),
                   ],
                 );
               },

@@ -183,6 +183,7 @@ static const _fallbackResponses = [
     List<Map<String, String>> history,
     Map<String, dynamic>? userContext,
   ) async* {
+    const sseTimeout = Duration(seconds: 45);
     try {
       final token = _client.auth.currentSession?.accessToken;
       if (token != null) {
@@ -201,12 +202,17 @@ static const _fallbackResponses = [
               'action': 'chat',
             });
 
-          final streamed = await httpClient.send(request);
+          final streamed = await httpClient.send(request).timeout(sseTimeout, onTimeout: (sink) {
+            sink.addError(TimeoutException('SSE connection timed out after $sseTimeout'));
+          });
           if (streamed.statusCode == 200) {
             var handled = false;
             await for (final line in streamed.stream
                 .transform(utf8.decoder)
-                .transform(const LineSplitter())) {
+                .transform(const LineSplitter())
+                .timeout(sseTimeout, onTimeout: (sink, time) {
+                  sink.addError(TimeoutException('SSE stream timed out after $sseTimeout'));
+                })) {
               final trimmed = line.trim();
               if (!trimmed.startsWith('data: ')) continue;
               final jsonStr = trimmed.substring(6).trim();
@@ -230,6 +236,8 @@ static const _fallbackResponses = [
           } else {
             debugPrint('[Kael] SSE HTTP ${streamed.statusCode}, falling back to invoke');
           }
+        } on TimeoutException catch (e) {
+          debugPrint('[Kael] SSE timed out, falling back to invoke: $e');
         } finally {
           httpClient.close();
         }
