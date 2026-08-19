@@ -138,6 +138,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   List<QuizQuestion> _questions = [];
   int _currentIndex = 0;
   int? _selectedAnswer;
+  final Set<int> _selectedAnswers = {};
   int? _fiftyFiftyIndex;
   final Set<int> _eliminatedOptions = {};
   int _score = 0;
@@ -508,7 +509,100 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     if (_phase != GamePhase.playing) return;
     if (_eliminatedOptions.contains(idx)) return;
 
+    final q = _questions[_currentIndex];
+    if (q.isMultipleAnswer) {
+      // Multi-select: toggle selection, auto-submit when 2+ selected
+      setState(() {
+        if (_selectedAnswers.contains(idx)) {
+          _selectedAnswers.remove(idx);
+        } else {
+          _selectedAnswers.add(idx);
+        }
+      });
+      // Auto-submit if user has selected at least 2 options and paused
+      // (They can also tap outside to submit)
+      return;
+    }
+
     _submitAnswer(idx);
+  }
+
+  void _submitMultiSelect() {
+    final q = _questions[_currentIndex];
+    _timer?.cancel();
+    final elapsed = _startTime != null
+        ? DateTime.now().millisecondsSinceEpoch - _startTime!
+        : 0;
+
+    final selected = Set<int>.from(_selectedAnswers);
+    // For multi-select, correct = selected set matches correct_answers set
+    final isCorrect = q.correctAnswers.isNotEmpty &&
+        selected.length == q.correctAnswers.length &&
+        selected.every((s) => q.correctAnswers.contains(s));
+
+    setState(() {
+      // Store first selected answer for PvP broadcast compatibility
+      _selectedAnswer = selected.isNotEmpty ? selected.first : -1;
+      _answers[_currentIndex] = _selectedAnswer;
+      _responseTimesMs[_currentIndex] = elapsed;
+      _phase = GamePhase.answering;
+
+      if (isCorrect) {
+        int pts = _questions[_currentIndex].points;
+        pts *= widget.style.pointsMultiplier;
+        if (_doubleUsed) pts *= 2;
+        _score += pts;
+        _streak++;
+        if (_streak > _bestStreak) _bestStreak = _streak;
+        if (_streak >= 3) _score += widget.style.streakBonus;
+      } else {
+        _streak = 0;
+        if (widget.style == QuizStyle.suddenDeath) {
+          _suddenDeathOut = true;
+        }
+      }
+
+      _eliminatedOptions.clear();
+      _doubleUsed = false;
+      if (_fiftyFiftyIndex == _currentIndex) _fiftyFiftyIndex = null;
+      if (_kaelOpponent) {
+        final q2 = _questions[_currentIndex];
+        if (_random.nextDouble() < 0.65) {
+          _opponentScore += q2.points;
+          if (_random.nextDouble() < 0.4) _opponentScore += 5;
+        }
+      }
+
+      _phase = GamePhase.feedback;
+    });
+
+    if (widget.mode != 'Solo' && _pvpMatch != null && _pvpService != null) {
+      int correctCount = 0;
+      for (int i = 0; i <= _currentIndex; i++) {
+        final qi = _questions[i];
+        if (qi.isMultipleAnswer) {
+          final stored = _answers[i];
+          if (stored != null && qi.correctAnswers.contains(stored)) correctCount++;
+        } else {
+          if (_answers[i] == qi.correctAnswer) correctCount++;
+        }
+      }
+      _pvpService!.sendAnswer(
+        match: _pvpMatch!,
+        questionIndex: _currentIndex,
+        questionId: _questions[_currentIndex].id,
+        selectedAnswer: _selectedAnswer ?? -1,
+        responseTimeMs: elapsed,
+        isCorrect: isCorrect,
+        score: _score,
+        correctCount: correctCount,
+      );
+    }
+
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      _nextQuestion();
+    });
   }
 
   void _submitAnswer(int idx) {
@@ -616,7 +710,8 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     _slideController.reset();
     setState(() {
       _currentIndex++;
-      _selectedAnswer = null;
+       _selectedAnswer = null;
+      _selectedAnswers.clear();
       _phase = GamePhase.playing;
       _timerMs = _effectiveTimePerQuestionSec * 1000;
     });
@@ -1221,8 +1316,9 @@ try {
                     ),
                     child: Column(
                       children: [
-                        // Scripture reference
-                        if (q.scriptureReference != null)
+                        // Scripture reference — only reveal after answer submitted
+                        if (q.scriptureReference != null &&
+                            (_phase == GamePhase.answering || _phase == GamePhase.feedback || _phase == GamePhase.review))
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -1244,8 +1340,9 @@ try {
                               ),
                             ],
                           ),
-                        // Verse text in the user's preferred translation
-                        if (q.scriptureReference != null)
+                        // Verse text — only reveal after answer submitted
+                        if (q.scriptureReference != null &&
+                            (_phase == GamePhase.answering || _phase == GamePhase.feedback || _phase == GamePhase.review))
                           Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: LiveScriptureText(
@@ -1286,6 +1383,24 @@ try {
                       return _buildOption(theme, q, i);
                     },
                   ),
+                  if (q.isMultipleAnswer && _phase == GamePhase.playing && _selectedAnswers.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _submitMultiSelect();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).primaryColor,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('Submit Answers', style: TextStyle(fontSize: 16)),
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 100), // Spacing for powerups at bottom
                 ],
               ),
@@ -1468,10 +1583,12 @@ try {
   }
 
   Widget _buildOption(ThemeData theme, QuizQuestion q, int i) {
-    final bool isRevealingAnswer = _phase == GamePhase.answering || _phase == GamePhase.feedback;
-    final bool isCorrect = isRevealingAnswer && q.correctAnswer == i;
-    final bool isWrong = isRevealingAnswer && _selectedAnswer == i && !isCorrect;
-    final bool isSelected = _selectedAnswer == i;
+    final bool isRevealingAnswer = _phase == GamePhase.answering || _phase == GamePhase.feedback || _phase == GamePhase.review;
+    final bool isCorrect = isRevealingAnswer && (q.isMultipleAnswer ? q.correctAnswers.contains(i) : q.correctAnswer == i);
+    final bool isWrong = isRevealingAnswer && (q.isMultipleAnswer
+        ? (_selectedAnswers.contains(i) && !q.correctAnswers.contains(i))
+        : (_selectedAnswer == i && !isCorrect));
+    final bool isSelected = q.isMultipleAnswer ? _selectedAnswers.contains(i) : _selectedAnswer == i;
     final bool isDisabled = _phase != GamePhase.playing;
 
     Color bgColor = Colors.white.withValues(alpha: 0.05);
@@ -1488,6 +1605,9 @@ try {
       textColor = Colors.redAccent;
     } else if (isSelected && isRevealingAnswer) {
       bgColor = Colors.orangeAccent.withValues(alpha: 0.2);
+      borderColor = Colors.orangeAccent;
+    } else if (isSelected && q.isMultipleAnswer) {
+      bgColor = Colors.orangeAccent.withValues(alpha: 0.1);
       borderColor = Colors.orangeAccent;
     }
 
@@ -2001,8 +2121,12 @@ try {
                     const SizedBox(height: 8),
                     // Options
                     ...List.generate(q.options.length, (optIdx) {
-                      final isCorrectOpt = q.correctAnswer == optIdx;
-                      final isUserAnswer = answer == optIdx;
+                      final isCorrectOpt = q.isMultipleAnswer
+                          ? q.correctAnswers.contains(optIdx)
+                          : q.correctAnswer == optIdx;
+                      final isUserAnswer = q.isMultipleAnswer
+                          ? (answer != null && answer >= 0 && q.correctAnswers.contains(answer) && answer == optIdx) || answer == optIdx
+                          : answer == optIdx;
                       Color optColor = Colors.white54;
                       IconData? leading;
                       if (isCorrectOpt) {

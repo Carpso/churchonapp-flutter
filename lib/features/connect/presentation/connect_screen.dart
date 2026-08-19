@@ -8,6 +8,7 @@ import '../data/social_service.dart';
 import 'widgets/social_post_card.dart';
 import 'kingdom_klips_screen.dart';
 import 'communities_screen.dart';
+import 'ministries_screen.dart';
 import 'create_social_post_screen.dart';
 import 'interchurch_network_screen.dart';
 import 'network_activity_screen.dart';
@@ -32,7 +33,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this, initialIndex: 0);
+    _tabController = TabController(length: 5, vsync: this, initialIndex: 0);
   }
 
   @override
@@ -72,6 +73,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
             tabs: [
               Tab(icon: Icon(LucideIcons.rss, size: 20), text: "Feed"),
               Tab(icon: Icon(LucideIcons.users, size: 20), text: "Communities"),
+              Tab(icon: Icon(LucideIcons.church, size: 20), text: "Ministries"),
               Tab(icon: Icon(LucideIcons.video, size: 20), text: "Klips"),
               Tab(icon: Icon(LucideIcons.gamepad2, size: 20), text: "Games"),
             ],
@@ -92,6 +94,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
                     children: [
                       _buildChurchSocial(),
                       const CommunitiesScreen(),
+                      const MinistriesScreen(),
                       const KingdomKlipsScreen(),
                       const KingdomGamesHubScreen(),
                     ],

@@ -12,43 +12,61 @@ class QuizQuestion {
   final String question;
   final List<String> options;
   final int correctAnswer;
+  final List<int> correctAnswers;
   final String difficulty;
   final String category;
   final String? scriptureReference;
   final String? style;
   final int points;
   final bool isSuperadminOnly;
+  final String type;
 
   QuizQuestion({
     required this.id,
     required this.question,
     required this.options,
     required this.correctAnswer,
+    this.correctAnswers = const [],
     required this.difficulty,
     required this.category,
     this.scriptureReference,
     this.style,
     this.points = 10,
     this.isSuperadminOnly = false,
+    this.type = 'choice',
   });
 
   factory QuizQuestion.fromMap(Map<String, dynamic> map) {
+    final type = map['type'] as String? ?? 'choice';
+    final ca = map['correct_answer'];
+    final cas = map['correct_answers'];
+    List<int> parsedCorrectAnswers = [];
+    if (cas != null) {
+      if (cas is List) {
+        parsedCorrectAnswers = cas.map((e) => (e as num).toInt()).toList();
+      } else if (cas is Map && cas['answers'] is List) {
+        parsedCorrectAnswers = (cas['answers'] as List).map((e) => (e as num).toInt()).toList();
+      }
+    }
+    final int singleCorrect = ca != null ? (ca as num).toInt() : (parsedCorrectAnswers.isNotEmpty ? parsedCorrectAnswers.first : 0);
     return QuizQuestion(
       id: map['id']?.toString() ?? '',
       question: map['question'] ?? '',
       options: List<String>.from(map['options'] ?? []),
-      correctAnswer: map['correct_answer'] ?? 0,
+      correctAnswer: singleCorrect,
+      correctAnswers: parsedCorrectAnswers,
       difficulty: map['difficulty'] ?? 'Medium',
       category: map['category'] ?? 'General',
       scriptureReference: map['scripture_reference'],
       style: map['style'],
       points: map['points'] ?? 10,
       isSuperadminOnly: map['is_superadmin_only'] == true,
+      type: type,
     );
   }
 
   bool get isMultipleAnswer =>
-      options.where((o) => o.contains(' and ') || o.contains(',')).length > 1;
+      type == 'multiple' || type == 'all_that_apply' || correctAnswers.length > 1;
 }
 
 class QuizSessionResult {
@@ -77,8 +95,16 @@ class QuizSessionResult {
   int get score {
     int s = 0;
     for (int i = 0; i < questions.length; i++) {
-      if (answers[i] == questions[i].correctAnswer) {
-        s += questions[i].points;
+      final q = questions[i];
+      final a = answers[i];
+      if (q.isMultipleAnswer) {
+        if (a != null && a >= 0 && q.correctAnswers.contains(a)) {
+          s += q.points;
+        }
+      } else {
+        if (a == q.correctAnswer) {
+          s += q.points;
+        }
       }
     }
     return s;
@@ -95,7 +121,13 @@ class QuizSessionResult {
     if (questions.isEmpty) return 0;
     int correct = 0;
     for (int i = 0; i < questions.length; i++) {
-      if (answers[i] == questions[i].correctAnswer) correct++;
+      final q = questions[i];
+      final a = answers[i];
+      if (q.isMultipleAnswer) {
+        if (a != null && a >= 0 && q.correctAnswers.contains(a)) correct++;
+      } else {
+        if (a == q.correctAnswer) correct++;
+      }
     }
     return correct / questions.length;
   }
@@ -103,7 +135,15 @@ class QuizSessionResult {
   List<QuizQuestion> get wrongQuestions {
     final list = <QuizQuestion>[];
     for (int i = 0; i < questions.length; i++) {
-      if (answers[i] != questions[i].correctAnswer) list.add(questions[i]);
+      final q = questions[i];
+      final a = answers[i];
+      bool isWrong;
+      if (q.isMultipleAnswer) {
+        isWrong = a == null || a < 0 || !q.correctAnswers.contains(a);
+      } else {
+        isWrong = a != q.correctAnswer;
+      }
+      if (isWrong) list.add(q);
     }
     return list;
   }

@@ -16,10 +16,19 @@ class BibleQuizResultsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    int correctCount = 0;
-    for (int i = 0; i < result.answers.length; i++) {
-      if (result.answers[i] == result.questions[i].correctAnswer) correctCount++;
+  // Correct answer count for hero section
+  int correctCount = 0;
+  for (int i = 0; i < result.answers.length; i++) {
+    final a = result.answers[i];
+    final q = result.questions[i];
+    if (q.isMultipleAnswer) {
+      // For multi-select, correctness was determined per-question in the arena;
+      // we count the first selected answer as correct if it's in correctAnswers
+      if (a != null && a >= 0 && q.correctAnswers.contains(a)) correctCount++;
+    } else {
+      if (a != null && a >= 0 && a == q.correctAnswer) correctCount++;
     }
+  }
     final wrongCount = result.questions.length - correctCount;
     final accuracy = result.correctRate;
 
@@ -359,7 +368,14 @@ class BibleQuizResultsScreen extends ConsumerWidget {
     final questions = result.questions;
     for (var i = 0; i < answers.length && i < questions.length; i++) {
       final a = answers[i];
-      if (a != null && a >= 0 && a == questions[i].correctAnswer) {
+      final q = questions[i];
+      final bool isCorrect;
+      if (q.isMultipleAnswer) {
+        isCorrect = a != null && a >= 0 && q.correctAnswers.contains(a);
+      } else {
+        isCorrect = a != null && a >= 0 && a == q.correctAnswer;
+      }
+      if (isCorrect) {
         streak++;
         if (streak >= 3) bonus += 5;
       } else {
@@ -433,7 +449,13 @@ class BibleQuizResultsScreen extends ConsumerWidget {
       final cat = result.questions[i].category;
       map.putIfAbsent(cat, () => []);
       final answer = result.answers[i];
-      final isCorrect = answer == result.questions[i].correctAnswer;
+      final q = result.questions[i];
+      final bool isCorrect;
+      if (q.isMultipleAnswer) {
+        isCorrect = answer != null && answer >= 0 && q.correctAnswers.contains(answer);
+      } else {
+        isCorrect = answer == q.correctAnswer;
+      }
       map[cat]!.add(isCorrect);
     }
     return map.entries
@@ -630,7 +652,7 @@ class BibleQuizResultsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Answer: ${q.options[q.correctAnswer]}',
+                      'Answer: ${q.isMultipleAnswer ? q.correctAnswers.map((a) => q.options[a]).join(', ') : q.options[q.correctAnswer]}',
                       style: const TextStyle(
                         color: Colors.greenAccent,
                         fontSize: 13,
