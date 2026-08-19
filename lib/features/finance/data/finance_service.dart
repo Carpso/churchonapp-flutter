@@ -198,7 +198,7 @@ class FinanceService {
 Future<ChurchGivingOverview> getChurchGivingOverview(String tenantId) async {
     final res = await _client.rpc('get_church_giving_overview', params: {
       'p_tenant_id': tenantId,
-    });
+    }).timeout(const Duration(seconds: 15));
     final map = (res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{});
     final giversRaw = map['recent_givers'];
     final givers = <RecentGiver>[];

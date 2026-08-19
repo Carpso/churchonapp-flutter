@@ -28,6 +28,7 @@ class NotificationsScreen extends ConsumerWidget {
       case 'payment': return LucideIcons.checkCircle;
       case 'event': return LucideIcons.bell;
       case 'chat': return LucideIcons.messageCircle;
+      case 'pvp_invite': return LucideIcons.swords;
       default: return LucideIcons.bell;
     }
   }
@@ -40,6 +41,7 @@ class NotificationsScreen extends ConsumerWidget {
       case 'payment': return Colors.green;
       case 'event': return brand.withValues(alpha: 0.75);
       case 'chat': return brand.withValues(alpha: 0.55);
+      case 'pvp_invite': return Colors.deepPurple;
       default: return Colors.grey;
     }
   }
@@ -188,6 +190,8 @@ class NotificationsScreen extends ConsumerWidget {
           context.go('/sermons');
         case 'prayer':
           context.go('/connect');
+        case 'pvp_invite':
+          context.go('/quiz');
         default:
           context.go('/');
       }

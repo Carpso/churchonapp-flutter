@@ -108,9 +108,7 @@ class NetworkService {
     try {
       final tenant = _ref.read(currentTenantProvider);
 
-      var query = _client
-          .from('churches')
-          .select('*, church_connections!left(connected_church_id)');
+      var query = _client.from('churches').select('*, church_connections!left(connected_church_id)');
 
       if (tenant != null) {
         query = query.neq('id', tenant.id);
@@ -121,7 +119,28 @@ class NetworkService {
         filterBuilder = filterBuilder.or('name.ilike.%$search%,address.ilike.%$search%');
       }
       final data = await filterBuilder.limit(50);
-      return (data as List).map((map) => ConnectedChurch.fromMap(map)).toList();
+
+      final memberCounts = <String, int>{};
+      try {
+        final counts = await _client.rpc('get_church_member_counts');
+        if (counts is List) {
+          for (final row in counts) {
+            final churchId = (row as Map)['church_id']?.toString();
+            if (churchId != null) {
+              memberCounts[churchId] = ((row['member_count'] as num?) ?? 0).toInt();
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching member counts: $e');
+      }
+
+      return (data as List).map((map) {
+        return ConnectedChurch.fromMap({
+          ...map,
+          'member_count': memberCounts[map['id']?.toString()] ?? 0,
+        });
+      }).toList();
     } catch (e) {
       debugPrint('Error fetching connected churches: $e');
       return [];

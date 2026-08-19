@@ -65,23 +65,8 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell>
           );
       // Activate offline write queue
       ref.read(offlineServiceProvider).startAutoSync();
-      // Auto-collect daily coins (cooldown-checked server-side-safe: returns
-      // 0 when already collected today, so this is at most once per 20h)
-      final coinsSvc = ref.read(coinsServiceProvider);
-      coinsSvc.collectDailyCoins().then((earned) {
-        if (earned > 0) {
-          ref
-              .read(userActivityServiceProvider)
-              .logActivity(
-                type: ActivityType.coinCollected,
-                description: 'Daily coin reward',
-                coinsEarned: earned,
-              );
-        }
-      }).catchError((e) {
-        debugPrint('Daily coin auto-collect failed: $e');
-      });
       // Tiered app-open streak bonus (5/10/20/30 by day bucket, once per day)
+      final coinsSvc = ref.read(coinsServiceProvider);
       final streakCount = ref.read(profileProvider).asData?.value?.streakCount ?? 0;
       coinsSvc.collectAppOpenStreakReward(streakCount).then((earned) {
         if (earned > 0) {

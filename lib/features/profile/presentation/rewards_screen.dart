@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/coins_service.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
@@ -71,9 +72,9 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
         if (mounted) PremiumToast.showError(context, 'Come back later! You can collect again in ~20h.');
         return;
       }
-      await svc.collectDailyCoins();
+      final earned = await svc.collectDailyCoins();
       ref.invalidate(profileProvider);
-      if (mounted) PremiumToast.showSuccess(context, '+25 Coins collected!', title: 'Daily Reward');
+      if (mounted) PremiumToast.showSuccess(context, '+$earned Coins collected!', title: 'Daily Reward');
     } catch (e) {
       if (mounted) PremiumToast.showError(context, 'Already collected today. Come back tomorrow!');
     } finally {
@@ -201,6 +202,7 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
 
   Widget _buildDailyCollect(ThemeData theme) {
     final scheme = theme.colorScheme;
+    final dailyCoins = currentRemoteConfig(ref).getInt('coins_daily_open_reward', 25);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -226,7 +228,7 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
               children: [
                 Text('Daily Reward', style: TextStyle(color: scheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 4),
-                Text('Collect 25 Coins every day', style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5), fontSize: 12)),
+                Text('Collect $dailyCoins Coins every day', style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5), fontSize: 12)),
               ],
             ),
           ),

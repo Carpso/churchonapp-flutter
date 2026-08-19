@@ -551,9 +551,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
     final brand = Theme.of(context).primaryColor;
     final features = [
       (LucideIcons.coins, "Fundraising", "Active campaigns", '/fundraising', brand),
-      (LucideIcons.users, "Group Giving", "Give together", '/fundraising/groups', brand.withValues(alpha: 0.8)),
       (LucideIcons.scrollText, "My Pledges", "Track promises", '/my-pledges', brand.withValues(alpha: 0.6)),
-      (LucideIcons.history, "Giving History", "All transactions", '/giving-history', brand.withValues(alpha: 0.45)),
       (LucideIcons.creditCard, "Tithe Card", "Physical giving card", '/tithe-card', Colors.amber),
       (LucideIcons.bellRing, "Transaction Alerts", "Monitor giving activity", '/alerts', Colors.deepOrange),
       (LucideIcons.wallet, "Wallet", "Manage funds", '/wallet', Colors.green),

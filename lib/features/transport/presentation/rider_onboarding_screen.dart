@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/features/give/presentation/widgets/momo_phone_input_widget.dart';
 
 class RiderOnboardingScreen extends ConsumerStatefulWidget {
   const RiderOnboardingScreen({super.key});
@@ -32,9 +35,68 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
   bool _licenseUploaded = false;
   bool _idUploaded = false;
 
+  @override
+  void initState() {
+    super.initState();
+    final profile = ref.read(profileProvider).value;
+    if (profile != null) {
+      final name = profile.name;
+      if (name.isNotEmpty) _fullName = name;
+      final phone = profile.phoneNumber ?? '';
+      if (phone.isNotEmpty) _phone = phone;
+      final email = profile.email ?? '';
+      if (email.isNotEmpty) _email = email;
+      if (_phone.isNotEmpty) {
+        _payoutNumber = _phone;
+        _payoutOperator = _networkFromPhone(_phone);
+      }
+    }
+  }
+
+  String _networkFromPhone(String phone) {
+    final detected = MomoPhoneInputWidget.detectNetwork(phone);
+    return detected.toLowerCase();
+  }
+
+  void _onPhoneChanged(String value) {
+    _phone = value;
+    if (value.length >= 10) {
+      final detected = _networkFromPhone(value);
+      if (detected != _payoutOperator) {
+        setState(() => _payoutOperator = detected);
+      }
+    }
+  }
+
+  void _onPayoutPhoneChanged(String value) {
+    _payoutNumber = value;
+    if (value.length >= 10) {
+      final detected = _networkFromPhone(value);
+      if (detected != _payoutOperator) {
+        setState(() => _payoutOperator = detected);
+      }
+    }
+  }
+
   void _handleNext() {
     final key = _formKeys[_step - 1];
     if (key.currentState != null && !key.currentState!.validate()) return;
+    if (_step == 2 && !_vehicleUploaded) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vehicle photo is required before continuing'), backgroundColor: Colors.orange),
+        );
+      }
+      return;
+    }
+    if (_step == 3 && (!_licenseUploaded || !_idUploaded)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Driver's License and National ID are both required"), backgroundColor: Colors.orange),
+        );
+      }
+      return;
+    }
     if (_step < 4) {
       setState(() => _step++);
     }
@@ -56,15 +118,20 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
 
       Future<String?> uploadToR2(String filePath, String folder) async {
         try {
+          final file = File(filePath);
+          final bytes = await file.readAsBytes();
+          if (bytes.isEmpty) return null;
+
           final ext = filePath.split('.').last;
           final fileName = '$userId-${DateTime.now().millisecondsSinceEpoch}.$ext';
-          final key = '$folder/$fileName';
+          final contentType = ext == 'pdf' ? 'application/pdf' : 'image/$ext';
+          final key = '$folder/$userId/$fileName';
 
           final response = await client.functions.invoke('r2-sign', body: {
             'action': 'write',
             'folder': folder,
-            'filename': fileName,
-            'contentType': 'image/$ext',
+            'filename': '$userId/$fileName',
+            'contentType': contentType,
           });
 
           if (response.data == null) return null;
@@ -72,11 +139,18 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
           final uploadUrl = data['signedUrl'] as String?;
           if (uploadUrl == null) return null;
 
-          await client.functions.invoke('r2-sign', body: {
-            'action': 'read',
-            'key': key,
-          });
+          final uploadResponse = await http.put(
+            Uri.parse(uploadUrl),
+            body: bytes,
+            headers: {'Content-Type': contentType},
+          );
+          if (uploadResponse.statusCode != 200) {
+            debugPrint('R2 upload PUT failed: ${uploadResponse.statusCode}');
+            return null;
+          }
 
+          final publicUrl = data['publicUrl'] as String?;
+          if (publicUrl != null && publicUrl.isNotEmpty) return publicUrl;
           return key;
         } catch (e) {
           debugPrint('R2 upload failed for $folder: $e');
@@ -94,6 +168,15 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
         idPhotoUrl = await uploadToR2(_idPhotoPath!, 'driver-documents');
       }
 
+      if (vehiclePhotoUrl == null || licensePhotoUrl == null || idPhotoUrl == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Document upload failed. Please try again.'), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+
       await client.from('driver_applications').insert({
         'user_id': userId,
         'tenant_id': tenantId,
@@ -104,9 +187,9 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
         'license_plate': _licensePlate,
         'vehicle_make_model': _makeModel,
         'vehicle_color': _color,
-        'vehicle_photo_url': vehiclePhotoUrl ?? _vehiclePhotoPath,
-        'drivers_license_url': licensePhotoUrl ?? _licensePhotoPath,
-        'national_id_url': idPhotoUrl ?? _idPhotoPath,
+        'vehicle_photo_url': vehiclePhotoUrl,
+        'drivers_license_url': licensePhotoUrl,
+        'national_id_url': idPhotoUrl,
         'payout_operator': _payoutOperator,
         'payout_number': _payoutNumber,
         'status': 'pending',
@@ -264,7 +347,7 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
                 return null;
               }),
               const SizedBox(height: 15),
-              _buildTextField("Phone Number", "e.g. 0977 123 456", (val) => _phone = val, isNumber: true, validator: (v) {
+              _buildTextField("Phone Number", "e.g. 0977 123 456", _onPhoneChanged, isNumber: true, validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Required';
                 if (v.replaceAll(RegExp(r'\D'), '').length < 10) return 'Min 10 digits';
                 return null;
@@ -289,7 +372,11 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
                     Text("Payout Settings", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800)),
                     Text("Where we send your earnings", style: TextStyle(color: Colors.green.shade600, fontSize: 12)),
                     const SizedBox(height: 15),
-                    _buildTextField("Mobile Money Number", "097XXXXXXX", (val) => _payoutNumber = val, isNumber: true),
+                    _buildTextField("Mobile Money Number", "097XXXXXXX", _onPayoutPhoneChanged, isNumber: true, validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Required';
+                      if (v.replaceAll(RegExp(r'\D'), '').length < 10) return 'Min 10 digits';
+                      return null;
+                    }),
                     const SizedBox(height: 15),
                     const Text("Mobile Network", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                     const SizedBox(height: 10),

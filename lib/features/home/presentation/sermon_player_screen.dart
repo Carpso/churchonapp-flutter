@@ -106,7 +106,29 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
         child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildPlayer(),
+          Stack(
+            children: [
+              _buildPlayer(),
+              SafeArea(
+                bottom: false,
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Material(
+                      color: Colors.black45,
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        icon: const Icon(LucideIcons.arrowLeft, color: Colors.white, size: 20),
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        tooltip: 'Back',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(25),

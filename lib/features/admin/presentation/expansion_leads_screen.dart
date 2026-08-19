@@ -160,6 +160,16 @@ class _ExpansionLeadsScreenState extends ConsumerState<ExpansionLeadsScreen> {
               ],
             ),
           ],
+          if (lead['phone_number'] != null && lead['phone_number'].toString().trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(LucideIcons.phone, size: 14, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                const SizedBox(width: 6),
+                Text(lead['phone_number'].toString(), style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7), fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ],
           if (createdAt != null) ...[
             const SizedBox(height: 8),
             Text('Requested: ${_formatDate(createdAt)}', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
@@ -204,6 +214,7 @@ class _ExpansionLeadsScreenState extends ConsumerState<ExpansionLeadsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _detailRow("Location", lead['location']?.toString() ?? '—'),
+              _detailRow("Phone", lead['phone_number']?.toString() ?? '—'),
               _detailRow("Type", lead['interest_type']?.toString() ?? '—'),
               _detailRow("Status", lead['status']?.toString() ?? '—'),
               _detailRow("Created", lead['created_at']?.toString() ?? '—'),

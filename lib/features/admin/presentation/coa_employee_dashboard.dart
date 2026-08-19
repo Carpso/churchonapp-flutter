@@ -47,30 +47,60 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
       final client = Supabase.instance.client;
 
       final activeChurchesRes = await client.from('churches').select('id').eq('is_verified', true);
-      final pendingRes = await client.from('churches').select('id, name, email, contact_phone, location, is_verified, subscription_ends_at, logo_url').eq('is_verified', false);
-      final pendingList = List<Map<String, dynamic>>.from(pendingRes);
 
-      final paymentsRes = await client.from('churches').select('id, name, email, contact_phone, location, payment_reference, payment_amount, is_verified').not('payment_reference', 'is', null);
-      final paymentsList = List<Map<String, dynamic>>.from(paymentsRes)
-          .where((c) => (c['payment_reference'] as String?)?.isNotEmpty == true)
-          .toList();
-
-      final profilesRes = await client.from('profiles').select('id');
-      final usersCount = profilesRes.length;
-
-      final txsRes = await client.from('transactions').select('platform_fee');
+      List<Map<String, dynamic>> pendingList = [];
+      List<Map<String, dynamic>> paymentsList = [];
+      List<CoaPayment> coaPayments = [];
+      int usersCount = 0;
       double rev1 = 0.0;
-      for (final row in txsRes) {
-        rev1 += (row['platform_fee'] as num?)?.toDouble() ?? 0.0;
-      }
-
-      final wTxsRes = await client.from('wallet_transactions').select('platform_fee');
       double rev2 = 0.0;
-      for (final row in wTxsRes) {
-        rev2 += (row['platform_fee'] as num?)?.toDouble() ?? 0.0;
+
+      try {
+        final pendingRes = await client.from('churches').select('id, name, email, contact_phone, location, is_verified, subscription_ends_at, logo_url').eq('is_verified', false);
+        pendingList = List<Map<String, dynamic>>.from(pendingRes);
+      } catch (e) {
+        debugPrint("COA stats: pending churches query failed: $e");
       }
 
-      final coaPayments = await ref.read(coaPaymentServiceProvider).getPendingPayments();
+      try {
+        final paymentsRes = await client.from('churches').select('id, name, email, contact_phone, location, payment_reference, payment_amount, is_verified').not('payment_reference', 'is', null);
+        paymentsList = List<Map<String, dynamic>>.from(paymentsRes)
+            .where((c) => (c['payment_reference'] as String?)?.isNotEmpty == true)
+            .toList();
+      } catch (e) {
+        debugPrint("COA stats: payment churches query failed: $e");
+      }
+
+      try {
+        final profilesRes = await client.from('profiles').select('id');
+        usersCount = profilesRes.length;
+      } catch (e) {
+        debugPrint("COA stats: profiles query failed: $e");
+      }
+
+      try {
+        final txsRes = await client.from('transactions').select('platform_fee');
+        for (final row in txsRes) {
+          rev1 += (row['platform_fee'] as num?)?.toDouble() ?? 0.0;
+        }
+      } catch (e) {
+        debugPrint("COA stats: transactions query failed: $e");
+      }
+
+      try {
+        final wTxsRes = await client.from('wallet_transactions').select('platform_fee');
+        for (final row in wTxsRes) {
+          rev2 += (row['platform_fee'] as num?)?.toDouble() ?? 0.0;
+        }
+      } catch (e) {
+        debugPrint("COA stats: wallet_transactions query failed: $e");
+      }
+
+      try {
+        coaPayments = await ref.read(coaPaymentServiceProvider).getPendingPayments();
+      } catch (e) {
+        debugPrint("COA stats: coa payments query failed: $e");
+      }
 
       if (mounted) {
         setState(() {

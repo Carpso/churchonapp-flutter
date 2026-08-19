@@ -38,9 +38,7 @@ class SocialPostCard extends StatelessWidget {
                 Expanded(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () => post.tenantId != null && post.tenantId!.isNotEmpty
-                        ? context.push('/church-social/${post.tenantId}')
-                        : context.push('/profile-by-id/${post.userId}'),
+                    onTap: () => context.push('/profile-by-id/${post.userId}'),
                     child: Row(
                       children: [
                         post.userAvatar != null && post.userAvatar!.isNotEmpty

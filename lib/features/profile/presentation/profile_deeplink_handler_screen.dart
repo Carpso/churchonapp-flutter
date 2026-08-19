@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/providers/profile_provider.dart';
+import '../../connect/data/social_service.dart';
+import '../../connect/presentation/widgets/social_post_card.dart';
 import 'profile_screen.dart';
 
 class ProfileDeepLinkHandlerScreen extends ConsumerWidget {
@@ -103,20 +107,88 @@ class ProfileDeepLinkHandlerScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 24),
-        const Center(
-          child: Text(
-            'Tap below to view your own profile',
-            style: TextStyle(fontSize: 12),
+        _buildPostsSection(context, data['id']?.toString() ?? ''),
+        const SizedBox(height: 24),
+        if (current != null && current.id == data['id']) ...[
+          const Center(
+            child: Text(
+              'Tap below to view your own profile',
+              style: TextStyle(fontSize: 12),
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Center(
-          child: TextButton.icon(
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
-            },
-            icon: const Icon(Icons.person),
-            label: const Text('My Profile'),
+          const SizedBox(height: 8),
+          Center(
+            child: TextButton.icon(
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
+              },
+              icon: const Icon(Icons.person),
+              label: const Text('My Profile'),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildPostsSection(BuildContext context, String userId) {
+    final postsAsync = ref.watch(_memberPostsProvider(userId));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('POSTS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+        const SizedBox(height: 16),
+        postsAsync.when(
+          data: (posts) {
+            if (posts.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    Icon(LucideIcons.messageSquareText, size: 32, color: Colors.grey.shade400),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No posts yet. Share what God is doing in your life on the Connect tab!',
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+            }
+            return Column(
+              children: posts.map((post) {
+                return SocialPostCard(
+                  post: post,
+                  formatTimeAgo: (time) {
+                    final diff = DateTime.now().difference(time);
+                    if (diff.inMinutes < 1) return 'Just now';
+                    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+                    if (diff.inDays < 1) return '${diff.inHours}h ago';
+                    if (diff.inDays < 7) return '${diff.inDays}d ago';
+                    return '${time.day}/${time.month}/${time.year}';
+                  },
+                );
+              }).toList(),
+            );
+          },
+          loading: () => const Padding(
+            padding: EdgeInsets.all(20),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+          ),
+          error: (e, _) => Padding(
+            padding: const EdgeInsets.all(20),
+            child: Center(
+              child: Text(
+                'Could not load posts',
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              ),
+            ),
           ),
         ),
       ],
@@ -179,4 +251,9 @@ final _publicProfileProvider = FutureProvider.family<Map<String, dynamic>?, Stri
   }
 
   return {...profile, 'tenant_name': tenantName};
+});
+
+final _memberPostsProvider = FutureProvider.family<List<SocialPost>, String>((ref, userId) async {
+  if (userId.isEmpty) return const [];
+  return ref.read(socialServiceProvider).fetchUserPosts(userId);
 });

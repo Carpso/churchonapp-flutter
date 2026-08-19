@@ -71,10 +71,30 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
       final existing = await client.from('tenants').select('id').ilike('name', _nameController.text.trim()).maybeSingle();
       if (existing != null) {
         if (mounted) {
-          showAppSnackBar(
-            context,
-            'A church with this name already exists',
-            status: AppStatus.error,
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Icon(LucideIcons.warningCircle, color: Colors.orange, size: 40),
+              content: const Text("This church is already registered"),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    // Navigate to login screen instead of blocking
+                    if (mounted) {
+                      Navigator.of(context).pushNamed('/login');
+                    }
+                  },
+                  child: const Text("Login"),
+                ),
+              ],
+            ),
           );
         }
         return;

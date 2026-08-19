@@ -30,8 +30,7 @@ import 'camera_settings_screen.dart';
 import 'emergency_contacts_screen.dart';
 import 'rewards_screen.dart';
 import 'certificates_screen.dart';
-import '../../connect/data/social_service.dart';
-import '../../connect/presentation/widgets/social_post_card.dart';
+
 import '../../connect/presentation/connect_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -43,8 +42,6 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKeepAliveClientMixin {
-  bool _showAllPosts = false;
-
   @override
   bool get wantKeepAlive => true;
 
@@ -96,8 +93,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
                       _buildCredentialsRow(profile),
                       const SizedBox(height: 24),
                       _buildActivityCard(context, ref),
-                      const SizedBox(height: 24),
-                      _buildMyPosts(context, profile),
                       const SizedBox(height: 24),
                       _buildPremiumWallet(context, profile, ref),
                       const SizedBox(height: 40),
@@ -347,105 +342,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
           Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55), letterSpacing: 1)),
         ],
       ),
-    );
-  }
-
-  Widget _buildMyPosts(BuildContext context, UserProfile profile) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        FutureBuilder<List<SocialPost>>(
-          future: ref.read(socialServiceProvider).fetchUserPosts(profile.id),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  children: [
-                    Text('MY POSTS',
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                            letterSpacing: 2.5)),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).primaryColor)),
-                  ],
-                ),
-              );
-            }
-            final posts = snapshot.data ?? const <SocialPost>[];
-            if (posts.isEmpty) {
-              return Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  children: [
-                    Icon(LucideIcons.messageSquare, size: 40, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2)),
-                    const SizedBox(height: 10),
-                    Text(
-                      "No posts yet. Share what God is doing in your life on the Connect tab!",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
-                    ),
-                  ],
-                ),
-              );
-            }
-            const previewCount = 2;
-            final visible = _showAllPosts ? posts : posts.take(previewCount).toList();
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(context, "${context.tr('My Posts').toUpperCase()} (${posts.length})"),
-                ...visible.map((post) {
-                  return SocialPostCard(
-                    post: post,
-                    formatTimeAgo: _formatTimeAgo,
-                    onCommentTap: () => showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (_) => CommentsSheet(postId: post.id),
-                    ),
-                  );
-                }),
-                if (posts.length > previewCount)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Center(
-                      child: OutlinedButton.icon(
-                        onPressed: () => setState(() => _showAllPosts = !_showAllPosts),
-                        icon: Icon(
-                          _showAllPosts ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-                          size: 16,
-                        ),
-                        label: Text(
-                          _showAllPosts
-                              ? context.tr('Show less').toUpperCase()
-                              : "${context.tr('See all').toUpperCase()} ${posts.length} ${context.tr('Posts')}",
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Theme.of(context).primaryColor,
-                          side: BorderSide(color: Theme.of(context).primaryColor.withValues(alpha: 0.5)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-      ],
     );
   }
 

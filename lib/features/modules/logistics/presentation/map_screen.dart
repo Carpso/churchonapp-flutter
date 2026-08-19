@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:church_on_app/core/widgets/church_map.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/services/plan_service.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -16,7 +17,7 @@ class MapScreen extends ConsumerStatefulWidget {
 }
 
 class _MapScreenState extends ConsumerState<MapScreen> {
-  // Zambia focus only — Zimbabwe is an expansion market, not shown here yet.
+  // Zambia focus only — Zimbabwe is an expansion market, shown to admin roles only.
   final LatLng _lusaka = const LatLng(-15.3875, 28.3228);
 
   LatLng _center = const LatLng(-15.3875, 28.3228);
@@ -50,8 +51,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             );
     if (mounted) {
       setState(() {
-        // Zimbabwe seed branches (zw_*) are not part of the Zambian map yet.
-        _churches = churches.where((c) => !c.id.startsWith('zw_')).toList();
+        // Include zw_ (Zimbabwe) churches only for platform roles
+        // (superadmin, coa_employee); hide from regular members.
+        final profile = ref.read(profileProvider).value;
+        final isAdminOrEmployee = profile?.isEmployee ?? false;
+        _churches = churches.where((c) => isAdminOrEmployee || !c.id.startsWith('zw_')).toList();
         _isLoading = false;
       });
     }

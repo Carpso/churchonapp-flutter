@@ -129,10 +129,21 @@ String _churchDisplayName(Tenant? tenant) {
         final chipBgColor = weatherAsync.when(
           data: (w) {
             if (w.isNight) return const Color(0xFF1E1B4B);
-            if (w.isRainy) return const Color(0xFF334155);
+            if (w.weatherCode >= 95) return const Color(0xFF4C1D95);
+            if (w.weatherCode >= 71 && w.weatherCode <= 77) {
+              return const Color(0xFF0E7490);
+            }
+            if (w.weatherCode >= 51 && w.weatherCode <= 67) {
+              return const Color(0xFF2563EB);
+            }
+            if (w.weatherCode >= 80 && w.weatherCode <= 82) {
+              return const Color(0xFF334155);
+            }
+            if (w.weatherCode == 45 || w.weatherCode == 48) {
+              return const Color(0xFF64748B);
+            }
             if (w.isHot) return const Color(0xFFDC2626);
             if (w.weatherCode == 3) return const Color(0xFF475569);
-            if (w.weatherCode >= 51 && w.weatherCode <= 67) return const Color(0xFF2563EB);
             return const Color(0xFF0369A1); // Clear sky
           },
           loading: () => const Color(0xFF0369A1),

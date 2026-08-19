@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:shimmer/shimmer.dart';
 
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
@@ -65,12 +64,27 @@ class GroupContributionListScreen extends ConsumerWidget {
           ),
         );
       },
-      loading: () => Shimmer.fromColors(
-          baseColor: Colors.grey[300]!,
-          highlightColor: Colors.grey[100]!,
-          child: const Center(child: CircularProgressIndicator(color: Color(0xFFFFB300))),
+      loading: () => const Center(
+          child: CircularProgressIndicator(color: Color(0xFFFFB300)),
         ),
-      error: (e, st) => Center(child: Text("Error: $e")),
+      error: (e, st) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(LucideIcons.wifiOff, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            const Text("Couldn't load group giving", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Text("$e", style: TextStyle(color: Colors.grey.shade500, fontSize: 12), textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => ref.invalidate(groupContributionsProvider(tenantId)),
+              icon: const Icon(LucideIcons.refreshCw, size: 16),
+              label: const Text("Retry"),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
