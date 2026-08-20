@@ -5,16 +5,15 @@
 -- into SECURITY DEFINER RPCs with explicit role gates; staff also gain a
 -- SELECT policy on profiles so pending-approval lists show real names.
 
--- Staff (COA/superadmin) can read any profile row.
+-- Staff (COA/superadmin) can read any profile row. Uses the SECURITY DEFINER
+-- is_admin_or_employee() helper (queries auth.users, NOT profiles) to avoid
+-- self-referential recursion on the profiles table — a self-referencing
+-- EXISTS(SELECT FROM profiles) policy caused Postgres 42P17 "infinite
+-- recursion detected in rules for relation profiles" on every profiles read
+-- (including live-streaming flows that subquery profiles).
 CREATE POLICY profiles_select_staff ON public.profiles
   FOR SELECT TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid()
-        AND p.role IN ('superadmin', 'super_admin', 'employee', 'coa_employee')
-    )
-  );
+  USING (is_admin_or_employee());
 
 -- Approve/reject a role assignment. Approving propagates the role to
 -- profiles.role (bypasses the self-only UPDATE policy — caller is gated).
