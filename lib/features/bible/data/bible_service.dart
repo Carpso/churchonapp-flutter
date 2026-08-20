@@ -202,7 +202,7 @@ class BibleService {
                 'https://bible-api.com/$encodedBook+$chapter?translation=$translation',
               ),
             )
-            .timeout(const Duration(seconds: 10));
+            .timeout(const Duration(seconds: 8));
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
@@ -259,6 +259,30 @@ class BibleService {
     } catch (e) {
       debugPrint('BibleService: Offline asset fallback failed: $e');
     }
+
+    // Complete bundled KJV (all 66 books, ~5 MB) — works with zero network
+    // and zero session. The small legacy asset only covers John/Psalms/Genesis.
+    if (translation == 'kjv') {
+      try {
+        final jsonString = await rootBundle.loadString(
+          'assets/offline_bible_kjv.json',
+        );
+        final Map<String, dynamic> allData = json.decode(jsonString);
+        final Map<String, dynamic>? translationData =
+            allData[translation] as Map<String, dynamic>?;
+        final Map<String, dynamic>? bookData =
+            translationData?[book] as Map<String, dynamic>?;
+        final List<dynamic>? chapterData =
+            bookData?[chapter.toString()] as List<dynamic>?;
+        if (chapterData != null) {
+          return chapterData
+              .map((v) => BibleVerse.fromJson(v as Map<String, dynamic>))
+              .toList();
+        }
+      } catch (e) {
+        debugPrint('BibleService: Full KJV offline asset failed: $e');
+      }
+    }
     return [];
   }
 
@@ -284,7 +308,7 @@ class BibleService {
       final folder = _r2Folder[translation] ?? translation;
       final response = await http
           .get(Uri.parse('$_r2Base/$folder/$fileName.json'))
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 6));
       if (response.statusCode != 200) return [];
       final data = json.decode(response.body) as Map<String, dynamic>;
       final chapters = data['chapters'] as Map<String, dynamic>? ?? {};
@@ -309,7 +333,7 @@ class BibleService {
           .select('id')
           .eq('code', translation)
           .maybeSingle()
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 5));
       if (transRow == null) return [];
 
       final bookRow = await client
@@ -317,7 +341,7 @@ class BibleService {
           .select('id')
           .eq('name', book)
           .maybeSingle()
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 5));
       if (bookRow == null) return [];
 
       final data = await client
@@ -327,7 +351,7 @@ class BibleService {
           .eq('book_id', bookRow['id'])
           .eq('chapter', chapter)
           .order('verse', ascending: true)
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 5));
 
       return (data as List)
           .map(
@@ -424,17 +448,19 @@ class BibleService {
 
 final bibleServiceProvider = Provider((ref) => BibleService());
 
+/// String-keyed so Riverpod compares by value: a Map key is compared by
+/// identity, so every rebuild created a fresh Map and re-ran the whole
+/// (multi-second, multi-source) chapter fetch — the reader could sit on a
+/// spinner or flicker to "No content found" on slow networks.
 final bibleChapterProvider =
-    FutureProvider.family<List<BibleVerse>, Map<String, dynamic>>((
-      ref,
-      params,
-    ) async {
+    FutureProvider.family<List<BibleVerse>, String>((ref, key) async {
+      final parts = key.split('|');
       return ref
           .watch(bibleServiceProvider)
           .getChapter(
-            params['translation'] ?? 'kjv',
-            params['book'] ?? 'John',
-            params['chapter'] ?? 1,
+            parts.isNotEmpty ? parts[0] : 'kjv',
+            parts.length > 1 ? parts[1] : 'John',
+            parts.length > 2 ? int.tryParse(parts[2]) ?? 1 : 1,
           );
     });
 

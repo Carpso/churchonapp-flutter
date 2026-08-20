@@ -228,11 +228,9 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
   Widget _buildBibleContent() {
     return ref
         .watch(
-          bibleChapterProvider({
-            'translation': selectedTranslation,
-            'book': selectedBook,
-            'chapter': selectedChapter,
-          }),
+          bibleChapterProvider(
+            '$selectedTranslation|$selectedBook|$selectedChapter',
+          ),
         )
         .when(
           data: (verses) {
@@ -288,11 +286,9 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                       ),
                     ElevatedButton(
                       onPressed: () => ref.invalidate(
-                        bibleChapterProvider({
-                          'translation': selectedTranslation,
-                          'book': selectedBook,
-                          'chapter': selectedChapter,
-                        }),
+                        bibleChapterProvider(
+                          '$selectedTranslation|$selectedBook|$selectedChapter',
+                        ),
                       ),
                       child: const Text("RETRY"),
                     ),
@@ -538,11 +534,9 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                 const SizedBox(height: 15),
                 ElevatedButton(
                   onPressed: () => ref.invalidate(
-                    bibleChapterProvider({
-                      'translation': selectedTranslation,
-                      'book': selectedBook,
-                      'chapter': selectedChapter,
-                    }),
+                    bibleChapterProvider(
+                      '$selectedTranslation|$selectedBook|$selectedChapter',
+                    ),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.amber,
@@ -628,8 +622,8 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           final existingNote = verseNotes.isEmpty ? null : verseNotes.first;
           final isBookmarked = existingNote?.isBookmark ?? false;
           final isFavorited = existingNote?.isFavorite ?? false;
-          final parallelCodes = ['kjv', 'web', 'nkjv']
-              .where((c) => c != selectedTranslation)
+          final parallelCodes = ['kjv', 'web']
+              .where((c) => c != selectedTranslation && BibleService.canResolve(c))
               .toList();
 
           return Container(
@@ -1194,11 +1188,9 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
 
   void _shareCurrentChapter() {
     final state = ref.read(
-      bibleChapterProvider({
-        'translation': selectedTranslation,
-        'book': selectedBook,
-        'chapter': selectedChapter,
-      }),
+      bibleChapterProvider(
+        '$selectedTranslation|$selectedBook|$selectedChapter',
+      ),
     );
     final verses = state.value;
     if (verses == null) return;

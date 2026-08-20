@@ -240,6 +240,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
+      // Wait for session recovery before deciding "logged out" — reading
+      // authState.user while Supabase is still restoring the persisted session
+      // bounced logged-in users to /login|/landing on every cold start / web
+      // reload (they appeared to be "logged out again").
+      if (authState.isLoading && state.uri.path != '/splash') {
+        return '/splash';
+      }
+
       final seenOnboarding = onboardingAsync.value ?? true;
       if (!seenOnboarding && state.uri.path != '/onboarding') {
         return '/onboarding';

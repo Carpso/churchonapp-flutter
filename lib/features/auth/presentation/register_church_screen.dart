@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import '../../../core/providers/auth_provider.dart';
@@ -108,6 +109,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
       final tenantId = tenantRes['id'] as String;
 
       await client.from('churches').insert({
+        'id': tenantId,
         'name': _nameController.text.trim(),
         'address': _locationController.text.trim(),
         'country': _detectedCountry,
@@ -128,6 +130,25 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
         'role': _selectedRole,
       }).eq('id', user.id);
 
+      // Record the role assignment BEFORE the tenant is activated: setTenant()
+      // re-derives the profile role from role_assignments (pastor in Tenant A
+      // is not automatically pastor in Tenant B), so an approved assignment
+      // must exist first — otherwise the fresh pastor/bishop role would be
+      // wiped back to 'member' and the role_assignments insert (RLS-gated on
+      // the caller already being a pastor/bishop) would fail afterwards.
+      try {
+        await client.from('role_assignments').insert({
+          'user_id': user.id,
+          'role_name': _selectedRole,
+          'tenant_id': tenantId,
+          'assigned_by': user.id,
+          'status': 'approved',
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      } catch (e) {
+        debugPrint('Role assignment audit insert failed: $e');
+      }
+
       // Make the new church the user's active tenant so the app switches
       // straight to the home shell (router watches currentTenantProvider).
       try {
@@ -140,22 +161,6 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
         debugPrint('Tenant activation failed (best-effort): $e');
       }
       ref.invalidate(profileProvider);
-
-      // Audit trail: record the role assignment for traceability.
-      // Best-effort only — a policy miss must never roll back a successful
-      // registration (profiles.role is the authoritative role source).
-      try {
-        await client.from('role_assignments').insert({
-          'user_id': user.id,
-          'role_name': _selectedRole,
-          'tenant_id': tenantId,
-          'assigned_by': user.id,
-          'status': 'approved',
-          'created_at': DateTime.now().toIso8601String(),
-        });
-      } catch (e) {
-        debugPrint('Role assignment audit insert skipped: $e');
-      }
 
       String? inviteCode;
       try {
@@ -278,7 +283,10 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
             child: ElevatedButton(
               onPressed: () {
                 Navigator.of(ctx).pop();
-                Navigator.of(ctx).pop();
+                // Explicitly land the new pastor/bishop on the app home shell —
+                // a bare Navigator.pop left landing-screen entries stuck on
+                // /register-church (nothing below the dialog to pop to).
+                context.go('/');
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.onSurface,

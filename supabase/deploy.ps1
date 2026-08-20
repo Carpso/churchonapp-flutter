@@ -218,8 +218,9 @@ $migrations = @(
      "20260890_church_auto_payout.sql"
      "20260891_fixes_onboarding_rls_audio.sql"
      "20260892_session_inactivity_config.sql"
-     "20260893_fix_quiz_leaderboard.sql"
-     "20260894_fix_noah_ark_audio.sql"
+"20260893_fix_quiz_leaderboard.sql"
+    "20260893_tenants_insert_any_authenticated.sql"
+    "20260894_fix_noah_ark_audio.sql"
      "20260895_quiz_security_hardening.sql"
      "20260896_quiz_tournament_gates.sql"
 "20260897_quiz_wager_tournaments_invites.sql"
@@ -255,6 +256,7 @@ $migrations = @(
     "20260926_carpso_ministries_bible_fixes.sql"
     "20260927_ops_dashboard_upgrade.sql"
     "20260928_org_branch_snapshots.sql"
+    "20260929_org_create_registration_fixes.sql"
     )
 
 foreach ($m in $migrations) {

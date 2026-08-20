@@ -41,6 +41,18 @@ class AuthNotifier extends Notifier<AuthState> {
       client.auth.onAuthStateChange.listen((data) {
         state = AuthState(user: data.session?.user);
       });
+      // Guard against the startup window where the persisted session is still
+      // being restored (web reload / PKCE redirect). Reading `currentUser`
+      // too early made the router believe the user logged out and bounce them
+      // to /login|/landing on every cold start. We hold `isLoading` and
+      // re-check a moment later so the router never sees a false "null user".
+      if (client.auth.currentUser == null) {
+        Future(() async {
+          await Future<void>.delayed(const Duration(seconds: 2));
+          state = AuthState(user: client.auth.currentUser);
+        });
+        return AuthState(isLoading: true, user: null);
+      }
       return AuthState(user: client.auth.currentUser);
     } catch (e) {
       debugPrint("AuthNotifier build error: $e");

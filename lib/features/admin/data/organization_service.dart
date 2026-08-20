@@ -350,6 +350,20 @@ class OrganizationService {
     await _client.rpc('unlink_church_from_org', params: {'p_church_id': churchId});
   }
 
+  /// Create a new organization (leadership-gated server-side). The caller
+  /// becomes bishop_id and their own church is auto-linked as the first branch.
+  /// Returns the new organization id, or null on failure.
+  Future<String?> createOrganization(String name) async {
+    try {
+      final res = await _client.rpc('create_organization', params: {'p_name': name});
+      return res?.toString();
+    } catch (e, s) {
+      debugPrint('createOrganization error: $e');
+      debugPrint(s.toString());
+      return null;
+    }
+  }
+
   /// Platform-wide revenue (transactions + wallet fees) — superadmin/COA only.
   Future<Map<String, dynamic>> getPlatformRevenueSummary({int months = 6}) async {
     try {

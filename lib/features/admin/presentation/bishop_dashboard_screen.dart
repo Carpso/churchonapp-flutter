@@ -175,6 +175,12 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
               icon: const Icon(LucideIcons.link),
               tooltip: 'Link Church to Network',
               onPressed: _isLoading ? null : () => _showLinkChurchSheet(),
+            )
+          else if (!isApostle)
+            IconButton(
+              icon: const Icon(LucideIcons.plus),
+              tooltip: 'Create Organization',
+              onPressed: _isLoading ? null : () => _showCreateOrgDialog(),
             ),
           IconButton(
             icon: const Icon(LucideIcons.refreshCw),
@@ -620,6 +626,64 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Church linked to the network")));
         _loadDashboard();
       }),
+    );
+  }
+
+  void _showCreateOrgDialog() {
+    final nameCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Create Organization"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "Your church becomes the HQ of a new organization network. You'll be its bishop, and you can link more churches to it.",
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nameCtrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: "Organization name",
+                hintText: "e.g. Kingdom Chapel International",
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final name = nameCtrl.text.trim();
+              if (name.isEmpty) return;
+              Navigator.pop(ctx);
+              final orgSvc = ref.read(organizationServiceProvider);
+              final orgId = await orgSvc.createOrganization(name);
+              if (!mounted) return;
+              if (orgId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Could not create organization. Only bishops/pastors can create one.")),
+                );
+                return;
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Organization created — your church is its HQ")),
+              );
+              ref.invalidate(profileProvider);
+              _loadDashboard();
+            },
+            child: const Text("Create"),
+          ),
+        ],
+      ),
     );
   }
 

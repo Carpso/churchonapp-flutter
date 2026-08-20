@@ -55,7 +55,7 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell>
       // Activate session guard (remote-config inactivity lockout)
       final timeoutMinutes = widgetRemoteConfig(ref).getInt(
         'session_inactivity_minutes',
-        5,
+        30,
       );
       ref
           .read(sessionGuardProvider)
@@ -92,9 +92,15 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Returning to the app counts as activity — restart the countdown.
     if (state == AppLifecycleState.resumed) {
+      ref.read(sessionGuardProvider).resumeMonitoring();
       ref.read(sessionGuardProvider).registerActivity();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.inactive) {
+      // Never let the inactivity countdown fire while the app is in the
+      // background — that was logging users out after a brief phone call.
+      ref.read(sessionGuardProvider).pauseMonitoring();
     }
   }
 
