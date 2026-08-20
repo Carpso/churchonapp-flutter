@@ -7,13 +7,12 @@ import '../../../core/widgets/shimmer_loader.dart';
 import '../data/social_service.dart';
 import 'widgets/social_post_card.dart';
 import 'kingdom_klips_screen.dart';
-import 'communities_screen.dart';
-import 'ministries_screen.dart';
+import 'community_hub_screen.dart';
 import 'create_social_post_screen.dart';
 import 'interchurch_network_screen.dart';
 import 'network_activity_screen.dart';
 import 'pastors_corner_screen.dart';
-import '../../modules/games/presentation/game_hub_screen.dart';
+import 'package:church_on_app/features/modules/bible_quiz/presentation/bible_quiz_hub_screen.dart';
 import '../../../core/utils/connectivity_util.dart';
 import 'package:church_on_app/features/navigation/presentation/main_navigation_shell.dart';
 
@@ -33,7 +32,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this, initialIndex: 0);
+    _tabController = TabController(length: 4, vsync: this, initialIndex: 0);
   }
 
   @override
@@ -73,9 +72,8 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
             tabs: [
               Tab(icon: Icon(LucideIcons.rss, size: 20), text: "Feed"),
               Tab(icon: Icon(LucideIcons.users, size: 20), text: "Communities"),
-              Tab(icon: Icon(LucideIcons.church, size: 20), text: "Ministries"),
               Tab(icon: Icon(LucideIcons.video, size: 20), text: "Klips"),
-              Tab(icon: Icon(LucideIcons.gamepad2, size: 20), text: "Games"),
+              Tab(icon: Icon(LucideIcons.trophy, size: 20), text: "Quiz"),
             ],
           ),
         ),
@@ -93,10 +91,9 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
                     controller: _tabController,
                     children: [
                       _buildChurchSocial(),
-                      const CommunitiesScreen(),
-                      const MinistriesScreen(),
+                      const CommunityHubScreen(),
                       const KingdomKlipsScreen(),
-                      const KingdomGamesHubScreen(),
+                      const BibleQuizHubScreen(),
                     ],
                   ),
                   const Positioned(

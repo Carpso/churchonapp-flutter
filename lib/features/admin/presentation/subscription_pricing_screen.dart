@@ -68,6 +68,7 @@ class _SubscriptionPricingScreenState extends ConsumerState<SubscriptionPricingS
     {'key': 'giving_monthly_goal_kwacha', 'label': 'Personal Monthly Giving Goal (K)', 'default': '500'},
     {'key': 'church_monthly_goal_kwacha', 'label': 'Church Monthly Giving Goal (K)', 'default': '10000'},
     {'key': 'session_inactivity_minutes', 'label': 'Session Inactivity Timeout (minutes)', 'default': '30'},
+    {'key': 'platform_theme_color', 'label': 'Platform Theme Color (hex, e.g. FFDA03 = sunflower yellow; blank = tenant colors)', 'default': 'FFDA03'},
     {'key': 'turnover_tax_percent', 'label': 'ZRA Turnover Tax % (e.g. 3.0 = 3%)', 'default': '3.0'},
     {'key': 'nhima_percent', 'label': 'NHIMA % of gross', 'default': '1.0'},
     {'key': 'napsa_percent', 'label': 'NAPSA % of gross', 'default': '5.0'},

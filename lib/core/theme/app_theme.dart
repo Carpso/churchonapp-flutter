@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/tenant_service.dart';
 import '../config/app_constants.dart';
+import '../config/remote_config.dart';
 
 /// The official Church On App brand color — Sunflower Yellow.
 const Color kSunflowerYellow = AppConstants.sunflowerYellow;
@@ -97,8 +98,33 @@ TextTheme _buildTextTheme(String fontFamily) {
 const double kMinUIFontSize = 11;
 
 class AppTheme {
+  /// Platform-level primary color override (superadmin-controlled via the
+  /// `platform_theme_color` remote config key, e.g. "FFDA03"). When set it
+  /// wins over every tenant's chosen color — used by theme-centric features
+  /// (Carpso Ride, Bible Quiz) and as a global override when configured.
+  static Color? platformPrimaryOverride;
+
+  /// Resolves the primary color for a theme: explicit platform override >
+  /// tenant color > sunflower yellow.
+  static Color resolvePrimary(Color? tenantPrimary) {
+    return platformPrimaryOverride ?? tenantPrimary ?? kSunflowerYellow;
+  }
+
+  /// The fixed platform accent for theme-centric features: sunflower yellow
+  /// unless a superadmin override is configured.
+  static Color get platformPrimary => platformPrimaryOverride ?? kSunflowerYellow;
+
+  /// Readable foreground for [platformPrimary] backgrounds (dark text on the
+  /// bright sunflower yellow, white on dark overrides).
+  static Color get onPlatformPrimary {
+    final c = platformPrimary;
+    final luminance =
+        (0.299 * (c.r * 255) + 0.587 * (c.g * 255) + 0.114 * (c.b * 255)) / 255;
+    return luminance > 0.6 ? const Color(0xFF1A1A1A) : Colors.white;
+  }
+
   static ThemeData getTheme(Tenant? tenant) {
-    final primary = tenant?.primaryColor ?? kSunflowerYellow;
+    final primary = resolvePrimary(tenant?.primaryColor);
     final secondary = tenant?.accentColor ?? AppConstants.primaryDark;
     final surface = tenant?.surfaceColor ?? AppConstants.surfaceWarm;
     const surfaceWhite = Colors.white;
@@ -308,7 +334,7 @@ class AppTheme {
   }
 
   static ThemeData getDarkTheme(Tenant? tenant) {
-    final primary = tenant?.primaryColor ?? kSunflowerYellow;
+    final primary = resolvePrimary(tenant?.primaryColor);
     final surface = const Color(0xFF121212);
     final cardColor = const Color(0xFF1E1E1E);
     final fontFamily = tenant?.fontFamily ?? 'Plus Jakarta Sans';
@@ -511,7 +537,7 @@ class AppTheme {
   }
 
   static LinearGradient getGradient(Tenant? tenant) {
-    final primary = tenant?.primaryColor ?? kSunflowerYellow;
+    final primary = resolvePrimary(tenant?.primaryColor);
     return LinearGradient(
       colors: [primary, primary.withValues(alpha: 0.8)],
       begin: Alignment.topLeft,
@@ -533,6 +559,22 @@ class AppThemeData {
 
 final appThemeProvider = Provider<AppThemeData>((ref) {
   final tenant = ref.watch(currentTenantProvider);
+  // Superadmin theme override (platform_settings `platform_theme_color`,
+  // hex without '#'). When set, it overrides ALL tenant theme colors.
+  final cfg = ref.watch(remoteConfigProvider).value;
+  if (cfg != null) {
+    final hex = cfg.getString('platform_theme_color', '').trim();
+    if (hex.isNotEmpty && hex.length >= 6) {
+      final parsed = int.tryParse(hex, radix: 16);
+      if (parsed != null) {
+        AppTheme.platformPrimaryOverride = Color(0xFF000000 | parsed);
+      } else {
+        AppTheme.platformPrimaryOverride = null;
+      }
+    } else {
+      AppTheme.platformPrimaryOverride = null;
+    }
+  }
   return AppThemeData(
     light: AppTheme.getTheme(tenant),
     dark: AppTheme.getDarkTheme(tenant),

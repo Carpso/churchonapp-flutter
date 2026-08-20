@@ -250,22 +250,20 @@ class RoleHierarchyService {
       throw Exception("Security Exception: Only COA management can approve platform-level roles.");
     }
 
-    await _supabase.client.from('role_assignments').update({
-      'status': 'approved',
-      'approved_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', assignmentId);
-
-    await _supabase.client.from('profiles').update({
-      'role': assignment['role_name'],
-    }).eq('id', assignment['user_id']);
+    // SECURITY DEFINER RPC: updates role_assignments + profiles.role with an
+    // explicit role gate (profiles UPDATE RLS is self-only, so a direct
+    // update always failed for COA staff and tenant leaders).
+    await _supabase.client.rpc('approve_role_assignment', params: {
+      'p_assignment_id': assignmentId,
+      'p_status': 'approved',
+    });
   }
 
   Future<void> rejectRole(String assignmentId, {String? reason}) async {
-    await _supabase.client.from('role_assignments').update({
-      'status': 'rejected',
-      'rejected_at': DateTime.now().toUtc().toIso8601String(),
-      'rejection_reason': reason,
-    }).eq('id', assignmentId);
+    await _supabase.client.rpc('approve_role_assignment', params: {
+      'p_assignment_id': assignmentId,
+      'p_status': 'rejected',
+    });
   }
 
   Future<List<TenantRole>> getTenantRoles(String? tenantId) async {
@@ -333,17 +331,11 @@ class RoleHierarchyService {
       }
     }
 
-    await _supabase.client.from('role_assignments').insert({
-      'user_id': userId,
-      'role_name': roleName,
-      'tenant_id': tenantId ?? callerTenantId,
-      'assigned_by': currentUser.id,
-      'status': 'approved',
-      'approved_at': DateTime.now().toUtc().toIso8601String(),
+    await _supabase.client.rpc('elevate_user_role', params: {
+      'p_user_id': userId,
+      'p_role_name': roleName,
+      'p_tenant_id': tenantId ?? callerTenantId,
     });
-    await _supabase.client.from('profiles').update({
-      'role': roleName,
-    }).eq('id', userId);
   }
 }
 

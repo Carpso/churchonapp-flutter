@@ -350,29 +350,30 @@ async function callHuggingFace(
     top_p: 0.9,
   });
 
-  // First attempt: fast (model should be warm from cron).
-  // If model is loading (503), retry with wait_for_model: true and longer timeout.
-  let hfResponse = await fetch(`${HF_API_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${hfToken}`,
-      "Content-Type": "application/json",
-    },
-    signal: AbortSignal.timeout(30_000),
-    body: chatBody,
-  });
-
-  // Cold-start: model is loading → wait for it
-  if (hfResponse.status === 503) {
-    hfResponse = await fetch(`${HF_API_BASE}/chat/completions`, {
+  const hfFetch = (timeoutMs: number) =>
+    fetch(`${HF_API_BASE}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${hfToken}`,
         "Content-Type": "application/json",
       },
-      signal: AbortSignal.timeout(90_000),
+      signal: AbortSignal.timeout(timeoutMs),
       body: chatBody,
     });
+
+  // Free-tier models sleep after ~15 min idle. A "loading" model may hold the
+  // request or abort it instead of answering 503 quickly — so the first
+  // attempt gets 60s and a retry with a 150s budget instead of failing fast.
+  let hfResponse: Response;
+  try {
+    hfResponse = await hfFetch(60_000);
+  } catch {
+    hfResponse = await hfFetch(150_000);
+  }
+
+  // Cold-start: model explicitly reports loading → wait for it
+  if (hfResponse.status === 503) {
+    hfResponse = await hfFetch(150_000);
   }
 
   if (!hfResponse.ok) {

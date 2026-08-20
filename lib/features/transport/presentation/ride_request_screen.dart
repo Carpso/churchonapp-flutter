@@ -10,6 +10,7 @@ import 'package:universal_io/io.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
+import 'package:church_on_app/core/theme/app_theme.dart';
 import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
 import 'package:geolocator/geolocator.dart';
 import '../data/transport_service.dart';
@@ -272,8 +273,8 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                       });
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primaryColor,
-                foregroundColor: theme.colorScheme.onPrimary,
+                backgroundColor: AppTheme.platformPrimary,
+                foregroundColor: AppTheme.onPlatformPrimary,
                 minimumSize: const Size(double.infinity, 56),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18)),
@@ -528,7 +529,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                     Icon(
                       cat['icon'] as IconData,
                       color: isSelected
-                          ? theme.primaryColor
+                          ? AppTheme.platformPrimary
                           : theme.colorScheme.onSurface.withValues(alpha: 0.5),
                       size: 18,
                     ),
@@ -621,7 +622,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                 ? "Delivery requested! Waiting for a courier to negotiate/confirm..."
                 : "Ride requested! Waiting for a driver to negotiate/confirm...",
           ),
-          backgroundColor: Theme.of(context).primaryColor,
+          backgroundColor: AppTheme.platformPrimary,
         ),
       );
     } catch (e) {
@@ -1092,7 +1093,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                     CircleAvatar(
                       radius: 45,
                       backgroundColor:
-                          theme.primaryColor.withValues(alpha: 0.1),
+                          AppTheme.platformPrimary.withValues(alpha: 0.1),
                       backgroundImage: avatarUrl.isNotEmpty
                           ? NetworkImage(avatarUrl)
                           : null,
@@ -1104,7 +1105,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                               style: TextStyle(
                                   fontSize: 36,
                                   fontWeight: FontWeight.bold,
-                                  color: theme.primaryColor),
+                                  color: AppTheme.platformPrimary),
                             )
                           : null,
                     ),
@@ -1115,13 +1116,13 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: theme.primaryColor,
+                            color: AppTheme.platformPrimary,
                             shape: BoxShape.circle,
                             border: Border.fromBorderSide(BorderSide(
-                                color: theme.colorScheme.onPrimary, width: 2)),
+                                color: AppTheme.onPlatformPrimary, width: 2)),
                           ),
                           child: Icon(Icons.verified,
-                              color: theme.colorScheme.onPrimary, size: 16),
+                              color: AppTheme.onPlatformPrimary, size: 16),
                         ),
                       ),
                     Positioned(
@@ -1132,11 +1133,11 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: theme.primaryColor,
+                            color: AppTheme.platformPrimary,
                             shape: BoxShape.circle,
                           ),
                           child: Icon(LucideIcons.camera,
-                              color: theme.colorScheme.onPrimary, size: 16),
+                              color: AppTheme.onPlatformPrimary, size: 16),
                         ),
                       ),
                     ),
@@ -1155,7 +1156,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                       if (isVerified) ...[
                         const SizedBox(width: 6),
                         Icon(Icons.verified,
-                            color: theme.primaryColor, size: 18),
+                            color: AppTheme.platformPrimary, size: 18),
                       ],
                     ],
                   ),
@@ -1172,7 +1173,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
-                      color: theme.primaryColor.withValues(alpha: 0.1),
+                      color: AppTheme.platformPrimary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -1183,12 +1184,12 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                                 ? Icons.verified
                                 : LucideIcons.shieldCheck,
                             size: 14,
-                            color: theme.primaryColor),
+                            color: AppTheme.platformPrimary),
                         const SizedBox(width: 6),
                         Text(
                             isVerified ? "Verified Rider" : "Church Member",
                             style: TextStyle(
-                                color: theme.primaryColor,
+                                color: AppTheme.platformPrimary,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12)),
                       ],
@@ -1220,7 +1221,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                         .withValues(alpha: 0.1)),
                 ListTile(
                   leading: Icon(LucideIcons.sliders,
-                      color: theme.primaryColor),
+                      color: AppTheme.platformPrimary),
                   title: Text("Ride Preferences",
                       style: TextStyle(
                           color: theme.colorScheme.onSurface)),
@@ -1235,7 +1236,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                 ),
                 ListTile(
                   leading: Icon(LucideIcons.shield,
-                      color: theme.primaryColor),
+                      color: AppTheme.platformPrimary),
                   title: Text("Safety Settings",
                       style: TextStyle(
                           color: theme.colorScheme.onSurface)),
@@ -1250,7 +1251,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                 ),
                 ListTile(
                   leading: Icon(LucideIcons.helpCircle,
-                      color: theme.primaryColor),
+                      color: AppTheme.platformPrimary),
                   title: Text("Help & Support",
                       style: TextStyle(
                           color: theme.colorScheme.onSurface)),
@@ -1380,7 +1381,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                       fontSize: 13)),
               const SizedBox(height: 20),
               SwitchListTile(
-                activeThumbColor: theme.primaryColor,
+                activeThumbColor: AppTheme.platformPrimary,
                 title: Text("Prefer Gospel Music / Sermons",
                     style: TextStyle(color: theme.colorScheme.onSurface)),
                 subtitle: Text("Drivers will try to play uplifting audio",
@@ -1393,7 +1394,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                 },
               ),
               SwitchListTile(
-                activeThumbColor: theme.primaryColor,
+                activeThumbColor: AppTheme.platformPrimary,
                 title: Text("Quiet / Silent Ride",
                     style: TextStyle(color: theme.colorScheme.onSurface)),
                 subtitle: Text("Drivers will minimize conversation",
@@ -1406,7 +1407,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                 },
               ),
               SwitchListTile(
-                activeThumbColor: theme.primaryColor,
+                activeThumbColor: AppTheme.platformPrimary,
                 title: Text("Air Conditioning (AC)",
                     style: TextStyle(color: theme.colorScheme.onSurface)),
                 subtitle: Text("Request temperature control",
@@ -1425,8 +1426,8 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                   Navigator.pop(context);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.primaryColor,
-                  foregroundColor: theme.colorScheme.onPrimary,
+                  backgroundColor: AppTheme.platformPrimary,
+                  foregroundColor: AppTheme.onPlatformPrimary,
                   minimumSize: const Size(double.infinity, 56),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18)),
@@ -1529,8 +1530,8 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
               ElevatedButton(
                 onPressed: _saveEmergencyContact,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.primaryColor,
-                  foregroundColor: theme.colorScheme.onPrimary,
+                  backgroundColor: AppTheme.platformPrimary,
+                  foregroundColor: AppTheme.onPlatformPrimary,
                   minimumSize: const Size(double.infinity, 56),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18)),
@@ -1661,8 +1662,8 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                     icon: const Icon(LucideIcons.headphones),
                     label: const Text("CONTACT COA TEAM"),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.primaryColor,
-                      foregroundColor: theme.colorScheme.onPrimary,
+                      backgroundColor: AppTheme.platformPrimary,
+                      foregroundColor: AppTheme.onPlatformPrimary,
                       minimumSize: const Size(double.infinity, 56),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(18)),

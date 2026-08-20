@@ -194,9 +194,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
   }
 
   void _showSuccessDialog({String? inviteCode}) {
-    final roleFee = _selectedRole == 'bishop'
-        ? widgetRemoteConfig(ref).getDouble('onboarding_fee_bishop_kwacha', 1000)
-        : widgetRemoteConfig(ref).getDouble('onboarding_fee_church_kwacha', 500);
+    final roleFee = widgetRemoteConfig(ref).getDouble('onboarding_fee', 500);
     final fee = 'K${roleFee.toStringAsFixed(roleFee % 1 == 0 ? 0 : 2)}';
     final churchName = _nameController.text.trim();
     showDialog(
@@ -304,9 +302,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final fee = _selectedRole == 'bishop'
-        ? widgetRemoteConfig(ref).getDouble('onboarding_fee_bishop_kwacha', 1000)
-        : widgetRemoteConfig(ref).getDouble('onboarding_fee_church_kwacha', 500);
+    final fee = widgetRemoteConfig(ref).getDouble('onboarding_fee', 500);
     final feeText = 'K ${fee.toStringAsFixed(fee % 1 == 0 ? 0 : 2)}';
 
     return Scaffold(

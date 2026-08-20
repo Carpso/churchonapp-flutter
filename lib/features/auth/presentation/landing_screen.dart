@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/expansion_service.dart';
 import 'package:church_on_app/core/utils/responsive.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class LandingScreen extends ConsumerWidget {
@@ -22,7 +23,7 @@ class LandingScreen extends ConsumerWidget {
             _buildValueProp(context),
             _buildFeatures(context),
             _buildStats(context),
-            _buildPricing(context),
+            _buildPricing(context, ref),
             _buildRegistrationBanner(context),
             _buildFooter(context),
           ],
@@ -525,8 +526,18 @@ class LandingScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPricing(BuildContext context) {
+  Widget _buildPricing(BuildContext context, WidgetRef ref) {
     final titleSize = Responsive.displayFont(context, 48, tablet: 40, phone: 30);
+    // Live plan pricing from platform_settings (synced with the admin
+    // Subscription Pricing editor) so the landing page never shows stale
+    // hardcoded amounts.
+    final cfg = ref.watch(remoteConfigProvider).value;
+    final onboardingFee = cfg?.getDouble('onboarding_fee', 500) ?? 500;
+    final goldMonthly = cfg?.getDouble('gold_monthly_fee', 100) ?? 100;
+    final platinumMonthly = cfg?.getDouble('platinum_monthly_fee', 500) ?? 500;
+    final goldText = 'K${goldMonthly.toStringAsFixed(0)}/mo';
+    final platinumText = 'K${platinumMonthly.toStringAsFixed(0)}/mo';
+    final onboardingText = 'K${onboardingFee.toStringAsFixed(0)}';
     return Container(
       padding: EdgeInsets.symmetric(
         vertical: Responsive.isCompact(context) ? 70 : 120,
@@ -551,8 +562,8 @@ class LandingScreen extends ConsumerWidget {
                   alignment: WrapAlignment.center,
                   children: [
                     _pricingCard(
-                      "Churches", "K500/mo", "Free setup",
-                      ["Free Silver plan forever", "Gold K100/mo • Platinum K500/mo", "One-time K500 onboarding fee", "Digital Tithes & Offerings"],
+                      "Churches", goldText, "Free setup",
+                      ["Free Silver plan forever", "Gold $goldText • Platinum $platinumText", "One-time $onboardingText onboarding fee", "Digital Tithes & Offerings"],
                       isFeatured: true,
                       onTap: () => context.go('/register-church'),
                       width: cardWidth,

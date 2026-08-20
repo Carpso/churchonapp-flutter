@@ -12,6 +12,7 @@ import '../data/daily_challenge_service.dart';
 import '../data/pvp_service.dart';
 import '../data/quiz_event_service.dart';
 import '../../../../core/providers/profile_provider.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../bible/presentation/scripture_audio_button.dart';
 import '../../../bible/presentation/live_scripture_text.dart';
 import 'bible_quiz_results_screen.dart';
@@ -1006,7 +1007,7 @@ try {
         children: [
           Text(
             "MATCH FOUND!",
-            style: TextStyle(color: theme.primaryColor, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 2),
+            style: TextStyle(color: AppTheme.platformPrimary, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 2),
           ),
           const SizedBox(height: 40),
           Padding(
@@ -1032,10 +1033,10 @@ try {
                   child: Container(
                     padding: const EdgeInsets.all(15),
                     decoration: BoxDecoration(
-                      color: theme.primaryColor,
+                      color: AppTheme.platformPrimary,
                       shape: BoxShape.circle,
                       boxShadow: [
-                        BoxShadow(color: theme.primaryColor.withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 5),
+                        BoxShadow(color: AppTheme.platformPrimary.withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 5),
                       ],
                     ),
                     child: const Text("VS", style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 22)),
@@ -1069,7 +1070,7 @@ try {
             crossAxisAlignment: isTop ? CrossAxisAlignment.start : CrossAxisAlignment.end,
             children: [
               Text(profile?['name'] ?? 'Loading...', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-              Text(profile?['church'] ?? 'Independent', style: TextStyle(color: theme.primaryColor.withValues(alpha: 0.7), fontSize: 12)),
+              Text(profile?['church'] ?? 'Independent', style: TextStyle(color: AppTheme.platformPrimary.withValues(alpha: 0.7), fontSize: 12)),
             ],
           ),
           if (!isTop) ...[
@@ -1123,7 +1124,7 @@ try {
                 icon: const Icon(LucideIcons.refreshCw, size: 18),
                 label: const Text('RETRY'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.primaryColor,
+                  backgroundColor: AppTheme.platformPrimary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -1148,8 +1149,8 @@ try {
             mainAxisSize: MainAxisSize.min,
             children: [
               Shimmer.fromColors(
-                baseColor: theme.primaryColor.withAlpha(40),
-                highlightColor: theme.primaryColor.withAlpha(120),
+                baseColor: AppTheme.platformPrimary.withAlpha(40),
+                highlightColor: AppTheme.platformPrimary.withAlpha(120),
                 child: SizedBox(
                   width: 100,
                   height: 100,
@@ -1161,7 +1162,7 @@ try {
                         height: 100,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: theme.primaryColor, width: 3),
+                          border: Border.all(color: AppTheme.platformPrimary, width: 3),
                         ),
                       ),
                       Text(_categoryEmoji(quizType), style: const TextStyle(fontSize: 40)),
@@ -1192,12 +1193,12 @@ try {
                   children: [
                     CircleAvatar(
                       radius: 36,
-                      backgroundColor: theme.primaryColor.withAlpha(80),
-                      child: Icon(LucideIcons.user, color: theme.primaryColor),
+                      backgroundColor: AppTheme.platformPrimary.withAlpha(80),
+                      child: Icon(LucideIcons.user, color: AppTheme.platformPrimary),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text('VS', style: TextStyle(color: theme.primaryColor, fontSize: 18, fontWeight: FontWeight.w900)),
+                      child: Text('VS', style: TextStyle(color: AppTheme.platformPrimary, fontSize: 18, fontWeight: FontWeight.w900)),
                     ),
                     CircleAvatar(
                       radius: 36,
@@ -1262,10 +1263,10 @@ try {
               style: TextStyle(
                 fontSize: 90,
                 fontWeight: FontWeight.bold,
-                color: theme.primaryColor,
+                color: AppTheme.platformPrimary,
                 shadows: [
                   Shadow(
-                    color: theme.primaryColor.withAlpha(100),
+                    color: AppTheme.platformPrimary.withAlpha(100),
                     blurRadius: 30,
                   ),
                 ],
@@ -1326,7 +1327,7 @@ try {
                                 child: Text(
                                   q.scriptureReference!,
                                   style: TextStyle(
-                                    color: theme.primaryColor.withValues(alpha: 0.8),
+                                    color: AppTheme.platformPrimary.withValues(alpha: 0.8),
                                     fontSize: 13,
                                     fontStyle: FontStyle.italic,
                                     fontWeight: FontWeight.w600,
@@ -1335,7 +1336,7 @@ try {
                               ),
                               ScriptureAudioButton(
                                 reference: q.scriptureReference!,
-                                iconColor: theme.primaryColor,
+                                iconColor: AppTheme.platformPrimary,
                                 iconSize: 16,
                               ),
                             ],
@@ -1445,7 +1446,7 @@ try {
               ],
               const Spacer(),
               // Score
-              _topStat(LucideIcons.star, '$_score', theme.primaryColor),
+              _topStat(LucideIcons.star, '$_score', AppTheme.platformPrimary),
             ],
           ),
           const SizedBox(height: 15),
@@ -1455,7 +1456,7 @@ try {
             child: LinearProgressIndicator(
               value: progress,
               backgroundColor: Colors.white.withValues(alpha: 0.05),
-              valueColor: AlwaysStoppedAnimation(theme.primaryColor),
+              valueColor: AlwaysStoppedAnimation(AppTheme.platformPrimary),
               minHeight: 6,
             ),
           ),
@@ -1529,7 +1530,7 @@ try {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _badge(q.category.toUpperCase(), theme.primaryColor, theme),
+        _badge(q.category.toUpperCase(), AppTheme.platformPrimary, theme),
         const SizedBox(width: 10),
         _badge(q.difficulty.toUpperCase(), _difficultyColor(q.difficulty, theme), theme),
       ],
@@ -1578,7 +1579,7 @@ try {
       case 'Hard':
         return Colors.redAccent;
       default:
-        return theme.primaryColor;
+        return AppTheme.platformPrimary;
     }
   }
 
@@ -1675,28 +1676,28 @@ try {
             label: '50:50',
             used: _fiftyFiftyUsed,
             onTap: _useFiftyFifty,
-            color: theme.primaryColor,
+            color: AppTheme.platformPrimary,
           ),
           _powerUpButton(
             icon: LucideIcons.skipForward,
             label: 'Skip',
             used: _skipUsed,
             onTap: _useSkip,
-            color: theme.primaryColor,
+            color: AppTheme.platformPrimary,
           ),
           _powerUpButton(
             icon: LucideIcons.dice2,
             label: '2x',
             used: _doubleUsed,
             onTap: _useDoublePoints,
-            color: theme.primaryColor,
+            color: AppTheme.platformPrimary,
           ),
           _powerUpButton(
             icon: LucideIcons.clock,
             label: 'Freeze',
             used: _timeFreezeUsed,
             onTap: _useTimeFreeze,
-            color: theme.primaryColor,
+            color: AppTheme.platformPrimary,
           ),
         ],
       ),
@@ -1765,9 +1766,9 @@ try {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: accuracy >= 0.8
-                    ? theme.primaryColor.withAlpha(40)
+                    ? AppTheme.platformPrimary.withAlpha(40)
                     : accuracy >= 0.5
-                        ? theme.primaryColor.withAlpha(20)
+                        ? AppTheme.platformPrimary.withAlpha(20)
                         : Colors.white.withAlpha(15),
               ),
               child: Icon(
@@ -1778,9 +1779,9 @@ try {
                         : LucideIcons.target,
                 size: 40,
                 color: accuracy >= 0.8
-                    ? theme.primaryColor
+                    ? AppTheme.platformPrimary
                     : accuracy >= 0.5
-                        ? theme.primaryColor.withValues(alpha: 0.6)
+                        ? AppTheme.platformPrimary.withValues(alpha: 0.6)
                         : Colors.white54,
               ),
             ),
@@ -1802,7 +1803,7 @@ try {
             Text(
               '$_score pts',
               style: TextStyle(
-                color: theme.primaryColor,
+                color: AppTheme.platformPrimary,
                 fontSize: 48,
                 fontWeight: FontWeight.bold,
               ),
@@ -1903,7 +1904,7 @@ try {
                       ),
                       label: Text(_rematchRequested ? 'Invite Sent!' : 'Rematch'),
                       style: FilledButton.styleFrom(
-                        backgroundColor: _rematchRequested ? Colors.greenAccent : theme.primaryColor,
+                        backgroundColor: _rematchRequested ? Colors.greenAccent : AppTheme.platformPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -1918,7 +1919,7 @@ try {
                     icon: const Icon(LucideIcons.barChart3, size: 18),
                     label: const Text('Details'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: theme.primaryColor,
+                      backgroundColor: AppTheme.platformPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -1957,7 +1958,7 @@ try {
                 LucideIcons.target,
                 '${(accuracy * 100).toInt()}%',
                 'Accuracy',
-                theme.primaryColor,
+                AppTheme.platformPrimary,
               ),
             ],
           ),
@@ -1969,19 +1970,19 @@ try {
                 LucideIcons.trendingUp,
                 '$_bestStreak',
                 'Best Streak',
-                theme.primaryColor,
+                AppTheme.platformPrimary,
               ),
               _statItem(
                 LucideIcons.zap,
                 '$_powerUpsUsed',
                 'Power-ups',
-                theme.primaryColor,
+                AppTheme.platformPrimary,
               ),
               _statItem(
                 LucideIcons.clock,
                 _avgTimeText(),
                 'Avg Time',
-                theme.primaryColor.withValues(alpha: 0.7),
+                AppTheme.platformPrimary.withValues(alpha: 0.7),
               ),
             ],
           ),
@@ -2157,7 +2158,7 @@ try {
                       Text(
                         q.scriptureReference!,
                         style: TextStyle(
-                          color: theme.primaryColor.withAlpha(150),
+                          color: AppTheme.platformPrimary.withAlpha(150),
                           fontSize: 12,
                           fontStyle: FontStyle.italic,
                         ),

@@ -373,10 +373,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
           _buildPremiumItem(context, LucideIcons.crown, "Bishop Dashboard", isHighlighted: true, onTap: () => context.push('/bishop-hub')),
         ],
         _buildPremiumItem(context, LucideIcons.calendar, "Yearly Program Planner", onTap: () => context.push('/year-planner')),
-        if (profile.isPastor) ...[
-          _buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHighlighted: true, onTap: () => context.push('/pastor-dashboard')),
-          _buildPremiumItem(context, LucideIcons.clipboardCheck, "Submit Report to Bishop", onTap: () => context.push('/pastor-bishop-report')),
-        ],
+if (profile.isPastorOrHigher) ...[
+_buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHighlighted: true, onTap: () => context.push('/pastor-dashboard')),
+],
         if (profile.isLedgerManager) ...[
           _buildPremiumItem(context, LucideIcons.qrCode, "Scan Attendance", onTap: () => context.push('/attendance-scanner')),
           _buildPremiumItem(context, LucideIcons.wallet, "Finance Dashboard", isHighlighted: true, onTap: () => context.push('/finance-dashboard')),

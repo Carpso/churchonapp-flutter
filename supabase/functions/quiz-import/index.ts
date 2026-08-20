@@ -8,17 +8,19 @@
 //
 // Contract (JSON POST):
 //   { text: string }                            -> parse text directly
-//   { fileName: string, dataBase64: string }    -> decode file, Gemini extracts
+//   { fileName: string, dataBase64: string }    -> decode file, HF extracts
 //   { questions: [...] }                        -> validated + inserted as-is
 //
 // Returns { inserted, skipped, total_generated, batch_id, errors[] }.
+//
+// AI provider: HuggingFace free-tier inference ONLY (router endpoint, OpenAI
+// compatible). NEVER add another provider (Gemini removed 2026-08-20).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
-const GEMINI_API_BASE =
-  "https://generativelanguage.googleapis.com/v1beta/models";
-const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.0-flash";
+const HF_API_BASE = "https://router.huggingface.co/v1";
+const HF_MODEL = Deno.env.get("HF_MODEL_ID") ?? "meta-llama/Llama-3.1-8B-Instruct";
 
 interface QuizQuestion {
   question: string;
@@ -53,7 +55,6 @@ function validateQuestion(item: Record<string, unknown>): QuizQuestion | null {
   if (opts.length !== 4) return null;
   if (opts.some((o) => o.length === 0)) return null;
 
-  // Distinct options (case-insensitive) — duplicates make answers ambiguous.
   const seen = new Set<string>();
   for (const o of opts) {
     const key = o.toLowerCase();
@@ -70,7 +71,6 @@ function validateQuestion(item: Record<string, unknown>): QuizQuestion | null {
   if (!reference) return null;
 
   const correctText = opts[correct].toLowerCase();
-  // Answer leaking into the question is a strong signal of a bad question.
   if (question.toLowerCase().includes(correctText) && correctText.length > 3) {
     return null;
   }
@@ -116,40 +116,59 @@ DOCUMENT TEXT:
 """${text.slice(0, 120000)}"""`;
 }
 
-async function callGeminiExtraction(
-  apiKey: string,
+async function callHuggingFaceExtraction(
   prompt: string,
-  fileData?: { mimeType: string; data: string },
 ): Promise<QuizQuestion[]> {
-  const parts: Record<string, unknown>[] = [{ text: prompt }];
-  if (fileData) {
-    parts.push({ inline_data: fileData });
-  }
-  const response = await fetch(
-    `${GEMINI_API_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: {
-          temperature: 0.4,
-          topP: 0.95,
-          maxOutputTokens: 16384,
-          responseMimeType: "application/json",
-        },
-      }),
+  const hfToken = Deno.env.get("HUGGINGFACE_TOKEN");
+  if (!hfToken) throw new Error("HUGGINGFACE_TOKEN not configured");
+
+  const requestBody = JSON.stringify({
+    model: HF_MODEL,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a Bible quiz content extractor. Extract multiple-choice questions as a strict JSON array. Accuracy matters more than quantity.",
+      },
+      { role: "user", content: prompt },
+    ],
+    max_tokens: 2048,
+    temperature: 0.4,
+    top_p: 0.9,
+  });
+
+  let response = await fetch(`${HF_API_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${hfToken}`,
+      "Content-Type": "application/json",
     },
-  );
+    signal: AbortSignal.timeout(60_000),
+    body: requestBody,
+  });
+
+  // Cold start: model is loading → wait for it
+  if (response.status === 503) {
+    response = await fetch(`${HF_API_BASE}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${hfToken}`,
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(120_000),
+      body: requestBody,
+    });
+  }
 
   if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Gemini API error ${response.status}: ${errText.slice(0, 500)}`);
+    const errBody = await response.text().catch(() => "");
+    throw new Error(`HuggingFace error ${response.status}: ${errBody.slice(0, 300)}`);
   }
 
   const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-  if (!text) throw new Error("Gemini returned empty response");
+  const text = (data as { choices?: Array<{ message?: { content?: string } }> })
+    ?.choices?.[0]?.message?.content?.trim();
+  if (!text) throw new Error("HuggingFace returned empty response");
 
   const cleaned = text
     .replace(/```json\s*/g, "")
@@ -161,7 +180,7 @@ async function callGeminiExtraction(
     parsed = JSON.parse(cleaned) as unknown[];
   } catch {
     const match = /\[[\s\S]*\]/.exec(cleaned);
-    if (!match) throw new Error("Could not parse Gemini response as JSON array");
+    if (!match) throw new Error("Could not parse HuggingFace response as JSON array");
     parsed = JSON.parse(match[0]) as unknown[];
   }
 
@@ -246,39 +265,43 @@ Deno.serve(async (req) => {
     let parsed: QuizQuestion[] = [];
 
     if (Array.isArray(providedQuestions)) {
-      // Client already parsed -> validate + insert.
       for (const item of providedQuestions) {
         const q = validateQuestion(item as Record<string, unknown>);
         if (q) parsed.push(q);
       }
     } else if (typeof text === "string" && text.trim().length > 0) {
-      const geminiKey = Deno.env.get("GEMINI_API_KEY");
-      if (!geminiKey) {
-        return new Response(
-          JSON.stringify({ error: "GEMINI_API_KEY not configured on server", inserted: 0 }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 },
-        );
-      }
-      parsed = await callGeminiExtraction(geminiKey, buildExtractionPrompt(text));
+      parsed = await callHuggingFaceExtraction(buildExtractionPrompt(text));
     } else if (typeof dataBase64 === "string" && typeof fileName === "string") {
-      const geminiKey = Deno.env.get("GEMINI_API_KEY");
-      if (!geminiKey) {
+      // Decode the uploaded file; text-only HF model, so we require the file
+      // contents to be readable as UTF-8 text (works for .txt / plain text).
+      let fileText = "";
+      try {
+        fileText = new TextDecoder().decode(
+          Uint8Array.from(atob(dataBase64), (c) => c.charCodeAt(0)),
+        );
+      } catch (_) {
         return new Response(
-          JSON.stringify({ error: "GEMINI_API_KEY not configured on server", inserted: 0 }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 },
+          JSON.stringify({
+            inserted: 0,
+            skipped: 0,
+            total_generated: 0,
+            errors: ["Could not decode the file as text. Please paste the questions as text instead (binary PDF/DOC file import is not supported)."],
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
         );
       }
-      const ext = fileName.toLowerCase().split(".").pop() ?? "";
-      const mime =
-        ext === "pdf" ? "application/pdf"
-        : ext === "doc" ? "application/msword"
-        : ext === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        : "text/plain";
-      parsed = await callGeminiExtraction(
-        geminiKey,
-        buildExtractionPrompt("", fileName),
-        { mimeType: mime, data: dataBase64 },
-      );
+      if (!fileText.trim()) {
+        return new Response(
+          JSON.stringify({
+            inserted: 0,
+            skipped: 0,
+            total_generated: 0,
+            errors: ["The file contained no readable text. Please paste the questions as text instead."],
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+        );
+      }
+      parsed = await callHuggingFaceExtraction(buildExtractionPrompt(fileText, fileName));
     } else {
       return new Response(
         JSON.stringify({ error: "Provide text, fileName+dataBase64, or questions" }),
@@ -293,7 +316,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Dedup against existing hashes.
     const { data: existingQs } = await supabase
       .from("quiz_questions")
       .select("question_hash")

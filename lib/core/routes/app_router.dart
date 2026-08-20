@@ -140,7 +140,6 @@ import 'package:church_on_app/features/data_import/presentation/data_import_scre
 import 'package:church_on_app/features/admin/presentation/feature_toggles_screen.dart';
 import 'package:church_on_app/features/admin/presentation/platform_analytics_screen.dart';
 import 'package:church_on_app/features/modules/kids/presentation/kids_zone_screen.dart';
-import 'package:church_on_app/features/connect/presentation/sovereign_matchmaking_screen.dart';
 import 'package:church_on_app/features/finance/presentation/giving_history_screen.dart';
 import 'package:church_on_app/features/finance/presentation/my_pledges_screen.dart';
 import 'package:church_on_app/features/finance/presentation/qr_payment_screen.dart';
@@ -169,7 +168,6 @@ import 'package:church_on_app/features/modules/church_website/presentation/publi
 import 'package:church_on_app/features/modules/crm_donor_management/presentation/crm_donor_screen.dart';
 import 'package:church_on_app/features/modules/events/presentation/event_ticket_scanner_screen.dart';
 import 'package:church_on_app/features/modules/events/presentation/ticket_detail_screen.dart';
-import 'package:church_on_app/features/modules/games/presentation/game_arena_screen.dart';
 import 'package:church_on_app/features/modules/jobs/presentation/my_applications_screen.dart';
 import 'package:church_on_app/features/modules/jobs/presentation/my_jobs_screen.dart';
 import 'package:church_on_app/features/modules/jobs/presentation/post_job_screen.dart';
@@ -200,7 +198,6 @@ import 'package:church_on_app/features/connect/presentation/kingdom_klips_screen
 import 'package:church_on_app/features/connect/presentation/testimonies_screen.dart';
 import 'package:church_on_app/features/marketplace/presentation/post_product_screen.dart';
 import 'package:church_on_app/features/bible_study/data/bible_study_service.dart' show BibleStudy;
-import 'package:church_on_app/features/modules/games/data/game_service.dart' show KingdomGame;
 import 'package:church_on_app/core/providers/profile_provider.dart';
 
 class SplashCompletedNotifier extends Notifier<bool> {
@@ -1070,10 +1067,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CreateKlipScreen(),
       ),
       GoRoute(
-        path: '/sovereign-matchmaking',
-        builder: (context, state) => const SovereignMatchmakingScreen(),
-      ),
-      GoRoute(
         path: '/giving-history',
         builder: (context, state) => const GivingHistoryScreen(),
       ),
@@ -1297,13 +1290,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final event = state.extra as ChurchEvent;
           return TicketDetailScreen(event: event);
-        },
-      ),
-      GoRoute(
-        path: '/game-arena',
-        builder: (context, state) {
-          final game = state.extra as KingdomGame;
-          return KingdomGameArenaScreen(game: game);
         },
       ),
       GoRoute(

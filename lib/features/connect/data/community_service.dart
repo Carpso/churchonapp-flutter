@@ -8,7 +8,9 @@ class CommunityService {
 
   CommunityService(this._client);
 
-  /// Fetch communities with their nested groups, filtered by tenant.
+  /// Fetch communities with their nested groups. Own-tenant communities plus
+  /// public communities from OTHER churches (is_public = true) so tenants can
+  /// share their communities platform-wide.
   Future<List<Map<String, dynamic>>> fetchCommunities({String? tenantId}) async {
     try {
       final List<Map<String, dynamic>> communitiesRes;
@@ -18,7 +20,7 @@ class CommunityService {
         communitiesRes = List<Map<String, dynamic>>.from(await _client
             .from('community_communities')
             .select()
-            .eq('tenant_id', tenantId)
+            .or('tenant_id.eq.$tenantId,is_public.is.true')
             .order('sort_order'));
 
         groupsRes = List<Map<String, dynamic>>.from(await _client
@@ -61,6 +63,8 @@ class CommunityService {
           'description': community['description'] ?? '',
           'banner': community['banner_url'] ?? '',
           'avatar': community['avatar_url'] ?? '',
+          'isPublic': community['is_public'] ?? false,
+          'tenantId': community['tenant_id'],
           'groups': communityGroups,
         });
       }

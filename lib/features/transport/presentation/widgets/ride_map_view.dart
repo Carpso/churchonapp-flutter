@@ -4,9 +4,11 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:church_on_app/core/widgets/church_map.dart';
+import 'package:church_on_app/core/theme/app_theme.dart';
+import 'package:church_on_app/features/transport/data/route_service.dart';
 import 'package:church_on_app/features/transport/data/transport_service.dart';
 
-class RideMapView extends StatelessWidget {
+class RideMapView extends ConsumerStatefulWidget {
   final LatLng? pickupLatLng;
   final LatLng? destLatLng;
   final String? pinModeFor;
@@ -27,15 +29,44 @@ class RideMapView extends StatelessWidget {
   });
 
   @override
+  ConsumerState<RideMapView> createState() => _RideMapViewState();
+}
+
+class _RideMapViewState extends ConsumerState<RideMapView> {
+  List<LatLng> _routePoints = [];
+
+  @override
+  void didUpdateWidget(covariant RideMapView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final from = widget.pickupLatLng;
+    final to = widget.destLatLng;
+    final changed =
+        oldWidget.pickupLatLng != from || oldWidget.destLatLng != to;
+    if (changed) {
+      if (from != null && to != null) {
+        _loadRoute(from, to);
+      } else {
+        _routePoints = [];
+      }
+    }
+  }
+
+  Future<void> _loadRoute(LatLng from, LatLng to) async {
+    final points = await RouteService.fetchRoute(from: from, to: to);
+    if (mounted && points.isNotEmpty) {
+      setState(() => _routePoints = points);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Consumer(
       builder: (context, ref, _) {
-        final theme = Theme.of(context);
         final driversAsync = ref.watch(activeDriversStreamProvider);
         final markers = <Marker>[
-          if (pickupLatLng != null)
+          if (widget.pickupLatLng != null)
             Marker(
-              point: pickupLatLng!,
+              point: widget.pickupLatLng!,
               width: 100,
               height: 70,
               child: Column(
@@ -55,24 +86,24 @@ class RideMapView extends StatelessWidget {
                 ],
               ),
             ),
-          if (destLatLng != null)
+          if (widget.destLatLng != null)
             Marker(
-              point: destLatLng!,
+              point: widget.destLatLng!,
               width: 100,
               height: 70,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(LucideIcons.flag, color: theme.primaryColor, size: 28),
+                  Icon(LucideIcons.flag, color: AppTheme.platformPrimary, size: 28),
                   const SizedBox(height: 2),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: theme.primaryColor,
+                      color: AppTheme.platformPrimary,
                       borderRadius: BorderRadius.circular(6),
                       boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
                     ),
-                    child: Text('Destination', style: TextStyle(color: theme.colorScheme.onPrimary, fontSize: 11, fontWeight: FontWeight.bold)),
+                    child: Text('Destination', style: TextStyle(color: AppTheme.onPlatformPrimary, fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -85,11 +116,11 @@ class RideMapView extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: theme.primaryColor,
+                  color: AppTheme.platformPrimary,
                   shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: theme.primaryColor.withValues(alpha: 0.4), blurRadius: 12)],
+                  boxShadow: [BoxShadow(color: AppTheme.platformPrimary.withValues(alpha: 0.4), blurRadius: 12)],
                 ),
-                child: Icon(LucideIcons.car, color: theme.colorScheme.onPrimary, size: 20),
+                child: Icon(LucideIcons.car, color: AppTheme.onPlatformPrimary, size: 20),
               ),
             )),
             loading: () => [],
@@ -97,23 +128,27 @@ class RideMapView extends StatelessWidget {
           ),
         ];
 
-        // Draw polyline between pickup and destination if both set
-        final path = <LatLng>[];
-        if (pickupLatLng != null) path.add(pickupLatLng!);
-        if (destLatLng != null) path.add(destLatLng!);
+        // Real turn-by-turn road route (OSRM) when both pins are set;
+        // straight line only as a fallback.
+        final path = _routePoints.length >= 2
+            ? _routePoints
+            : <LatLng>[
+                if (widget.pickupLatLng != null) widget.pickupLatLng!,
+                if (widget.destLatLng != null) widget.destLatLng!,
+              ];
 
         return ChurchMap(
-          showPin: pinModeFor != null,
-          initialPinPosition: pinModeFor == 'pickup' ? pickupLatLng : destLatLng,
-          onPinChanged: onPinChanged,
-          showAddressSearch: pinModeFor != null,
-          addressSearchHint: pinModeFor == 'pickup'
+          showPin: widget.pinModeFor != null,
+          initialPinPosition: widget.pinModeFor == 'pickup' ? widget.pickupLatLng : widget.destLatLng,
+          onPinChanged: widget.onPinChanged,
+          showAddressSearch: widget.pinModeFor != null,
+          addressSearchHint: widget.pinModeFor == 'pickup'
               ? 'Search pickup address...'
               : 'Search destination address...',
-          onAddressSelected: onAddressSelected ?? (address) {},
+          onAddressSelected: widget.onAddressSelected ?? (address) {},
           markers: markers,
           path: path.length >= 2 ? path : null,
-          onMapTapped: onMapTapped,
+          onMapTapped: widget.onMapTapped,
         );
       },
     );

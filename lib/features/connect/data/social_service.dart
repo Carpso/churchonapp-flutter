@@ -134,20 +134,25 @@ class SocialService {
 
     // Realtime streams do NOT support the `profiles(...)` join, so we fetch
     // author names/avatars separately and enrich each post.
+    // NOTE: no `.order()`/`.limit()` on the realtime stream — like chat,
+    // server-side ordering on realtime channels caused refresh loops and
+    // disappearing posts. We sort + cap client-side instead.
     Stream<List<Map<String, dynamic>>> baseStream = stream;
     if (hasTenant) {
-      baseStream = stream
-          .eq('tenant_id', tenantId)
-          .order('created_at', ascending: false)
-          .limit(50);
-    } else {
-      baseStream = stream.order('created_at', ascending: false).limit(50);
+      baseStream = stream.eq('tenant_id', tenantId);
     }
 
     return baseStream
         .asyncMap((data) async {
-          final posts = (data as List).cast<Map<String, dynamic>>();
-          final userIds = posts
+          final raw = (data as List).cast<Map<String, dynamic>>();
+          final posts = [...raw]
+            ..sort((a, b) {
+              final at = a['created_at']?.toString() ?? '';
+              final bt = b['created_at']?.toString() ?? '';
+              return bt.compareTo(at);
+            });
+          final capped = posts.take(50).toList();
+          final userIds = capped
               .map((p) => p['user_id']?.toString())
               .whereType<String>()
               .where((id) => id.isNotEmpty)
@@ -167,7 +172,7 @@ class SocialService {
               debugPrint('social_service: profile enrich error: $e');
             }
           }
-          return posts.map((map) {
+          return capped.map((map) {
             final enriched = Map<String, dynamic>.from(map);
             final pid = map['user_id']?.toString() ?? '';
             if (profiles.containsKey(pid)) {

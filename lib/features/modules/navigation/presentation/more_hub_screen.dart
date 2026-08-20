@@ -22,7 +22,6 @@ import 'package:church_on_app/features/finance/presentation/tithe_card_screen.da
 import 'package:church_on_app/features/connect/presentation/pastors_corner_screen.dart';
 import 'package:church_on_app/features/modules/jobs/presentation/my_jobs_screen.dart';
 import 'package:church_on_app/features/modules/jobs/presentation/my_applications_screen.dart';
-import 'package:church_on_app/features/connect/presentation/sovereign_matchmaking_screen.dart';
 import 'package:church_on_app/features/connect/presentation/poll_creator_screen.dart';
 import 'package:church_on_app/features/connect/presentation/create_klip_screen.dart';
 import 'package:church_on_app/features/transport/presentation/ride_history_screen.dart';
@@ -124,7 +123,6 @@ class MoreHubScreen extends ConsumerWidget {
                 _buildModuleCard(context, "Pastors Corner", LucideIcons.mic2, Colors.deepOrange, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PastorsCornerScreen()))),
                 _buildModuleCard(context, "My Jobs", LucideIcons.briefcase, Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyJobsScreen()))),
                 _buildModuleCard(context, "My Applications", LucideIcons.fileText, Colors.lightBlue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyApplicationsScreen()))),
-                _buildModuleCard(context, "Sovereign Matchmaking", LucideIcons.heartHandshake, Colors.pink, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SovereignMatchmakingScreen()))),
                 _buildModuleCard(context, "Poll Creator", LucideIcons.vote, Colors.deepPurple, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PollCreatorScreen()))),
                 _buildModuleCard(context, "Create Klip", LucideIcons.clapperboard, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateKlipScreen()))),
                 _buildModuleCard(context, "Ride History", LucideIcons.car, Colors.blueGrey, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RideHistoryScreen()))),

@@ -38,7 +38,11 @@ final ministryMembersCountProvider = FutureProvider.family.autoDispose<int, Stri
 });
 
 class MinistriesScreen extends ConsumerStatefulWidget {
-  const MinistriesScreen({super.key});
+  /// When [embedded] is true the screen renders body-only (no Scaffold/AppBar)
+  /// so it can live inside the Connect tab's Communities view.
+  const MinistriesScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   ConsumerState<MinistriesScreen> createState() => _MinistriesScreenState();
@@ -106,14 +110,42 @@ class _MinistriesScreenState extends ConsumerState<MinistriesScreen> {
   Widget build(BuildContext context) {
     final tenant = ref.watch(currentTenantProvider);
     if (tenant == null) {
-      return Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: Center(child: Text('Select a church first')),
-      );
+      return Center(child: Text('Select a church first'));
     }
 
     final profile = ref.watch(profileProvider).value;
     final isAdmin = profile != null && ['admin', 'pastor', 'bishop', 'superadmin', 'employee', 'coa_employee'].contains(profile.role);
+
+    final body = RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(ministriesStreamProvider);
+        setState(() {
+          _joinedFuture = _loadJoinedMinistries();
+        });
+      },
+      child: ref.watch(ministriesStreamProvider).when(
+        data: (ministries) {
+          if (ministries.isEmpty) {
+            return _buildEmptyState(context);
+          }
+          return FutureBuilder<Set<String>>(
+            future: _joinedFuture,
+            builder: (context, snapshot) {
+              final joined = snapshot.data ?? <String>{};
+              return ListView.builder(
+                padding: EdgeInsets.fromLTRB(20, 10, 20, widget.embedded ? 40 : 100),
+                itemCount: ministries.length,
+                itemBuilder: (context, index) => _buildMinistryCard(ministries[index], joined, isAdmin),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err')),
+      ),
+    );
+
+    if (widget.embedded) return body;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -131,34 +163,7 @@ class _MinistriesScreenState extends ConsumerState<MinistriesScreen> {
               ]
             : null,
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(ministriesStreamProvider);
-          setState(() {
-            _joinedFuture = _loadJoinedMinistries();
-          });
-        },
-        child: ref.watch(ministriesStreamProvider).when(
-          data: (ministries) {
-            if (ministries.isEmpty) {
-              return _buildEmptyState(context);
-            }
-            return FutureBuilder<Set<String>>(
-              future: _joinedFuture,
-              builder: (context, snapshot) {
-                final joined = snapshot.data ?? <String>{};
-                return ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 100),
-                  itemCount: ministries.length,
-                  itemBuilder: (context, index) => _buildMinistryCard(ministries[index], joined, isAdmin),
-                );
-              },
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, _) => Center(child: Text('Error: $err')),
-        ),
-      ),
+      body: body,
     );
   }
 
@@ -208,13 +213,15 @@ class _MinistriesScreenState extends ConsumerState<MinistriesScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Text(
+                          ministry['name']?.toString() ?? 'Unnamed Ministry',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
                         Row(
                           children: [
-                            Text(
-                              ministry['name']?.toString() ?? 'Unnamed Ministry',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                            const SizedBox(width: 8),
                             if (leaderAvatar != null && leaderAvatar.isNotEmpty)
                               AppImage(
                                 leaderAvatar,
@@ -226,7 +233,14 @@ class _MinistriesScreenState extends ConsumerState<MinistriesScreen> {
                             else
                               const Icon(LucideIcons.user, size: 14, color: Colors.grey),
                             const SizedBox(width: 4),
-                            Text(leaderName, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                            Expanded(
+                              child: Text(
+                                'Leader: $leaderName',
+                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 4),

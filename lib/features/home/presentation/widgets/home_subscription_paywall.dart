@@ -22,15 +22,10 @@ class HomeSubscriptionPaywall extends ConsumerStatefulWidget {
 }
 
 class _HomeSubscriptionPaywallState extends ConsumerState<HomeSubscriptionPaywall> {
-  /// K500 for churches/pastors, K1000 for bishops (remote-configurable).
-  double get _onboardingFee {
-    final profile = ref.read(profileProvider).value;
-    final isBishop = profile?.role == 'bishop';
-    return widgetRemoteConfig(ref).getDouble(
-      isBishop ? 'onboarding_fee_bishop_kwacha' : 'onboarding_fee_church_kwacha',
-      isBishop ? 1000 : 500,
-    );
-  }
+  /// Single remote-config source for the onboarding fee (K500 default,
+  /// editable in Subscription Pricing / Superadmin Hub rates editor).
+  double get _onboardingFee =>
+      widgetRemoteConfig(ref).getDouble('onboarding_fee', 500);
 
   @override
   Widget build(BuildContext context) {

@@ -34,5 +34,7 @@ INSERT INTO platform_settings (key, value) VALUES
   ('subscription_manual_payment_days', '30'),
   -- Marketplace & events
   ('event_commission_percent', '0.10'),
-  ('marketplace_delivery_fee_kwacha', '15')
+  ('marketplace_delivery_fee_kwacha', '15'),
+  -- Platform theme (superadmin override; hex without '#', e.g. FFDA03 = sunflower yellow)
+  ('platform_theme_color', 'FFDA03')
 ON CONFLICT (key) DO NOTHING;

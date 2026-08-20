@@ -68,7 +68,6 @@ import 'feature_toggles_screen.dart';
 import 'platform_analytics_screen.dart';
 import 'expansion_leads_screen.dart';
 import 'turnover_tax_ledger_screen.dart';
-import '../../../features/modules/games/presentation/game_management_screen.dart';
 import '../../../features/modules/bible_quiz/presentation/quiz_event_host_screen.dart';
 import '../../../features/profile/presentation/church_referral_screen.dart';
 
@@ -1029,9 +1028,6 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             }),
             _buildGlobalAction(LucideIcons.receipt, "Turnover Tax Ledger", "ZRA turnover tax tracking", Colors.brown, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TurnoverTaxLedgerScreen()));
-            }),
-            _buildGlobalAction(LucideIcons.gamepad2, "Game Management", "Manage quiz events & competitions", Colors.deepPurple, () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const GameManagementScreen()));
             }),
             _buildGlobalAction(LucideIcons.trophy, "Quiz Event Host", "Host & configure quiz tournaments", Colors.amber, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const QuizEventHostScreen()));

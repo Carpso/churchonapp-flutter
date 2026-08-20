@@ -70,10 +70,18 @@ class _TenantLeaseManagementScreenState extends ConsumerState<TenantLeaseManagem
     if (confirmed != true || !mounted) return;
 
     try {
-      await Supabase.instance.client.rpc(
-        active ? 'suspend_tenant' : 'reactivate_tenant',
-        params: {'p_tenant_id': id},
-      );
+      if (active) {
+        // suspend_tenant requires p_reason — PostgREST cannot resolve the
+        // 2-arg signature from a 1-arg call, so pass it explicitly.
+        await Supabase.instance.client.rpc('suspend_tenant', params: {
+          'p_tenant_id': id,
+          'p_reason': 'Deactivated from Tenant Lease Management',
+        });
+      } else {
+        await Supabase.instance.client.rpc('reactivate_tenant', params: {
+          'p_tenant_id': id,
+        });
+      }
       await _loadTenants();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(active ? "Tenant deactivated" : "Tenant reactivated")));
@@ -83,7 +91,7 @@ class _TenantLeaseManagementScreenState extends ConsumerState<TenantLeaseManagem
     }
   }
 
-  Future<void> _extendTrial(String churchId) async {
+  Future<void> _extendTrial(String tenantId) async {
     final daysStr = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -102,6 +110,16 @@ class _TenantLeaseManagementScreenState extends ConsumerState<TenantLeaseManagem
     if (daysStr == null || daysStr.isEmpty) return;
     final days = int.tryParse(daysStr) ?? 30;
     try {
+      // extend_church_trial expects a CHURCH id; resolve it from the tenant id.
+      String churchId = tenantId;
+      final church = await Supabase.instance.client
+          .from('churches')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .maybeSingle();
+      if (church != null && church['id'] != null) {
+        churchId = church['id'] as String;
+      }
       await Supabase.instance.client.rpc('extend_church_trial', params: {'p_church_id': churchId, 'p_extra_days': days});
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Trial extended by $days days")));
     } catch (e) {

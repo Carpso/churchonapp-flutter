@@ -34,6 +34,8 @@ class PastorDashboardScreen extends ConsumerStatefulWidget {
 class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
   bool _isLoading = true;
   String? _error;
+  String? _activeTenantId;
+  List<Map<String, dynamic>> _adminChurches = [];
   int _memberCount = 0;
   int _sermonCount = 0;
   int _attendanceCount = 0;
@@ -71,10 +73,30 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
       setState(() => _isLoading = false);
       return;
     }
-    final tenantId = profile.tenantId;
+    // Superadmin/COA staff have no tenant — let them pick a church to view.
+    final tenantId = _activeTenantId ?? profile.tenantId;
     if (tenantId == null) {
-      if (mounted) setState(() { _isLoading = false; _error = "No church assigned"; });
-      return;
+      try {
+        final churches = await Supabase.instance.client
+            .from('churches')
+            .select('id, name')
+            .eq('is_verified', true)
+            .order('name');
+        if (!mounted) return;
+        if (churches.isEmpty) {
+          setState(() { _isLoading = false; _error = "No verified churches found"; });
+          return;
+        }
+        setState(() {
+          _adminChurches = (churches as List).cast<Map<String, dynamic>>();
+          _activeTenantId = _adminChurches.first['id'] as String;
+        });
+        await _loadDashboard();
+        return;
+      } catch (e) {
+        if (mounted) setState(() { _isLoading = false; _error = e.toString(); });
+        return;
+      }
     }
 
     final now = DateTime.now();
@@ -206,6 +228,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final profileAsync = ref.watch(profileProvider);
+    final profile = profileAsync.value;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -215,6 +238,32 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
         foregroundColor: theme.colorScheme.onSurface,
         elevation: 0,
         actions: [
+          if (profile?.tenantId == null && _adminChurches.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _activeTenantId,
+                  isDense: true,
+                  items: _adminChurches
+                      .map((c) => DropdownMenuItem(
+                            value: c['id'] as String,
+                            child: Text(
+                              c['name']?.toString() ?? 'Church',
+                              style: const TextStyle(fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null && v != _activeTenantId) {
+                      setState(() => _activeTenantId = v);
+                      _loadDashboard();
+                    }
+                  },
+                ),
+              ),
+            ),
           IconButton(
             icon: const Icon(LucideIcons.refreshCw),
             onPressed: _isLoading ? null : _loadDashboard,

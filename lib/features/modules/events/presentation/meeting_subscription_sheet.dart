@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/widgets/coa_payment_sheet.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
 
 class MeetingSubscriptionSheet extends ConsumerStatefulWidget {
   final Future<bool> Function(String planType, double amountZmw, String? paymentRef) onSubscribe;
@@ -15,7 +16,13 @@ class _MeetingSubscriptionSheetState extends ConsumerState<MeetingSubscriptionSh
   String _selectedPlan = 'monthly';
   bool _isProcessing = false;
 
-  double get _amount => _selectedPlan == 'yearly' ? 1500.0 : 150.0;
+  // Live prices from platform_settings (meeting_monthly_price / meeting_yearly_price).
+  double get _amount => _selectedPlan == 'yearly'
+      ? widgetRemoteConfig(ref).getDouble('meeting_yearly_price', 1500)
+      : widgetRemoteConfig(ref).getDouble('meeting_monthly_price', 150);
+  double get _monthlyRate => _selectedPlan == 'yearly'
+      ? (_amount / 12).floorToDouble()
+      : _amount;
   String get _planLabel => _selectedPlan == 'yearly' ? 'Yearly' : 'Monthly';
 
   Future<void> _payWithMobileMoney() async {
@@ -67,9 +74,9 @@ class _MeetingSubscriptionSheetState extends ConsumerState<MeetingSubscriptionSh
 
           Row(
             children: [
-              Expanded(child: _buildPlanCard("monthly", "Monthly", "K150", "K150/month", "Billed monthly")),
+              Expanded(child: _buildPlanCard("monthly", "Monthly", "K${_monthlyRate.toStringAsFixed(0)}", "K${_monthlyRate.toStringAsFixed(0)}/month", "Billed monthly")),
               const SizedBox(width: 12),
-              Expanded(child: _buildPlanCard("yearly", "Yearly", "K1,500", "K125/month", "Save 17%")),
+              Expanded(child: _buildPlanCard("yearly", "Yearly", "K${_amount.toStringAsFixed(0)}", "K${_monthlyRate.toStringAsFixed(0)}/month", "Save 17%")),
             ],
           ),
 

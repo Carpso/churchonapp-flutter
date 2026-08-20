@@ -257,6 +257,7 @@ $migrations = @(
     "20260927_ops_dashboard_upgrade.sql"
     "20260928_org_branch_snapshots.sql"
     "20260929_org_create_registration_fixes.sql"
+    "20260931_role_approval_staff_fix.sql"
     )
 
 foreach ($m in $migrations) {

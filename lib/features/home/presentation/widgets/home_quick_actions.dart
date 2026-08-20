@@ -24,6 +24,7 @@ class HomeQuickActions extends StatelessWidget {
         "label": "Bible Quiz",
         "color": brand.withValues(alpha: 0.6),
       },
+      {"icon": LucideIcons.graduationCap, "label": "Bible Study", "color": Colors.teal},
       {
         "icon": LucideIcons.shoppingBag,
         "label": "Marketplace",
@@ -150,6 +151,8 @@ class HomeQuickActions extends StatelessWidget {
       context.push('/quiz');
     } else if (label == "Bible") {
       context.push('/bible');
+    } else if (label == "Bible Study") {
+      context.push('/bible-study');
     } else if (label == "Check-in") {
       context.push('/ride-scanner');
     } else if (label == "Sermons") {

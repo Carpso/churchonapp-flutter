@@ -1,15 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
-const GEMINI_API_BASE =
-  "https://generativelanguage.googleapis.com/v1beta/models";
-const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.0-flash";
-
-// HuggingFace free-tier fallback (no Gemini key required). Router endpoint is
-// OpenAI-compatible and resolves from the Supabase edge runtime
-// (api-inference.huggingface.co does not — verified via dns-probe). Default is
-// Llama-3.1-8B-Instruct — verified reachable on this account's free tier via
-// the router and strong at structured JSON output.
+// HuggingFace free-tier inference is the ONLY AI provider for quiz generation.
+// Router endpoint is OpenAI-compatible and resolves from the Supabase edge
+// runtime (api-inference.huggingface.co does not — verified via dns-probe).
+// Default is Llama-3.1-8B-Instruct — verified reachable on this account's
+// free tier via the router and strong at structured JSON output.
+// NEVER add another AI provider here (Gemini removed 2026-08-20 per request).
 const HF_API_BASE = "https://router.huggingface.co/v1";
 const HF_MODEL = Deno.env.get("HF_MODEL_ID") ?? "meta-llama/Llama-3.1-8B-Instruct";
 
@@ -93,7 +90,7 @@ function validateQuestion(raw: Record<string, unknown>): QuizQuestion | null {
   };
 }
 
-function buildGeminiPrompt(
+function buildPrompt(
   count: number,
   category?: string,
   difficulty?: string,
@@ -135,69 +132,6 @@ Return ONLY a valid JSON array (no markdown, no code fences). Each item:
   "category": "History",
   "scripture_reference": "Genesis 6:14"
 }`;
-}
-
-async function callGeminiAPI(
-  prompt: string,
-  apiKey: string,
-): Promise<QuizQuestion[]> {
-  const response = await fetch(
-    `${GEMINI_API_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.4,
-          topP: 0.9,
-          maxOutputTokens: 8192,
-          responseMimeType: "application/json",
-        },
-      }),
-    },
-  );
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Gemini API error ${response.status}: ${errText}`);
-  }
-
-  const data = await response.json();
-  const text =
-    data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-
-  if (!text) {
-    throw new Error("Gemini returned empty response");
-  }
-
-  // Parse the JSON array from the response
-  const cleaned = text
-    .replace(/```json\s*/g, "")
-    .replace(/```\s*/g, "")
-    .trim();
-
-  let parsed: unknown[];
-  try {
-    parsed = JSON.parse(cleaned) as unknown[];
-  } catch (_) {
-    // Try to extract array from text
-    const match = /\[[\s\S]*\]/.exec(cleaned);
-    if (match) {
-      parsed = JSON.parse(match[0]) as unknown[];
-    } else {
-      throw new Error("Could not parse Gemini response as JSON array");
-    }
-  }
-
-  // Validate each question — strict structural quality gate
-  const valid: QuizQuestion[] = [];
-  for (const item of parsed) {
-    const q = validateQuestion(item as Record<string, unknown>);
-    if (q) valid.push(q);
-  }
-
-  return valid;
 }
 
 /**
@@ -441,13 +375,12 @@ Deno.serve(async (req) => {
       (existingQs ?? []).map((q) => q.question_hash as string),
     );
 
-    // Call Gemini API (primary provider)
-    const geminiKey = Deno.env.get("GEMINI_API_KEY");
+    // HuggingFace free-tier inference is the ONLY AI provider.
     const hfToken = Deno.env.get("HUGGINGFACE_TOKEN");
-    if (!geminiKey && !hfToken) {
+    if (!hfToken) {
       return new Response(
         JSON.stringify({
-          error: "Neither GEMINI_API_KEY nor HUGGINGFACE_TOKEN configured on server",
+          error: "HUGGINGFACE_TOKEN not configured on server",
           inserted: 0,
         }),
         {
@@ -459,7 +392,7 @@ Deno.serve(async (req) => {
 
     // Generate extra to account for dedup losses
     const generateCount = Math.min(batchSize * 2, 200);
-    const prompt = buildGeminiPrompt(
+    const prompt = buildPrompt(
       generateCount,
       category ?? undefined,
       difficulty ?? undefined,
@@ -467,25 +400,13 @@ Deno.serve(async (req) => {
       topic ?? undefined,
     );
 
-    let questions: QuizQuestion[] = [];
-    let provider = "gemini";
-    if (geminiKey) {
-      try {
-        questions = await callGeminiAPI(prompt, geminiKey);
-      } catch (geminiErr) {
-        console.error("Gemini generation failed, falling back to HuggingFace:", geminiErr);
-        provider = "huggingface";
-      }
-    }
-    if (questions.length === 0 && hfToken) {
-      provider = "huggingface";
-      // HF free tier: one call for the whole batch (probe: 3 Qs ≈ 9s warm,
-      // ~90s cold), capped at 8 per call; at most 2 rounds to stay within
-      // the edge function wall-clock budget.
-      const perCall = Math.min(batchSize, 8);
-      const maxRounds = 2;
-      questions = await callHuggingFace(prompt, perCall, maxRounds);
-    }
+    // HF free tier: one call for the whole batch (probe: 3 Qs ≈ 9s warm,
+    // ~90s cold), capped at 8 per call; at most 3 rounds to stay within
+    // the edge function wall-clock budget.
+    const perCall = Math.min(batchSize, 8);
+    const maxRounds = 3;
+    const questions = await callHuggingFace(prompt, perCall, maxRounds);
+    const provider = "huggingface";
     if (questions.length === 0) {
       return new Response(
         JSON.stringify({ error: "Question generation failed: no provider produced questions", inserted: 0 }),
