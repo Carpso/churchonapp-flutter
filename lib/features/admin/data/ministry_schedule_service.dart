@@ -31,8 +31,8 @@ class MinistryScheduleEntry {
         'id': id,
         'ministry_name': ministryName,
         'scheduled_for': date.toIso8601String().substring(0, 10),
-        'start_time': _timeToMinutes(time),
-        'end_time': endTime != null ? _timeToMinutes(endTime!) : null,
+        'start_time': _timeToString(time),
+'end_time': endTime != null ? _timeToString(endTime!) : null,
         'location': location,
         'leader': leader,
         'notes': notes,
@@ -43,16 +43,26 @@ class MinistryScheduleEntry {
         id: (json['id'] ?? '').toString(),
         ministryName: (json['ministry_name'] ?? '') as String,
         date: DateTime.parse((json['scheduled_for'] ?? DateTime.now().toIso8601String().substring(0, 10)) as String),
-        time: _minutesToTime(json['start_time'] as int? ?? 540),
-        endTime: json['end_time'] != null ? _minutesToTime(json['end_time'] as int) : null,
+        time: _parseTime(json['start_time']),
+        endTime: json['end_time'] != null ? _parseTime(json['end_time']) : null,
         location: (json['location'] ?? '') as String? ?? '',
         leader: (json['leader'] ?? '') as String? ?? '',
         notes: json['notes'] as String?,
         recurrence: (json['recurrence'] ?? 'none') as String,
       );
+}
 
-  static int _timeToMinutes(TimeOfDay t) => t.hour * 60 + t.minute;
-  static TimeOfDay _minutesToTime(int minutes) => TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
+String _timeToString(TimeOfDay t) =>
+    '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:00';
+
+TimeOfDay _parseTime(dynamic value, [TimeOfDay fallback = const TimeOfDay(hour: 9, minute: 0)]) {
+  if (value == null) return fallback;
+  if (value is int) return TimeOfDay(hour: value ~/ 60, minute: value % 60);
+  final parts = value.toString().split(':');
+  if (parts.length < 2) return fallback;
+  final hour = int.tryParse(parts[0]) ?? fallback.hour;
+  final minute = int.tryParse(parts[1]) ?? fallback.minute;
+  return TimeOfDay(hour: hour.clamp(0, 23), minute: minute.clamp(0, 59));
 }
 
 class MinistryScheduleService {
@@ -102,8 +112,8 @@ class MinistryScheduleService {
       'tenant_id': tenantId,
       'ministry_name': ministryName,
       'scheduled_for': date.toIso8601String().substring(0, 10),
-      'start_time': time.hour * 60 + time.minute,
-      'end_time': endTime != null ? endTime.hour * 60 + endTime.minute : null,
+      'start_time': _timeToString(time),
+      'end_time': endTime != null ? _timeToString(endTime) : null,
       'location': location,
       'leader': leader,
       'notes': notes,
@@ -127,8 +137,8 @@ class MinistryScheduleService {
     final payload = <String, dynamic>{'updated_at': DateTime.now().toIso8601String()};
     if (ministryName != null) payload['ministry_name'] = ministryName;
     if (date != null) payload['scheduled_for'] = date.toIso8601String().substring(0, 10);
-    if (time != null) payload['start_time'] = time.hour * 60 + time.minute;
-    if (endTime != null) payload['end_time'] = endTime.hour * 60 + endTime.minute;
+    if (time != null) payload['start_time'] = _timeToString(time);
+    if (endTime != null) payload['end_time'] = _timeToString(endTime);
     if (location != null) payload['location'] = location;
     if (leader != null) payload['leader'] = leader;
     if (notes != null) payload['notes'] = notes;

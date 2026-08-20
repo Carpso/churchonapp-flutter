@@ -91,7 +91,12 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           selectedChapter = savedChapter;
         }
         if (savedTranslation != null) {
-          selectedTranslation = savedTranslation;
+          // A translation that can no longer be resolved (e.g. a stale NKJV/NLT
+          // selection before those were DB-seeded, or a removed R2 folder) would
+          // leave the reader stuck on "No content found" — force KJV instead.
+          selectedTranslation = BibleService.canResolve(savedTranslation)
+              ? savedTranslation
+              : BibleService.fallbackTranslation;
         }
       });
     } catch (e) {

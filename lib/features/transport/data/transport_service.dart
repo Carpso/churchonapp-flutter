@@ -7,6 +7,7 @@ import 'delivery_model.dart';
 import '../../../core/services/sms_service.dart';
 import '../../../core/config/env.dart';
 import '../../../core/config/fee_config.dart';
+import '../../../core/config/remote_config.dart';
 import 'package:latlong2/latlong.dart';
 
 class RideRegistration {
@@ -165,9 +166,9 @@ class TransportService {
         .map((data) => data.isNotEmpty ? RideRequest.fromMap(data.first) : null);
   }
 
-  Future<void> acceptRide(String requestId) async {
+  Future<bool> acceptRide(String requestId) async {
     final user = _client.auth.currentUser;
-    if (user == null) return;
+    if (user == null) return false;
 
     // Atomic accept: only succeed if ride is still pending (prevents double-book)
     final result = await _client
@@ -175,6 +176,9 @@ class TransportService {
         .update({
           'driver_id': user.id,
           'status': 'accepted',
+          'negotiation_status': 'accepted',
+          'fare_locked_at': DateTime.now().toIso8601String(),
+          'last_offer_by': null,
         })
         .eq('id', requestId)
         .eq('status', 'pending')
@@ -183,7 +187,7 @@ class TransportService {
 
     if (result == null) {
       debugPrint("transport_service: Ride $requestId already taken by another driver");
-      return;
+      return false;
     }
 
     final riderId = result['rider_id'];
@@ -210,6 +214,7 @@ class TransportService {
     } catch (e) {
       debugPrint("transport_service: SMS Alert Failed: $e");
     }
+    return true;
   }
 
   Future<String> _rideFareLabel(String requestId) async {
@@ -232,27 +237,67 @@ class TransportService {
     }).eq('id', requestId);
   }
 
+  /// How long a fare proposal stays open before it lapses (remote-tunable).
+  Duration _negotiationTimeout() =>
+      Duration(seconds: currentRemoteConfig(_ref).getInt('ride_negotiation_timeout_sec', 120));
+
+  /// Reads the current negotiation round and returns the next one.
+  Future<int> _nextNegotiationRound(String table, String id) async {
+    try {
+      final res = await _client
+          .from(table)
+          .select('negotiation_round')
+          .eq('id', id)
+          .maybeSingle();
+      return ((res?['negotiation_round'] as num?)?.toInt() ?? 0) + 1;
+    } catch (e) {
+      debugPrint("transport_service: round read failed: $e");
+      return 1;
+    }
+  }
+
   /// Driver counters with a different fare (notifies the passenger).
   Future<void> counterFare(String requestId, double counter) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
     final res = await _client
         .from('ride_requests')
         .select('rider_id')
         .eq('id', requestId)
         .single();
+    final round = await _nextNegotiationRound('ride_requests', requestId);
     await _client.from('ride_requests').update({
       'negotiated_fare': counter,
       'negotiation_status': 'driver_countered',
-    }).eq('id', requestId);
+      'negotiation_round': round,
+      'last_offer_by': user.id,
+      'proposal_expires_at': DateTime.now().add(_negotiationTimeout()).toIso8601String(),
+    }).eq('id', requestId).eq('status', 'pending');
     try {
       await _client.from('notifications').insert({
         'user_id': res['rider_id'],
         'title': 'New Fare Offer',
-        'body': 'The driver counter-offered K${counter.toStringAsFixed(0)}. Accept or decline to continue.',
+        'body': 'The driver counter-offered K${counter.toStringAsFixed(0)}. Accept, decline or counter to continue.',
         'is_read': false,
       });
     } catch (e) {
       debugPrint("transport_service: counter notification failed: $e");
     }
+  }
+
+  /// Passenger counters the driver's offer (inDrive-style back-and-forth).
+  /// Drivers see the counter in their portal as 'passenger_countered'.
+  Future<void> passengerCounterFare(String requestId, double counter) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+    final round = await _nextNegotiationRound('ride_requests', requestId);
+    await _client.from('ride_requests').update({
+      'negotiated_fare': counter,
+      'negotiation_status': 'passenger_countered',
+      'negotiation_round': round,
+      'last_offer_by': user.id,
+      'proposal_expires_at': DateTime.now().add(_negotiationTimeout()).toIso8601String(),
+    }).eq('id', requestId).eq('status', 'pending');
   }
 
   /// Passenger accepts the driver's counter-offer → locks fare and accepts ride.
@@ -263,7 +308,41 @@ class TransportService {
       'status': 'accepted',
       'negotiation_status': 'accepted',
       'fare_locked_at': DateTime.now().toIso8601String(),
+      'last_offer_by': null,
     }).eq('id', requestId).eq('negotiation_status', 'driver_countered');
+  }
+
+  /// Driver accepts the passenger's counter-offer at the agreed fare.
+  /// Atomic: only succeeds while the request is still pending.
+  Future<bool> acceptPassengerCounter(String requestId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+    final result = await _client
+        .from('ride_requests')
+        .update({
+          'driver_id': user.id,
+          'status': 'accepted',
+          'negotiation_status': 'accepted',
+          'fare_locked_at': DateTime.now().toIso8601String(),
+          'last_offer_by': null,
+        })
+        .eq('id', requestId)
+        .eq('status', 'pending')
+        .eq('negotiation_status', 'passenger_countered')
+        .select('rider_id')
+        .maybeSingle();
+    if (result == null) return false;
+    try {
+      await _client.from('notifications').insert({
+        'user_id': result['rider_id'],
+        'title': 'Driver Found!',
+        'body': 'A driver accepted your fare. Confirm payment to start the trip.',
+        'is_read': false,
+      });
+    } catch (e) {
+      debugPrint("transport_service: accept passenger counter notification failed: $e");
+    }
+    return true;
   }
 
   /// Passenger declines the counter-offer, resets to pending.
@@ -271,7 +350,19 @@ class TransportService {
     await _client.from('ride_requests').update({
       'negotiation_status': 'none',
       'negotiated_fare': null,
+      'last_offer_by': null,
     }).eq('id', requestId).eq('negotiation_status', 'driver_countered');
+  }
+
+  /// Passenger cancels their own pending request.
+  Future<void> cancelRide(String requestId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+    await _client.from('ride_requests').update({
+      'status': 'cancelled',
+      'cancelled_at': DateTime.now().toIso8601String(),
+      'cancelled_by': user.id,
+    }).eq('id', requestId).eq('status', 'pending');
   }
 
   /// Passenger paid — store the Lipila anchor + mark the ride paid.
@@ -304,25 +395,45 @@ class TransportService {
 
   /// Driver counters a delivery fare (notifies the sender).
   Future<void> counterDeliveryFare(String deliveryId, double counter) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
     final res = await _client
         .from('delivery_requests')
         .select('sender_id')
         .eq('id', deliveryId)
         .single();
+    final round = await _nextNegotiationRound('delivery_requests', deliveryId);
     await _client.from('delivery_requests').update({
       'negotiated_fare': counter,
       'negotiation_status': 'driver_countered',
-    }).eq('id', deliveryId);
+      'negotiation_round': round,
+      'last_offer_by': user.id,
+      'proposal_expires_at': DateTime.now().add(_negotiationTimeout()).toIso8601String(),
+    }).eq('id', deliveryId).eq('status', 'pending');
     try {
       await _client.from('notifications').insert({
         'user_id': res['sender_id'],
         'title': 'New Cargo Fare Offer',
-        'body': 'The courier counter-offered K${counter.toStringAsFixed(0)}. Accept or decline to continue.',
+        'body': 'The courier counter-offered K${counter.toStringAsFixed(0)}. Accept, decline or counter to continue.',
         'is_read': false,
       });
     } catch (e) {
       debugPrint("transport_service: delivery counter notification failed: $e");
     }
+  }
+
+  /// Sender counters the courier's offer (inDrive-style back-and-forth).
+  Future<void> senderCounterFare(String deliveryId, double counter) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+    final round = await _nextNegotiationRound('delivery_requests', deliveryId);
+    await _client.from('delivery_requests').update({
+      'negotiated_fare': counter,
+      'negotiation_status': 'passenger_countered',
+      'negotiation_round': round,
+      'last_offer_by': user.id,
+      'proposal_expires_at': DateTime.now().add(_negotiationTimeout()).toIso8601String(),
+    }).eq('id', deliveryId).eq('status', 'pending');
   }
 
   /// Sender accepts the courier's counter-offer → locks fare and accepts.
@@ -331,7 +442,41 @@ class TransportService {
       'status': 'accepted',
       'negotiation_status': 'accepted',
       'fare_locked_at': DateTime.now().toIso8601String(),
+      'last_offer_by': null,
     }).eq('id', deliveryId).eq('negotiation_status', 'driver_countered');
+  }
+
+  /// Courier accepts the sender's counter-offer at the agreed fare.
+  /// Atomic: only succeeds while the delivery is still pending.
+  Future<bool> acceptSenderCounter(String deliveryId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+    final result = await _client
+        .from('delivery_requests')
+        .update({
+          'driver_id': user.id,
+          'status': 'accepted',
+          'negotiation_status': 'accepted',
+          'fare_locked_at': DateTime.now().toIso8601String(),
+          'last_offer_by': null,
+        })
+        .eq('id', deliveryId)
+        .eq('status', 'pending')
+        .eq('negotiation_status', 'passenger_countered')
+        .select('sender_id')
+        .maybeSingle();
+    if (result == null) return false;
+    try {
+      await _client.from('notifications').insert({
+        'user_id': result['sender_id'],
+        'title': 'Courier Found!',
+        'body': 'A courier accepted your fare. Confirm payment to start.',
+        'is_read': false,
+      });
+    } catch (e) {
+      debugPrint("transport_service: accept sender counter notification failed: $e");
+    }
+    return true;
   }
 
   /// Sender declines the counter-offer, resets to pending.
@@ -339,7 +484,19 @@ class TransportService {
     await _client.from('delivery_requests').update({
       'negotiation_status': 'none',
       'negotiated_fare': null,
+      'last_offer_by': null,
     }).eq('id', deliveryId).eq('negotiation_status', 'driver_countered');
+  }
+
+  /// Sender cancels their own pending delivery request.
+  Future<void> cancelDelivery(String deliveryId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+    await _client.from('delivery_requests').update({
+      'status': 'cancelled',
+      'cancelled_at': DateTime.now().toIso8601String(),
+      'cancelled_by': user.id,
+    }).eq('id', deliveryId).eq('status', 'pending');
   }
 
   /// Sender paid — store the Lipila anchor + mark the delivery paid.
@@ -565,19 +722,30 @@ class TransportService {
         .map((data) => data.map((e) => DeliveryRequest.fromMap(e)).toList());
   }
 
-  Future<void> acceptDelivery(String deliveryId) async {
+  Future<bool> acceptDelivery(String deliveryId) async {
     final user = _client.auth.currentUser;
-    if (user == null) return;
+    if (user == null) throw Exception('Not authenticated');
 
-    // 1. Get delivery details for notification
-    final res = await _client.from('delivery_requests').select('sender_id').eq('id', deliveryId).single();
+    // Atomic accept: only succeed if delivery is still pending (prevents double-book)
+    final res = await _client.from('delivery_requests')
+        .update({
+          'driver_id': user.id,
+          'status': 'accepted',
+          'negotiation_status': 'accepted',
+          'fare_locked_at': DateTime.now().toIso8601String(),
+          'last_offer_by': null,
+        })
+        .eq('id', deliveryId)
+        .eq('status', 'pending')
+        .select('sender_id')
+        .maybeSingle();
+
+    if (res == null) {
+      debugPrint("transport_service: Delivery $deliveryId already taken by another courier");
+      return false;
+    }
+
     final senderId = res['sender_id'];
-
-    // 2. Assign driver
-    await _client.from('delivery_requests').update({
-      'driver_id': user.id,
-      'status': 'accepted',
-    }).eq('id', deliveryId);
 
     // 3. Notify the sender via Push
     await _client.from('notifications').insert({
@@ -601,6 +769,7 @@ class TransportService {
     } catch (e) {
       debugPrint("transport_service: SMS Alert Failed: $e");
     }
+    return true;
   }
 
   Future<void> updateDeliveryStatus(String deliveryId, String status) async {

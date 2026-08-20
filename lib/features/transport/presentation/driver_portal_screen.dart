@@ -205,9 +205,28 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text("NEW REQUEST", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.2)),
-              Text("K ${ride.fare.toInt()}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.secondary)),
+              Text("K ${ride.currentFare.toInt()}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.secondary)),
             ],
           ),
+          if (ride.negotiationStatus == 'passenger_countered' && ride.negotiatedFare != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                children: [
+                  const Icon(LucideIcons.scale, color: Colors.amber, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Passenger countered: K${ride.negotiatedFare!.toStringAsFixed(0)} — accept at this fare or re-counter",
+                      style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.w700, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 15),
           Row(
             children: [
@@ -246,7 +265,9 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
               const SizedBox(width: 15),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () => _acceptRide(context, ref, ride),
+                  onPressed: () => ride.negotiationStatus == 'passenger_countered'
+                      ? _acceptPassengerCounter(context, ref, ride)
+                      : _acceptRide(context, ref, ride),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).primaryColor,
                     foregroundColor: Theme.of(context).colorScheme.secondary,
@@ -262,8 +283,28 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
     );
   }
 
+  Future<void> _acceptPassengerCounter(BuildContext context, WidgetRef ref, RideRequest ride) async {
+    try {
+      final ok = await ref.read(transportServiceProvider).acceptPassengerCounter(ride.id);
+      if (!context.mounted) return;
+      if (ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Fare agreed — waiting for the passenger to pay")),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("This request was already taken by another driver"), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    }
+  }
+
   Future<void> _counterRide(BuildContext context, WidgetRef ref, RideRequest ride) async {
-    final controller = TextEditingController(text: ride.fare.toStringAsFixed(0));
+    final controller = TextEditingController(text: ride.currentFare.toStringAsFixed(0));
     final amount = await showDialog<double>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
@@ -305,10 +346,15 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
 
   Future<void> _acceptRide(BuildContext context, WidgetRef ref, RideRequest ride) async {
     try {
-      await ref.read(transportServiceProvider).acceptRide(ride.id);
-      if (context.mounted) {
+      final ok = await ref.read(transportServiceProvider).acceptRide(ride.id);
+      if (!context.mounted) return;
+      if (ok) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Request accepted — waiting for the passenger to pay")),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("This ride was already taken by another driver"), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
@@ -338,9 +384,28 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
                 decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
                 child: Text(delivery.itemCategory.toUpperCase(), style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1)),
               ),
-              Text("K ${delivery.fare.toInt()}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.secondary)),
+              Text("K ${delivery.currentFare.toInt()}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.secondary)),
             ],
           ),
+          if (delivery.negotiationStatus == 'passenger_countered' && delivery.negotiatedFare != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                children: [
+                  const Icon(LucideIcons.scale, color: Colors.amber, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Sender countered: K${delivery.negotiatedFare!.toStringAsFixed(0)} — accept at this fare or re-counter",
+                      style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.w700, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 15),
           Text(delivery.itemDescription, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           Text("Weight: ${delivery.weight}", style: TextStyle(color: Colors.grey[600], fontSize: 12)),
@@ -373,7 +438,9 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
               const SizedBox(width: 15),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () => _acceptDelivery(context, ref, delivery),
+                  onPressed: () => delivery.negotiationStatus == 'passenger_countered'
+                      ? _acceptSenderCounter(context, ref, delivery)
+                      : _acceptDelivery(context, ref, delivery),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.greenAccent[700],
                     foregroundColor: Colors.white,
@@ -389,8 +456,28 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
     );
   }
 
+  Future<void> _acceptSenderCounter(BuildContext context, WidgetRef ref, DeliveryRequest delivery) async {
+    try {
+      final ok = await ref.read(transportServiceProvider).acceptSenderCounter(delivery.id);
+      if (!context.mounted) return;
+      if (ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Fare agreed — waiting for the sender to pay")),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("This delivery was already taken by another courier"), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    }
+  }
+
   Future<void> _counterDelivery(BuildContext context, WidgetRef ref, DeliveryRequest delivery) async {
-    final controller = TextEditingController(text: delivery.fare.toStringAsFixed(0));
+    final controller = TextEditingController(text: delivery.currentFare.toStringAsFixed(0));
     final amount = await showDialog<double>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
@@ -432,10 +519,15 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
 
   Future<void> _acceptDelivery(BuildContext context, WidgetRef ref, DeliveryRequest delivery) async {
     try {
-      await ref.read(transportServiceProvider).acceptDelivery(delivery.id);
-      if (context.mounted) {
+      final ok = await ref.read(transportServiceProvider).acceptDelivery(delivery.id);
+      if (!context.mounted) return;
+      if (ok) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Cargo accepted — waiting for the sender to pay")),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("This delivery was already taken by another courier"), backgroundColor: Colors.red),
         );
       }
     } catch (e) {

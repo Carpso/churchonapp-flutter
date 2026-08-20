@@ -371,6 +371,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
+              if (_pendingRequestId != null) _buildCancelBanner(),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 25),
@@ -421,6 +422,60 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildCancelBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(25, 0, 25, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.clock, color: Colors.red, size: 16),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              "Waiting for a driver...",
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+          ),
+          TextButton(
+            onPressed: _isCancelling ? null : _cancelPendingRequest,
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+              visualDensity: VisualDensity.compact,
+            ),
+            child: Text(_isCancelling ? "Cancelling..." : "Cancel"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cancelPendingRequest() async {
+    final id = _pendingRequestId;
+    if (id == null || _isCancelling) return;
+    setState(() => _isCancelling = true);
+    try {
+      if (_pendingIsDelivery) {
+        await ref.read(transportServiceProvider).cancelDelivery(id);
+      } else {
+        await ref.read(transportServiceProvider).cancelRide(id);
+      }
+    } catch (e) {
+      debugPrint('Cancel ride failed: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCancelling = false;
+          _pendingRequestId = null;
+        });
+      }
+    }
   }
 
   Widget _buildCategoryToggle(RidePricingState pricing) {
@@ -501,7 +556,11 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
 
   bool _isRequesting = false;
   bool _paymentSheetOpen = false;
-  double? _counterShownFor;
+  bool _isCancelling = false;
+  int? _counterShownRideRound;
+  int? _counterShownDeliveryRound;
+  String? _pendingRequestId;
+  bool _pendingIsDelivery = false;
 
   /// Request the ride FIRST (no payment). The driver negotiates / accepts, and
   /// only after the fare is agreed does the passenger pay to start the trip.
@@ -547,6 +606,12 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
         return;
       }
 
+      setState(() {
+        _pendingRequestId = requestId;
+        _pendingIsDelivery = isDelivery;
+        _counterShownRideRound = null;
+        _counterShownDeliveryRound = null;
+      });
       _listenForAcceptance(requestId);
       _listenForDeliveryAcceptance(requestId);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -638,30 +703,39 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
       if (ride == null || !matches) return;
 
       if (ride.status == 'cancelled') {
+        if (mounted) setState(() => _pendingRequestId = null);
+        final byMe = ride.cancelledBy != null &&
+            ride.cancelledBy == Supabase.instance.client.auth.currentUser?.id;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("This request was cancelled."), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(byMe ? "Request cancelled." : "This request was cancelled."),
+            backgroundColor: byMe ? null : Colors.red,
+          ),
         );
         return;
       }
 
-      // Driver counter-offered → show accept/decline dialog (once per offer).
+      // Driver counter-offered → show accept/decline/counter dialog (once per
+      // negotiation round — NOT per fare value, so repeat offers are caught).
       if (ride.status == 'pending' &&
           ride.negotiationStatus == 'driver_countered' &&
           ride.negotiatedFare != null &&
-          ride.negotiatedFare != _counterShownFor) {
-        _counterShownFor = ride.negotiatedFare;
+          ride.negotiationRound != _counterShownRideRound) {
+        _counterShownRideRound = ride.negotiationRound;
         _showCounterOfferDialog(ride);
         return;
       }
 
       // Driver accepted the request (at any agreed fare) → pay to start.
       if (ride.status == 'accepted' && ride.paymentStatus != 'paid') {
+        if (mounted) setState(() => _pendingRequestId = null);
         _payForRide(ride, false);
         return;
       }
 
       // Paid → go to live tracking.
       if (ride.status == 'accepted' && ride.paymentStatus == 'paid') {
+        if (mounted) setState(() => _pendingRequestId = null);
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -693,7 +767,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              "Accept the fare and pay now, or decline to keep waiting for other drivers.",
+              "Accept the fare and pay now, counter with your own fare, or decline to keep waiting for other drivers.",
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12),
             ),
           ],
@@ -705,6 +779,10 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
               await ref.read(transportServiceProvider).declineCounterOffer(ride.id);
             },
             child: const Text("Decline"),
+          ),
+          TextButton(
+            onPressed: () => _counterDriverOffer(ride),
+            child: const Text("Counter"),
           ),
           FilledButton(
             onPressed: () async {
@@ -721,6 +799,51 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
     );
   }
 
+  /// Rider re-counters the driver's offer (inDrive-style back-and-forth).
+  Future<void> _counterDriverOffer(RideRequest ride) async {
+    final controller = TextEditingController(text: ride.negotiatedFare!.toStringAsFixed(0));
+    final amount = await showDialog<double>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text("Your Counter-Offer"),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(
+            prefixText: "K ",
+            labelText: "Your fare",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text("Cancel")),
+          FilledButton(
+            onPressed: () {
+              final v = double.tryParse(controller.text.trim());
+              if (v == null || v <= 0) return;
+              Navigator.pop(dialogCtx, v);
+            },
+            child: const Text("Send Offer"),
+          ),
+        ],
+      ),
+    );
+    if (amount == null) return;
+    try {
+      await ref.read(transportServiceProvider).passengerCounterFare(ride.id, amount);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Counter-offer K${amount.toInt()} sent — waiting for the driver")),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    }
+  }
+
   /// Delivery mirror of [_listenForAcceptance] using the sender's delivery stream.
   void _listenForDeliveryAcceptance([String? expectedRequestId]) {
     _deliverySub?.cancel();
@@ -731,24 +854,31 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
       if (delivery == null || !matches) return;
 
       if (delivery.status == 'cancelled') {
+        if (mounted) setState(() => _pendingRequestId = null);
+        final byMe = delivery.cancelledBy != null &&
+            delivery.cancelledBy == Supabase.instance.client.auth.currentUser?.id;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("This cargo request was cancelled."), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(byMe ? "Request cancelled." : "This cargo request was cancelled."),
+            backgroundColor: byMe ? null : Colors.red,
+          ),
         );
         return;
       }
 
-      // Courier counter-offered → accept/decline (once per offer).
+      // Courier counter-offered → accept/decline/counter (once per round).
       if (delivery.status == 'pending' &&
           delivery.negotiationStatus == 'driver_countered' &&
           delivery.negotiatedFare != null &&
-          delivery.negotiatedFare != _counterShownFor) {
-        _counterShownFor = delivery.negotiatedFare;
+          delivery.negotiationRound != _counterShownDeliveryRound) {
+        _counterShownDeliveryRound = delivery.negotiationRound;
         _showDeliveryCounterDialog(delivery);
         return;
       }
 
       // Courier accepted → pay to start.
       if (delivery.status == 'accepted' && delivery.paymentStatus != 'paid') {
+        if (mounted) setState(() => _pendingRequestId = null);
         if (_paymentSheetOpen) return;
         _paymentSheetOpen = true;
         showModalBottomSheet(
@@ -805,7 +935,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              "Accept the fare and pay now, or decline to keep waiting for other couriers.",
+              "Accept the fare and pay now, counter with your own fare, or decline to keep waiting for other couriers.",
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12),
             ),
           ],
@@ -818,6 +948,10 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
             },
             child: const Text("Decline"),
           ),
+          TextButton(
+            onPressed: () => _counterCourierOffer(delivery),
+            child: const Text("Counter"),
+          ),
           FilledButton(
             onPressed: () async {
               Navigator.pop(dialogCtx);
@@ -828,6 +962,51 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
         ],
       ),
     );
+  }
+
+  /// Sender re-counters the courier's offer (inDrive-style back-and-forth).
+  Future<void> _counterCourierOffer(DeliveryRequest delivery) async {
+    final controller = TextEditingController(text: delivery.negotiatedFare!.toStringAsFixed(0));
+    final amount = await showDialog<double>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text("Your Counter-Offer"),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(
+            prefixText: "K ",
+            labelText: "Your fare",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text("Cancel")),
+          FilledButton(
+            onPressed: () {
+              final v = double.tryParse(controller.text.trim());
+              if (v == null || v <= 0) return;
+              Navigator.pop(dialogCtx, v);
+            },
+            child: const Text("Send Offer"),
+          ),
+        ],
+      ),
+    );
+    if (amount == null) return;
+    try {
+      await ref.read(transportServiceProvider).senderCounterFare(delivery.id, amount);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Counter-offer K${amount.toInt()} sent — waiting for the courier")),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    }
   }
 
   Future<void> _searchAndSetLocation(String address) async {

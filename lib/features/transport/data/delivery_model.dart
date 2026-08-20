@@ -15,11 +15,16 @@ class DeliveryRequest {
   final String? vendorPhone;
   final String? vendorName;
   final double? itemPrice;
-  final String negotiationStatus; // 'none','passenger_offered','driver_countered','accepted'
+  final String negotiationStatus; // 'none','passenger_offered','driver_countered','passenger_countered','accepted'
   final double? negotiatedFare;
   final String paymentStatus; // 'unpaid','pending','paid'
   final String? pickupLabel;
   final String? destLabel;
+  final int negotiationRound;
+  final String? lastOfferBy;
+  final DateTime? proposalExpiresAt;
+  final DateTime? cancelledAt;
+  final String? cancelledBy;
 
   DeliveryRequest({
     required this.id,
@@ -41,6 +46,11 @@ class DeliveryRequest {
     this.paymentStatus = 'unpaid',
     this.pickupLabel,
     this.destLabel,
+    this.negotiationRound = 0,
+    this.lastOfferBy,
+    this.proposalExpiresAt,
+    this.cancelledAt,
+    this.cancelledBy,
   });
 
   factory DeliveryRequest.fromMap(Map<String, dynamic> map) {
@@ -64,6 +74,11 @@ class DeliveryRequest {
       paymentStatus: map['payment_status'] ?? 'unpaid',
       pickupLabel: map['pickup_label'],
       destLabel: map['dest_label'],
+      negotiationRound: (map['negotiation_round'] as num?)?.toInt() ?? 0,
+      lastOfferBy: map['last_offer_by'],
+      proposalExpiresAt: map['proposal_expires_at'] != null ? DateTime.parse(map['proposal_expires_at']) : null,
+      cancelledAt: map['cancelled_at'] != null ? DateTime.parse(map['cancelled_at']) : null,
+      cancelledBy: map['cancelled_by'],
     );
   }
 
@@ -92,6 +107,11 @@ class DeliveryRequest {
       'payment_status': paymentStatus,
       'pickup_label': pickupLabel,
       'dest_label': destLabel,
+      'negotiation_round': negotiationRound,
+      'last_offer_by': lastOfferBy,
+      'proposal_expires_at': proposalExpiresAt?.toIso8601String(),
+      'cancelled_at': cancelledAt?.toIso8601String(),
+      'cancelled_by': cancelledBy,
     };
   }
 }

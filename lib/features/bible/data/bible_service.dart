@@ -308,14 +308,16 @@ class BibleService {
           .from('bible_translations')
           .select('id')
           .eq('code', translation)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(const Duration(seconds: 8));
       if (transRow == null) return [];
 
       final bookRow = await client
           .from('bible_books')
           .select('id')
           .eq('name', book)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(const Duration(seconds: 8));
       if (bookRow == null) return [];
 
       final data = await client
@@ -324,7 +326,8 @@ class BibleService {
           .eq('translation_id', transRow['id'])
           .eq('book_id', bookRow['id'])
           .eq('chapter', chapter)
-          .order('verse', ascending: true);
+          .order('verse', ascending: true)
+          .timeout(const Duration(seconds: 8));
 
       return (data as List)
           .map(
