@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:async';
 import '../data/transport_service.dart';
 import '../data/ride_request_model.dart';
+import 'package:go_router/go_router.dart';
 import '../data/delivery_model.dart';
 import 'active_ride_tracking_screen.dart';
 
@@ -97,7 +98,7 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
             labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
           ),
           actions: [
-            IconButton(icon: const Icon(LucideIcons.settings), onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Driver settings coming soon")))),
+            IconButton(icon: const Icon(LucideIcons.settings), onPressed: () => context.push('/go-live')),
           ],
         ),
         body: Column(

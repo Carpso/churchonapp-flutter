@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/features/navigation/presentation/main_navigation_shell.dart';
 import 'package:church_on_app/features/auth/presentation/login_screen.dart';
 import 'package:church_on_app/features/auth/presentation/signup_screen.dart';
-import 'package:church_on_app/features/auth/presentation/forgot_password_screen.dart';
 import 'package:church_on_app/features/auth/presentation/onboarding_screen.dart';
 import 'package:church_on_app/features/auth/presentation/select_church_screen.dart'
     show SelectTenantScreen;
@@ -72,6 +71,12 @@ import 'package:church_on_app/features/admin/presentation/coa_employee_dashboard
 import 'package:church_on_app/features/admin/presentation/bookshop_dashboard_screen.dart';
 import 'package:church_on_app/features/admin/presentation/year_planner_screen.dart';
 import 'package:church_on_app/features/admin/presentation/pastor_bishop_report_screen.dart';
+import 'package:church_on_app/features/admin/presentation/media_upload_screen.dart';
+import 'package:church_on_app/features/admin/presentation/global_broadcast_screen.dart';
+import 'package:church_on_app/features/admin/presentation/finance_dashboard_screen.dart';
+import 'package:church_on_app/features/admin/presentation/prophetic_heatmap_screen.dart';
+import 'package:church_on_app/features/admin/presentation/rider_dashboard_screen.dart';
+import 'package:church_on_app/features/admin/presentation/writer_dashboard_screen.dart';
 import 'package:church_on_app/features/admin/presentation/attendance_scanner_screen.dart';
 import 'package:church_on_app/features/admin/presentation/admin_hub_screen.dart';
 import 'package:church_on_app/features/admin/presentation/ledger_screen.dart';
@@ -105,7 +110,7 @@ import 'package:church_on_app/features/home/presentation/discover_screen.dart';
 import 'package:church_on_app/features/admin/presentation/system_docs_screen.dart';
 import 'package:church_on_app/features/admin/presentation/database_setup_screen.dart';
 import 'package:church_on_app/features/profile/presentation/feature_request_screen.dart';
-import 'package:church_on_app/features/auth/presentation/demo_church_screen.dart';
+import 'package:church_on_app/features/auth/presentation/forgot_password_screen.dart';
 import 'package:church_on_app/features/auth/presentation/two_factor_setup_screen.dart';
 import 'package:church_on_app/features/disciple/presentation/discipleship_screen.dart';
 import 'package:church_on_app/features/notebook/presentation/notebook_screen.dart';
@@ -140,7 +145,6 @@ import 'package:church_on_app/features/finance/presentation/giving_history_scree
 import 'package:church_on_app/features/finance/presentation/my_pledges_screen.dart';
 import 'package:church_on_app/features/finance/presentation/qr_payment_screen.dart';
 import 'package:church_on_app/features/finance/presentation/tithe_card_screen.dart';
-import 'package:church_on_app/features/finance/presentation/wallet_screen.dart';
 import 'package:church_on_app/features/fundraising/presentation/contribute_screen.dart';
 import 'package:church_on_app/features/fundraising/presentation/create_fundraising_screen.dart';
 import 'package:church_on_app/features/fundraising/presentation/create_group_contribution_screen.dart';
@@ -150,6 +154,8 @@ import 'package:church_on_app/features/fundraising/presentation/group_contributi
 import 'package:church_on_app/features/fundraising/presentation/group_contribution_list_screen.dart';
 import 'package:church_on_app/features/home/presentation/branch_locator_screen.dart';
 import 'package:church_on_app/features/home/presentation/news_list_screen.dart';
+import 'package:church_on_app/features/home/presentation/news_detail_screen.dart';
+import 'package:church_on_app/features/home/data/news_service.dart';
 import 'package:church_on_app/features/home/presentation/song_lyrics_screen.dart';
 import 'package:church_on_app/features/home/presentation/tech_fast_blocker.dart';
 import 'package:church_on_app/features/modules/ai_sermon_notes/presentation/ai_sermon_notes_screen.dart';
@@ -354,6 +360,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             route.startsWith('/volunteer-scheduling') ||
             route.startsWith('/role-approvals') ||
             route.startsWith('/custom-roles') ||
+            route == '/media-upload' ||
+            route == '/global-broadcast' ||
+            route == '/finance-dashboard' ||
+            route == '/pastor-report' ||
+            route == '/prophetic-heatmap' ||
             route == '/admin-hub' ||
             route == '/ledger' ||
             route == '/financial-report' ||
@@ -388,7 +399,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         // Logistics (Driver / Rider / Employee)
         if (route.startsWith('/driver-portal') ||
             route == '/driver-earnings' ||
-            route == '/ride-portal') {
+            route == '/ride-portal' ||
+            route == '/rider-dashboard') {
           return user.canWork || user.isEmployee;
         }
 
@@ -398,6 +410,11 @@ final routerProvider = Provider<GoRouter>((ref) {
               user.isEmployee ||
               user.role == 'vendor' ||
               user.role == 'merchant';
+        }
+
+        // Writer (author / manuscript studio)
+        if (route == '/writer-dashboard') {
+          return user.role == 'writer' || user.isEmployee;
         }
 
         return true;
@@ -586,6 +603,34 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const BookshopDashboardScreen(),
       ),
       GoRoute(
+        path: '/media-upload',
+        builder: (context, state) => const MediaUploadScreen(),
+      ),
+      GoRoute(
+        path: '/global-broadcast',
+        builder: (context, state) => const GlobalBroadcastScreen(),
+      ),
+      GoRoute(
+        path: '/finance-dashboard',
+        builder: (context, state) => const FinanceDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/pastor-report',
+        builder: (context, state) => const PastorBishopReportScreen(),
+      ),
+      GoRoute(
+        path: '/prophetic-heatmap',
+        builder: (context, state) => const PropheticHeatmapScreen(),
+      ),
+      GoRoute(
+        path: '/rider-dashboard',
+        builder: (context, state) => const RiderDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/writer-dashboard',
+        builder: (context, state) => const WriterDashboardScreen(),
+      ),
+      GoRoute(
         path: '/ministry-management',
         builder: (context, state) => const MinistryManagementScreen(),
       ),
@@ -608,10 +653,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/feature-request',
         builder: (context, state) => const FeatureRequestScreen(),
-      ),
-      GoRoute(
-        path: '/demo-church',
-        builder: (context, state) => const DemoChurchScreen(),
       ),
       GoRoute(
         path: '/interchurch-network',
@@ -1049,7 +1090,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/finance-wallet',
-        builder: (context, state) => const WalletScreen(),
+        builder: (context, state) => const MultiCurrencyWalletScreen(),
       ),
       GoRoute(
         path: '/fundraising',
@@ -1104,6 +1145,27 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/news',
         builder: (context, state) => const NewsListScreen(),
+        routes: [
+          GoRoute(
+            path: ':id',
+            builder: (context, state) {
+              final article = state.extra as NewsArticle?;
+              return NewsDetailScreen(
+                article: article ??
+                    NewsArticle(
+                      id: state.pathParameters['id'] ?? '',
+                      title: 'Article',
+                      source: '',
+                      description: '',
+                      image: '',
+                      pubDate: '',
+                      link: '',
+                      isLocal: true,
+                    ),
+              );
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/song-lyrics',

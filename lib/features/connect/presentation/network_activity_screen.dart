@@ -102,9 +102,18 @@ class NetworkActivityScreen extends ConsumerWidget {
       ),
       child: InkWell(
         onTap: () {
-          if (activity.referenceId != null) {
-            context.push('/${activity.type}s/${activity.referenceId}');
-          }
+          final referenceId = activity.referenceId;
+          if (referenceId == null) return;
+          // Map activity types to real routes — blind pluralization crashed on
+          // sermon/prayer/update types.
+          final route = switch (activity.type) {
+            'sermon' => '/sermons',
+            'event' => '/events/$referenceId',
+            'prayer' => '/prayer-wall',
+            'klip' => '/klips/$referenceId',
+            _ => '/network-activity',
+          };
+          context.push(route);
         },
         borderRadius: BorderRadius.circular(20),
         child: Padding(

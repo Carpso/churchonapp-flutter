@@ -23,13 +23,13 @@ class RoleQuickActions extends StatelessWidget {
       LucideIcons.users,
       'My Members',
       Theme.of(context).primaryColor,
-      () => context.push('/member-management'),
+      () => context.push('/admin/members'),
     ));
     actions.add(_ActionItem(
       LucideIcons.calendarDays,
       'Events',
       Colors.red,
-      () => context.push('/event-scheduler'),
+      () => context.push('/admin/event-scheduler'),
     ));
     actions.add(_ActionItem(
       LucideIcons.uploadCloud,

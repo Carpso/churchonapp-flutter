@@ -81,6 +81,7 @@ class FinanceService {
         .stream(primaryKey: ['id'])
         .eq('user_id', user.id)
         .order('created_at', ascending: false)
+        .limit(50)
         .map((data) => data.map((map) => Transaction.fromMap(map)).toList());
   }
 
@@ -89,6 +90,7 @@ class FinanceService {
         .from('transactions')
         .stream(primaryKey: ['id'])
         .eq('tenant_id', tenantId)
+        .limit(100)
         .map((data) {
           final list = data.map((map) => Transaction.fromMap(map)).toList();
           list.sort((a, b) => b.createdAt.compareTo(a.createdAt));

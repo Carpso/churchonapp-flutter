@@ -41,7 +41,7 @@ class DiscoverScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 28),
-                _buildSectionHeader(context, "Upcoming Events", "See All", () => {}),
+                _buildSectionHeader(context, "Upcoming Events", "See All", () => context.push('/events')),
                 const SizedBox(height: 12),
                 ...content.upcomingEvents.map((e) => _buildEventCard(context, e)),
                 const SizedBox(height: 28),

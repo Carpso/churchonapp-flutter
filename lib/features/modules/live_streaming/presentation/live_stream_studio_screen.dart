@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as webrtc;
 import 'package:http/http.dart' as http;
 import 'package:lucide_icons/lucide_icons.dart';
@@ -279,6 +280,34 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                 leading: const Icon(LucideIcons.image),
                 title: const Text('Tenant logo'),
                 subtitle: Text(_logoUrl == null ? 'No church logo found' : 'Using church logo'),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        final tid = widget.tenantId ?? ref.read(profileProvider).value?.tenantId;
+                        Navigator.pop(ctx);
+                        if (tid != null) context.push('/streaming-config/$tid');
+                      },
+                      icon: const Icon(LucideIcons.slidersHorizontal, size: 16),
+                      label: const Text('Stream Config'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        final tid = widget.tenantId ?? ref.read(profileProvider).value?.tenantId;
+                        Navigator.pop(ctx);
+                        if (tid != null) context.push('/stream-admin/$tid');
+                      },
+                      icon: const Icon(LucideIcons.shield, size: 16),
+                      label: const Text('Admin'),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               FilledButton.icon(

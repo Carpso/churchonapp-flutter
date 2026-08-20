@@ -65,9 +65,11 @@ class EventService {
         ? baseStream
             .eq('tenant_id', tenant.id)
             .order('date', ascending: true)
+            .limit(100)
             .map((data) => data.map((map) => ChurchEvent.fromMap(map)).toList())
         : baseStream
             .order('date', ascending: true)
+            .limit(100)
             .map((data) => data.map((map) => ChurchEvent.fromMap(map)).toList());
     return mapped;
   }

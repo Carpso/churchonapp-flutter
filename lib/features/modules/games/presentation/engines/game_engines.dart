@@ -633,8 +633,11 @@ class _FisherOfWordsState extends KingdomGameEngineState<FisherOfWordsGame> {
   final List<String> _words = ["Faith", "Hope", "Love", "Grace", "Sin"];
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final maxLeft = (size.width - 110).clamp(50.0, double.infinity);
+    final maxTop = (size.height - 180).clamp(80.0, double.infinity);
     return Scaffold(backgroundColor: const Color(0xFF151A2E), body: Stack(children: _words.map((w) => Positioned(
-      left: Random().nextDouble() * 300, top: Random().nextDouble() * 600,
+      left: Random().nextDouble() * maxLeft, top: Random().nextDouble() * maxTop,
       child: ActionChip(label: Text(w), onPressed: () {
         setState(() { if (w != "Sin") {
           score += 300;

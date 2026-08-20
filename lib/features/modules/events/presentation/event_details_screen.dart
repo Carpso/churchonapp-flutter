@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -50,6 +51,16 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
               ),
             ),
             actions: [
+              IconButton(
+                icon: const Icon(LucideIcons.scanLine),
+                tooltip: 'Scan Tickets',
+                onPressed: () {
+                  final eventId = event['id']?.toString() ?? '';
+                  if (eventId.isNotEmpty) {
+                    context.push('/events/ticket-scanner/$eventId', extra: event['title']?.toString() ?? 'Event');
+                  }
+                },
+              ),
               IconButton(
                 icon: const Icon(LucideIcons.share2), 
                 onPressed: () {

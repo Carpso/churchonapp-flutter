@@ -222,11 +222,12 @@ class _WeatherMapsScreenState extends ConsumerState<WeatherMapsScreen> {
                     children: zones.map((z) => _buildParkingCard(context, z)).toList(),
                   ),
                   loading: () => const SizedBox(height: 150, child: Center(child: CircularProgressIndicator(color: Colors.white))),
-                  error: (e, _) => Column(
-                    children: [
-                      ParkingZone(name: 'Zone A - Main Church', available: 12, total: 50),
-                      ParkingZone(name: 'Zone B - Overflow', available: 35, total: 40),
-                    ].map((z) => _buildParkingCard(context, z)).toList(),
+                  error: (e, _) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      "Parking data unavailable right now. Pull to refresh.",
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),

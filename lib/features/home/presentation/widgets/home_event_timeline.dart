@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/features/events/data/event_service.dart';
-import 'package:church_on_app/features/modules/events/presentation/events_screen.dart';
 import 'home_section_title.dart';
 
 
@@ -19,7 +19,7 @@ class HomeEventTimeline extends ConsumerWidget {
         HomeSectionTitle(
           title: "Upcoming Events",
           trailing: "VIEW ALL",
-          onTrailingTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EventsScreen())),
+          onTrailingTap: () => context.push('/events'),
         ),
         eventsAsync.when(
           data: (events) {
@@ -120,12 +120,14 @@ class HomeEventTimeline extends ConsumerWidget {
             child: Icon(icon, color: Theme.of(context).primaryColor, size: 20),
           ),
           const SizedBox(width: 15),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
-              Text(time, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
+                Text(time, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12)),
+              ],
+            ),
           ),
         ],
       ),

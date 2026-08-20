@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1739,6 +1740,18 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                   onChanged: (v) {
                     setModalState(() => localDarkTheme = v);
                     setState(() => isDarkTheme = v);
+                  },
+                ),
+                const Divider(height: 30),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(LucideIcons.fileSearch),
+                  title: const Text("Bible Content Audit"),
+                  subtitle: const Text("Check verse coverage per book"),
+                  trailing: const Icon(LucideIcons.chevronRight, size: 18),
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/bible-books-audit');
                   },
                 ),
               ],

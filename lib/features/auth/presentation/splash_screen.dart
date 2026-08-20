@@ -35,8 +35,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
 
     _controller.forward();
 
-    // Route to main flow after 2.8 seconds
-    Future.delayed(const Duration(milliseconds: 2800), () async {
+    // Route to main flow after a short brand moment (app startup should be fast).
+    Future.delayed(const Duration(milliseconds: 900), () async {
       if (mounted) {
         final prefs = await SharedPreferences.getInstance();
         final rememberMe = prefs.getBool('remember_me') ?? true;

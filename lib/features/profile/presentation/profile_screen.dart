@@ -379,6 +379,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
         ],
         if (profile.isLedgerManager) ...[
           _buildPremiumItem(context, LucideIcons.qrCode, "Scan Attendance", onTap: () => context.push('/attendance-scanner')),
+          _buildPremiumItem(context, LucideIcons.wallet, "Finance Dashboard", isHighlighted: true, onTap: () => context.push('/finance-dashboard')),
+          _buildPremiumItem(context, LucideIcons.scrollText, "Church Ledger", onTap: () => context.push('/ledger')),
+        ],
+        if (profile.role == 'driver') ...[
+          _buildPremiumItem(context, LucideIcons.car, "Driver Portal", isHighlighted: true, onTap: () => context.push('/driver-portal')),
+        ],
+        if (profile.role == 'rider') ...[
+          _buildPremiumItem(context, LucideIcons.bike, "Rider Dashboard", isHighlighted: true, onTap: () => context.push('/rider-dashboard')),
+        ],
+        if (profile.role == 'writer') ...[
+          _buildPremiumItem(context, LucideIcons.penTool, "Writer Dashboard", isHighlighted: true, onTap: () => context.push('/writer-dashboard')),
         ],
         if (profile.isAdminOrHigher) ...[
           _buildPremiumItem(context, LucideIcons.settings, "SYSTEM ADMIN HUB", onTap: () => context.push('/admin-hub')),

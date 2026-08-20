@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -34,6 +35,13 @@ class FinanceDashboardScreen extends ConsumerWidget {
         ),
         backgroundColor: theme.colorScheme.surface,
         foregroundColor: theme.colorScheme.onSurface,
+        actions: [
+          IconButton(
+            tooltip: 'Report Creator',
+            icon: const Icon(LucideIcons.filePlus2),
+            onPressed: () => context.push('/report-creator'),
+          ),
+        ],
       ),
       body: ledgerAsync.when(
         data: (txs) {

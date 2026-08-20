@@ -84,25 +84,34 @@ class _NotificationOverlayState extends ConsumerState<NotificationOverlay> {
     switch (type) {
       case 'chat':
         router.go('/chat/$id');
+        break;
       case 'post':
       case 'prayer':
       case 'testimony':
         router.go('/connect');
+        break;
       case 'payment':
         router.go('/wallet');
+        break;
       case 'announcement':
         router.go('/');
+        break;
       case 'event':
         router.go('/events/$id');
+        break;
       case 'klip':
         router.go('/klips/$id');
+        break;
       case 'fasting':
       case 'sermon':
         router.go('/');
+        break;
       case 'job':
         router.go('/job-notifications');
+        break;
       case 'member':
-        router.go('/members');
+        router.go('/admin/members');
+        break;
     }
   }
 

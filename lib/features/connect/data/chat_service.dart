@@ -76,6 +76,7 @@ class ChatService {
         .from('messages')
         .stream(primaryKey: ['id'])
         .eq('conversation_id', conversationId)
+        .limit(100)
         .asyncMap((data) async {
           final seenIds = <String>{};
           final filtered = data
@@ -118,6 +119,7 @@ class ChatService {
         .from('messages')
         .stream(primaryKey: ['id'])
         .eq('community_group_id', groupId)
+        .limit(100)
         .asyncMap((data) async {
           final seenIds = <String>{};
           final filtered = data

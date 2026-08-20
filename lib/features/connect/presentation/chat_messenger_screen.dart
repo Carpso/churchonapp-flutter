@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../data/chat_service.dart';
@@ -44,6 +45,7 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
   bool _online = false;
   StreamSubscription<bool>? _onlineSub;
   PresenceService? _presence;
+  Stream<List<ChatMessage>>? _cachedMessagesStream;
 
   static const Color _appBarColor = Color(0xFF1A1A1A);
 
@@ -229,6 +231,60 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
     }
   }
 
+  Future<void> _pickAndSendFile() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.any,
+      allowMultiple: false,
+    );
+    if (result == null || result.files.isEmpty || !mounted) return;
+    final picked = result.files.single;
+    final fileName = picked.name;
+    final client = ref.read(supabaseServiceProvider).client;
+    try {
+      final r2 = R2Service(client);
+      final url = picked.bytes != null
+          ? await r2.uploadBytes(picked.bytes!, 'chat/$fileName', contentType: 'application/octet-stream')
+          : picked.path != null
+              ? await r2.uploadFile(File(picked.path!), 'chat/$fileName')
+              : null;
+      if (url == null) throw Exception('Upload returned no URL');
+      _sendProtocol(content: '📎 $fileName', type: 'file', mediaUrl: url, fileName: fileName);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickAndSendAudio() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.audio,
+      allowMultiple: false,
+    );
+    if (result == null || result.files.isEmpty || !mounted) return;
+    final picked = result.files.single;
+    final fileName = picked.name;
+    final client = ref.read(supabaseServiceProvider).client;
+    try {
+      final r2 = R2Service(client);
+      final url = picked.bytes != null
+          ? await r2.uploadBytes(picked.bytes!, 'chat/$fileName', contentType: 'audio/mpeg')
+          : picked.path != null
+              ? await r2.uploadFile(File(picked.path!), 'chat/$fileName')
+              : null;
+      if (url == null) throw Exception('Upload returned no URL');
+      _sendProtocol(content: '🎵 $fileName', type: 'audio', mediaUrl: url, fileName: fileName);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   void _showLocationDialog() {
     final controller = TextEditingController();
     showDialog(
@@ -265,7 +321,8 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
   @override
   Widget build(BuildContext context) {
     final chatService = ref.watch(chatServiceProvider);
-    final messagesStream = widget.isGroup
+    // Cache the stream so rebuilds don't re-subscribe to PostgREST changes.
+    final messagesStream = _cachedMessagesStream ??= widget.isGroup
         ? chatService.streamGroupMessages(widget.groupId!)
         : chatService.streamMessages(widget.receiverId ?? '');
 
@@ -577,7 +634,7 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
       builder: (_) => AttachmentMenu(
         onDocument: () {
           Navigator.pop(context);
-          _sendProtocol(content: 'Mission Document', type: 'file', fileName: 'MISSION_PLAN.pdf');
+          _pickAndSendFile();
         },
         onGallery: () {
           Navigator.pop(context);
@@ -588,8 +645,8 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
           _showLocationDialog();
         },
         onAudio: () {
-          _sendProtocol(content: '🎵 Worship Audio Clip', type: 'text');
           Navigator.pop(context);
+          _pickAndSendAudio();
         },
       ),
     );

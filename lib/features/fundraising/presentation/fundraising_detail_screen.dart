@@ -391,7 +391,7 @@ class _FundraisingDetailScreenState extends ConsumerState<FundraisingDetailScree
   }
 
   void _navigateToContribute(FundraisingVenture venture) {
-    context.push('/fundraising/${venture.id}/contribute', extra: venture);
+    context.push('/fundraising/contribute/${venture.id}', extra: venture);
   }
 
   void _smartBack() {

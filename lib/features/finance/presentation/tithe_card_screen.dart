@@ -494,7 +494,7 @@ decoration: BoxDecoration(
               ],
             ),
             TextButton(
-              onPressed: () => context.push('/tithe-history'),
+              onPressed: () => context.push('/giving-history'),
               child: Text("View All", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
             ),
             ],
@@ -604,7 +604,7 @@ decoration: BoxDecoration(
         ),
         const SizedBox(height: 12),
         OutlinedButton.icon(
-          onPressed: () => context.push('/tithe-history'),
+          onPressed: () => context.push('/giving-history'),
           icon: const Icon(LucideIcons.list, size: 18),
           label: const Text("View Full History", style: TextStyle(fontWeight: FontWeight.bold)),
           style: OutlinedButton.styleFrom(

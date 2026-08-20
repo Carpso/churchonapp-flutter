@@ -18,11 +18,14 @@ class KingdomLogo extends ConsumerWidget {
 
     final logo = tenant?.logoUrl;
     if (logo != null && logo.isNotEmpty) {
+      final pixelSize = (size * MediaQuery.devicePixelRatioOf(context)).round();
       return Image.network(
         logo,
         width: size,
         height: size,
         fit: BoxFit.contain,
+        cacheWidth: pixelSize,
+        cacheHeight: pixelSize,
         errorBuilder: (context, error, stackTrace) => _buildDefaultLogo(context),
       );
     }

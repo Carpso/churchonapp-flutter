@@ -67,7 +67,7 @@ class AdminNavigationRegistry {
       subtitle: "Manage COA promo campaigns and ads",
       icon: LucideIcons.coins,
       color: Color(0xFFEC4899),
-      route: "/admin/ads",
+      route: "/platform-ads",
       canAccess: _isSuperadminOnly,
     ),
      AdminTileConfig(
@@ -75,7 +75,7 @@ class AdminNavigationRegistry {
        subtitle: "Manage partner stores, cafes & offers",
        icon: LucideIcons.store,
        color: Color(0xFF14B8A6),
-       route: "/admin/partners",
+       route: "/manage-partners",
        canAccess: _isSuperadminOnly,
      ),
      AdminTileConfig(

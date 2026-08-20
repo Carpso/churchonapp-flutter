@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -122,6 +123,27 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                         icon: const Icon(LucideIcons.arrowLeft, color: Colors.white, size: 20),
                         onPressed: () => Navigator.of(context).maybePop(),
                         tooltip: 'Back',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SafeArea(
+                bottom: false,
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Material(
+                      color: Colors.black45,
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        icon: const Icon(LucideIcons.sparkles, color: Colors.white, size: 20),
+                        onPressed: () => context.push(
+                          '/ai-sermon-notes/${widget.sermon.id}',
+                          extra: {'title': widget.sermon.title},
+                        ),
+                        tooltip: 'AI Sermon Notes',
                       ),
                     ),
                   ),

@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import '../../../core/services/tenant_service.dart';
 import '../data/payroll_service.dart';
+import '../data/payslip_pdf_service.dart';
 
 class PayrollReportsScreen extends ConsumerStatefulWidget {
   const PayrollReportsScreen({super.key});
@@ -49,11 +50,24 @@ class _PayrollReportsScreenState extends ConsumerState<PayrollReportsScreen> {
         actions: [
           IconButton(
             icon: const Icon(LucideIcons.download),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("PDF export coming soon")),
-              );
-            },
+            onPressed: _summary == null
+                ? null
+                : () async {
+                    try {
+                      final tenantName = ref.read(currentTenantProvider)?.name;
+                      await PayslipPdfService.downloadAnnualReport(
+                        summary: _summary!,
+                        year: _selectedYear,
+                        companyName: tenantName,
+                      );
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('PDF export failed: $e'), backgroundColor: Colors.red),
+                        );
+                      }
+                    }
+                  },
           ),
         ],
       ),

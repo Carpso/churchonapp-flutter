@@ -443,7 +443,7 @@ class BibleBooksAuditScreen extends ConsumerWidget {
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: () {
-              context.push('/bible-books/0');
+              context.push('/bible');
             },
             icon: const Icon(LucideIcons.bookOpen, size: 18),
             label: const Text('View Detailed Book Info'),

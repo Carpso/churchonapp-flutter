@@ -390,4 +390,74 @@ class PayslipPdfService {
     );
     await Printing.sharePdf(bytes: bytes, filename: 'payslips_$periodLabel.pdf');
   }
+
+  static Future<void> downloadAnnualReport({
+    required Map<String, dynamic> summary,
+    required int year,
+    String? companyName,
+  }) async {
+    final pdf = pw.Document();
+    final s = summary;
+    final months = (s['monthsProcessed'] as num?)?.toInt() ?? 0;
+    final gross = (s['annualGross'] as num?)?.toDouble() ?? 0;
+    final paye = (s['annualPaye'] as num?)?.toDouble() ?? 0;
+    final napsaEe = (s['annualNapsaEmployee'] as num?)?.toDouble() ?? 0;
+    final napsaEr = (s['annualNapsaEmployer'] as num?)?.toDouble() ?? 0;
+    final nhimaEe = (s['annualNhimaEmployee'] as num?)?.toDouble() ?? 0;
+    final nhimaEr = (s['annualNhimaEmployer'] as num?)?.toDouble() ?? 0;
+    final sdl = (s['annualSdl'] as num?)?.toDouble() ?? 0;
+    final net = (s['annualNetPay'] as num?)?.toDouble() ?? 0;
+    final remittances = (s['totalRemittances'] as num?)?.toDouble() ?? 0;
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        header: (context) => _buildHeader('ANNUAL REPORT $year', companyName),
+        footer: (context) => _buildFooter(),
+        build: (context) => [
+          pw.Container(
+            padding: const pw.EdgeInsets.all(16),
+            decoration: pw.BoxDecoration(
+              color: _hex('#F8FAFC'),
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text('Payroll Summary — $year', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                pw.SizedBox(height: 6),
+                pw.Text('$months month(s) processed', style: pw.TextStyle(fontSize: 11, color: PdfColors.grey600)),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 20),
+          _section(
+            'ANNUAL TOTALS',
+            [
+              _row('Gross Salary', gross),
+              _row('PAYE (Income Tax)', paye, isDeduction: true),
+              _row('NAPSA (Employee 5%)', napsaEe, isDeduction: true),
+              _row('NAPSA (Employer 5%)', napsaEr),
+              _row('NHIMA (Employee 1%)', nhimaEe, isDeduction: true),
+              _row('NHIMA (Employer 1%)', nhimaEr),
+              if (sdl > 0) _row('SDL (0.5%)', sdl),
+              _divider(),
+              _row('Net Pay', net, bold: true),
+            ],
+          ),
+          pw.SizedBox(height: 16),
+          _section(
+            'REMITTANCES TO ZRA / NAPSA / NHIMA',
+            [_row('Total Statutory Remittances', remittances, bold: true)],
+          ),
+          pw.SizedBox(height: 20),
+          _buildDisclaimer(),
+        ],
+      ),
+    );
+
+    final bytes = await pdf.save();
+    await Printing.sharePdf(bytes: bytes, filename: 'payroll_annual_$year.pdf');
+  }
 }

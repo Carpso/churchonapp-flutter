@@ -97,6 +97,11 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
       appBar: AppBar(
         title: Text(context.tr('Give'), style: const TextStyle(fontWeight: FontWeight.bold)),
         actions: [
+          IconButton(
+            tooltip: 'QR Payment',
+            icon: const Icon(LucideIcons.qrCode, size: 18),
+            onPressed: _showQrPaymentDialog,
+          ),
           TextButton.icon(
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TitheHistoryScreen())),
             icon: const Icon(LucideIcons.history, size: 16),
@@ -604,6 +609,41 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
           },
         ),
       ],
+    );
+  }
+
+  void _showQrPaymentDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('QR Payment'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            hintText: 'Enter amount (K)',
+            prefixIcon: Icon(LucideIcons.qrCode),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              final amount = double.tryParse(controller.text.trim()) ?? 0;
+              if (amount <= 0) return;
+              Navigator.pop(ctx);
+              final tenant = ref.read(currentTenantProvider);
+              context.push('/qr-payment', extra: {
+                'amount': amount,
+                'description': 'Giving: $_selectedCategory',
+                'recipient': tenant?.name ?? 'Local Church',
+              });
+            },
+            child: const Text('Generate QR'),
+          ),
+        ],
+      ),
     );
   }
 
