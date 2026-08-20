@@ -25,6 +25,7 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
   int _lowStockCount = 0;
   int _totalSales = 0;
   double _monthRevenue = 0;
+  double _inventoryValue = 0;
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _recentOrders = [];
 
@@ -65,18 +66,23 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
 
       final products = List<Map<String, dynamic>>.from(productsRes);
       int lowStock = 0;
+      double inventoryValue = 0;
       for (final p in products) {
         final stock = (p['stock'] as num?)?.toInt() ?? 0;
+        final price = (p['price'] as num?)?.toDouble() ?? 0;
         if (stock < 10) lowStock++;
+        inventoryValue += price * stock;
       }
 
       final orderItemsRes = await Supabase.instance.client
           .from('order_items')
-          .select('quantity')
+          .select('quantity, status')
           .eq('tenant_id', tenantId);
 
       int sales = 0;
       for (final oi in orderItemsRes) {
+        final status = oi['status']?.toString() ?? '';
+        if (status.isNotEmpty && status != 'completed' && status != 'delivered' && status != 'paid') continue;
         sales += (oi['quantity'] as num?)?.toInt() ?? 0;
       }
 
@@ -89,6 +95,8 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
 
       double monthRev = 0;
       for (final o in ordersRes) {
+        final status = o['status']?.toString() ?? '';
+        if (status == 'pending' || status == 'cancelled' || status == 'failed') continue;
         final amount = (o['total_amount'] as num?)?.toDouble() ?? 0;
         final created = o['created_at']?.toString() ?? '';
         final dt = DateTime.tryParse(created);
@@ -99,6 +107,7 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
         setState(() {
           _totalProducts = products.length;
           _lowStockCount = lowStock;
+          _inventoryValue = inventoryValue;
           _totalSales = sales;
           _monthRevenue = monthRev;
           _products = products;
@@ -277,6 +286,7 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
         _statCard("Total Sales", "$_totalSales", LucideIcons.shoppingCart, Colors.green),
         _statCard("Low Stock", "$_lowStockCount", LucideIcons.alertTriangle, Colors.amber),
         _statCard("Revenue (MTD)", currency.format(_monthRevenue), LucideIcons.trendingUp, Colors.blue),
+        _statCard("Inventory Value", currency.format(_inventoryValue), LucideIcons.box, Colors.purple),
       ],
     );
   }

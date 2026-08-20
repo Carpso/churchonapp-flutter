@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
@@ -31,8 +32,11 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
   double _totalTithes = 0;
   int _totalMembers = 0;
   List<Map<String, dynamic>> _branches = [];
+  List<Map<String, dynamic>> _snapshots = [];
+  List<Map<String, dynamic>> _givingSeries = [];
   List<HierarchyNode> _presbyteries = [];
   List<Map<String, dynamic>> _missions = [];
+  String? _orgId;
 
   @override
   void initState() {
@@ -90,14 +94,21 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
         // Network-wide missions via single server-side RPC (replaces client IN-clause scan)
         final missionsRes = await orgSvc.getOrganizationMissions(orgId);
 
+        // Per-branch snapshots + 6-month giving trend — one RPC each (no N+1)
+        final snapshotsRes = await orgSvc.getOrgBranchSnapshots(orgId);
+        final givingSeriesRes = await orgSvc.getOrgGivingSeries(orgId);
+
         if (mounted) {
           setState(() {
+            _orgId = orgId;
             _branchCount = (stats['branches'] as num?)?.toInt() ?? 0;
             _totalAttendance = (stats['members'] as num?)?.toInt() ?? 0;
             _totalTithes = (stats['monthly_giving'] as num?)?.toDouble() ?? 0;
             _totalMembers = (stats['members'] as num?)?.toInt() ?? 0;
             _branches = List<Map<String, dynamic>>.from(branchesRes as List);
             _missions = missionsRes;
+            _snapshots = snapshotsRes;
+            _givingSeries = givingSeriesRes;
             _presbyteries = presbyteries;
             _isLoading = false;
             _error = null;
@@ -159,6 +170,12 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
         foregroundColor: theme.colorScheme.onSurface,
         elevation: 0,
         actions: [
+          if (_orgId != null)
+            IconButton(
+              icon: const Icon(LucideIcons.link),
+              tooltip: 'Link Church to Network',
+              onPressed: _isLoading ? null : () => _showLinkChurchSheet(),
+            ),
           IconButton(
             icon: const Icon(LucideIcons.refreshCw),
             onPressed: _isLoading ? null : _loadDashboard,
@@ -178,6 +195,12 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                   _buildHeader(theme, headerTitle),
                   const SizedBox(height: 25),
                   _buildStatsGrid(theme),
+                  if (_givingSeries.length >= 2) ...[
+                    const SizedBox(height: 35),
+                    Text("Network Giving Trend (6 months)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                    const SizedBox(height: 15),
+                    _buildGivingTrendCard(theme),
+                  ],
                   const SizedBox(height: 35),
                   if (_presbyteries.isNotEmpty) ...[
                     Text("Regional Presbyteries", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
@@ -379,22 +402,224 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
 
   Widget _buildBranchRow(ThemeData theme, Map<String, dynamic> branch, BuildContext context) {
     final name = branch['name'] as String? ?? 'Unnamed';
+    final branchId = branch['id']?.toString();
+    final snapshot = branchId != null
+        ? _snapshots.where((s) => s['church_id']?.toString() == branchId).firstOrNull
+        : null;
+    final members = (snapshot?['members'] as num?)?.toInt() ?? 0;
+    final tithesMtd = (snapshot?['tithes_mtd'] as num?)?.toDouble() ?? 0;
+    final attendanceMtd = (snapshot?['attendance_mtd'] as num?)?.toInt() ?? 0;
+    final reportsMtd = (snapshot?['service_reports_mtd'] as num?)?.toInt() ?? 0;
+
+    return GestureDetector(
+      onTap: () => _showBranchDrilldown(name, snapshot),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8)],
+        ),
+        child: Row(
+          children: [
+            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: theme.primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)), child: Icon(LucideIcons.church, color: theme.primaryColor, size: 18)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 4,
+                    children: [
+                      _branchChip(Icons.people_outline, "$members members", theme.colorScheme.onSurface.withValues(alpha: 0.55)),
+                      _branchChip(LucideIcons.church, "K${NumberFormat.compact().format(tithesMtd)} MTD", Colors.green.shade700),
+                      _branchChip(LucideIcons.calendarCheck, "$attendanceMtd attend", theme.colorScheme.onSurface.withValues(alpha: 0.55)),
+                      if (reportsMtd > 0) _branchChip(LucideIcons.fileText, "$reportsMtd reports", theme.colorScheme.onSurface.withValues(alpha: 0.55)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Icon(LucideIcons.chevronRight, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _branchChip(IconData icon, String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 11, color: color),
+        const SizedBox(width: 3),
+        Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+
+  void _showBranchDrilldown(String name, Map<String, dynamic>? snapshot) {
+    final members = (snapshot?['members'] as num?)?.toInt() ?? 0;
+    final tithesMtd = (snapshot?['tithes_mtd'] as num?)?.toDouble() ?? 0;
+    final attendanceMtd = (snapshot?['attendance_mtd'] as num?)?.toInt() ?? 0;
+    final reportsMtd = (snapshot?['service_reports_mtd'] as num?)?.toInt() ?? 0;
+    final currency = NumberFormat.compactCurrency(symbol: 'K');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        padding: const EdgeInsets.all(25),
+        decoration: BoxDecoration(
+          color: Theme.of(sheetContext).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(height: 5, width: 40, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)))),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Icon(LucideIcons.church, color: Theme.of(sheetContext).primaryColor),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900))),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  _drillStat(sheetContext, "$members", "Members", Icons.people_outline),
+                  _drillStat(sheetContext, currency.format(tithesMtd), "Giving MTD", LucideIcons.church),
+                  _drillStat(sheetContext, "$attendanceMtd", "Attendance MTD", LucideIcons.calendarCheck),
+                  _drillStat(sheetContext, "$reportsMtd", "Service Reports", LucideIcons.fileText),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(sheetContext);
+                    context.push('/finance-dashboard');
+                  },
+                  icon: const Icon(LucideIcons.barChart3, size: 16),
+                  label: const Text("OPEN CHURCH FINANCE"),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _drillStat(BuildContext context, String value, String label, IconData icon) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 16, color: Theme.of(context).primaryColor),
+            const SizedBox(height: 8),
+            Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900), maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(label, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGivingTrendCard(ThemeData theme) {
+    final maxTotal = _givingSeries.fold<double>(0, (max, e) {
+      final t = (e['total'] as num?)?.toDouble() ?? 0;
+      return t > max ? t : max;
+    });
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8)],
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
       ),
-      child: Row(
-        children: [
-          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: theme.primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)), child: Icon(LucideIcons.church, color: theme.primaryColor, size: 18)),
-          const SizedBox(width: 14),
-          Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-          Icon(LucideIcons.chevronRight, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
-        ],
+      child: SizedBox(
+        height: 180,
+        child: BarChart(
+          BarChartData(
+            gridData: const FlGridData(show: false),
+            borderData: FlBorderData(show: false),
+            titlesData: FlTitlesData(
+              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  getTitlesWidget: (value, meta) {
+                    final idx = value.toInt();
+                    if (idx < 0 || idx >= _givingSeries.length) return const SizedBox.shrink();
+                    final month = (_givingSeries[idx]['month'] as String? ?? '');
+                    if (month.length >= 7) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(month.substring(5, 7), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+            ),
+            barGroups: List.generate(_givingSeries.length, (i) {
+              final total = (_givingSeries[i]['total'] as num?)?.toDouble() ?? 0;
+              final hasData = total > 0;
+              return BarChartGroupData(
+                x: i,
+                barRods: [
+                  BarChartRodData(
+                    toY: total,
+                    width: 18,
+                    borderRadius: BorderRadius.circular(6),
+                    color: hasData ? theme.primaryColor : theme.primaryColor.withValues(alpha: 0.15),
+                    backDrawRodData: BackgroundBarChartRodData(
+                      show: true,
+                      toY: maxTotal > 0 ? maxTotal : 1,
+                      color: theme.primaryColor.withValues(alpha: 0.06),
+                    ),
+                  ),
+                ],
+              );
+            }),
+          ),
+        ),
       ),
+    );
+  }
+
+  void _showLinkChurchSheet() {
+    final orgId = _orgId;
+    if (orgId == null) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _LinkChurchSheet(orgId: orgId, onLinked: () {
+        Navigator.pop(sheetContext);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Church linked to the network")));
+        _loadDashboard();
+      }),
     );
   }
 
@@ -444,4 +669,156 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
   );
 
   String _formatCompact(int n) => n >= 1000 ? '${(n / 1000).toStringAsFixed(1)}k' : n.toString();
+}
+
+class _LinkChurchSheet extends StatefulWidget {
+  final String orgId;
+  final VoidCallback onLinked;
+
+  const _LinkChurchSheet({required this.orgId, required this.onLinked});
+
+  @override
+  State<_LinkChurchSheet> createState() => _LinkChurchSheetState();
+}
+
+class _LinkChurchSheetState extends State<_LinkChurchSheet> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  List<Map<String, dynamic>> _churches = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(_loadChurches);
+    _loadChurches();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadChurches() async {
+    setState(() => _loading = true);
+    try {
+      final client = Supabase.instance.client;
+      final query = _searchCtrl.text.trim();
+      var req = client
+          .from('churches')
+          .select('id, name, is_verified')
+          .eq('is_verified', true)
+          .isFilter('organization_id', null);
+      if (query.isNotEmpty) req = req.ilike('name', '%$query%');
+      final res = await req.order('name').limit(50);
+      if (mounted) {
+        setState(() {
+          _churches = List<Map<String, dynamic>>.from(res);
+          _loading = false;
+          _error = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = e.toString();
+        });
+      }
+    }
+  }
+
+  Future<void> _link(Map<String, dynamic> church) async {
+    final id = church['id']?.toString();
+    if (id == null) return;
+    setState(() => _loading = true);
+    try {
+      await Supabase.instance.client.rpc('link_church_to_org', params: {
+        'p_church_id': id,
+        'p_org_id': widget.orgId,
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("${church['name']} linked to the network")),
+      );
+      widget.onLinked();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = e.toString();
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.75,
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      child: Column(
+        children: [
+          Container(margin: const EdgeInsets.all(15), height: 5, width: 40, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 25),
+            child: Row(
+              children: [
+                Icon(LucideIcons.link, color: theme.primaryColor),
+                const SizedBox(width: 12),
+                const Expanded(child: Text("LINK A CHURCH", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.1))),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: InputDecoration(
+                hintText: "Search verified churches…",
+                prefixIcon: const Icon(LucideIcons.search, size: 20),
+                filled: true,
+                fillColor: theme.colorScheme.surface,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+              ),
+            ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(child: Text("Error: $_error", style: const TextStyle(color: Colors.red)))
+                    : _churches.isEmpty
+                        ? const Center(child: Text("No unlinked verified churches found."))
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount: _churches.length,
+                            itemBuilder: (context, index) {
+                              final c = _churches[index];
+                              return Card(
+                                elevation: 0,
+                                color: theme.colorScheme.surface,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                                child: ListTile(
+                                  leading: Icon(LucideIcons.church, color: theme.primaryColor),
+                                  title: Text(c['name']?.toString() ?? 'Unnamed', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  subtitle: const Text("Verified church — not yet linked"),
+                                  trailing: FilledButton(
+                                    onPressed: () => _link(c),
+                                    child: const Text("LINK"),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+          ),
+        ],
+      ),
+    );
+  }
 }

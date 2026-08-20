@@ -7,6 +7,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
+import 'package:church_on_app/features/admin/data/organization_service.dart';
+import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/features/admin/presentation/widgets/pastor_telemetry_widget.dart';
 import 'package:go_router/go_router.dart';
 import 'church_invite_screen.dart';
@@ -44,6 +46,8 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
   bool _isVerifying = false;
   List<Map<String, dynamic>> _recentMembers = [];
   List<Map<String, dynamic>> _upcomingEvents = [];
+  List<Map<String, dynamic>> _givingSeries = [];
+  List<Map<String, dynamic>> _recentGivers = [];
 
   @override
   void initState() {
@@ -155,6 +159,25 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
         lastGiving += (item['amount'] as num?)?.toDouble() ?? 0;
       }
 
+      List<Map<String, dynamic>> givingSeries = [];
+      List<Map<String, dynamic>> recentGivers = [];
+      try {
+        givingSeries = await ref
+            .read(organizationServiceProvider)
+            .getChurchGivingSeries(tenantId);
+        final overview = await ref
+            .read(financeServiceProvider)
+            .getChurchGivingOverview(tenantId);
+        final givers = overview.givers;
+        recentGivers = givers.take(8).map((g) => {
+              'name': g.name,
+              'amount': g.amount,
+              'created_at': g.createdAt.toIso8601String(),
+            }).toList();
+      } catch (e) {
+        debugPrint("pastor giving series failed: $e");
+      }
+
       if (mounted) {
         setState(() {
           _memberCount = (memberRes as List).length;
@@ -168,6 +191,8 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           _isMonthVerified = verification != null;
           _recentMembers = List<Map<String, dynamic>>.from(recentMembersRes);
           _upcomingEvents = List<Map<String, dynamic>>.from(eventsRes);
+          _givingSeries = givingSeries;
+          _recentGivers = recentGivers;
           _isLoading = false;
           _error = null;
         });
@@ -225,6 +250,12 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
             const SizedBox(height: 25),
             _buildSummaryRow(theme),
             const SizedBox(height: 25),
+            _buildGivingTrend(theme),
+            const SizedBox(height: 25),
+            if (_recentGivers.isNotEmpty) ...[
+              _buildRecentGivers(theme),
+              const SizedBox(height: 35),
+            ],
             PastorTelemetryWidget(
               totalTithes: _totalTithes,
               totalOfferings: _totalOfferings,
@@ -519,6 +550,116 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildGivingTrend(ThemeData theme) {
+    final currencyFormat = NumberFormat.compactCurrency(symbol: 'K ', decimalDigits: 1);
+    final series = _givingSeries;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.trendingUp, color: theme.primaryColor, size: 18),
+              const SizedBox(width: 8),
+              Text("Giving Trend (6 months)", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (series.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text("No giving data yet", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 13)),
+              ),
+            )
+          else
+            SizedBox(
+              height: 120,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (final point in series)
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            currencyFormat.format((point['total'] as num?)?.toDouble() ?? 0),
+                            style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 9),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            height: ((point['total'] as num?)?.toDouble() ?? 0) <= 0
+                                ? 4
+                                : 8 + (point['total'] as num).toDouble().clamp(0, 200) / 2,
+                            decoration: BoxDecoration(
+                              color: theme.primaryColor,
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            point['month']?.toString() ?? '',
+                            style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 9),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentGivers(ThemeData theme) {
+    final currencyFormat = NumberFormat.compactCurrency(symbol: 'K ', decimalDigits: 1);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("Top Givers This Month", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+        const SizedBox(height: 15),
+        for (final giver in _recentGivers)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [BoxShadow(color: theme.colorScheme.shadow.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(LucideIcons.heartPulse, color: Colors.green, size: 16),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    giver['name']?.toString() ?? 'Anonymous',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: theme.colorScheme.onSurface),
+                  ),
+                ),
+                Text(
+                  currencyFormat.format((giver['amount'] as num?)?.toDouble() ?? 0),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.green),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 

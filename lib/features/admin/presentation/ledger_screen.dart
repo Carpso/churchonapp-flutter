@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/features/finance/data/finance_service.dart';
@@ -186,6 +187,7 @@ class LedgerScreen extends ConsumerWidget {
   }
 
   Widget _buildSummaryCard(BuildContext context, List<Transaction> txs, WidgetRef ref, String tenantId) {
+    final tenantName = tenantId;
     double total = txs.fold(0.0, (sum, item) => sum + item.amount);
     double tithes = txs.where((tx) => tx.category.toLowerCase().contains('tithe')).fold(0.0, (sum, item) => sum + item.amount);
     double offerings = txs.where((tx) => tx.category.toLowerCase().contains('offering') || tx.category.toLowerCase().contains('giving')).fold(0.0, (sum, item) => sum + item.amount);
@@ -212,7 +214,7 @@ class LedgerScreen extends ConsumerWidget {
                 style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1),
               ),
               IconButton(
-                onPressed: () => LedgerPdfService.generateAndPrintLedger(txs, "My Church"),
+                onPressed: () => LedgerPdfService.generateAndPrintLedger(txs, tenantName),
                 icon: Icon(LucideIcons.fileOutput, color: Theme.of(context).primaryColor, size: 20),
                 style: IconButton.styleFrom(backgroundColor: Colors.white10),
               ),
@@ -297,7 +299,10 @@ class LedgerScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(tx.category.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(tx.reference, style: const TextStyle(color: Colors.grey, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+if (tx.userId.isNotEmpty)
+        _GiverName(userId: tx.userId)
+                else
+                  Text(tx.reference, style: const TextStyle(color: Colors.grey, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -311,6 +316,55 @@ class LedgerScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+final Map<String, String> _giverNameCache = {};
+
+class _GiverName extends StatefulWidget {
+  final String userId;
+
+  const _GiverName({required this.userId});
+
+  @override
+  State<_GiverName> createState() => _GiverNameState();
+}
+
+class _GiverNameState extends State<_GiverName> {
+  String? _name;
+
+  @override
+  void initState() {
+    super.initState();
+    final cached = _giverNameCache[widget.userId];
+    if (cached != null) {
+      _name = cached;
+    } else {
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    try {
+      final res = await Supabase.instance.client
+          .from('profiles')
+          .select('full_name')
+          .eq('id', widget.userId)
+          .maybeSingle();
+      final name = res?['full_name']?.toString();
+      if (name != null && name.isNotEmpty) {
+        _giverNameCache[widget.userId] = name;
+        if (mounted) setState(() => _name = name);
+      }
+    } catch (e) {
+      debugPrint('ledger giver name lookup failed: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final display = _name ?? widget.userId.substring(0, 8);
+    return Text(display, style: const TextStyle(color: Colors.grey, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis);
   }
 }
 

@@ -209,13 +209,6 @@ class OrganizationService {
         .map((data) => data.map((map) => Tenant.fromMap(map)).toList());
   }
 
-  Future<void> linkChurchToOrg(String churchId, String orgId) async {
-    await _client
-        .from('churches')
-        .update({'organization_id': orgId})
-        .eq('id', churchId);
-  }
-
   Future<void> submitPastorReport({
     required String pastorId,
     required String orgId,
@@ -288,7 +281,7 @@ class OrganizationService {
     }
   }
 
-  /// Single server-side call replacing separate attendance/profile/transaction scans.
+/// Single server-side call replacing separate attendance/profile/transaction scans.
   Future<Map<String, dynamic>> getChurchMonthlyStats(String tenantId) async {
     final res = await _client.rpc('get_church_monthly_stats', params: {'p_tenant_id': tenantId});
     return (res as Map<String, dynamic>?) ?? {
@@ -297,6 +290,93 @@ class OrganizationService {
       'tithes_mtd': 0,
       'members': 0,
     };
+  }
+
+  /// Monthly settled-giving trend (oldest first) for an org — powers the
+  /// bishop network giving chart.
+  Future<List<Map<String, dynamic>>> getOrgGivingSeries(String orgId, {int months = 6}) async {
+    try {
+      final res = await _client.rpc('get_org_giving_series', params: {
+        'p_org_id': orgId,
+        'p_months': months,
+      });
+      return List<Map<String, dynamic>>.from(res as List? ?? []);
+    } catch (e, s) {
+      debugPrint('getOrgGivingSeries error: $e');
+      debugPrint(s.toString());
+      return [];
+    }
+  }
+
+  /// Monthly settled-giving trend for a single church (finance dashboard).
+  Future<List<Map<String, dynamic>>> getChurchGivingSeries(String tenantId, {int months = 6}) async {
+    try {
+      final res = await _client.rpc('get_church_giving_series', params: {
+        'p_tenant_id': tenantId,
+        'p_months': months,
+      });
+      return List<Map<String, dynamic>>.from(res as List? ?? []);
+    } catch (e, s) {
+      debugPrint('getChurchGivingSeries error: $e');
+      debugPrint(s.toString());
+      return [];
+    }
+  }
+
+  /// Per-branch snapshot (members / attendance MTD / tithes MTD / service
+  /// reports MTD) for the bishop's "All Branches" list — ONE RPC instead of
+  /// N per-church calls.
+  Future<List<Map<String, dynamic>>> getOrgBranchSnapshots(String orgId) async {
+    try {
+      final res = await _client.rpc('get_org_branch_snapshots', params: {'p_org_id': orgId});
+      return List<Map<String, dynamic>>.from(res as List? ?? []);
+    } catch (e, s) {
+      debugPrint('getOrgBranchSnapshots error: $e');
+      debugPrint(s.toString());
+      return [];
+    }
+  }
+
+  /// Link a church to this organization (org-leader or employee gated server-side).
+  Future<void> linkChurchToOrg(String churchId, String orgId) async {
+    await _client.rpc('link_church_to_org', params: {
+      'p_church_id': churchId,
+      'p_org_id': orgId,
+    });
+  }
+
+  /// Unlink a church from its organization (org-leader or employee gated server-side).
+  Future<void> unlinkChurchFromOrg(String churchId) async {
+    await _client.rpc('unlink_church_from_org', params: {'p_church_id': churchId});
+  }
+
+  /// Platform-wide revenue (transactions + wallet fees) — superadmin/COA only.
+  Future<Map<String, dynamic>> getPlatformRevenueSummary({int months = 6}) async {
+    try {
+      final res = await _client.rpc('get_platform_revenue_summary', params: {'p_months': months});
+      return (res as Map<String, dynamic>?) ?? {'total_revenue': 0, 'series': []};
+    } catch (e, s) {
+      debugPrint('getPlatformRevenueSummary error: $e');
+      debugPrint(s.toString());
+      return {'total_revenue': 0, 'series': []};
+    }
+  }
+
+  /// Rider lifetime summary (completed trips / fare / distance / active ride).
+  Future<Map<String, dynamic>> getRiderSummary(String userId) async {
+    try {
+      final res = await _client.rpc('get_rider_summary', params: {'p_user_id': userId});
+      return (res as Map<String, dynamic>?) ?? {
+        'completed_trips': 0,
+        'total_fare': 0,
+        'total_distance_km': 0,
+        'active_ride': null,
+      };
+    } catch (e, s) {
+      debugPrint('getRiderSummary error: $e');
+      debugPrint(s.toString());
+      return {'completed_trips': 0, 'total_fare': 0, 'total_distance_km': 0, 'active_ride': null};
+    }
   }
 }
 

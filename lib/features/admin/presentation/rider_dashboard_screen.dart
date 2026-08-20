@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/features/admin/data/organization_service.dart';
 import 'package:church_on_app/features/transport/presentation/ride_request_screen.dart';
 
 class RiderDashboardScreen extends ConsumerStatefulWidget {
@@ -20,7 +21,7 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
   int _totalTrips = 0;
   double _totalSpent = 0;
   double _totalDistance = 0;
-  final int _savedPlaces = 0;
+  Map<String, dynamic>? _activeRide;
   List<Map<String, dynamic>> _recentTrips = [];
 
   @override
@@ -48,6 +49,14 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
     final userId = profile.id;
 
     try {
+      final summary = await ref.read(organizationServiceProvider).getRiderSummary(userId);
+      _totalTrips = (summary['completed_trips'] as num?)?.toInt() ?? 0;
+      _totalSpent = (summary['total_fare'] as num?)?.toDouble() ?? 0;
+      _totalDistance = (summary['total_distance_km'] as num?)?.toDouble() ?? 0;
+      _activeRide = summary['active_ride'] is Map
+          ? Map<String, dynamic>.from(summary['active_ride'] as Map)
+          : null;
+
       final ridesRes = await Supabase.instance.client
           .from('ride_bookings')
           .select('id, pickup_location, dropoff_location, fare, distance_km, status, created_at')
@@ -56,18 +65,9 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
           .limit(20);
 
       final trips = List<Map<String, dynamic>>.from(ridesRes);
-      final completedTrips = trips.where((t) => t['status'] == 'completed').length;
-      double spent = 0, distance = 0;
-      for (final t in trips) {
-        spent += (t['fare'] as num?)?.toDouble() ?? 0;
-        distance += (t['distance_km'] as num?)?.toDouble() ?? 0;
-      }
 
       if (mounted) {
         setState(() {
-          _totalTrips = completedTrips;
-          _totalSpent = spent;
-          _totalDistance = distance;
           _recentTrips = trips.take(10).toList();
           _isLoading = false; _error = null;
         });
@@ -101,7 +101,17 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
                   const SizedBox(height: 15),
                   _actionBtn(theme, LucideIcons.map, "Book a Ride", "Request a Carpso Ride", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RideRequestScreen()))),
                   _actionBtn(theme, LucideIcons.heart, "Saved Places", "Your favorite locations", Colors.red, () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saved places — coming soon")))),
-                  _actionBtn(theme, LucideIcons.clock, "Active Ride", "Track your current trip", Colors.amber, () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No active ride — book one first")))),
+                  _actionBtn(theme, LucideIcons.navigation, "Active Ride", _activeRide != null ? "Track your current trip" : "No active ride — book one first", Colors.amber, () {
+                    final active = _activeRide;
+                    if (active == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No active ride — book one first")));
+                      return;
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const RideRequestScreen()),
+                    );
+                  }),
                   const SizedBox(height: 35),
                   Text("Recent Trips", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                   const SizedBox(height: 15),
@@ -158,7 +168,7 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
         _statCard("Total Trips", "$_totalTrips", LucideIcons.car, theme.primaryColor.withValues(alpha: 0.7)),
         _statCard("Total Spent", currency.format(_totalSpent), LucideIcons.wallet, Colors.green),
         _statCard("Distance", _totalDistance > 0 ? '${_totalDistance.toStringAsFixed(0)} km' : '--', LucideIcons.mapPin, Colors.amber),
-        _statCard("Saved Places", "$_savedPlaces", LucideIcons.heart, Colors.red),
+        _statCard(_activeRide != null ? "Active Ride" : "Rides This Month", _activeRide != null ? (NumberFormat.currency(symbol: 'K ', decimalDigits: 0).format((_activeRide!['fare'] as num?)?.toDouble() ?? 0)) : '$_totalTrips', _activeRide != null ? LucideIcons.navigation : LucideIcons.clock, _activeRide != null ? Colors.orange : Colors.red),
       ],
     );
   }

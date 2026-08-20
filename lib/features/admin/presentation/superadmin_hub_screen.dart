@@ -15,6 +15,7 @@ import '../../../core/services/plan_service.dart';
 import '../../../core/config/fee_config.dart';
 import '../../../core/config/remote_config.dart';
 import '../data/admin_service.dart';
+import '../data/organization_service.dart';
 import '../data/role_hierarchy_service.dart';
 import '../../events/data/event_service.dart';
 import '../data/audit_service.dart';
@@ -137,17 +138,11 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       final profilesRes = await client.from('profiles').select('id');
       final usersCount = profilesRes.length;
 
-      final txsRes = await client.from('transactions').select('platform_fee');
-      double rev1 = 0.0;
-      for (var row in txsRes) {
-        rev1 += (row['platform_fee'] as num?)?.toDouble() ?? 0.0;
-      }
-
-      final wTxsRes = await client.from('wallet_transactions').select('platform_fee');
-      double rev2 = 0.0;
-      for (var row in wTxsRes) {
-        rev2 += (row['platform_fee'] as num?)?.toDouble() ?? 0.0;
-      }
+      // Server-side platform revenue (transactions + wallet fees) — replaces
+      // the unbounded full-table client-side sums.
+      final revenue = await ref
+          .read(organizationServiceProvider)
+          .getPlatformRevenueSummary();
 
       final settings = await ref.read(platformSettingsServiceProvider).fetchSettings();
       _onboardingFeeController.text = settings.onboardingFee.toStringAsFixed(0);
@@ -161,7 +156,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
         setState(() {
           _activeTenantsCount = tenantsCount;
           _totalUsersCount = usersCount;
-          _totalPlatformRevenue = rev1 + rev2;
+          _totalPlatformRevenue = (revenue['total_revenue'] as num?)?.toDouble() ?? 0;
           _pendingChurches = pendingList;
           _pendingPayments = paymentsList;
           _statsLoading = false;

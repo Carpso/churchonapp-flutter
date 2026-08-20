@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
+import 'package:church_on_app/core/providers/profile_provider.dart';
 import '../data/transport_service.dart';
 import '../data/ride_request_model.dart';
 import 'package:go_router/go_router.dart';
@@ -18,11 +20,54 @@ class DriverPortalScreen extends ConsumerStatefulWidget {
 class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
   StreamSubscription<List<RideRequest>>? _acceptedRidesSub;
   StreamSubscription<List<DeliveryRequest>>? _acceptedDeliveriesSub;
+  bool _isOnline = false;
+  bool _statusLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _watchAccepted());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadDriverStatus();
+      _watchAccepted();
+    });
+  }
+
+  Future<void> _loadDriverStatus() async {
+    try {
+      final user = ref.read(profileProvider).value;
+      if (user == null) return;
+      final res = await Supabase.instance.client
+          .from('profiles')
+          .select('driver_status')
+          .eq('id', user.id)
+          .maybeSingle();
+      if (mounted) {
+        setState(() {
+          _isOnline = res?['driver_status'] == 'online';
+          _statusLoaded = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('driver portal status load failed: $e');
+      if (mounted) setState(() => _statusLoaded = true);
+    }
+  }
+
+  Future<void> _toggleOnline() async {
+    final newStatus = !_isOnline;
+    try {
+      final user = ref.read(profileProvider).value;
+      if (user == null) return;
+      await Supabase.instance.client
+          .from('profiles')
+          .update({'driver_status': newStatus ? 'online' : 'offline'})
+          .eq('id', user.id);
+      if (mounted) setState(() => _isOnline = newStatus);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to update status: $e")));
+      }
+    }
   }
 
   @override
@@ -142,17 +187,21 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
   }
 
   Widget _buildStatusBanner(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      color: Colors.green,
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: const Center(
+    return GestureDetector(
+      onTap: _toggleOnline,
+      child: Container(
+        width: double.infinity,
+        color: _isOnline ? Colors.green : (_statusLoaded ? Colors.grey.shade600 : Colors.green),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(LucideIcons.zap, color: Colors.white, size: 16),
-            SizedBox(width: 8),
-            Text("ON DUTY • ACCEPTING REQUESTS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+            Icon(_isOnline ? LucideIcons.zap : LucideIcons.power, color: Colors.white, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              _isOnline ? "ON DUTY • ACCEPTING REQUESTS (TAP TO GO OFFLINE)" : "OFFLINE • TAP TO GO ON DUTY",
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+            ),
           ],
         ),
       ),

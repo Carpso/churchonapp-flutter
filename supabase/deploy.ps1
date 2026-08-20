@@ -253,6 +253,8 @@ $migrations = @(
     "20260923_production_hardening_applied.sql"
     "20260925_fix_bishop_rpc_gates.sql"
     "20260926_carpso_ministries_bible_fixes.sql"
+    "20260927_ops_dashboard_upgrade.sql"
+    "20260928_org_branch_snapshots.sql"
     )
 
 foreach ($m in $migrations) {

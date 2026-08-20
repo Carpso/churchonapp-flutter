@@ -12,6 +12,7 @@ import '../../../core/services/plan_service.dart';
 import '../../../core/config/fee_config.dart';
 import '../../../core/config/remote_config.dart';
 import '../data/audit_service.dart';
+import '../data/organization_service.dart';
 import 'resolution_hub_screen.dart';
 
 class CoaEmployeeDashboard extends ConsumerStatefulWidget {
@@ -52,8 +53,7 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
       List<Map<String, dynamic>> paymentsList = [];
       List<CoaPayment> coaPayments = [];
       int usersCount = 0;
-      double rev1 = 0.0;
-      double rev2 = 0.0;
+      double platformRevenue = 0.0;
 
       try {
         final pendingRes = await client.from('churches').select('id, name, email, contact_phone, location, is_verified, subscription_ends_at, logo_url').eq('is_verified', false);
@@ -79,21 +79,12 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
       }
 
       try {
-        final txsRes = await client.from('transactions').select('platform_fee');
-        for (final row in txsRes) {
-          rev1 += (row['platform_fee'] as num?)?.toDouble() ?? 0.0;
-        }
+        final revenue = await ref
+            .read(organizationServiceProvider)
+            .getPlatformRevenueSummary();
+        platformRevenue = (revenue['total_revenue'] as num?)?.toDouble() ?? 0.0;
       } catch (e) {
-        debugPrint("COA stats: transactions query failed: $e");
-      }
-
-      try {
-        final wTxsRes = await client.from('wallet_transactions').select('platform_fee');
-        for (final row in wTxsRes) {
-          rev2 += (row['platform_fee'] as num?)?.toDouble() ?? 0.0;
-        }
-      } catch (e) {
-        debugPrint("COA stats: wallet_transactions query failed: $e");
+        debugPrint("COA stats: platform revenue RPC failed: $e");
       }
 
       try {
@@ -106,7 +97,7 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
         setState(() {
           _activeTenantsCount = activeChurchesRes.length;
           _totalUsersCount = usersCount;
-          _totalPlatformRevenue = rev1 + rev2;
+          _totalPlatformRevenue = platformRevenue;
           _pendingChurches = pendingList;
           _pendingPayments = paymentsList;
           _pendingCoaPayments = coaPayments;
