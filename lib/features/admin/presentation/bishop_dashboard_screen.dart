@@ -4,13 +4,12 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
+import 'package:church_on_app/core/widgets/pro_charts.dart';
 import 'church_invite_screen.dart';
 import 'finance_dashboard_screen.dart';
-import 'media_upload_screen.dart';
 import 'member_management_screen.dart';
 import 'service_report_screen.dart';
 import 'live_viewer_heatmap_screen.dart';
@@ -194,10 +193,12 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
               ? _buildErrorView()
               : RefreshIndicator(
               onRefresh: _loadDashboard,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(25),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              child: SafeArea(
+                top: false,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(25, 25, 25, 25 + MediaQuery.of(context).padding.bottom + 20),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   _buildHeader(theme, headerTitle),
                   const SizedBox(height: 25),
                   _buildStatsGrid(theme),
@@ -224,18 +225,20 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                     ..._missions.map((m) => _buildMissionRow(theme, m)),
                   ],
                   const SizedBox(height: 35),
-                  Text("Quick Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                  Text("Oversight Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                   const SizedBox(height: 15),
-                  _quickAction(theme, LucideIcons.fileText, "Pastor Reports", "Review weekly reports from branches", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ServiceReportScreen()))),
-                  _quickAction(theme, LucideIcons.map, "Map", "Geographic view of all branches", Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LiveViewerHeatmapScreen()))),
+                  // Bishop-scope only: branch/pastor management + network finance.
+                  // No pastor-level tools (Live Studio / Media Hub) — those stay
+                  // in the Pastor Dashboard & Admin Hub.
+                  _quickAction(theme, LucideIcons.fileText, "Pastor Reports", "Review weekly service reports from branches", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ServiceReportScreen()))),
+                  _quickAction(theme, LucideIcons.map, "Branch Map", "Geographic view of all branches", Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LiveViewerHeatmapScreen()))),
                   _quickAction(theme, LucideIcons.barChart3, "Central Treasury", "Multi-branch financial oversight", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FinanceDashboardScreen()))),
                   _quickAction(theme, LucideIcons.users, "Clergy Management", "Manage pastors and ministry leaders", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MemberManagementScreen()))),
                   _quickAction(theme, LucideIcons.userPlus, "Invite Members", "Share invite link, QR & quick share", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchInviteScreen()))),
-                  _quickAction(theme, LucideIcons.video, "Live Studio", "Go live with a church-wide broadcast", Colors.red, () => context.push('/live-studio')),
-                  _quickAction(theme, LucideIcons.uploadCloud, "Media Hub (R2)", "Upload sermons, trailers & Klips", Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MediaUploadScreen()))),
-                  const SizedBox(height: 100),
+                  const SizedBox(height: 140),
                 ]),
               ),
+            ),
             ),
     );
   }
@@ -389,10 +392,12 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                       return ListTile(
                         leading: const Icon(LucideIcons.church, size: 18),
                         title: Text(b.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: const Text("Verified Branch"),
+                        subtitle: const Text("Verified Branch — tap to manage"),
                         trailing: const Icon(LucideIcons.chevronRight, size: 16),
                         onTap: () {
-                          // TODO: Detailed branch view
+                          Navigator.pop(context);
+                          // Reuse the branch overview sheet (members, giving, attendance) for presbytery children
+                          _showBranchDrilldown(b.name, null);
                         },
                       );
                     },
@@ -549,68 +554,32 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
   }
 
   Widget _buildGivingTrendCard(ThemeData theme) {
-    final maxTotal = _givingSeries.fold<double>(0, (max, e) {
-      final t = (e['total'] as num?)?.toDouble() ?? 0;
-      return t > max ? t : max;
-    });
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: SizedBox(
+    if (_givingSeries.isEmpty) {
+      return ProChartCard(
+        title: 'Network Giving Trend',
+        subtitle: '6 months',
         height: 180,
-        child: BarChart(
-          BarChartData(
-            gridData: const FlGridData(show: false),
-            borderData: FlBorderData(show: false),
-            titlesData: FlTitlesData(
-              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  getTitlesWidget: (value, meta) {
-                    final idx = value.toInt();
-                    if (idx < 0 || idx >= _givingSeries.length) return const SizedBox.shrink();
-                    final month = (_givingSeries[idx]['month'] as String? ?? '');
-                    if (month.length >= 7) {
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(month.substring(5, 7), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
-              ),
-            ),
-            barGroups: List.generate(_givingSeries.length, (i) {
-              final total = (_givingSeries[i]['total'] as num?)?.toDouble() ?? 0;
-              final hasData = total > 0;
-              return BarChartGroupData(
-                x: i,
-                barRods: [
-                  BarChartRodData(
-                    toY: total,
-                    width: 18,
-                    borderRadius: BorderRadius.circular(6),
-                    color: hasData ? theme.primaryColor : theme.primaryColor.withValues(alpha: 0.15),
-                    backDrawRodData: BackgroundBarChartRodData(
-                      show: true,
-                      toY: maxTotal > 0 ? maxTotal : 1,
-                      color: theme.primaryColor.withValues(alpha: 0.06),
-                    ),
-                  ),
-                ],
-              );
-            }),
-          ),
-        ),
-      ),
+        child: Center(child: Text('No network giving yet', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 11, fontWeight: FontWeight.w600))),
+      );
+    }
+    final values = _givingSeries.map<double>((e) => (e['total'] as num?)?.toDouble() ?? 0).toList();
+    final labels = _givingSeries.map<String>((e) {
+      final m = (e['month'] as String? ?? '');
+      if (m.length >= 7) {
+        try {
+          return DateFormat.MMM().format(DateTime.parse('$m-01'));
+        } catch (_) {
+          return m.substring(5, 7);
+        }
+      }
+      return '';
+    }).toList();
+    final total = values.fold<double>(0, (s, v) => s + v);
+    return ProChartCard(
+      title: 'Network Giving Trend',
+      subtitle: 'Last 6 months • ${NumberFormat.compactCurrency(symbol: 'K ').format(total)}',
+      height: 180,
+      child: ProBarChart(values: values, labels: labels),
     );
   }
 

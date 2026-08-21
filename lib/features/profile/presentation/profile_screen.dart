@@ -767,28 +767,7 @@ _buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHi
             ],
           ),
           const SizedBox(height: 32),
-          SizedBox(
-            height: 120,
-            child: LineChart(
-              LineChartData(
-                gridData: const FlGridData(show: false),
-                titlesData: const FlTitlesData(show: false),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: [
-                      const FlSpot(0, 3), const FlSpot(1, 1), const FlSpot(2, 4), const FlSpot(3, 2), const FlSpot(4, 5), const FlSpot(5, 3), const FlSpot(6, 4),
-                    ],
-                    isCurved: true,
-                    color: Theme.of(context).primaryColor,
-                    barWidth: 4,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(show: true, color: Theme.of(context).primaryColor.withValues(alpha: 0.1)),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _GrowthIndexChart(),
           const SizedBox(height: 16),
           Text("SPIRITUAL GROWTH INDEX", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), letterSpacing: 3)),
           const SizedBox(height: 24),
@@ -1066,6 +1045,103 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
           child: const Text("UPDATE"),
         ),
       ],
+    );
+  }
+}
+
+/// Real 7-day spiritual engagement line (notes + quiz + attendance per day)
+/// from `PredictionService` — replaces the old hardcoded fake FlSpots.
+/// Renders an honest empty state when there is no activity yet.
+class _GrowthIndexChart extends ConsumerWidget {
+  const _GrowthIndexChart();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final predictionAsync = ref.watch(spiritualPredictionProvider);
+
+    return predictionAsync.when(
+      data: (prediction) {
+        final series = prediction.weeklyEngagement;
+        final hasData = series.any((v) => v > 0);
+        if (!hasData) {
+          return SizedBox(
+            height: 120,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.show_chart, size: 28, color: theme.primaryColor.withValues(alpha: 0.25)),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Read a chapter or join a quiz to start your growth line',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.45), fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        final spots = List<FlSpot>.generate(series.length, (i) => FlSpot(i.toDouble(), series[i]));
+        return SizedBox(
+          height: 120,
+          child: LineChart(
+            LineChartData(
+              gridData: const FlGridData(show: false),
+              titlesData: const FlTitlesData(show: false),
+              borderData: FlBorderData(show: false),
+              minY: 0,
+              maxY: (series.fold<double>(0, (m, v) => v > m ? v : m) + 1).clamp(3, 20),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: spots,
+                  isCurved: true,
+                  curveSmoothness: 0.25,
+                  color: theme.primaryColor,
+                  barWidth: 3,
+                  isStrokeCapRound: true,
+                  dotData: FlDotData(
+                    show: true,
+                    getDotPainter: (s, p, b, i) => FlDotCirclePainter(radius: 2.6, color: theme.primaryColor, strokeWidth: 0),
+                  ),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    gradient: LinearGradient(
+                      colors: [theme.primaryColor.withValues(alpha: 0.16), theme.primaryColor.withValues(alpha: 0.0)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                ),
+              ],
+              lineTouchData: LineTouchData(
+                touchTooltipData: LineTouchTooltipData(
+                  getTooltipColor: (_) => const Color(0xFF0F172A),
+                  getTooltipItems: (touched) => touched.map((t) {
+                    const days = ['6d ago', '5d ago', '4d ago', '3d ago', '2d ago', 'Yesterday', 'Today'];
+                    final label = (t.x.toInt() >= 0 && t.x.toInt() < days.length) ? days[t.x.toInt()] : '';
+                    return LineTooltipItem(
+                      '$label • ${t.y.toStringAsFixed(0)} activities',
+                      const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeOutCubic,
+          ),
+        );
+      },
+      loading: () => SizedBox(
+        height: 120,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: theme.primaryColor)),
+      ),
+      error: (_, __) => SizedBox(
+        height: 120,
+        child: Center(child: Icon(Icons.show_chart, size: 28, color: theme.colorScheme.onSurface.withValues(alpha: 0.15))),
+      ),
     );
   }
 }

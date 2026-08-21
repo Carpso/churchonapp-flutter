@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/widgets/pro_charts.dart';
 
 class PlatformAnalyticsScreen extends ConsumerStatefulWidget {
   const PlatformAnalyticsScreen({super.key});
@@ -59,10 +59,12 @@ class _PlatformAnalyticsScreenState extends ConsumerState<PlatformAnalyticsScree
         _metricCard('Kids Activities', '${_stats['kids_activities'] ?? 0}', LucideIcons.gamepad2, theme.primaryColor.withValues(alpha: 0.7)),
         _metricCard('Kids Active Users', '${_stats['kids_active_users'] ?? 0}', LucideIcons.users, theme.primaryColor.withValues(alpha: 0.55)),
         _metricCard('Quiz Sessions', '${_stats['quiz_sessions'] ?? 0}', LucideIcons.helpCircle, Colors.orange),
-        const SizedBox(height: 24),
-        const Text('Distribution', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        SizedBox(height: 200, child: _buildChart()),
+        ProChartCard(
+          title: 'Engagement Distribution',
+          subtitle: 'Share of activity in period',
+          height: 240,
+          child: _buildChart(),
+        ),
         const SizedBox(height: 24),
         Container(
           padding: const EdgeInsets.all(16),
@@ -95,29 +97,16 @@ class _PlatformAnalyticsScreenState extends ConsumerState<PlatformAnalyticsScree
       (_stats['kids_activities'] as num?)?.toDouble() ?? 0,
       (_stats['quiz_sessions'] as num?)?.toDouble() ?? 0,
     ];
-    final total = data.fold(0.0, (a, b) => a + b);
-    if (total == 0) return const Center(child: Text('No data yet'));
-
-    return PieChart(PieChartData(
+    final total = data.fold<double>(0, (a, b) => a + b);
+    return ProPieChart(
+      centerValue: total > 0 ? total.toStringAsFixed(0) : '0',
+      centerLabel: 'EVENTS',
       sections: [
-        _section(data[0], 'Bible Audio', Theme.of(context).primaryColor.withValues(alpha: 0.8), total),
-        _section(data[1], 'Podcast', Colors.amber, total),
-        _section(data[2], 'Kids Zone', Theme.of(context).primaryColor.withValues(alpha: 0.55), total),
-        _section(data[3], 'Quiz', Colors.orange, total),
+        ProPieSection(label: 'Bible Audio', value: data[0], color: Theme.of(context).primaryColor.withValues(alpha: 0.85)),
+        ProPieSection(label: 'Podcast', value: data[1], color: const Color(0xFFF59E0B)),
+        ProPieSection(label: 'Kids Zone', value: data[2], color: const Color(0xFF6366F1)),
+        ProPieSection(label: 'Quiz', value: data[3], color: const Color(0xFF14B8A6)),
       ],
-      centerSpaceRadius: 40,
-      sectionsSpace: 2,
-    ));
-  }
-
-  PieChartSectionData _section(double value, String title, Color color, double total) {
-    final pct = total > 0 ? (value / total * 100).toStringAsFixed(1) : '0';
-    return PieChartSectionData(
-      color: color,
-      value: value,
-      title: '$pct%',
-      radius: 50,
-      titleStyle: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
     );
   }
 }

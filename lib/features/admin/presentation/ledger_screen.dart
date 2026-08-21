@@ -8,6 +8,8 @@ import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/features/finance/data/ledger_pdf_service.dart';
 
 import 'package:fl_chart/fl_chart.dart';
+import 'package:church_on_app/core/widgets/pro_charts.dart';
+import 'package:intl/intl.dart';
 
 class LedgerScreen extends ConsumerWidget {
   const LedgerScreen({super.key});
@@ -35,6 +37,35 @@ class LedgerScreen extends ConsumerWidget {
           child: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(child: _buildSummaryCard(context, txs, ref, tenant.id)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.14)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(LucideIcons.info, size: 14, color: Theme.of(context).primaryColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Consolidated — Finance Dashboard is now the single source for ledger, trends & payouts. This view shares the same professional chart engine.',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pushNamed(context, '/finance-dashboard'),
+                          child: const Text('Open', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               sliver: SliverToBoxAdapter(child: _buildAnalyticsSection(context, txs)),
@@ -75,48 +106,26 @@ class LedgerScreen extends ConsumerWidget {
   }
 
   Widget _buildTrendChart(BuildContext context, List<Transaction> txs) {
-    // Group by date
     final Map<String, double> dailyTotals = {};
     for (var tx in txs) {
-      final dateKey = "${tx.createdAt.year}-${tx.createdAt.month}-${tx.createdAt.day}";
-      dailyTotals[dateKey] = (dailyTotals[dateKey] ?? 0) + tx.amount;
+      final key = DateFormat('MM/dd').format(tx.createdAt);
+      dailyTotals[key] = (dailyTotals[key] ?? 0) + tx.amount;
     }
-
-    final sortedKeys = dailyTotals.keys.toList()..sort();
-    final spots = sortedKeys.asMap().entries.map((e) {
-      return FlSpot(e.key.toDouble(), dailyTotals[e.value] ?? 0);
-    }).toList();
-
-    return Container(
+    final entries = dailyTotals.entries.toList()
+      ..sort((a, b) {
+        try {
+          return DateFormat('MM/dd').parse(a.key).compareTo(DateFormat('MM/dd').parse(b.key));
+        } catch (_) {
+          return a.key.compareTo(b.key);
+        }
+      });
+    final spots = entries.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.value)).toList();
+    final labels = entries.map((e) => e.key).toList();
+    return ProChartCard(
+      title: 'Financial Trend',
+      subtitle: 'Daily net — ${txs.length} transactions',
       height: 200,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), border: Border.all(color: const Color(0xFFF1F5F9))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("Financial Trend", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          const SizedBox(height: 20),
-          Expanded(
-            child: LineChart(
-              LineChartData(
-                gridData: const FlGridData(show: false),
-                titlesData: const FlTitlesData(show: false),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: spots.isEmpty ? [const FlSpot(0, 0)] : spots,
-                    isCurved: true,
-                    color: Theme.of(context).primaryColor,
-                    barWidth: 4,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(show: true, color: Theme.of(context).primaryColor.withValues(alpha: 0.1)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: ProLineChart(spots: spots, bottomLabels: labels),
     );
   }
 
@@ -124,7 +133,6 @@ class LedgerScreen extends ConsumerWidget {
     double tithes = 0;
     double offerings = 0;
     double others = 0;
-
     for (var tx in txs) {
       final cat = tx.category.toLowerCase();
       if (cat.contains('tithe')) {
@@ -135,54 +143,21 @@ class LedgerScreen extends ConsumerWidget {
         others += tx.amount;
       }
     }
-
     final total = tithes + offerings + others;
     if (total == 0) return const SizedBox.shrink();
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), border: Border.all(color: const Color(0xFFF1F5F9))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("Giving Distribution", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 150,
-            child: PieChart(
-              PieChartData(
-                sectionsSpace: 5,
-                centerSpaceRadius: 40,
-                sections: [
-                  PieChartSectionData(value: tithes, color: Theme.of(context).primaryColor, title: "Tithes", radius: 20, showTitle: false),
-                  PieChartSectionData(value: offerings, color: Colors.amber, title: "Offerings", radius: 20, showTitle: false),
-                  PieChartSectionData(value: others, color: Colors.grey[300], title: "Other", radius: 20, showTitle: false),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildLegendItem("Tithes", Theme.of(context).primaryColor, (tithes / total * 100).toStringAsFixed(0)),
-              _buildLegendItem("Offerings", Colors.amber, (offerings / total * 100).toStringAsFixed(0)),
-              _buildLegendItem("Other", Colors.grey, (others / total * 100).toStringAsFixed(0)),
-            ],
-          ),
+    return ProChartCard(
+      title: 'Giving Distribution',
+      subtitle: 'Share by category • ${NumberFormat.compactCurrency(symbol: 'K ').format(total)} total',
+      height: 220,
+      child: ProPieChart(
+        centerValue: NumberFormat.compactCurrency(symbol: 'K ').format(total),
+        centerLabel: 'TOTAL',
+        sections: [
+          if (tithes > 0) ProPieSection(label: 'Tithes', value: tithes, color: Theme.of(context).primaryColor),
+          if (offerings > 0) ProPieSection(label: 'Offerings', value: offerings, color: const Color(0xFFF59E0B)),
+          if (others > 0) ProPieSection(label: 'Other', value: others, color: const Color(0xFF94A3B8)),
         ],
       ),
-    );
-  }
-
-  Widget _buildLegendItem(String label, Color color, String percent) {
-    return Column(
-      children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-        Text("$percent%", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-      ],
     );
   }
 

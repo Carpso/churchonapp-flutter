@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -27,6 +28,8 @@ class _ServiceReportFormScreenState
   double _offeringAmount = 0;
   double _titheAmount = 0;
   final _notesController = TextEditingController();
+  final _offeringController = TextEditingController();
+  final _titheController = TextEditingController();
   bool _isSubmitting = false;
 
   final List<Map<String, dynamic>> _serviceTypes = [
@@ -94,13 +97,47 @@ class _ServiceReportFormScreenState
     setState(() => _isSubmitting = true);
 
     try {
+      // Duplicate guard: one report per church per service_date + type.
+      // Prevents double-submits from impatient taps AND two ushers logging
+      // the same Sunday service. Client-side check mirrors the DB unique
+      // intent; a race would surface as a Postgres error and roll back below.
+      final serviceDate = _serviceDate.toIso8601String().split('T')[0];
+      final existing = await Supabase.instance.client
+          .from('service_reports')
+          .select('id')
+          .eq('tenant_id', tenant.id)
+          .eq('service_date', serviceDate)
+          .ilike('title', '${_serviceType.toUpperCase()}%')
+          .limit(1)
+          .maybeSingle();
+      if (existing != null) {
+        if (!mounted) return;
+        setState(() => _isSubmitting = false);
+        final edit = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text('Report already exists'),
+            content: Text(
+              'A $_serviceType report for ${DateFormat('MMM d, yyyy').format(_serviceDate)} was already submitted. Submit another anyway (e.g. second service)?',
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('SUBMIT ANYWAY')),
+            ],
+          ),
+        );
+        if (edit != true || !mounted) return;
+        setState(() => _isSubmitting = true);
+      }
+
       await Supabase.instance.client.from('service_reports').insert({
         'tenant_id': tenant.id,
         'title': '${_serviceType.toUpperCase()} SERVICE — ${DateFormat('MMM d, yyyy').format(_serviceDate)}',
         'description': _notesController.text.trim().isEmpty
             ? 'Service report for ${DateFormat('EEEE, MMMM d').format(_serviceDate)}'
             : _notesController.text.trim(),
-        'service_date': _serviceDate.toIso8601String().split('T')[0],
+        'service_date': serviceDate,
         'type': 'service',
         'attendance': _attendance,
         'visitors': _newMembers,
@@ -132,6 +169,8 @@ class _ServiceReportFormScreenState
   @override
   void dispose() {
     _notesController.dispose();
+    _offeringController.dispose();
+    _titheController.dispose();
     super.dispose();
   }
 
@@ -280,7 +319,7 @@ class _ServiceReportFormScreenState
                   child: _buildCurrencyField(
                     label: 'Offering (K)',
                     icon: LucideIcons.banknote,
-                    value: _offeringAmount,
+                    controller: _offeringController,
                     onChanged: (v) => setState(() => _offeringAmount = v),
                   ),
                 ),
@@ -289,7 +328,7 @@ class _ServiceReportFormScreenState
                   child: _buildCurrencyField(
                     label: 'Tithe (K)',
                     icon: LucideIcons.wallet,
-                    value: _titheAmount,
+                    controller: _titheController,
                     onChanged: (v) => setState(() => _titheAmount = v),
                   ),
                 ),
@@ -564,16 +603,18 @@ class _ServiceReportFormScreenState
     );
   }
 
+  /// Currency field with a STABLE controller (owned by the State, disposed in
+  /// dispose()). The old inline `TextEditingController(text: ...)` was rebuilt
+  /// every keystroke: it reset the caret, dropped in-flight input on setState,
+  /// and leaked a controller per rebuild. Input is masked to digits + one dot
+  /// and parsed defensively (NaN/negative → 0).
   Widget _buildCurrencyField({
     required String label,
     required IconData icon,
-    required double value,
+    required TextEditingController controller,
     required ValueChanged<double> onChanged,
   }) {
     final theme = Theme.of(context);
-    final controller = TextEditingController(
-      text: value > 0 ? value.toStringAsFixed(2) : '',
-    );
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -604,6 +645,10 @@ class _ServiceReportFormScreenState
           TextFormField(
             controller: controller,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              // digits with at most one decimal separator
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+            ],
             style: GoogleFonts.plusJakartaSans(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -625,7 +670,7 @@ class _ServiceReportFormScreenState
             ),
             onChanged: (text) {
               final parsed = double.tryParse(text) ?? 0;
-              onChanged(parsed);
+              onChanged(parsed.isFinite && parsed > 0 ? parsed : 0);
             },
           ),
         ],

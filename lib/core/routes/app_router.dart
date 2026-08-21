@@ -79,7 +79,6 @@ import 'package:church_on_app/features/admin/presentation/rider_dashboard_screen
 import 'package:church_on_app/features/admin/presentation/writer_dashboard_screen.dart';
 import 'package:church_on_app/features/admin/presentation/attendance_scanner_screen.dart';
 import 'package:church_on_app/features/admin/presentation/admin_hub_screen.dart';
-import 'package:church_on_app/features/admin/presentation/ledger_screen.dart';
 import 'package:church_on_app/features/modules/navigation/presentation/more_hub_screen.dart';
 import 'package:church_on_app/features/home/presentation/fasting_tracker_screen.dart';
 import 'package:church_on_app/features/modules/media/presentation/radio_screen.dart';
@@ -946,7 +945,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/ledger',
-        builder: (context, state) => const LedgerScreen(),
+        redirect: (context, state) => '/finance-dashboard',
       ),
       GoRoute(
         path: '/streaming-config/:tenantId',

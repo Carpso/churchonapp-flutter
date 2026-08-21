@@ -45,25 +45,31 @@ class RideRequest {
 
   factory RideRequest.fromMap(Map<String, dynamic> map) {
     return RideRequest(
-      id: map['id'],
-      riderId: map['rider_id'],
-      driverId: map['driver_id'],
-      pickup: LatLng(map['pickup_lat'], map['pickup_lng']),
-      destination: LatLng(map['dest_lat'], map['dest_lng']),
-      fare: (map['offered_fare'] as num).toDouble(),
-      status: map['status'],
-      createdAt: DateTime.parse(map['created_at']),
+      id: map['id']?.toString() ?? '',
+      riderId: map['rider_id']?.toString() ?? '',
+      driverId: map['driver_id']?.toString(),
+      pickup: LatLng(
+        (map['pickup_lat'] as num?)?.toDouble() ?? 0,
+        (map['pickup_lng'] as num?)?.toDouble() ?? 0,
+      ),
+      destination: LatLng(
+        (map['dest_lat'] as num?)?.toDouble() ?? 0,
+        (map['dest_lng'] as num?)?.toDouble() ?? 0,
+      ),
+      fare: (map['offered_fare'] as num?)?.toDouble() ?? 0,
+      status: map['status']?.toString() ?? 'pending',
+      createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ?? DateTime.now(),
       escrowHeld: map['escrow_held'] ?? false,
-      negotiationStatus: map['negotiation_status'] ?? 'none',
+      negotiationStatus: map['negotiation_status']?.toString() ?? 'none',
       negotiatedFare: map['negotiated_fare'] != null ? (map['negotiated_fare'] as num).toDouble() : null,
-      paymentStatus: map['payment_status'] ?? 'unpaid',
-      pickupLabel: map['pickup_label'],
-      destLabel: map['dest_label'],
+      paymentStatus: map['payment_status']?.toString() ?? 'unpaid',
+      pickupLabel: map['pickup_label']?.toString(),
+      destLabel: map['dest_label']?.toString(),
       negotiationRound: (map['negotiation_round'] as num?)?.toInt() ?? 0,
-      lastOfferBy: map['last_offer_by'],
+      lastOfferBy: map['last_offer_by']?.toString(),
       proposalExpiresAt: map['proposal_expires_at'] != null ? DateTime.parse(map['proposal_expires_at']) : null,
       cancelledAt: map['cancelled_at'] != null ? DateTime.parse(map['cancelled_at']) : null,
-      cancelledBy: map['cancelled_by'],
+      cancelledBy: map['cancelled_by']?.toString(),
     );
   }
 

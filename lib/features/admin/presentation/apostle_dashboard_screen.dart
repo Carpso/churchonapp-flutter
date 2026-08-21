@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/widgets/pro_charts.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
 import 'member_management_screen.dart';
 import 'service_report_screen.dart';
@@ -287,7 +288,7 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
     );
   }
 
-  /// Real per-church member counts (top 12) rendered as bars.
+  /// Real per-church member counts (top 12) rendered as professional bars.
   Widget _buildMembersChart(BuildContext context, ThemeData theme) {
     final sorted = _churches.map((c) {
       final cid = c['id']?.toString() ?? '';
@@ -296,63 +297,22 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
       ..sort((a, b) => b.members.compareTo(a.members));
 
     final top = sorted.take(12).toList();
-    final maxMembers = top.fold(0, (m, e) => e.members > m ? e.members : m);
-    final avg = _avgMembersPerChurch;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "Avg $avg members per church",
-            style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 180,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(top.length, (i) {
-                final barHeight = maxMembers == 0 ? 0.0 : (top[i].members / maxMembers * 150).clamp(4.0, 150.0);
-                return Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        "${top[i].members}",
-                        style: TextStyle(fontSize: 9, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        height: barHeight,
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        decoration: BoxDecoration(
-                          color: theme.primaryColor.withValues(alpha: 0.55 + (0.45 * (barHeight / 150))),
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        top[i].name.length > 8 ? '${top[i].name.substring(0, 8)}…' : top[i].name,
-                        style: TextStyle(fontSize: 8, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ),
-          ),
-        ],
-      ),
+    if (top.isEmpty) {
+      return ProChartCard(
+        title: 'Members by Church',
+        subtitle: 'Top 12 branches',
+        height: 180,
+        child: Center(child: Text('No member data yet', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 11, fontWeight: FontWeight.w600))),
+      );
+    }
+    final values = top.map<double>((e) => e.members.toDouble()).toList();
+    final labels = top.map<String>((e) => e.name.length > 10 ? '${e.name.substring(0, 10)}…' : e.name).toList();
+    return ProChartCard(
+      title: 'Members by Church',
+      // ignore: unnecessary_brace_in_string_interps
+      subtitle: 'Top 12 • avg ${_avgMembersPerChurch} per church • ${_totalMembers} total',
+      height: 200,
+      child: ProBarChart(values: values, labels: labels, barWidth: 14),
     );
   }
 

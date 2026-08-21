@@ -13,6 +13,9 @@ class SpiritualPrediction {
   final String predictedMilestone; // "30-Day Bible Streak in 4 days"
   final String recommendedAction; // "Read Psalm 119 today to maintain streak"
   final String scripturalEncouragement;
+  /// Real per-day engagement counts for the last 7 days (notes+quiz+attendance).
+  /// Empty when no data — the growth chart renders an honest empty state.
+  final List<double> weeklyEngagement;
 
   SpiritualPrediction({
     required this.spiritualScore,
@@ -23,6 +26,7 @@ class SpiritualPrediction {
     required this.predictedMilestone,
     required this.recommendedAction,
     required this.scripturalEncouragement,
+    this.weeklyEngagement = const [],
   });
 
   factory SpiritualPrediction.fromProfileData({
@@ -215,6 +219,27 @@ final today = DateTime(now.year, now.month, now.day);
       ];
       final scripture = scriptures[score % scriptures.length];
 
+      // Real 7-day engagement series for the growth chart: distinct
+      // note/quiz/attendance events per day (oldest → today). Zero-fill days
+      // with no activity so the line never fabricates shape.
+      final perDay = List<double>.filled(7, 0);
+      void bump(DateTime dt) {
+        final diff = today.difference(DateTime(dt.year, dt.month, dt.day)).inDays;
+        if (diff >= 0 && diff < 7) perDay[6 - diff] += 1;
+      }
+      for (final row in verseNotes) {
+        final dt = DateTime.tryParse(row['created_at']?.toString() ?? '');
+        if (dt != null && dt.isAfter(daysAgo(7))) bump(dt);
+      }
+      for (final row in challenges) {
+        final dt = DateTime.tryParse(row['completed_at']?.toString() ?? '');
+        if (dt != null && dt.isAfter(daysAgo(7))) bump(dt);
+      }
+      for (final row in attendance) {
+        final dt = DateTime.tryParse(row['check_in_time']?.toString() ?? '');
+        if (dt != null && dt.isAfter(daysAgo(7))) bump(dt);
+      }
+
       return SpiritualPrediction(
         spiritualScore: score,
         growthVelocityPercent: velocity,
@@ -224,6 +249,7 @@ final today = DateTime(now.year, now.month, now.day);
         predictedMilestone: milestone,
         recommendedAction: action,
         scripturalEncouragement: scripture,
+        weeklyEngagement: perDay,
       );
     } catch (e) {
       debugPrint('PredictionService: live calculation failed ($e) — using fallback');

@@ -203,10 +203,10 @@ class AdminHubScreen extends ConsumerWidget {
               _buildAdminTile(
                 context,
                 LucideIcons.bookOpen,
-                "Financial Ledger",
-                "Church income, expenses & payouts",
+                "Finance Dashboard",
+                "Professional ledger — trends, distribution, payouts & HQ remittance",
                 Colors.indigo,
-                () => context.push('/ledger'),
+                () => context.push('/finance-dashboard'),
               ),
             if (isLeadership)
               _buildAdminTile(

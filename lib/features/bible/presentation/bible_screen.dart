@@ -182,20 +182,30 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
       appBar: AppBar(
         title: GestureDetector(
           onTap: _showBookSelector,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  "$selectedBook $selectedChapter",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.22)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(LucideIcons.bookOpen, size: 14, color: Theme.of(context).primaryColor),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    "$selectedBook $selectedChapter",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontWeight: FontWeight.w900, color: Theme.of(context).primaryColor, fontSize: 14),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 5),
-              const Icon(LucideIcons.chevronDown, size: 16),
-            ],
+                const SizedBox(width: 6),
+                Icon(LucideIcons.chevronDown, size: 14, color: Theme.of(context).primaryColor),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -329,10 +339,26 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               children: [
                 // Chapter navigator
                 Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      // Explicit book picker — always visible, large hit area for small phones
+                      OutlinedButton.icon(
+                        onPressed: _showBookSelector,
+                        icon: Icon(LucideIcons.bookOpen, size: 14, color: Theme.of(context).primaryColor),
+                        label: Text(
+                          _allBooks.isEmpty ? 'Books…' : '${_allBooks.length} Books',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Theme.of(context).primaryColor),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: Theme.of(context).primaryColor.withValues(alpha: 0.22)),
+                          backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
                       IconButton(
                         icon: const Icon(LucideIcons.chevronLeft, size: 20),
                         onPressed: selectedChapter > 1
@@ -1854,80 +1880,83 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
         ),
         padding: const EdgeInsets.all(25),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "BIBLE STUDY HUB",
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 16,
-                letterSpacing: 1.5,
+              const SizedBox(height: 20),
+              const Text(
+                "BIBLE STUDY HUB",
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  letterSpacing: 1.5,
+                ),
               ),
-            ),
-            const SizedBox(height: 5),
-            const Text(
-              "Reading plans, church studies & memory tools",
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-            const SizedBox(height: 25),
-            _buildStudyHubTile(
-              icon: LucideIcons.calendarCheck,
-              title: "My Reading Plans",
-              subtitle: "Daily scripture journeys with progress tracking",
-              color: Theme.of(context).primaryColor,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const StudyPlansScreen()),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            _buildStudyHubTile(
-              icon: LucideIcons.users,
-              title: "Church Bible Studies",
-              subtitle: "Join group study sessions with your church",
-              color: Theme.of(context).primaryColor.withValues(alpha: 0.75),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const BibleStudyListScreen(),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            _buildStudyHubTile(
-              icon: LucideIcons.brain,
-              title: "Scripture Memory",
-              subtitle: "Memorize verses with spaced repetition",
-              color: Colors.amber,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const ScriptureMemoryScreen(),
-                  ),
-                );
-              },
-            ),
-          ],
+              const SizedBox(height: 5),
+              const Text(
+                "Reading plans, church studies & memory tools",
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              const SizedBox(height: 25),
+              _buildStudyHubTile(
+                icon: LucideIcons.calendarCheck,
+                title: "My Reading Plans",
+                subtitle: "Daily scripture journeys with progress tracking",
+                color: Theme.of(context).primaryColor,
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const StudyPlansScreen()),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildStudyHubTile(
+                icon: LucideIcons.users,
+                title: "Church Bible Studies",
+                subtitle: "Join group study sessions with your church",
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.75),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const BibleStudyListScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildStudyHubTile(
+                icon: LucideIcons.brain,
+                title: "Scripture Memory",
+                subtitle: "Memorize verses with spaced repetition",
+                color: Colors.amber,
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ScriptureMemoryScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

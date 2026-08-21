@@ -1,18 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/core/widgets/pro_charts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/features/finance/data/finance_service.dart';
+import 'package:church_on_app/features/finance/data/ledger_pdf_service.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
 import 'package:church_on_app/features/admin/presentation/church_payout_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'ledger_screen.dart';
+
+/// Session-only privacy toggle — hides all monetary figures behind `K ****`.
+/// Deliberately NOT persisted (SharedPreferences) so a shared device never
+/// leaks balances into unencrypted local caches.
+final financePrivacyProvider = StateProvider<bool>((ref) => false);
+
+String moneyOrMasked(double value, bool hidden, {bool compact = false}) {
+  if (hidden) return 'K ****';
+  return compact
+      ? NumberFormat.compactCurrency(symbol: 'K ', decimalDigits: 1).format(value)
+      : 'K ${value.toStringAsFixed(2)}';
+}
 
 class FinanceDashboardScreen extends ConsumerWidget {
   const FinanceDashboardScreen({super.key});
@@ -29,6 +44,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
 
     final ledgerAsync = ref.watch(ledgerStreamProvider(tenant.id));
     final givingOverviewAsync = ref.watch(churchGivingOverviewProvider);
+    final hideMoney = ref.watch(financePrivacyProvider);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -40,6 +56,12 @@ class FinanceDashboardScreen extends ConsumerWidget {
         backgroundColor: theme.colorScheme.surface,
         foregroundColor: theme.colorScheme.onSurface,
         actions: [
+          // Privacy toggle — masks every currency figure on this dashboard.
+          IconButton(
+            tooltip: hideMoney ? 'Show amounts' : 'Hide amounts',
+            icon: Icon(hideMoney ? LucideIcons.eyeOff : LucideIcons.eye),
+            onPressed: () => ref.read(financePrivacyProvider.notifier).state = !hideMoney,
+          ),
           IconButton(
             tooltip: 'Report Creator',
             icon: const Icon(LucideIcons.filePlus2),
@@ -85,9 +107,11 @@ class FinanceDashboardScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                _buildSummaryCard(context, totalBalance, thisMonthTotal, tithesTotal, offeringsTotal),
+                _buildSummaryCard(context, totalBalance, thisMonthTotal, tithesTotal, offeringsTotal, hideMoney),
                 const SizedBox(height: 15),
-                _buildWithdrawableCard(context, ref, tenant.id),
+                _buildWithdrawableCard(context, ref, tenant.id, hideMoney),
+                const SizedBox(height: 16),
+                _buildLedgerActions(context, ref, tenant, txs, theme),
                 const SizedBox(height: 30),
                 Text("Stewardship Analytics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                 const SizedBox(height: 20),
@@ -118,8 +142,8 @@ class FinanceDashboardScreen extends ConsumerWidget {
 
                     return _buildTransactionItem(theme,
                       "${tx.category.toUpperCase()} - ${tx.reference.substring(0, tx.reference.length > 8 ? 8 : tx.reference.length)}",
-                      "K ${tx.amount.toStringAsFixed(2)}",
-                      "${tx.createdAt.day}/${tx.createdAt.month} ${tx.createdAt.hour}:${tx.createdAt.minute}",
+                      moneyOrMasked(tx.amount, hideMoney),
+                      DateFormat('d/M HH:mm').format(tx.createdAt),
                       catColor,
                     );
                   }),
@@ -134,7 +158,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSummaryCard(BuildContext context, double total, double monthly, double tithes, double offerings) {
+  Widget _buildSummaryCard(BuildContext context, double total, double monthly, double tithes, double offerings, bool hideMoney) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(25),
@@ -160,7 +184,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
                   const SizedBox(height: 5),
                   Flexible(
                     child: Text(
-                      "K ${NumberFormat.compactCurrency(symbol: '', decimalDigits: 1).format(total)}",
+                      moneyOrMasked(total, hideMoney, compact: true),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
@@ -181,9 +205,9 @@ class FinanceDashboardScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildMiniStat("This Month", "K ${NumberFormat.compact().format(monthly)}", LucideIcons.trendingUp, Colors.greenAccent),
-              _buildMiniStat("Tithes", "K ${NumberFormat.compact().format(tithes)}", LucideIcons.heart, Theme.of(context).primaryColor),
-              _buildMiniStat("Offerings", "K ${NumberFormat.compact().format(offerings)}", LucideIcons.coins, Colors.amberAccent),
+              _buildMiniStat("This Month", moneyOrMasked(monthly, hideMoney, compact: true), LucideIcons.trendingUp, Colors.greenAccent),
+              _buildMiniStat("Tithes", moneyOrMasked(tithes, hideMoney, compact: true), LucideIcons.heart, Theme.of(context).primaryColor),
+              _buildMiniStat("Offerings", moneyOrMasked(offerings, hideMoney, compact: true), LucideIcons.coins, Colors.amberAccent),
             ],
           ),
         ],
@@ -207,7 +231,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildWithdrawableCard(BuildContext context, WidgetRef ref, String tenantId) {
+  Widget _buildWithdrawableCard(BuildContext context, WidgetRef ref, String tenantId, bool hideMoney) {
     final theme = Theme.of(context);
     return FutureBuilder<Map<String, dynamic>>(
       future: Supabase.instance.client.rpc('get_church_withdrawable_balances'),
@@ -216,8 +240,8 @@ class FinanceDashboardScreen extends ConsumerWidget {
         double withdrawable = 0.0;
         double inFlight = 0.0;
         if (data is Map<String, dynamic>) {
-          withdrawable = ((data['withdrawable'] ?? 0) as num).toDouble();
-          inFlight = ((data['in_flight'] ?? 0) as num).toDouble();
+          withdrawable = ((data['withdrawable'] ?? 0) as num?)?.toDouble() ?? 0.0;
+          inFlight = ((data['in_flight'] ?? 0) as num?)?.toDouble() ?? 0.0;
         }
         return Container(
           width: double.infinity,
@@ -242,11 +266,11 @@ class FinanceDashboardScreen extends ConsumerWidget {
                     Text("Withdrawable Balance", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: theme.colorScheme.onSurface)),
                     const SizedBox(height: 4),
                     Text(
-                      "K ${withdrawable.toStringAsFixed(2)}",
+                      moneyOrMasked(withdrawable, hideMoney),
                       style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w900, color: theme.colorScheme.onSurface),
                     ),
                     if (inFlight > 0)
-                      Text("$inFlight in flight", style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                      Text("${moneyOrMasked(inFlight, hideMoney)} in flight", style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
                   ],
                 ),
               ),
@@ -265,91 +289,108 @@ class FinanceDashboardScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildLedgerActions(BuildContext context, WidgetRef ref, Tenant tenant, List<Transaction> txs, ThemeData theme) {
+    final total = txs.fold<double>(0, (s, t) => s + t.amount);
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: txs.isEmpty
+                ? null
+                : () => LedgerPdfService.generateAndPrintLedger(txs, tenant.id),
+            icon: Icon(LucideIcons.fileOutput, size: 14, color: theme.primaryColor),
+            label: const Text('Export PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: theme.primaryColor,
+              side: BorderSide(color: theme.primaryColor.withValues(alpha: 0.22)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              backgroundColor: theme.colorScheme.surface,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: txs.isEmpty
+                ? null
+                : () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        title: const Text('Confirm Remittance'),
+                        content: Text('Remit K ${total.toStringAsFixed(2)} to HQ / Bishop? This creates a negative ledger entry.'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Remit')),
+                        ],
+                      ),
+                    );
+                    if (confirm != true || !context.mounted) return;
+                    await ref.read(financeServiceProvider).logTransaction(-total, 'remittance', 'HQ Remittance - ${DateTime.now().toIso8601String()}', tenantId: tenant.id);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Remittance completed')));
+                      ref.invalidate(ledgerStreamProvider(tenant.id));
+                    }
+                  },
+            icon: const Icon(LucideIcons.landmark, size: 14, color: Colors.white),
+            label: const Text('Remit to HQ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF0F172A),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildGivingTrendCard(ThemeData theme, WidgetRef ref, String tenantId) {
     final seriesAsync = ref.watch(churchGivingSeriesProvider(tenantId));
     return seriesAsync.when(
       data: (series) {
         if (series.length < 2) {
-          return Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(25),
+          return ProChartCard(
+            title: 'Giving Trend',
+            subtitle: '6 months',
+            height: 160,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(LucideIcons.barChart3, size: 28, color: theme.colorScheme.onSurface.withValues(alpha: 0.18)),
+                  const SizedBox(height: 8),
+                  Text('Not enough giving history yet', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11, fontWeight: FontWeight.w600)),
+                  Text('Two months of giving unlocks the trend', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.35), fontSize: 10)),
+                ],
+              ),
             ),
-            child: Center(child: Text("Not enough giving history", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11))),
           );
         }
-        final maxTotal = series.fold<double>(0, (max, e) {
-          final t = (e['total'] as num?)?.toDouble() ?? 0;
-          return t > max ? t : max;
-        });
-        return Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(25),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Giving Trend (6 months)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: theme.colorScheme.onSurface)),
-              const SizedBox(height: 20),
-              SizedBox(
-                height: 160,
-                child: BarChart(
-                  BarChartData(
-                    gridData: const FlGridData(show: false),
-                    borderData: FlBorderData(show: false),
-                    titlesData: FlTitlesData(
-                      leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          getTitlesWidget: (value, meta) {
-                            final idx = value.toInt();
-                            if (idx < 0 || idx >= series.length) return const SizedBox.shrink();
-                            final month = (series[idx]['month'] as String? ?? '');
-                            if (month.length >= 7) {
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Text(month.substring(5, 7), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                              );
-                            }
-                            return const SizedBox.shrink();
-                          },
-                        ),
-                      ),
-                    ),
-                    barGroups: List.generate(series.length, (i) {
-                      final total = (series[i]['total'] as num?)?.toDouble() ?? 0;
-                      return BarChartGroupData(
-                        x: i,
-                        barRods: [
-                          BarChartRodData(
-                            toY: total,
-                            width: 18,
-                            borderRadius: BorderRadius.circular(6),
-                            color: total > 0 ? Colors.amber.shade600 : theme.primaryColor.withValues(alpha: 0.15),
-                            backDrawRodData: BackgroundBarChartRodData(
-                              show: true,
-                              toY: maxTotal > 0 ? maxTotal : 1,
-                              color: Colors.amber.withValues(alpha: 0.06),
-                            ),
-                          ),
-                        ],
-                      );
-                    }),
-                  ),
-                ),
-              ),
-            ],
-          ),
+        final values = series.map<double>((e) => (e['total'] as num?)?.toDouble() ?? 0).toList();
+        final labels = series.map<String>((e) {
+          final m = (e['month'] as String? ?? '');
+          if (m.length >= 7) {
+            try {
+              final dt = DateTime.parse('$m-01');
+              return DateFormat.MMM().format(dt);
+            } catch (_) {
+              return m.substring(5, 7);
+            }
+          }
+          return '';
+        }).toList();
+        final total6m = values.fold<double>(0, (s, v) => s + v);
+        return ProChartCard(
+          title: 'Giving Trend',
+          subtitle: 'Last 6 months • ${NumberFormat.compactCurrency(symbol: 'K ').format(total6m)} total',
+          height: 180,
+          child: ProBarChart(values: values, labels: labels),
         );
       },
-      loading: () => const ShimmerLoader.rectangular(height: 200, width: double.infinity),
+      loading: () => const ShimmerLoader.rectangular(height: 220, width: double.infinity),
       error: (_, __) => const SizedBox.shrink(),
     );
   }
@@ -412,108 +453,64 @@ class FinanceDashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildChartCard(ThemeData theme, String title, Widget chart) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: theme.colorScheme.onSurface)),
-          const SizedBox(height: 20),
-          SizedBox(height: 180, child: chart),
-        ],
-      ),
-    );
+    return ProChartCard(title: title, height: 180, child: chart);
   }
 
   Widget _buildLineChart(ThemeData theme, List<Transaction> txs) {
     final Map<String, double> dailyTotals = {};
     for (var tx in txs) {
-      final dateKey = "${tx.createdAt.month}/${tx.createdAt.day}";
+      final dateKey = DateFormat('MM/dd').format(tx.createdAt);
       dailyTotals[dateKey] = (dailyTotals[dateKey] ?? 0) + tx.amount;
     }
-
-    final sortedKeys = dailyTotals.keys.toList()..sort();
-    final spots = sortedKeys.asMap().entries.map((e) {
-      return FlSpot(e.key.toDouble(), dailyTotals[e.value] ?? 0);
-    }).toList();
-
+    // Sort by actual date, not string
+    final entries = dailyTotals.entries.toList()
+      ..sort((a, b) {
+        try {
+          return DateFormat('MM/dd').parse(a.key).compareTo(DateFormat('MM/dd').parse(b.key));
+        } catch (_) {
+          return a.key.compareTo(b.key);
+        }
+      });
+    final spots = entries.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.value)).toList();
+    final labels = entries.map((e) => e.key).toList();
     if (spots.isEmpty) {
-      return Center(child: Text("Not enough trend data", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11)));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.trendingUp, size: 22, color: theme.colorScheme.onSurface.withValues(alpha: 0.18)),
+            const SizedBox(height: 6),
+            Text('No trend yet — transactions will plot here', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.45), fontSize: 11, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      );
     }
-
-    return LineChart(
-      LineChartData(
-        gridData: const FlGridData(show: false),
-        titlesData: const FlTitlesData(show: false),
-        borderData: FlBorderData(show: false),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            color: Colors.amber,
-            barWidth: 4,
-            isStrokeCapRound: true,
-            dotData: const FlDotData(show: true),
-            belowBarData: BarAreaData(
-              show: true,
-              color: Colors.amber.withValues(alpha: 0.05),
-            ),
-          ),
-        ],
-      ),
-    );
+    return ProLineChart(spots: spots, bottomLabels: labels);
   }
 
   Widget _buildPieChart(ThemeData theme, double tithes, double offerings, double events, double products) {
     final total = tithes + offerings + events + products;
     if (total == 0.0) {
-      return Center(child: Text("No contributions to classify", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11)));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.pieChart, size: 22, color: theme.colorScheme.onSurface.withValues(alpha: 0.18)),
+            const SizedBox(height: 6),
+            Text('No contributions to classify yet', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.45), fontSize: 11, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      );
     }
-
-    return PieChart(
-      PieChartData(
-        sections: [
-          if (tithes > 0)
-            PieChartSectionData(
-              value: tithes,
-              title: 'Tithe (${(tithes/total*100).toStringAsFixed(0)}%)',
-              color: Colors.green,
-              radius: 50,
-              titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-          if (offerings > 0)
-            PieChartSectionData(
-              value: offerings,
-              title: 'Offering (${(offerings/total*100).toStringAsFixed(0)}%)',
-              color: Colors.orange,
-              radius: 50,
-              titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-          if (events > 0)
-            PieChartSectionData(
-              value: events,
-              title: 'Events (${(events/total*100).toStringAsFixed(0)}%)',
-              color: theme.primaryColor,
-              radius: 50,
-              titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-          if (products > 0)
-            PieChartSectionData(
-              value: products,
-              title: 'Market (${(products/total*100).toStringAsFixed(0)}%)',
-              color: theme.primaryColor.withValues(alpha: 0.55),
-              radius: 50,
-              titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-        ],
-        centerSpaceRadius: 40,
-        sectionsSpace: 5,
-      ),
+    return ProPieChart(
+      centerValue: NumberFormat.compactCurrency(symbol: 'K ').format(total),
+      centerLabel: 'TOTAL',
+      sections: [
+        if (tithes > 0) ProPieSection(label: 'Tithe', value: tithes, color: const Color(0xFF16A34A)),
+        if (offerings > 0) ProPieSection(label: 'Offering', value: offerings, color: const Color(0xFFF59E0B)),
+        if (events > 0) ProPieSection(label: 'Events', value: events, color: theme.primaryColor),
+        if (products > 0) ProPieSection(label: 'Market', value: products, color: const Color(0xFF6366F1)),
+      ],
     );
   }
 
