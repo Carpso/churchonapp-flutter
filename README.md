@@ -2,7 +2,7 @@
 
 A comprehensive church management and community platform built with Flutter, connecting congregations through digital giving, marketplace, media, events, and more.
 
-**v1.0.0+277 — 1.0.0 | Flutter 3.35.1 | 0 errors, 0 warnings | August 2026**
+**v1.0.0+289 — 1.0.0 | Flutter 3.35.1 | 0 errors, 0 warnings | August 2026** (next: +290 fresh build)
 
 ## Features
 
@@ -33,7 +33,7 @@ A comprehensive church management and community platform built with Flutter, con
 | Backend | Supabase (Postgres, Auth, Realtime, Storage, Edge Functions) |
 | Payments | Lipila Mobile Money API (MTN, Airtel, Zamtel — Zambia) |
 | Maps | OpenStreetMap / LatLng (flutter_map) |
-| AI | Gemini API (content moderation, reports, chat) |
+| AI | Hugging Face `meta-llama/Llama-3.1-8B-Instruct` via `router.huggingface.co` (Kael AI, quiz generation, sermon summary, moderation — HF-only, no Gemini) |
 | Storage | Cloudflare R2 (sermon uploads, media) |
 | Charts | fl_chart |
 | Calls | Twilio (audio/video) |
