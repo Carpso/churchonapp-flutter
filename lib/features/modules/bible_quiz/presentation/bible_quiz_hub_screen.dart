@@ -1641,7 +1641,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   }
 
   /// Seeds questions via the generate-quiz-batch Edge Function using a
-  /// free-text topic prompt (Gemini on the server). Falls back to the local
+  /// free-text topic prompt (Hugging Face `meta-llama/Llama-3.1-8B-Instruct`
+  /// via `router.huggingface.co` on the server). Falls back to the local
   /// canonical seed bank when the Edge Function is unavailable or inserts 0.
   /// Returns the number of questions actually inserted.
   Future<int> _seedViaAi(String topic) async {

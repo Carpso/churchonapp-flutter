@@ -29,15 +29,27 @@ class BibleBooksService {
   }
 
   /// Fetch Bible books from Supabase (source of truth), then public APIs
-  /// as fallback, then built-in defaults.
-Future<List<BibleBook>> fetchAllBooks({bool forceRefresh = false}) async {
-    // Try cache first unless forced refresh
+  /// as fallback, then built-in defaults. HARD rule: only 66-book results are
+  /// ever cached or returned from network — partial results (e.g. the stale
+  /// 2-book cache that left the selector showing only "John, Genesis") are
+  /// treated as a failure and self-healed on the next fetch.
+  Future<List<BibleBook>> fetchAllBooks({bool forceRefresh = false}) async {
+    // Try cache first unless forced refresh — but ONLY accept a full 66-book
+    // canon. Any partial/corrupted cache (user reported "2 books") is wiped
+    // immediately so the next source can repopulate it.
     if (!forceRefresh) {
       final cached = await _getFromCache();
       if (cached != null && cached.isNotEmpty) {
-        debugPrint('BibleBooksService: Returning ${cached.length} books from cache');
-        return cached;
+        if (cached.length == 66) {
+          debugPrint('BibleBooksService: Returning ${cached.length} books from cache');
+          return cached;
+        }
+        debugPrint('BibleBooksService: Discarding corrupted cache (${cached.length} books, expected 66)');
+        await _clearCache();
       }
+    } else {
+      // forceRefresh also clears a stale cache so it never re-surfaces
+      await _clearCache();
     }
 
     // Local Supabase bible_books table first — instant, offline-robust, and
@@ -71,20 +83,24 @@ Future<List<BibleBook>> fetchAllBooks({bool forceRefresh = false}) async {
               'BibleBooksService: Returning ${books.length} books from Supabase');
           return books;
         }
+        debugPrint('BibleBooksService: Supabase returned ${books.length} books (expected 66) — trying next source');
       }
     } catch (e) {
       debugPrint('BibleBooksService: Supabase fetch failed: $e');
     }
 
-    // Try each API endpoint in order
+    // Try each API endpoint in order — only accept a full canon
     for (final endpoint in _apiEndpoints) {
       try {
         debugPrint('BibleBooksService: Trying endpoint: $endpoint');
         final books = await _fetchFromEndpoint(endpoint);
         if (books != null && books.isNotEmpty) {
-          await _saveToCache(books);
-          debugPrint('BibleBooksService: Successfully fetched ${books.length} books from $endpoint');
-          return books;
+          if (books.length == 66) {
+            await _saveToCache(books);
+            debugPrint('BibleBooksService: Successfully fetched ${books.length} books from $endpoint');
+            return books;
+          }
+          debugPrint('BibleBooksService: $endpoint returned ${books.length} books (expected 66) — skipping');
         }
       } catch (e) {
         debugPrint('BibleBooksService: Endpoint $endpoint failed: $e');
@@ -92,9 +108,12 @@ Future<List<BibleBook>> fetchAllBooks({bool forceRefresh = false}) async {
       }
     }
 
-    // All APIs failed, return built-in defaults
-    debugPrint('BibleBooksService: All APIs failed, using built-in defaults');
-    return _getBuiltInDefaults();
+    // All APIs failed or returned partial data — return built-in defaults
+    // and repopulate the cache so the corruption never recurs.
+    debugPrint('BibleBooksService: All sources failed/partial, using built-in 66-book defaults');
+    final defaults = _getBuiltInDefaults();
+    await _saveToCache(defaults);
+    return defaults;
   }
 
   Future<List<BibleBook>?> _fetchFromEndpoint(String endpoint) async {
@@ -278,7 +297,7 @@ Future<List<BibleBook>> fetchAllBooks({bool forceRefresh = false}) async {
       '1 Kings': 11, '2 Kings': 12, '1 Chronicles': 13, '2 Chronicles': 14,
       'Ezra': 15, 'Nehemiah': 16, 'Esther': 17, 'Job': 18, 'Psalms': 19,
       'Proverbs': 20, 'Ecclesiastes': 21, 'Song of Solomon': 22, 'Isaiah': 23,
-      'Jeremiah': 24, 'Lamentations': 25, 'Ezekiel': 25, 'Daniel': 27,
+      'Jeremiah': 24, 'Lamentations': 25, 'Ezekiel': 26, 'Daniel': 27,
       'Hosea': 28, 'Joel': 29, 'Amos': 30, 'Obadiah': 31, 'Jonah': 32,
       'Micah': 33, 'Nahum': 34, 'Habakkuk': 35, 'Zephaniah': 36, 'Haggai': 37,
       'Zechariah': 38, 'Malachi': 39, 'Matthew': 40, 'Mark': 41, 'Luke': 42,
@@ -376,6 +395,17 @@ Future<List<BibleBook>> fetchAllBooks({bool forceRefresh = false}) async {
     }
   }
 
+  Future<void> _clearCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_cacheKey);
+      await prefs.remove(_timestampKey);
+      debugPrint('BibleBooksService: Cleared corrupted/expired cache');
+    } catch (e) {
+      debugPrint('BibleBooksService: Cache clear failed: $e');
+    }
+  }
+
   Future<List<BibleBook>?> _getFromCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -450,7 +480,7 @@ Future<List<BibleBook>> fetchAllBooks({bool forceRefresh = false}) async {
       BibleBook(name: 'Acts', abbreviation: 'Acts', testament: Testament.nt, chapters: 28, description: 'The Spirit-empowered spread of the gospel to the world.', testamentOrder: 'NT', bookOrder: 44, alternateNames: []),
       BibleBook(name: 'Romans', abbreviation: 'Rom', testament: Testament.nt, chapters: 16, description: 'The gospel of righteousness by faith for Jew and Gentile.', testamentOrder: 'NT', bookOrder: 45, alternateNames: ['Rom']),
       BibleBook(name: '1 Corinthians', abbreviation: '1 Cor', testament: Testament.nt, chapters: 16, description: 'Church unity, purity, and resurrection hope.', testamentOrder: 'NT', bookOrder: 46, alternateNames: ['1 Cor', '1Cor']),
-      BibleBook(name: '2 Corinthians', abbreviation: '2 Cor', testament: Testament.nt, chapters: 13, description: 'Ministry of reconciliation and apostolic authority.', testamentOrder: 'NT', bookOrder: 46, alternateNames: ['2 Cor', '2Cor']),
+      BibleBook(name: '2 Corinthians', abbreviation: '2 Cor', testament: Testament.nt, chapters: 13, description: 'Ministry of reconciliation and apostolic authority.', testamentOrder: 'NT', bookOrder: 47, alternateNames: ['2 Cor', '2Cor']),
       BibleBook(name: 'Galatians', abbreviation: 'Gal', testament: Testament.nt, chapters: 6, description: 'Freedom in Christ vs. legalism - justification by faith.', testamentOrder: 'NT', bookOrder: 48, alternateNames: ['Gal']),
       BibleBook(name: 'Ephesians', abbreviation: 'Eph', testament: Testament.nt, chapters: 6, description: 'The church as Christ\'s body - unity and spiritual warfare.', testamentOrder: 'NT', bookOrder: 49, alternateNames: ['Eph']),
       BibleBook(name: 'Philippians', abbreviation: 'Phil', testament: Testament.nt, chapters: 4, description: 'Joy in Christ, humility, and heavenly citizenship.', testamentOrder: 'NT', bookOrder: 50, alternateNames: ['Phil']),

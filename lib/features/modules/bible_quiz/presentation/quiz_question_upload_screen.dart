@@ -11,7 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 ///
 /// Sources:
 ///  - Paste plain text (formatted like the quiz bank docs)
-///  - Upload TXT / PDF / DOC / DOCX (extracted via Gemini in the edge function)
+///  - Upload TXT / PDF / DOC / DOCX (extracted via Hugging Face / Kael AI in the edge function)
 ///  - Paste a pre-parsed JSON `questions` array
 class QuizQuestionUploadScreen extends StatefulWidget {
   const QuizQuestionUploadScreen({super.key});

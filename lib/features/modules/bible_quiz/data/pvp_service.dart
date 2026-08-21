@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-enum WagerTier { free, ten, fifty }
+enum WagerTier { free, ten, twentyFive, fifty, hundred }
 
 extension WagerTierX on WagerTier {
   int get coins {
@@ -13,8 +13,12 @@ extension WagerTierX on WagerTier {
         return 0;
       case WagerTier.ten:
         return 10;
+      case WagerTier.twentyFive:
+        return 25;
       case WagerTier.fifty:
         return 50;
+      case WagerTier.hundred:
+        return 100;
     }
   }
 
@@ -24,8 +28,27 @@ extension WagerTierX on WagerTier {
         return 'Free';
       case WagerTier.ten:
         return '10 CC';
+      case WagerTier.twentyFive:
+        return '25 CC';
       case WagerTier.fifty:
         return '50 CC';
+      case WagerTier.hundred:
+        return '100 CC';
+    }
+  }
+
+  static WagerTier fromCoins(int coins) {
+    switch (coins) {
+      case 10:
+        return WagerTier.ten;
+      case 25:
+        return WagerTier.twentyFive;
+      case 50:
+        return WagerTier.fifty;
+      case 100:
+        return WagerTier.hundred;
+      default:
+        return WagerTier.free;
     }
   }
 }
@@ -379,7 +402,8 @@ class PvPService {
   // ── Friend invites (free or paid) ──
 
   /// Create a direct 1v1 invite to a specific opponent. The inviter's wager
-  /// (if any) is charged server-side at creation.
+  /// (if any) is charged server-side at creation. Throws on failure so the
+  /// UI can show a buy-coins sheet vs a generic error.
   Future<PvPMatch?> createInvite({
     required String opponentId,
     int wagerCoins = 0,
@@ -387,34 +411,29 @@ class PvPService {
     int timePerQuestion = 15,
   }) async {
     final uid = currentUserId;
-    if (uid == null) return null;
-    try {
-      final res = await _client.rpc('create_pvp_invite', params: {
-        'p_opponent_id': opponentId,
-        'p_wager_coins': wagerCoins,
-        'p_question_count': questionCount,
-        'p_time_per_question': timePerQuestion,
-      });
-      final data = res as Map<String, dynamic>?;
-      if (data?['success'] != true) {
-        final reason = data?['error']?.toString() ?? 'Unknown error';
-        debugPrint('[PvP] Invite rejected: $reason');
-        throw Exception(reason);
-      }
-      return PvPMatch(
-        id: data!['match_id'] as String,
-        player1Id: uid,
-        player2Id: opponentId,
-        status: 'invited',
-        channelName: 'pvp_${data['match_id']}',
-        questionCount: questionCount,
-        timePerQuestion: timePerQuestion,
-        wagerAmount: wagerCoins,
-      );
-    } catch (e) {
-      debugPrint('[PvP] createInvite error: $e');
-      return null;
+    if (uid == null) throw Exception('Not authenticated');
+    final res = await _client.rpc('create_pvp_invite', params: {
+      'p_opponent_id': opponentId,
+      'p_wager_coins': wagerCoins,
+      'p_question_count': questionCount,
+      'p_time_per_question': timePerQuestion,
+    });
+    final data = res as Map<String, dynamic>?;
+    if (data?['success'] != true) {
+      final reason = data?['error']?.toString() ?? 'Unknown error';
+      debugPrint('[PvP] Invite rejected: $reason — balance ${data?['balance']}');
+      throw Exception(reason);
     }
+    return PvPMatch(
+      id: data!['match_id'] as String,
+      player1Id: uid,
+      player2Id: opponentId,
+      status: 'invited',
+      channelName: 'pvp_${data['match_id']}',
+      questionCount: questionCount,
+      timePerQuestion: timePerQuestion,
+      wagerAmount: wagerCoins,
+    );
   }
 
   /// Accept an incoming invite (charges the invitee's wager server-side).

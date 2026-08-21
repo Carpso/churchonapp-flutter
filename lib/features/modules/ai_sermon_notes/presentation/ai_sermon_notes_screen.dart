@@ -20,7 +20,8 @@ class SermonNotesService {
     return List<Map<String, dynamic>>.from(result);
   }
 
-  /// Generate AI summary for a sermon using Kael AI (or Gemini fallback)
+  /// Generate AI summary for a sermon using Kael AI (Hugging Face
+  /// `meta-llama/Llama-3.1-8B-Instruct` via `router.huggingface.co`).
   Future<Map<String, dynamic>> generateAISummary({
     required String sermonId,
     required String title,
@@ -47,10 +48,10 @@ class SermonNotesService {
         };
       }
     } catch (e) {
-      debugPrint('Kael AI summary invoke failed, falling back to dedicated function/Gemini: $e');
+      debugPrint('Kael AI (Hugging Face) summary invoke failed, falling back to dedicated function: $e');
     }
 
-    // 2. Try dedicated Edge Function if present
+    // 2. Try dedicated Edge Function if present (also Hugging Face if deployed)
     try {
       final result = await _client.functions.invoke('ai-sermon-notes', body: {
         'sermon_id': sermonId,

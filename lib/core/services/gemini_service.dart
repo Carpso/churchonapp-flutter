@@ -4,12 +4,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Server-side AI generation proxy.
+/// Server-side AI generation proxy (Hugging Face via Kael AI).
 ///
 /// All AI calls are forwarded to the `kael-ai` Edge Function, which holds the
-/// `GEMINI_API_KEY` / `HUGGINGFACE_TOKEN` secrets in its environment. The
+/// `HUGGINGFACE_TOKEN` (model `meta-llama/Llama-3.1-8B-Instruct` via
+/// `https://router.huggingface.co/v1`) secret in its environment. The
 /// client never embeds an AI API key (removed in the 2026-08-13 security
 /// sprint). Non-chat actions return `{ "response": "..." }`.
+/// @deprecated Prefer `kaelAiService` / direct `supabase.functions.invoke('kael-ai')`
+/// — this class is kept as `GeminiService` only for backward-compatibility;
+/// `geminiServiceProvider` now proxies to Hugging Face, not Google Gemini.
 class GeminiService {
   final SupabaseClient? _client;
 

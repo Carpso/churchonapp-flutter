@@ -90,7 +90,7 @@ class _KingdomAIModeratorScreenState extends ConsumerState<KingdomAIModeratorScr
       final count = await ref.read(adminServiceProvider).runApostolicModeration(ref);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Successfully moderated $count posts via Gemini.")),
+          SnackBar(content: Text("Successfully moderated $count posts via Hugging Face (Kael AI).")),
         );
       }
     } finally {

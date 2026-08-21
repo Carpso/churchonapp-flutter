@@ -63,11 +63,25 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
     super.dispose();
   }
 
-  void _loadBooks() async {
-    final books = await ref.read(bibleBooksProvider.future);
-    if (mounted) {
+  Future<void> _loadBooks() async {
+    try {
+      var books = await ref.read(bibleBooksProvider.future);
+      // Self-heal the "only 2 books" corruption (stale cache with Genesis/John)
+      // — the hardened BibleBooksService now rejects any non-66 cache and
+      // repopulates from built-ins, but existing installs already have the bad
+      // cache in SharedPreferences. Force a refresh when we detect it.
+      if (books.length != 66) {
+        debugPrint('BibleScreen: Detected ${books.length} books (expected 66) — force refreshing');
+        try {
+          books = await ref.read(bibleBooksRefreshProvider(true).future);
+        } catch (_) {
+          // refresh provider also self-heals — if even that fails, the service
+          // returns its 66 built-ins, so we will have a full canon anyway.
+        }
+      }
+      if (!mounted) return;
       setState(() {
-        _allBooks = books;
+        _allBooks = books.length == 66 ? books : books; // always set what we have
         if (widget.initialBook != null) {
           selectedBook = widget.initialBook!;
           selectedChapter = widget.initialChapter ?? 1;
@@ -76,6 +90,15 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           _restoreReadingPosition();
         }
       });
+      if (books.length != 66 && mounted) {
+        debugPrint('BibleScreen: Still ${books.length} books after refresh — showing built-in fallback will apply on next load');
+      }
+    } catch (e) {
+      debugPrint('BibleScreen _loadBooks failed: $e');
+      if (!mounted) return;
+      // Last resort: the service's built-ins are 66 and never fail — surface
+      // an empty state that lets the user retry.
+      setState(() => _allBooks = []);
     }
   }
 
@@ -1409,8 +1432,45 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               const SizedBox(height: 5),
               Text(
                 "${_allBooks.length} books",
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                style: TextStyle(
+                  color: _allBooks.length == 66 ? Colors.grey : Colors.orange,
+                  fontSize: 12,
+                  fontWeight: _allBooks.length == 66 ? FontWeight.normal : FontWeight.bold,
+                ),
               ),
+              if (_allBooks.length != 66)
+                Container(
+                  margin: const EdgeInsets.only(top: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(LucideIcons.alertTriangle, size: 16, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Only ${_allBooks.length}/66 books loaded — tap to fix',
+                          style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          try {
+                            await ref.read(bibleBooksRefreshProvider(true).future);
+                          } catch (_) {}
+                          await _loadBooks();
+                          if (mounted) _showBookSelector();
+                        },
+                        child: const Text('FIX', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
               const Divider(height: 20),
               // OT / NT tabs
               Row(

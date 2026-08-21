@@ -51,6 +51,16 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> {
             ),
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+          child: Text(
+            _showMinistries
+                ? 'Service teams with leaders, meeting times & rosters (e.g. Choir, Ushering, Youth)'
+                : 'Social groups for fellowship & chat — join any community to participate',
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 11, height: 1.3),
+            textAlign: TextAlign.center,
+          ),
+        ),
         Expanded(
           child: _showMinistries
               ? const MinistriesScreen(embedded: true)
