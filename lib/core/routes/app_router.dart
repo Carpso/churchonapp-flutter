@@ -175,7 +175,6 @@ import 'package:church_on_app/features/modules/live_streaming/presentation/live_
 import 'package:church_on_app/features/modules/live_streaming/presentation/stream_admin_screen.dart';
 import 'package:church_on_app/features/modules/media/presentation/flyer_studio_screen.dart';
 import 'package:church_on_app/features/modules/media/presentation/worship_lyrics_screen.dart';
-import 'package:church_on_app/features/modules/navigation/presentation/life_hub_screen.dart';
 import 'package:church_on_app/features/modules/volunteer_scheduling/presentation/volunteer_scheduling_screen.dart';
 import 'package:church_on_app/features/profile/presentation/certificates_screen.dart';
 import 'package:church_on_app/features/profile/presentation/membership_card_screen.dart';
@@ -1349,7 +1348,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/life-hub',
-        builder: (context, state) => const LifeHubScreen(),
+        redirect: (context, state) => '/more-hub',
       ),
       GoRoute(
         path: '/more-hub',

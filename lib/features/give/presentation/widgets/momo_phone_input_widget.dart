@@ -42,12 +42,23 @@ class MomoPhoneInputWidget extends StatefulWidget {
     },
   ];
 
+  /// Current Zambian mobile prefixes (ZICTA 2024/2025):
+  /// MTN  -> 096, 076
+  /// Airtel -> 097, 077
+  /// Zamtel -> 095, 075
+  /// Handles local `0` prefix, international `260`, `+260`, and bare 9-digit input.
   static String detectNetwork(String phone) {
     final clean = phone.replaceAll(RegExp(r'\D'), '');
+    if (clean.isEmpty) return "MTN";
     String localNumber = clean;
     if (clean.startsWith('260') && clean.length >= 12) {
       localNumber = '0${clean.substring(3)}';
+    } else if (clean.startsWith('260') && clean.length >= 11) {
+      // Handles pasted `2609...` without leading 0
+      localNumber = '0${clean.substring(3)}';
     } else if (!clean.startsWith('0') && clean.length == 9) {
+      localNumber = '0$clean';
+    } else if (!clean.startsWith('0') && clean.length == 10 && clean.startsWith('9')) {
       localNumber = '0$clean';
     }
 
@@ -58,7 +69,28 @@ class MomoPhoneInputWidget extends StatefulWidget {
     } else if (localNumber.startsWith('095') || localNumber.startsWith('075')) {
       return "Zamtel";
     }
+    // Unknown/incomplete prefix — keep current selection; fallback to MTN for fresh installs
     return "MTN";
+  }
+
+  /// Lowercase id variant for forms that store `mtn`/`airtel`/`zamtel`.
+  static String detectNetworkId(String phone) => detectNetwork(phone).toLowerCase();
+
+  /// Returns the network id only when a valid Zambian prefix is confidently detected (≥3 digits).
+  /// Returns null for empty/incomplete/unknown prefixes so callers can decide not to auto-switch.
+  static String? detectNetworkIdIfKnown(String phone) {
+    final clean = phone.replaceAll(RegExp(r'\D'), '');
+    if (clean.length < 3) return null;
+    String local = clean;
+    if (clean.startsWith('260') && clean.length >= 11) {
+      local = '0${clean.substring(3)}';
+    } else if (!clean.startsWith('0') && clean.length >= 9) {
+      local = '0${clean.substring(clean.length - 9)}';
+    }
+    if (local.startsWith('096') || local.startsWith('076')) return "mtn";
+    if (local.startsWith('097') || local.startsWith('077')) return "airtel";
+    if (local.startsWith('095') || local.startsWith('075')) return "zamtel";
+    return null;
   }
 
   static String formatPhone(String phone) {
@@ -116,13 +148,18 @@ class _MomoPhoneInputWidgetState extends State<MomoPhoneInputWidget> {
   }
 
   void _onPhoneChanged() {
-    final detected = MomoPhoneInputWidget.detectNetwork(widget.controller.text);
-    if (detected != widget.selectedNetwork) {
-      widget.onNetworkChanged(detected);
+    final text = widget.controller.text;
+    // Auto-detect only when a known Zambian prefix is present — avoids flicking to MTN while user types "09"
+    final detectedId = MomoPhoneInputWidget.detectNetworkIdIfKnown(text);
+    if (detectedId != null) {
+      final detectedName = detectedId == 'mtn' ? 'MTN' : detectedId == 'airtel' ? 'Airtel' : 'Zamtel';
+      if (detectedName != widget.selectedNetwork) {
+        widget.onNetworkChanged(detectedName);
+      }
     }
-    final err = MomoPhoneInputWidget.validateZambianPhone(widget.controller.text);
+    final err = MomoPhoneInputWidget.validateZambianPhone(text);
     if (mounted) {
-      setState(() => _validationError = widget.controller.text.isEmpty ? null : err);
+      setState(() => _validationError = text.isEmpty ? null : err);
     }
   }
 

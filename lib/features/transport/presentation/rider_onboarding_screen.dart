@@ -55,13 +55,20 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
   }
 
   String _networkFromPhone(String phone) {
-    final detected = MomoPhoneInputWidget.detectNetwork(phone);
-    return detected.toLowerCase();
+    // Use confident detection only; fallback to current operator prevents premature MTN default on "09"
+    final known = MomoPhoneInputWidget.detectNetworkIdIfKnown(phone);
+    if (known != null) return known;
+    // Fallback to legacy detect for complete numbers, else keep current
+    final legacy = MomoPhoneInputWidget.detectNetwork(phone).toLowerCase();
+    return legacy;
   }
 
   void _onPhoneChanged(String value) {
     _phone = value;
-    if (value.length >= 10) {
+    final known = MomoPhoneInputWidget.detectNetworkIdIfKnown(value);
+    if (known != null && known != _payoutOperator) {
+      setState(() => _payoutOperator = known);
+    } else if (value.replaceAll(RegExp(r'\D'), '').length >= 10) {
       final detected = _networkFromPhone(value);
       if (detected != _payoutOperator) {
         setState(() => _payoutOperator = detected);
@@ -71,7 +78,10 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
 
   void _onPayoutPhoneChanged(String value) {
     _payoutNumber = value;
-    if (value.length >= 10) {
+    final known = MomoPhoneInputWidget.detectNetworkIdIfKnown(value);
+    if (known != null && known != _payoutOperator) {
+      setState(() => _payoutOperator = known);
+    } else if (value.replaceAll(RegExp(r'\D'), '').length >= 10) {
       final detected = _networkFromPhone(value);
       if (detected != _payoutOperator) {
         setState(() => _payoutOperator = detected);
@@ -371,15 +381,52 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("Payout Settings", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800)),
-                    Text("Where we send your earnings", style: TextStyle(color: Colors.green.shade600, fontSize: 12)),
+                    Text("Where we send your earnings — auto-detects Zambian network from your number", style: TextStyle(color: Colors.green.shade600, fontSize: 12)),
                     const SizedBox(height: 15),
-                    _buildTextField("Mobile Money Number", "097XXXXXXX", _onPayoutPhoneChanged, isNumber: true, validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Required';
-                      if (v.replaceAll(RegExp(r'\D'), '').length < 10) return 'Min 10 digits';
+                    _buildTextField("Mobile Money Number", "097XXXXXXX / 26097XXXXXXX", _onPayoutPhoneChanged, isNumber: true, validator: (v) {
+                      final err = MomoPhoneInputWidget.validateZambianPhone(v);
+                      if (err != null) return err;
+                      // Cross-check: number prefix must match selected network chip
+                      final known = MomoPhoneInputWidget.detectNetworkIdIfKnown(v ?? '');
+                      if (known != null && known != _payoutOperator) {
+                        return 'Number looks like ${known.toUpperCase()} but ${ _payoutOperator.toUpperCase()} is selected — tap the correct network or correct the number';
+                      }
                       return null;
+                    }),
+                    Builder(builder: (context) {
+                      final known = MomoPhoneInputWidget.detectNetworkIdIfKnown(_payoutNumber);
+                      final display = known != null ? known.toUpperCase() : _payoutOperator.toUpperCase();
+                      final isMatch = known == null || known == _payoutOperator;
+                      final chipColor = display == 'MTN' ? Colors.amber : display == 'AIRTEL' ? Colors.red : Colors.green;
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(
+                          children: [
+                            Icon(isMatch ? LucideIcons.checkCircle : LucideIcons.alertTriangle, size: 14, color: isMatch ? Colors.green : Colors.orange),
+                            const SizedBox(width: 6),
+                            Text(
+                              known != null ? 'Auto-detected: $display' : 'Selected: $display — start typing to auto-detect',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isMatch ? Colors.green.shade700 : Colors.orange.shade800),
+                            ),
+                            if (known != null && !isMatch) ...[
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () => setState(() => _payoutOperator = known),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(color: chipColor, borderRadius: BorderRadius.circular(8)),
+                                  child: Text('Switch to $display', style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
                     }),
                     const SizedBox(height: 15),
                     const Text("Mobile Network", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    const SizedBox(height: 6),
+                    Text("Tap to override — but number must match the selected network's Zambian prefix (MTN: 096/076, Airtel: 097/077, Zamtel: 095/075)", style: TextStyle(color: Colors.grey, fontSize: 10)),
                     const SizedBox(height: 10),
                     Row(
                       children: [

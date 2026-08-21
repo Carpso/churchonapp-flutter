@@ -4,6 +4,13 @@ import 'package:church_on_app/features/modules/media/presentation/radio_screen.d
 import 'package:church_on_app/features/connect/presentation/testimonies_screen.dart';
 import 'package:church_on_app/features/connect/presentation/prayer_wall_screen.dart';
 
+/// Deprecated: consolidated into `MoreHubScreen` ("Life & Modules").
+///
+// All three Life Hub tiles — Radio, Testimonies, Prayer Wall — now live
+// directly in `MoreHubScreen` Spiritual & Media section (and via their own
+// routes `/radio`, `/testimonies`, `/prayer-wall`). `/life-hub` now redirects
+// to `/more-hub`. Kept for deep-link backwards-compat only; do not link to
+// this screen from new UI. Will be deleted after 2026-09.
 class LifeHubScreen extends StatelessWidget {
   const LifeHubScreen({super.key});
 

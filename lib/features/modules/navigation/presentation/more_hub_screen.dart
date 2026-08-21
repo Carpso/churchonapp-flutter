@@ -28,8 +28,6 @@ import 'package:church_on_app/features/transport/presentation/ride_history_scree
 import 'package:church_on_app/features/home/presentation/news_list_screen.dart';
 import 'package:church_on_app/features/home/presentation/branch_locator_screen.dart';
 import 'package:church_on_app/features/transport/presentation/sos_trigger_screen.dart';
-import 'life_hub_screen.dart';
-
 class MoreHubScreen extends ConsumerWidget {
   const MoreHubScreen({super.key});
 
@@ -129,7 +127,6 @@ class MoreHubScreen extends ConsumerWidget {
                 _buildModuleCard(context, "News", LucideIcons.newspaper, Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewsListScreen()))),
                 _buildModuleCard(context, "Branch Locator", LucideIcons.mapPin, Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BranchLocatorScreen()))),
                 _buildModuleCard(context, "SOS Emergency", LucideIcons.siren, Colors.redAccent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SosTriggerScreen()))),
-                _buildModuleCard(context, "Life Hub", LucideIcons.heart, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LifeHubScreen()))),
                 _buildModuleCard(context, "Year Planner", LucideIcons.calendarDays, Colors.indigo, () => context.push('/year-planner')),
               ],
             ),

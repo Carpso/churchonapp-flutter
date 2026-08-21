@@ -289,60 +289,70 @@ class TenantService {
   }
 
   /// Get all tenants (churches + bookshops) for the select screen
+  /// Website fix: churches and bookshops are fetched independently so a
+  /// bookshops RLS/404 on anon (web pre-auth) never wipes the church list.
+  /// Falls back to empty church list only if churches themselves fail — the
+  /// select screen then shows "No tenants found" with retry instead of a
+  /// blank map.
   Future<List<Map<String, dynamic>>> getAllTenants() async {
+    List<Map<String, dynamic>> churches = [];
+    List<Map<String, dynamic>> shops = [];
+
     try {
-      // Fetch all churches + bookshops in parallel (avoids N+1 round trips
-      // which previously timed out on mobile and fell back to seed data).
-      final churchesFuture = _client
+      final churchesRaw = await _client
           .from('churches')
           .select(
             'id, slug, name, logo_url, primary_color, latitude, longitude, address, country, is_verified, subscription_ends_at',
           )
           .order('name', ascending: true);
-      final bookshopsFuture = _client
+      churches = List<Map<String, dynamic>>.from(
+        (churchesRaw as List).map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+    } catch (e) {
+      debugPrint('Error fetching churches for all-tenants: $e');
+    }
+
+    try {
+      final shopsRaw = await _client
           .from('bookshops')
           .select('id, name, logo_url, latitude, longitude, address, is_active, tenant_id, subscription_ends_at, plan, onboarding_fee_paid');
+      shops = List<Map<String, dynamic>>.from(
+        (shopsRaw as List).map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+    } catch (e) {
+      // Website (anon) may not have bookshops RLS or table may be empty —
+      // churches still render; map still works.
+      debugPrint('Error fetching bookshops for all-tenants (non-fatal): $e');
+    }
 
-      final results = await Future.wait([churchesFuture, bookshopsFuture]);
+    final result = <Map<String, dynamic>>[];
 
-      final result = <Map<String, dynamic>>[];
+    for (final map in churches) {
+      result.add({
+        ...map,
+        'type': 'church',
+        '_registered': map['is_verified'] == true,
+      });
+    }
 
-      for (final church in (results[0] as List)) {
-        final map = Map<String, dynamic>.from(church as Map);
-        result.add({
-          ...map,
-          'type': 'church',
-          // A church is selectable when it is verified on the platform
-          // (DB-backed; seed/fallback data still special-cases Rock of Ages).
-          '_registered': map['is_verified'] == true,
-        });
-      }
+    for (final map in shops) {
+      result.add({
+        ...map,
+        'type': 'bookshop',
+        '_registered': map['is_active'] == true,
+      });
+    }
 
-      for (final shop in (results[1] as List)) {
-        final map = Map<String, dynamic>.from(shop as Map);
-        result.add({
-          ...map,
-          'type': 'bookshop',
-          '_registered': map['is_active'] == true,
-        });
-      }
-
-      if (result.isEmpty) {
+    if (result.isEmpty) {
+      if (fallbackChurches.isNotEmpty) {
         return fallbackChurches
-            .map(
-              (c) => ({...c, '_registered': c['slug'] == 'rock-of-ages-kabulonga'}),
-            )
+            .map((c) => ({...c, '_registered': c['slug'] == 'rock-of-ages-kabulonga'}))
             .toList();
       }
-      return result;
-    } catch (e) {
-      debugPrint('Error fetching all tenants: $e');
-      return fallbackChurches
-          .map(
-            (c) => ({...c, '_registered': c['slug'] == 'rock-of-ages-kabulonga'}),
-          )
-          .toList();
+      // Explicit empty — caller shows retry UI instead of infinite loader.
+      return [];
     }
+    return result;
   }
 
   Future<List<Tenant>> getNearbyChurches(
