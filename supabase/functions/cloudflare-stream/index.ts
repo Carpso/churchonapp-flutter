@@ -52,7 +52,7 @@ serve(async (req) => {
     });
   }
 
-  const leadershipRoles = ["superadmin", "coa_employee", "bishop", "general_secretary", "pastor", "admin", "leader", "department_leader"];
+  const leadershipRoles = ["superadmin", "coa_employee", "bishop", "apostle", "prophet", "general_secretary", "pastor", "admin", "leader", "department_leader"];
   if (!leadershipRoles.includes(profile.role)) {
     return new Response(JSON.stringify({ error: "Insufficient role", role: profile.role }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -392,7 +392,19 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
           _isLoading = false;
           _streamStatus = "OFFLINE";
         });
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to start stream: ${e.toString().replaceAll('Exception: ', '')}")));
+        // Map opaque FunctionException payloads to actionable messages.
+        final raw = e.toString();
+        String friendly;
+        if (raw.contains('401') || raw.toLowerCase().contains('authorization') || raw.toLowerCase().contains('jwt')) {
+          friendly = 'Your session expired — sign out and sign in again, then retry.';
+        } else if (raw.contains('403') || raw.toLowerCase().contains('insufficient role')) {
+          friendly = 'Only church leadership (pastor, bishop, admin, COA team) can go live.';
+        } else if (raw.contains('Failed to create Cloudflare Stream') || raw.contains('500')) {
+          friendly = 'Streaming service is temporarily unavailable. Try again shortly.';
+        } else {
+          friendly = raw.replaceAll('Exception: ', '');
+        }
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to start stream: $friendly")));
       }
     }
   }

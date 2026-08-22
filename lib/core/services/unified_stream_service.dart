@@ -152,6 +152,11 @@ class UnifiedStreamService {
     String? description,
     DateTime? scheduledAt,
   }) async {
+    // Belt-and-braces: attach the current access token explicitly. On stale
+    // sessions functions.invoke may omit the header and the edge function
+    // answers 401 "Missing authorization header" → surfaced to the user as an
+    // opaque "authentication error".
+    final token = _client.auth.currentSession?.accessToken;
     final response = await _client.functions.invoke(
       'cloudflare-stream',
       body: {
@@ -164,6 +169,9 @@ class UnifiedStreamService {
           'allowed_origins': ['*'],
         },
       },
+      headers: token != null && token.isNotEmpty
+          ? {'Authorization': 'Bearer $token'}
+          : null,
     );
 
     if (response.data == null) {

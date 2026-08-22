@@ -72,11 +72,14 @@ class BishopHubScreen extends ConsumerWidget {
               childAspectRatio: 1.5,
             ),
             delegate: SliverChildListDelegate([
-              _buildActionCard(context, LucideIcons.church, "Ministries & Branches", Theme.of(context).primaryColor),
+              _buildActionCard(context, LucideIcons.church, "Ministries & Branches", Theme.of(context).primaryColor,
+                  onTap: () => context.push('/member-directory')),
               _buildActionCard(context, LucideIcons.map, "Map", Colors.green, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BishopHeatmapScreen()))),
               _buildActionCard(context, LucideIcons.barChart3, "Ministry Reports", Colors.teal, onTap: () => context.push('/service-report')),
-              _buildActionCard(context, LucideIcons.bookOpen, "Financial Ledger", Colors.indigo, onTap: () => context.push('/ledger')),
-              _buildActionCard(context, LucideIcons.fileText, "Pastor Reports", Theme.of(context).primaryColor),
+              // Financial Ledger consolidated into Central Treasury (Finance
+              // Dashboard) — single financial source; /ledger redirects there.
+              _buildActionCard(context, LucideIcons.fileText, "Pastor Reports", Theme.of(context).primaryColor,
+                  onTap: () => context.push('/pastor-bishop-report')),
               _buildActionCard(context, LucideIcons.banknote, "Central Treasury", Colors.orange, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FinanceDashboardScreen()))),
             ]),
           ),

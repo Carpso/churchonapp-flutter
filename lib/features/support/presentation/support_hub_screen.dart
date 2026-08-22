@@ -427,10 +427,10 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
           ),
           _GuideExpansionTile(
             icon: LucideIcons.bookOpen,
-            title: "Branch Financial Ledgers",
+            title: "Finance Dashboard (Ledger)",
             description: "For church treasurers to review cashflows and publish statements.",
             steps: const [
-              "Authorized Ledger Managers can navigate to Profile > Financial Ledger.",
+              "Authorized Ledger Managers can open Finance Dashboard from Profile or the Admin Hub.",
               "Review automated transaction flowcharts containing tithing, collections, and payouts.",
               "Filter records by date or transaction type.",
               "Tap Export Report to download an official PDF statement for parish boards."

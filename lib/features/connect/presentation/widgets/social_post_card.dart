@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/widgets/post_image_carousel.dart';
 import '../../data/social_service.dart';
 
 class SocialPostCard extends StatelessWidget {
@@ -72,56 +73,9 @@ class SocialPostCard extends StatelessWidget {
             ),
           ),
           if (post.images.isNotEmpty)
-            SizedBox(
-              height: 300,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: post.images.length,
-                itemBuilder: (context, index) => Container(
-                  width: MediaQuery.of(context).size.width - 60,
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: CachedNetworkImage(
-                      imageUrl: post.images[index],
-                      width: double.infinity,
-                      height: 300,
-                      memCacheWidth: 540,
-                      memCacheHeight: 300,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
-                      errorWidget: (_, __, ___) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: Icon(Icons.broken_image, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4))),
-                    ),
-                  ),
-                ),
-              ),
-            )
+            PostImageCarousel(images: post.images)
           else if (post.mediaUrl != null && post.mediaType == 'image')
-            Container(
-              height: 300,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: CachedNetworkImage(
-                  imageUrl: post.mediaUrl!,
-                  width: double.infinity,
-                  height: 300,
-                  memCacheWidth: 540,
-                  memCacheHeight: 300,
-                  fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
-                  errorWidget: (_, __, ___) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: Icon(Icons.broken_image, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4))),
-                ),
-              ),
-            ),
+            PostImageCarousel(images: [post.mediaUrl!]),
           Padding(
             padding: const EdgeInsets.all(15),
             child: Column(

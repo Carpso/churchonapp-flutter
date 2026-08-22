@@ -379,7 +379,9 @@ _buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHi
         if (profile.isLedgerManager) ...[
           _buildPremiumItem(context, LucideIcons.qrCode, "Scan Attendance", onTap: () => context.push('/attendance-scanner')),
           _buildPremiumItem(context, LucideIcons.wallet, "Finance Dashboard", isHighlighted: true, onTap: () => context.push('/finance-dashboard')),
-          _buildPremiumItem(context, LucideIcons.scrollText, "Church Ledger", onTap: () => context.push('/ledger')),
+          // Church Ledger consolidated into Finance Dashboard (single source
+          // for trends, distribution, payouts & HQ remittance) — /ledger
+          // redirects there, so no separate entry here.
         ],
         if (profile.role == 'driver') ...[
           _buildPremiumItem(context, LucideIcons.car, "Driver Portal", isHighlighted: true, onTap: () => context.push('/driver-portal')),
@@ -794,10 +796,24 @@ _buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHi
       physics: const BouncingScrollPhysics(),
       child: Row(
         children: [
-          if (profile.isBishop) _buildBadge(LucideIcons.crown, "BISHOP", Colors.amber),
-          if (profile.isPastor) _buildBadge(LucideIcons.scroll, "PASTOR", Theme.of(context).primaryColor),
+          // Role badges — most-specific first; apostle must not render as BISHOP.
+          if (profile.role == 'apostle')
+            _buildBadge(LucideIcons.globe, "APOSTLE", Colors.deepPurple)
+          else if (profile.role == 'bishop')
+            _buildBadge(LucideIcons.crown, "BISHOP", Colors.amber)
+          else if (profile.isPastor)
+            _buildBadge(LucideIcons.scroll, "PASTOR", Theme.of(context).primaryColor),
+          if (profile.role == 'treasurer' || profile.role == 'general_treasurer')
+            _buildBadge(LucideIcons.wallet, "TREASURER", Colors.green),
+          if (profile.role == 'driver') _buildBadge(LucideIcons.car, "DRIVER", Colors.teal),
+          if (profile.role == 'rider') _buildBadge(LucideIcons.bike, "RIDER", Colors.cyan),
+          if (profile.role == 'vendor' || profile.role == 'merchant')
+            _buildBadge(LucideIcons.store, "VENDOR", Colors.indigo),
+          if (profile.role == 'bookshop_owner')
+            _buildBadge(LucideIcons.bookOpen, "BOOKSHOP", Colors.blue),
           if (profile.isUsher) _buildBadge(LucideIcons.shieldCheck, "USHER", Colors.greenAccent),
           if (profile.role == 'writer') _buildBadge(LucideIcons.penTool, "WRITER", Theme.of(context).primaryColor.withValues(alpha: 0.7)),
+          if (profile.isSuperadmin) _buildBadge(LucideIcons.zap, "COA TEAM", Colors.redAccent),
           if (profile.coins > 1000) _buildBadge(LucideIcons.star, "STEWARD", Colors.orangeAccent),
         ],
       ),

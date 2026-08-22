@@ -557,6 +557,34 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       builder: (context) => Consumer(builder: (context, ref, child) {
         final insightsAsync = ref.watch(sermonInsightsProvider(widget.sermon.id));
         final commentCtrl = TextEditingController();
+        // Single-send guard: Enter key AND the send icon share this flag so a
+        // keyboard action + tap can never insert the same insight twice.
+        var isSending = false;
+        Future<void> sendInsight() async {
+          final value = commentCtrl.text.trim();
+          if (value.isEmpty || isSending) return;
+          isSending = true;
+          try {
+            await ref
+                .read(sermonServiceProvider)
+                .reactToSermon(widget.sermon.id, 'discuss', content: value);
+            commentCtrl.clear();
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text("Insight shared successfully!"),
+                  backgroundColor: Colors.green));
+            }
+          } catch (e) {
+            debugPrint("Comment error: $e");
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text("Failed to send: $e"),
+                  backgroundColor: Colors.red));
+            }
+          } finally {
+            isSending = false;
+          }
+        }
 
         return Container(
           height: MediaQuery.of(context).size.height * 0.7,
@@ -581,13 +609,40 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                           ],
                         ),
                       )
-                    : ListView.builder(
-                        itemCount: comments.length,
-                        itemBuilder: (context, i) => ListTile(
-                          leading: const CircleAvatar(child: Icon(LucideIcons.user, size: 14)),
-                          title: Text(comments[i]['content'] ?? "", style: const TextStyle(fontSize: 14)),
-                          subtitle: const Text("Citizen", style: TextStyle(fontSize: 11)),
-                        ),
+                    : FutureBuilder<Map<String, Map<String, dynamic>>>(
+                        future: ref.read(sermonServiceProvider).fetchInsightAuthors(
+                              comments
+                                  .map((c) => c['user_id']?.toString() ?? '')
+                                  .toList(),
+                            ),
+                        builder: (context, authorsSnap) {
+                          final authors = authorsSnap.data ?? const {};
+                          return ListView.builder(
+                            itemCount: comments.length,
+                            itemBuilder: (context, i) {
+                              final author =
+                                  authors[comments[i]['user_id']?.toString() ?? ''];
+                              final name =
+                                  author?['full_name']?.toString() ?? 'Member';
+                              final avatar = author?['avatar_url']?.toString();
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundImage:
+                                      avatar != null && avatar.isNotEmpty
+                                          ? NetworkImage(avatar)
+                                          : null,
+                                  child: avatar == null || avatar.isEmpty
+                                      ? Text(name.isNotEmpty ? name[0] : '?')
+                                      : null,
+                                ),
+                                title: Text(comments[i]['content'] ?? "",
+                                    style: const TextStyle(fontSize: 14)),
+                                subtitle: Text(name,
+                                    style: const TextStyle(fontSize: 11)),
+                              );
+                            },
+                          );
+                        },
                       ),
                   loading: () => const ListSkeleton(count: 3),
                   error: (e, _) => Center(child: Text("Sync Error: $e")),
@@ -597,32 +652,12 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                 padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
                 child: TextField(
                   controller: commentCtrl,
-                  onSubmitted: (value) async {
-                    if (value.trim().isEmpty) return;
-                    try {
-                      await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'discuss', content: value.trim());
-                      commentCtrl.clear();
-                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insight shared successfully!"), backgroundColor: Colors.green));
-                    } catch (e) {
-                      debugPrint("Comment error: $e");
-                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to send: $e"), backgroundColor: Colors.red));
-                    }
-                  },
+                  onSubmitted: (_) => sendInsight(),
                   decoration: InputDecoration(
                     hintText: "Add your spiritual insight...",
                     suffixIcon: IconButton(
                       icon: const Icon(LucideIcons.send),
-                      onPressed: () async {
-                        if (commentCtrl.text.isEmpty) return;
-                        try {
-                          await ref.read(sermonServiceProvider).reactToSermon(widget.sermon.id, 'discuss', content: commentCtrl.text);
-                          commentCtrl.clear();
-                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insight shared successfully!"), backgroundColor: Colors.green));
-                        } catch (e) {
-                          debugPrint("Comment error: $e");
-                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to send: $e"), backgroundColor: Colors.red));
-                        }
-                      },
+                      onPressed: () => sendInsight(),
                     ),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                   ),
@@ -716,38 +751,65 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                 return const SizedBox.shrink();
               }
               final preview = comments.take(2).toList();
-              return Column(
-                children: preview.map((c) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const CircleAvatar(
-                        radius: 12,
-                        child: Icon(LucideIcons.user, size: 12),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
+              return FutureBuilder<Map<String, Map<String, dynamic>>>(
+                future: ref.read(sermonServiceProvider).fetchInsightAuthors(
+                      preview.map((c) => c['user_id']?.toString() ?? '').toList(),
+                    ),
+                builder: (context, authorsSnap) {
+                  final authors = authorsSnap.data ?? const {};
+                  return Column(
+                    children: preview.map((c) {
+                      final author =
+                          authors[c['user_id']?.toString() ?? ''];
+                      final name =
+                          author?['full_name']?.toString() ?? 'Member';
+                      final avatar = author?['avatar_url']?.toString();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              "Citizen",
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
+                            CircleAvatar(
+                              radius: 12,
+                              backgroundImage:
+                                  avatar != null && avatar.isNotEmpty
+                                      ? NetworkImage(avatar)
+                                      : null,
+                              child: avatar == null || avatar.isEmpty
+                                  ? Text(name.isNotEmpty ? name[0] : '?')
+                                  : null,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              c['content'] ?? "",
-                              style: const TextStyle(fontSize: 13, color: Colors.black87),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    name,
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color:
+                                            Theme.of(context).primaryColor),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    c['content'] ?? "",
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.black87),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                )).toList(),
+                      );
+                    }).toList(),
+                  );
+                },
               );
             },
             loading: () => const SizedBox.shrink(),

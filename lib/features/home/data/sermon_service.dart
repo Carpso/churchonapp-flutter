@@ -172,13 +172,50 @@ class SermonService {
     }
   }
 
+  /// Live insight feed. NOTE: no `.order()` on realtime streams — ordering
+  /// server-side caused refresh loops / duplicate renders (see social chat);
+  /// sort client-side instead. Author profiles are enriched by the caller.
   Stream<List<Map<String, dynamic>>> streamSermonInsights(String sermonId) {
     return _client
         .from('sermon_reactions')
         .stream(primaryKey: ['id'])
         .eq('sermon_id', sermonId)
-        .order('created_at', ascending: false)
-        .map((data) => data.where((e) => e['reaction_type'] == 'discuss').toList());
+        .map((data) {
+      final rows = data
+          .where((e) => e['reaction_type'] == 'discuss')
+          .toList()
+        ..sort((a, b) {
+          final ta = a['created_at']?.toString() ?? '';
+          final tb = b['created_at']?.toString() ?? '';
+          return tb.compareTo(ta);
+        });
+      return rows;
+    });
+  }
+
+  /// Fetch display names/avatars for insight authors (batched, cached by
+  /// PostgREST). Returns {user_id: {full_name, avatar_url}}.
+  Future<Map<String, Map<String, dynamic>>> fetchInsightAuthors(
+    List<String> userIds,
+  ) async {
+    final out = <String, Map<String, dynamic>>{};
+    final ids = userIds.where((id) => id.isNotEmpty).toSet().toList();
+    if (ids.isEmpty) return out;
+    try {
+      final res = await _client
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .inFilter('id', ids);
+      for (final p in res as List) {
+        out[p['id']?.toString() ?? ''] = {
+          'full_name': p['full_name']?.toString() ?? 'Member',
+          'avatar_url': p['avatar_url']?.toString(),
+        };
+      }
+    } catch (e) {
+      debugPrint('fetchInsightAuthors error: $e');
+    }
+    return out;
   }
 
   Future<List<Sermon>> searchSermons(String query) async {
