@@ -51,19 +51,20 @@ void main() {
   });
 
   testWidgets('UniversalSearchScreen shows no results empty state', (WidgetTester tester) async {
-    await tester.runAsync(() async {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: const MaterialApp(
-            home: UniversalSearchScreen(),
-          ),
+    // No runAsync: the debounce Timer runs on fake clock via pump(duration).
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: UniversalSearchScreen(),
         ),
-      );
-      await tester.pump();
-      final textField = find.byType(TextField);
-      await tester.enterText(textField, 'nothingmatches');
-      await tester.pump();
-    });
-    expect(find.text('No Matches Found'), findsOneWidget);
+      ),
+    );
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'nothingmatches');
+    // Advance past the 350ms debounce so _search fires, then let its
+    // Supabase-less failure land in the catch → empty state.
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(find.text('No matches found'), findsOneWidget);
   });
 }

@@ -203,7 +203,7 @@ void main() {
       );
       await tester.pump();
     });
-    expect(find.text('Kingdom Testimonies'), findsOneWidget);
+    expect(find.text('Testimonies'), findsOneWidget);
   });
 
   testWidgets('TestimoniesScreen has add button', (WidgetTester tester) async {

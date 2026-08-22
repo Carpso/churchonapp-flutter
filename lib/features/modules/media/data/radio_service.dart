@@ -36,7 +36,11 @@ class RadioStation {
 
 class RadioService {
   final AudioHandler? _handler;
-  final SupabaseClient _client = Supabase.instance.client;
+
+  /// Lazy client access — constructing the service must not require Supabase
+  /// to be initialized (unit tests construct it bare; fetchStations falls
+  /// back to the curated offline list when the client is unavailable).
+  SupabaseClient get _client => Supabase.instance.client;
   RadioService(this._handler);
 
   Future<List<RadioStation>> fetchStations() async {

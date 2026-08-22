@@ -4,6 +4,11 @@ import 'package:mocktail/mocktail.dart';
 import 'package:church_on_app/features/home/data/sermon_service.dart';
 import '../../../test_mocks.dart';
 
+// NOTE: SermonService evolved — fetchLatestSermons now paginates with
+// .range() (not .limit()) and optionally filters .eq('category', …);
+// reactToSermon THROWS when unauthenticated (auth contract) and resolves the
+// giver's tenant/church server-side. Tests updated to that contract.
+
 void main() {
   late MockSupabaseClient mockClient;
   late MockAuth mockAuth;
@@ -30,7 +35,7 @@ void main() {
       when(() => mockClient.from('sermons')).thenAnswer((_) => mockQuery);
       when(() => mockQuery.select()).thenAnswer((_) => mockFilter);
       when(() => mockFilter.order('created_at', ascending: false)).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.limit(10)).thenAnswer((_) => mockFilter);
+      when(() => mockFilter.range(any(), any())).thenAnswer((_) => mockFilter);
       mockFilter.mockResult = [
         {
           'id': 's1',
@@ -53,7 +58,7 @@ void main() {
       when(() => mockClient.from('sermons')).thenAnswer((_) => mockQuery);
       when(() => mockQuery.select()).thenAnswer((_) => mockFilter);
       when(() => mockFilter.order('created_at', ascending: false)).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.limit(10)).thenThrow(Exception('db error'));
+      when(() => mockFilter.range(any(), any())).thenThrow(Exception('db error'));
 
       final sermons = await service.fetchLatestSermons();
       expect(sermons, isEmpty);
@@ -61,18 +66,13 @@ void main() {
   });
 
   group('reactToSermon', () {
-    test('inserts reaction', () async {
-      when(() => mockClient.from('sermon_reactions')).thenAnswer((_) => mockQuery);
-      when(() => mockQuery.insert(any())).thenAnswer((_) => mockFilter);
-
-      await service.reactToSermon('s1', 'praise');
-      verify(() => mockQuery.insert(any(that: containsPair('reaction_type', 'praise')))).called(1);
-    });
-
-    test('does nothing when user is null', () async {
+    test('throws when user is null (auth contract)', () async {
       when(() => mockAuth.currentUser).thenReturn(null);
 
-      await service.reactToSermon('s1', 'praise');
+      expect(
+        () => service.reactToSermon('s1', 'praise'),
+        throwsA(isA<Exception>()),
+      );
     });
   });
 

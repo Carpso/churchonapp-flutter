@@ -106,7 +106,20 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
     }
   }
 
+  /// True only when the Supabase singleton is initialized. Guards the
+  /// preference loaders so the screen renders (offline/test/no-backend)
+  /// instead of crashing in initState's post-frame callback.
+  bool get _supabaseReady {
+    try {
+      Supabase.instance;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _loadPreferences() async {
+    if (!_supabaseReady) return;
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
     try {
@@ -128,6 +141,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
   }
 
   Future<void> _savePreferences() async {
+    if (!_supabaseReady) return;
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
     try {

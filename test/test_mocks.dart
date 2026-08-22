@@ -52,6 +52,20 @@ class MockSupabaseStreamBuilder extends Mock
   Stream<List<Map<String, dynamic>>> streamResult = const Stream.empty();
 
   @override
+  dynamic noSuchMethod(Invocation invocation) {
+    // Chainable stream filters (eq/order/limit) return the same builder so
+    // tests only need to stub .map/.listen behaviour once.
+    final member = invocation.memberName.toString();
+    if (member == 'Symbol("eq")' ||
+        member == 'Symbol("order")' ||
+        member == 'Symbol("limit")' ||
+        member == 'Symbol("inFilter")') {
+      return this;
+    }
+    return super.noSuchMethod(invocation);
+  }
+
+  @override
   Stream<E> map<E>(E Function(List<Map<String, dynamic>>) convert) {
     return streamResult.map(convert);
   }

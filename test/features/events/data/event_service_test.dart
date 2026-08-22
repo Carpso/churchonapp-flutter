@@ -132,7 +132,6 @@ void main() {
     test('returns stream from supabase', () {
       when(() => mockClient.from('events')).thenAnswer((_) => mockQuery);
       when(() => mockQuery.stream(primaryKey: ['id'])).thenAnswer((_) => mockStream);
-      when(() => mockStream.order(any(), ascending: any(named: 'ascending'))).thenAnswer((_) => mockStream);
       mockStream.streamResult = Stream.value([]);
 
       final stream = service.getEventsStream();

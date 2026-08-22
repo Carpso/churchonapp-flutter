@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:church_on_app/core/services/session_guard_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('SessionGuardService Inactivity Timer', () {
     test('starts with un-locked state', () {
       final guard = SessionGuardService();

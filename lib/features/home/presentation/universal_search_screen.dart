@@ -41,11 +41,12 @@ class _UniversalSearchScreenState extends ConsumerState<UniversalSearchScreen> {
       return;
     }
     setState(() => _loading = true);
-    final client = Supabase.instance.client;
-    final tenant = ref.read(currentTenantProvider);
-    final tenantId = tenant?.id;
-
     try {
+      // Client access inside try: an uninitialized backend must fall into
+      // the catch → empty state, never leave the spinner hanging.
+      final client = Supabase.instance.client;
+      final tenant = ref.read(currentTenantProvider);
+      final tenantId = tenant?.id;
       final results = <Map<String, dynamic>>[];
       final like = '%$q%';
 

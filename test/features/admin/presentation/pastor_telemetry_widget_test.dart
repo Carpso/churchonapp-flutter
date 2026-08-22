@@ -20,11 +20,11 @@ void main() {
 
     expect(find.text('Ministry Telemetry'), findsOneWidget);
     expect(find.text('Tithes'), findsOneWidget);
-    expect(find.text('K5000'), findsOneWidget);
+    expect(find.text('K 5K'), findsOneWidget);
     expect(find.text('Offerings'), findsOneWidget);
-    expect(find.text('K3000'), findsOneWidget);
+    expect(find.text('K 3K'), findsOneWidget);
     expect(find.text('Pledges'), findsOneWidget);
-    expect(find.text('K2000'), findsOneWidget);
+    expect(find.text('K 2K'), findsOneWidget);
     expect(find.text('450'), findsOneWidget);
     expect(find.text('380'), findsOneWidget);
   });

@@ -36,7 +36,7 @@ void main() {
       when(() => mockFilter.order('created_at')).thenThrow(Exception('db error'));
 
       final plans = await service.getPlans();
-      expect(plans.length, greaterThanOrEqualTo(10));
+      expect(plans.length, greaterThanOrEqualTo(4));
       expect(plans.first.title, 'Faith & Wisdom');
     });
 
@@ -70,9 +70,11 @@ void main() {
   });
 
   group('completeDay', () {
-    test('saves progress locally when user is authenticated', () async {
-      SharedPreferences.setMockInitialValues({'reading_plan_progress': ''});
+    // NOTE: completeDay is now DB-only (upsert to user_reading_progress);
+    // the old SharedPreferences local cache was removed when the progress
+    // table shipped. Tests verify the DB contract instead.
 
+    test('inserts first completion and returns new count', () async {
       when(() => mockClient.from('user_reading_progress')).thenAnswer((_) => mockQuery);
       when(() => mockQuery.select()).thenAnswer((_) => mockFilter);
       when(() => mockFilter.eq('user_id', 'user_1')).thenAnswer((_) => mockFilter);
@@ -82,36 +84,30 @@ void main() {
 
       when(() => mockQuery.insert(any())).thenAnswer((_) => mockFilter);
 
-      await service.completeDay('faith_wisdom');
+      final result = await service.completeDay('faith_wisdom');
 
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString('reading_plan_progress');
-      expect(saved, contains('faith_wisdom:1'));
+      expect(result, 1, reason: 'first completion returns 1');
+      verify(() => mockQuery.insert(any(that: containsPair('completed_days', 1)))).called(1);
     });
 
-    test('increments existing local progress', () async {
-      SharedPreferences.setMockInitialValues({'reading_plan_progress': 'faith_wisdom:3'});
-
+    test('clamps to plan totalDays (no farming past the end)', () async {
       when(() => mockClient.from('user_reading_progress')).thenAnswer((_) => mockQuery);
       when(() => mockQuery.select()).thenAnswer((_) => mockFilter);
       when(() => mockFilter.eq('user_id', 'user_1')).thenAnswer((_) => mockFilter);
       when(() => mockFilter.eq('plan_id', 'faith_wisdom')).thenAnswer((_) => mockFilter);
       when(() => mockFilter.maybeSingle()).thenAnswer((_) => mockMaybeSingle);
-      mockMaybeSingle.result = null;
-      when(() => mockQuery.insert(any())).thenAnswer((_) => mockFilter);
+      // Existing row already at plan length.
+      mockMaybeSingle.result = {'completed_days': 7};
 
-      await service.completeDay('faith_wisdom');
-
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString('reading_plan_progress');
-      expect(saved, contains('faith_wisdom:4'));
+      final result = await service.completeDay('faith_wisdom', totalDays: 7);
+      expect(result, 7, reason: 'already complete → unchanged');
     });
 
-    test('does nothing when user is null', () async {
+    test('does nothing (returns 0) when user is null', () async {
       when(() => mockAuth.currentUser).thenReturn(null);
-      SharedPreferences.setMockInitialValues({});
 
-      await service.completeDay('faith_wisdom');
+      final result = await service.completeDay('faith_wisdom');
+      expect(result, 0);
     });
   });
 

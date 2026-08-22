@@ -36,8 +36,6 @@ void main() {
     test('returns stream from supabase', () {
       when(() => mockClient.from('ai_chat_messages')).thenAnswer((_) => mockQuery);
       when(() => mockQuery.stream(primaryKey: ['id'])).thenAnswer((_) => mockStream);
-      when(() => mockStream.eq('session_id', 'session_1')).thenAnswer((_) => mockStream);
-      when(() => mockStream.order('created_at', ascending: true)).thenAnswer((_) => mockStream);
       mockStream.streamResult = Stream.value([
         {'id': 'm1', 'content': 'Hello', 'role': 'user', 'created_at': DateTime.now().toIso8601String()},
       ]);

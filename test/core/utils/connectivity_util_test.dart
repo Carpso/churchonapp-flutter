@@ -49,12 +49,14 @@ void main() {
       expect(find.textContaining('YOU ARE OFFLINE'), findsNothing);
     });
 
-    testWidgets('shows pending sync count when queue > 0', (tester) async {
+    testWidgets('banner hidden when online (sync-count badge not part of banner)', (tester) async {
+      // NOTE: the OfflineBanner only renders in the offline state; the old
+      // "N pending syncs / SYNC NOW" badge lives on the giving screen, not
+      // this global banner.
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             connectivityProvider.overrideWith((ref) => Stream.value(true)),
-            // offlineQueueProvider.overrideWith((ref) => Stream.value(3)),
           ],
           child: const MaterialApp(
             home: Scaffold(
@@ -65,8 +67,9 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.textContaining('3 pending syncs'), findsWidgets);
-      expect(find.text('SYNC NOW'), findsOneWidget);
+      expect(find.textContaining('YOU ARE OFFLINE'), findsNothing);
+      expect(find.textContaining('pending syncs'), findsNothing);
+      expect(find.text('SYNC NOW'), findsNothing);
     });
   });
 

@@ -42,7 +42,6 @@ void main() {
   late MockUser mockUser;
   late MockQueryBuilder mockQuery;
   late MockFilterBuilder mockFilter;
-  late MockMaybeSingleBuilder mockMaybeSingle;
   late AdminService service;
 
   setUp(() {
@@ -51,7 +50,6 @@ void main() {
     mockUser = MockUser();
     mockQuery = MockQueryBuilder();
     mockFilter = MockFilterBuilder();
-    mockMaybeSingle = MockMaybeSingleBuilder();
     service = AdminService(mockClient);
 
     when(() => mockClient.auth).thenReturn(mockAuth);
@@ -78,7 +76,8 @@ void main() {
         {'id': '1'},
       ];
       when(() => mockClient.from('delivery_requests')).thenAnswer((_) => mockQuery);
-      when(() => mockQuery.select('*')).thenAnswer((_) => mockFilter);
+      // Service selects 'id' then filters status=pending.
+      when(() => mockQuery.select('id')).thenAnswer((_) => mockFilter);
       when(() => mockFilter.eq('status', 'pending')).thenAnswer((_) => mockFilter);
 
       final count = await service.getPendingDeliveriesCount();
@@ -92,7 +91,7 @@ void main() {
         {'id': '1'}, {'id': '2'},
       ];
       when(() => mockClient.from('profiles')).thenAnswer((_) => mockQuery);
-      when(() => mockQuery.select('*')).thenAnswer((_) => mockFilter);
+      when(() => mockQuery.select('id')).thenAnswer((_) => mockFilter);
       when(() => mockFilter.eq('is_work_mode', true)).thenAnswer((_) => mockFilter);
 
       final count = await service.getActiveCouriersCount();
@@ -144,17 +143,35 @@ void main() {
   });
 
   group('updateUserRole', () {
-    test('updates role in profiles', () async {
-      mockMaybeSingle.result = {'role': 'member'};
+    test('updates role in profiles after caller authorization', () async {
+      // Service flow: caller lookup (role+tenant) -> target lookup (tenant)
+      // -> security check -> update. Caller is superadmin so any tenant OK.
+      final callerSingle = MockMaybeSingleBuilder()
+        ..result = {'role': 'superadmin', 'tenant_id': 't1'};
+      final targetSingle = MockMaybeSingleBuilder()
+        ..result = {'tenant_id': 'caller-tenant'};
 
       when(() => mockClient.from('profiles')).thenAnswer((_) => mockQuery);
-      when(() => mockQuery.select('role')).thenAnswer((_) => mockFilter);
+      when(() => mockQuery.select('role, tenant_id')).thenAnswer((_) => mockFilter);
+      // Target lookup selects tenant only.
+      when(() => mockQuery.select('tenant_id')).thenAnswer((_) => mockFilter);
+      when(() => mockFilter.eq('id', 'admin_1')).thenAnswer((_) => mockFilter);
       when(() => mockFilter.eq('id', 'user_1')).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.maybeSingle()).thenAnswer((_) => mockMaybeSingle);
-      when(() => mockQuery.update({'role': 'pastor'})).thenAnswer((_) => mockFilter);
+
+      // Distinguish caller vs target by which id filter was last applied.
+      var lastFilteredId = '';
+      when(() => mockFilter.eq('id', any())).thenAnswer((inv) {
+        lastFilteredId = inv.positionalArguments[1] as String;
+        return mockFilter;
+      });
+      when(() => mockFilter.maybeSingle()).thenAnswer((_) {
+        return lastFilteredId == 'admin_1' ? callerSingle : targetSingle;
+      });
+
+      when(() => mockQuery.update(any())).thenAnswer((_) => mockFilter);
 
       await service.updateUserRole('user_1', 'pastor');
-      verify(() => mockFilter.eq('id', 'user_1')).called(2);
+      verify(() => mockQuery.update(any(that: containsPair('role', 'pastor')))).called(1);
     });
   });
 }

@@ -42,13 +42,17 @@ void main() {
       expect(buses.first.name, 'Bus #4');
     });
 
-    test('returns cached buses when offline', () async {
-      SharedPreferences.setMockInitialValues({
-        'logistics_buses': '[{"id":"c1","name":"Cached Bus","route":"Route A","eta":"5 mins","nextStop":"Stop 1"}]',
-      });
+    // NOTE: the SharedPreferences offline cache ('logistics_buses') was
+    // removed in the 2026-08-18 Logistics Command rewrite on the real
+    // `church_buses` table. Failure now falls straight to curated defaults.
+    test('falls back to defaults on failure (no stale cache)', () async {
+      when(() => mockClient.from('church_buses')).thenAnswer((_) => mockQuery);
+      when(() => mockQuery.select()).thenAnswer((_) => mockFilter);
+      when(() => mockFilter.limit(10)).thenThrow(Exception('offline'));
+
       final buses = await service.getBuses();
-      expect(buses.length, 1);
-      expect(buses.first.name, 'Cached Bus');
+      expect(buses, isNotEmpty);
+      expect(buses.first.id, 'bus-1');
     });
 
     test('default buses have valid structure', () async {
@@ -74,13 +78,15 @@ void main() {
       expect(alerts.first.road, 'Cairo Rd');
     });
 
-    test('returns cached traffic alerts when offline', () async {
-      SharedPreferences.setMockInitialValues({
-        'logistics_traffic': '[{"road":"Test Rd","description":"Clear","status":"Clear","severity":"low"}]',
-      });
+    // Offline cache removed — see getBuses note above.
+    test('defaults cover severity tiers', () async {
+      when(() => mockClient.from('traffic_alerts')).thenAnswer((_) => mockQuery);
+      when(() => mockQuery.select()).thenAnswer((_) => mockFilter);
+      when(() => mockFilter.limit(20)).thenThrow(Exception('error'));
+
       final alerts = await service.getTrafficAlerts();
-      expect(alerts.length, 1);
-      expect(alerts.first.road, 'Test Rd');
+      final severities = alerts.map((a) => a.severity).toSet();
+      expect(severities, containsAll(['high', 'medium', 'low']));
     });
   });
 
@@ -120,13 +126,14 @@ void main() {
       expect(routes.first.title, 'Home → Church');
     });
 
-    test('returns cached routes when offline', () async {
-      SharedPreferences.setMockInitialValues({
-        'logistics_routes': '[{"title":"Test Route","time":"10 min","via":"Via Main Rd","iconName":"home"}]',
-      });
+    // Offline cache removed — see getBuses note above.
+    test('default routes carry icon names for UI mapping', () async {
+      when(() => mockClient.from('quick_routes')).thenAnswer((_) => mockQuery);
+      when(() => mockQuery.select()).thenAnswer((_) => mockFilter);
+      when(() => mockFilter.limit(20)).thenThrow(Exception('error'));
+
       final routes = await service.getQuickRoutes();
-      expect(routes.length, 1);
-      expect(routes.first.title, 'Test Route');
+      expect(routes.every((r) => r.iconName.isNotEmpty), isTrue);
     });
   });
 }

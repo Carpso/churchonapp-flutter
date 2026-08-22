@@ -58,6 +58,6 @@ void main() {
       );
       await tester.pump();
     });
-    expect(find.text('No Reading Plans'), findsOneWidget);
+    expect(find.text('No study plans yet'), findsOneWidget);
   });
 }

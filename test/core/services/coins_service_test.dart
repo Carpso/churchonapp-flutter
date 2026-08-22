@@ -14,6 +14,11 @@ void main() {
   late MockGoTrueClient mockGoTrue;
   late CoinsService coinsService;
 
+  setUpAll(() {
+    // mocktail needs fallback values for any() argument matchers.
+    registerFallbackValue(<String, dynamic>{});
+  });
+
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockClient = MockSupabaseClient();
@@ -133,7 +138,7 @@ void main() {
         final mockUser = MockUser();
         when(() => mockUser.id).thenReturn('test-user');
         when(() => mockGoTrue.currentUser).thenReturn(mockUser);
-        when(() => mockClient.rpc(any(), params: any(named: 'params'))).thenReturn(MockFilterBuilder());
+        when(() => mockClient.rpc(any(), params: any(named: 'params'))).thenAnswer((invocation) => MockFilterBuilder());
         final result = await coinsService.addAppOpenStreakCoins(1);
         expect(result, 5);
       });
@@ -142,7 +147,7 @@ void main() {
         final mockUser = MockUser();
         when(() => mockUser.id).thenReturn('test-user');
         when(() => mockGoTrue.currentUser).thenReturn(mockUser);
-        when(() => mockClient.rpc(any(), params: any(named: 'params'))).thenReturn(MockFilterBuilder());
+        when(() => mockClient.rpc(any(), params: any(named: 'params'))).thenAnswer((invocation) => MockFilterBuilder());
         final result = await coinsService.addAppOpenStreakCoins(3);
         expect(result, 10);
       });
@@ -151,7 +156,7 @@ void main() {
         final mockUser = MockUser();
         when(() => mockUser.id).thenReturn('test-user');
         when(() => mockGoTrue.currentUser).thenReturn(mockUser);
-        when(() => mockClient.rpc(any(), params: any(named: 'params'))).thenReturn(MockFilterBuilder());
+        when(() => mockClient.rpc(any(), params: any(named: 'params'))).thenAnswer((invocation) => MockFilterBuilder());
         final result = await coinsService.addAppOpenStreakCoins(7);
         expect(result, 20);
       });
@@ -160,7 +165,7 @@ void main() {
         final mockUser = MockUser();
         when(() => mockUser.id).thenReturn('test-user');
         when(() => mockGoTrue.currentUser).thenReturn(mockUser);
-        when(() => mockClient.rpc(any(), params: any(named: 'params'))).thenReturn(MockFilterBuilder());
+        when(() => mockClient.rpc(any(), params: any(named: 'params'))).thenAnswer((invocation) => MockFilterBuilder());
         final result = await coinsService.addAppOpenStreakCoins(14);
         expect(result, 30);
       });

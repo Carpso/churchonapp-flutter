@@ -75,7 +75,9 @@ void main() {
       expect(verse.reference, 'Psalm 23:1');
     });
 
-    test('returns default verse when all queries fail', () async {
+    test('returns hardcoded default verse when all queries fail', () async {
+      // The service's final fallback is the curated Jeremiah 29:11 verse with
+      // id 'default' (the old daily_seeded_ rotation was removed).
       when(() => mockClient.from('daily_bible_verses')).thenAnswer((_) => mockQuery);
       when(() => mockQuery.select()).thenAnswer((_) => mockFilter);
       when(() => mockFilter.order('created_at', ascending: false)).thenAnswer((_) => mockFilter);
@@ -90,8 +92,9 @@ void main() {
       when(() => mockFilter.maybeSingle()).thenThrow(Exception('fail too'));
 
       final verse = await service.fetchLatestVerse();
-      expect(verse.id, startsWith('daily_seeded_'));
-      expect(verse.reference, isNotEmpty);
+      expect(verse.id, 'default');
+      expect(verse.reference, 'Jeremiah 29:11');
+      expect(verse.text, isNotEmpty);
     });
   });
 

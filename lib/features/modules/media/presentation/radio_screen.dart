@@ -505,12 +505,15 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
                       ),
                     ),
                     const Spacer(),
+                    // Flexible: "CONNECTING" badge can exceed the narrow
+                    // grid card width on small phones — shrink instead of
+                    // overflowing.
                     if (isSelectedPlaying)
-                      _statusDot(Colors.green, "LIVE")
+                      Flexible(child: _statusDot(Colors.green, "LIVE"))
                     else if (isSelectedConnecting)
-                      _statusDot(Colors.amber, "CONNECTING")
+                      Flexible(child: _statusDot(Colors.amber, "CONNECTING"))
                     else if (isCurrent)
-                      _statusDot(Colors.grey, "OFFLINE"),
+                      Flexible(child: _statusDot(Colors.grey, "OFFLINE")),
                   ],
                 ),
                 const Spacer(),
@@ -544,13 +547,17 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 8,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.5,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5,
+              ),
             ),
           ),
         ],

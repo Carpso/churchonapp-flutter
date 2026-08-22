@@ -110,8 +110,7 @@ void main() {
     test('returns stream from supabase', () {
       when(() => mockClient.from('jobs')).thenAnswer((_) => mockQuery);
       when(() => mockQuery.stream(primaryKey: ['id'])).thenAnswer((_) => mockStream);
-      when(() => mockStream.order(any(), ascending: any(named: 'ascending'))).thenAnswer((_) => mockStream);
-      mockStream.streamResult = Stream.value([]);
+            mockStream.streamResult = Stream.value([]);
 
       final stream = service.streamJobs();
       expect(stream, isA<Stream<List<Job>>>());
