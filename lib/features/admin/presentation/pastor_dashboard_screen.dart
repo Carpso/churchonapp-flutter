@@ -17,7 +17,6 @@ import 'member_management_screen.dart';
 import 'media_upload_screen.dart';
 import 'event_scheduler_screen.dart';
 import 'service_report_screen.dart';
-import 'finance_dashboard_screen.dart';
 import 'ministry_management_screen.dart';
 import 'baptism_registry_screen.dart';
 import 'content_moderation_screen.dart';
@@ -835,8 +834,6 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MediaUploadScreen()))),
         _actionTile(theme, LucideIcons.megaphone, "Send Broadcast", "Push notification to your congregation", theme.primaryColor,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GlobalBroadcastScreen()))),
-        _actionTile(theme, LucideIcons.barChart3, "View Finances", "Monthly stewardship and service reports", Colors.green,
-          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FinanceDashboardScreen()))),
         _actionTile(theme, LucideIcons.church, "Manage Ministries", "Oversee ministry groups and leaders", Colors.amber,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MinistryManagementScreen()))),
         _actionTile(theme, LucideIcons.award, "Baptism Registry", "Official baptism records and certificates", theme.primaryColor,

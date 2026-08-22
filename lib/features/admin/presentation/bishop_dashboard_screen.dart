@@ -11,7 +11,6 @@ import 'package:church_on_app/core/widgets/pro_charts.dart';
 import 'church_invite_screen.dart';
 import 'finance_dashboard_screen.dart';
 import 'member_management_screen.dart';
-import 'service_report_screen.dart';
 import 'live_viewer_heatmap_screen.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
 
@@ -230,7 +229,7 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                   // Bishop-scope only: branch/pastor management + network finance.
                   // No pastor-level tools (Live Studio / Media Hub) — those stay
                   // in the Pastor Dashboard & Admin Hub.
-                  _quickAction(theme, LucideIcons.fileText, "Pastor Reports", "Review weekly service reports from branches", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ServiceReportScreen()))),
+                  _quickAction(theme, LucideIcons.fileText, "Pastor Reports", "Review weekly service reports from branches", theme.primaryColor, () => context.push('/pastor-bishop-report')),
                   _quickAction(theme, LucideIcons.map, "Branch Map", "Geographic view of all branches", Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LiveViewerHeatmapScreen()))),
                   _quickAction(theme, LucideIcons.barChart3, "Central Treasury", "Multi-branch financial oversight", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FinanceDashboardScreen()))),
                   _quickAction(theme, LucideIcons.users, "Clergy Management", "Manage pastors and ministry leaders", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MemberManagementScreen()))),

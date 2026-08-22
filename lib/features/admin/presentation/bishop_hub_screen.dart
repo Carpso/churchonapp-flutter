@@ -238,7 +238,15 @@ class BishopHubScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildActionCard(BuildContext context, IconData icon, String label, Color color, {VoidCallback? onTap}) {
+  /// Every action card MUST provide a real onTap — the old fallback toasted
+  /// "Opening $label..." which faked navigation without opening anything.
+  Widget _buildActionCard(
+    BuildContext context,
+    IconData icon,
+    String label,
+    Color color, {
+    required VoidCallback onTap,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -246,9 +254,7 @@ class BishopHubScreen extends ConsumerWidget {
         border: Border.all(color: const Color(0xFFF1F5F9)),
       ),
       child: InkWell(
-        onTap: onTap ?? () {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Opening $label...")));
-        },
+        onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
