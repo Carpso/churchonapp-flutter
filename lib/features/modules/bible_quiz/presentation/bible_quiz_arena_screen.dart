@@ -11,6 +11,7 @@ import '../data/bible_quiz_service.dart';
 import '../data/daily_challenge_service.dart';
 import '../data/pvp_service.dart';
 import '../data/quiz_event_service.dart';
+import '../engine/quiz_engine.dart' as engine;
 import '../../../../core/providers/profile_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../bible/presentation/scripture_audio_button.dart';
@@ -151,6 +152,12 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   bool _doubleUsed = false;
   bool _timeFreezeUsed = false;
 
+  /// Engine-backed lifeline budgets (QuizSession from engine/quiz_engine.dart).
+  /// 50/50, Ask-Pastor and Extra-Time consume the session's budget counters —
+  /// the single source of truth for what's still available this match.
+  engine.QuizSession? _engineSession;
+  String? _pastorHint;
+
   final List<int?> _answers = [];
   final List<int> _responseTimesMs = [];
 
@@ -275,6 +282,44 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       style: q.style,
       points: q.points,
       isSuperadminOnly: q.isSuperadminOnly,
+    );
+  }
+
+  /// Maps a legacy service question onto the engine's competition model so
+  /// lifeline budgets and (future) client-side scoring run through QuizSession.
+  engine.QuizQuestion _toEngineQuestion(QuizQuestion q) {
+    engine.QuizDifficulty diff;
+    switch (q.difficulty.toLowerCase()) {
+      case 'easy':
+        diff = engine.QuizDifficulty.easy;
+        break;
+      case 'hard':
+        diff = engine.QuizDifficulty.hard;
+        break;
+      default:
+        diff = engine.QuizDifficulty.medium;
+    }
+    // Parse "Book C:V" out of the scripture reference when present.
+    var book = '';
+    var chapter = 1;
+    var verseStart = 1;
+    final ref = q.scriptureReference ?? '';
+    final m = RegExp(r'^(.*?)\s+(\d+):(\d+)').firstMatch(ref);
+    if (m != null) {
+      book = m.group(1) ?? '';
+      chapter = int.tryParse(m.group(2) ?? '1') ?? 1;
+      verseStart = int.tryParse(m.group(3) ?? '1') ?? 1;
+    }
+    return engine.QuizQuestion(
+      id: q.id,
+      prompt: q.question,
+      options: q.options,
+      correctIndex: q.correctAnswer,
+      category: engine.QuizCategory.multipleChoice,
+      difficulty: diff,
+      book: book.isEmpty ? 'Unknown' : book,
+      chapter: chapter,
+      verseStart: verseStart,
     );
   }
 
@@ -431,7 +476,24 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
         _answers.add(null);
         _responseTimesMs.add(0);
       }
-      
+
+      // Build the engine session that owns lifeline budgets for this match.
+      // Sponsored tournaments (event mode) run under tournament rules — tight
+      // windows, full penalties; everything else gets the free practice set.
+      try {
+        final isTournament = widget.eventId != null;
+        _engineSession = engine.QuizSession(
+          id: 'arena_${DateTime.now().millisecondsSinceEpoch}',
+          userId: Supabase.instance.client.auth.currentUser?.id ?? 'anon',
+          mode: isTournament ? engine.QuizMode.tournament : engine.QuizMode.practice,
+          questions: _questions.map(_toEngineQuestion).toList(),
+          tenantToken: isTournament ? widget.eventId : null,
+        );
+      } catch (e) {
+        debugPrint('Engine session init failed (lifelines fall back to legacy): $e');
+        _engineSession = null;
+      }
+
       if (widget.mode != 'Solo') {
         _phase = GamePhase.vsReveal;
       } else {
@@ -723,22 +785,75 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
 
   void _useFiftyFifty() {
     if (_fiftyFiftyUsed) return;
+    final session = _engineSession;
     final q = _questions[_currentIndex];
-    final correct = q.correctAnswer;
-    final others = <int>[];
-    for (int i = 0; i < q.options.length; i++) {
-      if (i != correct) others.add(i);
+
+    if (session != null) {
+      // Engine-owned budget: useFiftyFifty returns surviving indexes (always
+      // includes the correct one) or null when exhausted.
+      final survivors = session.useFiftyFifty(_currentIndex);
+      if (survivors == null) return;
+      _eliminatedOptions.clear();
+      for (int i = 0; i < q.options.length; i++) {
+        if (!survivors.contains(i)) _eliminatedOptions.add(i);
+      }
+      _fiftyFiftyUsed = session.fiftyFiftyRemaining == 0;
+    } else {
+      // Legacy fallback when engine session unavailable.
+      final correct = q.correctAnswer;
+      final others = <int>[];
+      for (int i = 0; i < q.options.length; i++) {
+        if (i != correct) others.add(i);
+      }
+      others.shuffle();
+      final removeCount = others.length >= 2 ? 2 : others.length;
+      for (int i = 0; i < removeCount; i++) {
+        _eliminatedOptions.add(others[i]);
+      }
+      _fiftyFiftyUsed = true;
     }
-    others.shuffle();
-    // Eliminate 2 wrong options (or at least 1 if only 2 options)
-    final removeCount = others.length >= 2 ? 2 : others.length;
-    for (int i = 0; i < removeCount; i++) {
-      _eliminatedOptions.add(others[i]);
-    }
-    _fiftyFiftyUsed = true;
     _fiftyFiftyIndex = _currentIndex;
     _powerUpsUsed++;
     setState(() {});
+  }
+
+  /// Ask-the-Pastor — consumes an engine budget and streams a Kael hint that
+  /// points at the passage WITHOUT revealing the answer (anti-cheat rule).
+  Future<void> _useAskPastor() async {
+    final session = _engineSession;
+    if (session == null || !session.useAskPastor()) return;
+    _powerUpsUsed++;
+    setState(() {});
+
+    try {
+      final q = _questions[_currentIndex];
+      final res = await Supabase.instance.client.functions.invoke(
+        'kael-ai',
+        body: {
+          'action': 'chat',
+          'messages': [
+            {
+              'role': 'user',
+              'content':
+                  'A player is on a Bible quiz question and used their Ask-the-Pastor '
+                      'lifeline. Give ONE short hint (max 2 sentences) that nudges them toward the right book/passage without stating the answer. Question: "${q.question}"',
+            }
+          ],
+        },
+      );
+      final data = res.data as Map<String, dynamic>?;
+      final text = data?['response']?.toString() ?? '';
+      if (!mounted) return;
+      setState(() => _pastorHint = text.isEmpty
+          ? 'Seek wisdom in the Gospels, child — read the question once more.'
+          : text);
+    } catch (e) {
+      debugPrint('Ask-Pastor hint failed: $e');
+      if (mounted) {
+        setState(() => _pastorHint =
+            'The pastor is with another member — trust what you have memorised.');
+      }
+    }
   }
 
   void _useSkip() {
@@ -761,15 +876,20 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     });
   }
 
-  void _useDoublePoints() {
-    if (_doubleUsed) return;
-    _doubleUsed = true;
-    _powerUpsUsed++;
-    setState(() {});
-  }
-
   void _useTimeFreeze() {
     if (_timeFreezeUsed) return;
+    final session = _engineSession;
+    if (session != null) {
+      // Engine-owned Extra-Time budget. A throwaway QuizTimer mirrors the
+      // arena countdown so useExtraTime's no-revive-after-expiry guard still
+      // applies; on success the arena refills its window (Freeze UX).
+      final mirror = engine.QuizTimer(
+        initial: Duration(milliseconds: _timerMs),
+        clock: () => DateTime.now(),
+      )..start();
+      final granted = session.useExtraTime(mirror);
+      if (granted == null) return;
+    }
     _timeFreezeUsed = true;
     _powerUpsUsed++;
     _timerMs = _effectiveTimePerQuestionSec * 1000;
@@ -1661,6 +1781,7 @@ try {
   }
 
   Widget _buildPowerUps(ThemeData theme) {
+    final session = _engineSession;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1668,36 +1789,85 @@ try {
         color: Colors.white.withAlpha(8),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _powerUpButton(
-            icon: LucideIcons.gitBranch,
-            label: '50:50',
-            used: _fiftyFiftyUsed,
-            onTap: _useFiftyFifty,
-            color: AppTheme.platformPrimary,
-          ),
-          _powerUpButton(
-            icon: LucideIcons.skipForward,
-            label: 'Skip',
-            used: _skipUsed,
-            onTap: _useSkip,
-            color: AppTheme.platformPrimary,
-          ),
-          _powerUpButton(
-            icon: LucideIcons.dice2,
-            label: '2x',
-            used: _doubleUsed,
-            onTap: _useDoublePoints,
-            color: AppTheme.platformPrimary,
-          ),
-          _powerUpButton(
-            icon: LucideIcons.clock,
-            label: 'Freeze',
-            used: _timeFreezeUsed,
-            onTap: _useTimeFreeze,
-            color: AppTheme.platformPrimary,
+          if (_pastorHint != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(LucideIcons.messageCircle,
+                      size: 13, color: Colors.amber),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _pastorHint!,
+                      style: const TextStyle(
+                          color: Colors.amber,
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _pastorHint = null),
+                    child: const Icon(LucideIcons.x,
+                        size: 12, color: Colors.white38),
+                  ),
+                ],
+              ),
+            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _powerUpButton(
+                icon: LucideIcons.gitBranch,
+                label: session == null
+                    ? '50:50'
+                    : '50:50 (${session.fiftyFiftyRemaining})',
+                used: session != null
+                    ? session.fiftyFiftyRemaining == 0
+                    : _fiftyFiftyUsed,
+                onTap: _useFiftyFifty,
+                color: AppTheme.platformPrimary,
+              ),
+              _powerUpButton(
+                icon: LucideIcons.skipForward,
+                label: 'Skip',
+                used: _skipUsed,
+                onTap: _useSkip,
+                color: AppTheme.platformPrimary,
+              ),
+              _powerUpButton(
+                icon: LucideIcons.messageCircle,
+                label: session == null
+                    ? 'Pastor'
+                    : 'Pastor (${session.askPastorRemaining})',
+                used: session != null
+                    ? session.askPastorRemaining == 0
+                    : false,
+                onTap: _useAskPastor,
+                color: Colors.amberAccent,
+              ),
+              _powerUpButton(
+                icon: LucideIcons.clock,
+                label: session == null
+                    ? 'Freeze'
+                    : 'Time (+${session.extraTimeRemaining})',
+                used: session != null
+                    ? session.extraTimeRemaining == 0 || _timeFreezeUsed
+                    : _timeFreezeUsed,
+                onTap: _useTimeFreeze,
+                color: AppTheme.platformPrimary,
+              ),
+            ],
           ),
         ],
       ),

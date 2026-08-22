@@ -2,7 +2,7 @@
 
 A comprehensive church management and community platform built with Flutter, connecting congregations through digital giving, marketplace, media, events, and more.
 
-**v1.0.0+291 — 1.0.0 | Flutter 3.35.1 | 0 errors, 0 warnings | August 2026**
+**v1.0.0+292 — 1.0.0 | Flutter 3.35.1 | 0 errors, 0 warnings | August 2026**
 
 ## Features
 
@@ -17,7 +17,7 @@ A comprehensive church management and community platform built with Flutter, con
 - **Enterprise Reporting** — Church service reports (attendance, offering, visitors, salvations, online viewers, ministries participation), organization-wide service aggregation feeds bishop/apostle dashboards, month-over-month trends
 - **Events** — Service scheduling, conference management, event ticketing
 - **Logistics** — Ride & delivery requests with real-time GPS tracking, driver portal
-- **Games** — Bible Quiz arena (multiplayer), trivia games
+- **Games** — Bible Quiz arena (multiplayer) on a JBQ/WBQA-aligned competition engine: timed rounds (5s decision / 30s answer), +10/20/30 difficulty scoring with speed bonuses, 50/50 + Ask-the-Pastor (Kael AI hint) + Extra Time lifelines, anti-cheat flagging, regional/global leaderboards with 4-tier tie-breakers, free practice vs church-sponsored tournaments
 - **Kids Zone** — Bible stories, activities, weekly progress tracker
 - **Admin Console** — Member management, finance dashboards, global broadcast, payroll (NHIMA/NAPSA/PAYE), superadmin hub, heatmaps
 - **Social Connect** — Prayer wall, testimonies, community feed with AI moderation, chat, audio/video calls
