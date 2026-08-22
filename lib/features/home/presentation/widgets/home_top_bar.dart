@@ -59,12 +59,7 @@ child: Row(
             ),
           ),
           const Spacer(),
-          Flexible(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 56),
-              child: _buildWeatherChip(context),
-            ),
-          ),
+          _buildWeatherChip(context),
           const SizedBox(width: 4),
           _buildNotificationBell(context),
           Semantics(
@@ -120,6 +115,11 @@ String _churchDisplayName(Tenant? tenant) {
     return name.isEmpty ? 'Church' : name;
   }
 
+  /// Weather chip: a fixed-size circle showing emoji + current temperature
+  /// number, tappable → Weather & Maps. No Flexible/FittedBox squeezing —
+  /// those let long church names compress the chip until the temperature
+  /// text vanished. The circle keeps its intrinsic size; the church name
+  /// truncates instead.
   Widget _buildWeatherChip(BuildContext context) {
     return Consumer(
       builder: (context, ref, _) {
@@ -151,92 +151,83 @@ String _churchDisplayName(Tenant? tenant) {
         );
 
         return Semantics(
-          label: "Weather and maps",
+          label: "Weather and maps. Current temperature.",
           button: true,
-          child: GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const WeatherMapsScreen(),
+          child: Tooltip(
+            message: 'Weather & Maps',
+            child: InkWell(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const WeatherMapsScreen(),
+                ),
               ),
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: chipBgColor,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
+              customBorder: const CircleBorder(),
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: chipBgColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                // Column stacks emoji over the temperature number so both are
+                // always fully visible inside the same circle.
+                alignment: Alignment.center,
                 child: weatherAsync.when(
-                  data: (weather) {
-                    final emoji = weather.isHot
-                        ? '🔥'
-                        : WeatherService.weatherEmoji(weather.weatherCode);
-                    return Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          emoji,
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          "${weather.temperature.isFinite ? weather.temperature.round() : 0}°C",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black38,
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                  loading: () => const Row(
+                  data: (w) => Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(LucideIcons.sun, color: Colors.white, size: 14),
-                      SizedBox(width: 4),
                       Text(
-                        "--°",
-                        style: TextStyle(
+                        w.isHot
+                            ? '🔥'
+                            : WeatherService.weatherEmoji(w.weatherCode),
+                        style: const TextStyle(fontSize: 15),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        '${w.temperature.isFinite ? w.temperature.round() : "--"}°',
+                        style: const TextStyle(
                           color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                          height: 1.1,
+                          shadows: [
+                            Shadow(color: Colors.black38, blurRadius: 3)
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  error: (_, __) => const Row(
+                  loading: () => const Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        LucideIcons.cloudOff,
-                        color: Colors.white70,
-                        size: 14,
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        "--°",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                        ),
-                      ),
+                      Icon(LucideIcons.sun, color: Colors.white, size: 15),
+                      SizedBox(height: 1),
+                      Text('--°',
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 11)),
+                    ],
+                  ),
+                  error: (e, st) => const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(LucideIcons.cloudOff,
+                          color: Colors.white70, size: 15),
+                      SizedBox(height: 1),
+                      Text('--°',
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 11)),
                     ],
                   ),
                 ),

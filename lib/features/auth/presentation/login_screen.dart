@@ -93,11 +93,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _isGoogleLoading = true);
     try {
       await ref.read(authProvider.notifier).signInWithGoogle();
-      if (mounted && ref.read(authProvider).user != null) {
-        context.go('/');
-      }
+      // NOTE: no manual context.go('/') here — the GoRouter redirect reacts
+      // to the authProvider state change and navigates on its own. Calling
+      // context.go('/') concurrently raced the router's own redirect and
+      // threw "GoException: redirect detected" on the login screen.
+    } on GoException {
+      // Redirect-race during post-login navigation — the router wins; this
+      // is not a sign-in failure. Swallow silently.
+      debugPrint('GoException during Google sign-in redirect race (benign)');
     } catch (e) {
-      if (mounted) {
+      if (mounted && ref.read(authProvider).user == null) {
         showAppSnackBar(
           context,
           AppErrorView.friendlyMessage(e),
