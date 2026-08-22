@@ -21,14 +21,30 @@ class SelectedCityNotifier extends Notifier<CityPreset> {
 
 final selectedCityPresetProvider = NotifierProvider<SelectedCityNotifier, CityPreset>(SelectedCityNotifier.new);
 
-final weatherDataProvider = FutureProvider.autoDispose<WeatherData>((ref) async {
+/// Realtime-ish weather feed for the home top-bar chip.
+///
+/// Emits immediately, then re-fetches every 10 minutes while the home screen
+/// is visible (autoDispose drops the timer when the chip unmounts). The emoji
+/// and temperature therefore track live Open-Meteo `current` conditions —
+/// rain starting mid-session flips ☀️ → 🌧️ without leaving the screen.
+/// Also re-emits when the selected city changes.
+final weatherDataProvider = StreamProvider.autoDispose<WeatherData>((ref) async* {
   final service = ref.watch(weatherServiceProvider);
   final city = ref.watch(selectedCityPresetProvider);
-  return service.fetchWeather(
-    latitude: city.latitude,
-    longitude: city.longitude,
-    locationName: city.name,
-  );
+
+  Future<WeatherData> fetch() => service.fetchWeather(
+        latitude: city.latitude,
+        longitude: city.longitude,
+        locationName: city.name,
+      );
+
+  // First reading right away.
+  yield await fetch();
+
+  // Periodic refresh — 10 min keeps us inside Open-Meteo's free-tier comfort
+  // zone (their current-conditions update cadence is ~15 min upstream).
+  yield* Stream<void>.periodic(const Duration(minutes: 10))
+      .asyncMap((_) => fetch());
 });
 
 final busesProvider = FutureProvider.autoDispose<List<BusInfo>>((ref) async {
