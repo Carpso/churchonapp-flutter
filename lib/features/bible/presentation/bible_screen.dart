@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -609,6 +610,39 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
     final bookOrder = _bookOrderFor(selectedBook);
     final fullText = "${verse.text}\n— $reference";
 
+    Future<void> deleteNote() async {
+      final messenger = ScaffoldMessenger.of(context);
+      if (bookOrder == null) return;
+      final service = ref.read(bibleVerseServiceProvider);
+      // Fetch the existing note for this verse and remove it entirely
+      // (toggle-off for highlights/bookmarks + explicit delete).
+      final notes = await service.fetchVerseNotes(
+        bookId: bookOrder,
+        chapter: verse.chapter,
+      );
+      final mine = notes.where((n) =>
+          n.verse == verse.verse &&
+          (n.note.trim().isNotEmpty || n.isBookmark || n.isFavorite));
+      var deletedAny = false;
+      for (final n in mine) {
+        final ok = await service.deleteVerseNote(n.id);
+        if (ok) deletedAny = true;
+      }
+      ref.invalidate(
+        verseNotesProvider({
+          'bookId': bookOrder,
+          'chapter': verse.chapter,
+        }),
+      );
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(deletedAny ? "Removed" : "Nothing saved on this verse yet"),
+          backgroundColor: deletedAny ? Colors.green : Colors.orange,
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
+
     void saveNote(
       String label, {
       bool isBookmark = false,
@@ -835,6 +869,16 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                                 );
                               },
                             ),
+                            if (verseNotes.any((n) =>
+                                n.note.trim().isNotEmpty ||
+                                n.isBookmark ||
+                                n.isFavorite))
+                              _actionChip(
+                                LucideIcons.trash2,
+                                'Delete',
+                                Colors.red,
+                                onTap: deleteNote,
+                              ),
                           ],
                         ),
                         if (verseNotes.any((n) => n.note.trim().isNotEmpty)) ...[
@@ -1747,49 +1791,59 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 const SizedBox(height: 25),
+                // Dropdown row: Expanded wrapper so long translation names
+                // never overflow the sheet on narrow phones.
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text("Translation"),
-                    DropdownButton<String>(
-                      value: selectedTranslation,
-                      items: kEnglishTranslations
-                          .map(
-                            (t) => DropdownMenuItem<String>(
-                              value: t.code,
-                              enabled: BibleService.canResolve(t.code),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(t.name),
-                                  if (!BibleService.canResolve(t.code))
-                                    const Padding(
-                                      padding: EdgeInsets.only(left: 6),
-                                      child: Text(
-                                        '(soon)',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 10,
+                    const Text("Translation",
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        value: selectedTranslation,
+                        underline: Container(height: 1, color: Colors.grey.shade300),
+                        items: kEnglishTranslations
+                            .map(
+                              (t) => DropdownMenuItem<String>(
+                                value: t.code,
+                                enabled: BibleService.canResolve(t.code),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(t.name,
+                                          overflow: TextOverflow.ellipsis),
+                                    ),
+                                    if (!BibleService.canResolve(t.code))
+                                      const Padding(
+                                        padding: EdgeInsets.only(left: 6),
+                                        child: Text(
+                                          '(soon)',
+                                          style: TextStyle(
+                                            color: Colors.grey,
+                                            fontSize: 10,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null) {
-                          setState(() {
-                            selectedTranslation = v;
-                            _persistReadingPosition();
-                          });
-                          ref
-                              .read(studySettingsProvider.notifier)
-                              .setTranslation(v);
-                          Navigator.pop(context);
-                        }
-                      },
+                            )
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            setState(() {
+                              selectedTranslation = v;
+                              _persistReadingPosition();
+                            });
+                            ref
+                                .read(studySettingsProvider.notifier)
+                                .setTranslation(v);
+                            Navigator.pop(context);
+                          }
+                        },
+                      ),
                     ),
                   ],
                 ),
@@ -1844,25 +1898,31 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
     showDialog(
       context: context,
       builder: (_) => _ScriptureSearchDialog(
-        onSubmitted: (value) {
-          final match = _allBooks
-              .where((b) => b.name.toLowerCase().contains(value.toLowerCase()))
-              .firstOrNull;
-          if (match != null) {
-            setState(() {
-              selectedBook = match.name;
-              selectedChapter = 1;
-              _persistReadingPosition();
-            });
-          } else {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Book not found"),
-                backgroundColor: Colors.red,
+        allBooks: _allBooks,
+        onBookSelected: (book) {
+          setState(() {
+            selectedBook = book;
+            selectedChapter = 1;
+            _persistReadingPosition();
+          });
+        },
+        onVerseSelected: (reference) {
+          final parts = reference.split(' ');
+          if (parts.length < 2) return;
+          final cv = parts.last.split(':');
+          final bookName = parts.sublist(0, parts.length - 1).join(' ');
+          final chapter = int.tryParse(cv.first) ?? 1;
+          final verse = cv.length > 1 ? int.tryParse(cv[1].split('-').first) : null;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => BibleScreen(
+                initialBook: bookName,
+                initialChapter: chapter,
+                initialVerse: verse,
               ),
-            );
-          }
+            ),
+          );
         },
       ),
     );
@@ -2101,38 +2161,149 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
   }
 }
 
-class _ScriptureSearchDialog extends StatefulWidget {
-  final ValueChanged<String> onSubmitted;
-  const _ScriptureSearchDialog({required this.onSubmitted});
+class _ScriptureSearchDialog extends ConsumerStatefulWidget {
+  final ValueChanged<String> onBookSelected;
+  final ValueChanged<String> onVerseSelected;
+  final List<BibleBook> allBooks;
+  const _ScriptureSearchDialog({
+    required this.onBookSelected,
+    required this.onVerseSelected,
+    required this.allBooks,
+  });
 
   @override
-  State<_ScriptureSearchDialog> createState() => _ScriptureSearchDialogState();
+  ConsumerState<_ScriptureSearchDialog> createState() =>
+      _ScriptureSearchDialogState();
 }
 
-class _ScriptureSearchDialogState extends State<_ScriptureSearchDialog> {
+class _ScriptureSearchDialogState extends ConsumerState<_ScriptureSearchDialog> {
   final _controller = TextEditingController();
+  Timer? _debounce;
 
   @override
   void dispose() {
     _controller.dispose();
+    _debounce?.cancel();
     super.dispose();
+  }
+
+  void _onChanged(String q) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final query = _controller.text.trim();
+    // Full-text verse search (DB + cached books) — falls back to book-name
+    // matching when the query is a book title.
+    final resultsAsync = query.length >= 3
+        ? ref.watch(scriptureSearchProvider(query))
+        : null;
+    final bookMatches = widget.allBooks
+        .where((b) =>
+            query.length >= 2 &&
+            b.name.toLowerCase().contains(query.toLowerCase()))
+        .toList();
+
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
       title: const Text("Search Scripture"),
-      content: TextField(
-        controller: _controller,
-        decoration: const InputDecoration(
-          hintText: "Enter a book name...",
-          icon: Icon(LucideIcons.search),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 420,
+        child: Column(
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              onChanged: _onChanged,
+              decoration: const InputDecoration(
+                hintText: "Search verses, topics or book name...",
+                icon: Icon(LucideIcons.search),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: query.length < 3
+                  ? Center(
+                      child: Text("Type at least 3 characters to search",
+                          style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                    )
+                  : resultsAsync!.when(
+                      data: (hits) {
+                        final total = hits.length + bookMatches.length;
+                        if (total == 0) {
+                          return Center(
+                            child: Text('No matches for "$query"',
+                                style: TextStyle(color: Colors.grey.shade500)),
+                          );
+                        }
+                        return ListView(
+                          children: [
+                            if (bookMatches.isNotEmpty) ...[
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 6),
+                                child: Text("BOOKS",
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1.2,
+                                        color: Colors.grey)),
+                              ),
+                              ...bookMatches.map((b) => ListTile(
+                                    dense: true,
+                                    leading: const Icon(LucideIcons.bookOpen,
+                                        size: 18, color: Colors.amber),
+                                    title: Text(b.name),
+                                    subtitle: Text('${b.chapters} chapters',
+                                        style: const TextStyle(fontSize: 11)),
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      widget.onBookSelected(b.name);
+                                    },
+                                  )),
+                            ],
+                            if (hits.isNotEmpty) ...[
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 6),
+                                child: Text("VERSES",
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1.2,
+                                        color: Colors.grey)),
+                              ),
+                              ...hits.take(30).map((hit) => ListTile(
+                                    dense: true,
+                                    leading: const Icon(LucideIcons.textQuote,
+                                        size: 18, color: Colors.amber),
+                                    title: Text(hit.text,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 13)),
+                                    subtitle: Text(hit.reference,
+                                        style: const TextStyle(fontSize: 11)),
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      widget.onVerseSelected(hit.reference);
+                                    },
+                                  )),
+                            ],
+                          ],
+                        );
+                      },
+                      loading: () => const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2)),
+                      error: (e, _) => Center(
+                          child: Text("Search failed: $e",
+                              style: const TextStyle(color: Colors.red))),
+                    ),
+            ),
+          ],
         ),
-        onSubmitted: (value) {
-          Navigator.pop(context);
-          widget.onSubmitted(value);
-        },
       ),
       actions: [
         TextButton(

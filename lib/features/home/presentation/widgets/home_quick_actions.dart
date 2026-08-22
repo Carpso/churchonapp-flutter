@@ -13,25 +13,16 @@ class HomeQuickActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final brand = Theme.of(context).primaryColor;
     final actions = [
-      {"icon": LucideIcons.book, "label": "Bible", "color": Colors.green},
       {"icon": LucideIcons.bookOpen, "label": "Sermons", "color": brand},
       {"icon": LucideIcons.calendar, "label": "Events", "color": Colors.orange},
-      {"icon": LucideIcons.qrCode, "label": "Check-in", "color": brand.withValues(alpha: 0.8)},
-      {"icon": LucideIcons.flame, "label": "Fasting", "color": Colors.orange},
-      {"icon": LucideIcons.heart, "label": "Life", "color": Colors.red},
+      {"icon": LucideIcons.book, "label": "Bible", "color": Colors.green},
       {
         "icon": LucideIcons.helpCircle,
         "label": "Bible Quiz",
-        "color": brand.withValues(alpha: 0.6),
-      },
-      {"icon": LucideIcons.graduationCap, "label": "Bible Study", "color": Colors.teal},
-      {
-        "icon": LucideIcons.shoppingBag,
-        "label": "Marketplace",
-        "color": brand.withValues(alpha: 0.45),
+        "color": brand.withValues(alpha: 0.7),
       },
       {"icon": LucideIcons.penTool, "label": "Notebook", "color": Colors.brown},
-      {"icon": LucideIcons.car, "label": "Carpso Ride", "color": brand.withValues(alpha: 0.3)},
+      {"icon": LucideIcons.graduationCap, "label": "Bible Study", "color": Colors.teal},
     ];
 
     return Column(

@@ -291,6 +291,9 @@ class BibleVerseService {
     }
   }
 
+  /// Upsert semantics: one note row per user/book/chapter/verse. Re-saving
+  /// updates the existing row instead of inserting a duplicate (the old
+  /// always-INSERT behavior doubled every highlight/note on repeat taps).
   Future<VerseNote?> addVerseNote({
     required int bookId,
     required int chapter,
@@ -312,16 +315,41 @@ class BibleVerseService {
 
       if (book == null) return null;
 
-      final response = await _client.from('verse_notes').insert({
-        'user_id': user.id,
-        'book_id': book['id'],
-        'chapter': chapter,
-        'verse': verse,
+      // Look up an existing note for this exact verse first.
+      final existing = await _client
+          .from('verse_notes')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('book_id', book['id'])
+          .eq('chapter', chapter)
+          .eq('verse', verse)
+          .maybeSingle();
+
+      final payload = {
         'note': note,
         'is_bookmark': isBookmark,
         'is_favorite': isFavorite,
         'tags': tags,
-      }).select().maybeSingle();
+      };
+
+      final response = existing != null
+          ? await _client
+              .from('verse_notes')
+              .update(payload)
+              .eq('id', existing['id'])
+              .select()
+              .maybeSingle()
+          : await _client
+              .from('verse_notes')
+              .insert({
+                'user_id': user.id,
+                'book_id': book['id'],
+                'chapter': chapter,
+                'verse': verse,
+                ...payload,
+              })
+              .select()
+              .maybeSingle();
 
       if (response != null) {
         return VerseNote.fromMap(response);
@@ -331,6 +359,19 @@ class BibleVerseService {
       debugPrint(s.toString());
     }
     return null;
+  }
+
+  /// Deletes a verse note/highlight entirely (toggle-off + explicit delete).
+  Future<bool> deleteVerseNote(String noteId) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return false;
+      await _client.from('verse_notes').delete().eq('id', noteId);
+      return true;
+    } catch (e) {
+      debugPrint('Delete verse note error: $e');
+      return false;
+    }
   }
 
   Future<List<CrossReference>> fetchCrossReferences({

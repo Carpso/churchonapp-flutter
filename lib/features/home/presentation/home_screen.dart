@@ -63,6 +63,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with AutomaticKeepAliveClientMixin {
   bool _showAdminPromo = false;
 
+  final ScrollController _scrollCtrl = ScrollController();
+
   final Map<String, GlobalKey> _sectionKeys = {
     'actions': GlobalKey(),
     'sparkle': GlobalKey(),
@@ -370,9 +372,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   void _scrollToSection(String id) {
     final ctx = _sectionKeys[id]?.currentContext;
-    if (ctx == null) return;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOut,
+        alignment: 0.08,
+      );
+      return;
+    }
+    // SliverList children are built lazily — sections far below the viewport
+    // have no BuildContext yet, so the old tap silently did nothing. Jump
+    // proportionally into the section's region, then reveal once built.
+    unawaited(_jumpToLazySection(id));
+  }
+
+  Future<void> _jumpToLazySection(String id) async {
+    const order = [
+      'actions',
+      'sparkle',
+      'sermons',
+      'events',
+      'recommended',
+      'news',
+    ];
+    final idx = order.indexOf(id);
+    if (idx < 0) return;
+    final controller = _scrollCtrl;
+    if (!controller.hasClients) return;
+    await controller.animateTo(
+      controller.position.maxScrollExtent * (idx + 1) / (order.length + 1),
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOut,
+    );
+    final retryCtx = _sectionKeys[id]?.currentContext;
+    if (!mounted || retryCtx == null) return;
+    // retryCtx comes from a GlobalKey (not State.context) — safe across the
+    // scroll-animation await; lint can't see that.
     Scrollable.ensureVisible(
-      ctx,
+      // ignore: use_build_context_synchronously
+      retryCtx,
       duration: const Duration(milliseconds: 450),
       curve: Curves.easeInOut,
       alignment: 0.08,
@@ -598,6 +637,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             await Future.delayed(const Duration(milliseconds: 300));
           },
           child: CustomScrollView(
+            controller: _scrollCtrl,
             slivers: [
               SliverToBoxAdapter(child: HomeTopBar(tenant: tenant)),
               SliverPadding(
@@ -640,18 +680,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           ),
                           const SizedBox(height: 30),
 
-                          // Collapsible Admin & Promo Section (Special Offer)
-                          _buildAdminPromoSection(tenant),
-
-                          Padding(
-                            key: _sectionKeys['sparkle'],
-                            padding: EdgeInsets.zero,
-                            child: const HomeSectionTitle(
-                              title: "Sparkle Picks",
-                            ),
-                          ),
-                          const HomeSparkleGrid(),
-                          const SizedBox(height: 30),
+                          // Service priority per user feedback: latest sermon
+                          // + events sit directly under quick actions.
                           Padding(
                             key: _sectionKeys['sermons'],
                             padding: EdgeInsets.zero,
@@ -663,6 +693,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             padding: EdgeInsets.zero,
                             child: const HomeEventTimeline(),
                           ),
+                          const SizedBox(height: 30),
+
+                          // Collapsible Admin & Promo Section (Special Offer)
+                          _buildAdminPromoSection(tenant),
+
+                          Padding(
+                            key: _sectionKeys['sparkle'],
+                            padding: EdgeInsets.zero,
+                            child: const HomeSectionTitle(
+                              title: "Sparkle Picks",
+                            ),
+                          ),
+                          const HomeSparkleGrid(),
                           const SizedBox(height: 30),
                           Padding(
                             key: _sectionKeys['recommended'],

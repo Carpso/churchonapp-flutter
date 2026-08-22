@@ -958,7 +958,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         Icon(LucideIcons.truck, color: _deliveryMethod == 'delivery' ? Theme.of(context).primaryColor : Colors.grey),
                         const SizedBox(height: 8),
                         const Text("Express Delivery", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        Text("K15.00", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                        // Live fee from platform_settings — was hardcoded K15
+                        // while _deliveryFee used the remote-config value,
+                        // so the tile and order summary disagreed.
+                        Text(
+                          "K${widgetRemoteConfig(ref).getDouble('marketplace_delivery_fee_kwacha', 15.0).toStringAsFixed(2)}",
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                        ),
                       ],
                     ),
                   ),
@@ -1360,6 +1366,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   : "Pickup at ${_pickupChurchNames.join(', ')}",
               "FREE",
               isTotal: false,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'No delivery fee through the app — collect your order directly from the church.',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              ),
             ),
           ],
           const Divider(height: 24),

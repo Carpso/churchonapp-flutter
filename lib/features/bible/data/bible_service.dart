@@ -158,7 +158,13 @@ class BibleService {
       final cachedData = prefs.getString(cacheKey);
       if (cachedData != null) {
         final List versesJson = json.decode(cachedData);
-        return versesJson.map((v) => BibleVerse.fromJson(v)).toList();
+        // Guard: older builds cached EMPTY chapter lists when sources were
+        // down — those stale entries short-circuited every future fetch and
+        // made version switching say "not found" forever. Ignore empties.
+        if (versesJson.isNotEmpty) {
+          return versesJson.map((v) => BibleVerse.fromJson(v)).toList();
+        }
+        await prefs.remove(cacheKey);
       }
 
       // NKJV/NLT (and KJV/WEB) live in the local Supabase table — use it when

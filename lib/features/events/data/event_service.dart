@@ -99,6 +99,11 @@ class EventService {
       'image_url': eventData['cover'] ?? eventData['image_url'] ?? '',
       'ticket_price': (eventData['price'] ?? eventData['ticket_price'] ?? 0.0).toDouble(),
       'category': eventData['type'] ?? eventData['category'] ?? 'General',
+      // RLS "Authenticated users can create events" requires auth.uid() to
+      // equal user_id OR hosted_by — created_by alone failed the WITH CHECK
+      // and every create crashed with a policy error.
+      'user_id': user.id,
+      'hosted_by': user.id,
       'created_by': user.id,
       'tenant_id': eventData['tenant_id'],
       'organizer_momo_phone': eventData['organizer_momo_phone'],
