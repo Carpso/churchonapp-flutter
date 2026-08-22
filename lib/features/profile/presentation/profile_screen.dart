@@ -404,8 +404,11 @@ _buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHi
         if (profile.isSuperadmin) ...[
           _buildPremiumItem(context, LucideIcons.zap, "SUPERADMIN CONSOLE", isHighlighted: true, onTap: () => context.push('/superadmin-hub')),
         ],
-        if (profile.role == 'vendor' || profile.role == 'merchant' || profile.role == 'bookshop_owner') ...[
+        if (profile.role == 'vendor' || profile.role == 'merchant') ...[
           _buildPremiumItem(context, LucideIcons.store, "VENDOR DASHBOARD", isHighlighted: true, onTap: () => context.push('/vendor-dashboard')),
+        ],
+        if (profile.isBookshopStaff) ...[
+          _buildPremiumItem(context, LucideIcons.bookOpen, "BOOKSHOP DASHBOARD", isHighlighted: true, onTap: () => context.push('/bookshop-dashboard')),
         ],
         if (profile.role == 'bookshop_owner')
           _buildPremiumItem(context, LucideIcons.store, "Set Up Bookshop", onTap: () => context.push('/bookshop-onboarding')),
@@ -809,7 +812,7 @@ _buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHi
           if (profile.role == 'rider') _buildBadge(LucideIcons.bike, "RIDER", Colors.cyan),
           if (profile.role == 'vendor' || profile.role == 'merchant')
             _buildBadge(LucideIcons.store, "VENDOR", Colors.indigo),
-          if (profile.role == 'bookshop_owner')
+          if (profile.isBookshopStaff)
             _buildBadge(LucideIcons.bookOpen, "BOOKSHOP", Colors.blue),
           if (profile.isUsher) _buildBadge(LucideIcons.shieldCheck, "USHER", Colors.greenAccent),
           if (profile.role == 'writer') _buildBadge(LucideIcons.penTool, "WRITER", Theme.of(context).primaryColor.withValues(alpha: 0.7)),
