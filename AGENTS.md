@@ -1251,4 +1251,4 @@ projects can copy/reuse when they wire Lipila:
   - **Shimmer blink FIXED**: home news/sermons/event-timeline + sermon insights `.when()` got skipLoadingOnRefresh:true — realtime snapshots no longer flip widgets back to shimmer mid-refresh.
   - **Study pane made functional**: was 5 static text rows ("total waste"); now AI Chapter Summary card (Kael chapter_summary, cached per chapter), quick tool tiles (Exegesis, Atlas sheet, Scripture Memory), real OPEN FULL SUITE button → NEW route `/deep-study-suite` (screen existed but had NO route — unreachable).
   - **484/484 tests green throughout**; analyze 0 issues at every commit.
-  - **Release v1.0.0+293**: fresh clean web + APK + AAB (sizes in final sync below).
+  - **Release v1.0.0+293**: fresh clean web + APK + AAB — web `main.dart.js` **8.77 MB** deployed to `81494922.churchonapp.pages.dev` (branch `main`), APK **212.0 MB** (`build/app/outputs/flutter-apk/Church On App.apk`, `assembleRelease` 2227s), AAB **123.5 MB** (`build/app/outputs/bundle/release/app-release.aab`, `bundleRelease` 475s).
