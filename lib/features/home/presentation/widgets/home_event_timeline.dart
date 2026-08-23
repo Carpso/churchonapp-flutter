@@ -22,6 +22,7 @@ class HomeEventTimeline extends ConsumerWidget {
           onTrailingTap: () => context.push('/events'),
         ),
         eventsAsync.when(
+          skipLoadingOnRefresh: true,
           data: (events) {
             if (events.isEmpty) {
               return Container(

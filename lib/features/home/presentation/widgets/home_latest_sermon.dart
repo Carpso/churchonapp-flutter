@@ -19,7 +19,7 @@ class HomeLatestSermon extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const HomeSectionTitle(title: "Latest Sermon"),
-        sermonsAsync.when(
+        sermonsAsync.when(skipLoadingOnRefresh: true,
           data: (sermons) {
             if (sermons.isEmpty) {
               return Container(

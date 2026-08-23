@@ -110,6 +110,13 @@ class SermonNotesService {
         .eq('id', noteId);
   }
 
+  Future<void> updateNoteTitle(String noteId, String title) async {
+    await _client
+        .from('sermon_notes')
+        .update({'title': title})
+        .eq('id', noteId);
+  }
+
   /// Delete a sermon note
   Future<void> deleteNote(String noteId) async {
     await _client.from('sermon_notes').delete().eq('id', noteId);
@@ -384,7 +391,11 @@ class _NotesTab extends StatelessWidget {
                       PopupMenuItem(value: 'delete', child: Text('Delete')),
                     ],
                     onSelected: (value) {
-                      if (value == 'delete') _deleteNote(context, note['id']);
+                      if (value == 'delete') {
+                        _deleteNote(context, note['id']);
+                      } else if (value == 'edit') {
+                        _editNote(context, note);
+                      }
                     },
                   ),
                 ],
@@ -418,6 +429,64 @@ class _NotesTab extends StatelessWidget {
   void _deleteNote(BuildContext context, String noteId) async {
     final service = ProviderScope.containerOf(context).read(sermonNotesServiceProvider);
     await service.deleteNote(noteId);
+    onRefresh();
+  }
+
+  /// Inline edit dialog — the Edit menu item previously did nothing.
+  void _editNote(BuildContext context, Map<String, dynamic> note) async {
+    final container = ProviderScope.containerOf(context);
+    final service = container.read(sermonNotesServiceProvider);
+    final noteId = note['id']?.toString() ?? '';
+    final originalTitle = note['title']?.toString() ?? '';
+
+    final titleCtrl = TextEditingController(text: originalTitle);
+    final contentCtrl =
+        TextEditingController(text: note['content']?.toString() ?? '');
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Edit Note'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleCtrl,
+              decoration: const InputDecoration(labelText: 'Title'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: contentCtrl,
+              maxLines: 6,
+              decoration: const InputDecoration(
+                  labelText: 'Note', alignLabelWithHint: true),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('CANCEL')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('SAVE')),
+        ],
+      ),
+    );
+
+    if (saved != true) return;
+    if (contentCtrl.text.trim().isEmpty) return;
+
+    try {
+      await service.updateNote(noteId, contentCtrl.text.trim());
+      if (titleCtrl.text.trim() != originalTitle) {
+        await service.updateNoteTitle(noteId, titleCtrl.text.trim());
+      }
+    } catch (e) {
+      debugPrint('Note edit failed: $e');
+    }
     onRefresh();
   }
 

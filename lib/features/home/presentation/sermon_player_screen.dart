@@ -595,7 +595,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
               const Text("Communal Insights", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               const Divider(height: 40),
               Expanded(
-                child: insightsAsync.when(
+                child: insightsAsync.when(skipLoadingOnRefresh: true,
                   data: (comments) => comments.isEmpty 
                     ? Center(
                         child: Column(
@@ -734,7 +734,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
               const SizedBox(width: 20),
               const Icon(LucideIcons.messageSquare, size: 16, color: Colors.grey),
               const SizedBox(width: 6),
-              insightsAsync.when(
+              insightsAsync.when(skipLoadingOnRefresh: true,
                 data: (comments) => Text(
                   "${comments.length} insight${comments.length == 1 ? '' : 's'}",
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
@@ -745,7 +745,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          insightsAsync.when(
+          insightsAsync.when(skipLoadingOnRefresh: true,
             data: (comments) {
               if (comments.isEmpty) {
                 return const SizedBox.shrink();

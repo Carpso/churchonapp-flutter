@@ -19,7 +19,7 @@ class HomeNews extends ConsumerWidget {
 
     return Column(
       children: [
-        kingdomNewsAsync.when(
+        kingdomNewsAsync.when(skipLoadingOnRefresh: true,
           data: (news) {
             if (news.isEmpty) return const SizedBox.shrink();
             return Column(
@@ -72,7 +72,7 @@ class HomeNews extends ConsumerWidget {
             ),
           ),
         ),
-        publicNewsAsync.when(
+        publicNewsAsync.when(skipLoadingOnRefresh: true,
           data: (news) {
             if (news.isEmpty) return const SizedBox.shrink();
             final kingdomTitles = kingdomNewsAsync.value?.map((a) => a.title.toLowerCase()).toSet() ?? {};
