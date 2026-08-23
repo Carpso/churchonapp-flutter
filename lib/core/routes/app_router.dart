@@ -134,6 +134,7 @@ import 'package:church_on_app/features/bible/presentation/bible_screen.dart';
 import 'package:church_on_app/features/bible_study/presentation/bible_study_create_screen.dart';
 import 'package:church_on_app/features/bible_study/presentation/bible_study_detail_screen.dart';
 import 'package:church_on_app/features/bible_study/presentation/bible_study_list_screen.dart';
+import 'package:church_on_app/features/bible/presentation/deep_study_suite_screen.dart';
 import 'package:church_on_app/features/connect/presentation/create_klip_screen.dart';
 import 'package:church_on_app/features/data_import/presentation/data_import_screen.dart';
 import 'package:church_on_app/features/admin/presentation/feature_toggles_screen.dart';
@@ -1030,6 +1031,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           final chapter = int.tryParse(state.pathParameters['chapter'] ?? '1') ?? 1;
           return BibleScreen(initialBook: book, initialChapter: chapter);
         },
+      ),
+      GoRoute(
+        path: '/deep-study-suite',
+        builder: (context, state) => const DeepStudySuiteScreen(),
       ),
       GoRoute(
         path: '/bible-study',

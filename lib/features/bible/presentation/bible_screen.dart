@@ -23,6 +23,7 @@ import 'scripture_audio_button.dart';
 import 'study_plans_screen.dart';
 import '../../bible_study/presentation/bible_study_list_screen.dart';
 import 'scripture_memory_screen.dart';
+import 'deep_study_suite_screen.dart';
 
 class BibleScreen extends ConsumerStatefulWidget {
   final String? initialBook;
@@ -1245,37 +1246,65 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: 5,
-              itemBuilder: (context, index) {
-                switch (index) {
-                  case 0:
-                    return _buildStudySection("READING", [
-                      "$selectedBook $selectedChapter",
-                      "Tap verses to highlight, long-press to copy, share or take notes.",
-                    ]);
-                  case 1:
-                    return const SizedBox(height: 30);
-                  case 2:
-                    return _buildStudySection("STUDY TOOLS", [
-                      "Deep Study Suite: word studies, atlas & verse memory",
-                      "Cross-references, chapter summaries & reading plans",
-                    ]);
-                  case 3:
-                    return const SizedBox(height: 30);
-                  case 4:
-                    return _buildStudySection("OPEN DEEP STUDY", [
-                      "Open the Deep Study Suite for exegesis, atlas, memory verses and more.",
-                    ]);
-                  default:
-                    return const SizedBox.shrink();
-                }
-              },
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 30),
+              children: [
+                _buildStudySection("READING", [
+                  "$selectedBook $selectedChapter",
+                  "Tap verses to highlight, long-press for details.",
+                ]),
+                const SizedBox(height: 18),
+                // AI chapter summary — live via Kael.
+                _StudySummaryCard(
+                  book: selectedBook,
+                  chapter: selectedChapter,
+                ),
+                const SizedBox(height: 18),
+                _buildStudySection("QUICK TOOLS", [
+                  "Exegesis & word study",
+                  "Biblical atlas & locations",
+                  "Cross-references (long-press a verse)",
+                ]),
+                const SizedBox(height: 12),
+                _studyToolTile(LucideIcons.brain, "Word Study / Exegesis",
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DeepStudySuiteScreen()))),
+                _studyToolTile(LucideIcons.map, "Biblical Atlas",
+                    () => _showBiblicalAtlas()),
+                _studyToolTile(LucideIcons.brain, "Scripture Memory",
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScriptureMemoryScreen()))),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () =>
+                        context.push('/deep-study-suite'),
+                    icon: const Icon(LucideIcons.layers, size: 16),
+                    label: const Text("OPEN FULL SUITE"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _studyToolTile(IconData icon, String label, VoidCallback onTap) {
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, size: 17, color: Colors.amber.shade800),
+      title: Text(label, style: const TextStyle(fontSize: 13)),
+      trailing: const Icon(LucideIcons.chevronRight, size: 14, color: Colors.grey),
+      onTap: onTap,
     );
   }
 
@@ -2311,6 +2340,132 @@ class _ScriptureSearchDialogState extends ConsumerState<_ScriptureSearchDialog> 
           child: const Text("CANCEL"),
         ),
       ],
+    );
+  }
+}
+
+/// AI chapter summary card for the inline study pane. Streams a live
+/// chapter_summary from Kael; caches per book+chapter in memory so switching
+/// chapters doesn't re-bill the API.
+class _StudySummaryCard extends ConsumerStatefulWidget {
+  final String book;
+  final int chapter;
+  const _StudySummaryCard({required this.book, required this.chapter});
+
+  @override
+  ConsumerState<_StudySummaryCard> createState() => _StudySummaryCardState();
+}
+
+class _StudySummaryCardState extends ConsumerState<_StudySummaryCard> {
+  static final Map<String, String> _cache = {};
+  String? _summary;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _StudySummaryCard old) {
+    super.didUpdateWidget(old);
+    if (old.book != widget.book || old.chapter != widget.chapter) {
+      _summary = null;
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final key = '${widget.book}_${widget.chapter}';
+    if (_cache.containsKey(key)) {
+      setState(() => _summary = _cache[key]);
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      final res = await Supabase.instance.client.functions.invoke(
+        'kael-ai',
+        body: {
+          'action': 'chapter_summary',
+          'prompt':
+              'Summarize ${widget.book} chapter ${widget.chapter} in 2-3 short sentences for a study pane.',
+        },
+      );
+      final text =
+          (res.data as Map?)?['response']?.toString() ?? '';
+      if (!mounted) return;
+      setState(() {
+        _summary = text.isEmpty ? null : text;
+        if (_summary != null) _cache[key] = _summary!;
+      });
+    } catch (e) {
+      debugPrint('Chapter summary failed: $e');
+      if (mounted) setState(() => _summary = null);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.sparkles, size: 12, color: Colors.amber.shade800),
+              const SizedBox(width: 6),
+              Text('CHAPTER SUMMARY',
+                  style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                      color: Colors.amber.shade800)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 6),
+              child: SizedBox(
+                  height: 14,
+                  width: 14,
+                  child:
+                      CircularProgressIndicator(strokeWidth: 2, color: Colors.amber)),
+            )
+          else if (_summary != null)
+            Text(_summary!,
+                style: TextStyle(
+                    fontSize: 11.5,
+                    height: 1.5,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.75)))
+          else
+            Text('Tap to generate an AI summary of this chapter.',
+                style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.4))),
+          if (!_loading && _summary == null)
+            TextButton(
+              onPressed: _load,
+              child: const Text('GENERATE',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900)),
+            ),
+        ],
+      ),
     );
   }
 }
