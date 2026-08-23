@@ -100,7 +100,7 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
                   Text("Quick Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                   const SizedBox(height: 15),
                   _actionBtn(theme, LucideIcons.map, "Book a Ride", "Request a Carpso Ride", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RideRequestScreen()))),
-                  _actionBtn(theme, LucideIcons.heart, "Saved Places", "Your favorite locations", Colors.red, () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saved places — coming soon")))),
+                  // Saved Places removed — dead toast, feature not built.
                   _actionBtn(theme, LucideIcons.navigation, "Active Ride", _activeRide != null ? "Track your current trip" : "No active ride — book one first", Colors.amber, () {
                     final active = _activeRide;
                     if (active == null) {

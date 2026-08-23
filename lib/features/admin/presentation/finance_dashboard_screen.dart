@@ -6,6 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/pro_charts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -233,6 +234,12 @@ class FinanceDashboardScreen extends ConsumerWidget {
 
   Widget _buildWithdrawableCard(BuildContext context, WidgetRef ref, String tenantId, bool hideMoney) {
     final theme = Theme.of(context);
+    final profile = ref.watch(profileProvider).value;
+    // PAYOUTS button → ChurchPayoutScreen (COA settlement engine) is
+    // superadmin/COA-employee-only; pastors/bishops/treasurers still see
+    // their church's withdrawable balance but can't open COA settlement.
+    final isCoaTeam =
+        profile != null && (profile.isSuperadmin || profile.role == 'coa_employee');
     return FutureBuilder<Map<String, dynamic>>(
       future: Supabase.instance.client.rpc('get_church_withdrawable_balances'),
       builder: (context, snapshot) {
@@ -274,14 +281,15 @@ class FinanceDashboardScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              TextButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ChurchPayoutScreen()),
+              if (isCoaTeam)
+                TextButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ChurchPayoutScreen()),
+                  ),
+                  icon: const Icon(LucideIcons.arrowRight, size: 15),
+                  label: const Text("PAYOUTS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                 ),
-                icon: const Icon(LucideIcons.arrowRight, size: 15),
-                label: const Text("PAYOUTS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-              ),
             ],
           ),
         );

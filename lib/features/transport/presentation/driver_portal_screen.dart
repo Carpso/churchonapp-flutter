@@ -6,7 +6,6 @@ import 'dart:async';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import '../data/transport_service.dart';
 import '../data/ride_request_model.dart';
-import 'package:go_router/go_router.dart';
 import '../data/delivery_model.dart';
 import 'active_ride_tracking_screen.dart';
 
@@ -142,9 +141,8 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
             indicatorColor: Colors.amber,
             labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
           ),
-          actions: [
-            IconButton(icon: const Icon(LucideIcons.settings), onPressed: () => context.push('/go-live')),
-          ],
+          // No settings gear — /go-live (streaming) is leadership-only,
+          // not a driver feature.
         ),
         body: Column(
           children: [
