@@ -234,8 +234,24 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         children: [
           ClipOval(child: AppImage(msg.senderPhoto ?? '', width: 16, height: 16, fit: BoxFit.cover)),
           const SizedBox(width: 8),
-          Text("${msg.senderName}: ", style: const TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold, fontSize: 13)),
-          Expanded(child: Text(msg.text, style: const TextStyle(color: Colors.white, fontSize: 13))),
+          Flexible(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(fontSize: 13, height: 1.4),
+                children: [
+                  TextSpan(
+                    text: '${msg.senderName}: ',
+                    style: const TextStyle(
+                        color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
+                  ),
+                  TextSpan(
+                    text: msg.text,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -251,16 +267,33 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
       child: Row(
         children: [
           Expanded(
-            child: TextField(
-              controller: _chatCtrl,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                hintText: "Say something...",
-                hintStyle: TextStyle(color: Colors.white24),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 20),
+            // Theme override forces white text/cursor regardless of tenant
+            // theming or system dark-mode — typed text was invisible on some
+            // devices where the app theme's bodyLarge colour leaked through.
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                textSelectionTheme: const TextSelectionThemeData(
+                  cursorColor: Color(0xFFFFD700),
+                  selectionColor: Color(0x33FFD700),
+                ),
               ),
-              onSubmitted: (_) => _handleSendMessage(tenant),
+              child: TextField(
+                controller: _chatCtrl,
+                cursorColor: const Color(0xFFFFD700),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  decoration: TextDecoration.none,
+                ),
+                decoration: const InputDecoration(
+                  hintText: "Say something...",
+                  hintStyle: TextStyle(color: Colors.white24),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 20),
+                ),
+                onSubmitted: (_) => _handleSendMessage(tenant),
+              ),
             ),
           ),
           IconButton(
