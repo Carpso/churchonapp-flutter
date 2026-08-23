@@ -217,6 +217,14 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: NavigationService.navigatorKey,
     initialLocation: '/splash',
+    // OAuth callbacks land on URLs that don't match any route (e.g.
+    // mobile deep links to /login-callback, or web hash fragments).
+    // Without an errorBuilder GoRouter crashes; this catches those and
+    // shows a brief loading screen while auth resolves and the redirect
+    // fires to the correct destination.
+    errorBuilder: (context, state) => const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
+    ),
     redirect: (context, state) {
       // Public church websites — no splash, login or tenant required.
       // Shared links `churchonapp.com/church/<churchId>` and
