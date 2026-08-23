@@ -115,7 +115,7 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
                 children: [
                   const Text("About", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
-                  Text(groupSubtitle, style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87)),
+                  Text(groupSubtitle, style: TextStyle(fontSize: 15, height: 1.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75))),
                   const SizedBox(height: 30),
                   Row(
                     children: [
@@ -136,7 +136,7 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
       bottomSheet: Container(
         padding: const EdgeInsets.all(25),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))],
         ),
         child: Row(

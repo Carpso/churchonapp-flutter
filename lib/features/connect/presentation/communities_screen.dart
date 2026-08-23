@@ -304,6 +304,8 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
     final subtitle = group['subtitle'] as String? ?? '';
     final imageUrl = group['image'] as String? ?? '';
     final memberCount = group['count'] as int? ?? 0;
+    final theme = Theme.of(context);
+    final hasImage = imageUrl.isNotEmpty;
 
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -315,7 +317,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4)),
@@ -323,54 +325,59 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
         ),
         child: Row(
           children: [
-            // Group image — CachedNetworkImage
+            // Group image with fallback icon for empty URLs
             ClipRRect(
               borderRadius: BorderRadius.circular(18),
-              child: CachedNetworkImage(
-                imageUrl: imageUrl,
-                width: 56,
-                height: 56,
-                memCacheWidth: 112,
-                memCacheHeight: 112,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  width: 56,
-                  height: 56,
-                  color: Colors.grey[200],
-                  child: const Icon(LucideIcons.users, color: Colors.grey, size: 24),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  width: 56,
-                  height: 56,
-                  color: Colors.grey[200],
-                  child: const Icon(LucideIcons.users, color: Colors.grey, size: 24),
-                ),
-              ),
+              child: hasImage
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      width: 56,
+                      height: 56,
+                      memCacheWidth: 112,
+                      memCacheHeight: 112,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        width: 56, height: 56,
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        child: Icon(LucideIcons.users, color: theme.primaryColor, size: 24),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        width: 56, height: 56,
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        child: Icon(LucideIcons.users, color: theme.primaryColor, size: 24),
+                      ),
+                    )
+                  : Container(
+                      width: 56, height: 56,
+                      color: theme.primaryColor.withValues(alpha: 0.12),
+                      child: Icon(LucideIcons.users, color: theme.primaryColor, size: 24),
+                    ),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, decoration: TextDecoration.none)),
+                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, decoration: TextDecoration.none, color: theme.colorScheme.onSurface)),
                   const SizedBox(height: 3),
-                  Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  if (subtitle.isNotEmpty)
+                    Text(subtitle, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(LucideIcons.users, size: 14, color: Colors.grey[400]),
+                      Icon(LucideIcons.users, size: 14, color: theme.colorScheme.onSurface.withValues(alpha: 0.35)),
                       const SizedBox(width: 4),
                       Text(
                         '$memberCount members',
-                        style: const TextStyle(
-                            color: Color(0xFF1A1A1A), fontSize: 11, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11, fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-            const Icon(LucideIcons.chevronRight, color: Colors.grey, size: 18),
+            Icon(LucideIcons.chevronRight, color: theme.colorScheme.onSurface.withValues(alpha: 0.3), size: 18),
           ],
         ),
       ),
