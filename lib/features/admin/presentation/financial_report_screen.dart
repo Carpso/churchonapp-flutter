@@ -46,7 +46,7 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Monthly Stewardship", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Monthly Financial Report", style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(25),

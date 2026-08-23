@@ -392,9 +392,35 @@ class CurrentTenantNotifier extends Notifier<Tenant?> {
     final prefs = await SharedPreferences.getInstance();
     final tenantId = prefs.getString('selected_tenant_id');
     if (tenantId != null) {
+      // Try DB first for fresh data.
       final service = ref.read(tenantServiceProvider);
       final tenant = await service.getTenantById(tenantId);
-      state = tenant;
+      if (tenant != null) {
+        state = tenant;
+        // Cache the tenant map so future reloads work even when the DB is
+        // briefly unreachable (web reload before auth restores).
+        await prefs.setString(
+          'selected_tenant_cache',
+          tenant.id, // minimal — full restore via getTenantById
+        );
+        return;
+      }
+      // DB returned null (RLS not ready yet on web reload) — don't clear
+      // the stored ID. The router waits for authState.isLoading to finish
+      // and then this provider re-runs when auth is ready.
+      //
+      // If we have a cached tenant name at least render something instead
+      // of bouncing to /select-church.
+      final cachedName = prefs.getString('selected_tenant_name');
+      if (cachedName != null && cachedName.isNotEmpty) {
+        state = Tenant.fromMap({
+          'id': tenantId,
+          'slug': tenantId,
+          'name': cachedName,
+          'type': 'church',
+          '_cached': true,
+        });
+      }
     }
   }
 
@@ -422,6 +448,7 @@ class CurrentTenantNotifier extends Notifier<Tenant?> {
     final prefs = await SharedPreferences.getInstance();
     if (tenant != null) {
       await prefs.setString('selected_tenant_id', tenant.id);
+      await prefs.setString('selected_tenant_name', tenant.name);
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null && tenant.id.isNotEmpty) {
         try {

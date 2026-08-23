@@ -299,15 +299,17 @@ class FinanceDashboardScreen extends ConsumerWidget {
 
   Widget _buildLedgerActions(BuildContext context, WidgetRef ref, Tenant tenant, List<Transaction> txs, ThemeData theme) {
     final total = txs.fold<double>(0, (s, t) => s + t.amount);
-    return Row(
+    // Stacked vertically — Row with two Expanded buttons overflowed on narrow phones.
+    return Column(
       children: [
-        Expanded(
+        SizedBox(
+          width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: txs.isEmpty
                 ? null
                 : () => LedgerPdfService.generateAndPrintLedger(txs, tenant.id),
             icon: Icon(LucideIcons.fileOutput, size: 14, color: theme.primaryColor),
-            label: const Text('Export PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+            label: const Text('Export PDF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
             style: OutlinedButton.styleFrom(
               foregroundColor: theme.primaryColor,
               side: BorderSide(color: theme.primaryColor.withValues(alpha: 0.22)),
@@ -317,8 +319,9 @@ class FinanceDashboardScreen extends ConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
           child: FilledButton.icon(
             onPressed: txs.isEmpty
                 ? null

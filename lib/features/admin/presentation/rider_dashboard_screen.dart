@@ -7,6 +7,7 @@ import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
 import 'package:church_on_app/features/transport/presentation/ride_request_screen.dart';
+import 'package:church_on_app/features/transport/presentation/saved_places_sheet.dart';
 
 class RiderDashboardScreen extends ConsumerStatefulWidget {
   const RiderDashboardScreen({super.key});
@@ -100,7 +101,16 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
                   Text("Quick Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                   const SizedBox(height: 15),
                   _actionBtn(theme, LucideIcons.map, "Book a Ride", "Request a Carpso Ride", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RideRequestScreen()))),
-                  // Saved Places removed — dead toast, feature not built.
+                  _actionBtn(theme, LucideIcons.bookmark, "Saved Places", "Quick-select frequent locations", Colors.teal, () async {
+                    final place = await showSavedPlacesPicker(context);
+                    if (!mounted) return;
+                    if (place != null) {
+                      // ignore: use_build_context_synchronously
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Selected: ${place.address}')),
+                      );
+                    }
+                  }),
                   _actionBtn(theme, LucideIcons.navigation, "Active Ride", _activeRide != null ? "Track your current trip" : "No active ride — book one first", Colors.amber, () {
                     final active = _activeRide;
                     if (active == null) {
