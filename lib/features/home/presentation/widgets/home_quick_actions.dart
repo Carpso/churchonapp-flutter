@@ -16,6 +16,8 @@ class HomeQuickActions extends StatelessWidget {
       {"icon": LucideIcons.bookOpen, "label": "Sermons", "color": brand},
       {"icon": LucideIcons.calendar, "label": "Events", "color": Colors.orange},
       {"icon": LucideIcons.book, "label": "Bible", "color": Colors.green},
+      {"icon": LucideIcons.qrCode, "label": "Check-in", "color": brand.withValues(alpha: 0.8)},
+      {"icon": LucideIcons.flame, "label": "Fasting", "color": Colors.orange},
       {
         "icon": LucideIcons.helpCircle,
         "label": "Bible Quiz",
