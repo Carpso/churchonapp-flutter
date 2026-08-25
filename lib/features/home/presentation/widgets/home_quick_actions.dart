@@ -25,6 +25,12 @@ class HomeQuickActions extends StatelessWidget {
       },
       {"icon": LucideIcons.penTool, "label": "Notebook", "color": Colors.brown},
       {"icon": LucideIcons.graduationCap, "label": "Bible Study", "color": Colors.teal},
+      {
+        "icon": LucideIcons.shoppingBag,
+        "label": "Marketplace",
+        "color": brand.withValues(alpha: 0.45),
+      },
+      {"icon": LucideIcons.car, "label": "Carpso Ride", "color": brand.withValues(alpha: 0.3)},
     ];
 
     return Column(
