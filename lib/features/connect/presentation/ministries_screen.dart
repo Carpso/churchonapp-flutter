@@ -73,7 +73,24 @@ class _MinistriesScreenState extends ConsumerState<MinistriesScreen> {
     if (profile == null) return;
     final ministryId = ministry['id'].toString();
     final joined = await _joinedFuture;
+    if (!mounted) return;
     if (joined.contains(ministryId)) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Leave ${ministry['name'] ?? 'ministry'}?'),
+          content: const Text('Are you sure you want to leave this ministry? You will no longer receive ministry updates.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Leave'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
       await _client
           .from('ministry_members')
           .delete()

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,6 +36,10 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   int _weekNumber = 1;
   bool _isConnecting = false;
   String? _connectingMode;
+  // Watches sent invites so the inviter auto-enters the arena the moment
+  // their friend accepts (fix: inviter previously never saw the game start).
+  final Map<String, StreamSubscription<Map<String, dynamic>?>> _inviteWatchers = {};
+  final Set<String> _enteringMatches = {};
 
   /// Remote-configurable quiz values (`quiz_*` keys in platform_settings).
   RemoteConfig get _rc => widgetRemoteConfig(ref);
@@ -47,6 +53,45 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
   void initState() {
     super.initState();
     _loadTrophyConfig();
+  }
+
+  @override
+  void dispose() {
+    for (final sub in _inviteWatchers.values) {
+      sub.cancel();
+    }
+    _inviteWatchers.clear();
+    super.dispose();
+  }
+
+  /// Live-watches a sent invite. The instant the friend accepts
+  /// (status invited → accepted), the inviter is pulled into the arena with
+  /// the same match — both players now share the game.
+  void _watchSentInvite(String matchId) {
+    if (_inviteWatchers.containsKey(matchId)) return;
+    final sub = ref.read(pvpServiceProvider).watchMatchScores(matchId).listen((data) {
+      if (data == null || !mounted) return;
+      final status = data['status']?.toString();
+      if ((status == 'accepted' || status == 'playing') && !_enteringMatches.contains(matchId)) {
+        _enteringMatches.add(matchId);
+        _inviteWatchers.remove(matchId)?.cancel();
+        final updated = PvPMatch.fromMap(data);
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => BibleQuizArenaScreen(
+              mode: 'PvP',
+              questionCount: updated.questionCount,
+              timePerQuestionSec: updated.timePerQuestion,
+              initialPvPMatch: updated,
+            ),
+          ),
+        );
+      } else if (status == 'declined' || status == 'expired' || status == 'completed') {
+        // Terminal state — stop watching.
+        _inviteWatchers.remove(matchId)?.cancel();
+      }
+    });
+    _inviteWatchers[matchId] = sub;
   }
 
   Future<void> _loadTrophyConfig() async {
@@ -335,6 +380,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
               ),
               const SizedBox(height: 15),
               const _IncomingInvitesSection(),
+              const SizedBox(height: 12),
+              const _OutgoingInvitesSection(),
               const SizedBox(height: 30),
 
               const Text(
@@ -2013,6 +2060,9 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
         backgroundColor: Colors.green,
       ),
     );
+    // CRITICAL: watch the invite so the inviter enters the arena the moment
+    // the friend accepts (previously the inviter never saw the game start).
+    _watchSentInvite(match.id);
     try {
       await Supabase.instance.client.functions.invoke(
         'push-notifications',
@@ -2585,7 +2635,41 @@ class _IncomingInvitesSection extends ConsumerStatefulWidget {
 class _IncomingInvitesSectionState
     extends ConsumerState<_IncomingInvitesSection> {
   final Map<String, String> _inviterNames = {};
-  bool _busy = false;
+  final Map<String, bool> _busyMap = {};
+
+  String _statusLabel(PvPMatch m) {
+    switch (m.status) {
+      case 'invited':
+        return 'PENDING';
+      case 'accepted':
+        return 'ACCEPTED';
+      case 'playing':
+        return 'PLAYING';
+      case 'completed':
+        final uid = Supabase.instance.client.auth.currentUser?.id;
+        if (m.winnerId == null) return 'DRAW';
+        if (m.winnerId == uid) return 'YOU WON';
+        return 'YOU LOST';
+      default:
+        return m.status.toUpperCase();
+    }
+  }
+
+  Color _statusColor(PvPMatch m) {
+    switch (m.status) {
+      case 'invited':
+        return Colors.amber;
+      case 'accepted':
+      case 'playing':
+        return Colors.greenAccent;
+      case 'completed':
+        final uid = Supabase.instance.client.auth.currentUser?.id;
+        if (m.winnerId == null) return Colors.white70;
+        return m.winnerId == uid ? Colors.greenAccent : Colors.redAccent;
+      default:
+        return Colors.grey;
+    }
+  }
 
   @override
   void initState() {
@@ -2612,13 +2696,14 @@ class _IncomingInvitesSectionState
   }
 
   Future<void> _respond(PvPMatch match, bool accept) async {
-    if (_busy) return;
-    setState(() => _busy = true);
+    final key = match.id;
+    if (_busyMap[key] == true) return;
+    setState(() => _busyMap[key] = true);
     final pvpService = ref.read(pvpServiceProvider);
     if (accept) {
       final updated = await pvpService.acceptInvite(match.id);
       if (!mounted) return;
-      setState(() => _busy = false);
+      setState(() => _busyMap[key] = false);
       if (updated != null) {
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -2639,7 +2724,7 @@ class _IncomingInvitesSectionState
     } else {
       final ok = await pvpService.declineInvite(match.id);
       if (!mounted) return;
-      setState(() => _busy = false);
+      setState(() => _busyMap[key] = false);
       if (ok) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Invite declined.')),
@@ -2655,6 +2740,8 @@ class _IncomingInvitesSectionState
       builder: (context, snapshot) {
         final invites = snapshot.data ?? const <PvPMatch>[];
         if (invites.isEmpty) return const SizedBox.shrink();
+        // Pending count for header chip
+        final pendingCount = invites.where((m) => m.status == 'invited').length;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2670,7 +2757,9 @@ class _IncomingInvitesSectionState
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '${invites.length} PENDING INVITE${invites.length > 1 ? 'S' : ''}',
+                    pendingCount > 0
+                        ? '$pendingCount PENDING INVITE${pendingCount > 1 ? 'S' : ''}'
+                        : '${invites.length} INVITE${invites.length > 1 ? 'S' : ''}',
                     style: TextStyle(
                       color: Theme.of(context).primaryColor,
                       fontSize: 11,
@@ -2684,6 +2773,11 @@ class _IncomingInvitesSectionState
             const SizedBox(height: 10),
             ...invites.map((match) {
               final inviterName = _inviterNames[match.player1Id];
+              final busy = _busyMap[match.id] == true;
+              final label = _statusLabel(match);
+              final labelColor = _statusColor(match);
+              final isActionable = match.status == 'invited';
+              final isPlayable = match.status == 'accepted' || match.status == 'playing';
               return Container(
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(14),
@@ -2691,16 +2785,14 @@ class _IncomingInvitesSectionState
                   color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                      color: Theme.of(context)
-                          .primaryColor
-                          .withValues(alpha: 0.3)),
+                      color: labelColor.withValues(alpha: 0.5)),
                 ),
                 child: FutureBuilder<String>(
                   future: _nameFor(match.player1Id),
                   builder: (context, snap) => Row(
                     children: [
                       Icon(LucideIcons.swords,
-                          color: Theme.of(context).primaryColor, size: 22),
+                          color: labelColor, size: 22),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -2715,32 +2807,212 @@ class _IncomingInvitesSectionState
                               ),
                             ),
                             const SizedBox(height: 2),
-                            Text(
-                              match.wagerAmount > 0
-                                  ? '${match.wagerAmount} CC wager · ${match.questionCount} questions'
-                                  : 'Free match · ${match.questionCount} questions',
-                              style: const TextStyle(
-                                  color: Colors.white54, fontSize: 11),
+                            Row(
+                              children: [
+                                Text(
+                                  match.wagerAmount > 0
+                                      ? '${match.wagerAmount} CC wager · ${match.questionCount}q'
+                                      : 'Free · ${match.questionCount}q',
+                                  style: const TextStyle(
+                                      color: Colors.white54, fontSize: 11),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: labelColor.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(label,
+                                      style: TextStyle(color: labelColor, fontSize: 10, fontWeight: FontWeight.w900)),
+                                ),
+                                if (match.status == 'completed') ...[
+                                  const SizedBox(width: 6),
+                                  Text('${match.player1Score}-${match.player2Score}',
+                                      style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ],
+                              ],
                             ),
                           ],
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'Accept',
-                        onPressed:
-                            _busy ? null : () => _respond(match, true),
-                        icon: const Icon(LucideIcons.check,
-                            color: Colors.greenAccent),
-                      ),
-                      IconButton(
-                        tooltip: 'Decline',
-                        onPressed:
-                            _busy ? null : () => _respond(match, false),
-                        icon: const Icon(LucideIcons.x,
-                            color: Colors.redAccent),
-                      ),
+                      if (isActionable) ...[
+                        IconButton(
+                          tooltip: 'Accept',
+                          onPressed: busy ? null : () => _respond(match, true),
+                          icon: const Icon(LucideIcons.check, color: Colors.greenAccent),
+                        ),
+                        IconButton(
+                          tooltip: 'Decline',
+                          onPressed: busy ? null : () => _respond(match, false),
+                          icon: const Icon(LucideIcons.x, color: Colors.redAccent),
+                        ),
+                      ] else if (isPlayable) ...[
+                        ElevatedButton(
+                          onPressed: busy
+                              ? null
+                              : () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => BibleQuizArenaScreen(
+                                        mode: 'PvP',
+                                        questionCount: match.questionCount,
+                                        timePerQuestionSec: match.timePerQuestion,
+                                        initialPvPMatch: match,
+                                      ),
+                                    ),
+                                  );
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.greenAccent,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text('PLAY', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
+                        ),
+                      ] else if (match.status == 'completed') ...[
+                        Icon(
+                          label == 'YOU WON' ? LucideIcons.trophy : LucideIcons.flag,
+                          color: labelColor,
+                          size: 18,
+                        ),
+                      ],
                     ],
                   ),
+                ),
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Sent invites audit trail — shows what YOU sent and their lifecycle (invited → accepted → playing → completed/declined/expired).
+class _OutgoingInvitesSection extends ConsumerStatefulWidget {
+  const _OutgoingInvitesSection();
+
+  @override
+  ConsumerState<_OutgoingInvitesSection> createState() => _OutgoingInvitesSectionState();
+}
+
+class _OutgoingInvitesSectionState extends ConsumerState<_OutgoingInvitesSection> {
+  final Map<String, String> _names = {};
+
+  String _label(PvPMatch m) {
+    switch (m.status) {
+      case 'invited':
+        return 'WAITING';
+      case 'accepted':
+        return 'ACCEPTED';
+      case 'playing':
+        return 'PLAYING';
+      case 'completed':
+        final uid = Supabase.instance.client.auth.currentUser?.id;
+        if (m.winnerId == null) return 'DRAW';
+        return m.winnerId == uid ? 'WON' : 'LOST';
+      case 'declined':
+        return 'DECLINED';
+      case 'expired':
+        return 'EXPIRED';
+      default:
+        return m.status.toUpperCase();
+    }
+  }
+
+  Color _color(PvPMatch m) {
+    switch (m.status) {
+      case 'invited':
+        return Colors.amber;
+      case 'accepted':
+      case 'playing':
+        return Colors.greenAccent;
+      case 'completed':
+        final uid = Supabase.instance.client.auth.currentUser?.id;
+        if (m.winnerId == null) return Colors.white70;
+        return m.winnerId == uid ? Colors.greenAccent : Colors.redAccent;
+      case 'declined':
+      case 'expired':
+        return Colors.redAccent;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Future<String> _nameFor(String uid) async {
+    if (_names.containsKey(uid)) return _names[uid]!;
+    try {
+      final res = await Supabase.instance.client.from('profiles').select('full_name').eq('id', uid).maybeSingle();
+      final n = res?['full_name']?.toString() ?? 'Friend';
+      if (mounted) setState(() => _names[uid] = n);
+      return n;
+    } catch (_) {
+      return 'Friend';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<PvPMatch>>(
+      stream: ref.read(pvpServiceProvider).outgoingInvitesStream(),
+      builder: (context, snap) {
+        final list = snap.data ?? const <PvPMatch>[];
+        if (list.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(20)),
+                  child: Text('${list.length} SENT', style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...list.map((m) {
+              final color = _color(m);
+              final label = _label(m);
+              final isPlayable = m.status == 'accepted' || m.status == 'playing';
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(14), border: Border.all(color: color.withValues(alpha: 0.35))),
+                child: Row(
+                  children: [
+                    Icon(LucideIcons.send, color: color, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FutureBuilder<String>(
+                        future: m.player2Id != null ? _nameFor(m.player2Id!) : Future.value('Friend'),
+                        builder: (c, s) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('To ${s.data ?? _names[m.player2Id] ?? 'Friend'}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                            Row(
+                              children: [
+                                Text(m.wagerAmount > 0 ? '${m.wagerAmount} CC · ${m.questionCount}q' : 'Free · ${m.questionCount}q', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                                const SizedBox(width: 6),
+                                Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)), child: Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w900))),
+                                if (m.status == 'completed') ...[const SizedBox(width: 6), Text('${m.player1Score}-${m.player2Score}', style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold))],
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (isPlayable)
+                      ElevatedButton(
+                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => BibleQuizArenaScreen(mode: 'PvP', questionCount: m.questionCount, timePerQuestionSec: m.timePerQuestion, initialPvPMatch: m))),
+                        style: ElevatedButton.styleFrom(backgroundColor: color, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                        child: const Text('PLAY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+                      )
+                    else if (m.status == 'completed')
+                      Icon(label == 'WON' ? LucideIcons.trophy : LucideIcons.flag, color: color, size: 16),
+                  ],
                 ),
               );
             }),

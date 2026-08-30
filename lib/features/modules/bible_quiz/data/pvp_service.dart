@@ -455,7 +455,30 @@ class PvPService {
           .eq('id', matchId)
           .maybeSingle();
       if (row == null) return null;
-      return PvPMatch.fromMap(row);
+      final match = PvPMatch.fromMap(row);
+      // Notify the inviter their challenge was accepted (fire-and-forget) so
+      // they can tap straight into the arena via /quiz/invite/<id>.
+      try {
+        final myProfile = await _client
+            .from('profiles')
+            .select('full_name')
+            .eq('id', uid)
+            .maybeSingle();
+        final myName = myProfile?['full_name'] ?? 'Your friend';
+        await _client.functions.invoke('push-notifications', body: {
+          'userId': match.player1Id,
+          'title': 'Challenge Accepted!',
+          'body': '$myName accepted your quiz challenge. The arena awaits!',
+          'data': {
+            'type': 'pvp_match',
+            'reference_id': match.id,
+            'channel_id': 'coa_events',
+          },
+        });
+      } catch (e) {
+        debugPrint('[PvP] Accept notification failed: $e');
+      }
+      return match;
     } catch (e) {
       debugPrint('[PvP] acceptInvite error: $e');
       return null;
@@ -487,6 +510,7 @@ class PvPService {
   }
 
   /// Live stream of invites sent TO the current user (realtime + refresh).
+  /// Now tracks lifecycle statuses so the card updates from Invited → Accepted → Playing → Completed.
   Stream<List<PvPMatch>> incomingInvitesStream() {
     final uid = currentUserId;
     if (uid == null) return const Stream.empty();
@@ -494,16 +518,24 @@ class PvPService {
 
     Future<void> refresh() async {
       try {
+        // Keep invited + recently-accepted/playing/completed so status chip updates live.
         final res = await _client
             .from('pvp_matches')
             .select()
             .eq('player2_id', uid)
-            .eq('status', 'invited')
+            .inFilter('status', ['invited', 'accepted', 'playing', 'completed'])
             .order('created_at', ascending: false)
-            .limit(10);
+            .limit(15);
+        // For completed, keep only recent (7 days) to avoid history bloat.
         final list = (res as List)
             .cast<Map<String, dynamic>>()
             .map(PvPMatch.fromMap)
+            .where((m) {
+              if (m.status == 'completed') {
+                if (DateTime.now().difference(m.createdAt).inDays > 7) return false;
+              }
+              return true;
+            })
             .toList();
         if (!controller.isClosed) controller.add(list);
       } catch (e) {
@@ -520,6 +552,50 @@ class PvPService {
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'player2_id',
+            value: uid,
+          ),
+          callback: (_) => refresh(),
+        )
+        .subscribe();
+    refresh();
+    return controller.stream;
+  }
+
+  /// Live stream of invites sent BY the current user (for "Sent" audit trail).
+  Stream<List<PvPMatch>> outgoingInvitesStream() {
+    final uid = currentUserId;
+    if (uid == null) return const Stream.empty();
+    final controller = StreamController<List<PvPMatch>>.broadcast();
+    Future<void> refresh() async {
+      try {
+        final res = await _client
+            .from('pvp_matches')
+            .select()
+            .eq('player1_id', uid)
+            .inFilter('status', ['invited', 'accepted', 'playing', 'completed', 'declined', 'expired'])
+            .order('created_at', ascending: false)
+            .limit(10);
+        final list = (res as List).cast<Map<String, dynamic>>().map(PvPMatch.fromMap).where((m) {
+          if (m.status == 'completed' || m.status == 'declined' || m.status == 'expired') {
+            if (DateTime.now().difference(m.createdAt).inDays > 7) return false;
+          }
+          return true;
+        }).toList();
+        if (!controller.isClosed) controller.add(list);
+      } catch (e) {
+        debugPrint('[PvP] outgoing invites refresh error: $e');
+      }
+    }
+
+    _client
+        .channel('pvp_outgoing_$uid')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'pvp_matches',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'player1_id',
             value: uid,
           ),
           callback: (_) => refresh(),

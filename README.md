@@ -2,7 +2,7 @@
 
 A comprehensive church management and community platform built with Flutter, connecting congregations through digital giving, marketplace, media, events, and more.
 
-**v1.0.0+293 — 1.0.0 | Flutter 3.35.1 | 0 errors, 0 warnings | August 2026**
+**v1.0.0+296 — 1.0.0 | Flutter 3.35.1 | 0 errors, 0 warnings | August 2026**
 
 ## Features
 
@@ -17,12 +17,12 @@ A comprehensive church management and community platform built with Flutter, con
 - **Enterprise Reporting** — Church service reports (attendance, offering, visitors, salvations, online viewers, ministries participation), organization-wide service aggregation feeds bishop/apostle dashboards, month-over-month trends
 - **Events** — Service scheduling, conference management, event ticketing
 - **Logistics** — Ride & delivery requests with real-time GPS tracking, driver portal
-- **Games** — Bible Quiz arena (multiplayer) on a JBQ/WBQA-aligned competition engine: timed rounds (5s decision / 30s answer), +10/20/30 difficulty scoring with speed bonuses, 50/50 + Ask-the-Pastor (Kael AI hint) + Extra Time lifelines, anti-cheat flagging, regional/global leaderboards with 4-tier tie-breakers, free practice vs church-sponsored tournaments
+- **Games** — Bible Quiz arena (multiplayer) on a JBQ/WBQA-aligned competition engine: timed rounds (5s decision / 30s answer), +10/20/30 difficulty scoring with speed bonuses, 50/50 + Ask-a-Friend (Kael AI hint) + Extra Time lifelines, anti-cheat flagging, regional/global leaderboards with 4-tier tie-breakers, free practice vs church-sponsored tournaments. **PvP friend invites** with full lifecycle (invited → accepted → playing → completed/declined/expired via a pg_cron sweep), live status chips, a SENT audit trail, and auto-arena entry for the inviter the moment the friend accepts. When no opponent joins, **Kael AI steps in with real HF inference** (batched answer plan).
 - **Kids Zone** — Bible stories, activities, weekly progress tracker
 - **Admin Console** — Member management, finance dashboards, global broadcast, payroll (NHIMA/NAPSA/PAYE), superadmin hub, heatmaps
 - **Social Connect** — Prayer wall, testimonies, community feed with AI moderation, chat, audio/video calls
 - **Notifications** — Push notifications via Supabase Edge Functions, in-app alerts
-- **Modules** — Jobs board, business meetings, weather maps, flyer studio, Kael AI chat
+- **Modules** — Jobs board, business meetings, weather maps, flyer studio, Kael AI chat (conversation memory, auto-titled sessions, suggestion prompts, New Chat)
 
 ## Tech Stack
 

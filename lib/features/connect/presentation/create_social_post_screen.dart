@@ -9,7 +9,6 @@ import '../data/social_service.dart';
 import '../data/testimony_service.dart';
 import '../data/prayer_service.dart';
 import '../data/user_activity_service.dart';
-import '../../bible/data/bible_verse_service.dart';
 import '../../../core/providers/profile_provider.dart';
 
 class CreateSocialPostScreen extends ConsumerStatefulWidget {
@@ -23,7 +22,7 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
   final TextEditingController _controller = TextEditingController();
   bool _isPosting = false;
   List<File> _selectedImages = [];
-  String _postType = "Social"; // "Social", "Testimony", "Prayer", "Daily Verse"
+  String _postType = "Social"; // "Social", "Testimony", "Prayer" — Daily Verse is now auto from bible_books/R2
 
   Future<void> _pickImages(ImageSource source) async {
     final picker = ImagePicker();
@@ -92,17 +91,6 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
           false,
         );
         ref.invalidate(prayerStreamProvider);
-      } else if (_postType == "Daily Verse") {
-        // Parse reference on first line and text on other lines
-        final lines = _controller.text.trim().split('\n');
-        final reference = lines.first.trim();
-        final text = lines.length > 1 ? lines.sublist(1).join('\n').trim() : "Amen";
-
-        await ref.read(bibleVerseServiceProvider).postDailyVerse(
-          reference: reference,
-          text: text,
-        );
-        ref.invalidate(dailyBibleVerseProvider);
       }
       
       final activity = ref.read(userActivityServiceProvider);
@@ -138,8 +126,6 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
         return "What miracle has God done today?";
       case "Prayer":
         return "What are we interceding for?";
-      case "Daily Verse":
-        return "Enter Reference on the first line, and scripture below:\n\nJeremiah 29:11\nFor I know the thoughts that I think toward you...";
       default:
         return "What is on your mind? Share an edifying word...";
     }
@@ -149,11 +135,6 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
   Widget build(BuildContext context) {
     final profile = ref.watch(profileProvider).value;
     final types = ["Social", "Testimony", "Prayer"];
-    // Add "Daily Verse" option for church leaders, employees, or admins
-    final isLeaderOrAdmin = profile?.isAdminOrHigher == true || profile?.isLeadershipTeam == true || profile?.isEmployee == true;
-    if (isLeaderOrAdmin && !types.contains("Daily Verse")) {
-      types.add("Daily Verse");
-    }
 
     final hasDraft = _controller.text.trim().isNotEmpty || _selectedImages.isNotEmpty || _isPosting;
 

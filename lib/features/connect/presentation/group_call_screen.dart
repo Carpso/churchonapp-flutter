@@ -81,9 +81,28 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
 
   Future<void> _initLocalStream() async {
     try {
-      _localStream = await navigator.mediaDevices.getUserMedia({'audio': true, 'video': false});
+      _localStream = await navigator.mediaDevices.getUserMedia({
+        'audio': {
+          'echoCancellation': true,
+          'noiseSuppression': true,
+          'autoGainControl': true,
+          'googEchoCancellation': true,
+          'googAutoGainControl': true,
+          'googNoiseSuppression': true,
+          'googHighpassFilter': true,
+        },
+        'video': false,
+      });
+      for (final t in _localStream!.getAudioTracks()) {
+        t.enabled = true;
+      }
+      try { await Helper.setSpeakerphoneOn(_isSpeakerOn); } catch (_) {}
     } catch (e) {
       debugPrint('Failed to get local stream: $e');
+      // Fallback plain audio
+      try {
+        _localStream = await navigator.mediaDevices.getUserMedia({'audio': true, 'video': false});
+      } catch (_) {}
     }
   }
 

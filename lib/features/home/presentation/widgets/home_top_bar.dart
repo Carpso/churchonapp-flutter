@@ -41,8 +41,8 @@ child: Row(
                   const KingdomLogo(size: 32),
                    if (tenant != null) ...[
                      const SizedBox(width: 8),
-                     ConstrainedBox(
-                       constraints: const BoxConstraints(maxWidth: 130),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 115),
                        child: Text(
                          _churchDisplayName(tenant),
                          style: GoogleFonts.plusJakartaSans(
@@ -60,7 +60,7 @@ child: Row(
           ),
           const Spacer(),
           _buildWeatherChip(context),
-          const SizedBox(width: 4),
+          const SizedBox(width: 6),
           _buildNotificationBell(context),
           Semantics(
             label: "Search",
@@ -164,8 +164,8 @@ String _churchDisplayName(Tenant? tenant) {
               ),
               customBorder: const CircleBorder(),
               child: Container(
-                width: 56,
-                height: 56,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
                   color: chipBgColor,
                   shape: BoxShape.circle,

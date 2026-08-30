@@ -21,6 +21,35 @@ class PostImageCarousel extends StatefulWidget {
 class _PostImageCarouselState extends State<PostImageCarousel> {
   final PageController _pageController = PageController();
   int _page = 0;
+  final Map<int, double> _aspects = {};
+
+  @override
+  void initState() {
+    super.initState();
+    for (var i = 0; i < widget.images.length; i++) {
+      _resolveAspect(widget.images[i], i);
+    }
+  }
+
+  void _resolveAspect(String url, int index) {
+    final provider = CachedNetworkImageProvider(url);
+    final stream = provider.resolve(const ImageConfiguration());
+    late ImageStreamListener listener;
+    listener = ImageStreamListener((info, _) {
+      final w = info.image.width.toDouble();
+      final h = info.image.height.toDouble();
+      if (w > 0 && h > 0) {
+        final aspect = w / h;
+        // Clamp to reasonable feed bounds: 0.8 (tall) .. 2.2 (wide) so a single tall panorama doesn't dominate.
+        final clamped = aspect.clamp(0.8, 2.0);
+        if (mounted && _aspects[index] != clamped) {
+          setState(() => _aspects[index] = clamped);
+        }
+      }
+      stream.removeListener(listener);
+    }, onError: (_, __) => stream.removeListener(listener));
+    stream.addListener(listener);
+  }
 
   @override
   void dispose() {
@@ -44,59 +73,93 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        // 16:9 stage; contain-fit means the whole photo is visible.
-        AspectRatio(
-          aspectRatio: 16 / 9,
-          child: Container(
-            color: scheme.surfaceContainerHighest,
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: widget.images.length,
-              onPageChanged: (i) => setState(() => _page = i),
-              itemBuilder: (context, i) => GestureDetector(
-                onTap: () => _openViewer(i),
-                child: CachedNetworkImage(
-                  imageUrl: widget.images[i],
-                  fit: BoxFit.contain,
-                  memCacheWidth: 900,
-                  placeholder: (_, __) => Center(
-                    child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary),
-                  ),
-                  errorWidget: (_, __, ___) => Container(
-                    color: scheme.surfaceContainerHighest,
-                    child: Icon(Icons.broken_image,
-                        color: scheme.onSurface.withValues(alpha: 0.35)),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (widget.images.length > 1)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var i = 0; i < widget.images.length; i++)
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: i == _page ? 18 : 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: i == _page
-                          ? Theme.of(context).primaryColor
-                          : scheme.onSurface.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(99),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final pageAspect = _aspects[_page] ?? 16 / 12;
+        final isSingle = widget.images.length == 1;
+        final content = isSingle
+            ? GestureDetector(
+                onTap: () => _openViewer(0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: CachedNetworkImage(
+                    imageUrl: widget.images.first,
+                    fit: BoxFit.cover,
+                    width: constraints.maxWidth,
+                    memCacheWidth: 900,
+                    placeholder: (_, __) => AspectRatio(
+                      aspectRatio: pageAspect,
+                      child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary)),
+                    ),
+                    errorWidget: (_, __, ___) => AspectRatio(
+                      aspectRatio: pageAspect,
+                      child: Container(
+                        color: scheme.surfaceContainerHighest,
+                        child: Icon(Icons.broken_image, color: scheme.onSurface.withValues(alpha: 0.35)),
+                      ),
                     ),
                   ),
-              ],
+                ),
+              )
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: AspectRatio(
+                  aspectRatio: pageAspect,
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemCount: widget.images.length,
+                    onPageChanged: (i) => setState(() => _page = i),
+                    itemBuilder: (context, i) => GestureDetector(
+                      onTap: () => _openViewer(i),
+                      child: CachedNetworkImage(
+                        imageUrl: widget.images[i],
+                        fit: BoxFit.cover,
+                        width: constraints.maxWidth,
+                        memCacheWidth: 900,
+                        placeholder: (_, __) => Center(
+                          child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary),
+                        ),
+                        errorWidget: (_, __, ___) => Container(
+                          color: scheme.surfaceContainerHighest,
+                          child: Icon(Icons.broken_image, color: scheme.onSurface.withValues(alpha: 0.35)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+        return Column(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+              child: content,
             ),
-          ),
-      ],
+            if (widget.images.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    for (var i = 0; i < widget.images.length; i++)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: i == _page ? 18 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: i == _page
+                              ? Theme.of(context).primaryColor
+                              : scheme.onSurface.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

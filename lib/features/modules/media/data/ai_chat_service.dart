@@ -75,6 +75,37 @@ static const _fallbackResponses = [
     return _send(sessionId, content, insertUserMessage: true);
   }
 
+  /// Starts a fresh chat session (new conversation thread).
+  Future<String> newChat(String title) async {
+    return createSession(title);
+  }
+
+  /// Titles a session from its first user message when the auto-title hasn't
+  /// been set yet (professional touch: history is labelled, not "New Chat").
+  Future<void> autoTitleSession(String sessionId, String content) async {
+    try {
+      final row = await _client
+          .from('ai_chat_sessions')
+          .select('title')
+          .eq('id', sessionId)
+          .maybeSingle();
+      final current = row?['title']?.toString() ?? '';
+      final generic = {
+        'New Chat',
+        'New chat',
+        'New Spiritual Inquiry',
+        'New Conversation',
+      }.contains(current);
+      if (!generic) return;
+      final clean = content.trim().replaceAll('\n', ' ');
+      final title = clean.length > 42 ? '${clean.substring(0, 42)}…' : clean;
+      if (title.isEmpty) return;
+      await _client.from('ai_chat_sessions').update({'title': title}).eq('id', sessionId);
+    } catch (e) {
+      debugPrint('[Kael] auto-title failed: $e');
+    }
+  }
+
   /// Legacy non-streaming send — calls streaming internally and accumulates.
   Future<void> sendMessage(String sessionId, String content) async {
     await for (final _ in sendMessageStreaming(sessionId, content)) {
@@ -126,10 +157,13 @@ static const _fallbackResponses = [
         'role': 'user',
         'content': content,
       });
+      // Label the thread from its first real question (history stays tidy).
+      await autoTitleSession(sessionId, content);
     }
 
-    // Fetch last 10 messages for conversation history (error rows excluded)
-    final history = await _fetchMessageHistory(sessionId, limit: 10);
+    // Fetch last 20 messages for conversation history (error rows excluded) —
+    // gives Kael proper conversational memory.
+    final history = await _fetchMessageHistory(sessionId, limit: 20);
 
     // Fetch user context for personalized responses
     final userContext = await _fetchUserContext();
@@ -349,7 +383,7 @@ static const _fallbackResponses = [
     return cleaned;
   }
 
-  Future<List<Map<String, String>>> _fetchMessageHistory(String sessionId, {int limit = 10}) async {
+  Future<List<Map<String, String>>> _fetchMessageHistory(String sessionId, {int limit = 20}) async {
     final messages = await _client
         .from('ai_chat_messages')
         .select('role, content')

@@ -98,6 +98,24 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
   Future<void> _createPeerConnection() async {
     _peerConnection = await createPeerConnection(_iceServers);
 
+    // Handle remote audio stream - critical for hearing caller's voice
+    _peerConnection!.onTrack = (event) {
+      debugPrint('Remote track received: ${event.track.kind} - ${event.track.id}');
+      if (event.track.kind == 'audio') {
+        // Ensure audio track is enabled and routed to speaker
+        event.track.enabled = true;
+        Helper.setSpeakerphoneOn(_isSpeakerOn);
+      }
+    };
+    // Fallback for older WebRTC implementations
+    _peerConnection!.onAddStream = (stream) {
+      debugPrint('Remote stream added: ${stream.id}');
+      for (final track in stream.getAudioTracks()) {
+        track.enabled = true;
+      }
+      Helper.setSpeakerphoneOn(_isSpeakerOn);
+    };
+
     _peerConnection!.onIceCandidate = (candidate) {
       if (_currentSession != null) {
         ref.read(callServiceProvider).addCandidate(
@@ -130,10 +148,28 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
   }
 
   Future<void> _getLocalStream() async {
-    _localStream = await navigator.mediaDevices.getUserMedia({'audio': true, 'video': false});
+    _localStream = await navigator.mediaDevices.getUserMedia({
+      'audio': {
+        'echoCancellation': true,
+        'noiseSuppression': true,
+        'autoGainControl': true,
+        'googEchoCancellation': true,
+        'googAutoGainControl': true,
+        'googNoiseSuppression': true,
+        'googHighpassFilter': true,
+        'googNoiseSuppression2': true,
+        'googEchoCancellation2': true,
+      },
+      'video': false,
+    });
     for (final track in _localStream!.getAudioTracks()) {
+      track.enabled = true;
       await _peerConnection!.addTrack(track, _localStream!);
     }
+    // Route to speaker by default and ensure volume
+    try {
+      await Helper.setSpeakerphoneOn(_isSpeakerOn);
+    } catch (_) {}
   }
 
   Future<void> _initiateCall() async {

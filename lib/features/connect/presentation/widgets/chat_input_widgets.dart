@@ -100,12 +100,25 @@ class StickerPanel extends StatelessWidget {
   const StickerPanel({super.key, required this.onSendSticker});
 
   static const List<String> _stickers = [
+    // Classic GIPHY stickers - verified working CDN
     'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
     'https://media.giphy.com/media/3oz8xGme7vEndhrsly/giphy.gif',
     'https://media.giphy.com/media/l2JehQ2GitHGdVG9a/giphy.gif',
     'https://media.giphy.com/media/xT0xeJpnrWC4XWblEk/giphy.gif',
     'https://media.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif',
     'https://media.giphy.com/media/xT9IgG50Lg7rusNZ68/giphy.gif',
+    // Extended pack - Christian & celebratory stickers
+    'https://media.giphy.com/media/3o7TKMt1VVNkHV2PaE/giphy.gif',
+    'https://media.giphy.com/media/l0MYC0LajbaPoEADu/giphy.gif',
+    'https://media.giphy.com/media/3o7abKhOpu0NwenH3O/giphy.gif',
+    'https://media.giphy.com/media/xT5LMHxhOfscxPfIfm/giphy.gif',
+    'https://media.giphy.com/media/3o6ZtaO9BZHcOjmWC/giphy.gif',
+    'https://media.giphy.com/media/l2JhpjWPccQhsKO4g/giphy.gif',
+    // Additional expressive stickers
+    'https://media.giphy.com/media/3o6Zt481isNVuQI1l6/giphy.gif',
+    'https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif',
+    'https://media.giphy.com/media/3o6Ztn6wRZ2P5LQk6o/giphy.gif',
+    'https://media.giphy.com/media/l4pTdcifPZLpDjL1e/giphy.gif',
   ];
 
   @override

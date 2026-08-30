@@ -147,7 +147,25 @@ class HomeNews extends ConsumerWidget {
           children: [
             ClipRRect(
               borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
-              child: AppImage(article.image, width: 100, height: 100, fit: BoxFit.cover),
+              child: article.image.isEmpty
+                  ? Container(
+                      width: 100,
+                      height: 100,
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
+                      child: Icon(LucideIcons.newspaper, color: Theme.of(context).primaryColor, size: 28),
+                    )
+                  : AppImage(
+                      article.image,
+                      width: 100,
+                      height: 100,
+                      fit: BoxFit.cover,
+                      errorWidget: (c, _) => Container(
+                        width: 100,
+                        height: 100,
+                        color: Theme.of(c).primaryColor.withValues(alpha: 0.12),
+                        child: Icon(LucideIcons.newspaper, color: Theme.of(c).primaryColor, size: 28),
+                      ),
+                    ),
             ),
             Expanded(
               child: Padding(

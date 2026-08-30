@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/bible_quiz_service.dart';
 import '../../../bible/presentation/live_scripture_text.dart';
@@ -73,7 +74,7 @@ class BibleQuizResultsScreen extends ConsumerWidget {
               const SizedBox(height: 20),
               // Wrong questions review
               if (result.wrongQuestions.isNotEmpty)
-                _buildWrongQuestionsReview(theme),
+                _buildWrongQuestionsReview(context, theme),
               const SizedBox(height: 24),
               // Actions
               Row(
@@ -275,16 +276,19 @@ class BibleQuizResultsScreen extends ConsumerWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              Expanded(child: _matchPlayer(theme, 'YOU', null, myScore)),
+              Expanded(child: _matchPlayer(theme, 'YOU', null, myScore, isWinner: won, showCrown: won)),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text(
-                  'VS',
-                  style: TextStyle(
-                    color: theme.primaryColor,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 14,
-                  ),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: theme.primaryColor.withValues(alpha: 0.15), shape: BoxShape.circle),
+                      child: Text('VS', style: TextStyle(color: theme.primaryColor, fontWeight: FontWeight.w900, fontSize: 12)),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(won ? 'YOU WIN' : draw ? 'DRAW' : 'LOSS', style: TextStyle(color: won ? Colors.greenAccent : draw ? Colors.white70 : Colors.redAccent, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                  ],
                 ),
               ),
               Expanded(
@@ -293,6 +297,8 @@ class BibleQuizResultsScreen extends ConsumerWidget {
                   result.opponentName ?? 'Opponent',
                   result.opponentAvatar,
                   oppScore,
+                  isWinner: !won && !draw,
+                  showCrown: !won && !draw,
                 ),
               ),
             ],
@@ -314,46 +320,48 @@ class BibleQuizResultsScreen extends ConsumerWidget {
     ThemeData theme,
     String name,
     String? avatar,
-    int score,
-  ) {
+    int score, {
+    bool isWinner = false,
+    bool showCrown = false,
+  }) {
     return Column(
       children: [
-        Container(
-          width: 54,
-          height: 54,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: theme.primaryColor, width: 2),
-            image: avatar != null && avatar.isNotEmpty
-                ? DecorationImage(
-                    image: NetworkImage(avatar),
-                    fit: BoxFit.cover,
-                  )
-                : null,
-          ),
-          child: avatar == null || avatar.isEmpty
-              ? Icon(LucideIcons.user, color: Colors.white38, size: 26)
-              : null,
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: isWinner ? Colors.amber : theme.primaryColor, width: isWinner ? 3 : 2),
+                boxShadow: isWinner ? [BoxShadow(color: Colors.amber.withValues(alpha: 0.4), blurRadius: 12)] : null,
+                image: avatar != null && avatar.isNotEmpty
+                    ? DecorationImage(image: NetworkImage(avatar), fit: BoxFit.cover)
+                    : null,
+                color: avatar == null || avatar.isEmpty ? Colors.white.withValues(alpha: 0.08) : null,
+              ),
+              child: avatar == null || avatar.isEmpty ? const Icon(LucideIcons.user, color: Colors.white38, size: 28) : null,
+            ),
+            if (showCrown)
+              Positioned(
+                top: -8,
+                right: -6,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(color: Colors.amber, shape: BoxShape.circle),
+                  child: const Icon(LucideIcons.crown, color: Colors.black, size: 14),
+                ),
+              ),
+          ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          name,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        const SizedBox(height: 10),
+        Text(name, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
         const SizedBox(height: 4),
-        Text(
-          '$score pts',
-          style: TextStyle(
-            color: theme.primaryColor,
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
-          ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(color: isWinner ? Colors.amber.withValues(alpha: 0.15) : theme.primaryColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+          child: Text('$score pts', style: TextStyle(color: isWinner ? Colors.amber : theme.primaryColor, fontSize: 15, fontWeight: FontWeight.w900)),
         ),
       ],
     );
@@ -601,7 +609,7 @@ class BibleQuizResultsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildWrongQuestionsReview(ThemeData theme) {
+  Widget _buildWrongQuestionsReview(BuildContext context, ThemeData theme) {
     final wrong = result.wrongQuestions;
 
     return Container(
@@ -678,6 +686,16 @@ class BibleQuizResultsScreen extends ConsumerWidget {
                         ),
                       ),
                     ],
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () => _showKaelExplain(context, q),
+                        icon: const Icon(LucideIcons.sparkles, size: 14, color: Colors.amber),
+                        label: const Text('Ask Kael to explain', style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
+                        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -694,6 +712,88 @@ class BibleQuizResultsScreen extends ConsumerWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  void _showKaelExplain(BuildContext context, QuizQuestion q) {
+    final prompt =
+        'Explain in 2-3 warm, pastoral sentences why the correct answer for this Bible quiz question is "${q.isMultipleAnswer ? q.correctAnswers.map((a) => q.options[a]).join(", ") : q.options[q.correctAnswer]}". Question: "${q.question}" Reference: ${q.scriptureReference ?? "n/a"}. Do not just state the answer — teach the passage context briefly.';
+
+    Future<String> call() async {
+      try {
+        final res = await Supabase.instance.client.functions.invoke('kael-ai', body: {'action': 'exegesis', 'prompt': prompt});
+        final data = res.data as Map<String, dynamic>?;
+        final t = (data?['response'] ?? '').toString().trim();
+        return t.isEmpty ? 'Seek the passage in context — the Word will make it clear.' : t;
+      } catch (e) {
+        // 429 rate-limit surfaced with a friendly retry message.
+        final isRateLimit = e.toString().toLowerCase().contains('rate limit') || e.toString().contains('429');
+        return isRateLimit
+            ? '__RATE_LIMIT__'
+            : 'Kael is resting — open your Bible to ${q.scriptureReference ?? 'the quoted passage'} for the full context.';
+      }
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          late Future<String> future;
+          future = call();
+          return Container(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            decoration: const BoxDecoration(color: Color(0xFF151A2E), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)), child: const Icon(LucideIcons.sparkles, color: Colors.amber, size: 18)), const SizedBox(width: 10), const Text('Kael explains', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))]),
+                  const SizedBox(height: 16),
+                  FutureBuilder<String>(
+                    future: future,
+                    builder: (c, snap) {
+                      if (snap.connectionState == ConnectionState.waiting) {
+                        return const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2)));
+                      }
+                      final text = snap.data ?? '';
+                      if (text == '__RATE_LIMIT__') {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(children: [Icon(LucideIcons.clock, color: Colors.deepOrange, size: 16), SizedBox(width: 6), Text('Kael is helping another member right now', style: TextStyle(color: Colors.deepOrange, fontWeight: FontWeight.bold, fontSize: 14))]),
+                              const SizedBox(height: 8),
+                              const Text('Kael answers up to 10 requests per minute. Wait a few seconds and try again.', style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5)),
+                              const SizedBox(height: 10),
+                              ElevatedButton.icon(
+                                onPressed: () => setSheetState(() => future = call()),
+                                icon: const Icon(LucideIcons.refreshCw, size: 16),
+                                label: const Text('Retry'),
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      return Text(text, style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.6));
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(onPressed: () => Navigator.pop(ctx), style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('Close', style: TextStyle(fontWeight: FontWeight.bold))),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

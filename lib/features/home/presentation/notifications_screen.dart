@@ -26,9 +26,25 @@ class NotificationsScreen extends ConsumerWidget {
       case 'prayer': return LucideIcons.flame;
       case 'sermon': return LucideIcons.playCircle;
       case 'payment': return LucideIcons.checkCircle;
-      case 'event': return LucideIcons.bell;
-      case 'chat': return LucideIcons.messageCircle;
-      case 'pvp_invite': return LucideIcons.swords;
+      case 'event':
+      case 'event_reminder': return LucideIcons.calendar;
+      case 'chat':
+      case 'chat_message':
+      case 'message': return LucideIcons.messageCircle;
+      case 'pvp_invite':
+      case 'pvp_match':
+      case 'pvp_result':
+      case 'pvp_rematch':
+      case 'quiz': return LucideIcons.swords;
+      case 'post':
+      case 'social_post': return LucideIcons.rss;
+      case 'testimony': return LucideIcons.heartHandshake;
+      case 'job': return LucideIcons.briefcase;
+      case 'ride':
+      case 'transport': return LucideIcons.car;
+      case 'order':
+      case 'marketplace': return LucideIcons.shoppingBag;
+      case 'klip': return LucideIcons.video;
       default: return LucideIcons.bell;
     }
   }
@@ -39,9 +55,20 @@ class NotificationsScreen extends ConsumerWidget {
       case 'prayer': return Colors.orange;
       case 'sermon': return brand;
       case 'payment': return Colors.green;
-      case 'event': return brand.withValues(alpha: 0.75);
-      case 'chat': return brand.withValues(alpha: 0.55);
-      case 'pvp_invite': return Colors.deepPurple;
+      case 'event':
+      case 'event_reminder': return brand.withValues(alpha: 0.75);
+      case 'chat':
+      case 'chat_message':
+      case 'message': return brand.withValues(alpha: 0.55);
+      case 'pvp_invite':
+      case 'pvp_match':
+      case 'pvp_result':
+      case 'pvp_rematch':
+      case 'quiz': return Colors.deepPurple;
+      case 'post':
+      case 'social_post': return Colors.teal;
+      case 'testimony': return Colors.pink;
+      case 'job': return Colors.indigo;
       default: return Colors.grey;
     }
   }
@@ -58,11 +85,14 @@ class NotificationsScreen extends ConsumerWidget {
     return '${diff.inDays ~/ 7}w ago';
   }
 
-  void _onNotificationTap(BuildContext context, Map<String, dynamic> n) {
+  void _onNotificationTap(BuildContext context, Map<String, dynamic> n) async {
     final id = n['id']?.toString();
     if (id != null && n['is_read'] == false) {
-      Supabase.instance.client.from('notifications').update({'is_read': true}).eq('id', id);
+      try {
+        await Supabase.instance.client.from('notifications').update({'is_read': true}).eq('id', id);
+      } catch (_) {}
     }
+    if (!context.mounted) return;
     _showAlertDetailSheet(context, n);
   }
 
@@ -179,19 +209,79 @@ class NotificationsScreen extends ConsumerWidget {
     try {
       switch (type) {
         case 'chat':
-          if (id != null && id.isNotEmpty) { context.push('/chat/$id'); } else { context.go('/connect'); }
+        case 'chat_message':
+        case 'message':
+          if (id != null && id.isNotEmpty) {
+            context.push('/chat/$id');
+          } else {
+            context.go('/connect');
+          }
+          break;
         case 'post':
-          if (id != null && id.isNotEmpty) { context.push('/posts/$id'); } else { context.go('/connect'); }
-        case 'payment':
-          context.go('/wallet');
-        case 'event':
-          if (id != null && id.isNotEmpty) { context.push('/events/$id'); } else { context.go('/'); }
-        case 'sermon':
-          context.go('/sermons');
-        case 'prayer':
-          context.go('/connect');
+        case 'social_post':
+          if (id != null && id.isNotEmpty) {
+            context.push('/posts/$id');
+          } else {
+            context.go('/connect');
+          }
+          break;
         case 'pvp_invite':
-          context.go('/quiz');
+          if (id != null && id.isNotEmpty) {
+            context.push('/quiz/invite/$id');
+          } else {
+            context.go('/quiz');
+          }
+          break;
+        case 'pvp_match':
+        case 'pvp_result':
+        case 'pvp_rematch':
+        case 'quiz':
+          if (id != null && id.isNotEmpty) {
+            context.push('/quiz/invite/$id');
+          } else {
+            context.go('/quiz');
+          }
+          break;
+        case 'payment':
+        case 'wallet':
+        case 'payout':
+          context.go('/wallet');
+          break;
+        case 'event':
+        case 'event_reminder':
+          if (id != null && id.isNotEmpty) {
+            context.push('/events/$id');
+          } else {
+            context.go('/');
+          }
+          break;
+        case 'sermon':
+          if (id != null && id.isNotEmpty) {
+            context.push('/sermon/$id');
+          } else {
+            context.go('/sermons');
+          }
+          break;
+        case 'prayer':
+        case 'testimony':
+        case 'klip':
+        case 'announcement':
+          context.go('/connect');
+          break;
+        case 'job':
+          context.go('/jobs');
+          break;
+        case 'ride':
+        case 'transport':
+          context.push('/rides');
+          break;
+        case 'order':
+        case 'marketplace':
+          context.go('/marketplace');
+          break;
+        case 'role':
+          context.go('/settings');
+          break;
         default:
           context.go('/');
       }
@@ -229,8 +319,8 @@ class NotificationsScreen extends ConsumerWidget {
                 final type = n['type'] as String?;
                 final icon = _iconForType(type);
                 final color = _colorForType(context, type);
-                final title = n['title'] as String? ?? 'Notification';
-                final body = n['body'] as String? ?? '';
+                final title = (n['title'] ?? n['message'] ?? 'Notification').toString();
+                final body = (n['body'] ?? n['message'] ?? n['content'] ?? '').toString();
                 final time = _timeAgo(n['created_at'] as String?);
                 return _buildNotificationItem(context, title, body, time, icon, color, onTap: () => _onNotificationTap(context, n));
               },

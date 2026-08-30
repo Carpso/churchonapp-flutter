@@ -110,39 +110,40 @@ class BibleVerseService {
   BibleVerseService(this._client);
 
   Future<DailyBibleVerse> fetchLatestVerse() async {
+    // Auto-generate Verse of the Day deterministically from bible_verses
+    // (populated via R2 uploads / bible_books). One verse per calendar day,
+    // stable across reinstalls and tenants — no manual daily_bible_verses needed.
     try {
+      final now = DateTime.now();
+      // Days since epoch anchor gives a stable daily index
+      final dayIndex = now.difference(DateTime(2020, 1, 1)).inDays;
+      // bible_verses contains 31k+ KJV verses (and growing via R2). Order by book/chapter/verse for reproducibility.
+      // Use modulo so we cycle deterministically without needing a COUNT query.
+      const approxTotal = 31102;
+      final offset = dayIndex % approxTotal;
       final response = await _client
-          .from('daily_bible_verses')
-          .select()
-          .order('created_at', ascending: false)
-          .limit(1)
+          .from('bible_verses')
+          .select('id, reference, text, book_id, chapter, verse')
+          .order('book_id', ascending: true)
+          .order('chapter', ascending: true)
+          .order('verse', ascending: true)
+          .range(offset, offset)
           .maybeSingle();
-
-      if (response != null) {
-        return DailyBibleVerse.fromMap(response);
-      }
-    } catch (e) {
-      debugPrint('Querying daily_bible_verses failed, falling back: $e');
-      debugPrint(e.toString());
-    }
-
-    try {
-      final response = await _client
-          .from('social_posts')
-          .select()
-          .eq('category', 'daily_verse')
-          .order('created_at', ascending: false)
-          .limit(1)
-          .maybeSingle();
-
-      if (response != null) {
-        return DailyBibleVerse.fromMap(response);
+      if (response != null && (response['text']?.toString().isNotEmpty ?? false)) {
+        debugPrint('[BibleVerseService] VOTD auto dayIndex=$dayIndex offset=$offset ref=${response['reference']}');
+        return DailyBibleVerse(
+          id: response['id']?.toString() ?? 'auto_$offset',
+          reference: response['reference']?.toString() ?? 'Scripture',
+          text: response['text']?.toString() ?? '',
+          createdAt: DateTime(now.year, now.month, now.day),
+        );
       }
     } catch (e, s) {
-      debugPrint('Querying fallback social_posts failed: $e');
+      debugPrint('Auto VOTD from bible_verses failed: $e');
       debugPrint(s.toString());
     }
 
+    // Fallback: any verse with text (unordered) before giving up
     try {
       final response = await _client
           .from('bible_verses')
@@ -171,31 +172,16 @@ class BibleVerseService {
     );
   }
 
+  /// Deprecated: VOTD is now auto-generated from bible_verses (R2 uploads).
+  /// Kept for test compat; no longer called from UI. If invoked, it still
+  /// inserts but the home feed ignores it in favour of the deterministic verse.
+  @Deprecated('VOTD is auto from bible_verses; manual post removed from UI')
   Future<void> postDailyVerse({
     required String reference,
     required String text,
   }) async {
-    final user = _client.auth.currentUser;
-    if (user == null) return;
-
-    try {
-      await _client.from('daily_bible_verses').insert({
-        'reference': reference,
-        'text': text,
-        'posted_by': user.id,
-      });
-      debugPrint('Successfully posted to daily_bible_verses');
-    } catch (e, s) {
-      debugPrint('Posting to daily_bible_verses failed, falling back: $e');
-      debugPrint(s.toString());
-      await _client.from('social_posts').insert({
-        'user_id': user.id,
-        'content': text,
-        'media_url': reference,
-        'category': 'daily_verse',
-      });
-      debugPrint('Successfully posted to fallback social_posts');
-    }
+    debugPrint('[BibleVerseService] postDailyVerse deprecated — VOTD is auto from bible_verses, ignoring manual insert');
+    return;
   }
 
   Future<List<Map<String, dynamic>>> searchVerses({

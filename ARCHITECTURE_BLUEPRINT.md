@@ -1,6 +1,51 @@
 # Church On App — Enterprise Architecture Blueprint
 
-> **v1.0.0+277 | August 2026 | Flutter + Supabase + Cloudflare**
+> **v1.0.0+296 | August 2026 | Flutter + Supabase + Cloudflare**
+
+---
+
+## 1A. PvP Quiz Invite Lifecycle & Kael AI Opponent
+
+```
+Friend PvP invites (pvp_matches.status):
+  invited ──▶ accepted ──▶ playing ──▶ completed
+     │            │                     │ (winner_id, scores, ELO, wager
+     │            └── (no 'playing' is  │  settled server-side via
+     │                written today —   │  complete_pvp_match RPC)
+     │                waitForMatch      │
+     │                watches both)     │
+     ├──▶ declined  (inviter refunded)
+     └──▶ expired   (30-min sweep:
+                      expire_stale_pvp_invites auth-scoped +
+                      expire_all_stale_pvp_invites GLOBAL pg_cron
+                      job 'pvp-invite-expire' every 15 min)
+```
+
+**Key design rules:**
+- **Lifecycle statuses** are written ONLY by SECURITY DEFINER RPCs (`create_pvp_invite`, `accept_pvp_invite`, `decline_pvp_invite`, `expire_*`, `join_pvp_match`, `complete_pvp_match`) — the client never `UPDATE`s `pvp_matches`.
+- **Invite watcher**: the inviter's client subscribes to `watchMatchScores(matchId)`; on `invited → accepted/playing` it auto-pushes the inviter into the arena (fix: inviters previously never saw the game start). A `pvp_match` push notification + `/quiz/invite/<id>` deep link covers the inviter when they're outside the app.
+- **Invite visibility**: `incomingInvitesStream` / `outgoingInvitesStream` track the full lifecycle (PENDING/ACCEPTED/PLAYING/WON/LOST/DECLINED/EXPIRED chips + scores) and are driven by realtime `pvp_matches` changes filtered on `player2_id` / `player1_id`.
+- **Kael AI opponent (real inference)**: when no human joins within 25s, `_generateKaelPlan()` sends ALL questions in ONE batched `kael-ai` call (`action: quiz_answers`, strict JSON array of option indices). The arena scores Kael per question from that plan; a 65% random simulation is only the fallback if the call fails. One call per match keeps it inside the 10 req/min rate limit.
+- **Rate-limit UX**: the Ask-a-Friend lifeline and the results "Kael explains" sheet detect 429s, never consume the lifeline budget on failure, and surface a Retry action.
+- **Cron sweep**: migration `20261003` adds `expire_all_stale_pvp_invites(INT)` (SECURITY DEFINER, no auth dependency, refunds inviters + logs `pvp_wager_refund`) scheduled every 15 min via `cron.schedule('pvp-invite-expire', '*/15 * * * *', ...)`.
+
+---
+
+## 1B. Kael AI Assistant (conversational memory)
+
+```
+Flutter KaelChatScreen ── ai_chat_service.dart ──▶ supabase.functions.invoke / raw SSE
+   │  (suggested chips, New Chat, streaming,     │  POST /functions/v1/kael-ai
+   │   regenerate, typing dots)                  │  action='chat' (SSE) | 'exegesis' | ...
+   ▼                                              ▼
+ai_chat_sessions (auto-titled) + ai_chat_messages ──▶ kael-ai Edge Function
+   (history: last 20 rows fed back oldest→newest, 20-msg window)
+```
+
+- **History**: `_fetchMessageHistory(limit: 20)` builds the `messages[]` sent to the Edge Function; error rows are excluded; the system prompt now instructs Kael to use that history for continuity (refer back, no re-greeting, follow topic switches).
+- **Auto-title**: sessions start as "New Chat"; the first real user question becomes the title (42-char truncation) so history stays navigable.
+- **User context**: name, role, church, streak, level, coins are injected as `userContext` for personalised replies.
+- **Professional guardrails**: anti-cheat (never answers active quiz questions), no political/denominational claims, no sensitive PII, concise warm responses with Scripture references.
 
 ---
 

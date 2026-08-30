@@ -185,6 +185,10 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   /// When no human opponent joins, Kael AI steps in as the challenger.
   bool _kaelOpponent = false;
   final Random _random = Random();
+  // Kael's per-question answer predictions from real HF inference
+  // (one batched kael-ai call). Empty = fallback simulation.
+  List<int> _kaelPlan = [];
+  bool _askingFriend = false;
 
   // Anti-cheat: track if app was backgrounded during a question
   bool _wasBackgroundedDuringQuestion = false;
@@ -407,6 +411,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
             'avatar': '',
             'church': 'Church On App · AI Opponent',
           };
+          // Plan is generated AFTER questions load (needs the question list).
         } else if (!mounted) {
           return;
         } else {
@@ -500,6 +505,12 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
         _phase = GamePhase.countdown;
       }
     });
+
+    // Kael opponent: batch-generate his answer plan from real HF inference
+    // now that the question set is known (fire-and-forget, non-blocking).
+    if (_kaelOpponent) {
+      _generateKaelPlan();
+    }
 
     if (!_loadingError) {
       if (_phase == GamePhase.vsReveal) {
@@ -629,11 +640,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       _doubleUsed = false;
       if (_fiftyFiftyIndex == _currentIndex) _fiftyFiftyIndex = null;
       if (_kaelOpponent) {
-        final q2 = _questions[_currentIndex];
-        if (_random.nextDouble() < 0.65) {
-          _opponentScore += q2.points;
-          if (_random.nextDouble() < 0.4) _opponentScore += 5;
-        }
+        _kaelAnswerCurrent(_questions[_currentIndex]);
       }
 
       _phase = GamePhase.feedback;
@@ -714,13 +721,10 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
         _doubleUsed = false;
         if (_fiftyFiftyIndex == _currentIndex) _fiftyFiftyIndex = null;
 
-        // Kael AI opponent answers with ~65% accuracy, mimicking streaks.
+        // Kael AI opponent — real HF inference plan (helper falls back to
+        // simulation only if the pre-game call failed).
         if (_kaelOpponent) {
-          final q = _questions[_currentIndex];
-          if (_random.nextDouble() < 0.65) {
-            _opponentScore += q.points;
-            if (_random.nextDouble() < 0.4) _opponentScore += 5;
-          }
+          _kaelAnswerCurrent(_questions[_currentIndex]);
         }
 
         _phase = GamePhase.feedback;
@@ -817,42 +821,124 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     setState(() {});
   }
 
-  /// Ask-the-Pastor — consumes an engine budget and streams a Kael hint that
-  /// points at the passage WITHOUT revealing the answer (anti-cheat rule).
+  /// Ask-a-Friend — consumes an engine budget on SUCCESS and returns a
+  /// Kael-powered friendly nudge toward the passage WITHOUT revealing the
+  /// answer (anti-cheat safe). Uses the Kael `exegesis` action (JSON).
+  /// On 429 rate-limit the budget is NOT consumed and a retry snackbar shows.
   Future<void> _useAskPastor() async {
+    if (_askingFriend) return;
     final session = _engineSession;
-    if (session == null || !session.useAskPastor()) return;
-    _powerUpsUsed++;
+    if (session == null) {
+      // No engine session (tournament/legacy) — allow but track a local guard.
+    }
+    _askingFriend = true;
     setState(() {});
 
     try {
       final q = _questions[_currentIndex];
+      // Kael wiring: exegesis action returns {response: "..."} JSON (HF Llama-3.1 via Supabase Edge).
       final res = await Supabase.instance.client.functions.invoke(
         'kael-ai',
         body: {
-          'action': 'chat',
-          'messages': [
-            {
-              'role': 'user',
-              'content':
-                  'A player is on a Bible quiz question and used their Ask-the-Pastor '
-                      'lifeline. Give ONE short hint (max 2 sentences) that nudges them toward the right book/passage without stating the answer. Question: "${q.question}"',
-            }
-          ],
+          'action': 'exegesis',
+          'prompt':
+              'You are the player\'s knowledgeable Bible-study friend giving a 1-2 sentence friendly hint for a quiz lifeline. Do NOT state or reveal the answer. Nudge them toward the book or passage context only, in a warm casual tone. Question: "${q.question}" Options: ${q.options.join(" | ")}',
         },
       );
       final data = res.data as Map<String, dynamic>?;
-      final text = data?['response']?.toString() ?? '';
-      if (!mounted) return;
-      setState(() => _pastorHint = text.isEmpty
-          ? 'Seek wisdom in the Gospels, child — read the question once more.'
-          : text);
-    } catch (e) {
-      debugPrint('Ask-Pastor hint failed: $e');
-      if (mounted) {
-        setState(() => _pastorHint =
-            'The pastor is with another member — trust what you have memorised.');
+      // exegesis/summary return {response: "..."}; chat would return SSE chunks — handle both shapes defensively.
+      final raw = data?['response'] ?? data?['hint'] ?? '';
+      final text = raw.toString().trim();
+      // Guard against the Kael anti-cheat refusal still leaking through.
+      final blocked = text.toLowerCase().contains('cannot answer active quiz questions');
+      // Only consume the engine budget after a successful, useful response.
+      if (session != null && !blocked && text.isNotEmpty) {
+        session.useAskPastor();
       }
+      if (!mounted) return;
+      setState(() {
+        _powerUpsUsed++;
+        _pastorHint = (text.isEmpty || blocked)
+            ? 'Hmm… I\'d start near ${q.scriptureReference ?? 'the Gospels'} — think about the story around that book!'
+            : text;
+      });
+    } catch (e) {
+      debugPrint('Ask-Friend hint failed: $e');
+      if (!mounted) return;
+      setState(() => _askingFriend = false);
+      final err = e.toString();
+      final rateLimited = err.toLowerCase().contains('rate limit') || err.contains('429');
+      final q = _questions[_currentIndex];
+      if (rateLimited) {
+        // Kael is throttled (10 req/min) — offer a retry without burning budget.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Kael is helping another member right now (rate limit). Try again in a few seconds.'),
+            backgroundColor: Colors.deepOrange,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'RETRY',
+              textColor: Colors.white,
+              onPressed: () {
+                _askingFriend = false;
+                _useAskPastor();
+              },
+            ),
+          ),
+        );
+      } else {
+        setState(() => _pastorHint =
+            'If it were me, I\'d look around ${q.scriptureReference ?? 'the quoted passage'} — you\'re close!');
+      }
+    } finally {
+      _askingFriend = false;
+      if (mounted) setState(() {});
+    }
+  }
+
+  /// Pre-computes Kael's answers for ALL questions in one batched kael-ai
+  /// call (real HuggingFace inference, rate-limit friendly). On any failure
+  /// the legacy 65% simulation remains as fallback.
+  Future<void> _generateKaelPlan() async {
+    try {
+      final buf = StringBuffer(
+          'Answer this Bible quiz. For each question output ONLY the zero-based index (0-3) of the option you believe is correct. Respond with a single JSON array of integers, nothing else.\n');
+      for (var i = 0; i < _questions.length; i++) {
+        final q = _questions[i];
+        final opts = q.isMultipleAnswer ? q.options : q.options;
+        buf.write('\nQ$i: ${q.question}\n');
+        for (var j = 0; j < opts.length && j < 4; j++) {
+          buf.write('$j) ${opts[j]}\n');
+        }
+      }
+      final res = await Supabase.instance.client.functions.invoke(
+        'kael-ai',
+        body: {'action': 'quiz_answers', 'prompt': buf.toString()},
+      );
+      final data = res.data as Map<String, dynamic>?;
+      final raw = (data?['response'] ?? '').toString();
+      final matches = RegExp(r'-?\d+').allMatches(raw).map((m) => int.parse(m.group(0)!)).toList();
+      // Keep only plausible option indices and pad/truncate to question count.
+      final plan = matches.where((n) => n >= 0 && n <= 3).take(_questions.length).toList();
+      if (!mounted) return;
+      setState(() => _kaelPlan = plan);
+      debugPrint('[Kael] Opponent plan ready (${plan.length}/${_questions.length} questions)');
+    } catch (e) {
+      debugPrint('[Kael] Plan generation failed — using simulation: $e');
+    }
+  }
+
+  /// Scores Kael's answer for the current question using his HF-derived plan.
+  /// Callers already wrap this in setState (never nested-setState here).
+  void _kaelAnswerCurrent(QuizQuestion q) {
+    final hasPlan = _kaelPlan.length >= _questions.length;
+    final correct = hasPlan
+        ? (_kaelPlan[_currentIndex] ==
+            (q.isMultipleAnswer && q.correctAnswers.isNotEmpty ? q.correctAnswers.first : q.correctAnswer))
+        : _random.nextDouble() < 0.65; // fallback simulation
+    if (correct) {
+      _opponentScore += q.points;
+      if (_random.nextDouble() < 0.4) _opponentScore += 5;
     }
   }
 
@@ -1846,10 +1932,10 @@ try {
                 color: AppTheme.platformPrimary,
               ),
               _powerUpButton(
-                icon: LucideIcons.messageCircle,
+                icon: LucideIcons.users,
                 label: session == null
-                    ? 'Pastor'
-                    : 'Pastor (${session.askPastorRemaining})',
+                    ? 'Friend'
+                    : 'Friend (${session.askPastorRemaining})',
                 used: session != null
                     ? session.askPastorRemaining == 0
                     : false,
@@ -1980,63 +2066,102 @@ try {
             ),
             const SizedBox(height: 24),
             if (widget.mode != 'Solo') ...[
+              // Premium head-to-head: avatars + church + verified scores (wager-aware)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(8),
-                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: _opponentScore > _score
+                        ? [Colors.redAccent.withAlpha(20), Colors.redAccent.withAlpha(6)]
+                        : _opponentScore == _score
+                            ? [Colors.white.withAlpha(12), Colors.white.withAlpha(4)]
+                            : [Colors.greenAccent.withAlpha(20), Colors.greenAccent.withAlpha(6)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: _opponentScore > _score
-                        ? Colors.redAccent.withAlpha(60)
+                        ? Colors.redAccent.withAlpha(70)
                         : _opponentScore == _score
-                            ? Colors.white.withAlpha(30)
-                            : Colors.greenAccent.withAlpha(60),
+                            ? Colors.white24
+                            : Colors.greenAccent.withAlpha(70),
                   ),
                 ),
-                child: Row(
+                child: Column(
                   children: [
-                    Icon(
-                      _opponentScore > _score
-                          ? LucideIcons.swords
-                          : _opponentScore == _score
-                              ? LucideIcons.scale
-                              : LucideIcons.trophy,
-                      color: _opponentScore > _score
-                          ? Colors.redAccent
-                          : _opponentScore == _score
-                              ? Colors.white70
-                              : Colors.greenAccent,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Opponent: $_opponentScore pts',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            children: [
+                              _avatarCircle(_p1Profile?['avatar'] ?? Supabase.instance.client.auth.currentUser?.userMetadata?['avatar_url'] ?? Supabase.instance.client.auth.currentUser?.userMetadata?['picture']),
+                              const SizedBox(height: 8),
+                              Text(_p1Profile?['name'] ?? 'You', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                              if ((_p1Profile?['church'] ?? '').toString().isNotEmpty)
+                                Text(_p1Profile!['church'], maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: (_opponentScore <= _score ? Colors.greenAccent : Colors.white).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text('$_score pts', style: TextStyle(color: _opponentScore <= _score ? Colors.greenAccent : Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                        Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(color: AppTheme.platformPrimary.withValues(alpha: 0.2), shape: BoxShape.circle),
+                              child: Text('VS', style: TextStyle(color: AppTheme.platformPrimary, fontWeight: FontWeight.w900, fontSize: 12)),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _opponentScore > _score
+                                  ? 'OPPONENT WINS'
+                                  : _opponentScore == _score
+                                      ? 'DRAW'
+                                      : 'YOU WIN',
+                              style: TextStyle(color: _opponentScore > _score ? Colors.redAccent : _opponentScore == _score ? Colors.white70 : Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1),
+                            ),
+                            if (_pvpMatch != null && _pvpMatch!.wagerAmount > 0)
+                              Container(
+                                margin: const EdgeInsets.only(top: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                                child: Text('${_pvpMatch!.wagerAmount} CC wager', style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+                              ),
+                          ],
+                        ),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              _avatarCircle(_p2Profile?['avatar']),
+                              const SizedBox(height: 8),
+                              Text(_p2Profile?['name'] ?? 'Opponent', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                              if ((_p2Profile?['church'] ?? '').toString().isNotEmpty)
+                                Text(_p2Profile!['church'], maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(color: (_opponentScore > _score ? Colors.greenAccent : Colors.white).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                                child: Text('$_opponentScore pts', style: TextStyle(color: _opponentScore > _score ? Colors.greenAccent : Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      _opponentScore > _score
-                          ? 'OPPONENT WINS'
-                          : _opponentScore == _score
-                              ? 'DRAW'
-                              : 'YOU WIN',
-                      style: TextStyle(
-                        color: _opponentScore > _score
-                            ? Colors.redAccent
-                            : _opponentScore == _score
-                                ? Colors.white70
-                                : Colors.greenAccent,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1,
+                    if (_pvpMatch != null && _pvpMatch!.status == 'completed')
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text('Verified settlement • ${_pvpMatch!.status.toUpperCase()}', style: const TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 1)),
                       ),
-                    ),
                   ],
                 ),
               ),

@@ -43,8 +43,29 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
     if (groupId.isEmpty) return;
     final service = ref.read(communityServiceProvider);
     if (_isMember) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Leave "${widget.group['title'] ?? 'Group'}"?'),
+          content: const Text('Are you sure you want to leave this group? You will stop receiving messages from it.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Leave'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
       final ok = await service.leaveGroup(groupId);
-      if (ok && mounted) setState(() => _isMember = false);
+      if (ok && mounted) {
+        setState(() => _isMember = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You left the group'), backgroundColor: Colors.orange),
+        );
+      }
     } else {
       final ok = await service.joinGroup(groupId);
       if (ok && mounted) setState(() => _isMember = true);

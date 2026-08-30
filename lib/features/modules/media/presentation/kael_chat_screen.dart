@@ -13,6 +13,13 @@ class KaelChatScreen extends ConsumerStatefulWidget {
 }
 
 class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProviderStateMixin {
+  static const _suggestions = [
+    'Give me a verse for today',
+    'Explain the parable of the Good Samaritan',
+    'How do I schedule a church event?',
+    'Pray with me for strength',
+    'What is my church\'s giving dashboard?',
+  ];
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String? _sessionId;
@@ -64,7 +71,7 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
     setState(() => _isLoading = true);
     try {
       final service = ref.read(aiChatServiceProvider);
-      final id = await service.createSession("New Spiritual Inquiry");
+      final id = await service.createSession("New Chat");
       _messagesStream = service.getMessagesStream(id);
       setState(() {
         _sessionId = id;
@@ -79,6 +86,15 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     }
+  }
+
+  /// Starts a brand-new conversation thread (professional chat hygiene).
+  Future<void> _startNewChat() async {
+    _streamSubscription?.cancel();
+    _flushTimer?.cancel();
+    _pendingChunks.clear();
+    _controller.clear();
+    await _initSession();
   }
 
   void _onStreamChunk(String chunk) {
@@ -249,6 +265,13 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: "New chat",
+            icon: const Icon(LucideIcons.plus, color: Colors.white70, size: 20),
+            onPressed: _isStreaming ? null : _startNewChat,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.amber))
@@ -267,18 +290,38 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
                         );
                       }
                       if (!snapshot.hasData) {
-                        return const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(LucideIcons.bot, size: 48, color: Colors.white24),
-                              SizedBox(height: 16),
-                              Text("Ask Kael anything",
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-                              SizedBox(height: 8),
-                              Text("Your AI Bible study assistant is ready.",
-                                style: TextStyle(color: Colors.white38)),
-                            ],
+                        return Center(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(LucideIcons.bot, size: 48, color: Colors.white24),
+                                const SizedBox(height: 16),
+                                const Text("Ask Kael anything",
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                                const SizedBox(height: 8),
+                                const Text("Your AI Bible study assistant remembers this conversation.",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.white38)),
+                                const SizedBox(height: 24),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  alignment: WrapAlignment.center,
+                                  children: _suggestions.map((s) => ActionChip(
+                                    label: Text(s, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                                    backgroundColor: Colors.amber.withAlpha(25),
+                                    side: BorderSide(color: Colors.amber.withAlpha(80)),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                    onPressed: _isStreaming ? null : () {
+                                      _controller.text = s;
+                                      _sendMessage();
+                                    },
+                                  )).toList(),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       }

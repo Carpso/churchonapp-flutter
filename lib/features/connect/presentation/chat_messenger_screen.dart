@@ -48,6 +48,9 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
   Stream<List<ChatMessage>>? _cachedMessagesStream;
 
   static const Color _appBarColor = Color(0xFF1A1A1A);
+  Timer? _typingTimer;
+  bool _remoteIsTyping = false;
+  StreamSubscription<bool>? _typingSub;
 
   @override
   void initState() {
@@ -58,14 +61,29 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
       _onlineSub = _presence?.watchOnline(widget.receiverId!).listen((online) {
         if (mounted) setState(() => _online = online);
       });
+      // Listen for remote typing
+      _typingSub = ref.read(chatServiceProvider).typingStream(widget.receiverId!).listen((isTyping) {
+        if (mounted) setState(() => _remoteIsTyping = isTyping);
+      });
     }
     _messageController.addListener(() {
       final hasText = _messageController.text.trim().isNotEmpty;
       if (hasText != _isTyping) {
         setState(() => _isTyping = hasText);
       }
+      // Broadcast typing status to remote user
+      if (!widget.isGroup && widget.receiverId != null) {
+        ref.read(chatServiceProvider).setTyping(widget.receiverId!, hasText);
+        _typingTimer?.cancel();
+        if (hasText) {
+          _typingTimer = Timer(const Duration(seconds: 3), () {
+            ref.read(chatServiceProvider).setTyping(widget.receiverId!, false);
+          });
+        }
+      }
     });
     // Mark incoming messages as read so the sender sees real read receipts.
+    // Initial mark after 1s for messages received while chat was closed.
     if (!widget.isGroup && widget.receiverId != null) {
       Future.delayed(const Duration(seconds: 1), () {
         if (mounted) {
@@ -78,9 +96,15 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
   @override
   void dispose() {
     _onlineSub?.cancel();
+    _typingSub?.cancel();
+    _typingTimer?.cancel();
     _presence?.dispose();
     _messageController.dispose();
     _scrollController.dispose();
+    // Clear typing status when leaving chat
+    if (!widget.isGroup && widget.receiverId != null) {
+      ref.read(chatServiceProvider).setTyping(widget.receiverId!, false);
+    }
     super.dispose();
   }
 
@@ -327,46 +351,118 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
         : chatService.streamMessages(widget.receiverId ?? '');
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: const Color(0xFFFFF8E1), // Sunflower yellow ascent - warm, inviting church theme
       appBar: _buildAppBar(),
       resizeToAvoidBottomInset: true,
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        behavior: HitTestBehavior.translucent,
-        child: Column(
-          children: [
-            Expanded(
-              child: StreamBuilder<List<ChatMessage>>(
-                stream: messagesStream,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: Color(0xFF1A1A1A)));
-                  }
-                  final messages = snapshot.data ?? [];
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFF8E1), Color(0xFFFFECB3), Color(0xFFFFF8E1)],
+          ),
+        ),
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          behavior: HitTestBehavior.translucent,
+          child: Column(
+            children: [
+              Expanded(
+                child: StreamBuilder<List<ChatMessage>>(
+                  stream: messagesStream,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: Color(0xFFFFDA03)));
+                    }
+                    final messages = snapshot.data ?? [];
 
-                  if (messages.isEmpty) {
-                    return _buildEmptyState();
-                  }
+                    // Auto-mark unread messages from other user as read while chat is open.
+                    // Ensures sender sees double blue ticks promptly.
+                    if (messages.isNotEmpty && !widget.isGroup && widget.receiverId != null) {
+                      final hasUnreadFromOther = messages.any((m) => !m.isMe && !m.isRead);
+                      if (hasUnreadFromOther) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) ref.read(chatServiceProvider).markAsRead(widget.receiverId!);
+                        });
+                      }
+                    }
 
-                  return ListView.builder(
-                    controller: _scrollController,
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = messages[index];
-                      return _buildChatBubble(msg);
-                    },
-                  );
-                },
+                    if (messages.isEmpty) {
+                      return _buildEmptyState();
+                    }
+
+                    return ListView.builder(
+                      controller: _scrollController,
+                      reverse: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      itemCount: messages.length,
+                      itemBuilder: (context, index) {
+                        final msg = messages[index];
+                        return _buildChatBubble(msg);
+                      },
+                    );
+                  },
+                ),
               ),
+              // Typing indicator - shows when remote user is typing
+              if (_remoteIsTyping)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 30,
+                        height: 20,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildTypingDot(0),
+                            const SizedBox(width: 3),
+                            _buildTypingDot(1),
+                            const SizedBox(width: 3),
+                            _buildTypingDot(2),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${widget.userName} is typing...',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic),
+                      ),
+                    ],
+                  ),
+                ),
+            if (_showStickers) _buildStickerPanel(),
+            if (_replyingTo != null) _buildReplyPreview(),
+            _buildMessageInput(),
+          ],
+        ),
+      ),
+    ),
+    );
+  }
+
+  Widget _buildTypingDot(int index) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.3, end: 1.0),
+      duration: Duration(milliseconds: 600 + (index * 200)),
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: Colors.grey[500],
+              shape: BoxShape.circle,
             ),
-          if (_showStickers) _buildStickerPanel(),
-          if (_replyingTo != null) _buildReplyPreview(),
-          _buildMessageInput(),
-        ],
-      ),
-      ),
+          ),
+        );
+      },
+      onEnd: () {
+        if (mounted && _remoteIsTyping) setState(() {});
+      },
     );
   }
 

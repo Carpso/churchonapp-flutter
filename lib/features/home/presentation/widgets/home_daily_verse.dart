@@ -22,13 +22,19 @@ class HomeDailyVerse extends ConsumerWidget {
         final liveText = ref
             .watch(bibleReferenceTextProvider(verse.reference))
             .value;
-        final displayText =
-            (liveText != null && liveText.isNotEmpty)
-                ? liveText
-                : verse.text;
-        final displayLabel = liveText != null && liveText.isNotEmpty
-            ? getTranslationFullName(translation)
-            : null;
+        // Avoid double marking: if preferred translation yields same text as the auto KJV verse,
+        // don't add a redundant translation label (was showing "KJV (KJV)" + "NKJV" duplicate).
+        final hasLive = liveText != null &&
+            liveText.isNotEmpty &&
+            liveText.trim() != verse.text.trim() &&
+            !liveText.toLowerCase().contains('kjv');
+        final String displayText;
+        if (hasLive) {
+          displayText = liveText;
+        } else {
+          displayText = verse.text;
+        }
+        final displayLabel = hasLive ? getTranslationFullName(translation) : null;
         return Container(
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
@@ -74,7 +80,7 @@ class HomeDailyVerse extends ConsumerWidget {
                 IconButton(
                   icon: const Icon(LucideIcons.share2, color: Colors.white70, size: 18),
                   onPressed: () {
-                    Clipboard.setData(ClipboardData(text: '"${verse.text}" — ${verse.reference}'));
+                    Clipboard.setData(ClipboardData(text: '"$displayText" — ${verse.reference}'));
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: const Text("Daily verse copied to clipboard!"), backgroundColor: Theme.of(context).primaryColor, behavior: SnackBarBehavior.floating),
                     );

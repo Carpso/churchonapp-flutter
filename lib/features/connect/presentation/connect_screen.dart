@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/widgets/shimmer_loader.dart';
 import '../data/social_service.dart';
 import 'widgets/social_post_card.dart';
@@ -450,13 +451,65 @@ class CommentsSheetState extends ConsumerState<CommentsSheet> {
   Future<void> _sendComment() async {
     final text = _commentCtrl.text.trim();
     if (text.isEmpty || _sending) return;
-    setState(() => _sending = true);
+    final client = Supabase.instance.client;
+    final currentUserId = client.auth.currentUser?.id ?? 'temp';
+    final meta = client.auth.currentUser?.userMetadata;
+    // Instant optimistic — no await before showing in UI (audit: previous delay was profile fetch).
+    final fallbackName = (meta?['full_name'] ?? meta?['name'] ?? 'You').toString();
+    final fallbackAvatar = (meta?['avatar_url'] ?? meta?['picture'] ?? '').toString();
+    final optimistic = SocialComment(
+      id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      postId: widget.postId,
+      userId: currentUserId,
+      content: text,
+      createdAt: DateTime.now(),
+      userName: fallbackName,
+      userAvatar: fallbackAvatar.isEmpty ? null : fallbackAvatar,
+    );
+    setState(() {
+      _comments = [..._comments, optimistic];
+      _sending = true;
+    });
+    _commentCtrl.clear();
+    // Enrich optimistic with live profile in background without blocking.
+    client.from('profiles').select('full_name, avatar_url').eq('id', currentUserId).maybeSingle().then((prof) {
+      if (!mounted) return;
+      final liveName = prof?['full_name']?.toString().trim();
+      final liveAvatar = prof?['avatar_url']?.toString();
+      if ((liveName != null && liveName.isNotEmpty && liveName != fallbackName) ||
+          (liveAvatar != null && liveAvatar.isNotEmpty && liveAvatar != fallbackAvatar)) {
+        setState(() {
+          _comments = _comments.map((c) => c.id == optimistic.id
+              ? SocialComment(
+                  id: c.id,
+                  postId: c.postId,
+                  userId: c.userId,
+                  content: c.content,
+                  createdAt: c.createdAt,
+                  userName: (liveName != null && liveName.isNotEmpty) ? liveName : c.userName,
+                  userAvatar: (liveAvatar != null && liveAvatar.isNotEmpty) ? liveAvatar : c.userAvatar,
+                )
+              : c).toList();
+        });
+      }
+    }).catchError((_) {});
     try {
       final service = ref.read(socialServiceProvider);
       await service.addComment(widget.postId, text);
-      _commentCtrl.clear();
-      await _loadComments();
-
+      // Replace optimistic with server truth (keep it instant, don't block on refetch)
+      if (mounted) {
+        // Keep optimistic visible, background-refresh without clearing
+        service.fetchComments(widget.postId).then((fresh) {
+          if (mounted && fresh.isNotEmpty) setState(() => _comments = fresh);
+        });
+      }
+      // Nudge feed counts to sync (comments_count trigger) without full spinner
+      ref.invalidate(socialPostsProvider);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _comments = _comments.where((c) => c.id != optimistic.id).toList());
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to send: $e'), backgroundColor: Colors.red));
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }

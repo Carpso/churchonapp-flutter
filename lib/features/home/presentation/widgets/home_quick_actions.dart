@@ -16,21 +16,35 @@ class HomeQuickActions extends StatelessWidget {
       {"icon": LucideIcons.bookOpen, "label": "Sermons", "color": brand},
       {"icon": LucideIcons.calendar, "label": "Events", "color": Colors.orange},
       {"icon": LucideIcons.book, "label": "Bible", "color": Colors.green},
-      {"icon": LucideIcons.qrCode, "label": "Check-in", "color": brand.withValues(alpha: 0.8)},
-      {"icon": LucideIcons.flame, "label": "Fasting", "color": Colors.orange},
       {
         "icon": LucideIcons.helpCircle,
         "label": "Bible Quiz",
         "color": brand.withValues(alpha: 0.7),
       },
       {"icon": LucideIcons.penTool, "label": "Notebook", "color": Colors.brown},
-      {"icon": LucideIcons.graduationCap, "label": "Bible Study", "color": Colors.teal},
       {
         "icon": LucideIcons.shoppingBag,
         "label": "Marketplace",
         "color": brand.withValues(alpha: 0.45),
       },
       {"icon": LucideIcons.car, "label": "Carpso Ride", "color": brand.withValues(alpha: 0.3)},
+      {"icon": LucideIcons.qrCode, "label": "Check-in", "color": brand.withValues(alpha: 0.8)},
+      {"icon": LucideIcons.flame, "label": "Fasting", "color": Colors.deepOrange},
+      {
+        "icon": LucideIcons.layoutGrid,
+        "label": "Life",
+        "color": Colors.teal,
+      },
+      {
+        "icon": LucideIcons.heartPulse,
+        "label": "Prayer Requests",
+        "color": Colors.purple,
+      },
+      {
+        "icon": LucideIcons.heartHandshake,
+        "label": "Testimonies",
+        "color": Colors.pink,
+      },
     ];
 
     return Column(
@@ -150,8 +164,10 @@ class HomeQuickActions extends StatelessWidget {
       context.push('/quiz');
     } else if (label == "Bible") {
       context.push('/bible');
-    } else if (label == "Bible Study") {
-      context.push('/bible-study');
+    } else if (label == "Prayer Requests") {
+      context.push('/prayer-wall');
+    } else if (label == "Testimonies") {
+      context.push('/testimonies');
     } else if (label == "Check-in") {
       context.push('/ride-scanner');
     } else if (label == "Sermons") {

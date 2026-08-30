@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,6 +20,7 @@ class ChatMessage {
   final String? replyToId;
   final String? replyToText;
   final int readCount;
+  final bool isRead;
 
   ChatMessage({
     required this.id,
@@ -36,10 +38,14 @@ class ChatMessage {
     this.replyToId,
     this.replyToText,
     this.readCount = 0,
+    this.isRead = false,
   });
 
   factory ChatMessage.fromMap(Map<String, dynamic> map, String currentUserId) {
     final profile = map['profiles'] as Map<String, dynamic>?;
+    final isReadRaw = map['is_read'];
+    final readCountRaw = (map['read_count'] as num?)?.toInt() ?? 0;
+    final isRead = isReadRaw == true || isReadRaw == 1 || readCountRaw > 0;
     return ChatMessage(
       id: map['id'],
       text: map['content'] ?? '',
@@ -55,7 +61,8 @@ class ChatMessage {
       reaction: map['reaction'],
       replyToId: map['reply_to_id'],
       replyToText: map['reply_to_text'],
-      readCount: (map['read_count'] as num?)?.toInt() ?? 0,
+      readCount: readCountRaw,
+      isRead: isRead,
     );
   }
 }
@@ -249,19 +256,38 @@ class ChatService {
     }
   }
 
-  /// Mark messages as read for the current user
+  /// Mark messages as read for the current user.
+  /// Updates both is_read and read_count for backward compatibility with the
+  /// chat bubble's double-tick logic (readCount >0 or isRead true => blue ticks).
   Future<void> markAsRead(String senderId) async {
     final user = _client.auth.currentUser;
     if (user == null) return;
     try {
       await _client
           .from('messages')
-          .update({'is_read': true})
+          .update({'is_read': true, 'read_count': 1})
           .eq('sender_id', senderId)
           .eq('receiver_id', user.id)
           .eq('is_read', false);
     } catch (e) {
       debugPrint('markAsRead error: $e');
+    }
+  }
+
+  /// Mark all unread messages in the current conversation (1-1 or group) as read.
+  /// Called automatically when the chat screen is open and new messages arrive.
+  Future<void> markConversationAsRead(String otherUserId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+    try {
+      await _client
+          .from('messages')
+          .update({'is_read': true, 'read_count': 1})
+          .eq('sender_id', otherUserId)
+          .eq('receiver_id', user.id)
+          .eq('is_read', false);
+    } catch (e) {
+      debugPrint('markConversationAsRead error: $e');
     }
   }
 
@@ -297,6 +323,38 @@ class ChatService {
     } catch (_) {
       return [];
     }
+  }
+
+  // Typing indicators via Supabase Realtime broadcast.
+  // Uses a per-conversation channel: typing_<sorted_ids>
+  final Map<String, StreamController<bool>> _typingControllers = {};
+
+  Stream<bool> typingStream(String otherUserId) {
+    final currentUserId = _client.auth.currentUser?.id;
+    if (currentUserId == null) return const Stream.empty();
+    final sortedIds = [currentUserId, otherUserId]..sort();
+    final channelName = 'typing_${sortedIds[0]}_${sortedIds[1]}';
+    _typingControllers[channelName] ??= StreamController<bool>.broadcast();
+    // Subscribe to broadcast channel for remote typing
+    try {
+      final channel = _client.channel(channelName);
+      channel.onBroadcast(event: 'typing', callback: (payload) {
+        final isTyping = payload['isTyping'] == true && payload['userId'] != currentUserId;
+        _typingControllers[channelName]?.add(isTyping);
+      }).subscribe();
+    } catch (_) {}
+    return _typingControllers[channelName]!.stream;
+  }
+
+  Future<void> setTyping(String otherUserId, bool isTyping) async {
+    final currentUserId = _client.auth.currentUser?.id;
+    if (currentUserId == null) return;
+    final sortedIds = [currentUserId, otherUserId]..sort();
+    final channelName = 'typing_${sortedIds[0]}_${sortedIds[1]}';
+    try {
+      final channel = _client.channel(channelName);
+      await channel.sendBroadcastMessage(event: 'typing', payload: {'userId': currentUserId, 'isTyping': isTyping});
+    } catch (_) {}
   }
 
   Future<void> _notifyMessage(String receiverId, String content) async {

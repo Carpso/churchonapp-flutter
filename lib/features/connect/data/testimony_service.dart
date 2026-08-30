@@ -54,19 +54,62 @@ class TestimonyService {
         .from('testimonies')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
-        .map((data) => data.map((map) => Testimony.fromMap(map)).toList());
+        .asyncMap((data) async {
+          // Enrich with live profile avatar when snapshot missing — profile
+          // photo first, then email/Google photo fallback (matches prayer wall).
+          final userIds = data.map((m) => m['user_id']?.toString()).whereType<String>().toSet().toList();
+          Map<String, Map<String, dynamic>> profiles = {};
+          if (userIds.isNotEmpty) {
+            try {
+              final res = await _client.from('profiles').select('id, full_name, avatar_url').inFilter('id', userIds);
+              for (final row in (res as List)) {
+                profiles[row['id']?.toString() ?? ''] = Map<String, dynamic>.from(row);
+              }
+            } catch (_) {}
+          }
+          return data.map((map) {
+            final enriched = Map<String, dynamic>.from(map);
+            final prof = profiles[map['user_id']?.toString() ?? ''];
+            if ((enriched['user_photo'] == null || (enriched['user_photo'] as String).isEmpty) && prof != null) {
+              final pa = prof['avatar_url']?.toString();
+              if (pa != null && pa.isNotEmpty) enriched['user_photo'] = pa;
+            }
+            if ((enriched['user_name'] == null || (enriched['user_name'] as String).isEmpty || enriched['user_name'] == 'Believer') &&
+                prof != null) {
+              final pn = prof['full_name']?.toString().trim();
+              if (pn != null && pn.isNotEmpty) enriched['user_name'] = pn;
+            }
+            return Testimony.fromMap(enriched);
+          }).toList();
+        });
   }
 
   Future<void> submitTestimony(String content, String? imageUrl) async {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
+    // Profile photo first, then email/Google photo (avatar_url → picture).
+    String resolvedName;
+    String? resolvedAvatar;
+    try {
+      final prof = await _client.from('profiles').select('full_name, avatar_url').eq('id', user.id).maybeSingle();
+      resolvedName = prof?['full_name']?.toString().trim() ?? '';
+      final pa = prof?['avatar_url']?.toString().trim();
+      if (pa != null && pa.isNotEmpty) resolvedAvatar = pa;
+    } catch (_) {
+      resolvedName = '';
+    }
+    if (resolvedName.isEmpty) {
+      resolvedName = (user.userMetadata?['full_name'] ?? user.userMetadata?['name'] ?? 'Believer').toString();
+    }
+    resolvedAvatar ??= (user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'] ?? user.userMetadata?['avatar'])?.toString();
+
     try {
       // 1. Try to insert using new columns
       await _client.from('testimonies').insert({
         'user_id': user.id,
-        'user_name': user.userMetadata?['full_name'] ?? 'Believer',
-        'user_photo': user.userMetadata?['avatar_url'],
+        'user_name': resolvedName,
+        'user_photo': resolvedAvatar,
         'content': content,
         'image_url': imageUrl,
         'praise_count': 0,
@@ -77,7 +120,7 @@ class TestimonyService {
       // 2. Fallback: try to insert using baseline columns
       await _client.from('testimonies').insert({
         'user_id': user.id,
-        'user_name': user.userMetadata?['full_name'] ?? 'Believer',
+        'user_name': resolvedName,
         'content': content,
         'category': 'General',
         'likes': 0,

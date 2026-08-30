@@ -63,23 +63,25 @@ class ChatBubble extends StatelessWidget {
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 2),
                   decoration: BoxDecoration(
-                    color: isMe ? _myBubble : _theirBubble,
+                    color: msg.mediaType == 'sticker' ? Colors.transparent : (isMe ? _myBubble : _theirBubble),
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(16),
                       topRight: const Radius.circular(16),
                       bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
                       bottomRight: isMe ? Radius.zero : const Radius.circular(16),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    boxShadow: msg.mediaType == 'sticker'
+                        ? []
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.06),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+                    padding: EdgeInsets.fromLTRB(10, 8, 10, msg.mediaType == 'sticker' ? 0 : 6),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -201,11 +203,9 @@ class ChatBubble extends StatelessWidget {
                             if (isMe) ...[
                               const SizedBox(width: 4),
                               Icon(
-                                msg.readCount > 0
-                                    ? LucideIcons.checkCheck
-                                    : LucideIcons.check,
+                                LucideIcons.checkCheck,
                                 size: 14,
-                                color: msg.readCount > 0
+                                color: msg.isRead || msg.readCount > 0
                                     ? const Color(0xFF34B7F1)
                                     : Colors.grey,
                               ),
