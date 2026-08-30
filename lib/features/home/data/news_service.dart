@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -87,11 +88,21 @@ class NewsService {
   }
 
   Stream<List<NewsArticle>> streamNews() {
+    // NOTE: no `.order()` on the realtime stream — server-side ordering on
+    // realtime channels caused refresh loops + a blank/white home section
+    // (same root cause as chat/social). Sort + cap client-side instead.
     return _client
         .from('kingdom_news')
         .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
-        .map((data) => data.map((map) => NewsArticle.fromSupabase(map)).toList());
+        .limit(10)
+        .map((data) {
+      final list = data.map((map) => NewsArticle.fromSupabase(map)).toList()
+        ..sort((a, b) => b.pubDate.compareTo(a.pubDate));
+      return list.take(10).toList();
+    }).handleError((error, stack) {
+      debugPrint('news_stream error (non-fatal): $error');
+      return <NewsArticle>[];
+    });
   }
 
   Future<void> publishArticle({

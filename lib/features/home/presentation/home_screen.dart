@@ -718,10 +718,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             builder: (context, ref, _) {
                               final kingdomAsync = ref.watch(newsStreamProvider);
                               final publicAsync = ref.watch(publicNewsProvider);
-                              final hasKingdom = kingdomAsync.value != null && kingdomAsync.value!.isNotEmpty;
-                              final hasPublic = publicAsync.value != null && publicAsync.value!.isNotEmpty;
-                              final isLoading = kingdomAsync.isLoading || publicAsync.isLoading;
-                              final showNews = hasKingdom || hasPublic || isLoading;
+                              final kingdomOk = kingdomAsync.value != null && kingdomAsync.value!.isNotEmpty;
+                              final publicOk = publicAsync.value != null && publicAsync.value!.isNotEmpty;
+                              // Only keep the section alive while we actually have
+                              // content or are briefly loading; a stuck/errored
+                              // realtime stream must never leave a blank region.
+                              final publicLoading = publicAsync.isLoading && publicAsync.hasValue == false;
+                              final showNews = kingdomOk || publicOk || publicLoading;
                               if (!showNews) return const SizedBox.shrink();
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,

@@ -127,6 +127,10 @@ class HomeNews extends ConsumerWidget {
   }
 
   Widget _buildNewsCard(BuildContext context, NewsArticle article) {
+    // Null-safe guards — a malformed feed row must never blank the list.
+    final title = (article.title.isEmpty ? 'Untitled' : article.title);
+    final source = (article.source.isEmpty ? 'Church News' : article.source).toUpperCase();
+    final pubDate = article.pubDate;
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       decoration: BoxDecoration(
@@ -174,7 +178,7 @@ class HomeNews extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      article.source.toUpperCase(),
+                      source,
                       style: TextStyle(
                         color: Theme.of(context).primaryColor,
                         fontSize: 11,
@@ -183,10 +187,10 @@ class HomeNews extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(article.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 4),
                     Text(
-                      article.pubDate,
+                      pubDate,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                         fontSize: 11,
