@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/admin/data/church_payout_service.dart';
 
 /// Church Auto-Payout dashboard (superadmin / COA employee).
@@ -85,6 +86,30 @@ class _ChurchPayoutScreenState extends ConsumerState<ChurchPayoutScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Internal role guard — only COA staff may view auto-payout oversight
+    // (balances are service-derived; direct navigation is now blocked too).
+    final profile = ref.watch(profileProvider).value;
+    final allowed = profile != null &&
+        ['superadmin', 'coa_employee', 'employee'].contains(profile.role);
+    if (!allowed) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Church Auto-Payout'),
+          backgroundColor: const Color(0xFF1E293B),
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(LucideIcons.shieldOff, size: 48, color: Colors.grey),
+              SizedBox(height: 12),
+              Text('Access restricted to COA staff.', style: TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(

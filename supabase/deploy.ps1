@@ -261,6 +261,7 @@ $migrations = @(
     "20261001_pvp_invite_status_check.sql"
     "20261002_churches_anon_select.sql"
     "20261003_pvp_invite_cron_sweep.sql"
+    "20261004_leadership_memos.sql"
     )
 
 foreach ($m in $migrations) {

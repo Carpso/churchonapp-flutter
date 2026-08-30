@@ -100,7 +100,13 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
           setState(() {
             _orgId = orgId;
             _branchCount = (stats['branches'] as num?)?.toInt() ?? 0;
-            _totalAttendance = (stats['members'] as num?)?.toInt() ?? 0;
+            // Real network attendance = sum of per-branch MTD attendance
+            // snapshots (previously fell back to `stats['members']`).
+            final attSum = snapshotsRes.fold<int>(
+              0,
+              (sum, s) => sum + ((s['attendance_mtd'] as num?)?.toInt() ?? 0),
+            );
+            _totalAttendance = attSum > 0 ? attSum : (stats['attendance_mtd'] as num?)?.toInt() ?? 0;
             _totalTithes = (stats['monthly_giving'] as num?)?.toDouble() ?? 0;
             _totalMembers = (stats['members'] as num?)?.toInt() ?? 0;
             _branches = List<Map<String, dynamic>>.from(branchesRes as List);
@@ -395,8 +401,12 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                         trailing: const Icon(LucideIcons.chevronRight, size: 16),
                         onTap: () {
                           Navigator.pop(context);
-                          // Reuse the branch overview sheet (members, giving, attendance) for presbytery children
-                          _showBranchDrilldown(b.name, null);
+                          // Real drilldown: presbytery children carry a tenant,
+                          // so pull their branch snapshot (previously null → zeros).
+                          final snap = b.tenantId != null
+                              ? _snapshots.where((s) => s['church_id']?.toString() == b.tenantId).firstOrNull
+                              : null;
+                          _showBranchDrilldown(b.name, snap);
                         },
                       );
                     },
@@ -589,7 +599,7 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) => _LinkChurchSheet(orgId: orgId, onLinked: () {
+      builder: (sheetContext) => LinkChurchSheet(orgId: orgId, onLinked: () {
         Navigator.pop(sheetContext);
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Church linked to the network")));
         _loadDashboard();
@@ -703,17 +713,17 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
   String _formatCompact(int n) => n >= 1000 ? '${(n / 1000).toStringAsFixed(1)}k' : n.toString();
 }
 
-class _LinkChurchSheet extends StatefulWidget {
+class LinkChurchSheet extends StatefulWidget {
   final String orgId;
   final VoidCallback onLinked;
 
-  const _LinkChurchSheet({required this.orgId, required this.onLinked});
+  const LinkChurchSheet({super.key, required this.orgId, required this.onLinked});
 
   @override
-  State<_LinkChurchSheet> createState() => _LinkChurchSheetState();
+  State<LinkChurchSheet> createState() => LinkChurchSheetState();
 }
 
-class _LinkChurchSheetState extends State<_LinkChurchSheet> {
+class LinkChurchSheetState extends State<LinkChurchSheet> {
   final TextEditingController _searchCtrl = TextEditingController();
   List<Map<String, dynamic>> _churches = [];
   bool _loading = true;

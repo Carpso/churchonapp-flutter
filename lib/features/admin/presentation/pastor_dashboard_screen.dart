@@ -38,6 +38,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
   int _memberCount = 0;
   int _sermonCount = 0;
   int _attendanceCount = 0;
+  int _avgAttendance = 0;
   int _lastMonthAttendance = 0;
   double _givingTotal = 0.0;
   double _lastMonthGiving = 0.0;
@@ -49,6 +50,10 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
   List<Map<String, dynamic>> _upcomingEvents = [];
   List<Map<String, dynamic>> _givingSeries = [];
   List<Map<String, dynamic>> _recentGivers = [];
+  Map<String, dynamic>? _latestServiceReport;
+  int _visitorsMtd = 0;
+  int _salvationsMtd = 0;
+  int _followUpsDue = 0;
 
   @override
   void initState() {
@@ -118,15 +123,35 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           .select('id, created_at')
           .eq('tenant_id', tenantId);
 
-      final sermonRes = await client
-          .from('klips')
-          .select('id')
-          .eq('tenant_id', tenantId)
-          .gte('created_at', firstOfMonth.toIso8601String());
+      // "Sermons This Month" — real `sermons` table (NOT klips short-videos).
+      int sermonCount = 0;
+      try {
+        final sermonsRes = await client
+            .from('sermons')
+            .select('id, created_at')
+            .eq('tenant_id', tenantId);
+        sermonCount = (sermonsRes as List)
+            .where((s) {
+              final c = s['created_at']?.toString();
+              final dt = c != null ? DateTime.tryParse(c) : null;
+              return dt != null && !dt.isBefore(firstOfMonth);
+            })
+            .length;
+      } catch (e) {
+        debugPrint("sermons count failed (fallback klips): $e");
+        try {
+          final sermonRes = await client
+              .from('klips')
+              .select('id')
+              .eq('tenant_id', tenantId)
+              .gte('created_at', firstOfMonth.toIso8601String());
+          sermonCount = (sermonRes as List).length;
+        } catch (_) {}
+      }
 
       final attThisMonth = await client
           .from('attendance_logs')
-          .select('id')
+          .select('id, created_at')
           .eq('tenant_id', tenantId)
           .gte('created_at', firstOfMonth.toIso8601String());
 
@@ -199,11 +224,59 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
         debugPrint("pastor giving series failed: $e");
       }
 
+      // Average attendance: total check-ins ÷ distinct service-days this month.
+      int avgAttendance = 0;
+      try {
+        final rows = attThisMonth as List;
+        final dates = rows
+            .map((a) {
+              final c = a['created_at']?.toString() ?? '';
+              return c.length >= 10 ? c.substring(0, 10) : c;
+            })
+            .where((d) => d.isNotEmpty)
+            .toSet();
+        if (dates.isNotEmpty) avgAttendance = (rows.length / dates.length).round();
+      } catch (_) {}
+
+      // Latest service report snapshot + MTD visitors/salvations + follow-ups.
+      Map<String, dynamic>? latestReport;
+      int visitorsMtd = 0, salvationsMtd = 0, followUps = 0;
+      try {
+        final report = await client
+            .from('service_reports')
+            .select('id, service_date, attendance, offering, visitors, salvations, title')
+            .eq('tenant_id', tenantId)
+            .order('service_date', ascending: false)
+            .limit(1)
+            .maybeSingle();
+        latestReport = report != null ? Map<String, dynamic>.from(report) : null;
+        final svcMonth = await client
+            .from('service_reports')
+            .select('visitors, salvations')
+            .eq('tenant_id', tenantId)
+            .gte('service_date', firstOfMonth.toIso8601String());
+        for (final r in (svcMonth as List)) {
+          visitorsMtd += (r['visitors'] as num?)?.toInt() ?? 0;
+          salvationsMtd += (r['salvations'] as num?)?.toInt() ?? 0;
+        }
+      } catch (e) {
+        debugPrint('service report fetch failed: $e');
+      }
+      try {
+        final fu = await client
+            .from('pastoral_followups')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('status', 'pending');
+        followUps = (fu as List).length;
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           _memberCount = (memberRes as List).length;
-          _sermonCount = (sermonRes as List).length;
+          _sermonCount = sermonCount;
           _attendanceCount = (attThisMonth as List).length;
+          _avgAttendance = avgAttendance;
           _lastMonthAttendance = (attLastMonth as List).length;
           _givingTotal = totalGiving;
           _totalTithes = tithes;
@@ -214,6 +287,10 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           _upcomingEvents = List<Map<String, dynamic>>.from(eventsRes);
           _givingSeries = givingSeries;
           _recentGivers = recentGivers;
+          _latestServiceReport = latestReport;
+          _visitorsMtd = visitorsMtd;
+          _salvationsMtd = salvationsMtd;
+          _followUpsDue = followUps;
           _isLoading = false;
           _error = null;
         });
@@ -300,6 +377,8 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
             const SizedBox(height: 25),
             _buildGivingTrend(theme),
             const SizedBox(height: 25),
+            _buildEngagementRow(theme),
+            const SizedBox(height: 25),
             if (_recentGivers.isNotEmpty) ...[
               _buildRecentGivers(theme),
               const SizedBox(height: 35),
@@ -309,9 +388,13 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
               totalOfferings: _totalOfferings,
               totalPledges: _givingTotal - _totalTithes - _totalOfferings,
               activeMembersCount: _memberCount,
-              averageAttendance: _attendanceCount,
+              averageAttendance: _avgAttendance,
             ),
             const SizedBox(height: 35),
+            if (_latestServiceReport != null) ...[
+              _buildLatestServiceReport(theme),
+              const SizedBox(height: 35),
+            ],
             Text("Recent Members", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
             const SizedBox(height: 15),
             _buildRecentMembers(theme),
@@ -596,6 +679,101 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
               fontSize: 11,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEngagementRow(ThemeData theme) {
+    return Row(
+      children: [
+        _engagementCard(theme, LucideIcons.userPlus, "$_visitorsMtd", "Visitors MTD", Colors.teal),
+        const SizedBox(width: 12),
+        _engagementCard(theme, LucideIcons.heartPulse, "$_salvationsMtd", "Salvations MTD", Colors.green),
+        const SizedBox(width: 12),
+        _engagementCard(theme, LucideIcons.clipboardList, "$_followUpsDue", "Follow-ups", Colors.orange),
+      ],
+    );
+  }
+
+  Widget _engagementCard(ThemeData theme, IconData icon, String value, String label, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 3))],
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(height: 8),
+            Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: theme.colorScheme.onSurface)),
+            Text(label, textAlign: TextAlign.center, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.55), fontSize: 10)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLatestServiceReport(ThemeData theme) {
+    final report = _latestServiceReport;
+    if (report == null) return const SizedBox.shrink();
+    final dateStr = report['service_date']?.toString();
+    final date = dateStr != null ? DateTime.tryParse(dateStr) : null;
+    final title = report['title']?.toString() ?? 'Latest Service';
+    final attendance = (report['attendance'] as num?)?.toInt() ?? 0;
+    final offering = (report['offering'] as num?)?.toDouble() ?? 0;
+    final visitors = (report['visitors'] as num?)?.toInt() ?? 0;
+    final salvations = (report['salvations'] as num?)?.toInt() ?? 0;
+
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ServiceReportScreen())),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [theme.primaryColor.withValues(alpha: 0.12), theme.primaryColor.withValues(alpha: 0.04)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: theme.primaryColor.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: theme.primaryColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)), child: Icon(LucideIcons.fileText, color: theme.primaryColor, size: 16)),
+                const SizedBox(width: 10),
+                Expanded(child: Text("Latest Service Report", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: theme.colorScheme.onSurface))),
+                if (date != null) Text(DateFormat('MMM d').format(date), style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(title, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: theme.colorScheme.onSurface)),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                _reportStat(theme, "$attendance", "Attended", LucideIcons.calendarCheck, Colors.green),
+                _reportStat(theme, NumberFormat.compactCurrency(symbol: 'K ').format(offering), "Offering", LucideIcons.church, theme.primaryColor),
+                _reportStat(theme, "$visitors", "Visitors", LucideIcons.userPlus, Colors.teal),
+                _reportStat(theme, "$salvations", "Saved", LucideIcons.heartPulse, Colors.red),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _reportStat(ThemeData theme, String value, String label, IconData icon, Color color) {
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(height: 4),
+          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: theme.colorScheme.onSurface), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(label, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 9)),
         ],
       ),
     );

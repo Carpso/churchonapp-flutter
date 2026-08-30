@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.0.0+296 — 2026-08-30 (Dashboards)
+
+### Pastor Dashboard (professionalised)
+- **Real "Sermons This Month"** — counts the `sermons` table (was `klips` short-videos); guarded fallback
+- **Real average attendance** — total check-ins ÷ distinct service-days (was MTD raw count)
+- **Engagement snapshot** — Visitors MTD, Salvations MTD, Follow-ups due (from `service_reports` + `pastoral_followups`)
+- **Latest Service Report card** — attendance/offering/visitors/salvations of the newest report, tap → Service Reports
+
+### Bishop / Apostle / Admin dashboards (professionalised)
+- **Bishop Dashboard network attendance fixed** — sum of per-branch `attendance_mtd` snapshots (was wrongly `stats['members']`)
+- **Presbytery drilldown fixed** — presbytery children now resolve their real branch snapshot (was null → zeroed stats)
+- **Apostle Dashboard "Active Missions" fixed** — real `missions` (org RPC / table) instead of cargo `deliveries`
+- **Leadership memos (real)** — new `leadership_memos` table (migration `20261004`, RLS org-scoped, bishop-authored), Bishop Hub streams them + **New Memo** composer (replaces hardcoded static row)
+- **Link New Branch works** — Bishop Hub reuses the functional `LinkChurchSheet` (was a dead instructions dialog)
+- **Admin Hub stat grid de-hardcoded** — removed fake 4,250 members / +12.5% growth / 1,205 live viewers; now real member counts + member-growth % + live-stream count
+- **Church Auto-Payout screen role-guarded** — internal superadmin/coa_employee gate (was reachable by direct navigation)
+
+---
+
 ## v1.0.0+296 — 2026-08-30
 
 ### New

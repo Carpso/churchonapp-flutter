@@ -8,9 +8,30 @@ import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
 import 'package:church_on_app/features/admin/presentation/bishop_heatmap_screen.dart';
 import 'package:church_on_app/features/admin/presentation/finance_dashboard_screen.dart';
+import 'package:church_on_app/features/admin/presentation/bishop_dashboard_screen.dart' show LinkChurchSheet;
 import 'package:church_on_app/features/admin/data/organization_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
+
+/// Real org-scoped leadership memos (replaces the old hardcoded row).
+final leadershipMemosProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final uid = Supabase.instance.client.auth.currentUser?.id;
+  if (uid == null) return const [];
+  final profile = ref.watch(profileProvider).value;
+  final orgId = profile?.organizationId;
+  var query = Supabase.instance.client
+      .from('leadership_memos')
+      .select('id, title, body, author_name, created_at');
+  if (orgId != null && orgId.isNotEmpty) {
+    query = query.eq('org_id', orgId);
+  } else {
+    query = query.isFilter('org_id', null);
+  }
+  final res = await query.order('created_at', ascending: false).limit(30);
+  return List<Map<String, dynamic>>.from(res);
+});
 
 class BishopHubScreen extends ConsumerWidget {
   const BishopHubScreen({super.key});
@@ -99,7 +120,7 @@ class BishopHubScreen extends ConsumerWidget {
             child: Text("Secure Leadership Memos", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ),
         ),
-        _buildPrivateMemoList(ref),
+        _buildPrivateMemoList(context, ref),
         const SliverPadding(
           padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           sliver: SliverToBoxAdapter(
@@ -268,37 +289,172 @@ class BishopHubScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPrivateMemoList(WidgetRef ref) {
+  Widget _buildPrivateMemoList(BuildContext context, WidgetRef ref) {
+    final memosAsync = ref.watch(leadershipMemosProvider);
     return SliverPadding(
       padding: const EdgeInsets.all(20),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) => Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.amber.withValues(alpha: 0.1)),
-            ),
-            child: const Row(
+      sliver: SliverToBoxAdapter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Icon(LucideIcons.lock, color: Colors.amber, size: 16),
-                SizedBox(width: 15),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("CONFIDENTIAL: New Mission Directive", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      Text("Bishop's office has released the Q3 strategy memo. Please review.", style: TextStyle(color: Colors.grey, fontSize: 11)),
-                    ],
+                const Expanded(
+                  child: Text(
+                    "Secure Leadership Memos",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => _showNewMemoDialog(context, ref),
+                  icon: const Icon(LucideIcons.plus, size: 16),
+                  label: const Text("New Memo"),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF7A5C00),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                   ),
                 ),
               ],
             ),
-          ),
-          childCount: 1,
+            const SizedBox(height: 10),
+            memosAsync.when(
+              data: (memos) {
+                if (memos.isEmpty) {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.amber.withValues(alpha: 0.1)),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(LucideIcons.lock, color: Colors.amber, size: 16),
+                        SizedBox(height: 8),
+                        Text(
+                          "No memos yet",
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        Text(
+                          "Publish a secure notice for your leadership team.",
+                          style: TextStyle(color: Colors.grey, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return Column(
+                  children: memos.map((memo) {
+                    final title = memo['title']?.toString() ?? 'Memo';
+                    final body = memo['body']?.toString() ?? '';
+                    final author = memo['author_name']?.toString() ?? 'Leadership';
+                    final created = memo['created_at']?.toString();
+                    final date = created != null ? DateTime.tryParse(created) : null;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.amber.withValues(alpha: 0.1)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(LucideIcons.lock, color: Colors.amber, size: 16),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                              ),
+                              if (date != null)
+                                Text(
+                                  DateFormat('MMM d').format(date),
+                                  style: const TextStyle(color: Colors.grey, fontSize: 10),
+                                ),
+                            ],
+                          ),
+                          if (body.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(body, style: const TextStyle(color: Colors.grey, fontSize: 11, height: 1.4)),
+                          ],
+                          const SizedBox(height: 6),
+                          Text('— $author', style: const TextStyle(color: Colors.grey, fontSize: 10, fontStyle: FontStyle.italic)),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: ShimmerLoader.rectangular(height: 70),
+              ),
+              error: (e, st) => Text(
+                "Failed to load memos: $e",
+                style: const TextStyle(color: Colors.grey, fontSize: 11),
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _showNewMemoDialog(BuildContext context, WidgetRef ref) async {
+    final titleCtrl = TextEditingController();
+    final bodyCtrl = TextEditingController();
+    final profile = ref.read(profileProvider).value;
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("New Leadership Memo"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleCtrl,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: "Title", hintText: "e.g. Q3 Mission Directive", border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: bodyCtrl,
+              maxLines: 4,
+              decoration: const InputDecoration(labelText: "Message", border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () async {
+              final title = titleCtrl.text.trim();
+              if (title.isEmpty) return;
+              Navigator.pop(ctx);
+              try {
+                await Supabase.instance.client.from('leadership_memos').insert({
+                  'org_id': profile?.organizationId,
+                  'author_id': profile?.id,
+                  'author_name': profile?.name,
+                  'title': title,
+                  'body': bodyCtrl.text.trim(),
+                });
+                ref.invalidate(leadershipMemosProvider);
+              } catch (e) {
+                debugPrint('Memo publish failed: $e');
+              }
+            },
+            child: const Text("Publish"),
+          ),
+        ],
       ),
     );
   }
@@ -356,21 +512,26 @@ class BishopHubScreen extends ConsumerWidget {
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: () {
-                showDialog(
+                final orgId = profile.organizationId;
+                if (orgId == null || orgId.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("No organization assigned. Create one first from the Bishop Dashboard.")),
+                  );
+                  return;
+                }
+                showModalBottomSheet(
                   context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text("Link New Branch"),
-                    content: const Text(
-                      "To link a new branch, please contact the central administration office with the following details:\n\n"
-                      "• Branch Name\n"
-                      "• Pastor/Leader Name\n"
-                      "• Location\n"
-                      "• Organization ID\n\n"
-                      "An invitation token will be generated and sent to the branch leader's email.",
-                    ),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CLOSE")),
-                    ],
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (sheetContext) => LinkChurchSheet(
+                    orgId: orgId,
+                    onLinked: () {
+                      Navigator.pop(sheetContext);
+                      ref.invalidate(bishopLinkedChurchesProvider(orgId));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Branch linked to the network")),
+                      );
+                    },
                   ),
                 );
               },

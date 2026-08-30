@@ -62,14 +62,26 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
         _memberCounts = {};
       }
 
-      // Real active cargo missions (bounded).
-      final deliveriesRes = await client
-          .from('deliveries')
-          .select('id, pickup_address, delivery_address, status, created_at')
-          .or('status.eq.pending,status.eq.assigned,status.eq.picked_up,status.eq.in_transit')
-          .order('created_at', ascending: false)
-          .limit(20);
-      _activeDeliveries = List<Map<String, dynamic>>.from(deliveriesRes);
+      // Real active church missions (bounded) — not cargo deliveries.
+      if (orgId != null && orgId.isNotEmpty) {
+        try {
+          _activeDeliveries = await ref.read(organizationServiceProvider).getOrganizationMissions(orgId);
+        } catch (_) {
+          _activeDeliveries = [];
+        }
+      } else {
+        try {
+          final missionsRes = await client
+              .from('missions')
+              .select('id, title, status, created_at')
+              .inFilter('status', ['active', 'planned'])
+              .order('created_at', ascending: false)
+              .limit(20);
+          _activeDeliveries = List<Map<String, dynamic>>.from(missionsRes);
+        } catch (_) {
+          _activeDeliveries = [];
+        }
+      }
 
       if (mounted) setState(() => _loading = false);
     } catch (e) {
@@ -172,7 +184,7 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
                         padding: const EdgeInsets.symmetric(vertical: 30),
                         child: Center(
                           child: Text(
-                            "No active cargo missions right now.",
+                            "No active missions right now.",
                             style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                           ),
                         ),
@@ -317,14 +329,13 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
   }
 
   Widget _buildMissionItem(BuildContext context, ThemeData theme, Map<String, dynamic> d) {
-    final pickup = d['pickup_address']?.toString() ?? 'Pickup';
-    final dropoff = d['delivery_address']?.toString() ?? 'Destination';
-    final status = (d['status'] ?? '').toString().toUpperCase();
-    final color = status == 'IN_TRANSIT'
-        ? Colors.orange
-        : status == 'PICKED_UP'
+    final title = d['title']?.toString() ?? d['name']?.toString() ?? 'Untitled Mission';
+    final status = (d['status'] ?? 'unknown').toString().toUpperCase();
+    final color = status == 'ACTIVE'
+        ? Colors.green
+        : status == 'PLANNED'
             ? Theme.of(context).primaryColor
-            : Colors.green;
+            : Colors.orange;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(20),
@@ -341,7 +352,7 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
               color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(LucideIcons.mapPin, color: color, size: 20),
+            child: Icon(LucideIcons.map, color: color, size: 20),
           ),
           const SizedBox(width: 15),
           Expanded(
@@ -349,12 +360,12 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$pickup → $dropoff',
+                  title,
                   style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 13),
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  'Cargo delivery • ${d['created_at']?.toString().split('T').first ?? ''}',
+                  'Church mission • ${d['created_at']?.toString().split('T').first ?? ''}',
                   style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11),
                 ),
               ],
