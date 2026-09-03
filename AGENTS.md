@@ -127,6 +127,115 @@ Kael is the in-app AI assistant. Edge Function: `supabase/functions/kael-ai/inde
 
 **DB**: `ai_chat_sessions` + `ai_chat_messages` (with RLS) must exist — recreated standalone in migration `20260857_ai_chat_tables.sql` (previously only in the failed `20260710_missing_tables_schema.sql` batch).
 
+## How To: Livestreaming with Cloudflare Stream (tenant church streaming)
+
+Church leaders stream live services from their phone (WebRTC WHIP) or OBS (RTMP) to Cloudflare Stream, which auto-records and serves HLS to viewers.
+
+### Architecture
+
+```
+Phone Camera / OBS
+    │ (WebRTC WHIP or RTMP)
+    ▼
+Cloudflare Stream Live Input (per-church)
+    │
+    ├── HLS playback → app viewers
+    ├── Auto-recording → 90-day retention
+    └── WebRTC playback → low-latency preview
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `supabase/functions/cloudflare-stream/index.ts` | Edge Function: CF Stream API proxy (create/delete live inputs, WHIP relay, analytics, signed URLs, video deletion) |
+| `lib/core/services/unified_stream_service.dart` | Client: creates live streams, checks gates (weekly minutes, concurrent, storage), records usage |
+| `lib/features/modules/live_streaming/data/live_stream_service.dart` | Viewer: fetches active/upcoming streams from `live_streams` table |
+| `lib/features/modules/live_streaming/presentation/live_stream_studio_screen.dart` | Studio: camera preview, WHIP ingest, OBS credential fallback |
+| `lib/features/modules/live_streaming/presentation/live_streaming_screen.dart` | Hub: list active + upcoming streams, leader "Start Camera Stream" button |
+| `lib/features/home/data/live_streaming_service.dart` | `church_live_status` realtime toggle (is_live flag for church cards) |
+| `lib/features/home/presentation/live_stream_screen.dart` | Viewer: video player + live chat + announcements |
+
+### How It Works
+
+1. **Leader taps "Start Camera Stream"** → `LiveStreamStudioScreen` opens
+2. Studio calls `UnifiedStreamService.createLiveStream(tenantId, title)`
+3. Service checks gate: `checkStreamGate(tenantId)` → verifies `is_paid`, weekly minutes, concurrent streams, storage
+4. Calls Edge Function `cloudflare-stream` with `action: create_live_input`
+5. Edge Function creates CF Stream live input via `api.cloudflare.com` (Bearer token from `CLOUDFLARE_API_TOKEN` env)
+6. Returns `rtmps.url`, `streamKey`, `hls`, `webRTC.url` (WHIP publish)
+7. Studio attempts WHIP ingest (phone camera → CF Stream via WebRTC)
+8. If WHIP fails → shows OBS credentials (RTMP URL + stream key)
+9. Stream row inserted into `live_streams` table with `cloudflare_stream_id`
+10. Viewers see it in `LiveStreamingScreen` (queries `live_streams WHERE status='live'`)
+
+### Database Tables
+
+```sql
+-- Per-church streaming config (set by migration 20261006)
+church_stream_config (
+  church_id UUID PK,
+  is_paid BOOLEAN,           -- must be true to stream
+  backend TEXT,               -- 'cloudflare'
+  max_minutes_per_week INT,  -- 480 (8 hrs) for paid churches
+  max_viewers INT,            -- 1000
+  max_stream_duration_sec INT, -- 14400 (4 hrs)
+  retention_days INT,         -- 90
+  max_storage_gb NUMERIC,     -- 10
+  max_quality INT             -- 720 or 1080
+)
+
+-- Active/ended streams
+live_streams (
+  id UUID PK,
+  church_id UUID,
+  title TEXT,
+  status TEXT,               -- 'live' | 'scheduled' | 'ended' | 'archived'
+  streaming_backend TEXT,    -- 'cloudflare'
+  cloudflare_stream_id TEXT, -- CF Stream input UID
+  rtmp_url TEXT,
+  stream_key TEXT,
+  hls_url TEXT,
+  whip_url TEXT,
+  ...
+)
+```
+
+### Required Secrets (Supabase Edge Function env)
+
+```bash
+CLOUDFLARE_ACCOUNT_ID=ab82a97ce2c926279c483fef36c41945
+CLOUDFLARE_API_TOKEN=cfut_...    # Custom token with Stream:Edit, Account:Read, Pages:Edit
+```
+
+**CRITICAL**: `CLOUDFLARE_API_TOKEN` is read at Edge Function cold-start (`Deno.env.get()`). If the token is invalid/expired, ALL `create_live_input` calls fail with `401` → user sees "Streaming service error (401)". Rotate token via:
+```bash
+supabase secrets set CLOUDFLARE_API_TOKEN=<new>
+supabase functions deploy cloudflare-stream --no-verify-jwt
+```
+
+### Role Gate
+
+Only these roles may create/delete streams or WHIP-ingest:
+`superadmin`, `coa_employee`, `bishop`, `apostle`, `prophet`, `general_secretary`, `pastor`, `admin`, `leader`, `department_leader`
+
+Superadmins/COA employees bypass church-ownership check (network oversight).
+
+### Cost Controls
+
+| Tier | Minutes/Week | Max Viewers | Retention | Storage |
+|------|-------------|-------------|-----------|---------|
+| Trial (old) | 10 | 25 | 7 days | 1 GB |
+| **Paid (current)** | **480** | **1000** | **90 days** | **10 GB** |
+
+All churches set to paid via migration `20261006_streaming_paid_unlock.sql`.
+
+### Known Issues
+
+- **CF API token validity**: token MUST have `Stream:Edit` + `Account:Read` permissions. Test with `curl -H "Authorization: Bearer <token>" https://api.cloudflare.com/client/v4/user/tokens/verify`
+- **WHIP on mobile**: requires WebRTC support (Android 5+, iOS Safari 11+). Falls back to RTMP/OBS if WHIP fails
+- **`live_streams` is currently empty**: no church has started a stream yet (all 30 configs are `is_paid=true` and ready)
+
 ## How To: Handle Payments
 
 The Lipila payment gateway lives at `lib/features/finance/presentation/lipila_payment_gateway.dart`.

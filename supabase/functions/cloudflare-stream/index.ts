@@ -218,7 +218,9 @@ async function createLiveInput(params: any, req: Request) {
   const data = await response.json();
 
   if (!data.success) {
-    throw new Error(data.errors?.[0]?.message || "Failed to create live input");
+    const msg = data.errors?.[0]?.message || "Failed to create live input";
+    console.error(`[cloudflare-stream] create_live_input CF API error ${response.status}: ${msg}`);
+    throw new Error(`${msg} (HTTP ${response.status})`);
   }
 
   return new Response(
@@ -342,9 +344,9 @@ async function whipOffer(params: any, req: Request) {
   );
   const inputData = await inputRes.json();
   if (!inputRes.ok || !inputData?.success) {
-    throw new Error(
-      inputData?.errors?.[0]?.message || `Live input lookup failed (${inputRes.status})`
-    );
+    const msg = inputData?.errors?.[0]?.message || `Live input lookup failed`;
+    console.error(`[cloudflare-stream] whip_offer CF API error ${inputRes.status}: ${msg}`);
+    throw new Error(`${msg} (HTTP ${inputRes.status})`);
   }
   const whipUrl = inputData.result?.webRTC?.url;
   if (!whipUrl) {

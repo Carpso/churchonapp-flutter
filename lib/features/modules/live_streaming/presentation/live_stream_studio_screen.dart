@@ -399,8 +399,10 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
           friendly = 'Your session expired — sign out and sign in again, then retry.';
         } else if (raw.contains('403') || raw.toLowerCase().contains('insufficient role')) {
           friendly = 'Only church leadership (pastor, bishop, admin, COA team) can go live.';
-        } else if (raw.contains('Failed to create Cloudflare Stream') || raw.contains('500')) {
-          friendly = 'Streaming service is temporarily unavailable. Try again shortly.';
+        } else if (raw.contains('Failed to create Cloudflare Stream') || raw.contains('500') || raw.contains('401')) {
+          // Surface the actual CF error so the user can report it.
+          final cfDetail = raw.contains('(HTTP') ? raw.split('(HTTP').last.replaceAll(')', '').trim() : '';
+          friendly = 'Streaming service error${cfDetail.isNotEmpty ? ' ($cfDetail)' : ''}. The Cloudflare API token may need rotating — contact COA support.';
         } else {
           friendly = raw.replaceAll('Exception: ', '');
         }

@@ -62,20 +62,8 @@ class LiveStreamService {
       debugPrint('[LiveStreamService] Error fetching upcoming streams: $e');
     }
 
-    return [
-      {
-        'id': 'demo_upcoming_stream_1',
-        'title': 'Mid-Week Prayer & Revival Night',
-        'description': 'Intercession and prophetic worship for Zambia.',
-        'status': 'scheduled',
-        'scheduled_at': DateTime.now().add(const Duration(days: 2)).toIso8601String(),
-        'churches': {
-          'id': '00000000-0000-0000-0000-000000000001',
-          'name': 'Grace City Church',
-          'logo_url': 'https://i.imgur.com/8N6v6yG.png',
-        },
-      },
-    ];
+    // No fake/demo upcoming streams — show honest empty state.
+    return [];
   }
 
   /// Get stream by ID
