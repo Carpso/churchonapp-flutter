@@ -250,10 +250,20 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           ),
         ],
       ),
-      body: Row(
+      body: Stack(
         children: [
-          Expanded(child: _buildBibleContent()),
-          if (isStudyPaneOpen) _buildStudyPane(),
+          Row(
+            children: [
+              Expanded(child: _buildBibleContent()),
+              if (isStudyPaneOpen && MediaQuery.sizeOf(context).width >= 640)
+                _buildStudyPane(),
+            ],
+          ),
+          // On narrow screens the study pane overlays the reader instead of
+          // fighting the Expanded child for width (which caused a RenderFlex
+          // overflow / blank page).
+          if (isStudyPaneOpen && MediaQuery.sizeOf(context).width < 640)
+            Positioned.fill(child: _buildStudyPane()),
         ],
       ),
       bottomNavigationBar: _buildBottomToolbar(),

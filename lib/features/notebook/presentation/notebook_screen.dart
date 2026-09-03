@@ -158,11 +158,48 @@ class _NotebookScreenState extends ConsumerState<NotebookScreen> {
               icon: Icon(note.isFavorite ? LucideIcons.bookmark : LucideIcons.bookmark, color: note.isFavorite ? Colors.amber : const Color(0xFFCBD5E1)),
               onPressed: () => ref.read(notebookServiceProvider).updateNote(note.id, {'is_favorite': !note.isFavorite}),
             ),
+            IconButton(
+              icon: const Icon(LucideIcons.trash2, color: Color(0xFFEF4444)),
+              onPressed: () => _confirmDelete(note),
+            ),
           ],
         ),
         onTap: () => _openEditor(note),
       ),
     );
+  }
+
+  Future<void> _confirmDelete(Note note) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete note?"),
+        content: Text("Delete \"${note.title}\"? This cannot be undone."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(notebookServiceProvider).deleteNote(note.id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Could not delete this note. Please try again."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   void _openEditor(Note? note) {

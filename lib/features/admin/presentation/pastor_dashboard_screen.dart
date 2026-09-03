@@ -1008,7 +1008,9 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
   Widget _buildQuickActions(ThemeData theme) {
     return Column(
       children: [
-        _actionTile(theme, LucideIcons.video, "Upload Sermon", "Record or upload a sermon message", Colors.orange,
+            _actionTile(theme, LucideIcons.radio, "Go Live", "Start an HD live stream to your congregation", Colors.red,
+              () => context.push('/live-studio'),),
+            _actionTile(theme, LucideIcons.video, "Upload Sermon", "Record or upload a sermon message", Colors.orange,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MediaUploadScreen()))),
         _actionTile(theme, LucideIcons.megaphone, "Send Broadcast", "Push notification to your congregation", theme.primaryColor,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GlobalBroadcastScreen()))),

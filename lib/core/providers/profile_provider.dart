@@ -290,8 +290,16 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
                 debugPrint('Error syncing role cache: $e');
               }
             } else if (assignedRole == null) {
-              // No role_assignments for this tenant — user is a member
-              if (profileData['role'] != 'member') {
+              // No approved role_assignments row for this tenant. role_assignments
+              // only ever GRANTS/confirms a role — it must NOT wipe a role that
+              // was already set directly on profiles.role (legacy role-onboarding,
+              // church-registration, or COA assignment flows). Demoting those
+              // users to 'member' here is what broke "Pastor dashboard not
+              // showing" — a pastor without a matching role_assignments row was
+              // silently rewritten to 'member' on every profile fetch.
+              // Only a truly empty role falls back to 'member'.
+              final currentRole = profileData['role'] as String?;
+              if (currentRole == null || currentRole.isEmpty) {
                 profileData['role'] = 'member';
                 try {
                   await _client

@@ -41,24 +41,9 @@ class LiveStreamService {
       debugPrint('[LiveStreamService] Error fetching active streams: $e');
     }
 
-    // Fallback 24/7 Kingdom Live Stream for demo & testing
-    return [
-      {
-        'id': 'demo_live_stream_1',
-        'title': 'Sunday Worship & Word — 24/7 Broadcast',
-        'description': 'Live praise, worship, and prophetic preaching from Lusaka.',
-        'status': 'live',
-        'started_at': DateTime.now().toIso8601String(),
-        'stream_key': 'demo_key',
-        'hls_url': 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-        'viewer_count': 142,
-        'churches': {
-          'id': '00000000-0000-0000-0000-000000000001',
-          'name': 'Grace City Church',
-          'logo_url': 'https://i.imgur.com/8N6v6yG.png',
-        },
-      },
-    ];
+    // No fake/demo streams — show the honest empty state so the UI never
+    // masquerades a placeholder (Big Buck Bunny etc.) as a live church stream.
+    return [];
   }
 
   /// Get upcoming scheduled streams

@@ -61,17 +61,24 @@ class EventService {
   Stream<List<ChurchEvent>> getEventsStream() {
     final tenant = _ref.watch(currentTenantProvider);
     final baseStream = _client.from('events').stream(primaryKey: ['id']);
+    final sorted = _sortEvents;
     final mapped = (tenant != null)
         ? baseStream
             .eq('tenant_id', tenant.id)
-            .order('date', ascending: true)
             .limit(100)
-            .map((data) => data.map((map) => ChurchEvent.fromMap(map)).toList())
+            .map((data) => sorted(data.map((map) => ChurchEvent.fromMap(map)).toList()))
         : baseStream
-            .order('date', ascending: true)
             .limit(100)
-            .map((data) => data.map((map) => ChurchEvent.fromMap(map)).toList());
+            .map((data) => sorted(data.map((map) => ChurchEvent.fromMap(map)).toList()));
     return mapped;
+  }
+
+  /// Realtime streams must NOT use server-side `.order()` — it causes refresh
+  /// loops / disappearing content (see AGENTS.md). Sort client-side instead.
+  List<ChurchEvent> _sortEvents(List<ChurchEvent> events) {
+    final list = List<ChurchEvent>.from(events);
+    list.sort((a, b) => a.date.compareTo(b.date));
+    return list;
   }
 
   Future<Map<String, dynamic>> createEvent(Map<String, dynamic> eventData) async {

@@ -57,7 +57,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // Pure white background as requested
+      backgroundColor: const Color(0xFFFFDA03), // Brand sunflower yellow background
       body: Center(
         child: AnimatedBuilder(
           animation: _controller,
@@ -107,7 +107,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                         fontSize: 26,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 4,
-                        color: const Color(0xFF1A1A1A), // Dark text for white background
+                        color: const Color(0xFF1A1A1A), // Dark text for yellow background
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -115,20 +115,20 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                       "Connecting Churches Through Technology",
                       style: GoogleFonts.inter(
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: 1.2,
-                        color: Colors.grey.shade600, // Medium grey subtitle
+                        color: const Color(0xFF3F3F00), // Dark olive tint for contrast
                       ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 50),
-                    // Sleek loader in gold/primary color
+                    // Sleek loader in dark/brand contrast color
                     const SizedBox(
                       width: 24,
                       height: 24,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        color: Color(0xFFFFD700),
+                        color: Color(0xFF1A1A1A),
                       ),
                     ),
                   ],

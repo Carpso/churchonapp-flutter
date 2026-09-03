@@ -669,7 +669,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       );
     }
 
-    Future.delayed(const Duration(milliseconds: 600), () {
+    Future.delayed(const Duration(milliseconds: 5000), () {
       if (!mounted) return;
       _nextQuestion();
     });
@@ -748,7 +748,9 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
         );
       }
 
-      Future.delayed(const Duration(milliseconds: 600), () {
+      // Give the user ~5 seconds to read the correct answer + scripture
+      // reference reveal before advancing to the next question.
+      Future.delayed(const Duration(milliseconds: 5000), () {
         if (!mounted) return;
         _nextQuestion();
       });
