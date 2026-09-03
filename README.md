@@ -48,7 +48,7 @@ A comprehensive church management and community platform built with Flutter, con
 | Error handling | Global `ErrorWidget.builder` boundary configured |
 | API keys | Removed from source code; loaded from `.env` file |
 | Demo credentials | Removed from production auth flow |
-| R8 optimization | 5-pass proguard + full mode, log stripping, ABI splits |
+| R8 optimization | 5-pass proguard + full mode, log stripping, universal APK (splits disabled) |
 
 ## Project Structure
 
