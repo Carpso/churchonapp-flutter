@@ -1,11 +1,9 @@
 name: Deploy Web
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
-    # push on main PAUSED 2026-09-03 — auto-deploy kept failing (Cloudflare token invalid until rotated)
-    # Re-enable via: push: { branches: [main] } when CLOUDFLARE_API_TOKEN is rotated
-    # push:
-    #   branches: [main]
 
 jobs:
   deploy:

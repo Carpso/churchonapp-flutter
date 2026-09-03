@@ -93,7 +93,8 @@ jobs:
       - name: Run full suite (informational)
         run: flutter test || true
 
-  # Build Android APK
+  # Build Android APK — PAUSED 2026-09-03: APK builds disabled in GitHub (build locally via build_release.ps1 -Type apk)
+  # Re-enable by restoring: if: github.event_name != 'workflow_dispatch' || github.event.inputs.build_type == 'both' || github.event.inputs.build_type == 'apk'
   build-apk:
     name: 📱 Build Android APK
     runs-on: ubuntu-latest
@@ -101,7 +102,7 @@ jobs:
     needs: [analyze, test]
     env:
       HAS_SIGNING: ${{ secrets.STORE_FILE != '' && secrets.GOOGLE_SERVICES_JSON != '' }}
-    if: github.event_name != 'workflow_dispatch' || github.event.inputs.build_type == 'both' || github.event.inputs.build_type == 'apk'
+    if: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -290,7 +291,8 @@ jobs:
           path: build/app/outputs/symbols/
           retention-days: 30
 
-  # Build Android App Bundle (AAB)
+  # Build Android App Bundle (AAB) — PAUSED 2026-09-03: AAB builds disabled in GitHub (build locally via build_release.ps1)
+  # Re-enable by restoring: if: github.event_name != 'workflow_dispatch' || github.event.inputs.build_type == 'both' || github.event.inputs.build_type == 'aab'
   build-aab:
     name: 📦 Build Android App Bundle
     runs-on: ubuntu-latest
@@ -298,7 +300,7 @@ jobs:
     needs: [analyze, test]
     env:
       HAS_SIGNING: ${{ secrets.STORE_FILE != '' && secrets.GOOGLE_SERVICES_JSON != '' }}
-    if: github.event_name != 'workflow_dispatch' || github.event.inputs.build_type == 'both' || github.event.inputs.build_type == 'aab'
+    if: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
