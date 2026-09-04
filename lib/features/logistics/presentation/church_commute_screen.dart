@@ -96,10 +96,13 @@ class _ChurchCommuteScreenState extends ConsumerState<ChurchCommuteScreen> {
   Stream<List<Map<String, dynamic>>> _buildStream() {
     // NOTE: Supabase streams support only ONE eq() filter. Tenant + role
     // filtering happens client-side (see driver list filtering below).
+    // Only actual drivers/riders with driver_status='online' count as active
+    // couriers — NOT profiles who toggled the generic "privacy mode"
+    // (is_work_mode) which was incorrectly leaking non-driver users here.
     return _client
         .from('profiles')
         .stream(primaryKey: ['id'])
-        .eq('is_work_mode', true);
+        .eq('driver_status', 'online');
   }
 
   Widget _buildEmptyState() {

@@ -363,6 +363,19 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       _hlsUrl = result.hlsUrl;
       _whipUrl = result.whipUrl;
 
+      // Mark the church LIVE so viewers can discover it from the home screen
+      // LIVE indicator (church_live_status), not just by opening the studio.
+      try {
+        await LiveStreamingService(client).setLiveStatus(
+          tenantId,
+          true,
+          streamUrl: _hlsUrl,
+          title: _streamTitle,
+        );
+      } catch (e) {
+        debugPrint('Failed to set live status: $e');
+      }
+
       // Try WebRTC WHIP ingest first (phone streams live to Cloudflare).
       final broadcastStarted = _whipUrl != null && await _startWhipIngest(_whipUrl!);
 

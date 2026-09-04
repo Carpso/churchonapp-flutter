@@ -14,6 +14,8 @@ import 'package:church_on_app/features/home/presentation/sermon_notes_screen.dar
 import 'package:church_on_app/features/home/presentation/worship_lyrics_screen.dart';
 import 'package:church_on_app/features/home/presentation/live_stream_screen.dart';
 import 'package:church_on_app/features/bible_study/presentation/bible_study_list_screen.dart';
+import 'package:church_on_app/features/church/data/church_schedule_service.dart';
+import 'package:church_on_app/features/church/data/church_service_time.dart';
 
 import '../../data/live_streaming_service.dart';
 
@@ -550,35 +552,34 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
     if (_titleCtrl.text.trim().isEmpty) return;
     setState(() => _saving = true);
     try {
-      final start = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-        _startTime.hour,
-        _startTime.minute,
+      final tenantId = widget.tenant.id;
+      final scheduleService = ChurchScheduleService(Supabase.instance.client);
+
+      // Load existing recurring service schedule so we don't wipe other services.
+      final existing = await scheduleService.fetchSchedule(tenantId);
+
+      final newService = ChurchServiceTime(
+        dayOfWeek: _selectedDate.weekday, // 1=Mon ... 7=Sun
+        title: _titleCtrl.text.trim(),
+        startTime: _startTime,
+        endTime: _endTime,
+        description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+        enableCarpso: true,
       );
-      final end = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-        _endTime.hour,
-        _endTime.minute,
-      );
-      await Supabase.instance.client.from('events').insert({
-        'tenant_id': widget.tenant.id,
-        'title': _titleCtrl.text.trim(),
-        'description': _descCtrl.text.trim(),
-        'start_time': start.toIso8601String(),
-        'end_time': end.toIso8601String(),
-        'type': 'service',
-        'status': 'scheduled',
-        'user_id': Supabase.instance.client.auth.currentUser?.id,
-        'hosted_by': Supabase.instance.client.auth.currentUser?.id,
-      });
+
+      // Avoid duplicates with the same title on the same day.
+      final deduped = existing
+          .where((s) => !(s.dayOfWeek == newService.dayOfWeek &&
+              s.title.toLowerCase() == newService.title.toLowerCase()))
+          .toList();
+      deduped.add(newService);
+
+      await scheduleService.saveSchedule(tenantId, deduped);
+
       if (mounted) {
         showAppSnackBar(
           context,
-          "Event scheduled!",
+          "Service scheduled on ${_selectedDate.weekday == 7 ? 'Sunday' : _selectedDate.weekday == 6 ? 'Saturday' : _selectedDate.weekday == 5 ? 'Friday' : _selectedDate.weekday == 4 ? 'Thursday' : _selectedDate.weekday == 3 ? 'Wednesday' : _selectedDate.weekday == 2 ? 'Tuesday' : 'Monday'}!",
           status: AppStatus.success,
         );
         Navigator.pop(context);

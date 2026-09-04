@@ -170,7 +170,7 @@ class BibleQuizResultsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${result.score} / ${result.maxScore} pts',
+            '${result.totalScoreWithBonuses ?? result.score} / ${result.maxScore} pts',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -231,7 +231,7 @@ class BibleQuizResultsScreen extends ConsumerWidget {
   /// Head-to-head match summary: YOU vs OPPONENT with avatars and the
   /// verified (server-settled) opponent score.
   Widget _buildMatchResult(ThemeData theme) {
-    final myScore = result.score;
+    final myScore = result.totalScoreWithBonuses ?? result.score;
     final oppScore = result.opponentScore ?? 0;
     final won = myScore > oppScore;
     final draw = myScore == oppScore;

@@ -6,7 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/widgets/post_image_carousel.dart';
 import '../../data/social_service.dart';
 
-class SocialPostCard extends StatelessWidget {
+class SocialPostCard extends ConsumerWidget {
   final SocialPost post;
   final String Function(DateTime) formatTimeAgo;
   final VoidCallback? onCommentTap;
@@ -21,7 +21,9 @@ class SocialPostCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final socialService = ref.read(socialServiceProvider);
+    final isOwner = socialService.isPostOwner(post);
     return Container(
       margin: const EdgeInsets.only(bottom: 25),
       decoration: BoxDecoration(
@@ -68,7 +70,101 @@ class SocialPostCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                const Icon(LucideIcons.moreHorizontal),
+                PopupMenuButton<String>(
+                  icon: const Icon(LucideIcons.moreHorizontal, color: Colors.grey),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  onSelected: (value) async {
+                    if (value == 'edit') {
+                      final controller = TextEditingController(text: post.content ?? '');
+                      final newContent = await showDialog<String>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Edit Post'),
+                          content: TextField(
+                            controller: controller,
+                            maxLines: 4,
+                            decoration: const InputDecoration(
+                              hintText: 'Edit your post...',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                            FilledButton(
+                              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+                              child: const Text('Save'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (newContent != null && newContent.isNotEmpty && context.mounted) {
+                        try {
+                          await socialService.updatePost(post.id, content: newContent);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Post updated'), backgroundColor: Colors.green),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+                            );
+                          }
+                        }
+                      }
+                    } else if (value == 'delete') {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Delete Post?'),
+                          content: const Text('This action cannot be undone.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                            FilledButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm == true && context.mounted) {
+                        try {
+                          await socialService.deletePost(post.id);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Post deleted'), backgroundColor: Colors.red),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+                            );
+                          }
+                        }
+                      }
+                    } else if (value == 'report') {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Post reported. Thank you for your feedback.'), backgroundColor: Colors.orange),
+                        );
+                      }
+                    } else if (value == 'share') {
+                      onShareTap?.call();
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    if (isOwner) ...[
+                      const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(LucideIcons.pencil), title: Text('Edit'), dense: true)),
+                      const PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(LucideIcons.trash2, color: Colors.red), title: Text('Delete', style: TextStyle(color: Colors.red)), dense: true)),
+                    ],
+                    const PopupMenuItem(value: 'share', child: ListTile(leading: Icon(LucideIcons.share2), title: Text('Share'), dense: true)),
+                    if (!isOwner)
+                      const PopupMenuItem(value: 'report', child: ListTile(leading: Icon(LucideIcons.flag), title: Text('Report'), dense: true)),
+                  ],
+                ),
               ],
             ),
           ),

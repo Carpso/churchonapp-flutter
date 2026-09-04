@@ -13,7 +13,7 @@ class LiveStreamingScreen extends ConsumerWidget {
     final activeStreamsAsync = ref.watch(activeStreamsProvider);
     final upcomingStreamsAsync = ref.watch(upcomingStreamsProvider);
     final profile = ref.watch(profileProvider).value;
-    final isLeader = profile?.isPastor == true || profile?.isBishop == true || profile?.isAdminOrHigher == true;
+    final isLeader = profile?.isLeadershipTeam == true || profile?.isSuperadmin == true;
 
     return Scaffold(
       appBar: AppBar(

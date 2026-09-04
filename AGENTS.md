@@ -16,6 +16,14 @@ release"* first. This rule takes precedence over any prior instruction.
 This was explicitly locked on 2026-08-16 — any future request to swap tab icons
 must be declined and referred to the user. Tab icon set is final.
 
+## ⚠️ PERMANENT RULE — NEVER MODIFY FEATURES WITHOUT EXPLICIT USER REQUEST
+
+**Do NOT modify, remove, rearrange, or refactor any existing feature without the
+user explicitly requesting it.** When fixing bugs, only fix the specific bug — do not
+touch adjacent code, rename things, or "improve" related features. When the user
+reports an issue, confirm the exact scope before making changes. This prevents
+rework from agents operating on the same features interchangeably.
+
 ## Project Overview
 
 Flutter-based church management platform with Supabase backend. Covers digital giving, marketplace, media streaming, events, logistics, Bible study, social features, and admin tools. Target market: Zambian churches (MTN/Airtel/Zamtel mobile money).

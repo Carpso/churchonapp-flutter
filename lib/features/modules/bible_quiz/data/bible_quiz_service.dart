@@ -79,6 +79,7 @@ class QuizSessionResult {
   final String? opponentName;
   final String? opponentAvatar;
   final String? opponentChurch;
+  final int? totalScoreWithBonuses;
 
   QuizSessionResult({
     required this.questions,
@@ -90,6 +91,7 @@ class QuizSessionResult {
     this.opponentName,
     this.opponentAvatar,
     this.opponentChurch,
+    this.totalScoreWithBonuses,
   });
 
   int get score {

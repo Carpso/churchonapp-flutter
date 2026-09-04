@@ -431,7 +431,8 @@ _buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHi
           _buildPremiumItem(context, LucideIcons.penTool, "Apply as Writer", onTap: () => context.push('/apply-writer')),
         const SizedBox(height: 8),
         _buildGroupHeader(context, "PAYMENTS & ORDERS"),
-        _buildPremiumItem(context, LucideIcons.crown, "My Subscription", onTap: () => context.push('/subscription')),
+        if (profile.isAdminOrHigher)
+          _buildPremiumItem(context, LucideIcons.crown, "My Subscription", onTap: () => context.push('/subscription')),
         _buildPremiumItem(context, LucideIcons.package, "My Orders", onTap: () => context.push('/orders')),
         _buildPremiumItem(context, LucideIcons.gift, "Referral Program", onTap: () => context.push('/referral-program')),
         _buildPremiumItem(context, LucideIcons.heart, "COA Missions Donate", onTap: () => context.push('/missions-donate')),

@@ -15,6 +15,7 @@ import 'logistics_dashboard_screen.dart';
 import 'church_branding_screen.dart';
 import 'pastoral_followup_screen.dart';
 import 'member_directory_screen.dart';
+import 'kyc_review_screen.dart';
 import 'news_management_screen.dart';
 import 'radio_station_management_screen.dart';
 import '../../../features/modules/crm_donor_management/presentation/crm_donor_screen.dart';
@@ -302,6 +303,15 @@ class AdminHubScreen extends ConsumerWidget {
                 "Browse every member of the church",
                 theme.primaryColor,
                 () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MemberDirectoryScreen())),
+              ),
+            if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'coa_employee')
+              _buildAdminTile(
+                context,
+                LucideIcons.fingerprint,
+                "KYC Review",
+                "Verify member identity verifications",
+                Colors.orange,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KycReviewScreen())),
               ),
             if (role == 'admin' || role == 'pastor' || role == 'bishop' || role == 'prophet' || role == 'apostle' || role == 'treasurer')
               _buildAdminTile(

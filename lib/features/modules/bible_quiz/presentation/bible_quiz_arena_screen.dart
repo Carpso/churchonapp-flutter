@@ -178,6 +178,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   late Animation<Offset> _player2SlideAnimation;
 
   int _opponentScore = 0;
+  int _opponentStreak = 0;
   PvPMatch? _pvpMatch;
   Map<String, dynamic>? _p1Profile;
   Map<String, dynamic>? _p2Profile;
@@ -940,7 +941,10 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
         : _random.nextDouble() < 0.65; // fallback simulation
     if (correct) {
       _opponentScore += q.points;
-      if (_random.nextDouble() < 0.4) _opponentScore += 5;
+      _opponentStreak++;
+      if (_opponentStreak >= 3) _opponentScore += widget.style.streakBonus;
+    } else {
+      _opponentStreak = 0;
     }
   }
 
@@ -998,6 +1002,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
       responseTimesMs: _responseTimesMs,
       streak: _bestStreak,
       powerUpsUsed: _powerUpsUsed,
+      totalScoreWithBonuses: _score,
     );
 
     // Submit verified score to event if in event mode (server-verified RPC)
@@ -1049,6 +1054,8 @@ try {
         oppChurch = 'Church On App · AI Opponent';
       } else if (_pvpMatch != null) {
         try {
+          // Small delay to let completeMatch() write scores to DB
+          await Future.delayed(const Duration(milliseconds: 500));
           final settled = await Supabase.instance.client
               .from('pvp_matches')
               .select('player1_score, player2_score, player1_id, player2_id')

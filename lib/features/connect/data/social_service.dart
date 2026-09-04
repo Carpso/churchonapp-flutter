@@ -308,6 +308,30 @@ class SocialService {
       return [];
     }
   }
+
+  Future<void> updatePost(String postId, {String? content}) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    await _client
+        .from('social_posts')
+        .update({'content': content})
+        .eq('id', postId)
+        .eq('user_id', user.id);
+  }
+
+  Future<void> deletePost(String postId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    // Delete associated likes and comments first
+    await _client.from('social_likes').delete().eq('post_id', postId);
+    await _client.from('social_comments').delete().eq('post_id', postId);
+    await _client.from('social_posts').delete().eq('id', postId).eq('user_id', user.id);
+  }
+
+  bool isPostOwner(SocialPost post) {
+    final user = _client.auth.currentUser;
+    return user != null && user.id == post.userId;
+  }
 }
 
 final socialServiceProvider = Provider((ref) {

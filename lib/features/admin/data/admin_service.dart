@@ -114,7 +114,10 @@ class AdminService {
   }
 
   Future<int> getActiveCouriersCount() async {
-    final res = await _client.from('profiles').select('id').eq('is_work_mode', true);
+    final res = await _client
+        .from('profiles')
+        .select('id')
+        .inFilter('role', ['driver', 'rider']);
     return (res as List).length;
   }
 
