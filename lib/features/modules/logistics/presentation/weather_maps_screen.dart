@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/features/connect/presentation/audio_call_screen.dart';
 import '../data/weather_model.dart';
 import '../data/weather_service.dart';
 import '../data/logistics_model.dart';
@@ -798,31 +799,49 @@ class _WeatherMapsScreenState extends ConsumerState<WeatherMapsScreen> {
       return;
     }
 
-    if (method == 'call') {
-      if (context.mounted) {
-        Navigator.pushNamed(context, '/call', arguments: {
-          'targetName': bus.driverName ?? 'Driver',
-          'targetPhone': phone,
-        });
-      }
-    } else if (method == 'cellular') {
-      final uri = Uri(scheme: 'tel', path: phone);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Could not launch phone dialer")),
+    if (method == 'call' || method == 'chat') {
+      String? driverId;
+      try {
+        final profile = await Supabase.instance.client
+            .from('profiles')
+            .select('id')
+            .eq('phone', phone)
+            .maybeSingle();
+        driverId = profile?['id'] as String?;
+      } catch (_) {}
+      if (context.mounted && driverId != null) {
+        if (method == 'call') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AudioCallScreen(
+                userName: bus.driverName ?? 'Driver',
+                userAvatar: '',
+                recipientId: driverId,
+              ),
+            ),
           );
+        } else {
+          context.push('/chat/$driverId');
         }
+        return;
       }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Driver isn't on Church On App — use Cellular")),
+        );
+      }
+      return;
+    }
+
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
       if (context.mounted) {
-        final userId = Supabase.instance.client.auth.currentUser?.id;
-        if (userId != null) {
-          Navigator.pushNamed(context, '/chat/$userId',
-            arguments: {'contactName': bus.driverName ?? 'Driver'});
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Could not launch phone dialer")),
+        );
       }
     }
   }

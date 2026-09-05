@@ -256,11 +256,7 @@ class NotificationsScreen extends ConsumerWidget {
           }
           break;
         case 'sermon':
-          if (id != null && id.isNotEmpty) {
-            context.push('/sermon/$id');
-          } else {
-            context.go('/sermons');
-          }
+          context.go('/sermons');
           break;
         case 'prayer':
         case 'testimony':
@@ -273,14 +269,14 @@ class NotificationsScreen extends ConsumerWidget {
           break;
         case 'ride':
         case 'transport':
-          context.push('/rides');
+          context.push('/ride');
           break;
         case 'order':
         case 'marketplace':
           context.go('/marketplace');
           break;
         case 'role':
-          context.go('/settings');
+          context.go('/profile');
           break;
         default:
           context.go('/');

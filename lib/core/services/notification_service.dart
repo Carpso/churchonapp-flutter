@@ -297,15 +297,15 @@ class NotificationService {
           case 'action_fasting_log':
           case 'action_devotions':
           case 'action_read_bible':
-            GoRouter.of(context).push('/devotions');
+            GoRouter.of(context).push('/daily-devotions');
             return;
           case 'action_volunteer_roster':
           case 'action_admin_hub':
-            GoRouter.of(context).push('/admin/volunteer-schedule');
+            GoRouter.of(context).push('/volunteer-schedule');
             return;
           case 'action_order_track':
           case 'action_bookshop':
-            GoRouter.of(context).push('/admin/orders');
+            GoRouter.of(context).push('/orders');
             return;
           case 'action_role_view':
             GoRouter.of(context).push('/profile');
@@ -322,7 +322,7 @@ class NotificationService {
             return;
           case 'action_worship':
           case 'action_lyrics':
-            GoRouter.of(context).push('/admin/worship-lyrics');
+            GoRouter.of(context).push('/worship-lyrics');
             return;
         }
       }
@@ -360,21 +360,21 @@ class NotificationService {
         case 'klip':
           GoRouter.of(context).push('/klips/$id');
         case 'fasting':
-          GoRouter.of(context).push('/devotions');
+          GoRouter.of(context).push('/daily-devotions');
         case 'job':
           GoRouter.of(context).push('/job-notifications');
         case 'quiz':
           GoRouter.of(context).go('/connect');
         case 'volunteer':
-          GoRouter.of(context).push('/admin/volunteer-schedule');
+          GoRouter.of(context).push('/volunteer-schedule');
         case 'order':
-          GoRouter.of(context).push('/admin/orders');
+          GoRouter.of(context).push('/orders');
         case 'role':
           GoRouter.of(context).push('/profile');
         case 'ride':
           GoRouter.of(context).push('/ride');
         case 'worship':
-          GoRouter.of(context).push('/admin/worship-lyrics');
+          GoRouter.of(context).push('/worship-lyrics');
         default:
           GoRouter.of(context).go('/');
       }
