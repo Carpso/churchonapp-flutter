@@ -268,6 +268,7 @@ $migrations = @(
     "20261008_live_streams_leader_roles.sql"
     "20261009_community_chat_fixes.sql"
     "20261010_close_anon_message_policies.sql"
+    "20261011_scope_chat_messages.sql"
     )
 
 foreach ($m in $migrations) {
