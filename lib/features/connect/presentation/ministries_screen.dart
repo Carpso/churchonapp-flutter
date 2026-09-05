@@ -15,8 +15,13 @@ final ministriesStreamProvider = StreamProvider<List<Map<String, dynamic>>>((ref
       .from('ministries')
       .stream(primaryKey: ['id'])
       .eq('tenant_id', tenant.id)
-      .order('name')
-      .map((data) => List<Map<String, dynamic>>.from(data));
+      .map((data) {
+        final list = List<Map<String, dynamic>>.from(data);
+        // Realtime streams must NOT use server-side .order() — sort client-side
+        // to avoid refresh loops / disappearing content.
+        list.sort((a, b) => (a['name']?.toString() ?? '').compareTo(b['name']?.toString() ?? ''));
+        return list;
+      });
 });
 
 final userMinistryMembershipsProvider = FutureProvider.autoDispose((ref) async {

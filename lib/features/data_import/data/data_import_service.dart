@@ -28,7 +28,7 @@ class DataImportService {
       'amount', 'category', 'status', 'reference',
       'recipient_name', 'recipient_phone', 'type', 'user_id',
     ],
-    'events': ['title', 'description', 'start_time', 'end_time', 'location'],
+    'events': ['title', 'description', 'date', 'end_date', 'location', 'category', 'ticket_price'],
     'ministries': ['name', 'description', 'meeting_day', 'meeting_time', 'meeting_location'],
     'service_reports': ['title', 'description', 'attendance', 'offering', 'testimony'],
   };

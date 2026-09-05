@@ -78,8 +78,6 @@ class NotificationService {
         .from('notifications')
         .stream(primaryKey: ['id'])
         .eq('user_id', currentUser.id)
-        .order('created_at', ascending: false)
-        .limit(1)
         .listen((data) {
           if (data.isNotEmpty) {
             final latest = data.first;

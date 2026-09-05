@@ -57,7 +57,6 @@ class PrayerService {
     return _client
         .from('prayers')
         .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
         .asyncMap((data) async {
           // Enrich with live profile avatar if snapshot missing — ensures email/Google photo fallback even for old prayers
           final userIds = data.map((m) => m['user_id']?.toString()).whereType<String>().toSet().toList();
@@ -85,7 +84,8 @@ class PrayerService {
               if (pn != null && pn.isNotEmpty) enriched['user_name'] = pn;
             }
             return PrayerRequest.fromMap(enriched);
-          }).toList();
+          }).toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         });
   }
 

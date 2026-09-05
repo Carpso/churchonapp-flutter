@@ -53,7 +53,6 @@ class TestimonyService {
     return _client
         .from('testimonies')
         .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
         .asyncMap((data) async {
           // Enrich with live profile avatar when snapshot missing — profile
           // photo first, then email/Google photo fallback (matches prayer wall).
@@ -80,7 +79,8 @@ class TestimonyService {
               if (pn != null && pn.isNotEmpty) enriched['user_name'] = pn;
             }
             return Testimony.fromMap(enriched);
-          }).toList();
+          }).toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         });
   }
 

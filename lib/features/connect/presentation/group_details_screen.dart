@@ -289,12 +289,35 @@ class _MembersList extends ConsumerWidget {
 final _groupMembersProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, groupId) async {
   final client = Supabase.instance.client;
   try {
-    final res = await client
+    // community_group_members.user_id FKs to auth.users (not profiles.id), so
+    // PostgREST cannot embed profiles directly. Fetch memberships, then a
+    // separate profiles query, and shape as {user_id, profiles: {...}} to keep
+    // the UI unchanged.
+    final memberships = List<Map<String, dynamic>>.from(await client
         .from('community_group_members')
-        .select('user_id, profiles(id, full_name, avatar_url)')
+        .select('user_id')
         .eq('group_id', groupId)
-        .limit(50);
-    return List<Map<String, dynamic>>.from(res);
+        .limit(50));
+    final userIds = memberships.map((m) => m['user_id']?.toString()).whereType<String>().toSet().toList();
+    Map<String, Map<String, dynamic>> profileMap = {};
+    if (userIds.isNotEmpty) {
+      try {
+        final res = await client
+            .from('profiles')
+            .select('id, full_name, avatar_url')
+            .inFilter('id', userIds);
+        for (final row in (res as List)) {
+          profileMap[row['id']?.toString() ?? ''] = Map<String, dynamic>.from(row);
+        }
+      } catch (_) {}
+    }
+    return memberships.map((m) {
+      final uid = m['user_id']?.toString() ?? '';
+      return {
+        'user_id': uid,
+        'profiles': profileMap[uid],
+      };
+    }).toList();
   } catch (e) {
     debugPrint('Failed to load group members: $e');
     return [];

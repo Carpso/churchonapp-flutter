@@ -111,10 +111,27 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
       final client = ref.read(supabaseServiceProvider).client;
       final currentUserId = client.auth.currentUser?.id;
 
-      final members = await client
+      // community_group_members.user_id FKs to auth.users (not profiles.id), so
+      // PostgREST cannot embed profiles directly. Fetch memberships, then a
+      // separate profiles query, and shape as {user_id, profiles: {...}}.
+      final members = List<Map<String, dynamic>>.from(await client
           .from('community_group_members')
-          .select('user_id, profiles(id, full_name, avatar_url)')
-          .eq('group_id', widget.groupId);
+          .select('user_id')
+          .eq('group_id', widget.groupId));
+
+      final userIds = members.map((m) => m['user_id']?.toString()).whereType<String>().toSet().toList();
+      Map<String, Map<String, dynamic>> profileMap = {};
+      if (userIds.isNotEmpty) {
+        try {
+          final res = await client
+              .from('profiles')
+              .select('id, full_name, avatar_url, username')
+              .inFilter('id', userIds);
+          for (final row in (res as List)) {
+            profileMap[row['id']?.toString() ?? ''] = Map<String, dynamic>.from(row);
+          }
+        } catch (_) {}
+      }
 
       if (mounted) {
         setState(() {
@@ -127,9 +144,9 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
           ));
 
           for (final m in members) {
-            final profile = m['profiles'] as Map<String, dynamic>?;
             final userId = m['user_id'] as String?;
             if (userId != null && userId != currentUserId) {
+              final profile = profileMap[userId];
               _participants.add(_Participant(
                 id: userId,
                 name: profile?['full_name'] ?? profile?['username'] ?? 'User',

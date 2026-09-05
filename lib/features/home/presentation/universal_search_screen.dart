@@ -69,15 +69,15 @@ class _UniversalSearchScreenState extends ConsumerState<UniversalSearchScreen> {
 
       final events = await client
           .from('events')
-          .select('id,title,venue,event_date,church_id')
+          .select('id,title,location,date,church_id')
           .ilike('title', like)
-          .order('event_date', ascending: true)
+          .order('date', ascending: true)
           .limit(8);
       for (final e in events) {
         results.add({
           'type': 'Event',
           'title': e['title'] ?? '',
-          'subtitle': '${e['venue'] ?? ''} • ${e['event_date'] ?? ''}',
+          'subtitle': '${e['location'] ?? ''} • ${e['date'] ?? ''}',
           'icon': LucideIcons.calendar,
           'route': '/event/${e['id']}',
         });

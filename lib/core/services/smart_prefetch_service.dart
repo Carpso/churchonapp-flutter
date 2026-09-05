@@ -80,7 +80,7 @@ class SmartPrefetchService {
       if (tenantId != null && tenantId.isNotEmpty) {
         query = query.eq('tenant_id', tenantId);
       }
-      final data = await query.order('start_date', ascending: true).limit(10);
+      final data = await query.order('date', ascending: true).limit(10);
 
       if (data.isNotEmpty) {
         await prefs.setString(_eventsCacheKey, jsonEncode(data));

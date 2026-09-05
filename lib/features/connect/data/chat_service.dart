@@ -314,12 +314,34 @@ class ChatService {
 
   Future<List<Map<String, dynamic>>> fetchGroupMembers(String groupId, {int limit = 5}) async {
     try {
-      final res = await _client
+      // community_group_members.user_id FKs to auth.users (not profiles.id), so
+      // PostgREST cannot embed profiles directly. Fetch memberships, then a
+      // separate profiles query, and shape as {user_id, profiles: {...}}.
+      final memberships = List<Map<String, dynamic>>.from(await _client
           .from('community_group_members')
-          .select('user_id, profiles(id, full_name, avatar_url)')
+          .select('user_id')
           .eq('group_id', groupId)
-          .limit(limit);
-      return List<Map<String, dynamic>>.from(res);
+          .limit(limit));
+      final userIds = memberships.map((m) => m['user_id']?.toString()).whereType<String>().toSet().toList();
+      Map<String, Map<String, dynamic>> profileMap = {};
+      if (userIds.isNotEmpty) {
+        try {
+          final res = await _client
+              .from('profiles')
+              .select('id, full_name, avatar_url, username')
+              .inFilter('id', userIds);
+          for (final row in (res as List)) {
+            profileMap[row['id']?.toString() ?? ''] = Map<String, dynamic>.from(row);
+          }
+        } catch (_) {}
+      }
+      return memberships.map((m) {
+        final uid = m['user_id']?.toString() ?? '';
+        return {
+          'user_id': uid,
+          'profiles': profileMap[uid],
+        };
+      }).toList();
     } catch (_) {
       return [];
     }

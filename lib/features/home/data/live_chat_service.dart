@@ -46,7 +46,6 @@ class LiveChatService {
         .from('live_chat_messages')
         .stream(primaryKey: ['id'])
         .eq('tenant_id', tenantId)
-        .order('created_at', ascending: false)
         .limit(50)
         .map((data) => data
             .map((map) => LiveChatMessage.fromMap(map, currentUserId))

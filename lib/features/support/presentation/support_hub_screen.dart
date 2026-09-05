@@ -607,7 +607,7 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
     }
 
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: client.from('support_tickets').stream(primaryKey: ['id']).eq('user_id', user.id).order('created_at'),
+      stream: client.from('support_tickets').stream(primaryKey: ['id']).eq('user_id', user.id),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(child: CircularProgressIndicator(color: theme.primaryColor));
@@ -634,7 +634,11 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
           );
         }
 
-        final tickets = snapshot.data!;
+        final tickets = List<Map<String, dynamic>>.from(snapshot.data!)..sort((a, b) {
+          final ta = a['created_at']?.toString() ?? '';
+          final tb = b['created_at']?.toString() ?? '';
+          return tb.compareTo(ta);
+        });
         return Column(
           children: tickets.map((t) => _buildTicketItem(theme, t)).toList(),
         );
@@ -746,7 +750,7 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
     }
 
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: client.from('support_disputes').stream(primaryKey: ['id']).eq('user_id', user.id).order('created_at'),
+      stream: client.from('support_disputes').stream(primaryKey: ['id']).eq('user_id', user.id),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(child: CircularProgressIndicator(color: theme.primaryColor));
@@ -755,7 +759,11 @@ class _SupportHubScreenState extends ConsumerState<SupportHubScreen> {
           return _buildEmptyState(theme, LucideIcons.gavel, "No disputes filed yet.");
         }
 
-        final disputes = snapshot.data!;
+        final disputes = List<Map<String, dynamic>>.from(snapshot.data!)..sort((a, b) {
+              final ta = a['created_at']?.toString() ?? '';
+              final tb = b['created_at']?.toString() ?? '';
+              return tb.compareTo(ta);
+            });
         return Column(
           children: disputes.map((d) => _buildDisputeItem(theme, d)).toList(),
         );

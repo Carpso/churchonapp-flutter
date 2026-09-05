@@ -137,7 +137,7 @@ class _ExportDataScreenState extends ConsumerState<ExportDataScreen> {
           data = List<Map<String, dynamic>>.from(giving);
           break;
         case 'Events':
-          final events = await _exportService.client.from('events').select('id, title, description, event_date, event_time, location, category, type, price, currency, max_attendees, is_public, status, created_at, tenant_id, church_id').order('event_date', ascending: false).limit(500);
+          final events = await _exportService.client.from('events').select('id, title, description, date, location, category, image_url, ticket_price, max_attendees, attendee_count, created_at, tenant_id, church_id').order('date', ascending: false).limit(500);
           data = List<Map<String, dynamic>>.from(events);
           break;
         case 'Attendance':
