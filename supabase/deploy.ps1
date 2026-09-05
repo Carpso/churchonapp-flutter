@@ -267,6 +267,7 @@ $migrations = @(
     "20261007_kyc_church_leader_review.sql"
     "20261008_live_streams_leader_roles.sql"
     "20261009_community_chat_fixes.sql"
+    "20261010_close_anon_message_policies.sql"
     )
 
 foreach ($m in $migrations) {
