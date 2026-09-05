@@ -270,6 +270,7 @@ $migrations = @(
     "20261010_close_anon_message_policies.sql"
     "20261011_scope_chat_messages.sql"
     "20261012_scope_sermon_notes_and_stream_chat.sql"
+    "20261013_drop_public_church_insert.sql"
     )
 
 foreach ($m in $migrations) {
