@@ -92,7 +92,8 @@ void main() {
       ];
       when(() => mockClient.from('profiles')).thenAnswer((_) => mockQuery);
       when(() => mockQuery.select('id')).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.eq('is_work_mode', true)).thenAnswer((_) => mockFilter);
+      // Couriers are now matched by role (driver/rider) via inFilter.
+      when(() => mockFilter.inFilter('role', any())).thenAnswer((_) => mockFilter);
 
       final count = await service.getActiveCouriersCount();
       expect(count, 2);

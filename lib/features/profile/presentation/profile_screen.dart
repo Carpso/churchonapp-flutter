@@ -869,13 +869,6 @@ _buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHi
     );
   }
 
-  // ignore: unused_element
-  void _showComingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("$feature — Coming Soon!"), backgroundColor: Colors.amber, duration: const Duration(seconds: 2)),
-    );
-  }
-
   void _showSecuritySettings(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     showModalBottomSheet(

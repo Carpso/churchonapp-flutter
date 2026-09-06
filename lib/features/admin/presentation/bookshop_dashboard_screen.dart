@@ -74,24 +74,39 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
         inventoryValue += price * stock;
       }
 
-      final orderItemsRes = await Supabase.instance.client
-          .from('order_items')
-          .select('quantity, status')
-          .eq('tenant_id', tenantId);
-
-      int sales = 0;
-      for (final oi in orderItemsRes) {
-        final status = oi['status']?.toString() ?? '';
-        if (status.isNotEmpty && status != 'completed' && status != 'delivered' && status != 'paid') continue;
-        sales += (oi['quantity'] as num?)?.toInt() ?? 0;
-      }
-
       final ordersRes = await Supabase.instance.client
           .from('orders')
           .select('id, total_amount, status, created_at')
           .eq('tenant_id', tenantId)
           .order('created_at', ascending: false)
           .limit(20);
+
+      // order_items has no `status` column (the previous query errored out).
+      // Units sold are counted from order_items, filtered by the parent
+      // order's status, which does live on `orders`.
+      int sales = 0;
+      try {
+        final paidOrderIds = (ordersRes as List)
+            .where((o) {
+              final s = (o['status'] ?? '').toString().toLowerCase();
+              return s != 'pending' && s != 'cancelled' && s != 'failed';
+            })
+            .map((o) => o['id'].toString())
+            .toList();
+
+        if (paidOrderIds.isNotEmpty) {
+          final orderItemsRes = await Supabase.instance.client
+              .from('order_items')
+              .select('order_id, quantity')
+              .eq('tenant_id', tenantId)
+              .filter('order_id', 'in', '(${paidOrderIds.join(",")})');
+          for (final oi in (orderItemsRes as List)) {
+            sales += (oi['quantity'] as num?)?.toInt() ?? 0;
+          }
+        }
+      } catch (e) {
+        debugPrint('BookshopDashboard: sales lookup failed (non-fatal): $e');
+      }
 
       double monthRev = 0;
       for (final o in ordersRes) {

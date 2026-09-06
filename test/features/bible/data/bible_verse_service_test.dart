@@ -29,50 +29,40 @@ void main() {
   });
 
   group('fetchLatestVerse', () {
-    test('returns verse from daily_bible_verses table on success', () async {
+    // Verse of the Day is now derived deterministically from `bible_verses`
+    // (no daily_bible_verses / social_posts lookups any more).
+    test('returns the daily verse selected from bible_verses', () async {
       mockMaybeSingle.result = {
         'id': '1',
         'reference': 'John 3:16',
         'text': 'For God so loved the world',
-        'created_at': DateTime.now().toIso8601String(),
+        'book_id': 'john',
+        'chapter': 3,
+        'verse': 16,
       };
 
-      when(() => mockClient.from('daily_bible_verses')).thenAnswer((_) => mockQuery);
-      when(() => mockQuery.select()).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.order('created_at', ascending: false)).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.limit(1)).thenAnswer((_) => mockFilter);
+      when(() => mockClient.from('bible_verses')).thenAnswer((_) => mockQuery);
+      when(() => mockQuery.select(any())).thenAnswer((_) => mockFilter);
+      when(() => mockFilter.order(any(), ascending: any(named: 'ascending')))
+          .thenAnswer((_) => mockFilter);
+      when(() => mockFilter.range(any(), any())).thenAnswer((_) => mockFilter);
       when(() => mockFilter.maybeSingle()).thenAnswer((_) => mockMaybeSingle);
 
       final verse = await service.fetchLatestVerse();
-      expect(verse.id, '1');
       expect(verse.reference, 'John 3:16');
       expect(verse.text, 'For God so loved the world');
     });
 
-    test('falls back to social_posts when daily_bible_verses fails', () async {
-      mockMaybeSingle.result = {
-        'id': '2',
-        'reference': 'Psalm 23:1',
-        'text': 'The Lord is my shepherd',
-        'created_at': DateTime.now().toIso8601String(),
-      };
-
-      when(() => mockClient.from('daily_bible_verses')).thenAnswer((_) => mockQuery);
-      when(() => mockQuery.select()).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.order('created_at', ascending: false)).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.limit(1)).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.maybeSingle()).thenThrow(Exception('fail'));
-
-      when(() => mockClient.from('social_posts')).thenAnswer((_) => mockQuery);
-      when(() => mockQuery.select()).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.eq('category', 'daily_verse')).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.order('created_at', ascending: false)).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.limit(1)).thenAnswer((_) => mockFilter);
-      when(() => mockFilter.maybeSingle()).thenAnswer((_) => mockMaybeSingle);
+    test('falls back to the curated default verse when bible_verses fails', () async {
+      when(() => mockClient.from('bible_verses')).thenAnswer((_) => mockQuery);
+      when(() => mockQuery.select(any())).thenAnswer((_) => mockFilter);
+      when(() => mockFilter.order(any(), ascending: any(named: 'ascending')))
+          .thenThrow(Exception('fail'));
 
       final verse = await service.fetchLatestVerse();
-      expect(verse.id, '2');
-      expect(verse.reference, 'Psalm 23:1');
+      expect(verse.id, 'default');
+      expect(verse.reference, 'Jeremiah 29:11');
+      expect(verse.text, isNotEmpty);
     });
 
     test('returns hardcoded default verse when all queries fail', () async {
@@ -124,63 +114,25 @@ void main() {
     });
   }); */
 
+  // postDailyVerse is deprecated: VOTD is generated from bible_verses, so the
+  // call is intentionally a no-op and must never write anywhere.
   group('postDailyVerse', () {
-    test('inserts into daily_bible_verses on success', () async {
-      when(() => mockClient.from('daily_bible_verses')).thenAnswer((_) => mockQuery);
-      when(() => mockQuery.insert(
-        {
-          'reference': 'John 3:16',
-          'text': 'For God so loved',
-          'posted_by': 'user_1',
-        },
-        defaultToNull: true,
-      )).thenAnswer((_) => mockFilter);
+    test('does not write to daily_bible_verses', () async {
+      when(() => mockClient.from(any())).thenAnswer((_) => mockQuery);
 
       await service.postDailyVerse(reference: 'John 3:16', text: 'For God so loved');
 
-      verify(() => mockQuery.insert(
-        {
-          'reference': 'John 3:16',
-          'text': 'For God so loved',
-          'posted_by': 'user_1',
-        },
-        defaultToNull: true,
-      )).called(1);
+      verifyNever(() => mockClient.from('daily_bible_verses'));
+      verifyNever(() => mockQuery.insert(any()));
     });
 
-    test('falls back to social_posts when daily_bible_verses insert fails', () async {
-      when(() => mockClient.from('daily_bible_verses')).thenAnswer((_) => mockQuery);
-      when(() => mockQuery.insert(
-        {
-          'reference': 'Psalm 23',
-          'text': 'The Lord is my shepherd',
-          'posted_by': 'user_1',
-        },
-        defaultToNull: true,
-      )).thenThrow(Exception('insert error'));
-
-      when(() => mockClient.from('social_posts')).thenAnswer((_) => mockQuery);
-      when(() => mockQuery.insert(
-        {
-          'user_id': 'user_1',
-          'content': 'The Lord is my shepherd',
-          'media_url': 'Psalm 23',
-          'category': 'daily_verse',
-        },
-        defaultToNull: true,
-      )).thenAnswer((_) => mockFilter);
+    test('does not fall back to social_posts', () async {
+      when(() => mockClient.from(any())).thenAnswer((_) => mockQuery);
 
       await service.postDailyVerse(reference: 'Psalm 23', text: 'The Lord is my shepherd');
 
-      verify(() => mockQuery.insert(
-        {
-          'user_id': 'user_1',
-          'content': 'The Lord is my shepherd',
-          'media_url': 'Psalm 23',
-          'category': 'daily_verse',
-        },
-        defaultToNull: true,
-      )).called(1);
+      verifyNever(() => mockClient.from('social_posts'));
+      verifyNever(() => mockQuery.insert(any()));
     });
   });
 }

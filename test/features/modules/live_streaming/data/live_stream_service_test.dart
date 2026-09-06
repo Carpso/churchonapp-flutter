@@ -17,7 +17,10 @@ void main() {
   });
 
   group('LiveStreamService Fallback and Stream Querying', () {
-    test('getActiveStreams returns demo fallback stream when query throws or returns empty', () async {
+    // Demo/placeholder streams were deliberately removed so the UI never
+    // presents a sample video as a live church service — errors now yield an
+    // honest empty list.
+    test('getActiveStreams returns empty list when query throws or returns empty', () async {
       when(() => mockClient.from('live_streams')).thenAnswer((_) => mockQuery);
       when(() => mockQuery.select(any())).thenAnswer((_) => mockFilter);
       when(() => mockFilter.eq('status', 'live')).thenAnswer((_) => mockFilter);
@@ -25,13 +28,10 @@ void main() {
 
       final streams = await service.getActiveStreams();
 
-      expect(streams.length, 1);
-      expect(streams.first['id'], 'demo_live_stream_1');
-      expect(streams.first['status'], 'live');
-      expect(streams.first['hls_url'], contains('sample'));
+      expect(streams, isEmpty);
     });
 
-    test('getUpcomingStreams returns scheduled fallback streams when query throws', () async {
+    test('getUpcomingStreams returns empty list when query throws', () async {
       when(() => mockClient.from('live_streams')).thenAnswer((_) => mockQuery);
       when(() => mockQuery.select(any())).thenAnswer((_) => mockFilter);
       when(() => mockFilter.eq('status', 'scheduled')).thenAnswer((_) => mockFilter);
@@ -40,9 +40,7 @@ void main() {
 
       final upcoming = await service.getUpcomingStreams();
 
-      expect(upcoming.length, 1);
-      expect(upcoming.first['id'], 'demo_upcoming_stream_1');
-      expect(upcoming.first['status'], 'scheduled');
+      expect(upcoming, isEmpty);
     });
 
     test('getActiveStreams returns live streams from Supabase on success', () async {
