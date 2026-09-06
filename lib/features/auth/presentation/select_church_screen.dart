@@ -77,25 +77,58 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
 
   Future<void> _getUserLocation() async {
     try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text("Location is off — showing all churches. Enable for nearby (50 km)."),
+              action: SnackBarAction(label: "Enable", onPressed: () => Geolocator.openLocationSettings()),
+            ),
+          );
+        }
+        return;
+      }
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text("Location permanently denied — open Settings to allow."),
+              action: SnackBarAction(label: "Settings", onPressed: () => Geolocator.openAppSettings()),
+            ),
+          );
+        }
+        return;
+      }
       if (permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always) {
-        final position = await Geolocator.getCurrentPosition();
+        Position? position = await Geolocator.getLastKnownPosition();
+        if (position != null && DateTime.now().difference(position.timestamp) > const Duration(minutes: 10)) {
+          position = null;
+        }
+        position ??= await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 12)),
+        );
         if (mounted) {
+          // ignore: unnecessary_non_null_assertion
+          final pos = position!;
           setState(() {
-            _currentPosition = position;
+            _currentPosition = pos;
             _currentCountry = detectCountryFromCoordinates(
-              position.latitude,
-              position.longitude,
+              pos.latitude,
+              pos.longitude,
             );
           });
         }
       }
     } catch (e) {
       debugPrint('Error getting location: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Couldn't get location: $e")));
+      }
     }
   }
 

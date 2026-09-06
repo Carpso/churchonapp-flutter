@@ -358,6 +358,17 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
             }
             return Column(
               children: [
+                // Book title being read — prominently shows name of the bible book currently open
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 6),
+                  child: Center(
+                    child: Text(
+                      selectedBook,
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface, letterSpacing: 0.3),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
                 // Chapter navigator
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
@@ -401,7 +412,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                             borderRadius: BorderRadius.circular(15),
                           ),
                           child: Text(
-                            "Chapter $selectedChapter",
+                            "$selectedBook $selectedChapter",
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Colors.amber.shade800,
