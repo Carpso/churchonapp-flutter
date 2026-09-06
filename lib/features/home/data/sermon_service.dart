@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:church_on_app/core/services/tenant_service.dart';
 
 class Sermon {
   final String id;
@@ -18,6 +17,7 @@ class Sermon {
   final int? durationMinutes;
   final String? transcript;
   final String? aiSummary;
+  final String? description;
   final DateTime createdAt;
 
   Sermon({
@@ -35,6 +35,7 @@ class Sermon {
     this.durationMinutes,
     this.transcript,
     this.aiSummary,
+    this.description,
     required this.createdAt,
   });
 
@@ -54,6 +55,7 @@ class Sermon {
       durationMinutes: map['duration_minutes'] as int?,
       transcript: map['transcript'],
       aiSummary: map['ai_summary'],
+      description: map['description'],
       createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
@@ -251,11 +253,7 @@ class SermonService {
 final sermonServiceProvider = Provider((ref) => SermonService(Supabase.instance.client));
 
 final latestSermonsProvider = FutureProvider.autoDispose<List<Sermon>>((ref) async {
-  final tenant = ref.watch(currentTenantProvider);
-  return ref.watch(sermonServiceProvider).fetchLatestSermons(
-        limit: 1,
-        tenantId: tenant?.id,
-      );
+  return ref.watch(sermonServiceProvider).fetchLatestSermons(limit: 1);
 });
 
 final sermonInsightsProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, sermonId) {

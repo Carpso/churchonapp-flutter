@@ -35,6 +35,7 @@ class VerseNote {
   final String note;
   final bool isBookmark;
   final bool isFavorite;
+  final bool isLiked;
   final List<String> tags;
   final DateTime createdAt;
 
@@ -45,6 +46,7 @@ class VerseNote {
     required this.note,
     required this.isBookmark,
     required this.isFavorite,
+    this.isLiked = false,
     required this.tags,
     required this.createdAt,
   });
@@ -57,6 +59,7 @@ class VerseNote {
       note: map['note'] ?? '',
       isBookmark: map['is_bookmark'] ?? false,
       isFavorite: map['is_favorite'] ?? false,
+      isLiked: map['is_liked'] ?? false,
       tags: List<String>.from(map['tags'] ?? []),
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'])
@@ -253,7 +256,7 @@ class BibleVerseService {
 
       var queryBuilder = _client
           .from('verse_notes')
-          .select('id, note, is_bookmark, is_favorite, tags, created_at, chapter, verse')
+          .select('id, note, is_bookmark, is_favorite, is_liked, tags, created_at, chapter, verse')
           .eq('user_id', user.id);
 
       if (bookId != null) {
@@ -287,6 +290,7 @@ class BibleVerseService {
     required String note,
     bool isBookmark = false,
     bool isFavorite = false,
+    bool isLiked = false,
     List<String> tags = const [],
   }) async {
     try {
@@ -315,6 +319,7 @@ class BibleVerseService {
         'note': note,
         'is_bookmark': isBookmark,
         'is_favorite': isFavorite,
+        'is_liked': isLiked,
         'tags': tags,
       };
 
@@ -342,6 +347,81 @@ class BibleVerseService {
       }
     } catch (e, s) {
       debugPrint('Add verse note error: $e');
+      debugPrint(s.toString());
+    }
+    return null;
+  }
+
+  /// Flips one or more boolean flags (highlight/bookmark/like) on a verse
+  /// while PRESERVING any existing note text and the other flags. Upserts the
+  /// row when nothing exists yet.
+  Future<VerseNote?> setVerseFlag({
+    required int bookId,
+    required int chapter,
+    required int verse,
+    bool? isBookmark,
+    bool? isFavorite,
+    bool? isLiked,
+  }) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return null;
+
+      final book = await _client
+          .from('bible_books')
+          .select('id')
+          .eq('book_order', bookId)
+          .maybeSingle();
+      if (book == null) return null;
+
+      final existing = await _client
+          .from('verse_notes')
+          .select('id, note, is_bookmark, is_favorite, is_liked, tags')
+          .eq('user_id', user.id)
+          .eq('book_id', book['id'])
+          .eq('chapter', chapter)
+          .eq('verse', verse)
+          .maybeSingle();
+
+      final currentNote = existing?['note']?.toString() ?? '';
+      final currentBookmark = existing?['is_bookmark'] ?? false;
+      final currentFavorite = existing?['is_favorite'] ?? false;
+      final currentLiked = existing?['is_liked'] ?? false;
+      final currentTags =
+          List<String>.from(existing?['tags'] ?? const []);
+
+      final payload = {
+        'note': currentNote,
+        'is_bookmark': isBookmark ?? currentBookmark,
+        'is_favorite': isFavorite ?? currentFavorite,
+        'is_liked': isLiked ?? currentLiked,
+        'tags': currentTags,
+      };
+
+      final response = existing != null
+          ? await _client
+              .from('verse_notes')
+              .update(payload)
+              .eq('id', existing['id'])
+              .select()
+              .maybeSingle()
+          : await _client
+              .from('verse_notes')
+              .insert({
+                'user_id': user.id,
+                'book_id': book['id'],
+                'chapter': chapter,
+                'verse': verse,
+                ...payload,
+              })
+              .select()
+              .maybeSingle();
+
+      if (response != null) {
+        return VerseNote.fromMap(response);
+      }
+    } catch (e, s) {
+      debugPrint('Set verse flag error: $e');
       debugPrint(s.toString());
     }
     return null;

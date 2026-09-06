@@ -22,6 +22,7 @@ class SermonPlayerScreen extends ConsumerStatefulWidget {
 
 class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
   late VideoPlayerController _videoController;
+  bool _hasInitialized = false;
   bool _isLoading = true;
   bool _hasError = false;
   bool _isLiked = false;
@@ -76,6 +77,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
         if (mounted) setState(() {});
       });
       await _videoController.initialize();
+      _hasInitialized = true;
       _videoController.play();
       if (mounted) setState(() { _isLoading = false; });
     } catch (e) {
@@ -91,7 +93,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
 
   @override
   void dispose() {
-    _videoController.dispose();
+    if (_hasInitialized) _videoController.dispose();
     _commentCtrl.dispose();
     super.dispose();
   }
@@ -141,7 +143,10 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                         icon: const Icon(LucideIcons.sparkles, color: Colors.white, size: 20),
                         onPressed: () => context.push(
                           '/ai-sermon-notes/${widget.sermon.id}',
-                          extra: {'title': widget.sermon.title},
+                          extra: {
+                            'title': widget.sermon.title,
+                            'content': widget.sermon.transcript ?? '',
+                          },
                         ),
                         tooltip: 'AI Sermon Notes',
                       ),
@@ -180,16 +185,24 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                   _buildActionRow(),
                   const SizedBox(height: 20),
                   _buildLikeCommentSection(),
-                  const SizedBox(height: 30),
-                  const Text(
-                    "Description",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    "Discover the spiritual foundations of stewardship and how to manage the blessings of faith in this powerful message. Pastor John explores the biblical principles of faith and finance.",
-                    style: TextStyle(color: Colors.grey, height: 1.6),
-                  ),
+                  if ((widget.sermon.description ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 30),
+                    const Text(
+                      "Description",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      widget.sermon.description!,
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        height: 1.6,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 30),
                   _buildApostolicArchive(),
                   const SizedBox(height: 30),
@@ -543,7 +556,12 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
           }
         }),
         _buildActionItem(LucideIcons.bookOpen, "Notes", onTap: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const SermonNotesScreen()));
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SermonNotesScreen(sermon: widget.sermon),
+            ),
+          );
         }),
       ],
     );
@@ -875,32 +893,85 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-         const Text("More from this Series", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-         const SizedBox(height: 20),
-         _buildRecommendedItem("Part 1: The Covenant of Plenty", "12:45"),
-         _buildRecommendedItem("Part 2: Multipliers", "15:20"),
+        const Text(
+          "More from this Series",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 20),
+        FutureBuilder<List<Sermon>>(
+          future: ref
+              .read(sermonServiceProvider)
+              .fetchLatestSermons(limit: 6, category: widget.sermon.category),
+          builder: (context, snapshot) {
+            final sermons = (snapshot.data ?? const <Sermon>[])
+                .where((s) => s.id != widget.sermon.id)
+                .take(3)
+                .toList();
+            if (sermons.isEmpty) {
+              return const Text(
+                'No other sermons in this series yet.',
+                style: TextStyle(color: Colors.grey),
+              );
+            }
+            return Column(
+              children: sermons.map(_buildRecommendedItem).toList(),
+            );
+          },
+        ),
       ],
     );
   }
 
-  Widget _buildRecommendedItem(String title, String duration) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(15)),
-      child: Row(
-        children: [
-          Container(
-            width: 80,
-            height: 50,
-            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10)),
-            child: const Icon(LucideIcons.play, size: 20),
-          ),
-          const SizedBox(width: 15),
-          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis)),
-          const SizedBox(width: 8),
-          Text(duration, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-        ],
+  Widget _buildRecommendedItem(Sermon sermon) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SermonPlayerScreen(sermon: sermon),
+        ),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 15),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 80,
+              height: 50,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: sermon.thumbnailUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: sermon.thumbnailUrl,
+                      fit: BoxFit.cover,
+                    )
+                  : const Icon(LucideIcons.play, size: 20),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Text(
+                sermon.title,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              sermon.durationMinutes == null || sermon.durationMinutes == 0
+                  ? ''
+                  : '${sermon.durationMinutes} min',
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -930,7 +1001,8 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
               ),
               const SizedBox(height: 10),
               Text(
-                widget.sermon.aiSummary ?? "This sermon explores the foundational principles of stewardship, emphasizing faithfulness and spiritual multiplier effects in everyday life.",
+                widget.sermon.aiSummary ??
+                    'No AI summary available yet — tap Kael Notes to generate one.',
                 style: const TextStyle(color: Colors.grey, fontSize: 13, height: 1.5),
               ),
               const Divider(height: 30),
@@ -948,7 +1020,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
               ),
               const SizedBox(height: 10),
               Text(
-                widget.sermon.transcript?.substring(0, 200) ?? "In the beginning of this profound message, Pastor John Doe invites us to consider the ultimate source of all our blessings. He reminds us that true prosperity is not measured solely by material wealth, but by our capacity to be faithful stewards of what has been entrusted to us...",
+                _transcriptExcerpt(widget.sermon.transcript),
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic),
@@ -958,6 +1030,14 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
         ),
       ],
     );
+  }
+
+  String _transcriptExcerpt(String? transcript) {
+    if (transcript == null || transcript.trim().isEmpty) {
+      return 'No transcription available yet.';
+    }
+    if (transcript.length <= 200) return transcript;
+    return '${transcript.substring(0, 200)}…';
   }
 
   void _showFullTranscript() {
@@ -987,7 +1067,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
             Expanded(
               child: SingleChildScrollView(
                 child: Text(
-                  widget.sermon.transcript ?? "Transcription pending... In the beginning of this profound message, Pastor John Doe invites us to consider the ultimate source of all our blessings. He reminds us that true prosperity is not measured solely by material wealth, but by our capacity to be faithful stewards of what has been entrusted to us. As we dive into the Word today, let us open our hearts to the multiplier effect that comes from a life fully surrendered to spiritual service. It's about being a conduit for grace, not just a reservoir. (Complete archive available on the VPS)",
+                  widget.sermon.transcript ?? 'No transcription available yet.',
                   style: const TextStyle(height: 1.8, color: Colors.black87),
                 ),
               ),

@@ -399,6 +399,42 @@ class BibleService {
     return selected.map((v) => v.text).join(' ');
   }
 
+  /// Pre-fetches and caches every chapter of [book] in [translation] for
+  /// offline reading. Returns the number of chapters that were fetched and
+  /// cached successfully out of [totalChapters].
+  Future<int> downloadBookForOffline(
+    String translation,
+    String book,
+    int totalChapters,
+  ) async {
+    var downloaded = 0;
+    for (var ch = 1; ch <= totalChapters; ch++) {
+      final verses = await getChapter(translation, book, ch);
+      if (verses.isNotEmpty) downloaded++;
+    }
+    return downloaded;
+  }
+
+  /// How many chapters of [book] in [translation] are already cached for
+  /// offline use (a quick SharedPreferences key check, no network).
+  Future<int> bookCachedChapterCount(
+    String translation,
+    String book,
+  ) async {
+    var count = 0;
+    try {
+      final prefix = 'bible_${translation}_${book}_';
+      final prefs = await SharedPreferences.getInstance();
+      for (final key in prefs.getKeys()) {
+        if (key.startsWith(prefix)) {
+          final chapterStr = key.substring(prefix.length);
+          if (int.tryParse(chapterStr) != null) count++;
+        }
+      }
+    } catch (_) {}
+    return count;
+  }
+
   /// Searches locally cached R2 books (all translations the user has opened)
   /// for [query]. Returns up to [limit] matches with references.
   Future<List<BibleSearchHit>> searchCachedBooks(

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +10,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../data/red_letter_data.dart';
+import '../data/linked_scripture_data.dart';
 import '../data/bible_service.dart';
 import '../data/bible_books_service.dart';
 import '../data/bible_book_model.dart';
@@ -18,6 +22,8 @@ import '../data/audio_bible_service.dart';
 import '../data/bible_verse_service.dart';
 import '../data/streak_service.dart';
 import '../../notebook/presentation/notebook_screen.dart';
+import '../../notebook/data/notebook_service.dart';
+import '../../../core/providers/auth_provider.dart';
 import 'bible_audio_player.dart';
 import 'scripture_audio_button.dart';
 import 'study_plans_screen.dart';
@@ -158,10 +164,12 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
   bool isStudyPaneOpen = false;
   double fontSize = 18.0;
   bool isDarkTheme = false;
+  bool showRedLetters = true;
   int _activeBottomTab = 0;
   int _bookSelectorTab = 0;
   bool _showAudioPlayer = false;
   final Set<String> _highlightedVerses = {};
+  final GlobalKey _verseImageKey = GlobalKey();
 
   int get _maxChapter {
     try {
@@ -439,7 +447,6 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                     itemBuilder: (context, index) {
                       final v = verses[index];
                       final key = "${v.chapter}:${v.verse}";
-                      final isHighlighted = _highlightedVerses.contains(key);
                       final bookOrder = _bookOrderFor(selectedBook);
                       final chapterNotes = bookOrder == null
                           ? const <VerseNote>[]
@@ -458,19 +465,53 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                           notesForVerse.any((n) => n.isBookmark);
                       final hasFavorite =
                           notesForVerse.any((n) => n.isFavorite);
+                      final hasLiked = notesForVerse.any((n) => n.isLiked);
                       final hasNote = notesForVerse
                           .any((n) => n.note.trim().isNotEmpty);
+                      // Highlights come FROM the saved VerseNotes (persistent);
+                      // the local set is only the fallback when book lookup
+                      // fails so chapter-actions still work offline.
+                      final isHighlighted = bookOrder != null
+                          ? hasFavorite
+                          : _highlightedVerses.contains(key);
+                      final isRedLetter = showRedLetters &&
+                          isRedLetterVerse(
+                              selectedBook, v.chapter, v.verse);
                       return GestureDetector(
                         onTap: () {
                           if (_activeBottomTab == 0) {
-                            // Highlight mode — tap to toggle highlight
-                            setState(() {
-                              if (_highlightedVerses.contains(key)) {
-                                _highlightedVerses.remove(key);
-                              } else {
-                                _highlightedVerses.add(key);
-                              }
-                            });
+                            final saved = bookOrder != null && hasFavorite;
+                            if (bookOrder == null) {
+                              // No book lookup (offline) — local-only highlight
+                              setState(() {
+                                if (_highlightedVerses.contains(key)) {
+                                  _highlightedVerses.remove(key);
+                                } else {
+                                  _highlightedVerses.add(key);
+                                }
+                              });
+                            } else {
+                              ref
+                                  .read(bibleVerseServiceProvider)
+                                  .setVerseFlag(
+                                    bookId: bookOrder,
+                                    chapter: v.chapter,
+                                    verse: v.verse,
+                                    isFavorite: !saved,
+                                  );
+                              ref.invalidate(verseNotesProvider({
+                                'bookId': bookOrder,
+                                'chapter': selectedChapter,
+                              }));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(!saved
+                                      ? 'Highlighted ${v.chapter}:${v.verse}'
+                                      : 'Highlight removed'),
+                                  duration: const Duration(seconds: 1),
+                                ),
+                              );
+                            }
                           } else {
                             _showVerseDetail(v);
                           }
@@ -522,9 +563,13 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                                       TextSpan(
                                         text: v.text,
                                         style: TextStyle(
-                                          color: isDarkTheme
-                                              ? Colors.white
-                                              : const Color(0xFF2D3436),
+                                          color: isRedLetter
+                                              ? (isDarkTheme
+                                                  ? const Color(0xFFE56666)
+                                                  : const Color(0xFFB71C1C))
+                                              : (isDarkTheme
+                                                  ? Colors.white
+                                                  : const Color(0xFF2D3436)),
                                           fontSize: fontSize,
                                           height: 1.7,
                                           fontFamily: 'Georgia',
@@ -534,7 +579,10 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                                   ),
                                 ),
                               ),
-                              if (hasBookmark || hasFavorite || hasNote)
+                              if (hasBookmark ||
+                                  hasFavorite ||
+                                  hasNote ||
+                                  hasLiked)
                                 Padding(
                                   padding: const EdgeInsets.only(
                                     left: 6,
@@ -553,6 +601,12 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                                           LucideIcons.heart,
                                           size: 13,
                                           color: Theme.of(context).primaryColor.withValues(alpha: 0.75),
+                                        ),
+                                      if (hasLiked)
+                                        Icon(
+                                          LucideIcons.thumbsUp,
+                                          size: 13,
+                                          color: Theme.of(context).primaryColor.withValues(alpha: 0.65),
                                         ),
                                       if (hasNote)
                                         Icon(
@@ -633,7 +687,10 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
       );
       final mine = notes.where((n) =>
           n.verse == verse.verse &&
-          (n.note.trim().isNotEmpty || n.isBookmark || n.isFavorite));
+          (n.note.trim().isNotEmpty ||
+              n.isBookmark ||
+              n.isFavorite ||
+              n.isLiked));
       var deletedAny = false;
       for (final n in mine) {
         final ok = await service.deleteVerseNote(n.id);
@@ -656,8 +713,9 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
 
     void saveNote(
       String label, {
-      bool isBookmark = false,
-      bool isFavorite = false,
+      bool? isBookmark,
+      bool? isFavorite,
+      bool? isLiked,
       String? noteText,
     }) async {
       final messenger = ScaffoldMessenger.of(context);
@@ -672,18 +730,47 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
         return;
       }
       final service = ref.read(bibleVerseServiceProvider);
-      await service.addVerseNote(
-        bookId: bookOrder,
-        chapter: verse.chapter,
-        verse: verse.verse,
-        note: noteText ?? '',
-        isBookmark: isBookmark,
-        isFavorite: isFavorite,
+      if (noteText != null) {
+        // Saving a note must PRESERVE existing highlight/bookmark/like flags
+        // (the old addVerseNote defaulted them to false and wiped them).
+        final existing = await service.fetchVerseNotes(
+          bookId: bookOrder,
+          chapter: verse.chapter,
+        );
+        final mine = existing
+            .where((n) => n.verse == verse.verse)
+            .toList();
+        final n = mine.isEmpty ? null : mine.first;
+        await service.addVerseNote(
+          bookId: bookOrder,
+          chapter: verse.chapter,
+          verse: verse.verse,
+          note: noteText,
+          isBookmark: n?.isBookmark ?? false,
+          isFavorite: n?.isFavorite ?? false,
+          isLiked: n?.isLiked ?? false,
+        );
+      } else {
+        await service.setVerseFlag(
+          bookId: bookOrder,
+          chapter: verse.chapter,
+          verse: verse.verse,
+          isBookmark: isBookmark,
+          isFavorite: isFavorite,
+          isLiked: isLiked,
+        );
+      }
+      ref.invalidate(
+        verseNotesProvider({
+          'bookId': bookOrder,
+          'chapter': verse.chapter,
+        }),
       );
       ref.invalidate(
         verseNotesProvider({
           'bookId': bookOrder,
           'chapter': verse.chapter,
+          'verse': verse.verse,
         }),
       );
       messenger.showSnackBar(
@@ -716,6 +803,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           final existingNote = verseNotes.isEmpty ? null : verseNotes.first;
           final isBookmarked = existingNote?.isBookmark ?? false;
           final isFavorited = existingNote?.isFavorite ?? false;
+          final isLiked = existingNote?.isLiked ?? false;
           final parallelCodes = ['kjv', 'web']
               .where((c) => c != selectedTranslation && BibleService.canResolve(c))
               .toList();
@@ -747,48 +835,109 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                reference,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 20,
-                                ),
+                        RepaintBoundary(
+                          key: _verseImageKey,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0xFFFFF8E1),
+                                  Color(0xFFFFEB3B),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: Colors.amber.withValues(alpha: 0.4),
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.amber.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                selectedTranslation.toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.amber,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        reference,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 20,
+                                          color: Color(0xFF3E2723),
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.7,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        selectedTranslation.toUpperCase(),
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFB71C1C),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  verse.text,
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    height: 1.6,
+                                    fontStyle: FontStyle.italic,
+                                    fontFamily: 'Georgia',
+                                    color: showRedLetters &&
+                                            isRedLetterVerse(
+                                                selectedBook,
+                                                verse.chapter,
+                                                verse.verse)
+                                        ? const Color(0xFFB71C1C)
+                                        : const Color(0xFF3E2723),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      LucideIcons.bookOpen,
+                                      size: 14,
+                                      color: Color(0xFF795548),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      'Church On App',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF795548),
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      '$reference · '
+                                      '${selectedTranslation.toUpperCase()}',
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFF795548),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          verse.text,
-                          style: TextStyle(
-                            fontSize: 17,
-                            height: 1.6,
-                            fontStyle: FontStyle.italic,
-                            fontFamily: 'Georgia',
-                            color: isDarkTheme
-                                ? Colors.white70
-                                : Colors.grey.shade800,
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -833,8 +982,19 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                               isFavorited ? 'Unhighlight' : 'Highlight',
                               Colors.amber,
                               onTap: () => saveNote(
-                                isFavorited ? 'Highlight removed' : 'Highlight',
-                                isFavorite: true,
+                                isFavorited
+                                    ? 'Highlight removed'
+                                    : 'Highlight',
+                                isFavorite: !isFavorited,
+                              ),
+                            ),
+                            _actionChip(
+                              LucideIcons.thumbsUp,
+                              isLiked ? 'Liked' : 'Like',
+                              Colors.blue,
+                              onTap: () => saveNote(
+                                isLiked ? 'Like removed' : 'Liked',
+                                isLiked: !isLiked,
                               ),
                             ),
                             _actionChip(
@@ -862,11 +1022,20 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                               },
                             ),
                             _actionChip(
+                              LucideIcons.church,
+                              "Pray",
+                              Theme.of(context).primaryColor.withValues(alpha: 0.85),
+                              onTap: () => _showPraySheet(reference, verse.text),
+                            ),
+                            _actionChip(
                               LucideIcons.bookmark,
                               isBookmarked ? 'Bookmarked' : "Bookmark",
                               Theme.of(context).primaryColor.withValues(alpha: 0.7),
                               onTap: () =>
-                                  saveNote("Bookmark", isBookmark: true),
+                                  saveNote(
+                                    isBookmarked ? 'Bookmark removed' : "Bookmark",
+                                    isBookmark: !isBookmarked,
+                                  ),
                             ),
                             _actionChip(
                               LucideIcons.pencil,
@@ -880,10 +1049,90 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                                 );
                               },
                             ),
+                            GestureDetector(
+                              onTap: () async {
+                                final messenger =
+                                    ScaffoldMessenger.of(context);
+                                // Capture BEFORE closing the sheet — the
+                                // boundary is disposed once we pop.
+                                Uint8List? bytes;
+                                try {
+                                  final boundary = _verseImageKey
+                                      .currentContext
+                                      ?.findRenderObject()
+                                      as RenderRepaintBoundary?;
+                                  if (boundary != null) {
+                                    final ratio = MediaQuery.devicePixelRatioOf(context);
+                                    final image = await boundary.toImage(
+                                      pixelRatio: ratio,
+                                    );
+                                    final data = await image.toByteData(
+                                      format: ui.ImageByteFormat.png,
+                                    );
+                                    bytes = data?.buffer.asUint8List();
+                                  }
+                                } catch (_) {}
+                                if (bytes == null) {
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Could not create verse image',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                }
+                                await SharePlus.instance.share(
+                                  ShareParams(
+                                    files: [
+                                      XFile.fromData(
+                                        bytes,
+                                        mimeType: 'image/png',
+                                        name: 'verse.png',
+                                      ),
+                                    ],
+                                    text: reference,
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.purple.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      LucideIcons.image,
+                                      size: 16,
+                                      color: Colors.purple,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      "Image",
+                                      style: TextStyle(
+                                        color: Colors.purple,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                             if (verseNotes.any((n) =>
                                 n.note.trim().isNotEmpty ||
                                 n.isBookmark ||
-                                n.isFavorite))
+                                n.isFavorite ||
+                                n.isLiked))
                               _actionChip(
                                 LucideIcons.trash2,
                                 'Delete',
@@ -1042,6 +1291,90 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                                 ),
                                 error: (_, __) => const SizedBox.shrink(),
                               ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'RELATED PASSAGES',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 11,
+                            letterSpacing: 1.5,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        if (builtInRelatedLinks(
+                                selectedBook,
+                                verse.chapter,
+                                verse.verse)
+                            .isEmpty)
+                          const Text(
+                            'No related passages',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                          )
+                        else
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: builtInRelatedLinks(
+                              selectedBook,
+                              verse.chapter,
+                              verse.verse,
+                            ).map(
+                              (link) {
+                                final teal = link.type == 'harmony'
+                                    ? const Color(0xFF00897B)
+                                    : const Color(0xFF6A1B9A);
+                                final label = link.type == 'harmony'
+                                    ? 'Parallel'
+                                    : 'Prophecy';
+                                return GestureDetector(
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    _openLinked(
+                                      link.bookmark,
+                                      link.chapter,
+                                      link.verse,
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: teal.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: teal.withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          LucideIcons.link2,
+                                          size: 12,
+                                          color: Color(0xFF6A1B9A),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '$label · ${link.label}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: teal,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ).toList(),
+                          ),
                       ],
                     ),
                   ),
@@ -1140,6 +1473,32 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
     );
   }
 
+  void _openLinked(String book, int chapter, int verse) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BibleScreen(
+          initialBook: book,
+          initialChapter: chapter,
+          initialVerse: verse,
+        ),
+      ),
+    );
+  }
+
+  void _showPraySheet(String reference, String text) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PrayVerseSheet(
+        reference: reference,
+        text: text,
+        isDarkTheme: isDarkTheme,
+      ),
+    );
+  }
+
   int? _bookOrderFor(String bookName) {
     try {
       return _allBooks.firstWhere((b) => b.name == bookName).bookOrder;
@@ -1153,8 +1512,9 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
     String verseText,
     void Function(
       String label, {
-      bool isBookmark,
-      bool isFavorite,
+      bool? isBookmark,
+      bool? isFavorite,
+      bool? isLiked,
       String? noteText,
     })
     saveNote,
@@ -1808,8 +2168,10 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
   void _showAppearanceSettings() {
     double localFontSize = fontSize;
     bool localDarkTheme = isDarkTheme;
+    bool localRedLetters = showRedLetters;
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
@@ -1820,16 +2182,17 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                 top: Radius.circular(30),
               ),
             ),
-            padding: const EdgeInsets.all(30),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "READER SETTINGS",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 25),
+            padding: const EdgeInsets.fromLTRB(30, 30, 30, 30),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "READER SETTINGS",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 25),
                 // Dropdown row: Expanded wrapper so long translation names
                 // never overflow the sheet on narrow phones.
                 Row(
@@ -1913,6 +2276,48 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                     setState(() => isDarkTheme = v);
                   },
                 ),
+                SwitchListTile(
+                  title: const Text("Red Letters (Words of Jesus)"),
+                  subtitle: const Text("Show the words of Jesus in red"),
+                  value: localRedLetters,
+                  activeThumbColor: const Color(0xFFB71C1C),
+                  onChanged: (v) {
+                    setModalState(() => localRedLetters = v);
+                    setState(() => showRedLetters = v);
+                  },
+                ),
+                const Divider(height: 30),
+                const Text(
+                  'OFFLINE BIBLE',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                    letterSpacing: 1.5,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'KJV is always available offline (bundled). Download '
+                  '${selectedTranslation.toUpperCase()} chapters as you go '
+                  '— each opened chapter is auto-cached.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(LucideIcons.downloadCloud),
+                  title: Text(
+                    'Download $selectedBook — '
+                    '${selectedTranslation.toUpperCase()}',
+                  ),
+                  subtitle: _buildOfflineStatus(),
+                  trailing:
+                      const Icon(LucideIcons.chevronRight, size: 18),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _downloadCurrentBookOffline();
+                  },
+                ),
                 const Divider(height: 30),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -1926,11 +2331,68 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                   },
                 ),
               ],
+              ),
             ),
           );
         },
       ),
     );
+  }
+
+  Widget _buildOfflineStatus() {
+    return FutureBuilder<int>(
+      future: ref
+          .read(bibleServiceProvider)
+          .bookCachedChapterCount(selectedTranslation, selectedBook),
+      builder: (context, snapshot) {
+        final cached = snapshot.data ?? 0;
+        return Text('$cached / $_maxChapter chapters cached offline');
+      },
+    );
+  }
+
+  Future<void> _downloadCurrentBookOffline() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final service = ref.read(bibleServiceProvider);
+    final bookName = selectedBook;
+    final translation = selectedTranslation;
+    final total = _maxChapter;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        title: Text('Downloading book...'),
+        content: SizedBox(
+          width: 200,
+          child: LinearProgressIndicator(),
+        ),
+      ),
+    );
+    try {
+      final downloaded =
+          await service.downloadBookForOffline(translation, bookName, total);
+      if (!mounted) return;
+      Navigator.pop(context);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            downloaded == total
+                ? '$bookName offline: all $total chapters'
+                : '$bookName offline: $downloaded/$total chapters',
+          ),
+          backgroundColor:
+              downloaded == total ? Colors.green : Colors.orange,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Download failed — check your connection'),
+        ),
+      );
+    }
   }
 
   void _showSearchDialog() {
@@ -2468,13 +2930,159 @@ class _StudySummaryCardState extends ConsumerState<_StudySummaryCard> {
                         .colorScheme
                         .onSurface
                         .withValues(alpha: 0.4))),
-          if (!_loading && _summary == null)
+if (!_loading && _summary == null)
             TextButton(
               onPressed: _load,
               child: const Text('GENERATE',
                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900)),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// "Pray over a verse" sheet — save a journal entry (Notebook, topic Prayer)
+/// and/or jump to the Prayer Wall.
+class _PrayVerseSheet extends ConsumerStatefulWidget {
+  final String reference;
+  final String text;
+  final bool isDarkTheme;
+
+  const _PrayVerseSheet({
+    required this.reference,
+    required this.text,
+    required this.isDarkTheme,
+  });
+
+  @override
+  ConsumerState<_PrayVerseSheet> createState() => _PrayVerseSheetState();
+}
+
+class _PrayVerseSheetState extends ConsumerState<_PrayVerseSheet> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveToJournal(BuildContext sheetContext) async {
+    final user = ref.read(authProvider).user;
+    if (user != null) {
+      try {
+        final prayed = _controller.text.trim();
+        await ref.read(notebookServiceProvider).createNote(
+          user.id,
+          'Prayer — ${widget.reference}',
+          '${widget.reference}\n\n"${widget.text}"\n\n'
+              '${prayed.isEmpty ? '' : 'My prayer:\n$prayed'}',
+          topic: 'Prayer',
+        );
+      } catch (_) {}
+    }
+    if (sheetContext.mounted) Navigator.pop(sheetContext);
+    if (mounted) context.push('/prayer-wall');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: widget.isDarkTheme ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  LucideIcons.church,
+                  size: 20,
+                  color: Theme.of(context).primaryColor,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Pray over ${widget.reference}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.amber.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Text(
+                widget.text,
+                style: const TextStyle(
+                  fontSize: 15,
+                  height: 1.5,
+                  fontStyle: FontStyle.italic,
+                  fontFamily: 'Georgia',
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _controller,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: 'Write your heart to God (optional)',
+                alignLabelWithHint: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: widget.isDarkTheme
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.grey.withValues(alpha: 0.06),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    icon: const Icon(LucideIcons.flame, size: 18),
+                    label: const Text('Save to Journal'),
+                    onPressed: () => _saveToJournal(context),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(LucideIcons.users, size: 18),
+                    label: const Text('Prayer Wall'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      context.push('/prayer-wall');
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

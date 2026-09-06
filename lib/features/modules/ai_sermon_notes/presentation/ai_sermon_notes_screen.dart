@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -42,9 +44,9 @@ class SermonNotesService {
         final respText = data['response'] as String;
         return {
           'summary': respText,
-          'key_takeaways': ['Key points detailed in AI summary above.'],
-          'action_steps': ['Reflect on the scripture readings.'],
-          'study_questions': ['How can you apply this sermon to your life this week?'],
+          'key_takeaways': const [],
+          'action_steps': const [],
+          'study_questions': const [],
         };
       }
     } catch (e) {
@@ -67,12 +69,12 @@ class SermonNotesService {
       debugPrint('ai-sermon-notes function error: $e');
     }
 
-    // 3. Structured fallback response
+    // 3. Honest fallback response (no fabricated key points)
     return {
-      'summary': "Summary for '$title': $textToSummarize",
-      'key_takeaways': ['Walk in faith and love', 'Stay rooted in the Word', 'Serve the Lord with gladness'],
-      'action_steps': ['Pray daily', 'Apply the sermon message in your community'],
-      'study_questions': ['What stood out to you most in this message?'],
+      'summary': "No summary could be generated for '$title' at this time. The sermon content begins: ${textToSummarize.length <= 400 ? textToSummarize : textToSummarize.substring(0, 400)}…",
+      'key_takeaways': const [],
+      'action_steps': const [],
+      'study_questions': const [],
     };
   }
 
@@ -122,20 +124,44 @@ class SermonNotesService {
     await _client.from('sermon_notes').delete().eq('id', noteId);
   }
 
-  /// Generate study prompts from sermon content
+  /// Generate study prompts from sermon content (Kael AI / Hugging Face —
+  /// the dedicated `ai-sermon-study-prompts` function is not deployed).
   Future<List<String>> generateStudyPrompts({
     required String title,
     required String content,
   }) async {
-    final result = await _client.functions.invoke('ai-sermon-study-prompts', body: {
-      'title': title,
-      'content': content,
-    });
+    try {
+      final result = await _client.functions.invoke('kael-ai', body: {
+        'action': 'chat',
+        'messages': [
+          {
+            'role': 'user',
+            'content':
+                'Generate 4 thoughtful Bible study discussion questions for the sermon "$title". Return a raw JSON array of strings only.\n\nSermon content:\n$content',
+          },
+        ],
+      });
+      final data = result.data as Map<String, dynamic>?;
+      final response = data?['response']?.toString() ??
+          (data?['answer']?.toString() ?? data?['message']?.toString());
+      if (response == null || response.trim().isEmpty) return [];
 
-    if (result.data == null) return [];
-
-    final data = result.data as Map<String, dynamic>;
-    return List<String>.from(data['prompts'] ?? []);
+      final cleaned = response
+          .trim()
+          .replaceAll(RegExp(r'^```(json)?|```$'), '')
+          .trim();
+      final decoded = jsonDecode(cleaned);
+      if (decoded is List) {
+        return decoded
+            .map((e) => e?.toString() ?? '')
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('generateStudyPrompts (kael-ai) failed: $e');
+      return [];
+    }
   }
 
   /// Get study prompts for a sermon
@@ -283,10 +309,27 @@ class _AISermonNotesScreenState extends ConsumerState<AISermonNotesScreen>
         content: widget.sermonContent ?? '',
       );
 
+      final studyPromptQuestions =
+          List<String>.from(result['study_questions'] ?? []);
+      final resolvedPrompts =
+          studyPromptQuestions.isEmpty
+              ? await service.generateStudyPrompts(
+                  title: widget.sermonTitle,
+                  content: widget.sermonContent ?? '',
+                )
+              : studyPromptQuestions;
+
       setState(() {
         _aiSummary = result['summary'];
-        _studyPrompts = List<String>.from(result['study_prompts'] ?? []);
+        _studyPrompts = resolvedPrompts;
       });
+
+      if (resolvedPrompts.isNotEmpty) {
+        await service.saveStudyPrompts(
+          sermonId: widget.sermonId,
+          prompts: resolvedPrompts,
+        );
+      }
     } catch (e) {
       if (mounted) {
         PremiumToast.showError(context, 'Error generating summary: $e');

@@ -40,13 +40,16 @@ class HomeQuickActions extends StatelessWidget {
                   scrollDirection: Axis.horizontal,
                   itemCount: actions.length,
                   itemBuilder: (context, index) {
-                    return Semantics(
-                      label: "${actions[index]['label']} quick action",
-                      button: true,
-                      child: GestureDetector(
-                        onTap: () =>
-                            _handleTap(context, actions[index]['label'] as String),
-                        child: _buildTile(context, actions[index], 80),
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Semantics(
+                        label: "${actions[index]['label']} quick action",
+                        button: true,
+                        child: GestureDetector(
+                          onTap: () => _handleTap(
+                              context, actions[index]['label'] as String),
+                          child: _buildTile(context, actions[index], 80),
+                        ),
                       ),
                     );
                   },
