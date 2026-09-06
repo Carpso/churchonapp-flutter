@@ -111,9 +111,15 @@ class _PromoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasImage = offer.imageUrl != null && offer.imageUrl!.isNotEmpty;
-    return GestureDetector(
-      onTap: () => _onTap(context),
-      child: Container(
+    final label = [offer.badge, offer.title, offer.subtitle]
+        .where((t) => t != null && t.isNotEmpty)
+        .join(' — ');
+    return Semantics(
+      button: true,
+      label: label.isEmpty ? 'Promotion' : label,
+      child: GestureDetector(
+        onTap: () => _onTap(context),
+        child: Container(
         height: 160,
         width: double.infinity,
         decoration: BoxDecoration(
@@ -206,6 +212,7 @@ class _PromoCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

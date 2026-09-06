@@ -138,69 +138,73 @@ class HomeNews extends ConsumerWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Theme.of(context).shadowColor.withValues(alpha: 0.02), blurRadius: 10)],
       ),
-      child: InkWell(
-        onTap: () {
-          if (article.isLocal) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => NewsDetailScreen(article: article)));
-          } else {
-            launchUrl(Uri.parse(article.link), mode: LaunchMode.inAppWebView);
-          }
-        },
-        borderRadius: BorderRadius.circular(20),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
-              child: article.image.isEmpty
-                  ? Container(
-                      width: 100,
-                      height: 100,
-                      color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
-                      child: Icon(LucideIcons.newspaper, color: Theme.of(context).primaryColor, size: 28),
-                    )
-                  : AppImage(
-                      article.image,
-                      width: 100,
-                      height: 100,
-                      fit: BoxFit.cover,
-                      errorWidget: (c, _) => Container(
+      child: Semantics(
+        button: true,
+        label: 'News: $source. $title',
+        child: InkWell(
+          onTap: () {
+            if (article.isLocal) {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => NewsDetailScreen(article: article)));
+            } else {
+              launchUrl(Uri.parse(article.link), mode: LaunchMode.inAppWebView);
+            }
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
+                child: article.image.isEmpty
+                    ? Container(
                         width: 100,
                         height: 100,
-                        color: Theme.of(c).primaryColor.withValues(alpha: 0.12),
-                        child: Icon(LucideIcons.newspaper, color: Theme.of(c).primaryColor, size: 28),
+                        color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
+                        child: Icon(LucideIcons.newspaper, color: Theme.of(context).primaryColor, size: 28),
+                      )
+                    : AppImage(
+                        article.image,
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                        errorWidget: (c, _) => Container(
+                          width: 100,
+                          height: 100,
+                          color: Theme.of(c).primaryColor.withValues(alpha: 0.12),
+                          child: Icon(LucideIcons.newspaper, color: Theme.of(c).primaryColor, size: 28),
+                        ),
                       ),
-                    ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      source,
-                      style: TextStyle(
-                        color: Theme.of(context).primaryColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.1,
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        source,
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 4),
-                    Text(
-                      pubDate,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                        fontSize: 11,
+                      const SizedBox(height: 4),
+                      Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 4),
+                      Text(
+                        pubDate,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                          fontSize: 11,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

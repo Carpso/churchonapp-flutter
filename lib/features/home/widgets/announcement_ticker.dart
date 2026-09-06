@@ -55,36 +55,42 @@ class _StaticTicker extends StatefulWidget {
 }
 
 class _StaticTickerState extends State<_StaticTicker> with SingleTickerProviderStateMixin {
-  late ScrollController _scrollController;
+  late final ScrollController _scrollController;
+  late final AnimationController _controller;
+  double _accumulated = 0;
 
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startScrolling());
+    // Game-loop driven scroll: advance ~1px per 50ms of animation time. The
+    // controller only ticks while the widget is on screen, so we never burn
+    // cycles in an endless while-loop when the home tab is idle/backgrounded.
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(days: 365),
+    );
+    _controller.addListener(_onTick);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _controller.repeat());
   }
 
-  void _startScrolling() async {
-    while (mounted) {
-      await Future.delayed(const Duration(milliseconds: 50));
-      if (_scrollController.hasClients) {
-        final double maxScroll = _scrollController.position.maxScrollExtent;
-        final double currentScroll = _scrollController.position.pixels;
-        if (currentScroll >= maxScroll) {
-          _scrollController.jumpTo(0);
-        } else {
-          _scrollController.animateTo(
-            currentScroll + 1,
-            duration: const Duration(milliseconds: 50),
-            curve: Curves.linear,
-          );
-        }
-      }
+  void _onTick() {
+    if (!mounted || !_scrollController.hasClients) return;
+    _accumulated += 1;
+    // ~20 ticks/second => ~1px per tick.
+    if (_accumulated < 1) return;
+    _accumulated = _accumulated % 1;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent) {
+      _scrollController.jumpTo(0);
+    } else {
+      _scrollController.jumpTo(position.pixels + 1);
     }
   }
 
   @override
   void dispose() {
+    _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }

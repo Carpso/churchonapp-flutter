@@ -35,9 +35,12 @@ class HomeSparkleGrid extends ConsumerWidget {
               itemCount: displayProducts.length,
               itemBuilder: (context, index) {
                 final prod = displayProducts[index];
-                return GestureDetector(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(product: prod))),
-                  child: Container(
+                return Semantics(
+                  button: true,
+                  label: 'Marketplace: ${prod.name}. K${prod.price.toStringAsFixed(2)}',
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(product: prod))),
+                    child: Container(
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(20),
@@ -75,6 +78,7 @@ class HomeSparkleGrid extends ConsumerWidget {
                       ],
                     ),
                   ),
+                ),
                 );
               },
             );

@@ -99,17 +99,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     unawaited(BirthdayService.checkAndShow(context, ref));
 
     // Prefetch data for offline resilience
+    // Stagger background jobs so first frame isn't swamped by 4 simultaneous
+    // network bursts — cache the important bits first, then harder work later.
     final tenant = ref.read(currentTenantProvider);
     final smartPrefetch = ref.read(smartPrefetchProvider);
     unawaited(smartPrefetch.prefetchAll(tenantId: tenant?.id));
 
-    // Cache critical data for offline access
-    final cacheService = OfflineCacheService();
-    final criticalCache = CriticalDataCache(
-      cacheService,
-      Supabase.instance.client,
-    );
-    unawaited(criticalCache.cacheAllCriticalData());
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      final cacheService = OfflineCacheService();
+      final criticalCache = CriticalDataCache(
+        cacheService,
+        Supabase.instance.client,
+      );
+      unawaited(criticalCache.cacheAllCriticalData());
+    });
   }
 
   Future<void> _showWelcomeOverlay() async {
@@ -703,7 +707,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             key: _sectionKeys['sparkle'],
                             padding: EdgeInsets.zero,
                             child: const HomeSectionTitle(
-                              title: "Sparkle Picks",
+                              title: "Marketplace Picks",
                             ),
                           ),
                           const HomeSparkleGrid(),

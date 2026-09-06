@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -13,7 +13,7 @@ class RecommendationItem {
   final String route;
   final String? imageUrl;
   final IconData icon;
-  final int matchPercentage; // e.g. 96
+  final String badge;
   final Color themeColor;
 
   RecommendationItem({
@@ -24,7 +24,7 @@ class RecommendationItem {
     required this.route,
     this.imageUrl,
     required this.icon,
-    required this.matchPercentage,
+    required this.badge,
     required this.themeColor,
   });
 }
@@ -34,93 +34,131 @@ class RecommendationEngineService {
   RecommendationEngineService(this._client);
 
   Future<List<RecommendationItem>> getRecommendations(String tenantId) async {
-    final list = <RecommendationItem>[];
+    final now = DateTime.now().toIso8601String();
 
-    try {
-      // 1. Fetch Sermon audio recommendation
-      final sermons = await _client
-          .from('sermons')
-          .select('id, title, speaker, cover_url')
-          .eq('tenant_id', tenantId)
-          .limit(2);
-
-      if (sermons.isNotEmpty) {
-        for (final s in sermons) {
-          list.add(
-            RecommendationItem(
-              id: s['id'] ?? 's1',
-              title: s['title'] ?? 'Walking in Divine Purpose',
-              subtitle: s['speaker'] ?? 'Pastor Leonard Kaweme',
-              category: 'Audio Message',
-              route: '/sermons',
-              imageUrl: s['cover_url'],
-              icon: LucideIcons.headphones,
-              matchPercentage: 98,
-              themeColor: const Color(0xFF8B5CF6),
-            ),
-          );
-        }
+    final Future<List<RecommendationItem>> sermonRec = () async {
+      try {
+        final rows = await _client
+            .from('sermons')
+            .select('id, title, speaker, thumbnail_url')
+            .eq('tenant_id', tenantId)
+            .order('created_at', ascending: false)
+            .limit(1);
+        if (rows.isEmpty) return const <RecommendationItem>[];
+        final s = rows.first;
+        return [
+          RecommendationItem(
+            id: s['id']?.toString() ?? 'sermon_rec',
+            title: s['title'] ?? 'Latest Sermon',
+            subtitle: s['speaker'] ?? 'Church Service',
+            category: 'Audio Message',
+            route: '/sermons',
+            imageUrl: s['thumbnail_url'],
+            icon: LucideIcons.headphones,
+            badge: 'Latest',
+            themeColor: const Color(0xFF8B5CF6),
+          ),
+        ];
+      } catch (e) {
+        debugPrint('RecommendationEngine: Error fetching sermon rec: $e');
+        return const <RecommendationItem>[];
       }
-    } catch (e) {
-      debugPrint('RecommendationEngine: Error fetching sermon recs: $e');
-    }
+    }();
 
-    // Add high-value fallback recommendations
-    if (list.isEmpty) {
-      list.add(
-        RecommendationItem(
-          id: 'rec_s1',
-          title: 'Wealth & Stewardship',
-          subtitle: 'Series on Financial Breakthrough',
-          category: 'Recommended Sermon',
-          route: '/sermons',
-          icon: LucideIcons.headphones,
-          matchPercentage: 97,
-          themeColor: const Color(0xFF6366F1),
-        ),
-      );
-    }
+    final Future<List<RecommendationItem>> productRec = () async {
+      try {
+        final rows = await _client
+            .from('marketplace_items')
+            .select('id, name, image, price')
+            .eq('tenant_id', tenantId)
+            .eq('status', 'active')
+            .order('created_at', ascending: false)
+            .limit(1);
+        if (rows.isEmpty) return const <RecommendationItem>[];
+        final p = rows.first;
+        return [
+          RecommendationItem(
+            id: p['id']?.toString() ?? 'product_rec',
+            title: p['name'] ?? 'Marketplace Item',
+            subtitle: 'In the Marketplace',
+            category: 'Marketplace Pick',
+            route: '/marketplace',
+            imageUrl: p['image'],
+            icon: LucideIcons.shoppingBag,
+            badge: 'Featured',
+            themeColor: const Color(0xFF10B981),
+          ),
+        ];
+      } catch (e) {
+        debugPrint('RecommendationEngine: Error fetching product rec: $e');
+        return const <RecommendationItem>[];
+      }
+    }();
 
-    list.add(
-      RecommendationItem(
-        id: 'rec_b1',
-        title: 'The Purpose Driven Church Life',
-        subtitle: 'Bestseller in Church Bookshop',
-        category: 'Marketplace Book',
-        route: '/marketplace',
-        icon: LucideIcons.bookOpen,
-        matchPercentage: 94,
-        themeColor: const Color(0xFF10B981),
-      ),
-    );
+    final Future<List<RecommendationItem>> eventRec = () async {
+      try {
+        final rows = await _client
+            .from('events')
+            .select('id, title, category, location, date')
+            .eq('tenant_id', tenantId)
+            .gte('date', now)
+            .order('date', ascending: true)
+            .limit(1);
+        if (rows.isEmpty) return const <RecommendationItem>[];
+        final e = rows.first;
+        return [
+          RecommendationItem(
+            id: e['id']?.toString() ?? 'event_rec',
+            title: e['title'] ?? 'Upcoming Event',
+            subtitle: e['location'] ?? e['category'] ?? 'This week at church',
+            category: 'Upcoming Event',
+            route: '/events',
+            imageUrl: null,
+            icon: LucideIcons.calendar,
+            badge: 'Save the date',
+            themeColor: const Color(0xFFF59E0B),
+          ),
+        ];
+      } catch (e) {
+        debugPrint('RecommendationEngine: Error fetching event rec: $e');
+        return const <RecommendationItem>[];
+      }
+    }();
 
-    list.add(
-      RecommendationItem(
-        id: 'rec_e1',
-        title: 'All-Church Friday Worship Night',
-        subtitle: 'Fellowship & Intercession Gathering',
-        category: 'Upcoming Event',
-        route: '/events',
-        icon: LucideIcons.calendar,
-        matchPercentage: 92,
-        themeColor: const Color(0xFFF59E0B),
-      ),
-    );
+    final Future<List<RecommendationItem>> prayerRec = () async {
+      try {
+        final rows = await _client
+            .from('prayers')
+            .select('id, content, user_name, prayer_count')
+            .eq('tenant_id', tenantId)
+            .order('prayer_count', ascending: false)
+            .limit(1);
+        if (rows.isEmpty) return const <RecommendationItem>[];
+        final p = rows.first;
+        final content = (p['content'] as String? ?? '').trim();
+        return [
+          RecommendationItem(
+            id: p['id']?.toString() ?? 'prayer_rec',
+            title: content.length > 40
+                ? '${content.substring(0, 40).trim()}â€¦'
+                : (content.isEmpty ? 'A Prayer Request' : content),
+            subtitle: 'Join the prayer wall',
+            category: 'Prayer Wall Pick',
+            route: '/prayer-wall',
+            imageUrl: null,
+            icon: LucideIcons.heartHandshake,
+            badge: 'Pray with us',
+            themeColor: const Color(0xFFEC4899),
+          ),
+        ];
+      } catch (e) {
+        debugPrint('RecommendationEngine: Error fetching prayer rec: $e');
+        return const <RecommendationItem>[];
+      }
+    }();
 
-    list.add(
-      RecommendationItem(
-        id: 'rec_p1',
-        title: 'National Healing & Youth Revival',
-        subtitle: 'Intercede with 240+ Prayer Partners',
-        category: 'Prayer Wall Pick',
-        route: '/prayer-wall',
-        icon: LucideIcons.heartHandshake,
-        matchPercentage: 95,
-        themeColor: const Color(0xFFEC4899),
-      ),
-    );
-
-    return list;
+    final results = await Future.wait([sermonRec, productRec, eventRec, prayerRec]);
+    return results.expand((r) => r).toList();
   }
 }
 
@@ -176,7 +214,7 @@ class RecommendationCarouselWidget extends ConsumerWidget {
           ),
         ),
         SizedBox(
-          height: 190,
+          height: 230,
           child: recsAsync.when(
             data: (items) => ListView.builder(
               scrollDirection: Axis.horizontal,
@@ -233,7 +271,7 @@ class RecommendationCarouselWidget extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                '${item.matchPercentage}% Match',
+                                item.badge,
                                 style: TextStyle(
                                   color: Colors.amber.shade900,
                                   fontSize: 11,
@@ -243,6 +281,23 @@ class RecommendationCarouselWidget extends ConsumerWidget {
                             ),
                           ],
                         ),
+                        if (item.imageUrl != null && item.imageUrl!.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              item.imageUrl!,
+                              height: 88,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              cacheWidth: 520,
+                              errorBuilder: (_, __, ___) => Container(
+                                height: 88,
+                                color: item.themeColor.withValues(alpha: 0.08),
+                              ),
+                            ),
+                          ),
+                        ],
                         const Spacer(),
                         Text(
                           item.title,

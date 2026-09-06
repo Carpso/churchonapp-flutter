@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 
 class Sermon {
   final String id;
@@ -66,9 +67,11 @@ class SermonService {
     int offset = 0,
     int limit = 10,
     String? category,
+    String? tenantId,
   }) async {
     try {
       final hasCategory = category != null && category.isNotEmpty;
+      final hasTenant = tenantId != null && tenantId.isNotEmpty;
       final response = hasCategory
           ? await _client
               .from('sermons')
@@ -76,11 +79,18 @@ class SermonService {
               .eq('category', category)
               .order('created_at', ascending: false)
               .range(offset, offset + limit - 1)
-          : await _client
-              .from('sermons')
-              .select()
-              .order('created_at', ascending: false)
-              .range(offset, offset + limit - 1);
+          : hasTenant
+              ? await _client
+                  .from('sermons')
+                  .select()
+                  .eq('tenant_id', tenantId)
+                  .order('created_at', ascending: false)
+                  .range(offset, offset + limit - 1)
+              : await _client
+                  .from('sermons')
+                  .select()
+                  .order('created_at', ascending: false)
+                  .range(offset, offset + limit - 1);
 
       return (response as List).map((s) => Sermon.fromMap(s)).toList();
     } catch (e) {
@@ -240,8 +250,12 @@ class SermonService {
 
 final sermonServiceProvider = Provider((ref) => SermonService(Supabase.instance.client));
 
-final latestSermonsProvider = FutureProvider<List<Sermon>>((ref) async {
-  return ref.watch(sermonServiceProvider).fetchLatestSermons();
+final latestSermonsProvider = FutureProvider.autoDispose<List<Sermon>>((ref) async {
+  final tenant = ref.watch(currentTenantProvider);
+  return ref.watch(sermonServiceProvider).fetchLatestSermons(
+        limit: 1,
+        tenantId: tenant?.id,
+      );
 });
 
 final sermonInsightsProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, sermonId) {

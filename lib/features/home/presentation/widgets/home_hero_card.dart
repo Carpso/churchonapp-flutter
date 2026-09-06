@@ -8,12 +8,7 @@ import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
 
-import 'package:church_on_app/features/finance/presentation/giving_screen.dart';
-import 'package:church_on_app/features/connect/presentation/prayer_wall_screen.dart';
-import 'package:church_on_app/features/home/presentation/sermon_notes_screen.dart';
-import 'package:church_on_app/features/home/presentation/worship_lyrics_screen.dart';
 import 'package:church_on_app/features/home/presentation/live_stream_screen.dart';
-import 'package:church_on_app/features/bible_study/presentation/bible_study_list_screen.dart';
 import 'package:church_on_app/features/church/data/church_schedule_service.dart';
 import 'package:church_on_app/features/church/data/church_service_time.dart';
 
@@ -28,6 +23,9 @@ class HomeHeroCard extends ConsumerWidget {
     final liveStatus = tenant != null
         ? ref.watch(liveStatusProvider(tenant.id)).value
         : null;
+    final scheduleAsync = tenant != null
+        ? ref.watch(churchScheduleProvider(tenant.id))
+        : null;
 
     final bool isLive = liveStatus?.isLive ?? false;
     final String title = isLive
@@ -40,7 +38,10 @@ class HomeHeroCard extends ConsumerWidget {
         : (tenant != null ? "GLORY TO GOD" : "SUNDAY MORNING");
     final String timeLabel = isLive
         ? "${liveStatus?.viewerCount ?? 0} watching"
-        : (tenant != null ? "Next Service: Sunday 09:00" : "Starts in 45 mins");
+        : (tenant != null
+            ? _nextServiceLabel(
+                scheduleAsync?.value ?? const [], DateTime.now())
+            : "Starts in 45 mins");
 
     final String? banner = tenant?.bannerUrl;
     final String bgImage = (banner != null && banner.isNotEmpty)
@@ -168,7 +169,7 @@ class HomeHeroCard extends ConsumerWidget {
                           if (tenant == null) {
                             context.push('/select-church');
                           } else {
-                            _showServiceSchedule(context, ref, tenant);
+                            _showServiceSchedule(context, tenant);
                           }
                         }
                       },
@@ -228,9 +229,41 @@ class HomeHeroCard extends ConsumerWidget {
     );
   }
 
+  String _nextServiceLabel(List<ChurchServiceTime> schedule, DateTime now) {
+    if (schedule.isEmpty) return "No services scheduled yet";
+
+    const dayNames = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final today = now.weekday;
+    final todayMinutes = now.hour * 60 + now.minute;
+
+    ChurchServiceTime? next;
+    var bestOffset = 8;
+    var bestMinutes = 24 * 60;
+    for (final s in schedule) {
+      var offset = s.dayOfWeek - today;
+      final startMinutes = s.startTime.hour * 60 + s.startTime.minute;
+      if (offset < 0) offset += 7;
+      if (offset == 0 && startMinutes <= todayMinutes) offset = 7;
+      if (offset < bestOffset ||
+          (offset == bestOffset && startMinutes < bestMinutes)) {
+        bestOffset = offset;
+        bestMinutes = startMinutes;
+        next = s;
+      }
+    }
+
+    final service = next;
+    if (service == null) return "No services scheduled yet";
+    final label = bestOffset == 0
+        ? 'Today'
+        : bestOffset == 1
+            ? 'Tomorrow'
+            : dayNames[service.dayOfWeek];
+    return 'Next in $label · ${service.formattedTime}';
+  }
+
   void _showServiceSchedule(
     BuildContext context,
-    WidgetRef ref,
     Tenant tenant,
   ) {
     showModalBottomSheet(
@@ -240,7 +273,7 @@ class HomeHeroCard extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
-      builder: (context) => _ServiceScheduleSheet(tenant: tenant, ref: ref),
+      builder: (context) => _ServiceScheduleSheet(tenant: tenant),
     );
   }
 
@@ -276,38 +309,15 @@ class HomeHeroCard extends ConsumerWidget {
         child: ElevatedButton.icon(
           onPressed: () {
             if (label == "Giving") {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const GivingScreen()),
-              );
+              context.push('/giving');
             } else if (label == "Prayer") {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const PrayerWallScreen(),
-                ),
-              );
+              context.push('/prayer-wall');
             } else if (label == "Notes") {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SermonNotesScreen(),
-                ),
-              );
+              context.push('/notebook');
             } else if (label == "Lyrics") {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const WorshipLyricsScreen(),
-                ),
-              );
+              context.push('/worship-lyrics');
             } else if (label == "Bible Study") {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const BibleStudyListScreen(),
-                ),
-              );
+              context.push('/bible-study');
             }
           },
           icon: Icon(icon, color: Colors.white, size: 14),
@@ -334,8 +344,7 @@ class HomeHeroCard extends ConsumerWidget {
 
 class _ServiceScheduleSheet extends ConsumerStatefulWidget {
   final Tenant tenant;
-  final WidgetRef ref;
-  const _ServiceScheduleSheet({required this.tenant, required this.ref});
+  const _ServiceScheduleSheet({required this.tenant});
 
   @override
   ConsumerState<_ServiceScheduleSheet> createState() =>
@@ -403,33 +412,7 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
               ],
             ),
           const Divider(height: 30),
-          _buildScheduleRow(
-            "Sunday Main Service",
-            "09:00 AM - 11:30 AM",
-            "Main worship experience, sermon, and holy communion.",
-            () {
-              _titleCtrl.text = "Sunday Main Service";
-              setState(() => _showScheduler = true);
-            },
-          ),
-          _buildScheduleRow(
-            "Wednesday Midweek",
-            "06:00 PM - 07:30 PM",
-            "Bible study, interactive teaching, and community prayers.",
-            () {
-              _titleCtrl.text = "Wednesday Midweek Service";
-              setState(() => _showScheduler = true);
-            },
-          ),
-          _buildScheduleRow(
-            "Friday Deliverance",
-            "06:00 PM - 08:00 PM",
-            "Intercession, prayer fortress, and prophetic ministry.",
-            () {
-              _titleCtrl.text = "Friday Deliverance Service";
-              setState(() => _showScheduler = true);
-            },
-          ),
+          _buildScheduleSection(),
           const SizedBox(height: 10),
           Center(
             child: TextButton.icon(
@@ -595,6 +578,73 @@ class _ServiceScheduleSheetState extends ConsumerState<_ServiceScheduleSheet> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Widget _buildScheduleSection() {
+    final scheduleAsync = ref.watch(churchScheduleProvider(widget.tenant.id));
+
+    return scheduleAsync.when(
+      data: (schedule) {
+        if (schedule.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text(
+              "No weekly services scheduled yet. Schedule one below.",
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          );
+        }
+        const dayNames = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        final sorted = [...schedule]..sort((a, b) {
+            if (a.dayOfWeek != b.dayOfWeek) {
+              return a.dayOfWeek.compareTo(b.dayOfWeek);
+            }
+            return (a.startTime.hour * 60 + a.startTime.minute)
+                .compareTo(b.startTime.hour * 60 + b.startTime.minute);
+          });
+        return Column(
+          children: [
+            for (final s in sorted)
+              _buildScheduleRow(
+                '${dayNames[s.dayOfWeek]} · ${s.title}',
+                s.formattedTime,
+                s.description ?? "Recurring weekly service",
+                () {
+                  _titleCtrl.text = s.title;
+                  setState(() => _showScheduler = true);
+                },
+              ),
+          ],
+        );
+      },
+      loading: () => const Padding(
+        padding: EdgeInsets.only(bottom: 16),
+        child: Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      ),
+      error: (_, __) => Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Text(
+          "Couldn't load the weekly schedule.",
+          style: TextStyle(
+            fontSize: 13,
+            color: Theme.of(
+              context,
+            ).colorScheme.error,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildScheduleRow(

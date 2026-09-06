@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -11,7 +9,7 @@ import 'package:church_on_app/core/config/remote_config.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
 import 'package:church_on_app/core/utils/money.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
-import 'package:church_on_app/features/give/presentation/widgets/momo_phone_input_widget.dart';
+import 'package:church_on_app/features/finance/data/payment_state.dart';
 
 class HomeSubscriptionPaywall extends ConsumerStatefulWidget {
   final Tenant tenant;
@@ -239,7 +237,6 @@ class _LipilaSubscriptionSheetState extends ConsumerState<_LipilaSubscriptionShe
   bool _installments = false;
   bool _paying = false;
   String? _error;
-  Timer? _pollTimer;
 
   @override
   void initState() {
@@ -254,7 +251,6 @@ class _LipilaSubscriptionSheetState extends ConsumerState<_LipilaSubscriptionShe
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
     _phoneCtrl.dispose();
     super.dispose();
   }
@@ -264,6 +260,25 @@ class _LipilaSubscriptionSheetState extends ConsumerState<_LipilaSubscriptionShe
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<LipilaPaymentState>>(lipilaPaymentProvider, (prev, next) {
+      final data = next.value;
+      if (data == null) return;
+      if (data.status == PaymentStatus.succeeded && data.referenceId != null) {
+        _handleSuccess(data.referenceId!);
+      } else if (data.status == PaymentStatus.failed) {
+        setState(() {
+          _paying = false;
+          _error = data.errorMessage ??
+              "Payment could not be completed. Please try again.";
+        });
+      } else if (data.status == PaymentStatus.cancelled) {
+        setState(() {
+          _paying = false;
+          _error = "Payment was cancelled.";
+        });
+      }
+    });
+
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
@@ -391,94 +406,25 @@ class _LipilaSubscriptionSheetState extends ConsumerState<_LipilaSubscriptionShe
       _paying = true;
       _error = null;
     });
-    try {
-      final client = Supabase.instance.client;
-      final phone = MomoPhoneInputWidget.formatPhone(_phoneCtrl.text.trim());
-      final reference = 'coa-fee-${DateTime.now().millisecondsSinceEpoch}';
-
-      await client.functions.invoke('lipila-collect', body: {
-        'action': 'initiate',
-        'accountNumber': phone,
-        'amount': _payNow,
-        'narration': widget.narration,
-        'reference': reference,
-      });
-
-      final success = await _pollPayment(client, reference);
-      if (!success) {
-        setState(() {
-          _paying = false;
-          _error = "Payment not confirmed yet. You can try again.";
-        });
-        return;
-      }
-
-      await widget.onPaid(reference, _balanceDue);
-      if (mounted) {
-        showAppSnackBar(
-          context,
-          _balanceDue > 0
-              ? "Payment received! Balance of ${formatKwacha(_balanceDue)} is due later."
-              : "Payment received! Your subscription is being activated.",
-          status: AppStatus.success,
-        );
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _paying = false;
-          _error = AppErrorView.friendlyMessage(e);
-        });
-      }
-    }
+    await ref.read(lipilaPaymentProvider.notifier).initiatePayment(
+      phone: _phoneCtrl.text.trim(),
+      amount: _payNow,
+      description: widget.narration,
+      narration: widget.narration,
+    );
   }
 
-  Future<bool> _pollPayment(SupabaseClient client, String reference) async {
-    const maxAttempts = 30;
-    for (var attempt = 0; attempt < maxAttempts; attempt++) {
-      await Future.delayed(const Duration(seconds: 4));
-      try {
-        final localPayment = await client
-            .from('coa_payments')
-            .select('status')
-            .eq('payment_ref', reference)
-            .maybeSingle();
-        if (localPayment != null) {
-          final status = (localPayment['status'] ?? '').toString().toLowerCase();
-          if (['approved', 'completed', 'confirmed', 'settled'].contains(status)) return true;
-          if (['rejected', 'failed', 'cancelled'].contains(status)) return false;
-        }
-      } catch (e) {
-        debugPrint('Paywall poll (db) failed: $e');
-      }
-      try {
-        final res = await client.functions.invoke('lipila-collect', body: {
-          'action': 'status',
-          'reference': reference,
-        });
-        final data = res.data;
-        var statusText = '';
-        if (data is Map) {
-          final inner = data['data'];
-          if (inner is Map && inner['status'] != null) {
-            statusText = inner['status'].toString();
-          } else if (data['status'] != null) {
-            statusText = data['status'].toString();
-          }
-        }
-        final status = statusText.toLowerCase();
-        if (['successful', 'paid', 'completed', 'settled', 'success', 'approved', 'accepted', 'confirmed'].contains(status)) {
-          return true;
-        }
-        if (['failed', 'cancelled', 'rejected', 'declined', 'error', 'timeout'].contains(status)) {
-          return false;
-        }
-      } catch (e) {
-        debugPrint('Paywall poll (lipila) failed: $e');
-      }
-    }
-    return false;
+  Future<void> _handleSuccess(String reference) async {
+    await widget.onPaid(reference, _balanceDue);
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      _balanceDue > 0
+          ? "Payment received! Balance of ${formatKwacha(_balanceDue)} is due later."
+          : "Payment received! Your subscription is being activated.",
+      status: AppStatus.success,
+    );
+    Navigator.pop(context);
   }
 }
 
