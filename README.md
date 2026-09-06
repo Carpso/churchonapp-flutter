@@ -2,14 +2,14 @@
 
 A comprehensive church management and community platform built with Flutter, connecting congregations through digital giving, marketplace, media, events, and more.
 
-**v1.0.0+296 — 1.0.0 | Flutter 3.35.1 | 0 errors, 0 warnings | August 2026**
+**v1.0.0+296 — 1.0.0 | Flutter 3.35.1 | 0 errors, 0 warnings | 484/484 tests green | September 2026**
 
 ## Features
 
 - **Auth & Profiles** — Email/Google authentication with role-based access (member, admin, pastor, bishop, superadmin). Android SHA-1/256 fingerprint registered; web OAuth authorized origins configured; Supabase site_url → https://churchonapp.com. **Trust & Identity (KYC)** — AES-256 encrypted ID + selfie upload (works on mobile AND web), admin verification workflow
 - **Church Discovery** — Select-church screen fetches ALL nearby Christian churches from OpenStreetMap Overpass API (not just registered ones). Unregistered churches appear on the map with animated logo pins and show a "Not Yet Available" dialog on tap. Registered churches are highlighted.
 - **Expansion Leads** — Website footer "Tell us which church to add" form writes to `expansion_leads`; Superadmin & COA Employee dashboards have an Expansion Leads screen to track new/contacted/onboarded leads.
-- **Digital Giving** — Mobile money payments via Lipila gateway (MTN/Airtel/Zamtel), tithe tracking, QR giving, wallet coins
+- **Digital Giving** — Mobile money payments via Lipila gateway (MTN/Airtel/Zamtel), tithe tracking, QR giving, wallet coins. **Multitenant settlement:** every offering/tithe is collected to the COA merchant wallet, then auto-disbursed to that church's treasury — or to the pastor/bishop the giver elects for tithes — with a server-side recipient fallback chain and automatic aggregate church payouts. See **[PAYMENTS.md](PAYMENTS.md)**.
 - **Marketplace** — Multi-vendor marketplace with cart, checkout, and order management
 - **Media & Streaming** — Sermon uploads (R2), live streaming studio (Cloudflare Stream RTMP/HLS + WebRTC WHIP ingest, role-gated with tenant-ownership enforcement), Kingdom Radio
 - **Bible Study** — Reading plans, verse of the day, deep study suite, memory verses; NKJV/NLT translations, full-text search, verse notes/bookmarks, cross-references, AI-powered chapter summaries via Kael
@@ -42,7 +42,8 @@ A comprehensive church management and community platform built with Flutter, con
 
 | Metric | Status |
 |--------|--------|
-| `flutter analyze` | **0 errors, 0 warnings, 0 info** |
+| `flutter analyze` | **0 errors, 0 warnings** (2 pre-existing infos in tests) |
+| `flutter test` | **484 / 484 passing** |
 | Catch blocks | All non-empty, with `debugPrint` logging |
 | Async state | `.when()` pattern used consistently across screens |
 | Error handling | Global `ErrorWidget.builder` boundary configured |
@@ -123,7 +124,7 @@ Configured via `.env` file (see `.env.example`):
 
 - **State Management**: Riverpod with `FutureProvider`, `StreamProvider`, and `NotifierProvider`
 - **Data Layer**: Supabase direct queries with fallback mock data for offline resilience
-- **Payments**: Lipila mobile money collection with PIN polling (30 attempts, 4s interval). Platform-first model: payments collected to merchant wallet (2.5% collection fee), then auto-disbursed minus the 1.5% Lipila disbursement fee.
+- **Payments**: Lipila mobile money collection with PIN polling (30 attempts, 4s interval). Platform-first model: payments collected to merchant wallet, then auto-disbursed to the church/tithe recipient by a server-side settlement engine (webhook + status-poll + cron retry). Recipients and amounts are **never** trusted from the client. Full model, invariants and runbook: **[PAYMENTS.md](PAYMENTS.md)**.
 - **Offline**: SharedPreferences-based cache service with TTL expiry
 - **Navigation**: Standard `Navigator.push` with `MaterialPageRoute`
 
@@ -177,6 +178,7 @@ supabase functions deploy kael-ai --no-verify-jwt
 - Input validation on all forms; server-side column blocklist prevents role/coins escalation during imports
 - Catch blocks log errors instead of swallowing them silently
 - Payout failures logged with full context for debugging
+- **Payments**: webhook dual auth (`?secret=` URL param OR Standard Webhooks HMAC); money-out anchored to confirmed `coa_payments`; payout tasks atomically claimed; one in-flight withdrawal per church. See [PAYMENTS.md](PAYMENTS.md) §9 "DO NOT REGRESS"
 
 ## License
 

@@ -1,5 +1,77 @@
 # Changelog
 
+## Unreleased — 2026-09-06 (Payments, Dashboards, Profile)
+
+**Full payment system repaired — documented in [PAYMENTS.md](PAYMENTS.md).**
+
+### Fixed — Money movement
+- **`lipila-webhook` was returning 502** (crashing before its handler ran), so no
+  Lipila delivery was ever processed. Rewritten: dual auth (`?secret=` callback
+  param OR Standard Webhooks HMAC), `referenceId`-first reference resolution,
+  disbursement confirmations acked without creating a `coa_payments` row, and
+  every delivery audited.
+- **Audit logging was silently broken** — it wrote `changes`/`user_agent`
+  columns that don't exist (`audit_logs` uses `details`), which is why zero
+  webhook audit rows ever existed.
+- **`profiles` has no `phone` column** (only `phone_number`) — every payout
+  recipient lookup errored silently and returned null, breaking giving, ride,
+  delivery and order payouts.
+- **Treasurer-only recipients** — 21 of 30 churches have no treasurer phone and
+  their giving hard-failed. New server-side chain: designated tithe leader →
+  elected tithe role → `treasurer_phone` → `contact_phone` → `pastor_phone` →
+  any leadership `phone_number` → **wait and retry (never failed, never lost)**.
+- `lipila-collect` now writes Lipila-verified `settled` state + runs settlement
+  on status polls (a lost webhook can no longer strand a payout), uses
+  `check-status?referenceId=` as the primary status endpoint, and ships
+  `?secret=` on the callback URL.
+- Tithes honour the recipient the giver picks (Pastor / Bishop / Treasurer) via
+  `payout_tasks.recipient_role`.
+- Church auto-payout RPCs use the same chain (`church_recipient_phone()`).
+
+### Fixed — Admin & config
+- **Platform subscription rates now apply on save** — `remoteConfigProvider` +
+  `platformSettingsProvider` are invalidated (RemoteConfig caches once per
+  launch); blank-key/blank-value wipes prevented; non-numeric input rejected.
+- **COA treasury MoMo number** — missions donations used the compiled-in
+  `Env.coaTreasuryPhone`; they now use `platform_settings.coa_treasury_phone`
+  (normalised to `260…`) with the env value as fallback only.
+
+### Fixed — Dashboards
+- **Driver dashboard** was fully broken: selected `profiles.avg_rating` /
+  `driver_status` (neither existed), `ride_bookings` (no such table) and
+  `deliveries.fee` (no such column). Now uses `get_user_avg_rating`,
+  `ride_requests` and `delivery_requests`. Added `profiles.driver_status`.
+- **Rider dashboard** queried `ride_bookings` → now `ride_requests`.
+- **Writer dashboard** queried `news_articles` and `marketplace_products`
+  (neither exists) → now `kingdom_news` (where the writer studio publishes) and
+  real sales from `order_items`. `publishArticle` now sets `status='published'`.
+- **Bookshop dashboard** queried `order_items.status` (doesn't exist) → units
+  sold now filtered by the parent order status on `orders`.
+- **Vendor dashboard** — Edit opens `PostProductScreen` in edit mode (was a
+  "coming soon" toast), Edit Shop opens account settings, product images use
+  `AppImage` instead of `via.placeholder.com`.
+
+### Fixed — Profile tab (audited)
+- All 33 navigation targets verified to resolve; no missing DB columns; role
+  gating correct; activity/faith cards use real data. Removed unreachable
+  `_showComingSoon` helper.
+
+### Fixed — Kael & Connect
+- Kael suggestion templates now show whenever the thread is empty (they were
+  gated on `!snapshot.hasData`, but the stream emits an empty first frame).
+- Klips: For You/Latest actually reorders; Amen/comment counts use atomic RPCs;
+  comments sheet loads real `klip_comments`; Save persists to `saved_klips`.
+- Feed: likes/comments now sync `social_posts` counters atomically.
+- Communities: counts refresh after join/leave.
+
+### Tests
+- **Full suite green: 484 / 484** (was 477/7). Fixed stale tests for
+  `admin_service` (role `inFilter`), `bible_verse_service` (VOTD from
+  `bible_verses`; `postDailyVerse` is an intentional no-op) and
+  `live_stream_service` (demo/placeholder streams deliberately removed).
+
+---
+
 ## v1.0.0+296 — 2026-08-30 (Dashboards)
 
 ### Pastor Dashboard (professionalised)

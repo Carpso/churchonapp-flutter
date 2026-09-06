@@ -246,12 +246,46 @@ All churches set to paid via migration `20261006_streaming_paid_unlock.sql`.
 
 ## How To: Handle Payments
 
+**📄 FULL PAYMENT SYSTEM DOCUMENTATION: `PAYMENTS.md` — read it before touching
+anything payment-related.** It contains the architecture, the settlement engine
+rules, the ops runbook, and the "DO NOT REGRESS" invariants.
+
 The Lipila payment gateway lives at `lib/features/finance/presentation/lipila_payment_gateway.dart`.
 - Uses `supabase.functions.invoke()` (NOT raw HTTP) to call Lipila API server-side
 - PIN polling: 30 attempts, 4s interval
 - Real Lipila merchant rates (wallet 68907, Carpso Solutions): **2.5% MoMo collection, 1.5% MoMo disbursement**
 - Fees are remote-configurable via `platform_settings`: `momo_fee_percent` (2.5%) + `coa_fee_percent` (1%) = 3.5% customer MoMo fee; `lipila_disbursement_fee_percent` (1.5%) + `coa_payout_fee_percent` (1%, min K3) are deducted from every payout via `FeeConfig.payoutNet()` — never send a raw payout amount to `lipila-payout`
 - For payout webhooks, set `LIPILA_PAYOUT_WEBHOOK_URL` in Edge Function env
+
+### ⚠️ PERMANENT RULES — PAYMENTS (never regress these)
+
+1. **The client never decides who gets paid or how much.** Recipients and gross
+   amounts are resolved in `supabase/functions/_shared/settlement.ts` from
+   server-side facts only.
+2. **Giving recipient chain** (server-side, in order): designated tithe leader
+   (re-validated: same tenant + leadership role + valid `260…` number) → elected
+   tithe role (`payout_tasks.recipient_role`) → `churches.treasurer_phone` →
+   `churches.contact_phone` → `churches.pastor_phone` → any leadership
+   `profiles.phone_number` in the tenant → **retry** (never mark `failed`).
+3. **`lipila-webhook` must never 502.** After any edit, re-probe:
+   `curl -X POST https://<ref>.supabase.co/functions/v1/lipila-webhook -H "Content-Type: application/json" -d '{}'`
+   → expect `200 {"status":"ignored","reason":"missing_signature"}`.
+4. **Webhook auth is DUAL**: `?secret=<LIPILA_WEBHOOK_SECRET>` on the callback
+   URL OR Standard Webhooks HMAC headers. Never re-add a bare
+   `Authorization: Bearer <anything>` bypass (old audit finding C1).
+5. **`audit_logs` has `details` (jsonb) — no `changes` / `user_agent` columns.**
+6. **`profiles` has NO `phone` column — only `phone_number`.** Selecting `phone`
+   errors and silently returns null.
+7. **Never create a `coa_payments` row from a disbursement/payout webhook.**
+8. **Always pre-create the pending `coa_payments` row before calling Lipila**,
+   and always append `?secret=` to `callbackUrl` (collection + payout).
+9. **After writing `platform_settings`, invalidate `remoteConfigProvider` and
+   `platformSettingsProvider`** or changes only appear after an app restart.
+10. Real tables: rides = `ride_requests`, deliveries = `delivery_requests`,
+    market items = `marketplace_items`, writer articles = `kingdom_news`.
+    There is **no** `ride_bookings`, `marketplace_products`, `news_articles`,
+    `profiles.phone`, `profiles.avg_rating`, `order_items.status`,
+    `deliveries.fee`.
 
 ## How To: Use Remote Configuration (no app updates for value changes)
 
