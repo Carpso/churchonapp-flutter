@@ -1,13 +1,14 @@
 name: Church On App - CI/CD Pipeline
 
 on:
-  push:
-    branches: [main, develop]
-    tags:
-      - 'v*'
-  pull_request:
-    branches: [main, develop]
   workflow_dispatch:
+  # PAUSED 2026-09-06: automatic CI/CD disabled to stop building — uncomment push/pull_request/tags to resume.
+  # push:
+  #   branches: [main, develop]
+  #   tags:
+  #     - 'v*'
+  # pull_request:
+  #   branches: [main, develop]
     inputs:
       build_type:
         description: 'Build type'

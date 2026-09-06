@@ -1,9 +1,10 @@
 name: Deploy Web
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+  # PAUSED 2026-09-06: automatic deploy disabled to stop building — uncomment push to resume.
+  # push:
+  #   branches: [main]
 
 jobs:
   deploy:

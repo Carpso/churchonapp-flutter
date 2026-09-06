@@ -2,9 +2,10 @@ name: Firebase Test Lab (Real Devices)
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
+  # PAUSED 2026-09-06: automatic Test Lab disabled to stop building — uncomment push to resume.
+  # push:
+  #   tags:
+  #     - 'v*'
 
 jobs:
   test-lab:
