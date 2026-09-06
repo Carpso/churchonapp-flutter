@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { settleReference, enqueueChurchAutoPayouts } from "../_shared/settlement.ts";
 
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
@@ -70,20 +71,79 @@ serve(async (req: Request) => {
         ? "https://blz.lipila.io/api"
         : "https://api.lipila.dev/api";
 
-      let statusUrl = `${baseUrl}/v1/collections/mobile-money/status/${reference}`;
-      let statusResp = await fetch(statusUrl, {
-        headers: { "x-api-key": apiKey },
-      });
-
-      if (statusResp.status === 404) {
-        statusUrl = `${baseUrl}/v1/collections/mobile-money/${reference}`;
-        statusResp = await fetch(statusUrl, {
-          headers: { "x-api-key": apiKey },
+      // chisomo/kingdom contract: /check-status?referenceId= is the primary
+      // status endpoint; fall back to the path-based variants if it 404s.
+      let statusData: unknown;
+      let statusResp: Response | null = null;
+      for (const candidate of [
+        `${baseUrl}/v1/collections/check-status?referenceId=${encodeURIComponent(reference)}`,
+        `${baseUrl}/v1/collections/mobile-money/status/${reference}`,
+        `${baseUrl}/v1/collections/mobile-money/${reference}`,
+      ]) {
+        statusResp = await fetch(candidate, {
+          headers: { "x-api-key": apiKey, "accept": "application/json" },
         });
+        if (statusResp.ok || statusResp.status !== 404) break;
       }
 
-      const statusData = await statusResp.json();
-      return new Response(JSON.stringify({ status: statusResp.status, data: statusData }), {
+      let respStatus = statusResp?.status ?? 500;
+      try {
+        statusData = await statusResp?.json();
+      } catch {
+        statusData = null;
+      }
+
+      // Server-side confirmation sync: when Lipila itself reports the
+      // collection settled, write the confirmed status into coa_payments and
+      // run settlement immediately. This guarantees the tenant payout is
+      // anchored even if a webhook delivery is lost (belt-and-suspenders).
+      const raw = statusData as Record<string, unknown>;
+      const tx =
+        (raw?.data as Record<string, unknown> | undefined) ??
+        (raw?.transaction as Record<string, unknown> | undefined) ??
+        raw;
+      const lStatus = [
+        tx?.["status"],
+        raw?.["status"],
+        tx?.["transactionStatus"],
+      ]
+        .find((s) => typeof s === "string")
+        ?.toString()
+        .toLowerCase()
+        .trim() ?? "";
+      const CONFIRMED = ["successful", "paid", "completed", "settled", "success", "approved", "accepted", "confirmed"];
+      if (CONFIRMED.includes(lStatus)) {
+        try {
+          const { data: row } = await supabase
+            .from("coa_payments")
+            .select("id")
+            .eq("payment_ref", reference)
+            .maybeSingle();
+          if (row) {
+            await supabase
+              .from("coa_payments")
+              .update({
+                status: "settled",
+                settled_at: new Date().toISOString(),
+                webhook_idempotency: `lipila-status-${reference}`,
+                phone_number: tx?.["accountNumber"] ?? raw?.["accountNumber"] ?? null,
+                network: tx?.["paymentType"] ?? raw?.["paymentType"] ?? null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("payment_ref", reference);
+            try {
+              await settleReference(supabase, reference);
+              await enqueueChurchAutoPayouts(supabase);
+            } catch (settleErr) {
+              console.error(`[lipila-collect] Settlement sync failed for ${reference}: ${settleErr}`);
+            }
+          }
+        } catch (dbErr) {
+          console.warn(`[lipila-collect] Status DB sync failed for ${reference}: ${dbErr}`);
+        }
+      }
+
+      return new Response(JSON.stringify({ status: respStatus, data: statusData }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -124,8 +184,15 @@ serve(async (req: Request) => {
       ? "https://blz.lipila.io/api"
       : "https://api.lipila.dev/api";
 
-    const callbackUrl = Deno.env.get("LIPILA_WEBHOOK_URL")
+    // chisomo/kingdom contract: the webhook secret travels in the callbackUrl
+    // query string so Lipila echoes it back on every delivery. HMAC headers are
+    // still accepted as a secondary scheme by lipila-webhook.
+    const callbackBase = Deno.env.get("LIPILA_WEBHOOK_URL")
       ?? `${supabaseUrl}/functions/v1/lipila-webhook`;
+    const webhookSecret = Deno.env.get("LIPILA_WEBHOOK_SECRET") || "";
+    const callbackUrl = webhookSecret
+      ? `${callbackBase}?secret=${encodeURIComponent(webhookSecret)}`
+      : callbackBase;
 
     const referenceId = providedReference ?? crypto.randomUUID();
 

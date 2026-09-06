@@ -80,8 +80,26 @@ interface Task {
   payment_ref: string | null;
   recipient_user_id: string | null;
   recipient_phone: string | null;
+  recipient_role: string | null;
   gross_amount: number;
   attempt_count: number;
+}
+
+// Roles that may legitimately receive church money (tithes/offerings).
+const LEADERSHIP_ROLES = new Set([
+  "apostle",
+  "prophet",
+  "pastor",
+  "bishop",
+  "general_secretary",
+  "general_treasurer",
+  "treasurer",
+  "admin",
+]);
+
+function validRecipientPhone(p: string | null | undefined): string | null {
+  const phone = normalizePhone(p);
+  return /^260\d{9}$/.test(phone) ? phone : null;
 }
 
 async function loadProfilePhone(
@@ -93,8 +111,107 @@ async function loadProfilePhone(
     .select("phone_number, phone")
     .eq("id", userId)
     .maybeSingle();
-  const phone = normalizePhone((data?.phone_number as string) || (data?.phone as string));
-  return /^260\d{9}$/.test(phone) ? phone : null;
+  return validRecipientPhone((data?.phone_number as string) || (data?.phone as string));
+}
+
+// Resolve a leadership payout phone inside a tenant. Returns the preferred
+// role's number when present, otherwise the first church leader with a valid
+// mobile money number. Never trusts a client-supplied number.
+async function loadLeadershipPhone(
+  supabase: ReturnType<typeof createClient>,
+  tenantId: string,
+  preferredRole?: string | null,
+): Promise<string | null> {
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("phone_number, phone, role")
+    .eq("tenant_id", tenantId)
+    .limit(100);
+
+  const rows = (profiles ?? []) as Array<{ phone_number?: string; phone?: string; role?: string }>;
+
+  if (preferredRole) {
+    const exact = rows.find((r) => r.role === preferredRole);
+    const exactPhone = validRecipientPhone(exact?.phone_number || exact?.phone);
+    if (exactPhone) return exactPhone;
+  }
+
+  const priority = [
+    "treasurer",
+    "general_treasurer",
+    "pastor",
+    "bishop",
+    "general_secretary",
+    "apostle",
+    "prophet",
+    "admin",
+  ];
+  for (const role of priority) {
+    const match = rows.find((r) => r.role === role);
+    const phone = validRecipientPhone(match?.phone_number || match?.phone);
+    if (phone) return phone;
+  }
+  return null;
+}
+
+// Church receiving chain for tithes/offerings (never hard-fails):
+// designated tithe leader -> elected tithe role -> treasurer_phone ->
+// contact_phone -> pastor_phone -> any leadership profile phone -> wait.
+async function resolveChurchRecipient(
+  supabase: ReturnType<typeof createClient>,
+  tenantId: string | null | undefined,
+  task: Task,
+): Promise<{ recipient: string | null; retry: boolean }> {
+  if (!tenantId) return { recipient: null, retry: true };
+
+  // 1. A designated tithe recipient (pastor/bishop/treasurer) chosen by the
+  //    giver — revalidated server-side: must be leadership in the SAME tenant.
+  if (task.recipient_user_id) {
+    const { data: designated } = await supabase
+      .from("profiles")
+      .select("phone_number, phone, role, tenant_id")
+      .eq("id", task.recipient_user_id)
+      .maybeSingle();
+    if (designated && (designated.tenant_id as string) === tenantId &&
+        LEADERSHIP_ROLES.has((designated.role as string) ?? "")) {
+      const phone = validRecipientPhone(
+        (designated.phone_number as string) || (designated.phone as string),
+      );
+      if (phone) return { recipient: phone, retry: false };
+    }
+  }
+
+  // 2. Elected tithe role (e.g. "Bishop"/"Pastor"/"Treasurer") when no named
+  //    recipient was resolved.
+  if (task.recipient_role) {
+    const byRole = await loadLeadershipPhone(supabase, tenantId, task.recipient_role);
+    if (byRole) return { recipient: byRole, retry: false };
+  }
+
+  // 3. Church contact numbers, in treasury-first order.
+  const { data: church } = await supabase
+    .from("churches")
+    .select("treasurer_phone, contact_phone, pastor_phone")
+    .eq("id", tenantId)
+    .maybeSingle();
+  if (church) {
+    for (const candidate of [
+      church.treasurer_phone as string | null,
+      church.contact_phone as string | null,
+      church.pastor_phone as string | null,
+    ]) {
+      const phone = validRecipientPhone(candidate);
+      if (phone) return { recipient: phone, retry: false };
+    }
+  }
+
+  // 4. Last resort inside the tenant: any leader with a valid number.
+  const anyLeader = await loadLeadershipPhone(supabase, tenantId);
+  if (anyLeader) return { recipient: anyLeader, retry: false };
+
+  // 5. Nothing configured yet — leave the task pending so it is retried once a
+  //    phone is set. Money is never dropped and never marked failed here.
+  return { recipient: null, retry: true };
 }
 
 // Resolve (recipientPhone, gross) from server-side facts. Returns
@@ -124,23 +241,23 @@ async function resolveSettlement(
         if (!task.recipient_user_id) return { error: "missing_recipient_user", recipient: "", gross: 0 };
         recipient = await loadProfilePhone(supabase, task.recipient_user_id);
       } else {
-        // giving: resolve the payer's church treasurer server-side
+        // giving: resolve the payer's church receiving account server-side.
         const { data: payer } = await supabase
           .from("profiles")
           .select("tenant_id")
           .eq("id", payment.user_id)
           .maybeSingle();
-        if (payer?.tenant_id) {
-          const { data: church } = await supabase
-            .from("churches")
-            .select("treasurer_phone")
-            .eq("id", payer.tenant_id)
-            .maybeSingle();
-          if (church?.treasurer_phone) {
-            const t = normalizePhone(church.treasurer_phone);
-            if (/^260\d{9}$/.test(t)) recipient = t;
-          }
+        const resolved = await resolveChurchRecipient(
+          supabase,
+          payer?.tenant_id as string | null | undefined,
+          task,
+        );
+        // No usable number yet (church/leader has none on file) => stay pending
+        // and retry later instead of failing the task permanently.
+        if (resolved.retry || !resolved.recipient) {
+          return { retry: true, recipient: "", gross: 0 };
         }
+        recipient = resolved.recipient;
       }
       if (!recipient) return { error: "no_recipient", recipient: "", gross: 0 };
 
@@ -347,8 +464,14 @@ async function disburse(
     ? "https://blz.lipila.io/api"
     : "https://api.lipila.dev/api";
 
-  const callbackUrl = Deno.env.get("LIPILA_PAYOUT_WEBHOOK_URL")
+  // chisomo/kingdom contract: ship the webhook secret on the callback URL so
+  // the payout confirmation authenticates at lipila-webhook.
+  const callbackBase = Deno.env.get("LIPILA_PAYOUT_WEBHOOK_URL")
     ?? `${Deno.env.get("SUPABASE_URL")}/functions/v1/lipila-webhook`;
+  const payoutSecret = Deno.env.get("LIPILA_WEBHOOK_SECRET") || "";
+  const callbackUrl = payoutSecret
+    ? `${callbackBase}?secret=${encodeURIComponent(payoutSecret)}`
+    : callbackBase;
 
   try {
     const payoutRes = await fetch(`${baseUrl}/v1/payouts/mobile-money`, {
@@ -458,7 +581,7 @@ export async function settleReference(
 
   const { data: tasks } = await supabase
     .from("payout_tasks")
-    .select("id, user_id, source, source_ref, payment_ref, recipient_user_id, recipient_phone, gross_amount, attempt_count")
+    .select("id, user_id, source, source_ref, payment_ref, recipient_user_id, recipient_phone, recipient_role, gross_amount, attempt_count")
     .eq("payment_ref", reference)
     .eq("status", "pending")
     .limit(20);
@@ -499,7 +622,7 @@ export async function processPendingSettlements(
 
   const { data: tasks } = await supabase
     .from("payout_tasks")
-    .select("id, user_id, source, source_ref, payment_ref, recipient_user_id, recipient_phone, gross_amount, attempt_count")
+    .select("id, user_id, source, source_ref, payment_ref, recipient_user_id, recipient_phone, recipient_role, gross_amount, attempt_count")
     .eq("status", "pending")
     .order("created_at", { ascending: true })
     .limit(20);

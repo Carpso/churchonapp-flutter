@@ -105,9 +105,10 @@ class FinanceService {
     String? tenantId,
     String? recipientPhone,
     String? recipientName,
-    String? paymentMethod,
-    FeeConfig? feeConfig,
-  }) async {
+     String? paymentMethod,
+     FeeConfig? feeConfig,
+     String? recipientRole,
+   }) async {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
@@ -158,6 +159,7 @@ class FinanceService {
           paymentMethod: paymentMethod ?? 'momo',
           recipientPhone: finalPhone,
           recipientName: finalName,
+          recipientRole: recipientRole,
         ),
       );
       return;
@@ -195,6 +197,7 @@ class FinanceService {
         'p_recipient_user_id': null,
         'p_recipient_phone': recipientPhone ?? '',
         'p_gross_amount': amount,
+        'p_recipient_role': recipientRole?.toLowerCase(),
       });
     } catch (e) {
       debugPrint("Automatic settlement enqueue failed: $e");

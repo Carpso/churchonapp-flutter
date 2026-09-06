@@ -1,5 +1,8 @@
 // ═══════════════════════════════════════════════════════════════
-// LIPILA WEBHOOK — Fixed per Lipila Standard Webhooks spec
+// LIPILA WEBHOOK — dual auth (?secret= URL param OR Standard
+// Webhooks HMAC header), referenceId-first resolution, disbursement
+// confirmations acked without touching coa_payments, audit trail on
+// every delivery (received/processed/rejected).
 // ═══════════════════════════════════════════════════════════════
 
 // @ts-ignore Deno global declaration for non-Deno IDEs
@@ -17,16 +20,17 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { settleReference, enqueueChurchAutoPayouts } from "../_shared/settlement.ts";
 
 interface LipilaWebhookPayload {
-  referenceId: string;
-  identifier: string;
-  currency: string;
-  amount: number;
-  accountNumber: string;
-  status: string;
-  paymentType: string;
-  type: string;
-  ipAddress: string;
-  message: string;
+  referenceId?: string;
+  reference_id?: string;
+  identifier?: string;
+  currency?: string;
+  amount?: number;
+  accountNumber?: string;
+  status?: string;
+  paymentType?: string;
+  type?: string;
+  ipAddress?: string;
+  message?: string;
   externalId?: string;
   referenceData?: string;
   narration?: string;
@@ -53,6 +57,16 @@ function checkRateLimit(ip: string): boolean {
   if (entry.count >= RATE_LIMIT) return false;
   entry.count++;
   return true;
+}
+
+// Constant-time string comparison for the URL query secret.
+function constantEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
 }
 
 // Verify Lipila webhook signature per Standard Webhooks spec
@@ -112,7 +126,7 @@ async function verifySignature(
 }
 
 function mapLipilaStatus(status: string): string {
-  const s = status.toLowerCase().trim();
+  const s = (status || "").toLowerCase().trim();
   switch (s) {
     case "successful":
     case "paid":
@@ -138,118 +152,125 @@ function mapLipilaStatus(status: string): string {
   }
 }
 
-async function processWebhook(payload: LipilaWebhookPayload): Promise<Response> {
+function isPayoutLike(payload: LipilaWebhookPayload): boolean {
+  const label = `${payload.type ?? ""} ${payload.paymentType ?? ""}`;
+  return /disburs|payout|withdraw|settlement/i.test(label);
+}
+
+async function audit(
+  action: string,
+  entityId: string | null,
+  details: Record<string, unknown>,
+  clientIp: string,
+): Promise<void> {
+  try {
+    // NOTE: audit_logs stores the payload in `details` (jsonb) — there is no
+    // `changes`/`user_agent` column, so those inserts used to fail silently.
+    await supabase.from("audit_logs").insert({
+      action,
+      entity_type: "coa_payments",
+      entity_id: entityId || null,
+      details: { ...details, user_agent: "lipila-webhook" },
+      ip_address: clientIp,
+    });
+  } catch {
+    // Non-critical
+  }
+}
+
+async function processWebhook(
+  payload: LipilaWebhookPayload,
+  clientIp: string,
+): Promise<Response> {
   const startTime = Date.now();
 
-  // Use identifier (our internal reference) to look up the payment
-  const reference = payload.identifier || "";
-  const lipilaReferenceId = payload.referenceId || "";
-  const idempotencyKey = `lipila-${lipilaReferenceId}`;
+  // Canonical reference: Lipila echoes our referenceId back on webhooks
+  // (chisomo/kingdom contract). identifier is a legacy/secondary key.
+  const reference = payload.referenceId || payload.reference_id || payload.identifier || "";
+  const idempotencyKey = `lipila-${reference}`;
+  const status = (payload.status || "pending").toLowerCase();
+  const newStatus = mapLipilaStatus(status);
 
   console.log(
-    `[Webhook] Processing: ref=${reference}, lipilaRef=${lipilaReferenceId}, status=${payload.status}`,
+    `[Webhook] Processing: ref=${reference}, status=${status}`,
   );
 
   if (!reference) {
-    console.warn("[Webhook] No identifier in payload — cannot match payment");
+    console.warn("[Webhook] No reference (referenceId/reference_id/identifier) in payload");
+    await audit("webhook_received", null, { event: payload.type, status, reason: "no_reference" }, clientIp);
     return new Response(
-      JSON.stringify({ status: "ignored", reason: "no_identifier" }),
+      JSON.stringify({ status: "ignored", reason: "no_reference" }),
       { headers: { "Content-Type": "application/json" } },
     );
   }
 
-  // ── IDEMPOTENCY CHECK ──────────────────────────────────
-  const newStatus = mapLipilaStatus(payload.status);
-
-  const existing = await supabase
-    .from("coa_payments")
-    .select("id, status, webhook_idempotency")
-    .eq("payment_ref", reference)
-    .maybeSingle();
-
-  if (existing?.data) {
-    const currentStatus = (existing.data.status || "").toLowerCase();
-    if (currentStatus === newStatus) {
-      console.log(
-        `[Webhook] Idempotent — already ${currentStatus} for ref=${reference}`,
-      );
-      return new Response(
-        JSON.stringify({
-          status: "already_processed",
-          payment_id: existing.data.id,
-          previous_status: existing.data.status,
-        }),
-        { headers: { "Content-Type": "application/json" } },
-      );
+  // ── IDEMPOTENCY / DEDUP ─────────────────────────────────
+  for (const q of [
+    supabase.from("coa_payments").select("id, status").eq("payment_ref", reference).maybeSingle(),
+    supabase.from("coa_payments").select("id, status").eq("webhook_idempotency", idempotencyKey).maybeSingle(),
+  ]) {
+    const { data: hit } = await q;
+    if (hit) {
+      const prior = (hit.status || "").toLowerCase();
+      if (prior === newStatus) {
+        await audit("webhook_received", hit.id, { event: payload.type, status, reference, reason: "already_processed" }, clientIp);
+        return new Response(
+          JSON.stringify({ status: "already_processed", payment_id: hit.id, previous_status: hit.status }),
+          { headers: { "Content-Type": "application/json" } },
+        );
+      }
     }
   }
-
-  // Stronger dedup: the same Lipila reference delivered twice with the same
-  // status must be processed exactly once, regardless of the internal ref.
-  if (idempotencyKey) {
-    const { data: byKey } = await supabase
-      .from("coa_payments")
-      .select("id, status")
-      .eq("webhook_idempotency", idempotencyKey)
-      .maybeSingle();
-    if (byKey && (byKey.status || "").toLowerCase() === newStatus) {
-      console.log(
-        `[Webhook] Idempotent (webhook_idempotency) — already ${newStatus} for key=${idempotencyKey}`,
-      );
-      return new Response(
-        JSON.stringify({
-          status: "already_processed",
-          payment_id: byKey.id,
-          previous_status: byKey.status,
-        }),
-        { headers: { "Content-Type": "application/json" } },
-      );
-    }
-  }
-
-  // ── MAP STATUS ─────────────────────────────────────────
-  const statusMessage =
-    newStatus === "settled"
-      ? "Payment completed and settled"
-      : newStatus === "failed"
-        ? "Payment failed"
-        : `Payment status: ${payload.status}`;
-
-  // ── UPDATE PAYMENT RECORD ──────────────────────────────
-  const updateData: Record<string, unknown> = {
-    status: newStatus,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (newStatus === "settled") {
-    updateData.settled_at = new Date().toISOString();
-  }
-  if (idempotencyKey) updateData.webhook_idempotency = idempotencyKey;
-  if (payload.amount) updateData.amount = payload.amount;
-  if (payload.accountNumber) updateData.phone_number = payload.accountNumber;
-  if (payload.paymentType) updateData.network = payload.paymentType;
 
   let paymentId: string | null = null;
   let userId: string | null = null;
 
-  // Try to update existing payment
-  const { data: existingData, error: updateError } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("coa_payments")
-    .update(updateData)
+    .select("id, user_id, status")
     .eq("payment_ref", reference)
-    .select("id, user_id, amount")
-    .single();
+    .maybeSingle();
 
-  if (!updateError && existingData) {
-    paymentId = existingData.id;
-    userId = existingData.user_id;
+  if (existing && !existingError) {
+    const updateData: Record<string, unknown> = {
+      status: newStatus,
+      updated_at: new Date().toISOString(),
+    };
+    if (newStatus === "settled") updateData.settled_at = new Date().toISOString();
+    if (idempotencyKey) updateData.webhook_idempotency = idempotencyKey;
+    if (payload.amount) updateData.amount = payload.amount;
+    if (payload.accountNumber) updateData.phone_number = payload.accountNumber;
+    if (payload.paymentType) updateData.network = payload.paymentType;
+
+    const { data: updated, error: updateError } = await supabase
+      .from("coa_payments")
+      .update(updateData)
+      .eq("payment_ref", reference)
+      .select("id, user_id")
+      .single();
+
+    if (!updateError && updated) {
+      paymentId = updated.id;
+      userId = updated.user_id;
+    } else {
+      paymentId = existing.id;
+      userId = existing.user_id;
+    }
   } else {
-    console.warn(
-      `[Webhook] No existing payment found for ref=${reference}, inserting new record`,
-    );
+    // No pre-created row. Payout/disbursement confirmations must NEVER be
+    // turned into a synthetic coa_payments row (that would pollute the giving
+    // ledger and could let a matched reference double-count). Ack only.
+    if (isPayoutLike(payload)) {
+      await audit("webhook_received", null, { event: payload.type, status, reference, reason: "payout_confirmation" }, clientIp);
+      console.log(`[Webhook] Payout confirmation acked (no ledger row): ref=${reference}`);
+      return new Response(
+        JSON.stringify({ status: "ignored", reason: "payout_confirmation" }),
+        { headers: { "Content-Type": "application/json" } },
+      );
+    }
 
-    // Fallback: insert a new payment record
-    // We need user_id — try to find it via profiles table using phone number
+    // Genuine collection delivered without a pre-created row: only register it
+    // when the payer can be resolved server-side by phone, else ack unknown.
     let resolvedUserId: string | null = null;
     if (payload.accountNumber) {
       const { data: profile } = await supabase
@@ -257,21 +278,13 @@ async function processWebhook(payload: LipilaWebhookPayload): Promise<Response> 
         .select("id")
         .eq("phone", payload.accountNumber)
         .maybeSingle();
-      if (profile) {
-        resolvedUserId = profile.id;
-      }
+      if (profile) resolvedUserId = profile.id;
     }
 
     if (!resolvedUserId) {
-      console.error(
-        `[Webhook] Cannot insert payment record: no user_id for ref=${reference} and phone=${payload.accountNumber}`,
-      );
+      await audit("webhook_received", null, { event: payload.type, status, reference, reason: "unknown_reference" }, clientIp);
       return new Response(
-        JSON.stringify({
-          status: "error",
-          reason: "cannot_resolve_user",
-          reference,
-        }),
+        JSON.stringify({ status: "ignored", reason: "unknown_reference", reference }),
         { headers: { "Content-Type": "application/json" } },
       );
     }
@@ -292,9 +305,8 @@ async function processWebhook(payload: LipilaWebhookPayload): Promise<Response> 
       .single();
 
     if (insertError) {
-      console.error(
-        `[Webhook] Failed to insert fallback payment: ${insertError.message}`,
-      );
+      console.error(`[Webhook] Failed to insert fallback payment: ${insertError.message}`);
+      await audit("webhook_received", null, { event: payload.type, status, reference, reason: "insert_failed" }, clientIp);
       return new Response(
         JSON.stringify({ error: "Processing failed" }),
         { status: 500, headers: { "Content-Type": "application/json" } },
@@ -304,22 +316,25 @@ async function processWebhook(payload: LipilaWebhookPayload): Promise<Response> 
     userId = insertData.user_id;
   }
 
+  await audit(
+    "webhook_received",
+    paymentId,
+    { event: payload.type, status, reference, amount: payload.amount, payment_type: payload.paymentType, reason: "matched" },
+    clientIp,
+  );
+
   // ── NOTIFY USER ────────────────────────────────────────
   if (userId && newStatus === "settled") {
     await supabase.from("notifications").insert({
       user_id: userId,
       title: "Payment Successful",
-      body: `Your payment of K${payload.amount} has been confirmed.`,
+      body: `Your payment of K${payload.amount ?? ""} has been confirmed.`,
       type: "payment_success",
       reference_id: reference,
-    });
+    }).catch(() => {});
   }
 
   // ── SERVER-SIDE SETTLEMENT ─────────────────────────────
-  // On a confirmed collection, disburse any queued payout_tasks for this
-  // reference (giving / order settlements). Ride/delivery/escrow tasks and
-  // anything enqueued after this webhook are picked up by the lps-settle cron.
-  // Settlement failure here is non-fatal — the cron retries.
   if (newStatus === "settled" && paymentId) {
     try {
       const settle = await settleReference(supabase, reference);
@@ -330,10 +345,6 @@ async function processWebhook(payload: LipilaWebhookPayload): Promise<Response> 
       console.error(`[Webhook] Settlement failed for ref=${reference}: ${settleErr}`);
     }
 
-    // ── CHURCH AUTO-PAYOUT ────────────────────────────────
-    // A fresh confirmed collection may push a church's withdrawable balance
-    // over the threshold — enqueue its aggregate treasurer payout now so the
-    // church doesn't wait up to 5 minutes for the cron. Idempotent + atomic.
     try {
       const enqueued = await enqueueChurchAutoPayouts(supabase);
       if (enqueued.enqueued > 0) {
@@ -347,8 +358,11 @@ async function processWebhook(payload: LipilaWebhookPayload): Promise<Response> 
   }
 
   const elapsed = Date.now() - startTime;
-  console.log(
-    `[Webhook] Completed in ${elapsed}ms: ref=${reference}, status=${newStatus}`,
+  await audit(
+    "webhook_processed",
+    paymentId,
+    { event: payload.type, status, reference, processing_time_ms: elapsed },
+    clientIp,
   );
 
   return new Response(
@@ -374,10 +388,7 @@ serve(async (req: Request) => {
     console.warn(`[Webhook] Rate limit exceeded for IP: ${clientIp}`);
     return new Response(
       JSON.stringify({ error: "Too many requests" }),
-      {
-        status: 429,
-        headers: { "Content-Type": "application/json" },
-      },
+      { status: 429, headers: { "Content-Type": "application/json" } },
     );
   }
 
@@ -388,91 +399,87 @@ serve(async (req: Request) => {
     );
     return new Response(
       JSON.stringify({ error: "Webhook not configured" }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      },
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 
-  // ── AUTH CHECK (HMAC signature required) ───────────────
-  // Lipila sends the signature in `webhook-signature` (standard webhooks
-  // convention). Accept `x-webhook-signature` as a fallback for providers
-  // that prefix the header. Header lookups are case-insensitive.
+  // Read body as text (needed for HMAC verification).
+  const bodyText = await req.text();
+
+  // ── AUTH — DUAL SCHEME ─────────────────────────────────
+  // 1. `?secret=<LIPILA_WEBHOOK_SECRET>` appended to the callbackUrl we send
+  //    ourselves (chisomo/kingdom contract — Lipila echoes the callbackUrl
+  //    query string verbatim).
+  // 2. Standard Webhooks HMAC headers (webhook-id / webhook-timestamp /
+  //    webhook-signature). Accept x-webhook-signature as an alias.
+  const url = new URL(req.url);
+  const querySecret = url.searchParams.get("secret") || "";
   const signature =
     req.headers.get("webhook-signature") ||
     req.headers.get("x-webhook-signature") ||
     "";
+  const webhookId = req.headers.get("webhook-id") || "";
+  const webhookTimestamp = req.headers.get("webhook-timestamp") || "";
 
-  if (!signature) {
-    console.warn(`[Webhook] Missing webhook-signature header from IP: ${clientIp}`);
+  let authed = false;
+  let authMethod = "none";
+
+  if (querySecret && constantEqual(querySecret, webhookSecret)) {
+    authed = true;
+    authMethod = "query";
+  }
+  if (!authed && signature) {
+    try {
+      if (await verifySignature(bodyText, signature, webhookId, webhookTimestamp)) {
+        authed = true;
+        authMethod = "hmac";
+      }
+    } catch {
+      authed = false;
+    }
+  }
+
+  if (!authed) {
+    const provided = querySecret || signature;
+    const reason = provided ? "invalid_signature" : "missing_signature";
+    console.warn(`[Webhook] ${reason} from IP: ${clientIp} (authMethod=${authMethod})`);
+    const res = new Response(
+      JSON.stringify({ status: "ignored", reason }),
+      { status: provided ? 401 : 200, headers: { "Content-Type": "application/json" } },
+    );
+    // Every rejected delivery is audited so a provider that authenticates
+    // differently is visible in audit_logs instead of silently vanishing.
+    await audit(
+      "webhook_rejected",
+      null,
+      { reason, provided_auth: provided ? "yes" : "none", auth_method: authMethod },
+      clientIp,
+    );
+    return res;
+  }
+
+  let payload: LipilaWebhookPayload;
+  try {
+    const parsed: unknown = JSON.parse(bodyText);
+    payload = (parsed && typeof parsed === "object" ? parsed : {}) as LipilaWebhookPayload;
+  } catch {
+    await audit("webhook_rejected", null, { reason: "invalid_json" }, clientIp).catch(() => {});
     return new Response(
-      JSON.stringify({ status: "ignored", reason: "missing_signature" }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      },
+      JSON.stringify({ status: "ignored", reason: "invalid_json" }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
     );
   }
 
   try {
-    // Read body as text for signature verification
-    const bodyText = await req.text();
-
-    // Extract Lipila webhook headers
-    const webhookId = req.headers.get("webhook-id") || "";
-    const webhookTimestamp = req.headers.get("webhook-timestamp") || "";
-
-    const isValid = await verifySignature(
-      bodyText,
-      signature,
-      webhookId,
-      webhookTimestamp,
-    );
-
-    if (!isValid) {
-      console.warn(`[Webhook] Invalid HMAC signature from IP: ${clientIp}`);
-      return new Response(
-        JSON.stringify({ status: "ignored", reason: "invalid_signature" }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    const payload: LipilaWebhookPayload = JSON.parse(bodyText);
-
-    const result = await processWebhook(payload);
-
-    // ── AUDIT LOG ──────────────────────────────────────────
-    const elapsed = Date.now() - startTime;
-    await supabase
-      .from("audit_logs")
-      .insert({
-        action: "webhook_processed",
-        entity_type: "coa_payments",
-        entity_id: payload.identifier || payload.referenceId,
-        changes: {
-          event: payload.type,
-          status: payload.status,
-          reference: payload.identifier,
-          processing_time_ms: elapsed,
-        },
-        ip_address: clientIp,
-        user_agent: "lipila-webhook",
-      })
-      .catch(() => {}); // Non-critical
-
+    const result = await processWebhook(payload, clientIp);
+    console.log(`[Webhook] Responding ${result.status} (${Date.now() - startTime}ms) via ${authMethod}`);
     return result;
   } catch (err) {
     console.error(`[Webhook] Error: ${err}`);
+    await audit("webhook_error", null, { message: err instanceof Error ? err.message : String(err) }, clientIp).catch(() => {});
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      },
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 });

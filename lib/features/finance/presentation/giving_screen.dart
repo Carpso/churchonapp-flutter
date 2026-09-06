@@ -175,6 +175,10 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
                                 tenantId: tenant?.id,
                                 recipientPhone: tenant?.treasurerPhone,
                                 recipientName: tenant?.name,
+                                recipientRole:
+                                    _selectedCategory.toLowerCase() == 'tithe'
+                                        ? _selectedTitheRecipient
+                                        : null,
                               );
                           ref.invalidate(transactionsStreamProvider);
                           ref.invalidate(profileProvider);

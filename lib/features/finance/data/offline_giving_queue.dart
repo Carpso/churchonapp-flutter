@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
-/// Offline giving queue — records a giving intent locally when the device
+/// Offline giving queue â€” records a giving intent locally when the device
 /// has no connectivity and replays it (idempotently, server-side) once the
 /// connection returns.
 ///
@@ -14,7 +14,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 /// DEFINER, auth.uid() = p_user_id, idempotent on the payment reference) and
 /// `enqueue_payout_task` (server-side settlement engine). A replayed intent
 /// can never double-create a transaction, and money movement is never trusted
-/// to the client — the payout engine only disburses against confirmed
+/// to the client â€” the payout engine only disburses against confirmed
 /// `coa_payments` anchors.
 class OfflineGivingIntent {
   final String paymentRef;
@@ -25,6 +25,7 @@ class OfflineGivingIntent {
   final String paymentMethod;
   final String? recipientPhone;
   final String? recipientName;
+  final String? recipientRole;
   final DateTime queuedAt;
 
   OfflineGivingIntent({
@@ -36,6 +37,7 @@ class OfflineGivingIntent {
     this.paymentMethod = 'momo',
     this.recipientPhone,
     this.recipientName,
+    this.recipientRole,
     DateTime? queuedAt,
   }) : queuedAt = queuedAt ?? DateTime.now();
 
@@ -48,6 +50,7 @@ class OfflineGivingIntent {
         'payment_method': paymentMethod,
         'recipient_phone': recipientPhone,
         'recipient_name': recipientName,
+        'recipient_role': recipientRole,
         'queued_at': queuedAt.toIso8601String(),
       };
 
@@ -61,6 +64,7 @@ class OfflineGivingIntent {
       paymentMethod: json['payment_method']?.toString() ?? 'momo',
       recipientPhone: json['recipient_phone']?.toString(),
       recipientName: json['recipient_name']?.toString(),
+      recipientRole: json['recipient_role']?.toString(),
       queuedAt: DateTime.tryParse(json['queued_at']?.toString() ?? '') ?? DateTime.now(),
     );
   }
@@ -141,6 +145,7 @@ class OfflineGivingQueue {
               'p_recipient_user_id': null,
               'p_recipient_phone': intent.recipientPhone ?? '',
               'p_gross_amount': intent.amount,
+              'p_recipient_role': intent.recipientRole?.toLowerCase(),
             });
 
             done = true;
