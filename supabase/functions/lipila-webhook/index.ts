@@ -273,12 +273,23 @@ async function processWebhook(
     // when the payer can be resolved server-side by phone, else ack unknown.
     let resolvedUserId: string | null = null;
     if (payload.accountNumber) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("phone", payload.accountNumber)
-        .maybeSingle();
-      if (profile) resolvedUserId = profile.id;
+      // profiles only stores `phone_number` (there is no `phone` column).
+      const normalized = String(payload.accountNumber).replace(/\D/g, "");
+      const candidates = new Set<string>([
+        normalized,
+        normalized.startsWith("0") ? "260" + normalized.slice(1) : normalized,
+      ]);
+      for (const candidate of candidates) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("phone_number", candidate)
+          .maybeSingle();
+        if (profile) {
+          resolvedUserId = profile.id;
+          break;
+        }
+      }
     }
 
     if (!resolvedUserId) {

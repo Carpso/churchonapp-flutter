@@ -106,12 +106,14 @@ async function loadProfilePhone(
   supabase: ReturnType<typeof createClient>,
   userId: string,
 ): Promise<string | null> {
+  // NOTE: profiles only has `phone_number` (there is no `phone` column) —
+  // selecting a missing column makes PostgREST error and silently yields null.
   const { data } = await supabase
     .from("profiles")
-    .select("phone_number, phone")
+    .select("phone_number")
     .eq("id", userId)
     .maybeSingle();
-  return validRecipientPhone((data?.phone_number as string) || (data?.phone as string));
+  return validRecipientPhone(data?.phone_number as string);
 }
 
 // Resolve a leadership payout phone inside a tenant. Returns the preferred
@@ -124,15 +126,15 @@ async function loadLeadershipPhone(
 ): Promise<string | null> {
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("phone_number, phone, role")
+    .select("phone_number, role")
     .eq("tenant_id", tenantId)
     .limit(100);
 
-  const rows = (profiles ?? []) as Array<{ phone_number?: string; phone?: string; role?: string }>;
+  const rows = (profiles ?? []) as Array<{ phone_number?: string; role?: string }>;
 
   if (preferredRole) {
     const exact = rows.find((r) => r.role === preferredRole);
-    const exactPhone = validRecipientPhone(exact?.phone_number || exact?.phone);
+    const exactPhone = validRecipientPhone(exact?.phone_number);
     if (exactPhone) return exactPhone;
   }
 
@@ -148,7 +150,7 @@ async function loadLeadershipPhone(
   ];
   for (const role of priority) {
     const match = rows.find((r) => r.role === role);
-    const phone = validRecipientPhone(match?.phone_number || match?.phone);
+    const phone = validRecipientPhone(match?.phone_number);
     if (phone) return phone;
   }
   return null;
@@ -169,14 +171,12 @@ async function resolveChurchRecipient(
   if (task.recipient_user_id) {
     const { data: designated } = await supabase
       .from("profiles")
-      .select("phone_number, phone, role, tenant_id")
+      .select("phone_number, role, tenant_id")
       .eq("id", task.recipient_user_id)
       .maybeSingle();
     if (designated && (designated.tenant_id as string) === tenantId &&
         LEADERSHIP_ROLES.has((designated.role as string) ?? "")) {
-      const phone = validRecipientPhone(
-        (designated.phone_number as string) || (designated.phone as string),
-      );
+      const phone = validRecipientPhone(designated.phone_number as string);
       if (phone) return { recipient: phone, retry: false };
     }
   }

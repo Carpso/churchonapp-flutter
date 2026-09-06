@@ -123,8 +123,7 @@ BEGIN
       SELECT unnest(ARRAY['treasurer','general_treasurer','pastor','bishop',
                           'general_secretary','apostle','prophet','admin'])
     LOOP
-      SELECT COALESCE(NULLIF(btrim(p.phone_number::text), ''),
-                      NULLIF(btrim(p.phone::text), ''))
+      SELECT NULLIF(btrim(p.phone_number::text), '')
         INTO v_raw
       FROM public.profiles p
       WHERE p.tenant_id = p_church_id
