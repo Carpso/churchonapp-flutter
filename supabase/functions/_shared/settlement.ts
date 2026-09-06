@@ -5,6 +5,9 @@
 // anchored to server-side facts:
 //   giving    -> payer's church treasurer_phone, gross capped by confirmed
 //                collection amount
+//   event     -> organizer_momo_phone (validated), fallback to church chain,
+//                gross capped by confirmed amount, platform takes
+//                event_commission_percent (10% except Conference)
 //   order     -> seller profile phone (recipient_user_id), gross capped by
 //                confirmed collection amount
 //   ride      -> ride_requests.driver_id (owner check) + offered_fare*(1-cut)
@@ -262,6 +265,44 @@ async function resolveSettlement(
       if (!recipient) return { error: "no_recipient", recipient: "", gross: 0 };
 
       // Gross is capped by the webhook-confirmed collection amount.
+      const gross = Math.min(Number(task.gross_amount), confirmedAmount);
+      if (!(gross > 0)) return { error: "invalid_gross", recipient: "", gross: 0 };
+      return { recipient, gross };
+    }
+
+    case "event": {
+      if (!task.payment_ref) return { error: "missing_payment_ref", recipient: "", gross: 0 };
+      const { data: payment } = await supabase
+        .from("coa_payments")
+        .select("status, amount, user_id")
+        .eq("payment_ref", task.payment_ref)
+        .maybeSingle();
+      if (!payment || !CONFIRMED.includes((payment.status ?? "").toLowerCase())) {
+        return { retry: true, recipient: "", gross: 0 };
+      }
+      const confirmedAmount = Number(payment.amount);
+      if (!(confirmedAmount > 0)) return { error: "unconfirmed_amount", recipient: "", gross: 0 };
+
+      // Prefer organizer's phone (passed as recipient_phone), fallback to church chain.
+      let recipient: string | null = validRecipientPhone(task.recipient_phone);
+      if (!recipient) {
+        const { data: payer } = await supabase
+          .from("profiles")
+          .select("tenant_id")
+          .eq("id", payment.user_id)
+          .maybeSingle();
+        const resolved = await resolveChurchRecipient(
+          supabase,
+          payer?.tenant_id as string | null | undefined,
+          task,
+        );
+        if (resolved.retry || !resolved.recipient) {
+          return { retry: true, recipient: "", gross: 0 };
+        }
+        recipient = resolved.recipient;
+      }
+      if (!recipient) return { error: "no_recipient", recipient: "", gross: 0 };
+
       const gross = Math.min(Number(task.gross_amount), confirmedAmount);
       if (!(gross > 0)) return { error: "invalid_gross", recipient: "", gross: 0 };
       return { recipient, gross };

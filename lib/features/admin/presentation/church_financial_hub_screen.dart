@@ -35,9 +35,10 @@ class _ChurchFinancialHubScreenState extends ConsumerState<ChurchFinancialHubScr
     try {
       final txsRes = await Supabase.instance.client
           .from('transactions')
-          .select('amount, type')
+          .select('amount, category, status')
           .eq('tenant_id', tenantId)
-          .inFilter('type', ['giving', 'tithe', 'offering'])
+          .eq('status', 'settled')
+          .inFilter('category', ['giving', 'tithe', 'offering'])
           .gte('created_at', DateTime.now().subtract(const Duration(days: 30)).toIso8601String());
 
       final fundRes = await Supabase.instance.client
@@ -53,9 +54,9 @@ class _ChurchFinancialHubScreenState extends ConsumerState<ChurchFinancialHubScr
 
       double giving = 0, tithes = 0;
       for (final t in txsRes) {
-        final type = t['type'] as String? ?? '';
+        final cat = t['category'] as String? ?? '';
         final amount = (t['amount'] as num?)?.toDouble() ?? 0;
-        if (type == 'tithe') {
+        if (cat == 'tithe') {
           tithes += amount;
         } else {
           giving += amount;

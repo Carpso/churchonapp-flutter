@@ -116,15 +116,28 @@ class FinanceService {
     final isCard = paymentMethod == 'card';
     final platformFee = fees.platformFee(amount, isCard: isCard);
 
-    // Dynamic fallback for Church Giving/Offerings if recipientPhone is null
+    // Dynamic fallback for Church Giving/Offerings if recipientPhone is null.
+    // tenantId is a tenants.id (from currentTenantProvider); churches store
+    // it as tenant_id, not as their primary id.
     String? finalPhone = recipientPhone;
     String? finalName = recipientName;
     if (finalPhone == null && tenantId != null) {
       try {
-        final church = await _client.from('churches').select('treasurer_phone, name').eq('id', tenantId).maybeSingle();
+        final church = await _client
+            .from('churches')
+            .select('treasurer_phone, name')
+            .eq('tenant_id', tenantId)
+            .maybeSingle();
         if (church != null) {
           finalPhone = church['treasurer_phone'];
           finalName = church['name'];
+        } else {
+          // Fallback for legacy churches where id == tenant_id
+          final legacy = await _client.from('churches').select('treasurer_phone, name').eq('id', tenantId).maybeSingle();
+          if (legacy != null) {
+            finalPhone = legacy['treasurer_phone'];
+            finalName = legacy['name'];
+          }
         }
       } catch (e) {
         debugPrint('Failed to look up church treasurer: $e');
@@ -189,9 +202,12 @@ class FinanceService {
     // collection's reference; the settlement engine (webhook/cron) resolves the
     // church treasurer server-side and disburses after confirmation. The client
     // can no longer move money directly.
+    // Events go to the organizer (if they supplied a MoMo number), not the
+    // church treasurer — use p_source='event' so settlement honors that phone.
+    final payoutSource = category.toLowerCase() == 'event' ? 'event' : 'giving';
     try {
       await _client.rpc('enqueue_payout_task', params: {
-        'p_source': 'giving',
+        'p_source': payoutSource,
         'p_source_ref': null,
         'p_payment_ref': reference,
         'p_recipient_user_id': null,

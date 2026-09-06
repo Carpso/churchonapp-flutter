@@ -97,8 +97,15 @@ class TitheService {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
+    String? tenantId;
+    try {
+      final profile = await _client.from('profiles').select('tenant_id').eq('id', user.id).maybeSingle();
+      tenantId = profile?['tenant_id']?.toString();
+    } catch (_) {}
+
     await _client.from('tithe_records').insert({
       'user_id': user.id,
+      if (tenantId != null) 'tenant_id': tenantId,
       'amount': amount,
       'payment_method': paymentMethod,
       'is_anonymous': isAnonymous,

@@ -230,14 +230,40 @@ class OrderService {
         'unit_price': item['unit_price'],
         'total_price': item['total_price'],
         'vendor_id': item['vendor_id'],
+        'tenant_id': tenantId,
+        'church_id': tenantId,
       });
-      await _supabase.client.from('user_purchases').insert({
-        'user_id': userId,
-        'item_id': item['item_id'],
-        'order_id': orderId,
-        'price': item['total_price'],
-        'quantity': item['quantity'],
-      });
+      try {
+        await _supabase.client.from('user_purchases').insert({
+          'user_id': userId,
+          'item_id': item['item_id'],
+          'order_id': orderId,
+          'price': item['total_price'],
+          'quantity': item['quantity'],
+          'tenant_id': tenantId,
+        });
+      } catch (_) {
+        // user_purchases may not have tenant_id column in older installs
+        await _supabase.client.from('user_purchases').insert({
+          'user_id': userId,
+          'item_id': item['item_id'],
+          'order_id': orderId,
+          'price': item['total_price'],
+          'quantity': item['quantity'],
+        });
+      }
+      // Decrement stock atomically — non-fatal if item has no stock tracking
+      try {
+        final qty = (item['quantity'] as num?)?.toInt() ?? 1;
+        if (qty > 0 && item['item_id'] != null) {
+          await _supabase.client.rpc('decrement_marketplace_stock', params: {
+            'p_item_id': item['item_id'],
+            'p_qty': qty,
+          });
+        }
+      } catch (_) {
+        // stock decrement is best-effort (e.g. digital items with no stock)
+      }
     }
 
     return orderId;

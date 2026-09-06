@@ -163,7 +163,7 @@ class LedgerScreen extends ConsumerWidget {
   }
 
   Widget _buildSummaryCard(BuildContext context, List<Transaction> txs, WidgetRef ref, String tenantId) {
-    final tenantName = tenantId;
+    final tenantName = ref.read(currentTenantProvider)?.name ?? tenantId;
     double total = txs.fold(0.0, (sum, item) => sum + item.amount);
     double tithes = txs.where((tx) => tx.category.toLowerCase().contains('tithe')).fold(0.0, (sum, item) => sum + item.amount);
     double offerings = txs.where((tx) => tx.category.toLowerCase().contains('offering') || tx.category.toLowerCase().contains('giving')).fold(0.0, (sum, item) => sum + item.amount);
@@ -285,7 +285,8 @@ if (tx.userId.isNotEmpty)
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text("+ K ${tx.amount.toStringAsFixed(2)}", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w900, fontSize: 16)),
+              Text("${tx.amount < 0 ? '-' : '+'} K ${tx.amount.abs().toStringAsFixed(2)}",
+                  style: TextStyle(color: tx.amount < 0 ? Colors.red : Colors.green, fontWeight: FontWeight.w900, fontSize: 16)),
               Text("${tx.createdAt.day}/${tx.createdAt.month} ${tx.createdAt.hour}:${tx.createdAt.minute}", style: const TextStyle(color: Colors.grey, fontSize: 11)),
             ],
           ),

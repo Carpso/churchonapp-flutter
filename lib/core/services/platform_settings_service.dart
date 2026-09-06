@@ -43,7 +43,7 @@ class PlatformSettings {
     this.coaMoMoName = 'Church On App Official',
     this.coaTreasuryPhone = '2609776847775',
     this.coaFeePercent = 0.01,
-    this.momoFeePercent = 0.015,
+    this.momoFeePercent = 0.025,
     this.cardFeePercent = 0.025,
     this.businessCutPercent = 0.10,
     this.minFeeKwacha = 3.0,
@@ -58,11 +58,11 @@ class PlatformSettings {
     double onboarding = PlanLimits.onboardingFeeKwacha;
     double gold = PlanLimits.forPlan(TenantPlan.gold).monthlyPriceKwacha;
     double platinum = PlanLimits.forPlan(TenantPlan.platinum).monthlyPriceKwacha;
-    String momoNumber = '0977000000';
+    String momoNumber = '0976847775';
     String momoName = 'Church On App Official';
-    String treasuryPhone = '260977000000';
+    String treasuryPhone = '2609776847775';
     double coaFee = 0.01;
-    double momoFee = 0.015;
+    double momoFee = 0.025;
     double cardFee = 0.025;
     double businessCut = 0.10;
     double minFee = 3.0;
@@ -227,7 +227,7 @@ class PlatformSettingsService {
       if (rideDeliveryPerKmKwacha != null) {
         upserts.add({'key': 'ride_delivery_per_km_kwacha', 'value': rideDeliveryPerKmKwacha.toString()});
       }
-      await _client.from('platform_settings').upsert(upserts);
+      await _client.from('platform_settings').upsert(upserts, onConflict: 'key');
     } catch (e) {
       debugPrint('Error updating platform settings: $e');
       rethrow;

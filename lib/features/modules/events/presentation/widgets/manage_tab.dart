@@ -46,14 +46,14 @@ class _ManageTabState extends ConsumerState<ManageTab> {
       final client = Supabase.instance.client;
       final eventsRes = await client
           .from('events')
-          .select('id, title, event_date, price, capacity')
+          .select('id, title, date, ticket_price, max_capacity')
           .eq('tenant_id', tenant.id);
       final events = List<Map<String, dynamic>>.from(eventsRes);
       final now = DateTime.now();
 
       final regsRes = await client
           .from('event_registrations')
-          .select('event_id, ticket_quantity, rsvp_status, check_in_status, events!inner (ticket_price, price)')
+          .select('event_id, ticket_quantity, rsvp_status, check_in_status, events!inner (ticket_price)')
           .eq('events.tenant_id', tenant.id);
 
       var tickets = 0;
@@ -86,7 +86,7 @@ class _ManageTabState extends ConsumerState<ManageTab> {
         setState(() {
           _eventCount = events.length;
           _upcomingCount = events.where((e) {
-            final d = DateTime.tryParse((e['event_date'] ?? '').toString());
+            final d = DateTime.tryParse((e['date'] ?? '').toString());
             return d != null && d.isAfter(now);
           }).length;
           _ticketsSold = tickets;
@@ -208,9 +208,9 @@ class _ManageTabState extends ConsumerState<ManageTab> {
   Widget _buildEventRow(Map<String, dynamic> event) {
     final id = (event['id'] ?? '').toString();
     final stats = _byEvent[id] ?? _EventStats();
-    final date = DateTime.tryParse((event['event_date'] ?? '').toString());
-    final price = (event['price'] as num?)?.toDouble() ?? 0;
-    final capacity = (event['capacity'] as num?)?.toInt();
+    final date = DateTime.tryParse((event['date'] ?? '').toString());
+    final price = (event['ticket_price'] as num?)?.toDouble() ?? 0;
+    final capacity = (event['max_capacity'] as num?)?.toInt();
     final dateLabel = date == null ? '—' : DateFormat('MMM d, yyyy • h:mm a').format(date.toLocal());
     return Container(
       margin: const EdgeInsets.only(bottom: 10),

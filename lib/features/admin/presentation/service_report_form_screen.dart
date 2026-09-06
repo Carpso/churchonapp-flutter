@@ -133,6 +133,7 @@ class _ServiceReportFormScreenState
 
       await Supabase.instance.client.from('service_reports').insert({
         'tenant_id': tenant.id,
+        'church_id': tenant.id,
         'title': '${_serviceType.toUpperCase()} SERVICE — ${DateFormat('MMM d, yyyy').format(_serviceDate)}',
         'description': _notesController.text.trim().isEmpty
             ? 'Service report for ${DateFormat('EEEE, MMMM d').format(_serviceDate)}'
@@ -143,6 +144,8 @@ class _ServiceReportFormScreenState
         'visitors': _newMembers,
         'salvations': _salvations,
         'offering': _offeringAmount + _titheAmount,
+        'tithes': _titheAmount,
+        'baptisms': _baptisms,
         'notes': _notesController.text.trim(),
         'reporter_id': user.id,
       });

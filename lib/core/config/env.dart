@@ -20,7 +20,7 @@ class Env {
   
   static String get mapsZambiaUrl => dotenv.env['MAPS_ZAMBIA_URL'] ?? 'https://maps.churchonapp.com/zambia.pmtiles';
   static String get mapsZimbabweUrl => dotenv.env['MAPS_ZIMBABWE_URL'] ?? 'https://maps.churchonapp.com/zimbabwe.pmtiles';
-  static String get liveStreamUrl => dotenv.env['LIVE_STREAM_URL'] ?? 'https://db.churchonapp.com:8088/live/';
+  static String get liveStreamUrl => dotenv.env['LIVE_STREAM_URL'] ?? 'https://stream.churchonapp.com/live/';
   
   static String get r2PublicDomain => dotenv.env['R2_PUBLIC_DOMAIN'] ?? 'media.churchonapp.com';
 

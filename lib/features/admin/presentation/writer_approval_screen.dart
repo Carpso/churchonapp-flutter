@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:church_on_app/features/admin/data/writer_approval_service.dart';
 
 class WriterApprovalScreen extends ConsumerWidget {
@@ -34,7 +35,12 @@ class WriterApprovalScreen extends ConsumerWidget {
                               if (app.reason != null) Text('Reason: ${app.reason}'),
                               if (app.writingSamplesUrl != null)
                                 InkWell(
-                                  onTap: () {},
+                                  onTap: () async {
+                                    final uri = Uri.tryParse(app.writingSamplesUrl!);
+                                    if (uri != null && await canLaunchUrl(uri)) {
+                                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    }
+                                  },
                                   child: Text('Samples: ${app.writingSamplesUrl}', style: TextStyle(color: Theme.of(context).primaryColor)),
                                 ),
                               const SizedBox(height: 12),

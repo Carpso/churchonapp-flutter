@@ -240,7 +240,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
     // their church's withdrawable balance but can't open COA settlement.
     final isCoaTeam =
         profile != null && (profile.isSuperadmin || profile.role == 'coa_employee');
-    return FutureBuilder<Map<String, dynamic>>(
+    return FutureBuilder<dynamic>(
       future: Supabase.instance.client.rpc('get_church_withdrawable_balances'),
       builder: (context, snapshot) {
         final data = snapshot.data;
@@ -248,7 +248,18 @@ class FinanceDashboardScreen extends ConsumerWidget {
         double inFlight = 0.0;
         if (data is Map<String, dynamic>) {
           withdrawable = ((data['withdrawable'] ?? 0) as num?)?.toDouble() ?? 0.0;
-          inFlight = ((data['in_flight'] ?? 0) as num?)?.toDouble() ?? 0.0;
+          inFlight = ((data['in_flight'] ?? data['in_flight_withdrawals'] ?? 0) as num?)?.toDouble() ?? 0.0;
+        } else if (data is List) {
+          final list = data;
+          if (list.isNotEmpty) {
+            // superadmin returns all churches — find this tenant's row
+            final match = list.cast<Map<String, dynamic>>().firstWhere(
+                  (m) => m['church_id'] == tenantId || m['tenant_id'] == tenantId,
+                  orElse: () => list.first as Map<String, dynamic>,
+                );
+            withdrawable = ((match['withdrawable'] ?? 0) as num?)?.toDouble() ?? 0.0;
+            inFlight = ((match['in_flight'] ?? match['in_flight_withdrawals'] ?? 0) as num?)?.toDouble() ?? 0.0;
+          }
         }
         return Container(
           width: double.infinity,
@@ -307,7 +318,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
           child: OutlinedButton.icon(
             onPressed: txs.isEmpty
                 ? null
-                : () => LedgerPdfService.generateAndPrintLedger(txs, tenant.id),
+                : () => LedgerPdfService.generateAndPrintLedger(txs, tenant.name),
             icon: Icon(LucideIcons.fileOutput, size: 14, color: theme.primaryColor),
             label: const Text('Export PDF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
             style: OutlinedButton.styleFrom(
@@ -323,7 +334,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            onPressed: txs.isEmpty
+            onPressed: txs.isEmpty || total <= 0
                 ? null
                 : () async {
                     final confirm = await showDialog<bool>(

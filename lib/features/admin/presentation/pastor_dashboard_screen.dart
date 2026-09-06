@@ -166,6 +166,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           .from('transactions')
           .select('amount, category')
           .eq('tenant_id', tenantId)
+          .eq('status', 'settled')
           .inFilter('category', ['giving', 'tithe', 'offering'])
           .gte('created_at', firstOfMonth.toIso8601String());
 
@@ -173,6 +174,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           .from('transactions')
           .select('amount')
           .eq('tenant_id', tenantId)
+          .eq('status', 'settled')
           .inFilter('category', ['giving', 'tithe', 'offering'])
           .gte('created_at', firstOfLastMonth.toIso8601String())
           .lt('created_at', firstOfMonth.toIso8601String());

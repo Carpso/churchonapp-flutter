@@ -45,8 +45,10 @@ class ReportCreatorService {
   Future<double> getGiving(String tenantId, DateTime start, DateTime end) async {
     final res = await _client
         .from('transactions')
-        .select('amount, currency')
+        .select('amount, category, status')
         .eq('tenant_id', tenantId)
+        .eq('status', 'settled')
+        .inFilter('category', ['tithe', 'giving', 'offering'])
         .gte('created_at', start.toIso8601String())
         .lte('created_at', end.toIso8601String());
     final data = res as List;

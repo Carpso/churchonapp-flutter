@@ -28,6 +28,8 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
   final _priceCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _imageCtrl = TextEditingController();
+  final _stockCtrl = TextEditingController();
+  final _downloadUrlCtrl = TextEditingController();
   String _selectedCategory = "apparel";
   String _selectedType = "general";
   bool _isSubmitting = false;
@@ -56,7 +58,20 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
       if (cat != null && _categories.contains(cat)) _selectedCategory = cat;
       final type = p['market_type']?.toString();
       if (type != null && type.isNotEmpty) _selectedType = type;
+      _stockCtrl.text = p['stock']?.toString() ?? '';
+      _downloadUrlCtrl.text = p['download_url']?.toString() ?? '';
     }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _priceCtrl.dispose();
+    _descCtrl.dispose();
+    _imageCtrl.dispose();
+    _stockCtrl.dispose();
+    _downloadUrlCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _pickImage() async {
@@ -98,6 +113,7 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
         }
       }
 
+      final stock = int.tryParse(_stockCtrl.text.trim()) ?? 0;
       final productData = {
         'name': _nameCtrl.text.trim(),
         'price': double.tryParse(_priceCtrl.text.trim()) ?? 0.0,
@@ -107,6 +123,8 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
         'market_type': _selectedType,
         'vendor_id': user.id,
         'vendor_name': profile?.name ?? "Citizen",
+        'stock': stock < 0 ? 0 : stock,
+        'download_url': _downloadUrlCtrl.text.trim().isEmpty ? null : _downloadUrlCtrl.text.trim(),
       };
 
       if (_isEditing) {
@@ -178,6 +196,26 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
                 value: _selectedCategory,
                 items: _categories,
                 onChanged: (v) => setState(() => _selectedCategory = v!),
+              ),
+              const SizedBox(height: 15),
+              _buildSectionHeader("Inventory", LucideIcons.package),
+              const SizedBox(height: 15),
+              _buildTextField(
+                controller: _stockCtrl,
+                label: "Stock Quantity",
+                hint: "e.g. 10 (0 = out of stock)",
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return null;
+                  final n = int.tryParse(v.trim());
+                  if (n == null || n < 0) return 'Enter a valid number';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 15),
+              _buildTextField(
+                controller: _downloadUrlCtrl,
+                label: "Digital Download URL (optional)",
+                hint: "https://... for e-books",
               ),
               const SizedBox(height: 25),
               _buildSectionHeader("Market Settings", LucideIcons.settings),

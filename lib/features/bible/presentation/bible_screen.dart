@@ -172,12 +172,13 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
   final GlobalKey _verseImageKey = GlobalKey();
 
   int get _maxChapter {
-    try {
-      return _allBooks.firstWhere((b) => b.name == selectedBook).chapters;
-    } catch (_) {
-      return 150;
-    }
-  }
+        try {
+          return _allBooks.firstWhere((b) => b.name == selectedBook).chapters;
+        } catch (_) {
+          // Before books load, don't allow navigating to chapter 150 on a 4-chapter book
+          return 1;
+        }
+      }
 
   @override
   Widget build(BuildContext context) {

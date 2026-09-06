@@ -519,6 +519,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
         platinumMonthlyFee: platinum,
       );
       ref.invalidate(platformSettingsProvider);
+      ref.invalidate(remoteConfigProvider);
       if (mounted) {
         showAppSnackBar(
           context,
@@ -555,6 +556,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
         coaTreasuryPhone: treasuryPhone,
       );
       ref.invalidate(platformSettingsProvider);
+      ref.invalidate(remoteConfigProvider);
       if (mounted) {
         showAppSnackBar(
           context,
