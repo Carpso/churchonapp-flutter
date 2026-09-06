@@ -326,8 +326,8 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   Future<void> _startStream() async {
     final profile = ref.read(profileProvider).value;
     final tenantId = widget.tenantId ?? profile?.tenantId;
-    if (tenantId == null) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No tenant selected")));
+    if (tenantId == null || tenantId.isEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Select a church first")));
       return;
     }
     if (_localStream == null) {
@@ -405,23 +405,49 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
           _isLoading = false;
           _streamStatus = "OFFLINE";
         });
-        // Map opaque FunctionException payloads to actionable messages.
         final raw = e.toString();
-        String friendly;
-        if (raw.contains('401') || raw.toLowerCase().contains('authorization') || raw.toLowerCase().contains('jwt')) {
-          friendly = 'Your session expired — sign out and sign in again, then retry.';
-        } else if (raw.contains('403') || raw.toLowerCase().contains('insufficient role')) {
-          friendly = 'Only church leadership (pastor, bishop, admin, COA team) can go live.';
-        } else if (raw.contains('Failed to create Cloudflare Stream') || raw.contains('500') || raw.contains('401')) {
-          // Surface the actual CF error so the user can report it.
-          final cfDetail = raw.contains('(HTTP') ? raw.split('(HTTP').last.replaceAll(')', '').trim() : '';
-          friendly = 'Streaming service error${cfDetail.isNotEmpty ? ' ($cfDetail)' : ''}. The Cloudflare API token may need rotating — contact COA support.';
-        } else {
-          friendly = raw.replaceAll('Exception: ', '');
-        }
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to start stream: $friendly")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to start stream: ${_friendlyStreamError(raw)}")));
       }
     }
+  }
+
+  String _friendlyStreamError(String raw) {
+    final status = RegExp(r'status: (\d+)').firstMatch(raw)?.group(1);
+    if (raw.contains('Insufficient role')) {
+      return 'Only church leadership (pastor, bishop, admin, COA team) can go live.';
+    }
+    if (raw.contains('meta.church_id is required')) {
+      return 'Select your church first, then retry.';
+    }
+    if (raw.contains('Missing authorization header') || raw.contains('"error": "Unauthorized"') || raw.contains('{error: Unauthorized}')) {
+      return 'Your session expired — sign out and sign in again, then retry.';
+    }
+    if (raw.contains('Live input does not expose a WebRTC')) {
+      return 'This stream is not WebRTC-ready — use the OBS/RTMP credentials instead.';
+    }
+    if (raw.contains('WHIP offer failed')) {
+      final m = RegExp(r'WHIP offer failed: (.+)').firstMatch(raw);
+      final detail = m?.group(1)?.trim();
+      return detail != null && detail.isNotEmpty && detail != 'null'
+          ? 'Stream did not accept the phone feed ($detail).'
+          : 'Stream did not accept the phone feed.';
+    }
+    final detailsMatch = RegExp(r'details: \{(.+)\}, reasonPhrase').firstMatch(raw);
+    if (detailsMatch != null) {
+      final body = detailsMatch.group(1)!;
+      final em = RegExp(r'error: (.+)').firstMatch(body);
+      if (em != null) {
+        final msg = em.group(1)!.trim();
+        if (msg.isNotEmpty && msg != 'null') {
+          return 'Streaming service error${status != null ? ' ($status)' : ''}: $msg';
+        }
+      }
+    }
+    final cleanedRaw = raw.replaceAll('Exception: ', '');
+    if (cleanedRaw.isNotEmpty && cleanedRaw != 'null') {
+      return cleanedRaw;
+    }
+    return 'Streaming service error${status != null ? ' ($status)' : ''}.';
   }
 
   Future<bool> _startWhipIngest(String whipUrl) async {

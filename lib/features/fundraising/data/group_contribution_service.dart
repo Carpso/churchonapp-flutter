@@ -96,6 +96,36 @@ class GroupContributionService {
         .eq('id', groupId);
   }
 
+  Future<GroupContribution> findOrCreateTypeGroup({
+    required String tenantId,
+    required String title,
+    String description = '',
+    required String createdBy,
+  }) async {
+    final existing = await _client
+        .from('group_contributions')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('title', title)
+        .eq('status', 'active')
+        .order('created_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+    if (existing != null) {
+      final group = await getGroup(existing['id'] as String);
+      if (group != null) return group;
+    }
+    return createGroup(
+      tenantId: tenantId,
+      title: title,
+      description: description,
+      targetAmount: 0,
+      frequency: 'one_time',
+      minAmount: 1,
+      createdBy: createdBy,
+    );
+  }
+
   Future<List<GroupContributionMember>> getMembers(String groupId) async {
     final data = await _client
         .from('group_contribution_members')
@@ -137,6 +167,34 @@ class GroupContributionService {
       'user_name': userName,
       'pledged_amount': pledgedAmount,
     });
+  }
+
+  Future<String> ensureMembership({
+    required String groupId,
+    required String userId,
+    required String userName,
+    required double pledgedAmount,
+  }) async {
+    final existing = await _client
+        .from('group_contribution_members')
+        .select('id')
+        .eq('group_id', groupId)
+        .eq('user_id', userId)
+        .maybeSingle();
+    if (existing != null && existing['id'] != null) {
+      return existing['id'] as String;
+    }
+    final inserted = await _client
+        .from('group_contribution_members')
+        .insert({
+          'group_id': groupId,
+          'user_id': userId,
+          'user_name': userName,
+          'pledged_amount': pledgedAmount,
+        })
+        .select('id')
+        .single();
+    return inserted['id'] as String;
   }
 
   Future<void> contribute({

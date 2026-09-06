@@ -17,6 +17,7 @@ import 'package:church_on_app/features/finance/data/offline_giving_queue.dart';
 import 'widgets/giving_category_selector.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 import 'package:church_on_app/core/widgets/entity_selector.dart';
+import 'package:church_on_app/features/fundraising/data/fundraising_providers.dart';
 
 class GivingScreen extends ConsumerStatefulWidget {
   const GivingScreen({super.key});
@@ -195,17 +196,47 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
     );
   }
 
-  void _showSuccessSheet(String txId) {
+  void _showSuccessSheet(String txId, {bool groupLinked = false, String groupLabel = ''}) {
+    final message = groupLinked
+        ? 'Your giving of ${formatKwacha(double.tryParse(_amountController.text) ?? 0)} has been processed securely and linked to the $groupLabel group.'
+        : 'Your giving of ${formatKwacha(double.tryParse(_amountController.text) ?? 0)} has been processed securely.';
     PremiumConfirmationSheet.show(
       context: context,
       title: 'Transaction Successful!',
       subtitle: 'Your giving has been received.',
-      message:
-          'God bless your faithfulness. Your giving of ${formatKwacha(double.tryParse(_amountController.text) ?? 0)} has been processed securely.',
+      message: message,
       referenceId: txId,
       type: ConfirmationType.success,
       primaryLabel: 'AMEN',
     );
+  }
+
+  Future<void> _linkGroupGiving(String type, double amount, Tenant? tenant) async {
+    final profile = ref.read(profileProvider).value;
+    if (tenant == null || profile == null) return;
+    final service = ref.read(groupContributionServiceProvider);
+    final group = await service.findOrCreateTypeGroup(
+      tenantId: tenant.id,
+      title: '$type Giving',
+      description: 'Give together as a $type',
+      createdBy: profile.id,
+    );
+    final memberId = await service.ensureMembership(
+      groupId: group.id,
+      userId: profile.id,
+      userName: profile.name,
+      pledgedAmount: amount,
+    );
+    await service.contribute(
+      groupId: group.id,
+      memberId: memberId,
+      userName: profile.name,
+      amount: amount,
+    );
+    ref.invalidate(groupDetailProvider(group.id));
+    ref.invalidate(groupMembersProvider(group.id));
+    ref.invalidate(groupPaymentsProvider(group.id));
+    ref.invalidate(groupContributionsProvider(tenant.id));
   }
 
   Widget _buildOfflineQueueBanner() {
@@ -785,7 +816,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
             ],
           ),
           const SizedBox(height: 4),
-          Text("Give together with Couple / Friend / Family",
+          Text("Gifts are linked into a shared Couple / Friend / Family giving group",
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11)),
           const SizedBox(height: 12),
           Wrap(
@@ -891,8 +922,15 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
                   );
               ref.invalidate(transactionsStreamProvider);
               ref.invalidate(profileProvider);
-              if (mounted) _showSuccessSheet(txId);
+              var linked = false;
+              try {
+                await _linkGroupGiving(type, amount, tenant);
+                linked = true;
+              } catch (e) {
+                debugPrint('[Give] Group giving link failed: $e');
+              }
               _groupAmountController.clear();
+              if (mounted) _showSuccessSheet(txId, groupLinked: linked, groupLabel: '$type Giving');
             }
           },
         );

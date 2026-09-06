@@ -183,11 +183,12 @@ class UnifiedStreamService {
     final rtmps = (data['rtmps'] as Map?)?.cast<String, dynamic>() ?? {};
     final rtmpUrl = rtmps['url'] as String? ?? '';
     final streamKey = rtmps['streamKey'] as String? ?? '';
-    final hlsUrl = data['hls'] as String? ?? '';
-    final dashUrl = data['dash'] as String? ?? '';
+    final playback = (data['playback'] as Map?)?.cast<String, dynamic>() ?? {};
+    final hlsUrl = playback['hls'] as String? ?? (data['hls'] as String? ?? '');
+    final dashUrl = playback['dash'] as String? ?? (data['dash'] as String? ?? '');
     final previewUrl = data['webRTCPlayback'] is Map ? (data['webRTCPlayback'] as Map)['url'] as String? : null;
-    final whipInfo = data['whip'] is Map ? (data['whip'] as Map).cast<String, dynamic>() : <String, dynamic>{};
-    final whipUrl = whipInfo['url'] as String?;
+    final webRtc = (data['webRTC'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+    final whipUrl = webRtc['url'] as String?;
 
     final result = await _client
         .from('live_streams')

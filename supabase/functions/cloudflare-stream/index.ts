@@ -81,7 +81,7 @@ serve(async (req) => {
             { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        return await createLiveInput(params, req);
+        return await createLiveInput(params, corsHeaders);
       }
       case "delete_live_input": {
         const inputId = params?.input_id;
@@ -98,12 +98,12 @@ serve(async (req) => {
             { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        return await deleteLiveInput(params);
+        return await deleteLiveInput(params, corsHeaders);
       }
       case "get_live_input":
-        return await getLiveInput(params);
+        return await getLiveInput(params, corsHeaders);
       case "get_analytics":
-        return await getAnalytics(params);
+        return await getAnalytics(params, corsHeaders);
       case "list_videos": {
         // Tenant-scoped: return only streams belonging to the caller's church
         // (or all if superadmin/employee). Avoids the unbounded account-wide list.
@@ -151,10 +151,10 @@ serve(async (req) => {
             { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        return await whipOffer(params, req);
+        return await whipOffer(params, corsHeaders);
       }
       case "delete_video":
-        return await deleteVideo(params);
+        return await deleteVideo(params, corsHeaders);
       default:
         return new Response(
           JSON.stringify({ error: "Unknown action" }),
@@ -187,7 +187,7 @@ async function ownsStream(supabase: any, cloudflareStreamId: string, profile: an
   }
 }
 
-async function createLiveInput(params: any, req: Request) {
+async function createLiveInput(params: any, corsHeaders: Record<string, string>) {
   const response = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs`,
     {
@@ -197,19 +197,14 @@ async function createLiveInput(params: any, req: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        enabled: true,
+        preferLowLatency: false,
+        deleteRecordingAfterDays: 90,
         meta: params.meta || {},
         recording: {
           mode: "automatic",
           requireSignedURLs: false,
-        },
-        rtmps: {
-          enabled: true,
-        },
-        srt: {
-          enabled: false,
-        },
-        webRTC: {
-          enabled: true,
+          timeoutSeconds: 0,
         },
       }),
     }
@@ -220,7 +215,10 @@ async function createLiveInput(params: any, req: Request) {
   if (!data.success) {
     const msg = data.errors?.[0]?.message || "Failed to create live input";
     console.error(`[cloudflare-stream] create_live_input CF API error ${response.status}: ${msg}`);
-    throw new Error(`${msg} (HTTP ${response.status})`);
+    return new Response(
+      JSON.stringify({ success: false, error: msg, errors: data.errors ?? [] }),
+      { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   return new Response(
@@ -229,7 +227,7 @@ async function createLiveInput(params: any, req: Request) {
   );
 }
 
-async function deleteLiveInput(params: any) {
+async function deleteLiveInput(params: any, corsHeaders: Record<string, string>) {
   const response = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${params.input_id}`,
     {
@@ -248,7 +246,7 @@ async function deleteLiveInput(params: any) {
   );
 }
 
-async function getLiveInput(params: any) {
+async function getLiveInput(params: any, corsHeaders: Record<string, string>) {
   const response = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${params.input_id}`,
     {
@@ -266,7 +264,7 @@ async function getLiveInput(params: any) {
   );
 }
 
-async function getAnalytics(params: any) {
+async function getAnalytics(params: any, corsHeaders: Record<string, string>) {
   // Cloudflare Stream analytics via GraphQL
   const response = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream-analytics`,
@@ -330,7 +328,7 @@ async function createSignedUrl(params: any, signingKey: string, corsHeaders: Rec
 // (https://customer-<CODE>.cloudflarestream.com/<SECRET>/webRTC/publish) —
 // NOT the account API. This relay resolves it server-side so the secret
 // publish URL never has to live in the app.
-async function whipOffer(params: any, req: Request) {
+async function whipOffer(params: any, corsHeaders: Record<string, string>) {
   const { input_id, sdp } = params;
 
   if (!input_id || !sdp) {
@@ -382,7 +380,7 @@ async function whipOffer(params: any, req: Request) {
 }
 
 // Delete a recorded video from Cloudflare Stream
-async function deleteVideo(params: any) {
+async function deleteVideo(params: any, corsHeaders: Record<string, string>) {
   if (!params.video_id) {
     throw new Error("video_id is required");
   }
