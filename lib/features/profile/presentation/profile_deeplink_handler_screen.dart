@@ -6,6 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/providers/profile_provider.dart';
 import '../../connect/data/social_service.dart';
+import '../../connect/data/follow_service.dart';
 import '../../connect/presentation/widgets/social_post_card.dart';
 import 'profile_screen.dart';
 
@@ -102,10 +103,14 @@ class ProfileDeepLinkHandlerScreen extends ConsumerWidget {
                 _stat(context, 'Coins', (data['coins'] ?? 0).toString()),
                 const SizedBox(width: 12),
                 _stat(context, 'Level', (data['level'] ?? 'Beginner').toString()),
+                const SizedBox(width: 12),
+                Expanded(child: _FollowCounts(userId: data['id'].toString())),
               ],
             ),
           ),
         ),
+        const SizedBox(height: 16),
+        if (current == null || current.id != data['id']) _FollowButton(userId: data['id'].toString()),
         const SizedBox(height: 24),
         _buildPostsSection(context, ref, data['id']?.toString() ?? ''),
         const SizedBox(height: 24),
@@ -224,6 +229,71 @@ class ProfileDeepLinkHandlerScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FollowCounts extends ConsumerWidget {
+  final String userId;
+  const _FollowCounts({required this.userId});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FutureBuilder<Map<String, int>>(
+      future: ref.read(followServiceProvider).getFollowCounts(userId),
+      builder: (context, snap) {
+        final followers = snap.data?['followers'] ?? 0;
+        final following = snap.data?['following'] ?? 0;
+        return Row(children: [
+          Expanded(child: _stat(context, 'Followers', '$followers')),
+          const SizedBox(width: 8),
+          Expanded(child: _stat(context, 'Following', '$following')),
+        ]);
+      },
+    );
+  }
+  Widget _stat(BuildContext context, String label, String value) {
+    return Column(children: [
+      Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 2),
+      Text(label, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
+    ]);
+  }
+}
+
+class _FollowButton extends ConsumerStatefulWidget {
+  final String userId;
+  const _FollowButton({required this.userId});
+  @override
+  ConsumerState<_FollowButton> createState() => _FollowButtonState();
+}
+
+class _FollowButtonState extends ConsumerState<_FollowButton> {
+  bool _following = false;
+  bool _loading = true;
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+  Future<void> _check() async {
+    final f = await ref.read(followServiceProvider).isFollowing(widget.userId);
+    if (mounted) setState(() { _following = f; _loading = false; });
+  }
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const SizedBox(height: 44, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: () async {
+          setState(() => _loading = true);
+          final now = await ref.read(followServiceProvider).toggleFollow(widget.userId);
+          if (mounted) setState(() { _following = now; _loading = false; });
+        },
+        icon: Icon(_following ? Icons.check : Icons.person_add, size: 18),
+        label: Text(_following ? "Following" : "Follow"),
+        style: FilledButton.styleFrom(backgroundColor: _following ? Colors.grey.shade300 : Theme.of(context).primaryColor, foregroundColor: _following ? Colors.black87 : Colors.white),
       ),
     );
   }

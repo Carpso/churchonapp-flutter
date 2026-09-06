@@ -17,6 +17,7 @@ import 'package:church_on_app/features/home/presentation/sermon_library_screen.d
 import 'package:church_on_app/features/transport/presentation/ride_request_screen.dart';
 import 'package:church_on_app/features/connect/presentation/connect_screen.dart';
 import 'package:church_on_app/features/connect/presentation/church_social_profile_screen.dart';
+import 'package:church_on_app/features/connect/presentation/saved_posts_screen.dart';
 import 'package:church_on_app/features/finance/presentation/giving_screen.dart';
 import 'package:church_on_app/features/profile/presentation/profile_screen.dart';
 import 'package:church_on_app/features/modules/jobs/presentation/jobs_portal_screen.dart';
@@ -699,6 +700,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           final postId = state.pathParameters['id']!;
           return PostDetailScreen(postId: postId);
         },
+      ),
+      GoRoute(
+        path: '/saved',
+        builder: (context, state) => const SavedPostsScreen(),
       ),
       GoRoute(
         path: '/events',
