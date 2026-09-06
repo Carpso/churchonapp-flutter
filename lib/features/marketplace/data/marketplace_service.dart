@@ -16,6 +16,8 @@ class MarketProduct {
   final String? condition;
   final String marketType;
   final bool isCurated;
+  final int stock;
+  final String? downloadUrl;
 
   MarketProduct({
     required this.id,
@@ -30,6 +32,8 @@ class MarketProduct {
     this.condition,
     this.marketType = 'general',
     this.isCurated = false,
+    this.stock = 0,
+    this.downloadUrl,
   });
 
   factory MarketProduct.fromMap(Map<String, dynamic> map) {
@@ -46,6 +50,8 @@ class MarketProduct {
       condition: map['condition'],
       marketType: map['marketType'] ?? map['market_type'] ?? 'general',
       isCurated: map['is_curated'] ?? false,
+      stock: (map['stock'] as num?)?.toInt() ?? 0,
+      downloadUrl: map['download_url']?.toString(),
     );
   }
 }
@@ -55,7 +61,7 @@ class MarketplaceService {
   MarketplaceService(this._client);
 
   Future<List<MarketProduct>> fetchProducts({String? category, String? marketType, String? tenantId, int offset = 0, int limit = 30}) async {
-    var query = _client.from('marketplace_items').select('id, name, price, category, image, description, vendor_name, vendor_id, tenant_id, condition, market_type, is_curated').eq('status', 'active');
+    var query = _client.from('marketplace_items').select('id, name, price, category, image, description, vendor_name, vendor_id, tenant_id, condition, market_type, is_curated, stock, download_url').eq('status', 'active');
     
     if (tenantId != null) {
       query = query.eq('tenant_id', tenantId);

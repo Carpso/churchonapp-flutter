@@ -54,6 +54,12 @@ class PlatformSettings {
     this.rideDeliveryPerKmKwacha = 8.0,
   });
 
+  /// Legacy keys that still exist in platform_settings but are no longer read:
+  ///   user_silver_monthly_price, church_subscription_price, user_gold_yearly_price, etc.
+  ///   (from 20260718_editable_subscription_pricing.sql). They are kept for history
+  ///   but the app now uses onboarding_fee / gold_monthly_fee / platinum_monthly_fee.
+  ///   Do not use the legacy keys.
+
   factory PlatformSettings.fromList(List<dynamic> list) {
     double onboarding = PlanLimits.onboardingFeeKwacha;
     double gold = PlanLimits.forPlan(TenantPlan.gold).monthlyPriceKwacha;

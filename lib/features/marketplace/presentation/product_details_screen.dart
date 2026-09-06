@@ -85,7 +85,19 @@ class ProductDetailsScreen extends ConsumerWidget {
                     product.description ?? "This is a beautiful verified product from the Marketplace. Built to uplift and edify the body of Christ.",
                     style: TextStyle(color: Colors.grey.shade600, height: 1.5),
                   ),
-                  const SizedBox(height: 30),
+                  if (product.stock == 0) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.orange.withValues(alpha: 0.3))),
+                      child: Row(children: [
+                        const Icon(LucideIcons.alertTriangle, color: Colors.orange, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text("Out of stock — the vendor is restocking. You can still browse but checkout will be blocked.", style: TextStyle(color: Colors.orange.shade800, fontSize: 12, fontWeight: FontWeight.w600))),
+                      ]),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   _buildReviewsSection(context),
                   const SizedBox(height: 30),
                   const Text("Delivery Options", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -121,19 +133,21 @@ class ProductDetailsScreen extends ConsumerWidget {
             const SizedBox(width: 20),
             Expanded(
               child: ElevatedButton(
-                onPressed: () {
-                  ref.read(cartProvider.notifier).addToCart(product);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Added to cart!"), duration: Duration(seconds: 1)),
-                  );
-                  Navigator.pop(context); // Go back after adding
-                },
+                onPressed: product.stock == 0
+                    ? null
+                    : () {
+                        ref.read(cartProvider.notifier).addToCart(product);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Added to cart!"), duration: Duration(seconds: 1)),
+                        );
+                        Navigator.pop(context);
+                      },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.secondary,
+                  backgroundColor: product.stock == 0 ? Colors.grey : Theme.of(context).colorScheme.secondary,
                   minimumSize: const Size(double.infinity, 60),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 ),
-                child: const Text("ADD TO CART", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                child: Text(product.stock == 0 ? "OUT OF STOCK" : "ADD TO CART", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
               ),
             ),
           ],

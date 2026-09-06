@@ -125,6 +125,8 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
         'vendor_name': profile?.name ?? "Citizen",
         'stock': stock < 0 ? 0 : stock,
         'download_url': _downloadUrlCtrl.text.trim().isEmpty ? null : _downloadUrlCtrl.text.trim(),
+        'condition': 'new',
+        'is_curated': false,
       };
 
       if (_isEditing) {
