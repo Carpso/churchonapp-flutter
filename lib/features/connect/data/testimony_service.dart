@@ -91,11 +91,17 @@ class TestimonyService {
     // Profile photo first, then email/Google photo (avatar_url → picture).
     String resolvedName;
     String? resolvedAvatar;
+    String? tenantId;
     try {
-      final prof = await _client.from('profiles').select('full_name, avatar_url').eq('id', user.id).maybeSingle();
+      final prof = await _client
+          .from('profiles')
+          .select('full_name, avatar_url, tenant_id')
+          .eq('id', user.id)
+          .maybeSingle();
       resolvedName = prof?['full_name']?.toString().trim() ?? '';
       final pa = prof?['avatar_url']?.toString().trim();
       if (pa != null && pa.isNotEmpty) resolvedAvatar = pa;
+      tenantId = prof?['tenant_id']?.toString();
     } catch (_) {
       resolvedName = '';
     }
@@ -112,6 +118,7 @@ class TestimonyService {
         'user_photo': resolvedAvatar,
         'content': content,
         'image_url': imageUrl,
+        'tenant_id': tenantId,
         'praise_count': 0,
         'praised_by': [],
       });
@@ -123,6 +130,7 @@ class TestimonyService {
         'user_name': resolvedName,
         'content': content,
         'category': 'General',
+        'tenant_id': tenantId,
         'likes': 0,
       });
     }

@@ -72,13 +72,33 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
     }
   }
 
+  void _openChat() {
+    final groupId = widget.group['id'] as String? ?? widget.group['groupId'] as String? ?? '';
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => ChatMessengerScreen(
+        userName: widget.group['title'] as String? ?? 'Community',
+        userAvatar: widget.group['image'] as String? ?? '',
+        groupId: groupId,
+        isGroup: true,
+      ),
+    ));
+  }
+
+  void _promptJoin() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Join the group first to open its chat')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final memberCount = widget.group['count'] as int? ?? 0;
     final groupId = widget.group['id'] as String? ?? widget.group['groupId'] as String? ?? '';
     final groupTitle = widget.group['title'] as String? ?? 'Community';
     final groupSubtitle = widget.group['subtitle'] as String? ?? '';
     final groupImage = widget.group['image'] as String? ?? '';
+    final membersAsync = ref.watch(_groupMembersProvider(groupId));
+    final memberCount =
+        membersAsync.value?.length ?? (widget.group['count'] as int? ?? 0);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -177,18 +197,9 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
             if (!_loading) const SizedBox(width: 15),
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => ChatMessengerScreen(
-                      userName: groupTitle,
-                      userAvatar: groupImage,
-                      groupId: groupId,
-                      isGroup: true,
-                    ),
-                  ));
-                },
+                onPressed: _isMember ? _openChat : _promptJoin,
                 icon: const Icon(LucideIcons.send, size: 18, color: Colors.white),
-                label: const Text("OPEN CHAT"),
+                label: Text(_isMember ? "OPEN CHAT" : "JOIN TO OPEN CHAT"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1A1A1A),
                   foregroundColor: Colors.white,

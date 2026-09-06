@@ -124,29 +124,38 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> with WidgetsBind
 
           return Stack(
             children: [
-              PageView.builder(
-                controller: _pageController,
-                scrollDirection: Axis.vertical,
-                itemCount: klips.length,
-                onPageChanged: (index) {
-                  setState(() => _currentPage = index);
+              RefreshIndicator(
+                color: const Color(0xFFFFD700),
+                backgroundColor: Colors.black,
+                onRefresh: () async {
+                  final klips = await _fetchKlips();
+                  if (mounted) setState(() => _klipsFuture = Future.value(klips));
                 },
-                itemBuilder: (context, index) {
-                  final k = klips[index];
-                  return VideoClipPlayer(
-                    key: ValueKey(k['id'] ?? index),
-                    videoUrl: k['video_url'] ?? '',
-                    author: k['user_name'] ?? '@user',
-                    handle: '@${(k['user_name'] ?? 'user').toString().toLowerCase().replaceAll(' ', '_')}',
-                    caption: k['description'] ?? '',
-                    avatarUrl: k['user_avatar'] ?? '',
-                    initialAmenCount: k['amen_count'] ?? 0,
-                    initialCommentsCount: k['comments_count'] ?? 0,
-                    klipId: k['id']?.toString(),
-                    isAudio: k['is_audio'] == true,
-                    isActive: index == _currentPage,
-                  );
-                },
+                child: PageView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  controller: _pageController,
+                  scrollDirection: Axis.vertical,
+                  itemCount: klips.length,
+                  onPageChanged: (index) {
+                    setState(() => _currentPage = index);
+                  },
+                  itemBuilder: (context, index) {
+                    final k = klips[index];
+                    return VideoClipPlayer(
+                      key: ValueKey(k['id'] ?? index),
+                      videoUrl: k['video_url'] ?? '',
+                      author: k['user_name'] ?? '@user',
+                      handle: '@${(k['user_name'] ?? 'user').toString().toLowerCase().replaceAll(' ', '_')}',
+                      caption: k['description'] ?? '',
+                      avatarUrl: k['user_avatar'] ?? '',
+                      initialAmenCount: k['amen_count'] ?? 0,
+                      initialCommentsCount: k['comments_count'] ?? 0,
+                      klipId: k['id']?.toString(),
+                      isAudio: k['is_audio'] == true,
+                      isActive: index == _currentPage,
+                    );
+                  },
+                ),
               ),
               SafeArea(
                 child: Padding(

@@ -127,7 +127,9 @@ class CallService {
         .from('calls')
         .stream(primaryKey: ['id'])
         .eq('id', callId)
-        .map((data) => CallSession.fromMap(data.first));
+        .map((data) => data.isEmpty ? null : CallSession.fromMap(data.first))
+        .where((call) => call != null)
+        .cast<CallSession>();
   }
 }
 

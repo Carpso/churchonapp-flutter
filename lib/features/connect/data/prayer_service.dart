@@ -102,11 +102,17 @@ class PrayerService {
     // Prefer profile avatar/name first, then email/Google photo (picture/avatar_url)
     String? resolvedName;
     String? resolvedAvatar;
+    String? tenantId;
     try {
-      final prof = await _client.from('profiles').select('full_name, avatar_url').eq('id', user.id).maybeSingle();
+      final prof = await _client
+          .from('profiles')
+          .select('full_name, avatar_url, tenant_id')
+          .eq('id', user.id)
+          .maybeSingle();
       resolvedName = prof?['full_name']?.toString().trim();
       final pa = prof?['avatar_url']?.toString().trim();
       if (pa != null && pa.isNotEmpty) resolvedAvatar = pa;
+      tenantId = prof?['tenant_id']?.toString();
     } catch (_) {}
     resolvedName ??= (user.userMetadata?['full_name'] ?? user.userMetadata?['name'] ?? 'Believer').toString();
     resolvedAvatar ??= (user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'] ?? user.userMetadata?['avatar'])?.toString();
@@ -119,6 +125,7 @@ class PrayerService {
       'category': category,
       'visibility': visibility,
       'is_anonymous': isAnonymous,
+      'tenant_id': tenantId,
       'prayer_count': 1,
       'prayed_by': [user.id],
       'ai_encouragement': aiEncouragements[DateTime.now().millisecond % aiEncouragements.length],

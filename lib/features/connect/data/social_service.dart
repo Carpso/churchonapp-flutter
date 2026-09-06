@@ -252,6 +252,48 @@ class SocialService {
     }
   }
 
+  Future<bool> isSaved(String postId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return false;
+    try {
+      final res = await _client
+          .from('saved_posts')
+          .select('id')
+          .eq('post_id', postId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+      return res != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> toggleSave(String postId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return false;
+    try {
+      final existing = await _client
+          .from('saved_posts')
+          .select('id')
+          .eq('post_id', postId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+      if (existing != null) {
+        await _client.from('saved_posts').delete()
+            .eq('post_id', postId)
+            .eq('user_id', user.id);
+        return false;
+      }
+      await _client.from('saved_posts').insert({
+        'post_id': postId,
+        'user_id': user.id,
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<List<SocialComment>> fetchComments(String postId, {int limit = 50}) async {
     try {
       final res = await _client

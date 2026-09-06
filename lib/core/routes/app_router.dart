@@ -819,7 +819,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           }
           return AudioCallScreen(
             userName: "Incoming Spiritual Call",
-            userAvatar: "https://i.pravatar.cc/150?u=${call.callerId}",
+            userAvatar: "",
             callSession: call,
           );
         },

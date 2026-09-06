@@ -308,7 +308,7 @@ class _InterchurchNetworkScreenState extends ConsumerState<InterchurchNetworkScr
               child: OutlinedButton.icon(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  context.push('/network-activity');
+                  context.push('/church-social/${church.tenantId ?? church.id}');
                 },
                 icon: const Icon(LucideIcons.eye, size: 18),
                 label: const Text("View Public Page"),

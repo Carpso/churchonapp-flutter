@@ -5,6 +5,7 @@ import '../../../core/services/tenant_service.dart';
 
 class ConnectedChurch {
   final String id;
+  final String? tenantId;
   final String name;
   final String? location;
   final String? logoUrl;
@@ -15,6 +16,7 @@ class ConnectedChurch {
 
   ConnectedChurch({
     required this.id,
+    this.tenantId,
     required this.name,
     this.location,
     this.logoUrl,
@@ -36,6 +38,7 @@ class ConnectedChurch {
 
     return ConnectedChurch(
       id: map['id']?.toString() ?? '',
+      tenantId: map['tenant_id']?.toString(),
       name: map['name'] ?? 'Unknown Church',
       location: map['address'] ?? map['location'],
       logoUrl: map['logo_url'] ?? map['logo'],
@@ -102,13 +105,15 @@ class PastorMessage {
   });
 
   factory PastorMessage.fromMap(Map<String, dynamic> map) {
+    final content = (map['content'] ?? map['excerpt'] ?? '').toString();
     return PastorMessage(
       id: map['id']?.toString() ?? '',
       pastorName: map['pastor_name'] ?? map['author_name'] ?? 'Pastor',
       pastorPhoto: map['pastor_photo'] ?? map['author_photo'],
       title: map['title'] ?? 'Untitled',
-      excerpt: map['excerpt'] ?? map['content']?.toString().substring(0, (map['content']?.toString().length ?? 100).clamp(0, 100)) ?? '',
-      content: map['content'] ?? map['excerpt'] ?? '',
+      excerpt: map['excerpt']?.toString() ??
+          (content.length <= 140 ? content : '${content.substring(0, 140)}…'),
+      content: content,
       createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
@@ -188,9 +193,13 @@ class NetworkService {
       return _client
           .from('network_activity')
           .stream(primaryKey: ['id'])
-          .order('created_at', ascending: false)
-          .limit(50)
-          .map((data) => data.map((map) => NetworkActivity.fromMap(map)).toList());
+          .map((data) {
+        final rows = data
+            .map((map) => NetworkActivity.fromMap(map))
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return rows.length > 50 ? rows.sublist(0, 50) : rows;
+      });
     } catch (e) {
       return const Stream.empty();
     }

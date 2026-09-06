@@ -192,9 +192,14 @@ class _CreateKlipScreenState extends ConsumerState<CreateKlipScreen> {
               .eq('tenant_id', tenant!.id)
               .neq('id', supabase.auth.currentUser?.id ?? '')
               .limit(500);
-          if (others.isNotEmpty) {
+          final targetIds = (others as List)
+              .map((o) => o['id']?.toString())
+              .whereType<String>()
+              .where((id) => id.isNotEmpty)
+              .toList();
+          if (targetIds.isNotEmpty) {
             await supabase.functions.invoke('push-notifications', body: {
-              'userIds': others.map((o) => o['id'] as String).toList(),
+              'userIds': targetIds,
               'title': 'New Klip by $authorName',
               'body': caption.length > 80 ? '${caption.substring(0, 80)}...' : caption,
               'data': {

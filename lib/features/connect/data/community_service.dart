@@ -132,6 +132,7 @@ class CommunityService {
         'group_id': groupId,
         'user_id': user.id,
       });
+      await _bumpMemberCount(groupId, 1);
       return true;
     } catch (e) {
       debugPrint('[CommunityService] joinGroup error: $e');
@@ -148,10 +149,22 @@ class CommunityService {
           .delete()
           .eq('group_id', groupId)
           .eq('user_id', user.id);
+      await _bumpMemberCount(groupId, -1);
       return true;
     } catch (e) {
       debugPrint('[CommunityService] leaveGroup error: $e');
       return false;
+    }
+  }
+
+  Future<void> _bumpMemberCount(String groupId, int delta) async {
+    try {
+      await _client.rpc('bump_group_member_count', params: {
+        'p_group_id': groupId,
+        'p_delta': delta,
+      });
+    } catch (e) {
+      debugPrint('[CommunityService] member count bump failed: $e');
     }
   }
 }

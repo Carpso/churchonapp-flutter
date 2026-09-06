@@ -212,10 +212,12 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
   }
 
   Future<void> _toggleParticipantMute(String userId) async {
+    _Participant? participant;
     setState(() {
       for (final p in _participants) {
         if (p.id == userId) {
           p.isMuted = !p.isMuted;
+          participant = p;
         }
       }
     });
@@ -225,7 +227,7 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
       final senders = await pc.getSenders();
       for (final sender in senders) {
         if (sender.track?.kind == 'audio') {
-          sender.track?.enabled = !_participants.firstWhere((p) => p.id == userId).isMuted;
+          sender.track?.enabled = participant?.isMuted ?? true;
         }
       }
     }

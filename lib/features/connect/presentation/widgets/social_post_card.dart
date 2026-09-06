@@ -207,6 +207,7 @@ class _SocialPostActionsState extends ConsumerState<SocialPostActions> {
   bool _liked = false;
   bool _likeLoading = false;
   bool _saved = false;
+  bool _saveLoading = false;
   late int _commentsCount;
 
   @override
@@ -215,12 +216,39 @@ class _SocialPostActionsState extends ConsumerState<SocialPostActions> {
     _likeCount = widget.post.likesCount;
     _commentsCount = widget.post.commentsCount;
     _loadLikeState();
+    _loadSaveState();
   }
 
   Future<void> _loadLikeState() async {
     final service = ref.read(socialServiceProvider);
     final liked = await service.hasLiked(widget.post.id);
     if (mounted) setState(() => _liked = liked);
+  }
+
+  Future<void> _loadSaveState() async {
+    final service = ref.read(socialServiceProvider);
+    final saved = await service.isSaved(widget.post.id);
+    if (mounted) setState(() => _saved = saved);
+  }
+
+  Future<void> _handleSave() async {
+    if (_saveLoading) return;
+    setState(() => _saveLoading = true);
+    try {
+      final service = ref.read(socialServiceProvider);
+      final nowSaved = await service.toggleSave(widget.post.id);
+      if (mounted) {
+        setState(() => _saved = nowSaved);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(nowSaved ? "Post saved!" : "Post unsaved!"),
+            backgroundColor: nowSaved ? Theme.of(context).primaryColor : Colors.grey,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saveLoading = false);
+    }
   }
 
   Future<void> _handleLike() async {
@@ -292,15 +320,7 @@ class _SocialPostActionsState extends ConsumerState<SocialPostActions> {
         ),
         const Spacer(),
         GestureDetector(
-          onTap: () {
-            setState(() => _saved = !_saved);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(_saved ? "Post saved!" : "Post unsaved!"),
-                backgroundColor: _saved ? Theme.of(context).primaryColor : Colors.grey,
-              ),
-            );
-          },
+          onTap: _handleSave,
           behavior: HitTestBehavior.opaque,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),

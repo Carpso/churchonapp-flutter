@@ -51,6 +51,9 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
     ],
   };
 
+  String _avatarUrl = '';
+  String _peerName = '';
+
   Future<void> _loadTurnCredentials() async {
     try {
       final res = await Supabase.instance.client.functions.invoke('turn-credentials');
@@ -71,6 +74,11 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
     _currentSession = widget.callSession;
     _isCaller = _currentSession == null && widget.recipientId != null;
     _callStatus = _currentSession != null ? 'Ringing…' : 'Dialing…';
+    _avatarUrl = widget.userAvatar;
+    _peerName = widget.userName;
+    if (_avatarUrl.isEmpty || _avatarUrl.contains('pravatar')) {
+      _resolvePeerProfile();
+    }
     _loadTurnCredentials();
 
     _pulseAnim = AnimationController(
@@ -79,6 +87,27 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
     )..repeat(reverse: true);
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _initWebRTCAndCall());
+  }
+
+  Future<void> _resolvePeerProfile() async {
+    final peerId = _currentSession?.callerId ?? widget.recipientId;
+    if (peerId == null || peerId.isEmpty) return;
+    try {
+      final prof = await Supabase.instance.client
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', peerId)
+          .maybeSingle();
+      if (!mounted) return;
+      setState(() {
+        final pa = prof?['avatar_url']?.toString().trim() ?? '';
+        if (pa.isNotEmpty) _avatarUrl = pa;
+        final name = prof?['full_name']?.toString().trim() ?? '';
+        if (name.isNotEmpty) _peerName = name;
+      });
+    } catch (e) {
+      debugPrint('Resolve peer profile failed: $e');
+    }
   }
 
   Future<void> _initWebRTCAndCall() async {
@@ -385,10 +414,13 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
                                   : const Color(0xFF1A1A1A).withValues(alpha: 0.5),
                               width: 3,
                             ),
-                            image: DecorationImage(
-                              image: CachedNetworkImageProvider(widget.userAvatar),
-                              fit: BoxFit.cover,
-                            ),
+                            color: _avatarUrl.isEmpty ? const Color(0xFF2A2A2A) : null,
+                            image: _avatarUrl.isEmpty
+                                ? null
+                                : DecorationImage(
+                                    image: CachedNetworkImageProvider(_avatarUrl),
+                                    fit: BoxFit.cover,
+                                  ),
                             boxShadow: [
                               BoxShadow(
                                 color: isConnected
@@ -399,6 +431,15 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
                               ),
                             ],
                           ),
+                          child: _avatarUrl.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    _peerName.isNotEmpty ? _peerName[0].toUpperCase() : '?',
+                                    style: const TextStyle(
+                                        fontSize: 56, color: Colors.white, fontWeight: FontWeight.bold),
+                                  ),
+                                )
+                              : null,
                         ),
                       ],
                     );
@@ -406,7 +447,7 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
                 ),
                 const SizedBox(height: 28),
                 Text(
-                  widget.userName,
+                  _peerName,
                   style: const TextStyle(
                     fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 0.3),
                 ),
