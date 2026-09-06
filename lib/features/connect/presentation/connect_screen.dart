@@ -34,6 +34,9 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this, initialIndex: 0);
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -45,13 +48,40 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final fab = FloatingActionButton(
-      heroTag: null,
-      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen())),
-      backgroundColor: Theme.of(context).primaryColor,
-      child: Icon(LucideIcons.plus, color: Theme.of(context).colorScheme.onPrimary),
-    );
+    Widget? fab;
+    switch (_tabController.index) {
+      case 0:
+        fab = FloatingActionButton(
+          heroTag: 'connectFab',
+          tooltip: 'Create post',
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen())),
+          backgroundColor: Theme.of(context).primaryColor,
+          child: Icon(LucideIcons.plus, color: Theme.of(context).colorScheme.onPrimary),
+        );
+        break;
+      case 1:
+        fab = FloatingActionButton.extended(
+          heroTag: 'communitiesFab',
+          icon: Icon(LucideIcons.users, color: Theme.of(context).colorScheme.onPrimary),
+          label: Text('Community', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
+          backgroundColor: Theme.of(context).primaryColor,
+          onPressed: () {},
+        );
+        break;
+      case 2:
+        fab = FloatingActionButton.extended(
+          heroTag: 'klipsFab',
+          icon: Icon(LucideIcons.video, color: Theme.of(context).colorScheme.onPrimary),
+          label: Text('Create Klip', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
+          backgroundColor: Theme.of(context).primaryColor,
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateSocialPostScreen())),
+        );
+        break;
+      default:
+        fab = null;
+    }
     return Scaffold(
+      floatingActionButton: fab,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(88),
@@ -109,7 +139,6 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
           ],
         ),
       ),
-      floatingActionButton: fab,
     );
   }
 

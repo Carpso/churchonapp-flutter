@@ -763,7 +763,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        heroTag: null,
+        heroTag: 'homeFab',
         tooltip: 'Create new post',
         onPressed: () => Navigator.push(
           context,

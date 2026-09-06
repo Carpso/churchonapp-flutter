@@ -270,7 +270,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
       final uri = Uri.parse(
         'https://overpass-api.de/api/interpreter?data=${Uri.encodeQueryComponent(query)}',
       );
-      final res = await http.get(uri).timeout(const Duration(seconds: 15));
+      final res = await http.get(uri, headers: {'User-Agent': 'ChurchOnApp/1.0 (contact@churchonapp.com)'}).timeout(const Duration(seconds: 15));
       if (res.statusCode != 200) {
         debugPrint('Overpass returned ${res.statusCode}');
         return;
@@ -302,15 +302,19 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
           lat = (c['lat'] as num).toDouble();
           lng = (c['lon'] as num).toDouble();
         }
-        // Skip points already represented by a registered church
+        // Skip points already represented by a registered church (haversine, 300m)
         bool tooClose = false;
         for (final r in registeredKeys) {
-          if ((r.$1 - lat).abs() < 0.004 && (r.$2 - lng).abs() < 0.004) {
+          if (Geolocator.distanceBetween(r.$1, r.$2, lat, lng) < 300) {
             tooClose = true;
             break;
           }
         }
         if (tooClose) continue;
+        if (_currentPosition != null) {
+          final d = Geolocator.distanceBetween(_currentPosition!.latitude, _currentPosition!.longitude, lat, lng);
+          if (d > _maxNearbyKm * 1000) continue;
+        }
         final tags = el['tags'] as Map<String, dynamic>? ?? {};
         final name = tags['name']?.toString();
         if (name == null || name.trim().isEmpty) continue;
@@ -380,9 +384,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                       if (isRegistered) {
                         _selectTenant(tenant);
                       } else {
-                        _toast(
-                          "${tenant['name'] ?? 'This church'} is not on Church On App yet — coming soon!",
-                        );
+                        _showRegisterSheet(tenant);
                       }
                     },
                   );
@@ -399,11 +401,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                         .withValues(alpha: 0.5),
                     logoUrl: null,
                     isBookshop: false,
-                    onTap: () {
-                      _toast(
-                        "${tenant['name'] ?? 'This church'} is not registered on Church On App yet.",
-                      );
-                    },
+                    onTap: () => _showRegisterSheet(tenant),
                   );
                 }).toList() +
                 [
@@ -762,48 +760,50 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                         ],
                       ),
                     )
-                  : _filteredTenants.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.church,
-                            size: 50,
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.2,
-                            ),
+                  : Builder(builder: (context) {
+                      // OSM churches are listed too (not registered in DB, just for discovery)
+                      // Filter by 50km if location available, otherwise show all nearby
+                      final osmForList = _osmChurches.where((c) {
+                        final lat = _parseDouble(c['latitude']);
+                        final lng = _parseDouble(c['longitude']);
+                        if (lat == null || lng == null) return false;
+                        if (_currentPosition == null) return true;
+                        final d = Geolocator.distanceBetween(_currentPosition!.latitude, _currentPosition!.longitude, lat, lng);
+                        return d <= _maxNearbyKm * 1000;
+                      }).toList();
+                      final allDisplay = [..._filteredTenants, ...osmForList];
+                      if (allDisplay.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.church, size: 50, color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
+                              const SizedBox(height: 10),
+                              Text("No tenants found", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
+                              const SizedBox(height: 5),
+                              TextButton(onPressed: _refreshAll, child: const Text("Tap to retry")),
+                            ],
                           ),
-                          const SizedBox(height: 10),
-                          Text(
-                            "No tenants found",
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.4,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          TextButton(
-                            onPressed: _fetchTenants,
-                            child: const Text("Tap to retry"),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 25),
-                      itemCount: _filteredTenants.length + 1,
-                      itemBuilder: (context, index) {
-                        if (index == _filteredTenants.length) {
-                          return _buildOnboardingTile();
-                        }
-                        return _buildTenantTile(
-                          _filteredTenants[index],
-                          isSuperadmin,
                         );
-                      },
-                    ),
+                      }
+                      return ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 25),
+                        itemCount: allDisplay.length + 1,
+                        itemBuilder: (context, index) {
+                          if (index == allDisplay.length) {
+                            return Column(children: [
+                              _buildOnboardingTile(),
+                              if (osmForList.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: Text("${osmForList.length} nearby churches via OpenStreetMap — not registered, shown for discovery only (not saved in our DB). Tap to invite.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade500, fontSize: 10, fontStyle: FontStyle.italic)),
+                                ),
+                            ]);
+                          }
+                          return _buildTenantTile(allDisplay[index], isSuperadmin);
+                        },
+                      );
+                    }),
             ),
           ],
         ),
@@ -821,9 +821,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
         if (isRegistered || isBookshop) {
           _selectTenant(tenant);
         } else {
-          _toast(
-            "${tenant['name'] ?? 'This church'} is not on Church On App yet — coming soon!",
-          );
+          _showRegisterSheet(tenant);
         }
       },
       child: Container(
@@ -975,9 +973,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
               )
             else
               GestureDetector(
-                onTap: () => _toast(
-                  "${tenant['name'] ?? 'This church'} is not on Church On App yet — coming soon!",
-                ),
+                onTap: () => _showRegisterSheet(tenant),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -989,7 +985,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                     border: Border.all(color: Colors.amber),
                   ),
                   child: Text(
-                    "Coming Soon",
+                    "Coming Soon — Tap to Register",
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.orange.shade800,
@@ -1269,6 +1265,57 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
               backgroundColor ?? Theme.of(context).primaryColor,
         ),
       );
+  }
+
+  void _showRegisterSheet(Map<String, dynamic> church) {
+    if (!mounted) return;
+    final name = church['name']?.toString() ?? 'This church';
+    final lat = _parseDouble(church['latitude']);
+    final lng = _parseDouble(church['longitude']);
+    String distanceLabel = '';
+    if (lat != null && lng != null && _currentPosition != null) {
+      final d = Geolocator.distanceBetween(_currentPosition!.latitude, _currentPosition!.longitude, lat, lng);
+      distanceLabel = d < 1000 ? '${d.toStringAsFixed(0)} m away' : '${(d/1000).toStringAsFixed(1)} km away';
+    }
+    final address = church['address']?.toString() ?? '';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)))),
+            const SizedBox(height: 16),
+            Row(children: [
+              Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.church, color: Colors.amber, size: 24)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                if (distanceLabel.isNotEmpty) Text(distanceLabel, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                if (address.isNotEmpty) Text(address, style: TextStyle(color: Colors.grey.shade500, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ])),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)), child: const Text("Not on COA", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey))),
+            ]),
+            const SizedBox(height: 12),
+            Text("This church is not yet registered on Church On App. We found it near you via OpenStreetMap — it is listed on the map for discovery only and is NOT saved in our database.", style: TextStyle(color: Colors.grey.shade600, fontSize: 12, height: 1.4)),
+            const SizedBox(height: 8),
+            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.amber.withValues(alpha: 0.3))), child: Row(children: [
+              const Icon(Icons.info_outline, size: 16, color: Colors.amber),
+              const SizedBox(width: 8),
+              const Expanded(child: Text("Are you the owner? Register your church to claim this listing and appear to nearby members.", style: TextStyle(fontSize: 11, color: Color(0xFF7A5C00)))),
+            ])),
+            const SizedBox(height: 16),
+            SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: () { Navigator.pop(ctx); context.push('/register-church'); }, icon: const Icon(Icons.app_registration, size: 18), label: const Text("Register This Church"))),
+            const SizedBox(height: 8),
+            SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: () { Navigator.pop(ctx); _toast("Share: $name — invite at churchonapp.com/register-church"); }, icon: const Icon(Icons.share, size: 16), label: const Text("Share Invite"))),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showCountryToggleMenu(String country) {

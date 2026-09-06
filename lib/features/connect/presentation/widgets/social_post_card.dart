@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/widgets/post_image_carousel.dart';
 import '../../data/social_service.dart';
 
-class SocialPostCard extends ConsumerWidget {
+class SocialPostCard extends ConsumerStatefulWidget {
   final SocialPost post;
   final String Function(DateTime) formatTimeAgo;
   final VoidCallback? onCommentTap;
@@ -21,9 +22,58 @@ class SocialPostCard extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SocialPostCard> createState() => _SocialPostCardState();
+}
+
+class _SocialPostCardState extends ConsumerState<SocialPostCard> with SingleTickerProviderStateMixin {
+  bool _liked = false;
+  bool _showBurst = false;
+  late AnimationController _burstController;
+  late Animation<double> _burstAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _burstController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _burstAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(CurvedAnimation(parent: _burstController, curve: Curves.elasticOut));
+    _loadLikeState();
+  }
+
+  Future<void> _loadLikeState() async {
+    final liked = await ref.read(socialServiceProvider).hasLiked(widget.post.id);
+    if (mounted) setState(() => _liked = liked);
+  }
+
+  Future<void> _handleDoubleTapLike() async {
+    if (_liked) {
+      _triggerBurst();
+      return;
+    }
+    HapticFeedback.mediumImpact();
+    _triggerBurst();
+    final service = ref.read(socialServiceProvider);
+    final nowLiked = await service.toggleLike(widget.post.id);
+    if (mounted) setState(() => _liked = nowLiked);
+  }
+
+  void _triggerBurst() {
+    setState(() => _showBurst = true);
+    _burstController.forward(from: 0);
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) setState(() => _showBurst = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _burstController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final socialService = ref.read(socialServiceProvider);
-    final isOwner = socialService.isPostOwner(post);
+    final isOwner = socialService.isPostOwner(widget.post);
     return Container(
       margin: const EdgeInsets.only(bottom: 25),
       decoration: BoxDecoration(
@@ -41,15 +91,15 @@ class SocialPostCard extends ConsumerWidget {
                 Expanded(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () => context.push('/profile-by-id/${post.userId}'),
+                    onTap: () => context.push('/profile-by-id/${widget.post.userId}'),
                     child: Row(
                       children: [
-                        post.userAvatar != null && post.userAvatar!.isNotEmpty
-                            ? ClipOval(child: CachedNetworkImage(imageUrl: post.userAvatar!, width: 40, height: 40, memCacheWidth: 80, memCacheHeight: 80, fit: BoxFit.cover, placeholder: (_, __) => CircleAvatar(radius: 20, backgroundColor: Colors.grey[200]), errorWidget: (_, __, ___) => CircleAvatar(radius: 20, backgroundColor: Colors.grey[300], child: Text((post.userName != null && post.userName!.trim().isNotEmpty) ? post.userName!.trim()[0].toUpperCase() : 'M', style: const TextStyle(fontWeight: FontWeight.bold)))))
+                        widget.post.userAvatar != null && widget.post.userAvatar!.isNotEmpty
+                            ? ClipOval(child: CachedNetworkImage(imageUrl: widget.post.userAvatar!, width: 40, height: 40, memCacheWidth: 80, memCacheHeight: 80, fit: BoxFit.cover, placeholder: (_, __) => CircleAvatar(radius: 20, backgroundColor: Colors.grey[200]), errorWidget: (_, __, ___) => CircleAvatar(radius: 20, backgroundColor: Colors.grey[300], child: Text((widget.post.userName != null && widget.post.userName!.trim().isNotEmpty) ? widget.post.userName!.trim()[0].toUpperCase() : 'M', style: const TextStyle(fontWeight: FontWeight.bold)))))
                             : CircleAvatar(
                                 radius: 20,
                                 child: Text(
-                                  (post.userName != null && post.userName!.trim().isNotEmpty) ? post.userName!.trim()[0].toUpperCase() : 'M',
+                                  (widget.post.userName != null && widget.post.userName!.trim().isNotEmpty) ? widget.post.userName!.trim()[0].toUpperCase() : 'M',
                                   style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
                               ),
@@ -58,9 +108,9 @@ class SocialPostCard extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(post.userName ?? "User", style: const TextStyle(fontWeight: FontWeight.bold)),
+                              Text(widget.post.userName ?? "User", style: const TextStyle(fontWeight: FontWeight.bold)),
                               Text(
-                                formatTimeAgo(post.createdAt),
+                                widget.formatTimeAgo(widget.post.createdAt),
                                 style: const TextStyle(color: Colors.grey, fontSize: 11),
                               ),
                             ],
@@ -75,7 +125,7 @@ class SocialPostCard extends ConsumerWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   onSelected: (value) async {
                     if (value == 'edit') {
-                      final controller = TextEditingController(text: post.content ?? '');
+                      final controller = TextEditingController(text: widget.post.content ?? '');
                       final newContent = await showDialog<String>(
                         context: context,
                         builder: (ctx) => AlertDialog(
@@ -84,7 +134,7 @@ class SocialPostCard extends ConsumerWidget {
                             controller: controller,
                             maxLines: 4,
                             decoration: const InputDecoration(
-                              hintText: 'Edit your post...',
+                              hintText: 'Edit your widget.post...',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -99,7 +149,7 @@ class SocialPostCard extends ConsumerWidget {
                       );
                       if (newContent != null && newContent.isNotEmpty && context.mounted) {
                         try {
-                          await socialService.updatePost(post.id, content: newContent);
+                          await socialService.updatePost(widget.post.id, content: newContent);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Post updated'), backgroundColor: Colors.green),
@@ -131,7 +181,7 @@ class SocialPostCard extends ConsumerWidget {
                       );
                       if (confirm == true && context.mounted) {
                         try {
-                          await socialService.deletePost(post.id);
+                          await socialService.deletePost(widget.post.id);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Post deleted'), backgroundColor: Colors.red),
@@ -152,7 +202,7 @@ class SocialPostCard extends ConsumerWidget {
                         );
                       }
                     } else if (value == 'share') {
-                      onShareTap?.call();
+                      widget.onShareTap?.call();
                     }
                   },
                   itemBuilder: (ctx) => [
@@ -168,21 +218,34 @@ class SocialPostCard extends ConsumerWidget {
               ],
             ),
           ),
-          if (post.images.isNotEmpty)
-            PostImageCarousel(images: post.images)
-          else if (post.mediaUrl != null && post.mediaType == 'image')
-            PostImageCarousel(images: [post.mediaUrl!]),
+          GestureDetector(
+            onDoubleTap: _handleDoubleTapLike,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (widget.post.images.isNotEmpty)
+                  PostImageCarousel(images: widget.post.images)
+                else if (widget.post.mediaUrl != null && widget.post.mediaType == 'image')
+                  PostImageCarousel(images: [widget.post.mediaUrl!]),
+                if (_showBurst)
+                  ScaleTransition(
+                    scale: _burstAnimation,
+                    child: const Icon(Icons.favorite, size: 80, color: Colors.white),
+                  ),
+              ],
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.all(15),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (post.content != null && post.content!.isNotEmpty)
+                if (widget.post.content != null && widget.post.content!.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(post.content!, style: const TextStyle(fontSize: 14)),
+                    child: Text(widget.post.content!, style: const TextStyle(fontSize: 14)),
                   ),
-                SocialPostActions(post: post, onCommentTap: onCommentTap, onShareTap: onShareTap),
+                SocialPostActions(post: widget.post, onCommentTap: widget.onCommentTap, onShareTap: widget.onShareTap),
               ],
             ),
           ),
