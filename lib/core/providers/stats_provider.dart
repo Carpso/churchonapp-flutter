@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/features/admin/data/admin_service.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AdminStats {
@@ -28,11 +30,15 @@ final adminStatsProvider = FutureProvider<AdminStats>((ref) async {
   final adminService = ref.watch(adminServiceProvider);
 
   try {
+    final tenantId = ref.watch(currentTenantProvider)?.id;
+    final profile = ref.watch(profileProvider).value;
+    final isCoa = profile != null && (profile.isSuperadmin || profile.role == 'coa_employee' || profile.role == 'employee');
+    // COA team sees global Carpso couriers; tenants see their church fleet.
     final members = await adminService.getMembersStream().first;
     final totalMembers = members.length;
     final totalRides = await adminService.getTotalRidesCount();
     final pendingCargo = await adminService.getPendingDeliveriesCount();
-    final activeCouriers = await adminService.getActiveCouriersCount();
+    final activeCouriers = await adminService.getActiveCouriersCount(tenantId: isCoa ? null : tenantId);
     final financeMap = await adminService.getMonthlyFinancialStats();
 
     // Real member growth (this month vs last month) — mirrors pastor dashboard.

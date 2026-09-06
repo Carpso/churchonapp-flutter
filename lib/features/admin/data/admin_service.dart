@@ -113,7 +113,22 @@ class AdminService {
     return (res as List).length;
   }
 
-  Future<int> getActiveCouriersCount() async {
+  /// Active couriers — COA team sees Carpso drivers/riders (global);
+  /// tenants see their church fleet (church_buses for their tenant).
+  /// Tenants must NOT manage Carpso.
+  Future<int> getActiveCouriersCount({String? tenantId}) async {
+    if (tenantId != null && tenantId.isNotEmpty) {
+      try {
+        final res = await _client
+            .from('church_buses')
+            .select('id')
+            .eq('tenant_id', tenantId);
+        return (res as List).length;
+      } catch (e) {
+        debugPrint('getActiveCouriersCount (buses) failed: $e');
+        return 0;
+      }
+    }
     final res = await _client
         .from('profiles')
         .select('id')

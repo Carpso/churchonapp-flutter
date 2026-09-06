@@ -86,7 +86,10 @@ class AdminHubScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             statsAsync.when(
-              data: (stats) => _buildStatGrid(context, stats),
+              data: (stats) {
+                final isCoaTeam = profile.isSuperadmin || profile.role == 'coa_employee' || profile.role == 'employee';
+                return _buildStatGridFor(context, stats, isCoaTeam);
+              },
               loading: () => GridView.count(
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: 2,
@@ -403,7 +406,13 @@ class AdminHubScreen extends ConsumerWidget {
     }
   }
 
+  // ignore: unused_element
   Widget _buildStatGrid(BuildContext ctx, AdminStats stats) {
+    // Legacy entry — defaults to tenant view (Fleet Buses). COA view uses _buildStatGridFor.
+    return _buildStatGridFor(ctx, stats, false);
+  }
+
+  Widget _buildStatGridFor(BuildContext ctx, AdminStats stats, bool isCoaTeam) {
     final theme = Theme.of(ctx);
     return GridView.count(
       physics: const NeverScrollableScrollPhysics(),
@@ -416,7 +425,7 @@ class AdminHubScreen extends ConsumerWidget {
         _buildStatCard(theme, "Total Members", stats.totalMembers.toString(), LucideIcons.users, theme.primaryColor.withValues(alpha: 0.7)),
         _buildStatCard(theme, "Active Missions", stats.totalMissions.toString(), LucideIcons.zap, Colors.amber),
         _buildStatCard(theme, "Monthly Revenue", stats.recentGiving, LucideIcons.heartPulse, Colors.red),
-        _buildStatCard(theme, "Active Couriers", stats.activeCouriers.toString(), LucideIcons.truck, Colors.green),
+        _buildStatCard(theme, isCoaTeam ? "Active Couriers" : "Fleet Buses", stats.activeCouriers.toString(), isCoaTeam ? LucideIcons.truck : LucideIcons.bus, Colors.green),
       ],
     );
   }
