@@ -17,7 +17,6 @@ import 'package:church_on_app/features/home/presentation/discover_screen.dart';
 import 'package:church_on_app/features/disciple/presentation/discipleship_screen.dart';
 import 'package:church_on_app/features/connect/presentation/interchurch_network_screen.dart';
 import 'package:church_on_app/features/connect/presentation/network_activity_screen.dart';
-import 'package:church_on_app/features/home/presentation/song_lyrics_screen.dart';
 import 'package:church_on_app/features/finance/presentation/tithe_card_screen.dart';
 import 'package:church_on_app/features/connect/presentation/pastors_corner_screen.dart';
 import 'package:church_on_app/features/modules/jobs/presentation/my_jobs_screen.dart';
@@ -116,7 +115,7 @@ class MoreHubScreen extends ConsumerWidget {
                 _buildModuleCard(context, "Discipleship", LucideIcons.graduationCap, Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DiscipleshipScreen()))),
                 _buildModuleCard(context, "Interchurch Network", LucideIcons.network, Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InterchurchNetworkScreen()))),
                 _buildModuleCard(context, "Network Activity", LucideIcons.activity, Colors.cyan, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NetworkActivityScreen()))),
-                _buildModuleCard(context, "Song Lyrics", LucideIcons.music, Colors.pink, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SongLyricsScreen()))),
+                _buildModuleCard(context, "Song Lyrics", LucideIcons.music, Colors.pink, () => context.push('/worship-lyrics')),
                 _buildModuleCard(context, "Tithe Card", LucideIcons.creditCard, Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TitheCardScreen()))),
                 _buildModuleCard(context, "Pastors Corner", LucideIcons.mic2, Colors.deepOrange, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PastorsCornerScreen()))),
                 _buildModuleCard(context, "My Jobs", LucideIcons.briefcase, Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyJobsScreen()))),
