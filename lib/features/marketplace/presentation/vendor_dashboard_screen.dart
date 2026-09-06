@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:church_on_app/features/marketplace/presentation/post_product_screen.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/providers/auth_provider.dart';
 import 'package:church_on_app/features/admin/data/order_service.dart';
 
@@ -250,10 +250,10 @@ class _VendorDashboardScreenState extends ConsumerState<VendorDashboardScreen> {
           context.push('/orders');
         })),
         const SizedBox(width: 10),
+        // Vendors have no separate shop record — their public shop identity is
+        // their profile (name/avatar shown as vendor_name on their listings).
         Expanded(child: _buildActionButton(LucideIcons.store, "Edit Shop", () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Shop settings coming soon")),
-          );
+          context.push('/account-settings');
         })),
       ],
     );
@@ -296,12 +296,18 @@ class _VendorDashboardScreenState extends ConsumerState<VendorDashboardScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: CachedNetworkImage(
-              imageUrl: product['image'] ?? 'https://via.placeholder.com/60',
+            child: AppImage(
+              product['image']?.toString() ?? '',
               width: 60,
               height: 60,
               fit: BoxFit.cover,
-              errorWidget: (_, __, ___) => Container(
+              placeholder: Container(
+                width: 60,
+                height: 60,
+                color: Colors.grey.shade200,
+                child: const Icon(LucideIcons.image, color: Colors.grey),
+              ),
+              errorWidget: (_, __) => Container(
                 width: 60,
                 height: 60,
                 color: Colors.grey.shade200,
@@ -334,10 +340,15 @@ class _VendorDashboardScreenState extends ConsumerState<VendorDashboardScreen> {
           const SizedBox(width: 8),
           IconButton(
             icon: const Icon(LucideIcons.pencil, size: 16),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Edit feature coming soon")),
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PostProductScreen(product: product),
+                ),
               );
+              ref.invalidate(vendorProductsProvider);
+              ref.invalidate(vendorStatsProvider);
             },
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),

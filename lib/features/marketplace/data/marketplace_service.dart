@@ -81,6 +81,15 @@ class MarketplaceService {
       'created_at': DateTime.now().toIso8601String(),
     });
   }
+
+  /// Update an existing listing. Only the fields present in `changes` are
+  /// written; RLS still scopes the row to its owner/vendor.
+  Future<void> updateProduct(String productId, Map<String, dynamic> changes) async {
+    await _client
+        .from('marketplace_items')
+        .update(changes)
+        .eq('id', productId);
+  }
 }
 
 final marketplaceServiceProvider = Provider((ref) => MarketplaceService(Supabase.instance.client));

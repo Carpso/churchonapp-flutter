@@ -58,9 +58,11 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
           ? Map<String, dynamic>.from(summary['active_ride'] as Map)
           : null;
 
+      // `ride_bookings` does not exist — Carpso rides live in `ride_requests`
+      // (pickup_label/dest_label + negotiated_fare ?? offered_fare).
       final ridesRes = await Supabase.instance.client
-          .from('ride_bookings')
-          .select('id, pickup_location, dropoff_location, fare, distance_km, status, created_at')
+          .from('ride_requests')
+          .select('id, pickup_label, dest_label, offered_fare, negotiated_fare, status, created_at')
           .eq('rider_id', userId)
           .order('created_at', ascending: false)
           .limit(20);
@@ -184,9 +186,9 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
   }
 
   Widget _tripRow(ThemeData theme, Map<String, dynamic> trip) {
-    final pickup = trip['pickup_location'] as String? ?? 'Unknown';
-    final dropoff = trip['dropoff_location'] as String? ?? 'Unknown';
-    final fare = (trip['fare'] as num?)?.toDouble() ?? 0;
+    final pickup = (trip['pickup_label'] ?? trip['pickup_location']) as String? ?? 'Unknown';
+    final dropoff = (trip['dest_label'] ?? trip['dropoff_location']) as String? ?? 'Unknown';
+    final fare = ((trip['negotiated_fare'] ?? trip['offered_fare'] ?? trip['fare']) as num?)?.toDouble() ?? 0;
     final status = trip['status'] as String? ?? 'unknown';
     return Container(
       margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14),

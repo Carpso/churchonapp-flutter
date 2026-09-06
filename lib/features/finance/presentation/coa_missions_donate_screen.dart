@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
+import 'package:church_on_app/core/services/platform_settings_service.dart';
 import 'package:church_on_app/core/config/env.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
@@ -33,6 +34,19 @@ class _CoaMissionsDonateScreenState extends ConsumerState<CoaMissionsDonateScree
     super.dispose();
   }
 
+  /// Lipila expects the international 260XXXXXXXXX form, but admins often
+  /// save the local 09XXXXXXXX / 9XXXXXXXX variant.
+  String _normalizePhone(String raw) {
+    var s = raw.replaceAll(RegExp(r'\D'), '');
+    if (s.startsWith('260')) return s;
+    if (s.startsWith('0')) {
+      s = '260${s.substring(1)}';
+    } else if (s.length == 9) {
+      s = '260$s';
+    }
+    return s;
+  }
+
   void _donate() async {
     final amount = double.tryParse(_amountCtrl.text.replaceAll(RegExp(r'[^\d.]'), '')) ?? 0;
     if (amount < 1) {
@@ -46,6 +60,15 @@ class _CoaMissionsDonateScreenState extends ConsumerState<CoaMissionsDonateScree
 
     final purpose = _purposes.firstWhere((p) => p['id'] == _selectedPurpose);
 
+    // Use the number superadmins configure in the hub (platform_settings
+    // `coa_treasury_phone`); the compiled-in .env value is only a fallback.
+    final settings = ref.read(platformSettingsProvider).value;
+    final treasuryPhone = _normalizePhone(
+      (settings?.coaTreasuryPhone ?? '').trim().isNotEmpty
+          ? settings!.coaTreasuryPhone.trim()
+          : Env.coaTreasuryPhone,
+    );
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -55,7 +78,7 @@ class _CoaMissionsDonateScreenState extends ConsumerState<CoaMissionsDonateScree
         description: "${purpose['label']} - Church On App Support",
         category: 'giving',
         recipientName: "Church On App Team",
-        recipientAccount: Env.coaTreasuryPhone,
+        recipientAccount: treasuryPhone,
         paymentReason: "missions_donate_${purpose['id']}",
         onComplete: (success, transactionId) async {
           Navigator.pop(sheetCtx);

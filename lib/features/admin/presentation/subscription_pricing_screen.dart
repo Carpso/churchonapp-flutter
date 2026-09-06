@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 import 'package:church_on_app/core/services/plan_service.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
+import 'package:church_on_app/core/services/platform_settings_service.dart';
 
 class SubscriptionPricingScreen extends ConsumerStatefulWidget {
   const SubscriptionPricingScreen({super.key});
@@ -114,14 +116,41 @@ class _SubscriptionPricingScreenState extends ConsumerState<SubscriptionPricingS
     try {
       final client = Supabase.instance.client;
       final allFields = [..._pricingFields, ..._feeFields, ..._featureFields];
-      final updates = allFields.map((f) {
+      final updates = <Map<String, dynamic>>[];
+
+      for (final f in allFields) {
         final key = f['key'] ?? '';
-        return {
-          'key': key,
-          'value': (_controllers[key]?.text ?? '').trim(),
-        };
-      }).toList();
+        final controller = _controllers[key];
+        // Never write a blank key row, and never blank out a setting whose
+        // field failed to load — that silently wiped live config on save.
+        if (key.isEmpty || controller == null) continue;
+
+        final raw = controller.text.trim();
+        final isNumericField = num.tryParse(f['default'] ?? '') != null;
+        if (isNumericField && raw.isNotEmpty && num.tryParse(raw) == null) {
+          if (mounted) {
+            PremiumToast.showError(
+              context,
+              "${f['label'] ?? key} must be a number (got \"$raw\")",
+            );
+          }
+          setState(() => _saving = false);
+          return;
+        }
+
+        updates.add({'key': key, 'value': raw});
+      }
+
       await client.from('platform_settings').upsert(updates, onConflict: 'key');
+
+      // RemoteConfig caches every value once per app launch, and
+      // platformSettingsProvider caches the plan/subscription rates — without
+      // this the saved numbers only appear after a full app restart.
+      ref.invalidate(remoteConfigProvider);
+      ref.invalidate(platformSettingsProvider);
+
+      // Reload so the fields show exactly what is now stored.
+      await _loadSettings();
       if (mounted) PremiumToast.showSuccess(context, "Settings updated!");
     } catch (e) {
       if (mounted) PremiumToast.showError(context, "Failed to save: $e");

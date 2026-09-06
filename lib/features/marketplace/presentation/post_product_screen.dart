@@ -11,8 +11,12 @@ import '../../../core/services/r2_service.dart';
 import 'package:universal_io/io.dart';
 
 class PostProductScreen extends ConsumerStatefulWidget {
-  final String? initialCategory;
-  const PostProductScreen({super.key, this.initialCategory});
+final String? initialCategory;
+
+/// When set, the screen edits this existing listing instead of creating one.
+final Map<String, dynamic>? product;
+
+const PostProductScreen({super.key, this.initialCategory, this.product});
 
   @override
   ConsumerState<PostProductScreen> createState() => _PostProductScreenState();
@@ -33,11 +37,25 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
 
   final List<String> _categories = ["bookshop", "apparel", "worship", "tickets", "media", "electronics", "home"];
 
+  bool get _isEditing => widget.product != null;
+
   @override
   void initState() {
     super.initState();
     if (widget.initialCategory != null && _categories.contains(widget.initialCategory)) {
       _selectedCategory = widget.initialCategory!;
+    }
+    final p = widget.product;
+    if (p != null) {
+      _nameCtrl.text = p['name']?.toString() ?? '';
+      final price = (p['price'] as num?);
+      _priceCtrl.text = price == null ? '' : price.toStringAsFixed(price is int ? 0 : 2);
+      _descCtrl.text = p['description']?.toString() ?? '';
+      _imageCtrl.text = p['image']?.toString() ?? '';
+      final cat = p['category']?.toString();
+      if (cat != null && _categories.contains(cat)) _selectedCategory = cat;
+      final type = p['market_type']?.toString();
+      if (type != null && type.isNotEmpty) _selectedType = type;
     }
   }
 
@@ -91,15 +109,27 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
         'vendor_name': profile?.name ?? "Citizen",
       };
 
-      await ref.read(marketplaceServiceProvider).postProduct(
-        productData,
-        tenantId: ref.read(currentTenantProvider)?.id,
-      );
+      if (_isEditing) {
+        await ref.read(marketplaceServiceProvider).updateProduct(
+          widget.product!['id'].toString(),
+          productData,
+        );
+      } else {
+        await ref.read(marketplaceServiceProvider).postProduct(
+          productData,
+          tenantId: ref.read(currentTenantProvider)?.id,
+        );
+      }
       ref.invalidate(productsProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Item posted successfully! It's now live."), backgroundColor: Colors.green),
+          SnackBar(
+            content: Text(_isEditing
+                ? "Item updated successfully!"
+                : "Item posted successfully! It's now live."),
+            backgroundColor: Colors.green,
+          ),
         );
         Navigator.pop(context);
       }
@@ -119,7 +149,7 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text("List an Item", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        title: Text(_isEditing ? "Edit Item" : "List an Item", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(25),

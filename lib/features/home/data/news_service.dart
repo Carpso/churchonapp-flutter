@@ -167,6 +167,9 @@ class NewsService {
       'image_url': imageUrl,
       'author_id': authorId,
       'author_name': authorName,
+      // Status used to be left NULL, so the writer dashboard counted every
+      // published article as zero.
+      'status': 'published',
     });
   }
 }

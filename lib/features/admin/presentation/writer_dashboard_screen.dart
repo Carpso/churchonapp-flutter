@@ -18,8 +18,8 @@ class _WriterDashboardScreenState extends ConsumerState<WriterDashboardScreen> {
   String? _error;
   int _publishedCount = 0;
   int _pendingCount = 0;
-  int _totalViews = 0;
   int _totalSales = 0;
+  int _booksListed = 0;
   List<Map<String, dynamic>> _myArticles = [];
 
   @override
@@ -34,29 +34,54 @@ class _WriterDashboardScreenState extends ConsumerState<WriterDashboardScreen> {
     if (userId == null) { setState(() { _isLoading = false; _error = "Not logged in"; }); return; }
 
     try {
+      // Articles live in `kingdom_news` (the writer studio publishes there).
+      // `news_articles` / `marketplace_products` do not exist, so the previous
+      // queries failed and this dashboard could never load.
       final articlesRes = await Supabase.instance.client
-          .from('news_articles')
-          .select('id, title, status, view_count, created_at')
+          .from('kingdom_news')
+          .select('id, title, status, created_at')
           .eq('author_id', userId)
           .order('created_at', ascending: false);
 
-      final booksRes = await Supabase.instance.client
-          .from('marketplace_products')
-          .select('id, title, price, sale_count')
-          .eq('author_id', userId);
-
       final articles = List<Map<String, dynamic>>.from(articlesRes);
-      final published = articles.where((a) => a['status'] == 'published').length;
-      final pending = articles.where((a) => a['status'] == 'draft' || a['status'] == 'pending').length;
-      int views = 0;
-      for (final a in articles) { views += (a['view_count'] as num?)?.toInt() ?? 0; }
+
+      // Books a writer has listed, and units actually sold (order_items).
+      int booksListed = 0;
       int sales = 0;
-      for (final b in booksRes) { sales += (b['sale_count'] as num?)?.toInt() ?? 0; }
+      try {
+        final booksRes = await Supabase.instance.client
+            .from('marketplace_items')
+            .select('id')
+            .eq('vendor_id', userId)
+            .eq('category', 'bookshop');
+        booksListed = (booksRes as List).length;
+
+        final soldRes = await Supabase.instance.client
+            .from('order_items')
+            .select('quantity')
+            .eq('vendor_id', userId);
+        for (final row in (soldRes as List)) {
+          sales += (row['quantity'] as num?)?.toInt() ?? 0;
+        }
+      } catch (e) {
+        debugPrint('WriterDashboard: sales lookup failed (non-fatal): $e');
+      }
+
+      // Articles published before `status` was written have a NULL status and
+      // are still live, so treat null/empty as published.
+      bool isPublished(Map<String, dynamic> a) {
+        final s = (a['status'] ?? '').toString().toLowerCase();
+        return s.isEmpty || s == 'published';
+      }
+
+      final published = articles.where(isPublished).length;
+      final pending = articles.length - published;
 
       if (mounted) {
         setState(() {
-          _publishedCount = published; _pendingCount = pending; _totalViews = views;
-          _totalSales = sales; _myArticles = articles; _isLoading = false; _error = null;
+          _publishedCount = published; _pendingCount = pending;
+          _totalSales = sales; _booksListed = booksListed;
+          _myArticles = articles; _isLoading = false; _error = null;
         });
       }
     } catch (e) {
@@ -129,7 +154,7 @@ class _WriterDashboardScreenState extends ConsumerState<WriterDashboardScreen> {
         const SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text("Writer's Studio", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
-          Text("$_publishedCount published • $_pendingCount drafts", style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+          Text("$_publishedCount published â€¢ $_pendingCount drafts", style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
         ])),
       ]),
     );
@@ -140,7 +165,7 @@ class _WriterDashboardScreenState extends ConsumerState<WriterDashboardScreen> {
     crossAxisCount: 2, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 1.2,
     children: [
       _statCard("Published", "$_publishedCount", LucideIcons.checkCircle, Colors.green),
-      _statCard("Total Views", _formatCompact(_totalViews), LucideIcons.eye, Theme.of(context).primaryColor),
+      _statCard("Books Listed", "$_booksListed", LucideIcons.bookOpen, Theme.of(context).primaryColor),
       _statCard("Book Sales", "$_totalSales", LucideIcons.shoppingCart, Colors.amber),
       _statCard("Pending", "$_pendingCount", LucideIcons.clock, Colors.orange),
     ],
@@ -158,15 +183,20 @@ class _WriterDashboardScreenState extends ConsumerState<WriterDashboardScreen> {
 
   Widget _articleRow(ThemeData theme, Map<String, dynamic> article) {
     final title = article['title'] as String? ?? 'Untitled';
-    final status = article['status'] as String? ?? 'draft';
-    final views = (article['view_count'] as num?)?.toInt() ?? 0;
+    final status = (article['status'] ?? '').toString().isEmpty
+        ? 'published'
+        : article['status'].toString();
+    final created = DateTime.tryParse(article['created_at']?.toString() ?? '');
+    final when = created == null
+        ? ''
+        : '${created.day}/${created.month}/${created.year}';
     return Container(
       margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
       child: Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          Text("$views views", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+          Text(when, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
         ])),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -200,5 +230,4 @@ class _WriterDashboardScreenState extends ConsumerState<WriterDashboardScreen> {
     child: Center(child: Text(msg, style: TextStyle(color: Colors.grey.shade400))),
   );
 
-  String _formatCompact(int n) => n >= 1000 ? '${(n / 1000).toStringAsFixed(1)}k' : n.toString();
 }

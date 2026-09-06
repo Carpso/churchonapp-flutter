@@ -54,24 +54,40 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
     final firstOfMonth = DateTime(now.year, now.month, 1);
 
     try {
+      // NOTE: `avg_rating` is not a profiles column — ratings come from the
+      // get_user_avg_rating() RPC. Selecting a missing column made the whole
+      // dashboard fail to load.
       final profileRes = await Supabase.instance.client
           .from('profiles')
-          .select('driver_status, avg_rating')
+          .select('driver_status')
           .eq('id', userId)
           .maybeSingle();
 
+      double rating = 0;
+      try {
+        rating = ((await Supabase.instance.client
+                    .rpc('get_user_avg_rating', params: {'target_user_id': userId})) as num?)
+                ?.toDouble() ??
+            0;
+      } catch (e) {
+        debugPrint('DriverDashboard: rating lookup failed (non-fatal): $e');
+      }
+
+      // `ride_bookings` / `deliveries.fee` do not exist. Carpso rides live in
+      // ride_requests and deliveries in delivery_requests, both keyed by
+      // driver_id, with negotiated_fare ?? offered_fare as the fare.
       final ridesRes = await Supabase.instance.client
-          .from('ride_bookings')
-          .select('id, fare, status, created_at')
+          .from('ride_requests')
+          .select('id, offered_fare, negotiated_fare, status, created_at')
           .eq('driver_id', userId);
 
       final deliveriesRes = await Supabase.instance.client
-          .from('deliveries')
-          .select('id, fee, status, created_at')
+          .from('delivery_requests')
+          .select('id, offered_fare, negotiated_fare, status, created_at')
           .eq('driver_id', userId);
 
       final pendingRides = await Supabase.instance.client
-          .from('ride_bookings')
+          .from('ride_requests')
           .select('id')
           .eq('driver_id', userId)
           .eq('status', 'pending');
@@ -82,16 +98,22 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
       final completedRides = rides.where((r) => r['status'] == 'completed').length;
       final completedDeliveries = deliveries.where((d) => d['status'] == 'delivered').length;
 
+      double fareOf(Map<String, dynamic> row) =>
+          ((row['negotiated_fare'] ?? row['offered_fare'] ?? row['fare'] ?? row['fee'])
+                  as num?)
+              ?.toDouble() ??
+          0;
+
       double totalEarn = 0, monthEarn = 0;
       for (final r in rides) {
-        final fare = (r['fare'] as num?)?.toDouble() ?? 0;
+        final fare = fareOf(r);
         totalEarn += fare;
         final created = r['created_at']?.toString() ?? '';
         final dt = DateTime.tryParse(created);
         if (dt != null && dt.isAfter(firstOfMonth)) monthEarn += fare;
       }
       for (final d in deliveries) {
-        final fee = (d['fee'] as num?)?.toDouble() ?? 0;
+        final fee = fareOf(d);
         totalEarn += fee;
         final created = d['created_at']?.toString() ?? '';
         final dt = DateTime.tryParse(created);
@@ -101,7 +123,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
       if (mounted) {
         setState(() {
           _isOnline = profileRes?['driver_status'] == 'online';
-          _rating = (profileRes?['avg_rating'] as num?)?.toDouble() ?? 0;
+          _rating = rating;
           _totalRides = completedRides;
           _totalDeliveries = completedDeliveries;
           _totalEarnings = totalEarn;
