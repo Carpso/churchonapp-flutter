@@ -15,6 +15,8 @@ import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/home/presentation/discover_screen.dart';
 import 'package:church_on_app/features/disciple/presentation/discipleship_screen.dart';
+import 'package:church_on_app/features/modules/media/presentation/worship_lyrics_screen.dart';
+import 'package:church_on_app/features/admin/presentation/year_planner_screen.dart';
 import 'package:church_on_app/features/connect/presentation/interchurch_network_screen.dart';
 import 'package:church_on_app/features/connect/presentation/network_activity_screen.dart';
 import 'package:church_on_app/features/finance/presentation/tithe_card_screen.dart';
@@ -50,7 +52,7 @@ class MoreHubScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tenant = ref.watch(currentTenantProvider);
     final profile = ref.watch(profileProvider).value;
-    final isAdmin = profile?.isAdminOrHigher ?? false;
+    final isAdmin = profile?.isLeadershipTeam ?? false;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -111,22 +113,22 @@ class MoreHubScreen extends ConsumerWidget {
               crossAxisSpacing: 15,
               childAspectRatio: 1.1,
               children: [
-                _buildModuleCard(context, "Discover", LucideIcons.compass, Theme.of(context).primaryColor.withValues(alpha: 0.8), () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DiscoverScreen()))),
-                _buildModuleCard(context, "Discipleship", LucideIcons.graduationCap, Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DiscipleshipScreen()))),
-                _buildModuleCard(context, "Interchurch Network", LucideIcons.network, Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InterchurchNetworkScreen()))),
-                _buildModuleCard(context, "Network Activity", LucideIcons.activity, Colors.cyan, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NetworkActivityScreen()))),
-                _buildModuleCard(context, "Song Lyrics", LucideIcons.music, Colors.pink, () => context.push('/worship-lyrics')),
-                _buildModuleCard(context, "Tithe Card", LucideIcons.creditCard, Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TitheCardScreen()))),
-                _buildModuleCard(context, "Pastors Corner", LucideIcons.mic2, Colors.deepOrange, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PastorsCornerScreen()))),
-                _buildModuleCard(context, "My Jobs", LucideIcons.briefcase, Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyJobsScreen()))),
-                _buildModuleCard(context, "My Applications", LucideIcons.fileText, Colors.lightBlue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyApplicationsScreen()))),
-                _buildModuleCard(context, "Poll Creator", LucideIcons.vote, Colors.deepPurple, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PollCreatorScreen()))),
-                _buildModuleCard(context, "Create Klip", LucideIcons.clapperboard, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateKlipScreen()))),
-                _buildModuleCard(context, "Ride History", LucideIcons.car, Colors.blueGrey, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RideHistoryScreen()))),
-                _buildModuleCard(context, "News", LucideIcons.newspaper, Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewsListScreen()))),
-                _buildModuleCard(context, "Branch Locator", LucideIcons.mapPin, Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BranchLocatorScreen()))),
-                _buildModuleCard(context, "SOS Emergency", LucideIcons.siren, Colors.redAccent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SosTriggerScreen()))),
-                _buildModuleCard(context, "Year Planner", LucideIcons.calendarDays, Colors.indigo, () => context.push('/year-planner')),
+                _buildModuleCard(context, "Discover", LucideIcons.compass, Theme.of(context).primaryColor.withValues(alpha: 0.8), () => _handleNavigation(context, tenant, "Discover", "discover", const DiscoverScreen())),
+                _buildModuleCard(context, "Discipleship", LucideIcons.graduationCap, Colors.teal, () => _handleNavigation(context, tenant, "Discipleship", "discipleship", const DiscipleshipScreen())),
+                _buildModuleCard(context, "Interchurch Network", LucideIcons.network, Colors.indigo, () => _handleNavigation(context, tenant, "Interchurch Network", "interchurch_network", const InterchurchNetworkScreen())),
+                _buildModuleCard(context, "Network Activity", LucideIcons.activity, Colors.cyan, () => _handleNavigation(context, tenant, "Network Activity", "network_activity", const NetworkActivityScreen())),
+                _buildModuleCard(context, "Song Lyrics", LucideIcons.music, Colors.pink, () => _handleNavigation(context, tenant, "Song Lyrics", "worship_lyrics", const WorshipLyricsScreen())),
+                _buildModuleCard(context, "Tithe Card", LucideIcons.creditCard, Colors.amber, () => _handleNavigation(context, tenant, "Tithe Card", "tithe_card", const TitheCardScreen())),
+                _buildModuleCard(context, "Pastors Corner", LucideIcons.mic2, Colors.deepOrange, () => _handleNavigation(context, tenant, "Pastors Corner", "pastors_corner", const PastorsCornerScreen())),
+                _buildModuleCard(context, "My Jobs", LucideIcons.briefcase, Colors.green, () => _handleNavigation(context, tenant, "My Jobs", "my_jobs", const MyJobsScreen())),
+                _buildModuleCard(context, "My Applications", LucideIcons.fileText, Colors.lightBlue, () => _handleNavigation(context, tenant, "My Applications", "my_applications", const MyApplicationsScreen())),
+                _buildModuleCard(context, "Poll Creator", LucideIcons.vote, Colors.deepPurple, () => _handleNavigation(context, tenant, "Poll Creator", "polls", const PollCreatorScreen())),
+                _buildModuleCard(context, "Create Klip", LucideIcons.clapperboard, Colors.red, () => _handleNavigation(context, tenant, "Create Klip", "klips", const CreateKlipScreen())),
+                _buildModuleCard(context, "Ride History", LucideIcons.car, Colors.blueGrey, () => _handleNavigation(context, tenant, "Ride History", "ride_history", const RideHistoryScreen())),
+                _buildModuleCard(context, "News", LucideIcons.newspaper, Colors.orange, () => _handleNavigation(context, tenant, "News", "news", const NewsListScreen())),
+                _buildModuleCard(context, "Branch Locator", LucideIcons.mapPin, Colors.teal, () => _handleNavigation(context, tenant, "Branch Locator", "branch_locator", const BranchLocatorScreen())),
+                _buildModuleCard(context, "SOS Emergency", LucideIcons.siren, Colors.redAccent, () => _handleNavigation(context, tenant, "SOS Emergency", "sos", const SosTriggerScreen())),
+                _buildModuleCard(context, "Year Planner", LucideIcons.calendarDays, Colors.indigo, () => _handleNavigation(context, tenant, "Year Planner", "year_planner", const YearPlannerScreen())),
               ],
             ),
             const SizedBox(height: 40),
