@@ -283,13 +283,18 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
                   child: StreamBuilder<List<AiChatMessage>>(
                     stream: _messagesStream,
                     builder: (context, snapshot) {
-                      if (snapshot.hasError) {
+                      if (snapshot.hasError && !snapshot.hasData) {
                         return Center(
                           child: Text("Failed to load messages: ${snapshot.error}",
                             style: const TextStyle(color: Colors.white54)),
                         );
                       }
-                      if (!snapshot.hasData) {
+                      // Show the suggestion templates whenever the thread is
+                      // actually empty — not only before the first frame. The
+                      // messages stream emits an empty list immediately, so a
+                      // `!snapshot.hasData` guard made the chips disappear.
+                      if ((snapshot.data ?? const <AiChatMessage>[]).isEmpty &&
+                          !_isStreaming) {
                         return Center(
                           child: SingleChildScrollView(
                             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -325,7 +330,7 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
                           ),
                         );
                       }
-                      final messages = snapshot.data!;
+                      final messages = snapshot.data ?? const <AiChatMessage>[];
                       final hasStreamingBubble = _isStreaming && _streamingBuffer.isNotEmpty && (messages.isEmpty || messages.last.role == 'user');
 
                       return ListView.builder(

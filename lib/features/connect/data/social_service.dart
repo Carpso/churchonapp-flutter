@@ -239,16 +239,30 @@ class SocialService {
         await _client.from('social_likes').delete()
             .eq('post_id', postId)
             .eq('user_id', user.id);
+        await _bumpPostLikes(postId, -1);
         return false;
       } else {
         await _client.from('social_likes').insert({
           'post_id': postId,
           'user_id': user.id,
         });
+        await _bumpPostLikes(postId, 1);
         return true;
       }
     } catch (_) {
       return false;
+    }
+  }
+
+  // Atomic server-side counter so the like count survives concurrent taps.
+  Future<void> _bumpPostLikes(String postId, int delta) async {
+    try {
+      await _client.rpc('increment_post_likes', params: {
+        'p_post_id': postId,
+        'p_delta': delta,
+      });
+    } catch (e) {
+      debugPrint("social_service: failed to sync like count: $e");
     }
   }
 
@@ -320,17 +334,12 @@ class SocialService {
     });
 
     // Keep the post's comment counter in sync so counts show everywhere.
+    // Atomic server-side bump (the old read-modify-write lost updates).
     try {
-      final res = await _client
-          .from('social_posts')
-          .select('comments_count')
-          .eq('id', postId)
-          .maybeSingle();
-      final current = (res?['comments_count'] as int?) ?? 0;
-      await _client
-          .from('social_posts')
-          .update({'comments_count': current + 1})
-          .eq('id', postId);
+      await _client.rpc('increment_post_comments', params: {
+        'p_post_id': postId,
+        'p_delta': 1,
+      });
     } catch (e) {
       debugPrint("social_service: failed to increment comment count: $e");
     }

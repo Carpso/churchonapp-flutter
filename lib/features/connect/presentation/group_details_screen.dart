@@ -62,13 +62,19 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
       final ok = await service.leaveGroup(groupId);
       if (ok && mounted) {
         setState(() => _isMember = false);
+        // Refresh the member list/count — it was cached and stayed stale
+        // after joining or leaving until the screen was reopened.
+        ref.invalidate(_groupMembersProvider(groupId));
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('You left the group'), backgroundColor: Colors.orange),
         );
       }
     } else {
       final ok = await service.joinGroup(groupId);
-      if (ok && mounted) setState(() => _isMember = true);
+      if (ok && mounted) {
+        setState(() => _isMember = true);
+        ref.invalidate(_groupMembersProvider(groupId));
+      }
     }
   }
 

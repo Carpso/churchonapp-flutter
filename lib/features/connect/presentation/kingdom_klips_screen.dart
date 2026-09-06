@@ -35,7 +35,9 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> with WidgetsBind
           .order('created_at', ascending: false)
           .limit(50);
 
-      if (userId != null) {
+      // "For You" ranks by engagement; "Latest" keeps the chronological order
+      // returned by the server. The feed used to ignore this toggle entirely.
+      if (_forYouMode && userId != null) {
         try {
           final likedKlips = await Supabase.instance.client
               .from('klip_likes')
@@ -294,6 +296,9 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
   late int _amenCount;
   late int _commentsCount;
   bool _tabVisible = true;
+  List<Map<String, dynamic>> _klipComments = const [];
+  late Future<List<Map<String, dynamic>>> _commentsFuture;
+  bool _isSaved = false;
   final TextEditingController _commentCtrl = TextEditingController();
   TabController? _tabController;
 
@@ -302,6 +307,8 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
     super.initState();
     _amenCount = widget.initialAmenCount;
     _commentsCount = widget.initialCommentsCount;
+    _commentsFuture = _loadComments();
+    _loadSavedState();
 
     _amenBurstAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _spinAnim = AnimationController(vsync: this, duration: const Duration(seconds: 12))..repeat();
@@ -396,10 +403,12 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
 
     if (widget.klipId != null) {
       try {
-        await Supabase.instance.client
-            .from('klips')
-            .update({'amen_count': _amenCount})
-            .eq('id', widget.klipId!);
+        // Atomic server-side increment: writing the local absolute count
+        // lost concurrent Amens and let a stale value overwrite the server.
+        await Supabase.instance.client.rpc('increment_klip_amen', params: {
+          'p_klip_id': widget.klipId,
+          'p_delta': _isLiked ? 1 : -1,
+        });
       } catch (e) {
         debugPrint('Failed to sync amen count: $e');
       }
@@ -431,6 +440,75 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
     });
   }
 
+  Future<void> _loadSavedState() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (widget.klipId == null || userId == null) return;
+    try {
+      final row = await Supabase.instance.client
+          .from('saved_klips')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('klip_id', widget.klipId!)
+          .maybeSingle();
+      if (mounted) setState(() => _isSaved = row != null);
+    } catch (e) {
+      debugPrint('Failed to load klip save state: $e');
+    }
+  }
+
+  Future<void> _toggleSave() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (widget.klipId == null || userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to save Klips.'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+    final next = !_isSaved;
+    setState(() => _isSaved = next);
+    try {
+      if (next) {
+        await Supabase.instance.client.from('saved_klips').upsert({
+          'user_id': userId,
+          'klip_id': widget.klipId,
+        }, onConflict: 'user_id,klip_id');
+      } else {
+        await Supabase.instance.client
+            .from('saved_klips')
+            .delete()
+            .eq('user_id', userId)
+            .eq('klip_id', widget.klipId!);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(next ? 'Klip saved to your library!' : 'Klip removed from your library.'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (mounted) setState(() => _isSaved = !next);
+      debugPrint('Failed to save klip: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _loadComments() async {
+    if (widget.klipId == null) return const [];
+    try {
+      final rows = await Supabase.instance.client
+          .from('klip_comments')
+          .select('id, content, user_name, user_id, created_at')
+          .eq('klip_id', widget.klipId!)
+          .order('created_at', ascending: true)
+          .limit(100);
+      return List<Map<String, dynamic>>.from(rows as List);
+    } catch (e) {
+      debugPrint('Failed to load klip comments: $e');
+      return const [];
+    }
+  }
+
   void _openComments() {
     showModalBottomSheet(
       context: context,
@@ -458,17 +536,67 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
               const SizedBox(height: 12),
               SizedBox(
                 height: 240,
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(LucideIcons.messageSquare, size: 40, color: Colors.grey[600]),
-                      const SizedBox(height: 12),
-                      const Text('No comments yet', style: TextStyle(color: Colors.white54, fontSize: 13)),
-                      const SizedBox(height: 4),
-                      const Text('Be the first to say Amen!', style: TextStyle(color: Colors.white38, fontSize: 11)),
-                    ],
-                  ),
+                child: FutureBuilder<List<Map<String, dynamic>>>(
+                  future: _commentsFuture,
+                  builder: (context, snap) {
+                    if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+                      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+                    }
+                    final comments = snap.data ?? _klipComments;
+                    if (comments.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(LucideIcons.messageSquare, size: 40, color: Colors.grey[600]),
+                            const SizedBox(height: 12),
+                            const Text('No comments yet', style: TextStyle(color: Colors.white54, fontSize: 13)),
+                            const SizedBox(height: 4),
+                            const Text('Be the first to say Amen!', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                          ],
+                        ),
+                      );
+                    }
+                    return ListView.separated(
+                      itemCount: comments.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, i) {
+                        final c = comments[i];
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CircleAvatar(
+                              radius: 14,
+                              backgroundColor: Colors.amber.withAlpha(40),
+                              child: Text(
+                                (c['user_name']?.toString().isNotEmpty == true
+                                    ? c['user_name'].toString()[0].toUpperCase()
+                                    : 'U'),
+                                style: const TextStyle(color: Color(0xFFFFD700), fontSize: 12),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: RichText(
+                                text: TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: '${c['user_name'] ?? 'User'} ',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                                    ),
+                                    TextSpan(
+                                      text: c['content']?.toString() ?? '',
+                                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 8),
@@ -510,6 +638,16 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
                             });
                             setModal(() => _commentsCount++);
                             _commentCtrl.clear();
+                            try {
+                              await Supabase.instance.client.rpc(
+                                'increment_klip_comments',
+                                params: {'p_klip_id': widget.klipId, 'p_delta': 1},
+                              );
+                            } catch (e) {
+                              debugPrint('Failed to sync klip comment count: $e');
+                            }
+                            final fresh = await _loadComments();
+                            setModal(() => _klipComments = fresh);
                           } catch (e) {
                             debugPrint('Failed to post comment: $e');
                           }
@@ -667,12 +805,9 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
                 const SizedBox(height: 18),
                 _ActionBtn(
                   icon: LucideIcons.bookmark,
-                  label: 'Save',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Klip saved to your library!'), backgroundColor: Colors.green, duration: Duration(seconds: 2)),
-                    );
-                  },
+                  label: _isSaved ? 'Saved' : 'Save',
+                  color: _isSaved ? const Color(0xFFFFD700) : Colors.white,
+                  onTap: _toggleSave,
                 ),
                 const SizedBox(height: 18),
                 _ActionBtn(
