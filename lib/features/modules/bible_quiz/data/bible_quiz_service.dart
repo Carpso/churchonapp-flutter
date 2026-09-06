@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/config/env.dart';
 
@@ -523,7 +524,7 @@ class BibleQuizService {
 
   static final List<QuizQuestion> _fallbackBank = _seedBank
       .map((q) => QuizQuestion(
-            id: q['question'].toString().hashCode.toString(),
+            id: const Uuid().v4(),
             question: q['question'] as String,
             options: List<String>.from(q['options'] as List),
             correctAnswer: q['correct_answer'] as int,

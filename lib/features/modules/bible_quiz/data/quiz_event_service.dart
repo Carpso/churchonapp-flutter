@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/config/env.dart';
 import 'bible_quiz_service.dart';
@@ -677,7 +678,7 @@ class QuizEventService {
           final aiQuestions = generated.map((m) {
             final opts = List<String>.from((m as Map)['options'] ?? []);
             return QuizQuestion(
-              id: 'ef_${DateTime.now().millisecondsSinceEpoch}_${opts.hashCode}',
+              id: const Uuid().v4(),
               question: m['question'] ?? '',
               options: opts,
               correctAnswer: m['correct_answer'] ?? 0,

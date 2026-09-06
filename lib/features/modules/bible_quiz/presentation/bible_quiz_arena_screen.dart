@@ -276,11 +276,24 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     final correctValue = q.options[q.correctAnswer];
     final shuffled = List<String>.from(q.options)..shuffle();
     final newIndex = shuffled.indexOf(correctValue);
+    // Remap correctAnswers for multi-answer questions (was missing → miscount 0)
+    final used = <int>{};
+    final newCorrectAnswers = q.correctAnswers.map((oldIdx) {
+      final val = q.options[oldIdx];
+      for (var i = 0; i < shuffled.length; i++) {
+        if (shuffled[i] == val && !used.contains(i)) {
+          used.add(i);
+          return i;
+        }
+      }
+      return shuffled.indexOf(val);
+    }).where((idx) => idx != -1).toList();
     return QuizQuestion(
       id: q.id,
       question: q.question,
       options: shuffled,
       correctAnswer: newIndex,
+      correctAnswers: newCorrectAnswers.isEmpty ? q.correctAnswers : newCorrectAnswers,
       difficulty: q.difficulty,
       category: q.category,
       scriptureReference: q.scriptureReference,
