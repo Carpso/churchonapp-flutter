@@ -1,6 +1,6 @@
 # Church On App — Enterprise Architecture Blueprint
 
-> **v1.0.0+296 | August 2026 | Flutter + Supabase + Cloudflare**
+> **v1.0.0+306 | September 2026 | Flutter + Supabase + Cloudflare**
 
 ---
 

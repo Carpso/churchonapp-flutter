@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/widgets/app_image.dart';
 import '../data/chat_service.dart';
 import '../data/presence_service.dart';
 import '../../../core/services/supabase_service.dart';
@@ -479,7 +479,10 @@ class _ChatMessengerScreenState extends ConsumerState<ChatMessengerScreen> {
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundImage: CachedNetworkImageProvider(widget.userAvatar),
+            backgroundColor: const Color(0xFF1A1A1A),
+            child: widget.userAvatar.isNotEmpty
+                ? ClipOval(child: AppImage(widget.userAvatar, width: 40, height: 40, fit: BoxFit.cover))
+                : const Icon(LucideIcons.user, color: Colors.white, size: 20),
           ),
           const SizedBox(width: 10),
           Expanded(

@@ -1,6 +1,5 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:vector_map_tiles_pmtiles/vector_map_tiles_pmtiles.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -8,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'app_image.dart';
 
 /// A reusable map widget with optional pin placement, address search, and theme awareness.
 class ChurchMap extends StatefulWidget {
@@ -409,8 +409,8 @@ class _AnimatedPinState extends State<_AnimatedPin> with SingleTickerProviderSta
                     ),
                     child: ClipOval(
                       child: (widget.logoUrl != null && widget.logoUrl!.trim().isNotEmpty)
-                          ? CachedNetworkImage(imageUrl: widget.logoUrl!, width: 40, height: 40, fit: BoxFit.cover,
-                              errorWidget: (_, __, ___) => _fallbackIcon())
+                          ? AppImage(widget.logoUrl!, width: 40, height: 40, fit: BoxFit.cover,
+                              errorWidget: (_, __) => _fallbackIcon())
                           : _fallbackIcon(),
                     ),
                   ),

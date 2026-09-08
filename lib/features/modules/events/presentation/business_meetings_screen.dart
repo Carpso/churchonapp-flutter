@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/features/modules/events/presentation/meeting_subscription_sheet.dart';
 import '../data/meeting_service.dart';
 
@@ -110,14 +111,16 @@ class _BusinessMeetingsScreenState extends ConsumerState<BusinessMeetingsScreen>
 
   Widget _buildParticipant(String name, String avatar, {bool isMe = false}) {
     return Container(
+      clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white10),
-        image: DecorationImage(image: NetworkImage(avatar), fit: BoxFit.cover, opacity: 0.3),
       ),
       child: Stack(
+        fit: StackFit.expand,
         children: [
+          Positioned.fill(child: AppImage(avatar, fit: BoxFit.cover, color: Colors.white.withValues(alpha: 0.3))),
           if (_isVideoOff && isMe)
             const Center(child: Icon(LucideIcons.user, color: Colors.white24, size: 50)),
           Positioned(

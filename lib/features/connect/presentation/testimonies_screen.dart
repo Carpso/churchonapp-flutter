@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import '../data/testimony_service.dart';
 import 'package:intl/intl.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class TestimoniesScreen extends ConsumerStatefulWidget {
   const TestimoniesScreen({super.key});
@@ -111,15 +111,20 @@ class _TestimoniesScreenState extends ConsumerState<TestimoniesScreen> {
             children: [
               CircleAvatar(
                 backgroundColor: const Color(0xFF1A1A1A),
-                backgroundImage: (testimony.userPhoto != null && testimony.userPhoto!.isNotEmpty)
-                    ? CachedNetworkImageProvider(testimony.userPhoto!)
-                    : null,
-                child: (testimony.userPhoto == null || testimony.userPhoto!.isEmpty)
-                    ? Text(
+                backgroundImage: null,
+                child: (testimony.userPhoto != null && testimony.userPhoto!.isNotEmpty)
+                    ? ClipOval(
+                        child: AppImage(
+                          testimony.userPhoto!,
+                          width: 36,
+                          height: 36,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : Text(
                         testimony.userName.isNotEmpty ? testimony.userName[0].toUpperCase() : 'T',
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      )
-                    : null,
+                      ),
               ),
               const SizedBox(width: 15),
               Column(
@@ -137,7 +142,7 @@ class _TestimoniesScreenState extends ConsumerState<TestimoniesScreen> {
             const SizedBox(height: 15),
             ClipRRect(
               borderRadius: BorderRadius.circular(15),
-              child: CachedNetworkImage(imageUrl: testimony.imageUrl!, height: 200, width: double.infinity, fit: BoxFit.cover, memCacheHeight: 400),
+              child: AppImage(testimony.imageUrl!, height: 200, width: double.infinity, fit: BoxFit.cover),
             ),
           ],
           const SizedBox(height: 20),

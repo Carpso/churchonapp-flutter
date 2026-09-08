@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/widgets/app_image.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/widgets/app_error_view.dart';
 import '../../../core/services/coa_payment_service.dart';
@@ -360,10 +360,9 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
             child: CircleAvatar(
               radius: 28,
               backgroundColor: theme.colorScheme.onPrimary.withValues(alpha: 0.05),
-              backgroundImage: profile.avatarUrl != null ? CachedNetworkImageProvider(profile.avatarUrl!) : null,
-              child: profile.avatarUrl == null
-                  ? Icon(LucideIcons.user, size: 24, color: theme.colorScheme.onPrimary)
-                  : null,
+              child: profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty
+                  ? ClipOval(child: AppImage(profile.avatarUrl!, width: 56, height: 56, fit: BoxFit.cover))
+                  : Icon(LucideIcons.user, size: 24, color: theme.colorScheme.onPrimary),
             ),
           ),
           const SizedBox(width: 16),

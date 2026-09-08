@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/widgets/app_image.dart';
 import '../data/social_service.dart';
 
 class PostDetailScreen extends ConsumerStatefulWidget {
@@ -86,10 +86,18 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                       Row(
                         children: [
                           CircleAvatar(
-                            backgroundImage: _post!['profiles'] is Map
-                                ? CachedNetworkImageProvider((_post!['profiles'] as Map)['avatar_url'] ?? '')
-                                : null,
                             radius: 22,
+                            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            child: _post!['profiles'] is Map
+                                ? ClipOval(
+                                    child: AppImage(
+                                      (_post!['profiles'] as Map)['avatar_url'] ?? '',
+                                      width: 44,
+                                      height: 44,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
+                                : null,
                           ),
                           const SizedBox(width: 12),
                           Column(
@@ -116,15 +124,13 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                         const SizedBox(height: 12),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(15),
-                          child: CachedNetworkImage(
-                            imageUrl: (_post!['images'] as List?)?.isNotEmpty == true
+                          child: AppImage(
+                            (_post!['images'] as List?)?.isNotEmpty == true
                                 ? (_post!['images'] as List).first
                                 : _post!['media_url'],
                             fit: BoxFit.cover,
                             width: double.infinity,
                             height: 300,
-                            memCacheWidth: 540,
-                            memCacheHeight: 300,
                           ),
                         ),
                       ],

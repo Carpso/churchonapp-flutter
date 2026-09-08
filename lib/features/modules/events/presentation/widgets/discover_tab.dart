@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/features/events/data/event_service.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
@@ -82,14 +82,13 @@ class DiscoverTab extends ConsumerWidget {
               children: [
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-                  child: CachedNetworkImage(
-                    imageUrl: event.imageUrl,
+                  child: AppImage(
+                    event.imageUrl,
                     height: 180,
                     width: double.infinity,
-                    memCacheHeight: 360,
                     fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(color: Colors.grey.shade200, height: 180),
-                    errorWidget: (context, url, error) => Container(
+                    placeholder: Container(color: Colors.grey.shade200, height: 180),
+                    errorWidget: (context, url) => Container(
                       height: 180,
                       color: Colors.grey.shade200,
                       child: const Icon(Icons.event, color: Colors.grey, size: 48),

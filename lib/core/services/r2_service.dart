@@ -21,6 +21,50 @@ class R2Service {
 
   static String get publicDomain => Env.r2PublicDomain;
 
+  // Cache of resolved (signed) read URLs. Signed URLs are valid for 3600s on
+  // the server; we cache for 50 min so a scroll/rebuild of the same image
+  // never re-hits the r2-sign edge function. Keyed by the original public URL.
+  static final Map<String, String> _readUrlCache = {};
+  static final Map<String, DateTime> _readUrlCacheAt = {};
+  static final Map<String, Future<String>> _pendingReads = {};
+  static const Duration _readUrlCacheTtl = Duration(minutes: 50);
+
+  /// Resolves an R2 public-domain URL to a signed (S3 presigned) URL so the
+  /// image loads even while the bucket stays private. Non-R2 URLs pass
+  /// through untouched. In-flight requests are shared and results cached.
+  static Future<String> resolveReadUrl(String url) async {
+    final pubDomain = R2Service.publicDomain;
+    final r2Prefix = '$pubDomain/';
+    if (!url.trim().startsWith(r2Prefix)) return url;
+
+    final cached = _readUrlCache[url];
+    if (cached != null) {
+      final at = _readUrlCacheAt[url];
+      if (at != null && DateTime.now().difference(at) < _readUrlCacheTtl) {
+        return cached;
+      }
+      _readUrlCache.remove(url);
+      _readUrlCacheAt.remove(url);
+    }
+
+    final pending = _pendingReads[url];
+    if (pending != null) return pending;
+
+    final future = () async {
+      final signed =
+          await R2Service(Supabase.instance.client).getSignedUrl(url);
+      _pendingReads.remove(url);
+      if (signed != null && signed != url) {
+        _readUrlCache[url] = signed;
+        _readUrlCacheAt[url] = DateTime.now();
+        return signed;
+      }
+      return url;
+    }();
+    _pendingReads[url] = future;
+    return future;
+  }
+
   final SupabaseClient _client;
   R2Service(this._client);
 

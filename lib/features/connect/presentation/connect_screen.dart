@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/widgets/shimmer_loader.dart';
+import '../../../core/widgets/app_image.dart';
 import '../data/social_service.dart';
 import 'widgets/social_post_card.dart';
 import 'kingdom_klips_screen.dart';
@@ -612,7 +612,7 @@ class CommentsSheetState extends ConsumerState<CommentsSheet> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 c.userAvatar != null && c.userAvatar!.isNotEmpty
-                                    ? ClipOval(child: CachedNetworkImage(imageUrl: c.userAvatar!, width: 36, height: 36, memCacheWidth: 72, memCacheHeight: 72, fit: BoxFit.cover, placeholder: (_, __) => CircleAvatar(radius: 18, backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest), errorWidget: (_, __, ___) => CircleAvatar(radius: 18, backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest, child: Text((c.userName ?? '').isNotEmpty ? c.userName![0] : 'M'))))
+                                    ? ClipOval(child: AppImage(c.userAvatar!, width: 36, height: 36, fit: BoxFit.cover, placeholder: CircleAvatar(radius: 18, backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest), errorWidget: (_, __) => CircleAvatar(radius: 18, backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest, child: Text((c.userName ?? '').isNotEmpty ? c.userName![0] : 'M'))))
                                     : CircleAvatar(
                                         radius: 18,
                                         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,

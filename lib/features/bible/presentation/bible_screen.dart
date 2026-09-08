@@ -27,6 +27,7 @@ import '../../../core/providers/auth_provider.dart';
 import 'bible_audio_player.dart';
 import 'scripture_audio_button.dart';
 import 'study_plans_screen.dart';
+import 'parallel_bible_screen.dart';
 import '../../bible_study/presentation/bible_study_list_screen.dart';
 import 'scripture_memory_screen.dart';
 import 'deep_study_suite_screen.dart';
@@ -224,6 +225,12 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
             icon: const Icon(LucideIcons.listTodo),
             onPressed: _showStudyHub,
             tooltip: "Study Plans",
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 40),
+          ),
+          IconButton(
+            icon: const Icon(LucideIcons.columns),
+            onPressed: _openParallelReader,
+            tooltip: 'Parallel Reader',
             constraints: const BoxConstraints(minWidth: 34, minHeight: 40),
           ),
           IconButton(
@@ -816,7 +823,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           final isBookmarked = existingNote?.isBookmark ?? false;
           final isFavorited = existingNote?.isFavorite ?? false;
           final isLiked = existingNote?.isLiked ?? false;
-          final parallelCodes = ['kjv', 'web']
+          final parallelCodes = ['kjv', 'web', 'asv', 'bbe', 'ylt']
               .where((c) => c != selectedTranslation && BibleService.canResolve(c))
               .toList();
 
@@ -1205,7 +1212,48 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                           _buildParallelTile(code, verse),
                           const SizedBox(height: 10),
                         ],
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: _openParallelReader,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 16,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .primaryColor
+                                  .withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Theme.of(context)
+                                    .primaryColor
+                                    .withValues(alpha: 0.35),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  LucideIcons.columns,
+                                  size: 16,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Open Parallel Reader',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                    color: Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 22),
                         const Text(
                           'CROSS REFERENCES',
                           style: TextStyle(
@@ -1231,6 +1279,8 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                                   'bookId': bookOrder,
                                   'chapter': verse.chapter,
                                   'verse': verse.verse,
+                                  'verseText': verse.text,
+                                  'allowAiFallback': true,
                                 }),
                               )
                               .when(
@@ -1456,6 +1506,18 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           ),
           error: (_, __) => const SizedBox.shrink(),
         );
+  }
+
+  void _openParallelReader() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ParallelBibleScreen(
+          book: selectedBook,
+          chapter: selectedChapter,
+        ),
+      ),
+    );
   }
 
   void _openCrossReference(String targetRef) {

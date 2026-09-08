@@ -5,8 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:go_router/go_router.dart';
-import 'package:church_on_app/features/modules/live_streaming/data/live_stream_service.dart';
-import 'package:church_on_app/core/services/subscription_service.dart';
+import 'package:church_on_app/core/services/unified_stream_service.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 
 /// Church admin streaming dashboard with trial limits
@@ -42,9 +41,10 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
           .eq('church_id', widget.tenantId)
           .maybeSingle();
 
-      // Load streaming usage
-      final subService = ref.read(subscriptionServiceProvider);
-      final usage = await subService.getStreamingUsage(widget.tenantId);
+      // Load streaming usage (same gate the stream creation enforces)
+      final usage = await ref
+          .read(unifiedStreamServiceProvider)
+          .getStreamingUsage(widget.tenantId);
 
       // Check if church is on trial
       final church = await Supabase.instance.client
@@ -142,8 +142,8 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
   }
 
   Widget _buildUsageMeter() {
-    final usage = _usage ?? StreamingUsage.defaultUsage();
-    final percentage = usage.usagePercentage;
+    final usage = _usage ?? StreamingUsage(tenantId: widget.tenantId);
+    final percentage = usage.minutesPercent * 100;
     final remaining = usage.minutesRemaining;
 
     return Container(
@@ -190,16 +190,16 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${usage.minutesUsed.toStringAsFixed(1)} / ${usage.isUnlimited ? "∞" : usage.minutesLimit.toStringAsFixed(0)} min used',
+                '${usage.minutesUsed} / ${usage.unlimited ? "∞" : usage.minutesLimit} min used',
                 style: TextStyle(
                   color: usage.canStream ? Colors.green[800] : Colors.red[800],
                   fontWeight: FontWeight.w500,
                 ),
               ),
               Text(
-                usage.isUnlimited
+                usage.unlimited
                     ? 'Unlimited'
-                    : '${remaining.toStringAsFixed(1)} min remaining',
+                    : '$remaining min remaining',
                 style: TextStyle(
                   color: usage.canStream ? Colors.green[800] : Colors.red[800],
                   fontWeight: FontWeight.w500,
@@ -600,19 +600,23 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
           ),
           TextButton.icon(
             onPressed: () async {
+              final title = titleController.text.trim();
               Navigator.pop(ctx);
-              if (titleController.text.trim().isEmpty) return;
-              final service = ref.read(liveStreamServiceProvider);
-              final hlsUrl = 'https://stream.churchonapp.com/$_streamKey/index.m3u8';
-              await service.createStream(
-                title: titleController.text.trim(),
-                tenantId: widget.tenantId,
-                streamKey: _streamKey,
-                hlsUrl: hlsUrl,
-                rtmpUrl: _rtmpUrl,
-              );
-              if (mounted) {
-                PremiumToast.showSuccess(context, 'Stream started! Open OBS and click Start Streaming.');
+              if (title.isEmpty) return;
+              try {
+                final streamResult = await ref
+                    .read(unifiedStreamServiceProvider)
+                    .createLiveStream(
+                      tenantId: widget.tenantId,
+                      title: title,
+                    );
+                if (!ctx.mounted) return;
+                _showObsCredentialsDialog(ctx, streamResult);
+              } catch (e) {
+                debugPrint('Start OBS stream failed: $e');
+                if (ctx.mounted) {
+                  PremiumToast.showError(ctx, 'Could not start stream: $e');
+                }
               }
             },
             icon: const Icon(Icons.videocam, size: 18),
@@ -630,6 +634,89 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showObsCredentialsDialog(
+    BuildContext dialogContext,
+    StreamResult streamResult,
+  ) {
+    showDialog(
+      context: dialogContext,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Paste these in OBS'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Your stream is live. Open OBS → Settings → Stream, set Service to '
+              'Custom and enter the credentials below, then Start Streaming.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            const Text('RTMP URL', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      streamResult.rtmpUrl,
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy, size: 18),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: streamResult.rtmpUrl));
+                      PremiumToast.showSuccess(ctx, 'Copied!');
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('Stream Key', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      streamResult.streamKey,
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy, size: 18),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: streamResult.streamKey));
+                      PremiumToast.showSuccess(ctx, 'Copied!');
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -710,20 +797,22 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
 
     if (result == null) return;
 
-    final service = ref.read(liveStreamServiceProvider);
-    final hlsUrl = 'https://stream.churchonapp.com/$_streamKey/index.m3u8';
+    try {
+      final streamResult = await ref
+          .read(unifiedStreamServiceProvider)
+          .createLiveStream(
+            tenantId: widget.tenantId,
+            title: result['title'],
+            scheduledAt: result['scheduledAt'],
+          );
 
-    await service.createStream(
-      title: result['title'],
-      tenantId: widget.tenantId,
-      scheduledAt: result['scheduledAt'],
-      streamKey: _streamKey,
-      hlsUrl: hlsUrl,
-      rtmpUrl: _rtmpUrl,
-    );
-
-    if (mounted) {
-      PremiumToast.showSuccess(context, 'Stream scheduled!');
+      if (!mounted) return;
+      _showObsCredentialsDialog(context, streamResult);
+    } catch (e) {
+      debugPrint('Schedule stream failed: $e');
+      if (mounted) {
+        PremiumToast.showError(context, 'Could not schedule stream: $e');
+      }
     }
   }
 

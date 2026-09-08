@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import '../data/sermon_service.dart';
 import 'sermon_notes_screen.dart';
 
@@ -252,33 +253,36 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CachedNetworkImage(
-              imageUrl: widget.sermon.thumbnailUrl,
-              width: 100,
-              height: 100,
-              memCacheWidth: 200,
-              memCacheHeight: 200,
-              fit: BoxFit.cover,
-              imageBuilder: (context, imageProvider) => Container(
+            ResolvedR2Image(
+              url: widget.sermon.thumbnailUrl,
+              builder: (context, resolvedUrl) => CachedNetworkImage(
+                imageUrl: resolvedUrl,
                 width: 100,
                 height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Theme.of(context).primaryColor, width: 3),
-                  image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
+                memCacheWidth: 200,
+                memCacheHeight: 200,
+                fit: BoxFit.cover,
+                imageBuilder: (context, imageProvider) => Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Theme.of(context).primaryColor, width: 3),
+                    image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
+                  ),
                 ),
-              ),
-              placeholder: (context, url) => Container(
-                width: 100,
-                height: 100,
-                decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white24),
-                child: const Icon(LucideIcons.music, color: Colors.amber, size: 30),
-              ),
-              errorWidget: (context, url, error) => Container(
-                width: 100,
-                height: 100,
-                decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white24),
-                child: const Icon(LucideIcons.music, color: Colors.amber, size: 30),
+                placeholder: (context, url) => Container(
+                  width: 100,
+                  height: 100,
+                  decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white24),
+                  child: const Icon(LucideIcons.music, color: Colors.amber, size: 30),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  width: 100,
+                  height: 100,
+                  decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white24),
+                  child: const Icon(LucideIcons.music, color: Colors.amber, size: 30),
+                ),
               ),
             ),
             const SizedBox(height: 15),
@@ -349,15 +353,18 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          CachedNetworkImage(
-            imageUrl: widget.sermon.thumbnailUrl,
-            fit: BoxFit.cover,
-            memCacheWidth: 360,
-            memCacheHeight: 640,
-            color: Colors.black.withValues(alpha: 0.85),
-            colorBlendMode: BlendMode.dstATop,
-            placeholder: (context, url) => Container(color: Colors.black87, child: const Center(child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2))),
-            errorWidget: (context, url, error) => Container(color: Colors.black87, child: const Icon(Icons.broken_image, color: Colors.grey)),
+          ResolvedR2Image(
+            url: widget.sermon.thumbnailUrl,
+            builder: (context, resolvedUrl) => CachedNetworkImage(
+              imageUrl: resolvedUrl,
+              fit: BoxFit.cover,
+              memCacheWidth: 360,
+              memCacheHeight: 640,
+              color: Colors.black.withValues(alpha: 0.85),
+              colorBlendMode: BlendMode.dstATop,
+              placeholder: (context, url) => Container(color: Colors.black87, child: const Center(child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2))),
+              errorWidget: (context, url, error) => Container(color: Colors.black87, child: const Icon(Icons.broken_image, color: Colors.grey)),
+            ),
           ),
           SafeArea(
         bottom: false,
@@ -379,13 +386,16 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                 ],
               ),
               clipBehavior: Clip.antiAlias,
-              child: CachedNetworkImage(
-                imageUrl: widget.sermon.thumbnailUrl,
-                fit: BoxFit.cover,
-                memCacheWidth: 360,
-                memCacheHeight: 640,
-                placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.grey),
+              child: ResolvedR2Image(
+                url: widget.sermon.thumbnailUrl,
+                builder: (context, resolvedUrl) => CachedNetworkImage(
+                  imageUrl: resolvedUrl,
+                  fit: BoxFit.cover,
+                  memCacheWidth: 360,
+                  memCacheHeight: 640,
+                  placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.grey),
+                ),
               ),
             ),
             const SizedBox(height: 15),
@@ -645,13 +655,9 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                               final avatar = author?['avatar_url']?.toString();
                               return ListTile(
                                 leading: CircleAvatar(
-                                  backgroundImage:
-                                      avatar != null && avatar.isNotEmpty
-                                          ? NetworkImage(avatar)
-                                          : null,
-                                  child: avatar == null || avatar.isEmpty
-                                      ? Text(name.isNotEmpty ? name[0] : '?')
-                                      : null,
+                                  child: avatar != null && avatar.isNotEmpty
+                                      ? ClipOval(child: AppImage(avatar, width: 40, height: 40, fit: BoxFit.cover))
+                                      : Text(name.isNotEmpty ? name[0] : '?'),
                                 ),
                                 title: Text(comments[i]['content'] ?? "",
                                     style: const TextStyle(fontSize: 14)),
@@ -789,13 +795,9 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                           children: [
                             CircleAvatar(
                               radius: 12,
-                              backgroundImage:
-                                  avatar != null && avatar.isNotEmpty
-                                      ? NetworkImage(avatar)
-                                      : null,
-                              child: avatar == null || avatar.isEmpty
-                                  ? Text(name.isNotEmpty ? name[0] : '?')
-                                  : null,
+                              child: avatar != null && avatar.isNotEmpty
+                                  ? ClipOval(child: AppImage(avatar, width: 24, height: 24, fit: BoxFit.cover))
+                                  : Text(name.isNotEmpty ? name[0] : '?'),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -948,9 +950,12 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: sermon.thumbnailUrl.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: sermon.thumbnailUrl,
-                      fit: BoxFit.cover,
+                  ? ResolvedR2Image(
+                      url: sermon.thumbnailUrl,
+                      builder: (context, resolvedUrl) => CachedNetworkImage(
+                        imageUrl: resolvedUrl,
+                        fit: BoxFit.cover,
+                      ),
                     )
                   : const Icon(LucideIcons.play, size: 20),
             ),

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import '../widgets/app_image.dart';
 
 /// Performance optimization service for Church On App
 /// Optimized for low-end Android devices common in Zambia
@@ -165,29 +166,32 @@ class OptimizedImage extends StatelessWidget {
     final cacheWidth = width != null ? (width! * MediaQuery.devicePixelRatioOf(context)).round() : null;
     final cacheHeight = height != null ? (height! * MediaQuery.devicePixelRatioOf(context)).round() : null;
 
-    return CachedNetworkImage(
-      imageUrl: url!,
-      width: width,
-      height: height,
-      fit: fit,
-      memCacheWidth: cacheWidth,
-      memCacheHeight: cacheHeight,
-      filterQuality: performance.isLowEndDevice ? FilterQuality.low : FilterQuality.medium,
-      placeholder: (context, url) => placeholder ?? Container(
+    return ResolvedR2Image(
+      url: url!,
+      builder: (context, resolvedUrl) => CachedNetworkImage(
+        imageUrl: resolvedUrl,
         width: width,
         height: height,
+        fit: fit,
+        memCacheWidth: cacheWidth,
+        memCacheHeight: cacheHeight,
+        filterQuality: performance.isLowEndDevice ? FilterQuality.low : FilterQuality.medium,
+        placeholder: (context, url) => placeholder ?? Container(
+          width: width,
+          height: height,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+        errorWidget: (context, url, error) => errorWidget ?? Container(
+          width: width,
+          height: height,
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      ),
-      errorWidget: (context, url, error) => errorWidget ?? Container(
-        width: width,
-        height: height,
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: Icon(Icons.broken_image, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
-      ),
-    );
+          child: Icon(Icons.broken_image, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
+        ),
+        ),
+      );
+    }
   }
-}
 
 /// Performance-optimized animation wrapper
 class OptimizedAnimation extends StatelessWidget {

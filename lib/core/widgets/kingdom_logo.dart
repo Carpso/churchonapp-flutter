@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/tenant_service.dart';
+import 'app_image.dart';
 
 class KingdomLogo extends ConsumerWidget {
   final double size;
@@ -18,15 +19,12 @@ class KingdomLogo extends ConsumerWidget {
 
     final logo = tenant?.logoUrl;
     if (logo != null && logo.isNotEmpty) {
-      final pixelSize = (size * MediaQuery.devicePixelRatioOf(context)).round();
-      return Image.network(
+      return AppImage(
         logo,
         width: size,
         height: size,
         fit: BoxFit.contain,
-        cacheWidth: pixelSize,
-        cacheHeight: pixelSize,
-        errorBuilder: (context, error, stackTrace) => _buildDefaultLogo(context),
+        errorWidget: (_, __) => _buildDefaultLogo(context),
       );
     }
 

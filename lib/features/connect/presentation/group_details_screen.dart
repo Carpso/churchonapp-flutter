@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/widgets/app_image.dart';
 import '../data/community_service.dart';
@@ -250,15 +249,12 @@ class _MembersList extends ConsumerWidget {
               return ListTile(
                 leading: CircleAvatar(
                   backgroundColor: const Color(0xFF1A1A1A),
-                  backgroundImage: avatarUrl.isNotEmpty
-                      ? CachedNetworkImageProvider(avatarUrl)
-                      : null,
-                  child: avatarUrl.isEmpty
-                      ? Text(
+                  child: avatarUrl.isNotEmpty
+                      ? ClipOval(child: AppImage(avatarUrl, width: 36, height: 36, fit: BoxFit.cover))
+                      : Text(
                           name.isNotEmpty ? name[0].toUpperCase() : 'U',
                           style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                        )
-                      : null,
+                        ),
                 ),
                 title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 subtitle: Text("Active in chat", style: TextStyle(color: Colors.grey, fontSize: 12)),

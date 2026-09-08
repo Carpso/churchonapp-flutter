@@ -1,7 +1,61 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../services/r2_service.dart';
 
-class AppImage extends StatelessWidget {
+/// Resolves an R2 public-domain URL to its signed form, then hands it to
+/// [builder]. Use for widgets that need the resolved URL directly (e.g.
+/// `CachedNetworkImage` with `imageBuilder`, or `CachedNetworkImageProvider`).
+/// While resolving, [builder] is first called with the original URL so callers
+/// render their normal placeholder immediately; after resolution it rebuilds
+/// with the signed URL. Non-R2 URLs are passed through untouched.
+class ResolvedR2Image extends StatefulWidget {
+  final String url;
+  final Widget Function(BuildContext context, String resolvedUrl) builder;
+
+  const ResolvedR2Image({super.key, required this.url, required this.builder});
+
+  @override
+  State<ResolvedR2Image> createState() => _ResolvedR2ImageState();
+}
+
+class _ResolvedR2ImageState extends State<ResolvedR2Image> {
+  late String _resolved = widget.url.trim();
+  String? _inFlight;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolve();
+  }
+
+  @override
+  void didUpdateWidget(covariant ResolvedR2Image oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.url.trim() != oldWidget.url.trim()) {
+      _resolved = widget.url.trim();
+      _inFlight = null;
+      _resolve();
+    }
+  }
+
+  Future<void> _resolve() async {
+    final url = widget.url.trim();
+    if (_inFlight == url) return;
+    _inFlight = url;
+    final resolved = await R2Service.resolveReadUrl(url);
+    if (!mounted || _inFlight != url) return;
+    _inFlight = null;
+    if (resolved != _resolved) setState(() => _resolved = resolved);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _resolved);
+}
+
+/// App-wide network image. Automatically signs R2 public-domain URLs so
+/// images load even though the R2 bucket is private; every call site benefits
+/// without changes. Non-R2 URLs pass through unchanged.
+class AppImage extends StatefulWidget {
   final String url;
   final double? width;
   final double? height;
@@ -26,55 +80,97 @@ class AppImage extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final cacheWidth = width != null ? (width! * MediaQuery.devicePixelRatioOf(context)).round() : null;
-    final cacheHeight = height != null ? (height! * MediaQuery.devicePixelRatioOf(context)).round() : null;
+  State<AppImage> createState() => _AppImageState();
+}
 
-    final url = this.url.trim();
+class _AppImageState extends State<AppImage> {
+  late String _displayUrl = widget.url.trim();
+  String? _resolvingUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _maybeResolve();
+  }
+
+  @override
+  void didUpdateWidget(covariant AppImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = widget.url.trim();
+    if (next != oldWidget.url.trim()) {
+      _displayUrl = next;
+      _resolvingUrl = null;
+      _maybeResolve();
+    }
+  }
+
+  Future<void> _maybeResolve() async {
+    if (_displayUrl.isEmpty) return;
+    final url = _displayUrl;
+    if (_resolvingUrl == url) return;
+    _resolvingUrl = url;
+    final resolved = await R2Service.resolveReadUrl(url);
+    if (!mounted || _resolvingUrl != url) return;
+    if (resolved != _displayUrl) {
+      setState(() => _displayUrl = resolved);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cacheWidth = widget.width != null
+        ? (widget.width! * MediaQuery.devicePixelRatioOf(context)).round()
+        : null;
+    final cacheHeight = widget.height != null
+        ? (widget.height! * MediaQuery.devicePixelRatioOf(context)).round()
+        : null;
+
+    final url = _displayUrl;
     if (url.isEmpty) {
       // Empty URL: render the placeholder / error fallback instead of a
       // broken-image icon.
-      return placeholder ??
-          errorWidget?.call(context, '') ??
+      return widget.placeholder ??
+          widget.errorWidget?.call(context, '') ??
           Container(
-            width: width,
-            height: height,
+            width: widget.width,
+            height: widget.height,
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
           );
     }
 
     Widget image = CachedNetworkImage(
       imageUrl: url,
-      width: width,
-      height: height,
-      fit: fit,
-      alignment: alignment,
+      width: widget.width,
+      height: widget.height,
+      fit: widget.fit,
+      alignment: widget.alignment,
       memCacheWidth: cacheWidth,
       memCacheHeight: cacheHeight,
-      placeholder: (context, url) => placeholder ?? Container(
-        width: width,
-        height: height,
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      ),
+      placeholder: (context, url) => widget.placeholder ??
+          Container(
+            width: widget.width,
+            height: widget.height,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
       errorWidget: (context, url, error) {
-        if (errorWidget != null) return errorWidget!(context, url);
+        if (widget.errorWidget != null) return widget.errorWidget!(context, url);
         return Container(
-          width: width,
-          height: height,
+          width: widget.width,
+          height: widget.height,
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           child: Icon(Icons.broken_image, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
         );
       },
     );
 
-    if (borderRadius != null) {
-      image = ClipRRect(borderRadius: borderRadius!, child: image);
+    if (widget.borderRadius != null) {
+      image = ClipRRect(borderRadius: widget.borderRadius!, child: image);
     }
 
-    if (color != null) {
+    if (widget.color != null) {
       image = ColorFiltered(
-        colorFilter: ColorFilter.mode(color!, BlendMode.multiply),
+        colorFilter: ColorFilter.mode(widget.color!, BlendMode.multiply),
         child: image,
       );
     }

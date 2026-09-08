@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 
 import '../data/bible_quiz_service.dart';
 import '../data/daily_challenge_service.dart';
@@ -1317,13 +1318,11 @@ try {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: Theme.of(context).primaryColor, width: 2),
-        image: url != null && url.isNotEmpty
-            ? DecorationImage(image: NetworkImage(url), fit: BoxFit.cover)
-            : null,
       ),
-      child: url == null || url.isEmpty
-          ? const Icon(LucideIcons.user, color: Colors.white24, size: 30)
-          : null,
+      clipBehavior: Clip.antiAlias,
+      child: url != null && url.isNotEmpty
+          ? AppImage(url, width: 60, height: 60, fit: BoxFit.cover)
+          : const Icon(LucideIcons.user, color: Colors.white24, size: 30),
     );
   }
 

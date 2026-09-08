@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
 
@@ -744,15 +744,12 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
                     CircleAvatar(
                       radius: 18,
                       backgroundColor: const Color(0xFF0F172A),
-                      backgroundImage: widget.avatarUrl.isNotEmpty
-                          ? CachedNetworkImageProvider(widget.avatarUrl)
-                          : null,
-                      child: widget.avatarUrl.isEmpty
-                          ? Text(
+                      child: widget.avatarUrl.isNotEmpty
+                          ? ClipOval(child: AppImage(widget.avatarUrl, width: 36, height: 36, fit: BoxFit.cover))
+                          : Text(
                               (widget.author.isNotEmpty ? widget.author[0] : 'K').toUpperCase(),
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                            )
-                          : null,
+                            ),
                     ),
                     const SizedBox(width: 10),
                     Column(

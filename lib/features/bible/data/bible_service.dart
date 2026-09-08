@@ -585,5 +585,7 @@ final verseCrossReferencesProvider =
             bookId: params['bookId'] as int,
             chapter: params['chapter'] as int,
             verse: params['verse'] as int,
+            verseText: params['verseText'] as String?,
+            allowAiFallback: params['allowAiFallback'] as bool? ?? true,
           );
     });

@@ -125,8 +125,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                 final name = ch?['name'] ?? 'Partner Church';
                                 final logo = ch?['logo_url'] ?? '';
                                 return Chip(
-                                  avatar: logo.isNotEmpty 
-                                      ? CircleAvatar(backgroundImage: NetworkImage(logo))
+                                  avatar: logo.toString().isNotEmpty 
+                                      ? CircleAvatar(child: AppImage(logo.toString(), width: 24, height: 24, fit: BoxFit.cover))
                                       : const CircleAvatar(child: Icon(LucideIcons.home, size: 12)),
                                   label: Text(name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                                   backgroundColor: Colors.grey.shade100,
@@ -493,9 +493,10 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
               children: [
                 CircleAvatar(
                   radius: 40,
-                  backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
                   backgroundColor: Colors.blueGrey,
-                  child: imageUrl == null ? const Icon(LucideIcons.user, color: Colors.white, size: 32) : null,
+                  child: imageUrl != null && imageUrl.isNotEmpty
+                      ? ClipOval(child: AppImage(imageUrl, width: 80, height: 80, fit: BoxFit.cover))
+                      : const Icon(LucideIcons.user, color: Colors.white, size: 32),
                 ),
                 const SizedBox(height: 15),
                 Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
@@ -517,8 +518,9 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
           children: [
             CircleAvatar(
               backgroundColor: Colors.blueGrey,
-              backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
-              child: imageUrl == null ? const Icon(LucideIcons.user, color: Colors.white, size: 16) : null,
+              child: imageUrl != null && imageUrl.isNotEmpty
+                  ? ClipOval(child: AppImage(imageUrl, width: 32, height: 32, fit: BoxFit.cover))
+                  : const Icon(LucideIcons.user, color: Colors.white, size: 16),
             ),
             const SizedBox(width: 15),
             Expanded(

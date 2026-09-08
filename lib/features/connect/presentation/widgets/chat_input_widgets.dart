@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/widgets/app_image.dart';
 
 class ChatInputWidget extends StatelessWidget {
   final TextEditingController controller;
@@ -141,12 +141,10 @@ class StickerPanel extends StatelessWidget {
                 onTap: () => onSendSticker(_stickers[index]),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: CachedNetworkImage(
-                    imageUrl: _stickers[index],
+                  child: AppImage(
+                    _stickers[index],
                     fit: BoxFit.cover,
-                    memCacheWidth: 120,
-                    memCacheHeight: 120,
-                    errorWidget: (context, url, error) => const Icon(LucideIcons.smile),
+                    errorWidget: (context, url) => const Icon(LucideIcons.smile),
                   ),
                 ),
               ),

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import '../data/chat_service.dart';
 import '../data/community_service.dart';
@@ -329,19 +329,17 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(18),
               child: hasImage
-                  ? CachedNetworkImage(
-                      imageUrl: imageUrl,
+                  ? AppImage(
+                      imageUrl,
                       width: 56,
                       height: 56,
-                      memCacheWidth: 112,
-                      memCacheHeight: 112,
                       fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
+                      placeholder: Container(
                         width: 56, height: 56,
                         color: theme.colorScheme.surfaceContainerHighest,
                         child: Icon(LucideIcons.users, color: theme.primaryColor, size: 24),
                       ),
-                      errorWidget: (context, url, error) => Container(
+                      errorWidget: (context, url) => Container(
                         width: 56, height: 56,
                         color: theme.colorScheme.surfaceContainerHighest,
                         child: Icon(LucideIcons.users, color: theme.primaryColor, size: 24),
@@ -408,15 +406,19 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
                 CircleAvatar(
                   radius: 24,
                   backgroundColor: const Color(0xFF1A1A1A),
-                  backgroundImage: avatar != null && avatar.isNotEmpty
-                      ? CachedNetworkImageProvider(avatar)
-                      : null,
-                  child: avatar == null || avatar.isEmpty
-                      ? Text(
+                  child: avatar != null && avatar.isNotEmpty
+                      ? ClipOval(
+                          child: AppImage(
+                            avatar,
+                            width: 48,
+                            height: 48,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : Text(
                           (name.isNotEmpty ? name[0] : 'M').toUpperCase(),
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        )
-                      : null,
+                        ),
                 ),
                 Positioned(
                   bottom: 0,

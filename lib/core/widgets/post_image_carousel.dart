@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../services/r2_service.dart';
 
 /// Instagram-style image carousel for church social posts.
 ///
@@ -22,12 +23,34 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
   final PageController _pageController = PageController();
   int _page = 0;
   final Map<int, double> _aspects = {};
+  List<String> _displayImages = const [];
 
   @override
   void initState() {
     super.initState();
-    for (var i = 0; i < widget.images.length; i++) {
-      _resolveAspect(widget.images[i], i);
+    _displayImages = widget.images;
+    _resolveImages();
+  }
+
+  @override
+  void didUpdateWidget(covariant PostImageCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.images != widget.images) {
+      _aspects.clear();
+      _page = 0;
+      _displayImages = widget.images;
+      _resolveImages();
+    }
+  }
+
+  Future<void> _resolveImages() async {
+    final resolved = await Future.wait(
+      widget.images.map(R2Service.resolveReadUrl),
+    );
+    if (!mounted) return;
+    setState(() => _displayImages = resolved);
+    for (var i = 0; i < resolved.length; i++) {
+      _resolveAspect(resolved[i], i);
     }
   }
 
@@ -83,7 +106,7 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: CachedNetworkImage(
-                    imageUrl: widget.images.first,
+                    imageUrl: _displayImages.first,
                     fit: BoxFit.cover,
                     width: constraints.maxWidth,
                     memCacheWidth: 900,
@@ -112,7 +135,7 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
                     itemBuilder: (context, i) => GestureDetector(
                       onTap: () => _openViewer(i),
                       child: CachedNetworkImage(
-                        imageUrl: widget.images[i],
+                        imageUrl: _displayImages[i],
                         fit: BoxFit.cover,
                         width: constraints.maxWidth,
                         memCacheWidth: 900,
@@ -180,11 +203,21 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
   late final PageController _controller =
       PageController(initialPage: widget.initialIndex);
   int _page = 0;
+  List<String> _displayImages = const [];
 
   @override
   void initState() {
     super.initState();
     _page = widget.initialIndex;
+    _displayImages = widget.images;
+    _resolveImages();
+  }
+
+  Future<void> _resolveImages() async {
+    final resolved = await Future.wait(
+      widget.images.map(R2Service.resolveReadUrl),
+    );
+    if (mounted) setState(() => _displayImages = resolved);
   }
 
   @override
@@ -207,7 +240,7 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
               child: InteractiveViewer(
                 maxScale: 4,
                 child: CachedNetworkImage(
-                  imageUrl: widget.images[i],
+                  imageUrl: _displayImages[i],
                   fit: BoxFit.contain,
                   memCacheWidth: 1200,
                   placeholder: (_, __) => const Center(

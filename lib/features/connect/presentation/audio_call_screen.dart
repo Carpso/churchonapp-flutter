@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/widgets/app_image.dart';
 import '../data/call_service.dart';
 
 class AudioCallScreen extends ConsumerStatefulWidget {
@@ -415,12 +415,7 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
                               width: 3,
                             ),
                             color: _avatarUrl.isEmpty ? const Color(0xFF2A2A2A) : null,
-                            image: _avatarUrl.isEmpty
-                                ? null
-                                : DecorationImage(
-                                    image: CachedNetworkImageProvider(_avatarUrl),
-                                    fit: BoxFit.cover,
-                                  ),
+                            image: null,
                             boxShadow: [
                               BoxShadow(
                                 color: isConnected
@@ -439,7 +434,9 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
                                         fontSize: 56, color: Colors.white, fontWeight: FontWeight.bold),
                                   ),
                                 )
-                              : null,
+                              : ClipOval(
+                                  child: AppImage(_avatarUrl, width: 140, height: 140, fit: BoxFit.cover),
+                                ),
                         ),
                       ],
                     );

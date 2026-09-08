@@ -52,6 +52,30 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   String? _verseRef;
   String? _logoUrl;
   int _cameraFacing = 1; // 0 = front (user), 1 = back (environment)
+  Map<String, dynamic> _iceServers = {
+    'iceServers': [
+      {'urls': 'stun:stun.l.google.com:19302'},
+      {'urls': 'stun:stun1.l.google.com:19302'},
+    ],
+  };
+
+  /// Best-effort STUN/TURN fetch (mirrors audio_call_screen). WHIP needs usable
+  /// ICE candidates to reach Cloudflare's publish endpoint; a bare empty
+  /// iceServers list leaves most phone networks unable to connect and the
+  /// stream never actually goes live.
+  Future<void> _loadTurnCredentials() async {
+    try {
+      final res = await Supabase.instance.client.functions
+          .invoke('turn-credentials')
+          .timeout(const Duration(seconds: 6));
+      final data = res.data as Map<String, dynamic>?;
+      if (data != null && data['iceServers'] != null) {
+        _iceServers = Map<String, dynamic>.from(data);
+      }
+    } catch (e) {
+      debugPrint('TURN credentials fetch failed, using STUN-only: $e');
+    }
+  }
   final List<String> _chatMessages = [];
   final _titleController = TextEditingController();
 
@@ -452,8 +476,18 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
 
   Future<bool> _startWhipIngest(String whipUrl) async {
     try {
+      await _loadTurnCredentials();
+      final iceConfig = _iceServers.isNotEmpty
+          ? _iceServers
+          : <String, dynamic>{
+              'iceServers': [
+                {'urls': 'stun:stun.l.google.com:19302'},
+                {'urls': 'stun:stun1.l.google.com:19302'},
+              ],
+            };
+      if (iceConfig['sdpSemantics'] == null) iceConfig['sdpSemantics'] = 'unified-plan';
       _pc = await webrtc.createPeerConnection(
-        {'iceServers': const [], 'sdpSemantics': 'unified-plan'},
+        iceConfig,
         {'trickle': false},
       );
 

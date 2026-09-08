@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/widgets/app_image.dart';
 import '../../../core/services/supabase_service.dart';
 
 class _Participant {
@@ -398,7 +398,10 @@ class _GroupCallScreenState extends ConsumerState<GroupCallScreen> with TickerPr
                     children: [
                       CircleAvatar(
                         radius: 36,
-                        backgroundImage: CachedNetworkImageProvider(participant.avatar),
+                        backgroundColor: const Color(0xFF1A1A1A),
+                        child: participant.avatar.isNotEmpty
+                            ? ClipOval(child: AppImage(participant.avatar, width: 72, height: 72, fit: BoxFit.cover))
+                            : Icon(LucideIcons.user, color: Colors.white, size: 28),
                       ),
                       const SizedBox(height: 10),
                       Text(

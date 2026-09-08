@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'app_image.dart';
 
 /// Shared avatar widget — uses Gravatar (email → MD5), falls back to
 /// Facebook-style initials placeholder. Consistent across the entire app.
@@ -44,9 +45,18 @@ class ProfileAvatar extends StatelessWidget {
     if (url != null && url.isNotEmpty) {
       return CircleAvatar(
         radius: radius,
-        backgroundImage: NetworkImage(url),
-        onBackgroundImageError: (_, __) {},
-        child: url == avatarUrl ? null : _Placeholder(name: name, radius: radius),
+        backgroundColor: Colors.blueGrey,
+        child: url == avatarUrl
+            ? ClipOval(
+                child: AppImage(
+                  url,
+                  width: radius * 2,
+                  height: radius * 2,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, __) => _Placeholder(name: name, radius: radius),
+                ),
+              )
+            : _Placeholder(name: name, radius: radius),
       );
     }
 

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/services/r2_service.dart';
+import '../../../core/widgets/app_image.dart';
 import '../../../core/widgets/error_retry_widget.dart';
 import '../../../core/i18n/app_languages.dart';
 import '../../../core/i18n/l10n.dart';
@@ -85,7 +86,10 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
                   backgroundColor: Theme.of(context).primaryColor,
                   child: CircleAvatar(
                     radius: 56,
-                    backgroundImage: NetworkImage(avatar),
+                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    child: avatar.isNotEmpty
+                        ? ClipOval(child: AppImage(avatar, width: 112, height: 112, fit: BoxFit.cover))
+                        : null,
                   ),
                 ),
                 Positioned(

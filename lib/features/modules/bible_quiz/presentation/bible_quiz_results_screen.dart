@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 
 import '../data/bible_quiz_service.dart';
 import '../../../bible/presentation/live_scripture_text.dart';
@@ -336,12 +337,12 @@ class BibleQuizResultsScreen extends ConsumerWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: isWinner ? Colors.amber : theme.primaryColor, width: isWinner ? 3 : 2),
                 boxShadow: isWinner ? [BoxShadow(color: Colors.amber.withValues(alpha: 0.4), blurRadius: 12)] : null,
-                image: avatar != null && avatar.isNotEmpty
-                    ? DecorationImage(image: NetworkImage(avatar), fit: BoxFit.cover)
-                    : null,
                 color: avatar == null || avatar.isEmpty ? Colors.white.withValues(alpha: 0.08) : null,
               ),
-              child: avatar == null || avatar.isEmpty ? const Icon(LucideIcons.user, color: Colors.white38, size: 28) : null,
+              clipBehavior: Clip.antiAlias,
+              child: avatar != null && avatar.isNotEmpty
+                  ? AppImage(avatar, width: 64, height: 64, fit: BoxFit.cover)
+                  : const Icon(LucideIcons.user, color: Colors.white38, size: 28),
             ),
             if (showCrown)
               Positioned(

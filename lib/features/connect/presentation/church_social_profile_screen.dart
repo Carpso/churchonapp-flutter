@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/widgets/app_image.dart';
 import '../data/social_service.dart';
 import 'connect_screen.dart' show CommentsSheet;
 import 'widgets/social_post_card.dart';
@@ -241,15 +241,11 @@ class ChurchSocialProfileScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white.withValues(alpha: 0.2),
-              image: logo.isNotEmpty
-                  ? DecorationImage(
-                      image: CachedNetworkImageProvider(logo),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
             ),
-            child: logo.isEmpty
-                ? Center(
+            clipBehavior: Clip.antiAlias,
+            child: logo.isNotEmpty
+                ? AppImage(logo, width: 60, height: 60, fit: BoxFit.cover)
+                : Center(
                     child: Text(
                       name.isNotEmpty ? name.trim()[0].toUpperCase() : 'C',
                       style: const TextStyle(
@@ -258,8 +254,7 @@ class ChurchSocialProfileScreen extends ConsumerWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                  )
-                : null,
+                  ),
           ),
           const SizedBox(width: 16),
           Expanded(

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:universal_io/io.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../data/social_service.dart';
 import '../data/testimony_service.dart';
 import '../data/prayer_service.dart';
@@ -196,9 +196,8 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
                     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'K';
                     return CircleAvatar(
                       backgroundColor: const Color(0xFF1A1A1A),
-                      backgroundImage: hasAvatar ? CachedNetworkImageProvider(avatarUrl) : null,
                       child: hasAvatar
-                          ? null
+                          ? ClipOval(child: AppImage(avatarUrl, width: 48, height: 48, fit: BoxFit.cover))
                           : Text(
                               initial,
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),

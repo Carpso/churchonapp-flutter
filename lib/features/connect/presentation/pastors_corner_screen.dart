@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/widgets/app_image.dart';
 import '../data/network_service.dart';
 
 class PastorsCornerScreen extends ConsumerStatefulWidget {
@@ -92,10 +92,10 @@ class _PastorsCornerScreenState extends ConsumerState<PastorsCornerScreen> {
               children: [
                 CircleAvatar(
                   radius: 22,
-                  backgroundImage: message.pastorPhoto != null ? CachedNetworkImageProvider(message.pastorPhoto!) : null,
-                  child: message.pastorPhoto == null
-                      ? Icon(LucideIcons.user, color: Colors.amber.shade700, size: 22)
-                      : null,
+                  backgroundColor: const Color(0xFF1A1A1A),
+                  child: message.pastorPhoto != null && message.pastorPhoto!.isNotEmpty
+                      ? ClipOval(child: AppImage(message.pastorPhoto!, width: 44, height: 44, fit: BoxFit.cover))
+                      : Icon(LucideIcons.user, color: Colors.amber.shade700, size: 22),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

@@ -88,25 +88,34 @@ class RelatedLink {
   });
 }
 
+/// Maps non-canonical book spellings to the canonical `bible_books.name`
+/// (the reader selects books by canonical name, e.g. "Psalms"). Without this
+/// the curated links for e.g. "Psalm" would never match a reader on "Psalms".
+const Map<String, String> _canonicalBookNames = {
+  'Psalm': 'Psalms',
+};
+
+String _canonical(String name) => _canonicalBookNames[name] ?? name;
+
 List<RelatedLink> builtInRelatedLinks(String book, int chapter, int verse) {
   final out = <RelatedLink>[];
   for (final link in kLinkedScripture) {
-    if (link.aBook == book &&
+    if (_canonical(link.aBook) == book &&
         link.aChapter == chapter &&
         link.aVerse == verse) {
       out.add(RelatedLink(
-        label: '${link.bBook} ${link.bChapter}:${link.bVerse}',
-        bookmark: link.bBook,
+        label: '${_canonical(link.bBook)} ${link.bChapter}:${link.bVerse}',
+        bookmark: _canonical(link.bBook),
         chapter: link.bChapter,
         verse: link.bVerse,
         type: link.type,
       ));
-    } else if (link.bBook == book &&
+    } else if (_canonical(link.bBook) == book &&
         link.bChapter == chapter &&
         link.bVerse == verse) {
       out.add(RelatedLink(
-        label: '${link.aBook} ${link.aChapter}:${link.aVerse}',
-        bookmark: link.aBook,
+        label: '${_canonical(link.aBook)} ${link.aChapter}:${link.aVerse}',
+        bookmark: _canonical(link.aBook),
         chapter: link.aChapter,
         verse: link.aVerse,
         type: link.type,

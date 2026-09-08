@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 
 /// CRM/Donor Management service
 class CRMService {
@@ -388,18 +388,15 @@ class _DonorCard extends StatelessWidget {
             CircleAvatar(
               radius: 24,
               backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-backgroundImage: profile?['avatar_url'] != null
-                    ? CachedNetworkImageProvider(profile!['avatar_url']) as ImageProvider?
-                  : null,
-              child: profile?['avatar_url'] == null
-                  ? Text(
+              child: (profile?['avatar_url'] as String?)?.isNotEmpty == true
+                  ? ClipOval(child: AppImage(profile!['avatar_url'] as String, width: 48, height: 48, fit: BoxFit.cover))
+                  : Text(
                       (profile?['full_name'] ?? 'D')[0].toUpperCase(),
                       style: TextStyle(
                         color: Theme.of(context).primaryColor,
                         fontWeight: FontWeight.bold,
                       ),
-                    )
-                  : null,
+                    ),
             ),
             SizedBox(width: 16),
             // Info
@@ -526,19 +523,16 @@ class _DonorDetailsSheetState extends ConsumerState<_DonorDetailsSheet> {
                     CircleAvatar(
                       radius: 32,
                       backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                      backgroundImage: profile?['avatar_url'] != null
-                          ? CachedNetworkImageProvider(profile!['avatar_url']) as ImageProvider?
-                          : null,
-                      child: profile?['avatar_url'] == null
-                          ? Text(
+                      child: (profile?['avatar_url'] as String?)?.isNotEmpty == true
+                          ? ClipOval(child: AppImage(profile!['avatar_url'] as String, width: 64, height: 64, fit: BoxFit.cover))
+                          : Text(
                               (profile?['full_name'] ?? 'D')[0].toUpperCase(),
                               style: TextStyle(
                                 color: Theme.of(context).primaryColor,
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
                               ),
-                            )
-                          : null,
+                            ),
                     ),
                     SizedBox(width: 16),
                     Expanded(

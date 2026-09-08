@@ -440,15 +440,21 @@ class BibleVerseService {
     }
   }
 
+  /// Fetches cross-references for a verse — BOTH directions (source→target
+  /// and target→source) so any verse in a pair surfaces its counterpart.
+  /// Fallback: when the local DB has nothing, asks kael (`cross_ref`) for
+  /// scholarly cross-references and persists what parses cleanly.
   Future<List<CrossReference>> fetchCrossReferences({
     required int bookId,
     required int chapter,
     required int verse,
+    String? verseText,
+    bool allowAiFallback = true,
   }) async {
     try {
       final book = await _client
           .from('bible_books')
-          .select('id')
+          .select('id, name')
           .eq('book_order', bookId)
           .maybeSingle();
 
@@ -465,28 +471,145 @@ class BibleVerseService {
             target_chapter,
             target_verse,
             reference_type,
-            target_book:bible_books(name, abbreviation)
+            source_book:bible_books!(source_book_id)(name, abbreviation),
+            target_book:bible_books!(target_book_id)(name, abbreviation)
           ''')
-          .eq('source_book_id', book['id'])
-          .eq('source_chapter', chapter)
-          .eq('source_verse', verse);
+          .or(
+            'and(source_book_id.eq.${book['id']},source_chapter.eq.$chapter,source_verse.eq.$verse),'
+            'and(target_book_id.eq.${book['id']},target_chapter.eq.$chapter,target_verse.eq.$verse)',
+          );
 
-      return (data as List<dynamic>)
+      final refs = (data as List<dynamic>)
           .map((row) {
             final targetBook = row['target_book'] as Map<String, dynamic>?;
+            final sourceBook = row['source_book'] as Map<String, dynamic>?;
+            // Reverse-direction row: THIS verse matched as the *target*, so
+            // the counterpart is the source (book AND its chapter:verse).
+            final isReverse =
+                '${row['target_book_id']}' == '${book['id']}';
+            final counterpart =
+                isReverse ? sourceBook : targetBook;
             return CrossReference(
-              sourceRef: '$bookId $chapter:$verse',
+              sourceRef: '${book['name']} $chapter:$verse',
               targetRef:
-                  '${targetBook?['abbreviation'] ?? targetBook?['name'] ?? 'Unknown'} ${row['target_chapter']}:${row['target_verse']}',
+                  '${counterpart?['abbreviation'] ?? counterpart?['name'] ?? 'Unknown'} '
+                  '${isReverse ? row['source_chapter'] : row['target_chapter']}:'
+                  '${isReverse ? row['source_verse'] : row['target_verse']}',
               type: row['reference_type'] ?? 'parallel',
             );
           })
           .toList();
+
+      if (refs.isNotEmpty || !allowAiFallback) return refs;
+
+      final aiRefs = await generateCrossReferences(
+        bookId: bookId,
+        chapter: chapter,
+        verse: verse,
+        verseText: verseText,
+      );
+      return aiRefs.isNotEmpty ? aiRefs : const [];
     } catch (e, s) {
       debugPrint('Fetch cross-references error: $e');
       debugPrint(s.toString());
       return [];
     }
+  }
+
+  /// Asks kael for cross-references and best-effort persists parsed ones.
+  Future<List<CrossReference>> generateCrossReferences({
+    required int bookId,
+    required int chapter,
+    required int verse,
+    String? verseText,
+  }) async {
+    try {
+      final book = await _client
+          .from('bible_books')
+          .select('id, name')
+          .eq('book_order', bookId)
+          .maybeSingle();
+      if (book == null) return [];
+
+      final user = _client.auth.currentUser;
+      if (user == null) return [];
+
+      final response = await _client.functions.invoke('kael-ai', body: {
+        'action': 'cross_ref',
+        'prompt':
+            'Find cross-references for ${book['name']} $chapter:$verse${verseText != null && verseText.trim().isNotEmpty ? ' — verse text: "$verseText"' : ''}. For each reference, give: the book chapter:verse, then a 1-sentence connection. Output plain text with each reference on its own line starting with "BibleRef: Book C:V".',
+      });
+
+      final text = response.data?['response']?.toString() ?? '';
+      if (text.trim().isEmpty) return [];
+
+      // Surface the AI explanation as the source text for display/parse.
+      final parsed = _parseAiCrossReferences(text);
+
+      // Persist clean parses (best-effort via the fresh authenticated INSERT
+      // policy, idempotent through the unique pair index).
+      final books = await _client
+          .from('bible_books')
+          .select('id, name');
+      final byName = <String, dynamic>{};
+      for (final b in books as List<dynamic>) {
+        byName[(b as Map<String, dynamic>)['name']?.toString().toLowerCase() ??
+            ''] = b;
+      }
+
+      for (final ref in parsed) {
+        final target = byName[ref['book']!.toLowerCase()];
+        if (target == null) continue;
+        final targetChapter = ref['chapter'] as int;
+        final targetVerse = ref['verse'] as int;
+        if (targetChapter <= 0 || targetVerse <= 0) continue;
+        try {
+          await _client.from('cross_references').upsert({
+            'source_book_id': book['id'],
+            'source_chapter': chapter,
+            'source_verse': verse,
+            'target_book_id': target['id'],
+            'target_chapter': targetChapter,
+            'target_verse': targetVerse,
+            'reference_type': 'thematic',
+          }, onConflict:
+              'source_book_id,source_chapter,source_verse,target_book_id,target_chapter,target_verse,reference_type');
+        } catch (err) {
+          debugPrint('Persist AI cross-ref failed: $err');
+        }
+      }
+
+      return parsed.map((ref) {
+        final target = byName[ref['book']!.toLowerCase()];
+        return CrossReference(
+          sourceRef: '${book['name']} $chapter:$verse',
+          targetRef:
+              '${target?['abbreviation'] ?? ref['book']} ${ref['chapter']}:${ref['verse']}',
+          type: 'thematic',
+        );
+      }).toList();
+    } catch (e, s) {
+      debugPrint('Generate cross-references error: $e');
+      debugPrint(s.toString());
+      return [];
+    }
+  }
+
+  /// Parses AI cross-reference output lines of the form
+  /// "BibleRef: Book C:V" or "Book C:V" into [{book, chapter, verse}].
+  List<Map<String, dynamic>> _parseAiCrossReferences(String text) {
+    final out = <Map<String, dynamic>>[];
+    final re = RegExp(
+      r'(?:BibleRef:\s*)?([A-Za-z]+(?:\s+[A-Za-z]+)*?)\s+(\d+):(\d+)',
+    );
+    for (final m in re.allMatches(text)) {
+      final book = m.group(1)!.trim();
+      final chapter = int.tryParse(m.group(2)!) ?? 0;
+      final verse = int.tryParse(m.group(3)!) ?? 0;
+      if (book.length < 3 || chapter <= 0 || verse <= 0) continue;
+      out.add({'book': book, 'chapter': chapter, 'verse': verse});
+    }
+    return out;
   }
 
   Future<ChapterSummary?> fetchChapterSummary({

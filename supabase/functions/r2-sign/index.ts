@@ -66,15 +66,6 @@ serve(async (req) => {
 
   const userId = user.id;
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const { allowed } = await checkRateLimit(supabase, userId, "r2_upload", 20, 1);
-  if (!allowed) {
-    return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again later." }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 429,
-    });
-  }
-
   let body: { action?: string; filename?: string; contentType?: string; folder?: string; key?: string };
   try {
     body = await req.json();
@@ -82,6 +73,21 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
+    });
+  }
+
+  // Reads just mint a presigned URL (no storage cost/burn); give them a far
+  // higher limit than uploads so cold feed loads of many images don't 429.
+  // The client caches resolved URLs, so this is a safety cap, not a workload.
+  const isRead = body.action === "read" || body.action === "download";
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { allowed } = isRead
+    ? await checkRateLimit(supabase, userId, "r2_read", 300, 1)
+    : await checkRateLimit(supabase, userId, "r2_upload", 20, 1);
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again later." }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 429,
     });
   }
 

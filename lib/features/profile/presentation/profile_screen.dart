@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/services/prediction_service.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/qr_code_with_logo.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 import 'package:church_on_app/core/widgets/verification_badge.dart';
@@ -168,12 +169,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
                           child: CircleAvatar(
                             radius: 56,
                             backgroundColor: Colors.white10,
-                            backgroundImage: (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty)
-                                ? NetworkImage(profile.avatarUrl!)
-                                : null,
-                            child: (profile.avatarUrl == null || profile.avatarUrl!.isEmpty)
-                                ? const Icon(LucideIcons.user, color: Colors.white54, size: 40)
-                                : null,
+                            child: (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty)
+                                ? ClipOval(child: AppImage(profile.avatarUrl!, width: 112, height: 112, fit: BoxFit.cover))
+                                : const Icon(LucideIcons.user, color: Colors.white54, size: 40),
                           ),
                         ),
                       ),

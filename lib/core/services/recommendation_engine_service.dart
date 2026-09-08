@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/tenant_service.dart';
+import '../widgets/app_image.dart';
 
 class RecommendationItem {
   final String id;
@@ -285,13 +286,11 @@ class RecommendationCarouselWidget extends ConsumerWidget {
                           const SizedBox(height: 10),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
+                            child: AppImage(
                               item.imageUrl!,
                               height: 88,
-                              width: double.infinity,
                               fit: BoxFit.cover,
-                              cacheWidth: 520,
-                              errorBuilder: (_, __, ___) => Container(
+                              errorWidget: (_, __) => Container(
                                 height: 88,
                                 color: item.themeColor.withValues(alpha: 0.08),
                               ),

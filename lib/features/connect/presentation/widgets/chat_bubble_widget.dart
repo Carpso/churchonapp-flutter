@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../data/chat_service.dart';
 
 class ChatBubble extends StatelessWidget {
@@ -48,15 +48,14 @@ class ChatBubble extends StatelessWidget {
                   child: CircleAvatar(
                     radius: 14,
                     backgroundColor: const Color(0xFF1A1A1A),
-                    backgroundImage: msg.senderAvatar != null && msg.senderAvatar!.isNotEmpty
-                        ? CachedNetworkImageProvider(msg.senderAvatar!)
-                        : null,
-                    child: msg.senderAvatar == null || msg.senderAvatar!.isEmpty
-                        ? Text(
+                    child: msg.senderAvatar != null && msg.senderAvatar!.isNotEmpty
+                        ? ClipOval(
+                            child: AppImage(msg.senderAvatar!, width: 28, height: 28, fit: BoxFit.cover),
+                          )
+                        : Text(
                             (msg.senderName.isNotEmpty ? msg.senderName[0] : 'M').toUpperCase(),
                             style: const TextStyle(color: Colors.white, fontSize: 11),
-                          )
-                        : null,
+                          ),
                   ),
                 ),
               Flexible(
@@ -121,18 +120,17 @@ class ChatBubble extends StatelessWidget {
                         if (msg.mediaType == 'image' && msg.mediaUrl != null)
                           ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            child: CachedNetworkImage(
-                              imageUrl: msg.mediaUrl!,
+                            child: AppImage(
+                              msg.mediaUrl!,
                               fit: BoxFit.cover,
                               width: 220,
-                              memCacheWidth: 220,
-                              placeholder: (context, url) => Container(
+                              placeholder: Container(
                                 width: 220,
                                 height: 160,
                                 color: Colors.grey[200],
                                 child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
                               ),
-                              errorWidget: (context, url, error) => Container(
+                              errorWidget: (context, url) => Container(
                                 width: 220,
                                 height: 160,
                                 color: Colors.grey[200],
@@ -141,13 +139,11 @@ class ChatBubble extends StatelessWidget {
                             ),
                           ),
                         if (msg.mediaType == 'sticker' && msg.mediaUrl != null)
-                          CachedNetworkImage(
-                            imageUrl: msg.mediaUrl!,
+                          AppImage(
+                            msg.mediaUrl!,
                             width: 120,
                             height: 120,
-                            memCacheWidth: 120,
-                            memCacheHeight: 120,
-                            errorWidget: (context, url, error) => const Icon(LucideIcons.smile, size: 60),
+                            errorWidget: (context, url) => const Icon(LucideIcons.smile, size: 60),
                           ),
                         if (msg.mediaType == 'file')
                           Row(

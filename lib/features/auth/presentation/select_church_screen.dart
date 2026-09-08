@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -9,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:church_on_app/core/utils/country_detection_util.dart';
 import 'package:church_on_app/core/widgets/church_map.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -847,12 +847,12 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                 child:
                     tenant['logo_url'] != null &&
                         (tenant['logo_url'] as String).isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: tenant['logo_url'],
+                    ? AppImage(
+                        tenant['logo_url'],
                         width: 50,
                         height: 50,
                         fit: BoxFit.cover,
-                        errorWidget: (context, url, error) {
+                        errorWidget: (context, url) {
                           return Icon(
                             isBookshop ? Icons.store : Icons.church,
                             color: isRegistered

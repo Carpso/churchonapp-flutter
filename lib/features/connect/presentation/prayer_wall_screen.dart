@@ -3,7 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import '../data/prayer_service.dart';
 import 'package:intl/intl.dart';
 
@@ -96,15 +96,19 @@ class _PrayerWallScreenState extends ConsumerState<PrayerWallScreen> {
             children: [
                CircleAvatar(
                  backgroundColor: Theme.of(context).colorScheme.primary,
-                backgroundImage: (prayer.userPhoto != null && prayer.userPhoto!.isNotEmpty)
-                    ? ResizeImage(CachedNetworkImageProvider(prayer.userPhoto!), width: 80, height: 80)
-                    : null,
-                child: (prayer.userPhoto == null || prayer.userPhoto!.isEmpty)
-                    ? Text(
+                child: (prayer.userPhoto != null && prayer.userPhoto!.isNotEmpty)
+                    ? ClipOval(
+                        child: AppImage(
+                          prayer.userPhoto!,
+                          width: 34,
+                          height: 34,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : Text(
                         prayer.userName.isNotEmpty ? prayer.userName[0].toUpperCase() : 'P',
                          style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontWeight: FontWeight.bold),
-                      )
-                    : null,
+                      ),
               ),
               const SizedBox(width: 15),
               Column(

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/features/events/data/event_service.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
@@ -73,15 +73,13 @@ class MyTicketsTab extends ConsumerWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: CachedNetworkImage(
-                imageUrl: event.imageUrl,
+              child: AppImage(
+                event.imageUrl,
                 width: 60,
                 height: 60,
-                memCacheWidth: 120,
-                memCacheHeight: 120,
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Container(width: 60, height: 60, color: Colors.grey.shade200),
-                errorWidget: (context, url, error) => Container(
+                placeholder: Container(width: 60, height: 60, color: Colors.grey.shade200),
+                errorWidget: (context, url) => Container(
                   width: 60,
                   height: 60,
                   color: Colors.grey.shade200,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/widgets/app_image.dart';
 import '../data/social_service.dart';
 import 'widgets/social_post_card.dart';
 
@@ -46,7 +47,7 @@ class SavedPostsScreen extends ConsumerWidget {
                   decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
                   clipBehavior: Clip.antiAlias,
                   child: image != null && image.isNotEmpty
-                      ? Image.network(image, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(LucideIcons.image, color: Colors.grey))
+                      ? AppImage(image, fit: BoxFit.cover, errorWidget: (_, __) => const Icon(LucideIcons.image, color: Colors.grey))
                       : const Icon(LucideIcons.fileText, color: Colors.grey),
                 ),
               );

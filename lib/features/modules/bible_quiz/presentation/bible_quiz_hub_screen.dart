@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/theme/app_theme.dart';
 import 'package:church_on_app/features/navigation/presentation/main_navigation_shell.dart';
 import '../../../../core/services/tenant_service.dart';
@@ -2240,24 +2241,21 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
                                           color: AppTheme.platformPrimary,
                                           width: 2,
                                         ),
-                                        image: user['avatar_url'] != null &&
-                                                user['avatar_url'].toString().isNotEmpty
-                                            ? DecorationImage(
-                                                image: NetworkImage(
-                                                  user['avatar_url'].toString(),
-                                                ),
-                                                fit: BoxFit.cover,
-                                              )
-                                            : null,
                                       ),
-                                      child: user['avatar_url'] == null ||
-                                              user['avatar_url'].toString().isEmpty
-                                          ? const Icon(
+                                      clipBehavior: Clip.antiAlias,
+                                      child: user['avatar_url'] != null &&
+                                              user['avatar_url'].toString().isNotEmpty
+                                          ? AppImage(
+                                              user['avatar_url'].toString(),
+                                              width: 40,
+                                              height: 40,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : const Icon(
                                               LucideIcons.user,
                                               color: Colors.white38,
                                               size: 20,
-                                            )
-                                          : null,
+                                            ),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
@@ -2588,17 +2586,13 @@ class _FriendPickerSheetState extends ConsumerState<_FriendPickerSheet> {
                             leading: CircleAvatar(
                               backgroundColor: Colors.white.withValues(
                                   alpha: 0.15),
-                              foregroundImage: m['avatar_url'] != null &&
+                              child: m['avatar_url'] != null &&
                                       m['avatar_url'].toString().isNotEmpty
-                                  ? NetworkImage(m['avatar_url'].toString())
-                                  : null,
-                              child: m['avatar_url'] == null ||
-                                      m['avatar_url'].toString().isEmpty
-                                  ? Text(name.isNotEmpty ? name[0] : '?',
+                                  ? ClipOval(child: AppImage(m['avatar_url'].toString(), width: 40, height: 40, fit: BoxFit.cover))
+                                  : Text(name.isNotEmpty ? name[0] : '?',
                                       style: const TextStyle(
                                           color: Colors.white,
-                                          fontWeight: FontWeight.bold))
-                                  : null,
+                                          fontWeight: FontWeight.bold)),
                             ),
                             title: Text(name,
                                 style: const TextStyle(

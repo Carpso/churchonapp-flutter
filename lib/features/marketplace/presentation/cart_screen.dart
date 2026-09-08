@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/config/fee_config.dart';
 import '../data/cart_provider.dart';
 
@@ -158,11 +158,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               child: SizedBox(
                 width: 90,
                 height: 90,
-                child: CachedNetworkImage(
-                  imageUrl: item.product.image ??
-                      '',
+                child: AppImage(
+                  item.product.image ?? '',
                   fit: BoxFit.cover,
-                  errorWidget: (context, url, error) => Container(
+                  errorWidget: (context, url) => Container(
                     color: Colors.grey.shade100,
                     child: Icon(
                       LucideIcons.package,

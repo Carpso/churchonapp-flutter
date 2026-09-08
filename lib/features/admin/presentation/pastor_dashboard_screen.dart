@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
@@ -919,9 +919,9 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
                 SizedBox(
                   width: 44, height: 44,
                   child: ClipOval(
-                    child: avatarUrl != null
-                        ? CachedNetworkImage(imageUrl: avatarUrl, width: 44, height: 44, memCacheWidth: 88, memCacheHeight: 88, fit: BoxFit.cover, errorWidget: (_, __, ___) => _avatarFallback(theme))
-                        : _avatarFallback(theme),
+child: avatarUrl != null && avatarUrl!.isNotEmpty
+                    ? AppImage(avatarUrl!, width: 44, height: 44, fit: BoxFit.cover, errorWidget: (_, __) => _avatarFallback(theme))
+                    : _avatarFallback(theme),
                   ),
                 ),
                 const SizedBox(width: 14),

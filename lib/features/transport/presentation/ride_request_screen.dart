@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'dart:async';
 import 'package:universal_io/io.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1108,11 +1109,9 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                       radius: 45,
                       backgroundColor:
                           AppTheme.platformPrimary.withValues(alpha: 0.1),
-                      backgroundImage: avatarUrl.isNotEmpty
-                          ? NetworkImage(avatarUrl)
-                          : null,
-                      child: avatarUrl.isEmpty
-                          ? Text(
+                      child: avatarUrl.isNotEmpty
+                          ? ClipOval(child: AppImage(avatarUrl, width: 90, height: 90, fit: BoxFit.cover))
+                          : Text(
                               userName.isNotEmpty
                                   ? userName[0].toUpperCase()
                                   : "R",
@@ -1120,8 +1119,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                                   fontSize: 36,
                                   fontWeight: FontWeight.bold,
                                   color: AppTheme.platformPrimary),
-                            )
-                          : null,
+                            ),
                     ),
                     if (isVerified)
                       Positioned(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 
 class EventHostDashboardScreen extends StatefulWidget {
   final String eventId;
@@ -278,12 +279,9 @@ class _EventHostDashboardScreenState extends State<EventHostDashboardScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundImage: profile?['avatar_url'] != null
-                              ? NetworkImage(profile!['avatar_url'])
-                              : null,
-                          child: profile?['avatar_url'] == null
-                              ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?')
-                              : null,
+                          child: (profile?['avatar_url'] as String?)?.isNotEmpty == true
+                              ? ClipOval(child: AppImage(profile!['avatar_url'] as String, width: 40, height: 40, fit: BoxFit.cover))
+                              : Text(name.isNotEmpty ? name[0].toUpperCase() : '?'),
                         ),
                         title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text("Phone: $phone", style: const TextStyle(fontSize: 12, color: Colors.grey)),

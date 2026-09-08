@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../../../core/widgets/app_image.dart';
 
 import '../../../core/providers/profile_provider.dart';
 import '../../connect/data/social_service.dart';
@@ -58,13 +58,14 @@ class ProfileDeepLinkHandlerScreen extends ConsumerWidget {
           child: CircleAvatar(
             radius: 48,
             backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-            backgroundImage: avatar.isNotEmpty ? CachedNetworkImageProvider(avatar) : null,
             child: avatar.isEmpty
                 ? Text(
                     name.isNotEmpty ? name[0].toUpperCase() : 'U',
                     style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                   )
-                : null,
+                : ClipOval(
+                    child: AppImage(avatar, width: 96, height: 96, fit: BoxFit.cover),
+                  ),
           ),
         ),
         const SizedBox(height: 16),

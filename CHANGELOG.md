@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased — 2026-09-08 (Cross-References, Parallel Reader, Streaming Consolidation)
+
+### Added — Bible cross-references (finally real)
+- **Root cause fixed**: `cross_references` was an empty shell — SELECT-only policy, no unique index, source-direction-only fetch, curated links bookmarked non-canonical book names (`Psalm` vs `Psalms`).
+- **Migration `20260908_fix_cross_references_parallel_streaming.sql` (deployed)**: seeds ~68 curated cross-reference pairs (harmony `parallel`, OT→NT `prophecy`, classic `thematic` — incl. the 59 app-side `kLinkedScripture` links), unique index `ux_cross_references_pair`, authenticated INSERT policy, and reverse-row backfill so *either* side of a pair surfaces its counterpart.
+- **`BibleVerseService.fetchCrossReferences` is now bidirectional**: selects both `source_book` + `target_book` embeds, `.or()` matches source OR target, reverse rows render the counterpart correctly.
+- **Kael-AI fallback generator** (`generateCrossReferences`): when no DB refs exist the verse sheet asks Kael (`cross_ref` action), parses `BibleRef: Book C:V` lines, persists them idempotently via the new unique index + INSERT policy.
+- **Related-passages canonical names**: `linked_scripture_data.dart` `_canonicalBookNames` (`Psalm→Psalms`) — the 59 curated RELATED PASSAGES links now surface and navigate on canonical book names.
+
+### Added — Parallel Bible reader
+- New `ParallelBibleScreen`: chapter-level comparison across 11 resolvable translations (KJV/WEB/ASV/BBE/YLT/DRA/Noyes/Tyndale/Webster/UKJV/MKJV), KJV base verse list, per-verse per-translation rows, FilterChip translation toggles (min 1 kept), working chapter-picker grid capped at the book's real chapter count.
+- Route `/bible/:book/:chapter/parallel` registered; `columns` AppBar entry in the reader + "Open Parallel Reader" button in the verse sheet.
+- Verse-sheet PARALLEL TRANSLATIONS widened from hardcoded `['kjv','web']` to `['kjv','web','asv','bbe','ylt']` (canResolve-filtered).
+
+### Fixed — Streaming consolidated on Cloudflare
+- `stream_admin_screen.dart` OBS ("Start with OBS") + schedule flows no longer use the legacy MediaMTX hardcoded path (`LiveStreamService.createStream` → `stream.churchonapp.com`). Both now call `UnifiedStreamService.createLiveStream` → real Cloudflare live input, and show a copyable RTMP URL + stream key dialog (OBS credentials). Studio path already used Cloudflare.
+- Usage meter reads the unified service (single gate source); removed dead `liveStreamService`/`subscriptionService` usages.
+- `live_streams.status` CHECK widened to include `'archived'` (cleanup inserts were failing 23514).
+
+### Builds
+- Fresh `flutter clean` + `pub get` → APK **v1.0.0+305** 212.7 MB (`build/app/outputs/flutter-apk/app-release.apk`, assembleRelease 1490 s) → AAB **v1.0.0+306** 123.8 MB (`build/app/outputs/bundle/release/app-release.aab`, bundleRelease 281 s).
+- `flutter analyze`: **0 errors, 0 warnings** (2 pre-existing infos in tests). Key-flow smoke 5/5.
+
 ## Unreleased — 2026-09-06 (Payments, Dashboards, Profile)
 
 **Full payment system repaired — documented in [PAYMENTS.md](PAYMENTS.md).**

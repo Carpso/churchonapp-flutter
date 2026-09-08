@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 class KycApplication {
@@ -261,12 +261,10 @@ class _KycReviewScreenState extends ConsumerState<KycReviewScreen> {
             children: [
               CircleAvatar(
                 radius: 24,
-                backgroundImage: app.avatarUrl != null
-                    ? CachedNetworkImageProvider(app.avatarUrl!)
-                    : null,
-                child: app.avatarUrl == null
-                    ? const Icon(LucideIcons.user, color: Colors.white38)
-                    : null,
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                child: app.avatarUrl != null && app.avatarUrl!.isNotEmpty
+                    ? ClipOval(child: AppImage(app.avatarUrl!, width: 48, height: 48, fit: BoxFit.cover))
+                    : const Icon(LucideIcons.user, color: Colors.white38),
               ),
               const SizedBox(width: 15),
               Expanded(

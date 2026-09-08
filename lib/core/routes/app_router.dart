@@ -132,6 +132,7 @@ import 'package:church_on_app/features/admin/presentation/volunteer_schedule_scr
 import 'package:church_on_app/features/auth/presentation/two_factor_verify_screen.dart';
 import 'package:church_on_app/features/bible/presentation/bible_books_audit_screen.dart';
 import 'package:church_on_app/features/bible/presentation/bible_screen.dart';
+import 'package:church_on_app/features/bible/presentation/parallel_bible_screen.dart';
 import 'package:church_on_app/features/bible_study/presentation/bible_study_create_screen.dart';
 import 'package:church_on_app/features/bible_study/presentation/bible_study_detail_screen.dart';
 import 'package:church_on_app/features/bible_study/presentation/bible_study_list_screen.dart';
@@ -1043,6 +1044,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           final book = state.pathParameters['book']!;
           final chapter = int.tryParse(state.pathParameters['chapter'] ?? '1') ?? 1;
           return BibleScreen(initialBook: book, initialChapter: chapter);
+        },
+      ),
+      GoRoute(
+        path: '/bible/:book/:chapter/parallel',
+        builder: (context, state) {
+          final book = state.pathParameters['book']!;
+          final chapter = int.tryParse(state.pathParameters['chapter'] ?? '1') ?? 1;
+          return ParallelBibleScreen(book: book, chapter: chapter);
         },
       ),
       GoRoute(
