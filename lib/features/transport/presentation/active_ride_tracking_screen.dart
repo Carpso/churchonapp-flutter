@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/widgets/church_map.dart';
+import '../../../core/services/voice_direction_service.dart';
 import 'package:church_on_app/core/widgets/live_tracking_sheet.dart';
 import 'package:church_on_app/features/connect/presentation/chat_messenger_screen.dart';
 import 'package:church_on_app/features/connect/presentation/audio_call_screen.dart';
@@ -50,6 +51,11 @@ class _ActiveRideTrackingScreenState
   final bool _followDriver = true;
   late AnimationController _animController;
   Animation<LatLng>? _driverAnim;
+  bool _voiceEnabled = false;
+  double _distanceToPickup = 0;
+  double _distanceToDest = 0;
+  bool _pickupAnnounced = false;
+  bool _destAnnounced = false;
 
   @override
   void initState() {
@@ -99,9 +105,39 @@ class _ActiveRideTrackingScreenState
             CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
           );
           _animController.forward(from: 0.0);
+          // Voice direction: announce as driver approaches pickup / destination
+          _updateVoiceDirections(pos);
         }
       },
     );
+  }
+
+  void _updateVoiceDirections(LatLng driverPos) {
+    if (!_voiceEnabled) return;
+    final Distance distance = Distance();
+    _distanceToPickup = distance(driverPos, widget.startPos);
+    _distanceToDest = distance(driverPos, widget.destPos);
+
+    // Approaching pickup (within 300m, not yet announced)
+    if (!_pickupAnnounced && _distanceToPickup < 300) {
+      _pickupAnnounced = true;
+      VoiceDirectionService.speak(
+        VoiceDirectionService.buildDirection(
+          distanceMetres: _distanceToPickup,
+          approaching: true,
+        ),
+      );
+    }
+    // Approaching destination (within 300m, not yet announced)
+    if (!_destAnnounced && _distanceToDest < 300) {
+      _destAnnounced = true;
+      VoiceDirectionService.speak(
+        VoiceDirectionService.buildDirection(
+          distanceMetres: _distanceToDest,
+          approaching: true,
+        ),
+      );
+    }
   }
 
   Future<void> _fetchDriverProfile(String driverId) async {
@@ -146,6 +182,7 @@ class _ActiveRideTrackingScreenState
 
   @override
   void dispose() {
+    VoiceDirectionService.stop();
     _animController.dispose();
     _statusSub?.cancel();
     _locationSub?.cancel();
@@ -252,6 +289,28 @@ class _ActiveRideTrackingScreenState
               child: IconButton(
                 icon: const Icon(LucideIcons.arrowLeft, color: Colors.black),
                 onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ),
+          // Voice direction toggle
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10,
+            left: 70,
+            child: CircleAvatar(
+              backgroundColor: _voiceEnabled ? Theme.of(context).primaryColor : Colors.white,
+              child: IconButton(
+                icon: Icon(
+                  _voiceEnabled ? LucideIcons.volume2 : LucideIcons.volumeX,
+                  color: _voiceEnabled ? Colors.white : Colors.black,
+                ),
+                onPressed: () {
+                  setState(() => _voiceEnabled = !_voiceEnabled);
+                  if (_voiceEnabled) {
+                    VoiceDirectionService.speak('Voice directions enabled. I will announce as the driver approaches.');
+                  } else {
+                    VoiceDirectionService.stop();
+                  }
+                },
               ),
             ),
           ),

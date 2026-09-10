@@ -86,6 +86,8 @@ class AppImage extends StatefulWidget {
 class _AppImageState extends State<AppImage> {
   late String _displayUrl = widget.url.trim();
   String? _resolvingUrl;
+  int _retryCount = 0;
+  static const int _maxRetries = 2;
 
   @override
   void initState() {
@@ -100,6 +102,7 @@ class _AppImageState extends State<AppImage> {
     if (next != oldWidget.url.trim()) {
       _displayUrl = next;
       _resolvingUrl = null;
+      _retryCount = 0;
       _maybeResolve();
     }
   }
@@ -109,10 +112,35 @@ class _AppImageState extends State<AppImage> {
     final url = _displayUrl;
     if (_resolvingUrl == url) return;
     _resolvingUrl = url;
-    final resolved = await R2Service.resolveReadUrl(url);
-    if (!mounted || _resolvingUrl != url) return;
-    if (resolved != _displayUrl) {
-      setState(() => _displayUrl = resolved);
+    try {
+      final resolved = await R2Service.resolveReadUrl(url);
+      if (!mounted || _resolvingUrl != url) return;
+      if (resolved != _displayUrl) {
+        setState(() => _displayUrl = resolved);
+      }
+    } catch (e) {
+      // R2-sign failed — keep original URL; CachedNetworkImage may still
+      // serve it from its own disk cache even if the bucket is private.
+      debugPrint('AppImage resolve failed (non-fatal): $e');
+    }
+  }
+
+  /// Called by CachedNetworkImage errorWidget when the resolved URL 403s.
+  /// On first failure, invalidate the R2 cache and re-resolve (the signed
+  /// URL may have expired). On second failure, try the raw public URL
+  /// directly — some images may be publicly accessible despite the bucket
+  /// being private (e.g. profile pics uploaded via a different path).
+  void _onImageError(String failedUrl) {
+    if (_retryCount >= _maxRetries) return;
+    _retryCount++;
+    _resolvingUrl = null;
+    // Clear the cached signed URL so we get a fresh one
+    R2Service.invalidateReadCache(widget.url.trim());
+    // On second try, skip resolve and use raw URL
+    if (_retryCount >= _maxRetries && mounted) {
+      setState(() => _displayUrl = widget.url.trim());
+    } else {
+      _maybeResolve();
     }
   }
 
@@ -154,6 +182,8 @@ class _AppImageState extends State<AppImage> {
             child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
           ),
       errorWidget: (context, url, error) {
+        // Retry: invalidate R2 cache and re-resolve (signed URL may have expired)
+        _onImageError(url);
         if (widget.errorWidget != null) return widget.errorWidget!(context, url);
         return Container(
           width: widget.width,

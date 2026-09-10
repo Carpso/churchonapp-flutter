@@ -134,6 +134,32 @@ class TestimonyService {
         'likes': 0,
       });
     }
+
+    // Notify church members of new testimony (fire-and-forget)
+    if (tenantId != null && tenantId.isNotEmpty) {
+      try {
+        _client
+            .from('profiles')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .neq('id', user.id)
+            .limit(200)
+            .then((members) {
+          for (final m in (members as List)) {
+            final uid = m['id']?.toString();
+            if (uid == null) continue;
+            try {
+              _client.functions.invoke('push-notifications', body: {
+                'userId': uid,
+                'title': 'New Testimony',
+                'body': '$resolvedName shared a testimony.',
+                'type': 'testimony',
+              });
+            } catch (_) {}
+          }
+        });
+      } catch (_) {}
+    }
   }
 
   Future<void> praiseTestimony(String testimonyId, List<String> currentPraises) async {

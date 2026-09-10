@@ -80,12 +80,40 @@ class MarketplaceService {
   }
 
   Future<void> postProduct(Map<String, dynamic> productData, {String? tenantId}) async {
+    final user = _client.auth.currentUser;
     await _client.from('marketplace_items').insert({
       ...productData,
       if (tenantId != null) 'tenant_id': tenantId,
       'status': 'active',
       'created_at': DateTime.now().toIso8601String(),
     });
+
+    // Notify church members of new listing (fire-and-forget)
+    if (tenantId != null && tenantId.isNotEmpty && user != null) {
+      try {
+        final name = productData['name']?.toString() ?? 'New item';
+        _client
+            .from('profiles')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .neq('id', user.id)
+            .limit(200)
+            .then((members) {
+          for (final m in (members as List)) {
+            final uid = m['id']?.toString();
+            if (uid == null) continue;
+            try {
+              _client.functions.invoke('push-notifications', body: {
+                'userId': uid,
+                'title': 'New Listing',
+                'body': 'New item "$name" posted in the marketplace.',
+                'type': 'marketplace',
+              });
+            } catch (_) {}
+          }
+        });
+      } catch (_) {}
+    }
   }
 
   /// Update an existing listing. Only the fields present in `changes` are

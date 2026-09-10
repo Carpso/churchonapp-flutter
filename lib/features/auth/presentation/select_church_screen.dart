@@ -65,10 +65,14 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
         });
   }
 
-  /// Full refresh: tenants (+ proximity filter) AND the nearby unregistered
-  /// OSM map pins. A plain tenant re-fetch clears the OSM pins without
-  /// repopulating them, which made the Refresh button look broken.
+  /// Full refresh: re-fetch tenants AND retry location if not yet obtained.
   Future<void> _refreshAll() async {
+    // If we don't have location yet, try again (user may have enabled it)
+    if (_currentPosition == null) {
+      try {
+        await _getUserLocation();
+      } catch (_) {}
+    }
     await _fetchTenants();
     if (_currentPosition != null) {
       await _fetchNearbyChurches();
@@ -109,25 +113,35 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
         if (position != null && DateTime.now().difference(position.timestamp) > const Duration(minutes: 10)) {
           position = null;
         }
-        position ??= await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 12)),
-        );
-        if (mounted) {
-          // ignore: unnecessary_non_null_assertion
-          final pos = position!;
+        try {
+          position ??= await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 30)),
+          );
+        } catch (locErr) {
+          debugPrint('getCurrentPosition failed (non-fatal): $locErr');
+          // If we have no lastKnownPosition either, just continue without
+          // location — the map/list still shows all churches nationwide.
+        }
+        if (mounted && position != null) {
           setState(() {
-            _currentPosition = pos;
+            _currentPosition = position;
             _currentCountry = detectCountryFromCoordinates(
-              pos.latitude,
-              pos.longitude,
+              position!.latitude,
+              position.longitude,
             );
           });
         }
       }
     } catch (e) {
       debugPrint('Error getting location: $e');
+      // Show a less alarming message — location failure is non-fatal
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Couldn't get location: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text("Could not get location — showing all churches."),
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
     }
   }

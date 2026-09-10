@@ -164,6 +164,29 @@ class SermonService {
       'tenant_id': tenantId,
       'church_id': churchId,
     });
+
+    // Notify sermon author of insight/comment (fire-and-forget, non-amen only)
+    if (type != 'amen' && content != null && content.isNotEmpty) {
+      try {
+        final sermon = await _client
+            .from('sermons')
+            .select('user_id, title')
+            .eq('id', sermonId)
+            .maybeSingle();
+        final authorId = sermon?['user_id']?.toString();
+        if (authorId != null && authorId != user.id) {
+          final myName = user.userMetadata?['full_name'] ?? 'Someone';
+          final preview = content.length > 60 ? '${content.substring(0, 60)}...' : content;
+          _client.functions.invoke('push-notifications', body: {
+            'userId': authorId,
+            'title': 'Sermon Insight',
+            'body': '$myName on "${sermon?['title'] ?? 'your sermon'}": $preview',
+            'type': 'sermon',
+            'referenceId': sermonId,
+          });
+        }
+      } catch (_) {}
+    }
   }
 
   Future<bool> hasUserReacted(String sermonId, String type) async {

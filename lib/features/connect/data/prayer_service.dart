@@ -130,6 +130,32 @@ class PrayerService {
       'prayed_by': [user.id],
       'ai_encouragement': aiEncouragements[DateTime.now().millisecond % aiEncouragements.length],
     });
+
+    // Notify church members of new prayer request (fire-and-forget)
+    if (tenantId != null && tenantId.isNotEmpty && !isAnonymous) {
+      try {
+        _client
+            .from('profiles')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .neq('id', user.id)
+            .limit(200)
+            .then((members) {
+          for (final m in (members as List)) {
+            final uid = m['id']?.toString();
+            if (uid == null) continue;
+            try {
+              _client.functions.invoke('push-notifications', body: {
+                'userId': uid,
+                'title': 'Prayer Request',
+                'body': '$resolvedName needs prayer. Tap to intercede.',
+                'type': 'prayer',
+              });
+            } catch (_) {}
+          }
+        });
+      } catch (_) {}
+    }
   }
 
   // Session-based deduplication

@@ -65,6 +65,13 @@ class R2Service {
     return future;
   }
 
+  /// Force-clear a cached signed URL so the next resolve call fetches a
+  /// fresh one. Used by AppImage retry when a signed URL expires mid-scroll.
+  static void invalidateReadCache(String url) {
+    _readUrlCache.remove(url);
+    _readUrlCacheAt.remove(url);
+  }
+
   final SupabaseClient _client;
   R2Service(this._client);
 
