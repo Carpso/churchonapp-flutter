@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/features/events/data/event_service.dart';
-import 'package:church_on_app/features/give/presentation/lipila_payment_gateway.dart';
+import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';

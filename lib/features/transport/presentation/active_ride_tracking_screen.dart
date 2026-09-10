@@ -51,6 +51,7 @@ class _ActiveRideTrackingScreenState
   final bool _followDriver = true;
   late AnimationController _animController;
   Animation<LatLng>? _driverAnim;
+  String _rideStatusText = "En Route";
   bool _voiceEnabled = false;
   double _distanceToPickup = 0;
   double _distanceToDest = 0;
@@ -113,12 +114,26 @@ class _ActiveRideTrackingScreenState
   }
 
   void _updateVoiceDirections(LatLng driverPos) {
-    if (!_voiceEnabled) return;
     final Distance distance = Distance();
     _distanceToPickup = distance(driverPos, widget.startPos);
     _distanceToDest = distance(driverPos, widget.destPos);
 
-    // Approaching pickup (within 300m, not yet announced)
+    // Update dynamic status text
+    if (mounted) {
+      setState(() {
+        if (_distanceToPickup < 100) {
+          _rideStatusText = "Arriving at Pickup";
+        } else if (_distanceToDest < 300) {
+          _rideStatusText = "Approaching Destination";
+        } else {
+          _rideStatusText = "En Route";
+        }
+      });
+    }
+
+    if (!_voiceEnabled) return;
+
+    // Voice direction: announce as driver approaches pickup / destination
     if (!_pickupAnnounced && _distanceToPickup < 300) {
       _pickupAnnounced = true;
       VoiceDirectionService.speak(
@@ -466,7 +481,7 @@ class _ActiveRideTrackingScreenState
                           borderRadius: BorderRadius.circular(15),
                         ),
                         child: Text(
-                          "En Route",
+                          _rideStatusText,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.secondary,
                             fontWeight: FontWeight.bold,
@@ -523,20 +538,30 @@ class _ActiveRideTrackingScreenState
       builder: (context) => AlertDialog(
         title: const Text("Cancel Carpso Ride?"),
         content: const Text(
-            "Are you sure you want to refuse this Carpso Ride? Nothing happens if you cancel now."),
+            "Are you sure you want to cancel this ride? The driver will be notified."),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text("BACK")),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              Navigator.pop(context);
+              try {
+                final service = ref.read(transportServiceProvider);
+                if (widget.type == 'ride' && widget.requestId != null) {
+                  await service.updateRideStatus(widget.requestId!, 'cancelled');
+                } else if (widget.type == 'delivery' && widget.deliveryId != null) {
+                  await service.updateDeliveryStatus(widget.deliveryId!, 'cancelled');
+                }
+              } catch (e) {
+                debugPrint('Ride cancel failed: $e');
+              }
+              if (mounted) Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white),
-            child: const Text("CANCEL CARPSO RIDE"),
+            child: const Text("CANCEL RIDE"),
           ),
         ],
       ),
@@ -645,7 +670,7 @@ class _ActiveRideTrackingScreenState
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                         content: Text(
-                            "Mission Accomplished! Coins settled.")),
+                            "Ride complete! Thank you for riding with Carpso.")),
                   );
                 },
                 style: ElevatedButton.styleFrom(

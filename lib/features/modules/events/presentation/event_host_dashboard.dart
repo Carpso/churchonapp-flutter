@@ -210,8 +210,8 @@ class _EventHostDashboardScreenState extends State<EventHostDashboardScreen> {
               decoration: const InputDecoration(labelText: "Resource Link / PDF URL"),
             ),
             const SizedBox(height: 15),
-            DropdownButtonFormField<String>(
-              initialValue: _resourceType,
+              DropdownButtonFormField<String>(
+                initialValue: _resourceType,
               items: ["document", "media", "link"].map((type) {
                 return DropdownMenuItem(value: type, child: Text(type.toUpperCase()));
               }).toList(),

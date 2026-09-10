@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/config/env.dart';
 import 'study_settings_provider.dart';
 import 'bible_verse_service.dart';
 
@@ -292,7 +293,7 @@ class BibleService {
     return [];
   }
 
-  static const _r2Base = 'https://media.churchonapp.com/bible-text';
+  static String get _r2Base => 'https://${Env.r2PublicDomain}/bible-text';
 
   Future<List<Map<String, dynamic>>> _fetchFromR2(
     String translation,

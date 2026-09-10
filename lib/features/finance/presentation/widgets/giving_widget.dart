@@ -366,8 +366,8 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
           category: _selectedCategory.toLowerCase(),
           recipientName: tenant?.name ?? (widget.churchName ?? "Local Church"),
           recipientAccount: _selectedCategory == 'Tithe'
-              ? (tenant?.pastorPhone ?? tenant?.treasurerPhone ?? "CHURCH-OFFICIAL-AC")
-              : (tenant?.treasurerPhone ?? tenant?.contactPhone ?? "CHURCH-OFFICIAL-AC"),
+              ? (tenant?.pastorPhone ?? tenant?.treasurerPhone ?? "")
+              : (tenant?.treasurerPhone ?? tenant?.contactPhone ?? ""),
           paymentReason: _selectedCategory == 'Tithe'
               ? "$_selectedCategory — sent to Pastor"
               : "$_selectedCategory Support",

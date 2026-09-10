@@ -89,7 +89,7 @@ class _MyPledgesScreenState extends ConsumerState<MyPledgesScreen> {
           description: "Pledge: ${pledge.category}",
           category: pledge.category.toLowerCase(),
           recipientName: tenant?.name ?? "Local Church",
-          recipientAccount: tenant?.treasurerPhone ?? "CHURCH-OFFICIAL-AC",
+          recipientAccount: tenant?.treasurerPhone ?? "",
           paymentReason: "${pledge.category} Pledge Installment",
           onComplete: (success, txId) async {
             if (ctx.mounted) Navigator.pop(ctx);

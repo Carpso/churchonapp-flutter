@@ -105,6 +105,8 @@ String _channelForType(String type) {
       return 'coa_volunteers';
     case 'worship':
       return 'coa_worship';
+    case 'incoming_call':
+      return 'coa_rides';
     default:
       return 'coa_announcements';
   }
@@ -156,6 +158,7 @@ Importance _importanceForType(String type) {
     case 'payment':
     case 'role':
     case 'quiz':
+    case 'incoming_call':
       return Importance.max;
     default:
       return Importance.high;
@@ -304,6 +307,9 @@ class FcmService {
         case 'chat_message':
           GoRouter.of(context).push('/connect');
           return;
+        case 'incoming_call':
+          GoRouter.of(context).push('/calls');
+          return;
         default:
           GoRouter.of(context).go('/');
           return;
@@ -325,6 +331,7 @@ class FcmService {
             GoRouter.of(context).push('/chat/$id');
             return;
           case 'ride':
+          case 'incoming_call':
             GoRouter.of(context).push('/ride');
             return;
           case 'payment':

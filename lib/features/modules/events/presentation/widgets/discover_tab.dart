@@ -115,13 +115,14 @@ class DiscoverTab extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(DateFormat.yMMMd().format(event.date), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold, fontSize: 12)),
-                      Row(
-                        children: [
-                          Icon(LucideIcons.globe, size: 12, color: Theme.of(context).primaryColor),
-                          SizedBox(width: 4),
-                          Text("Interchurch", style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 11, fontWeight: FontWeight.bold)),
-                        ],
-                      )
+                      if (event.interchurch == true)
+                        Row(
+                          children: [
+                            Icon(LucideIcons.globe, size: 12, color: Theme.of(context).primaryColor),
+                            SizedBox(width: 4),
+                            Text("Interchurch", style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 11, fontWeight: FontWeight.bold)),
+                          ],
+                        )
                     ],
                   ),
                   const SizedBox(height: 8),

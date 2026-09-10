@@ -223,7 +223,7 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
     if (!mounted) return;
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Event Created! Banner uploaded securely to Cloudflare R2."), backgroundColor: Colors.green),
+      const SnackBar(content: Text("Event Created! Banner uploaded successfully."), backgroundColor: Colors.green),
     );
   }
 
@@ -545,7 +545,7 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
                       children: [
                         Icon(LucideIcons.uploadCloud, size: 40, color: Colors.grey),
                         SizedBox(height: 10),
-                        Text("Upload Event Banner (Saves to R2)", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                        Text("Upload Event Banner", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
                       ],
                     ),
               ),

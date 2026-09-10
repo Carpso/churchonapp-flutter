@@ -17,6 +17,7 @@ class ChurchEvent {
   final String speakers;
   final String organizerMomoPhone;
   final String organizerMomoName;
+  final bool interchurch;
 
   ChurchEvent({
     required this.id,
@@ -32,6 +33,7 @@ class ChurchEvent {
     required this.speakers,
     required this.organizerMomoPhone,
     required this.organizerMomoName,
+    this.interchurch = false,
   });
 
   factory ChurchEvent.fromMap(Map<String, dynamic> map) {
@@ -49,6 +51,7 @@ class ChurchEvent {
       speakers: map['speakers'] ?? '',
       organizerMomoPhone: map['organizer_momo_phone'] ?? '',
       organizerMomoName: map['organizer_momo_name'] ?? '',
+      interchurch: map['interchurch'] == true,
     );
   }
 }

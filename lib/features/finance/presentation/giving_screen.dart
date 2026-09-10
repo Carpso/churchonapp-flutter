@@ -145,6 +145,16 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
                   return;
                 }
                 final amount = double.tryParse(_amountController.text) ?? 0.0;
+                final tenant = ref.read(currentTenantProvider);
+                final recipient = _selectedCategory.toLowerCase() == 'tithe'
+                    ? _titheRecipientPhone(tenant)
+                    : (tenant?.treasurerPhone ?? tenant?.contactPhone ?? tenant?.pastorPhone);
+                if (recipient == null || recipient.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("No payment recipient configured for this church. Please contact your administrator.")),
+                  );
+                  return;
+                }
 
                 showModalBottomSheet(
                   context: context,
@@ -161,7 +171,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
                          ? _titheRecipientPhone(tenant)
                          : (tenant?.treasurerPhone ??
                              tenant?.contactPhone ??
-                             'CHURCH-OFFICIAL-AC'),
+                              ''),
                       paymentReason: '$_selectedCategory Support',
                       onComplete: (success, txId) async {
                         Navigator.pop(sheetCtx);
@@ -911,7 +921,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
           description: '$type Giving',
           category: 'offering',
           recipientName: tenant?.name ?? 'Local Church',
-          recipientAccount: tenant?.treasurerPhone ?? tenant?.contactPhone ?? 'CHURCH-OFFICIAL-AC',
+          recipientAccount: tenant?.treasurerPhone ?? tenant?.contactPhone ?? '',
           paymentReason: '$type Giving',
           onComplete: (success, txId) async {
             Navigator.pop(sheetCtx);
@@ -945,13 +955,13 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
   String _titheRecipientPhone(Tenant? tenant) {
     switch (_selectedTitheRecipient) {
       case "Pastor":
-        return tenant?.pastorPhone ?? tenant?.treasurerPhone ?? 'CHURCH-OFFICIAL-AC';
+        return tenant?.pastorPhone ?? tenant?.treasurerPhone ?? '';
       case "Bishop":
-        return tenant?.contactPhone ?? tenant?.pastorPhone ?? 'CHURCH-OFFICIAL-AC';
+        return tenant?.contactPhone ?? tenant?.pastorPhone ?? '';
       case "Treasurer":
-        return tenant?.treasurerPhone ?? tenant?.contactPhone ?? 'CHURCH-OFFICIAL-AC';
+        return tenant?.treasurerPhone ?? tenant?.contactPhone ?? '';
       default:
-        return tenant?.pastorPhone ?? tenant?.treasurerPhone ?? 'CHURCH-OFFICIAL-AC';
+        return tenant?.pastorPhone ?? tenant?.treasurerPhone ?? '';
     }
   }
 }

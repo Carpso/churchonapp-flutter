@@ -421,7 +421,7 @@ _buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHi
         _buildGroupHeader(context, "PROFILE & IDENTITY"),
         _buildPremiumItem(context, LucideIcons.user, "Personal Information", onTap: () => context.push('/account-settings')),
         _buildPremiumItem(context, LucideIcons.shield, "Security & Privacy", onTap: () => _showSecuritySettings(context)),
-        _buildPremiumItem(context, LucideIcons.fileCheck, "KYC Verification", trailing: "UNVERIFIED", onTap: () => context.push('/kyc-verification')),
+        _buildPremiumItem(context, LucideIcons.fileCheck, "KYC Verification", trailing: profile.isVerified ? "VERIFIED" : "UNVERIFIED", onTap: () => context.push('/kyc-verification')),
         if (!profile.isVerified)
           _buildPremiumItem(context, LucideIcons.badgeCheck, "Request Verification", onTap: () => context.push('/request-verification')),
         _buildPremiumItem(context, LucideIcons.trendingUp, "Role Onboarding", onTap: () => context.push('/onboarding/${profile.role}')),
@@ -767,7 +767,7 @@ _buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHi
                 error: (e, st) => _buildDashboardMetric(context, "Quiz Rank", "#--", LucideIcons.trophy, Theme.of(context).primaryColor),
               ),
               _buildDashboardMetric(context, "Tokens", "${profile.coins}", LucideIcons.zap, Theme.of(context).primaryColor.withValues(alpha: 0.7)),
-              _buildDashboardMetric(context, "Giving", "K${profile.balanceZmw.toInt()}", LucideIcons.banknote, Colors.greenAccent),
+              _buildDashboardMetric(context, "Wallet", "K${profile.balanceZmw.toInt()}", LucideIcons.banknote, Colors.greenAccent),
             ],
           ),
           const SizedBox(height: 32),
