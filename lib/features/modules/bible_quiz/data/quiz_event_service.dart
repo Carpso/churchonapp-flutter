@@ -270,6 +270,11 @@ class QuizEventService {
         'wager_coins': wagerCoins,
       }).select('id').maybeSingle();
 
+      // Notify church members of new quiz event (fire-and-forget)
+      if (res != null) {
+        _notifyQuizEventCreated(title);
+      }
+
       return res?['id']?.toString();
     } catch (e) {
       return 'Database error: $e';
@@ -696,6 +701,39 @@ class QuizEventService {
     }
 
     return dbQuestions;
+  }
+
+  /// Notify church members of a new quiz event (fire-and-forget).
+  void _notifyQuizEventCreated(String title) {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return;
+      // Fetch caller's tenant_id
+      _client.from('profiles').select('tenant_id').eq('id', user.id).maybeSingle().then((prof) {
+        final tenantId = prof?['tenant_id']?.toString();
+        if (tenantId == null || tenantId.isEmpty) return;
+        _client
+            .from('profiles')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .neq('id', user.id)
+            .limit(200)
+            .then((members) {
+          for (final m in (members as List)) {
+            final uid = m['id']?.toString();
+            if (uid == null) continue;
+            try {
+              _client.functions.invoke('push-notifications', body: {
+                'userId': uid,
+                'title': 'Bible Quiz',
+                'body': 'A new quiz "$title" has been created.',
+                'type': 'quiz',
+              });
+            } catch (_) {}
+          }
+        });
+      });
+    } catch (_) {}
   }
 }
 

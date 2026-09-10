@@ -157,6 +157,17 @@ class FinanceService {
         'recipient_phone': finalPhone,
         'payment_method': paymentMethod ?? 'momo',
       });
+      // Notify giver of confirmed payment (fire-and-forget)
+      try {
+        final label = category[0].toUpperCase() + category.substring(1);
+        _client.functions.invoke('push-notifications', body: {
+          'userId': user.id,
+          'title': '$label Confirmed',
+          'body': 'Your $label of K${amount.toStringAsFixed(2)} has been received. God bless you!',
+          'type': 'payment',
+          'referenceId': reference,
+        });
+      } catch (_) {}
     } catch (e) {
       // OFFLINE GIVING QUEUE: when the network is down (payment already
       // confirmed via Lipila), persist the intent locally and replay it

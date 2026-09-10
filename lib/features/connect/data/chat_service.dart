@@ -203,6 +203,8 @@ class ChatService {
         rethrow;
       }
     }
+    // Notify group members (fire-and-forget)
+    _notifyGroupMembers(groupId, content);
   }
 
   Future<void> sendMessage(
@@ -393,6 +395,39 @@ class ChatService {
       });
     } catch (_) {
       // Fire-and-forget — notification failure is non-critical
+    }
+  }
+
+  /// Notify all group members except the sender about a new group message.
+  Future<void> _notifyGroupMembers(String groupId, String content) async {
+    try {
+      final sender = _client.auth.currentUser;
+      if (sender == null) return;
+      final senderName = sender.userMetadata?['full_name'] ?? 'Someone';
+      final preview = content.length > 50 ? '${content.substring(0, 50)}...' : content;
+      // Fetch group members (best-effort — fail silently if table/columns missing)
+      final members = await _client
+          .from('community_members')
+          .select('user_id')
+          .eq('community_id', groupId)
+          .neq('user_id', sender.id)
+          .limit(200);
+      for (final m in (members as List)) {
+        final memberId = m['user_id']?.toString();
+        if (memberId == null || memberId.isEmpty) continue;
+        try {
+          await _client.functions.invoke('push-notifications', body: {
+            'userId': memberId,
+            'title': '$senderName in group',
+            'body': preview,
+            'type': 'chat_message',
+            'referenceId': groupId,
+            'channelId': 'messages',
+          });
+        } catch (_) {}
+      }
+    } catch (_) {
+      // Fire-and-forget — group notification failure is non-critical
     }
   }
 }

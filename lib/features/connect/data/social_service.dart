@@ -247,6 +247,8 @@ class SocialService {
           'user_id': user.id,
         });
         await _bumpPostLikes(postId, 1);
+        // Notify post author (fire-and-forget)
+        _notifyPostOwner(postId, 'liked your post');
         return true;
       }
     } catch (_) {
@@ -343,6 +345,9 @@ class SocialService {
     } catch (e) {
       debugPrint("social_service: failed to increment comment count: $e");
     }
+
+    // Notify post author (fire-and-forget)
+    _notifyPostOwner(postId, 'commented on your post');
   }
 
   Future<List<SocialPost>> fetchUserPosts(String userId, {int limit = 50}) async {
@@ -382,6 +387,29 @@ class SocialService {
   bool isPostOwner(SocialPost post) {
     final user = _client.auth.currentUser;
     return user != null && user.id == post.userId;
+  }
+
+  /// Notify post author when someone likes/comments (fire-and-forget).
+  Future<void> _notifyPostOwner(String postId, String action) async {
+    try {
+      final currentUser = _client.auth.currentUser;
+      if (currentUser == null) return;
+      final postRow = await _client
+          .from('social_posts')
+          .select('user_id')
+          .eq('id', postId)
+          .maybeSingle();
+      final postAuthorId = postRow?['user_id']?.toString();
+      if (postAuthorId == null || postAuthorId == currentUser.id) return;
+      final myName = currentUser.userMetadata?['full_name'] ?? 'Someone';
+      await _client.functions.invoke('push-notifications', body: {
+        'userId': postAuthorId,
+        'title': myName,
+        'body': action,
+        'type': 'post',
+        'referenceId': postId,
+      });
+    } catch (_) {}
   }
 }
 

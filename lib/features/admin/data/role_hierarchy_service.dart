@@ -214,6 +214,8 @@ class RoleHierarchyService {
             'type': 'role_approval',
             'reference_id': userId,
           });
+          // FCM push (fire-and-forget)
+          _notifyRoleRequest(admin['id'].toString(), roleName, userId);
         }
       }
     }
@@ -257,13 +259,32 @@ class RoleHierarchyService {
       'p_assignment_id': assignmentId,
       'p_status': 'approved',
     });
+
+    // Notify the user their role was approved (fire-and-forget)
+    _notifyRoleDecision(assignment['user_id'].toString(), assignment['role_name'].toString(), 'approved');
   }
 
   Future<void> rejectRole(String assignmentId, {String? reason}) async {
+    // Fetch user_id before updating
+    final assignment = await _supabase.client
+        .from('role_assignments')
+        .select('user_id, role_name')
+        .eq('id', assignmentId)
+        .maybeSingle();
+
     await _supabase.client.rpc('approve_role_assignment', params: {
       'p_assignment_id': assignmentId,
       'p_status': 'rejected',
     });
+
+    // Notify the user their role was rejected (fire-and-forget)
+    if (assignment != null) {
+      _notifyRoleDecision(
+        assignment['user_id'].toString(),
+        assignment['role_name'].toString(),
+        'rejected',
+      );
+    }
   }
 
   Future<List<TenantRole>> getTenantRoles(String? tenantId) async {
@@ -336,6 +357,41 @@ class RoleHierarchyService {
       'p_role_name': roleName,
       'p_tenant_id': tenantId ?? callerTenantId,
     });
+
+    // Notify the user they were promoted (fire-and-forget)
+    _notifyRoleDecision(userId, roleName, 'elevated');
+  }
+
+  /// Notify a user about a role request pending their approval (fire-and-forget).
+  void _notifyRoleRequest(String adminId, String roleName, String userId) {
+    try {
+      _supabase.client.functions.invoke('push-notifications', body: {
+        'userId': adminId,
+        'title': 'Role Approval Needed',
+        'body': 'A $roleName assignment is pending your approval.',
+        'type': 'role',
+        'referenceId': userId,
+      });
+    } catch (_) {}
+  }
+
+  /// Notify a user of role approve/reject/elevate (fire-and-forget).
+  void _notifyRoleDecision(String userId, String roleName, String decision) {
+    try {
+      final body = switch (decision) {
+        'approved' => 'Your $roleName role has been approved!',
+        'rejected' => 'Your $roleName role request was not approved.',
+        'elevated' => 'You have been promoted to $roleName!',
+        _ => 'Your role ($roleName) has been updated.',
+      };
+      _supabase.client.functions.invoke('push-notifications', body: {
+        'userId': userId,
+        'title': 'Role Update',
+        'body': body,
+        'type': 'role',
+        'referenceId': userId,
+      });
+    } catch (_) {}
   }
 }
 

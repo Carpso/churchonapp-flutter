@@ -69,7 +69,7 @@ class EventRsvpService {
     // Notify user
     final eventData = await _client
         .from('events')
-        .select('title, tenant_id')
+        .select('title, tenant_id, user_id')
         .eq('id', eventId)
         .maybeSingle();
     if (eventData != null) {
@@ -84,6 +84,21 @@ class EventRsvpService {
         'type': 'event',
         'reference_id': eventId,
       });
+
+      // Notify event host that someone RSVP'd (fire-and-forget)
+      final hostId = eventData['user_id']?.toString();
+      if (hostId != null && hostId != user.id) {
+        try {
+          final myName = user.userMetadata?['full_name'] ?? 'Someone';
+          _client.functions.invoke('push-notifications', body: {
+            'userId': hostId,
+            'title': 'New RSVP',
+            'body': '$myName RSVP\'d for "${eventData['title']}".',
+            'type': 'event',
+            'referenceId': eventId,
+          });
+        } catch (_) {}
+      }
     }
 
     return data;

@@ -95,6 +95,16 @@ class _CarpsoDriverApprovalScreenState extends ConsumerState<CarpsoDriverApprova
         'created_at': DateTime.now().toIso8601String(),
       });
 
+      // FCM push (fire-and-forget)
+      try {
+        supabase.functions.invoke('push-notifications', body: {
+          'userId': userId,
+          'title': 'Carpso Ride Application Approved',
+          'body': 'Congratulations! Your driver application has been approved. You can now go online and start accepting rides.',
+          'type': 'driver_approval',
+        });
+      } catch (_) {}
+
       if (mounted) {
         PremiumToast.showSuccess(context, 'Driver approved successfully');
         _fetchApplications();

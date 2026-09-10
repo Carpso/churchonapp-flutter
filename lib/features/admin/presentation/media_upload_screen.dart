@@ -116,6 +116,8 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
           'duration_minutes': 0,
           'category': 'Media Manager',
         });
+        // Notify church members of new sermon (fire-and-forget)
+        if (tenantId != null) _notifySermonPublished(client, tenantId, _titleController.text);
       } else {
         // Marketplace asset: stored securely for use in product listings.
         if (mounted) _showSuccessDialog(message: "Asset uploaded and will be available in your product listings.");
@@ -356,5 +358,32 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
         Text("Uploading: ${(_progress * 100).toInt()}%", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
       ],
     );
+  }
+
+  /// Notify church members of new sermon (fire-and-forget).
+  void _notifySermonPublished(SupabaseClient client, String tenantId, String title) {
+    try {
+      // Best-effort: find a few church member IDs and push to each
+      client
+          .from('profiles')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .neq('id', client.auth.currentUser?.id ?? '')
+          .limit(200)
+          .then((members) {
+        for (final m in (members as List)) {
+          final uid = m['id']?.toString();
+          if (uid == null) continue;
+          try {
+            client.functions.invoke('push-notifications', body: {
+              'userId': uid,
+              'title': 'New Sermon',
+              'body': '"$title" has been published.',
+              'type': 'sermon',
+            });
+          } catch (_) {}
+        }
+      });
+    } catch (_) {}
   }
 }

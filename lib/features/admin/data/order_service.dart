@@ -233,6 +233,10 @@ class OrderService {
         'tenant_id': tenantId,
         'church_id': tenantId,
       });
+      // Notify vendor of new order (fire-and-forget)
+      if (item['vendor_id'] != null) {
+        _notifyOrderPlaced(item['vendor_id'].toString(), orderId, item['item_name']?.toString() ?? 'Item');
+      }
       try {
         await _supabase.client.from('user_purchases').insert({
           'user_id': userId,
@@ -274,6 +278,48 @@ class OrderService {
       'status': status,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     }).eq('id', orderId);
+
+    // Notify buyer of status change (fire-and-forget)
+    try {
+      final order = await _supabase.client
+          .from('orders')
+          .select('user_id')
+          .eq('id', orderId)
+          .maybeSingle();
+      final buyerId = order?['user_id']?.toString();
+      if (buyerId != null) {
+        _notifyOrderStatusChanged(buyerId, orderId, status);
+      }
+    } catch (_) {}
+  }
+
+  /// Notify vendor of a new order (fire-and-forget).
+  Future<void> _notifyOrderPlaced(String vendorId, String orderId, String itemName) async {
+    try {
+      final buyer = _supabase.client.auth.currentUser;
+      final buyerName = buyer?.userMetadata?['full_name'] ?? 'A customer';
+      await _supabase.client.functions.invoke('push-notifications', body: {
+        'userId': vendorId,
+        'title': 'New Order',
+        'body': '$buyerName ordered $itemName',
+        'type': 'order',
+        'referenceId': orderId,
+      });
+    } catch (_) {}
+  }
+
+  /// Notify buyer when order status changes (fire-and-forget).
+  Future<void> _notifyOrderStatusChanged(String buyerId, String orderId, String status) async {
+    try {
+      final label = status[0].toUpperCase() + status.substring(1).replaceAll('_', ' ');
+      await _supabase.client.functions.invoke('push-notifications', body: {
+        'userId': buyerId,
+        'title': 'Order $label',
+        'body': 'Your order #$orderId has been updated to $label.',
+        'type': 'order',
+        'referenceId': orderId,
+      });
+    } catch (_) {}
   }
 
   Future<List<Delivery>> getDeliveriesForOrder(String orderId) async {

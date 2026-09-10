@@ -148,9 +148,35 @@ class PrayerService {
         'prayer_count': currentPrayers.length + 1,
         'prayed_by': [...currentPrayers, user.id],
       }).eq('id', prayerId);
+
+      // Notify the prayer request author (fire-and-forget)
+      _notifyPrayerPosted(prayerId);
     } catch (e) {
       debugPrint('Error interceding for prayer request: $e');
     }
+  }
+
+  /// Notify the prayer request author that someone prayed for them.
+  Future<void> _notifyPrayerPosted(String prayerId) async {
+    try {
+      final currentUser = _client.auth.currentUser;
+      if (currentUser == null) return;
+      final prayer = await _client
+          .from('prayers')
+          .select('user_id')
+          .eq('id', prayerId)
+          .maybeSingle();
+      final authorId = prayer?['user_id']?.toString();
+      if (authorId == null || authorId == currentUser.id) return;
+      final myName = currentUser.userMetadata?['full_name'] ?? 'Someone';
+      await _client.functions.invoke('push-notifications', body: {
+        'userId': authorId,
+        'title': 'Prayer Warrior',
+        'body': '$myName prayed for your request.',
+        'type': 'prayer',
+        'referenceId': prayerId,
+      });
+    } catch (_) {}
   }
 
   bool currentPraisesContains(List<String> list, String value) {

@@ -171,6 +171,38 @@ class NewsService {
       // published article as zero.
       'status': 'published',
     });
+
+    // Notify church members of new article (fire-and-forget)
+    try {
+      final author = await _client
+          .from('profiles')
+          .select('tenant_id')
+          .eq('id', authorId)
+          .maybeSingle();
+      final tenantId = author?['tenant_id']?.toString();
+      if (tenantId != null && tenantId.isNotEmpty) {
+        _client
+            .from('profiles')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .neq('id', authorId)
+            .limit(200)
+            .then((members) {
+          for (final m in (members as List)) {
+            final uid = m['id']?.toString();
+            if (uid == null) continue;
+            try {
+              _client.functions.invoke('push-notifications', body: {
+                'userId': uid,
+                'title': 'Kingdom News',
+                'body': 'New article: "$title" by $authorName',
+                'type': 'post',
+              });
+            } catch (_) {}
+          }
+        });
+      }
+    } catch (_) {}
   }
 }
 

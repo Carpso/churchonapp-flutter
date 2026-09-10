@@ -126,6 +126,16 @@ class VolunteerService {
             'type': 'volunteer_reminder',
             'reference_id': slot['id'],
           });
+          // FCM push (fire-and-forget)
+          try {
+            _client.functions.invoke('push-notifications', body: {
+              'userId': signup['user_id'],
+              'title': 'Volunteer Reminder',
+              'body': 'You\'re scheduled for "${slot['title']}" tomorrow!',
+              'type': 'volunteer',
+              'referenceId': slot['id'],
+            });
+          } catch (_) {}
         }
       }
     }

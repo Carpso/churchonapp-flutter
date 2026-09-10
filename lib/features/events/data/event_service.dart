@@ -143,6 +143,18 @@ class EventService {
           .toList();
       if (notifications.isNotEmpty) {
         await _client.from('notifications').insert(notifications);
+        // FCM push to each member (fire-and-forget, best-effort batch)
+        for (final n in notifications) {
+          try {
+            _client.functions.invoke('push-notifications', body: {
+              'userId': n['user_id'],
+              'title': n['title'],
+              'body': n['body'],
+              'type': 'event',
+              'referenceId': eventId,
+            });
+          } catch (_) {}
+        }
       }
     }
 
