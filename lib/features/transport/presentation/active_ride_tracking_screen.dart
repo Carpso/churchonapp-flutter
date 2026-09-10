@@ -12,6 +12,7 @@ import 'package:church_on_app/core/widgets/live_tracking_sheet.dart';
 import 'package:church_on_app/features/connect/presentation/chat_messenger_screen.dart';
 import 'package:church_on_app/features/connect/presentation/audio_call_screen.dart';
 import '../data/transport_service.dart';
+import '../data/route_service.dart';
 
 class ActiveRideTrackingScreen extends ConsumerStatefulWidget {
   final LatLng startPos;
@@ -57,6 +58,9 @@ class _ActiveRideTrackingScreenState
   double _distanceToDest = 0;
   bool _pickupAnnounced = false;
   bool _destAnnounced = false;
+  List<LatLng> _routePoints = [];
+  String _etaText = '...';
+  String _distanceText = '';
 
   @override
   void initState() {
@@ -72,7 +76,19 @@ class _ActiveRideTrackingScreenState
           setState(() => _driverPos = _driverAnim!.value);
         }
       });
+    _fetchRoute();
     _initTracking();
+  }
+
+  Future<void> _fetchRoute() async {
+    final pickupRoute = await RouteService.fetchRoute(from: _driverPos, to: widget.startPos);
+    final destRoute = await RouteService.fetchRoute(from: widget.startPos, to: widget.destPos);
+    if (!mounted) return;
+    setState(() {
+      _routePoints = [...pickupRoute.points, ...destRoute.points.skip(1)];
+      _etaText = destRoute.etaText;
+      _distanceText = destRoute.distanceText;
+    });
   }
 
   void _initTracking() {
@@ -185,12 +201,12 @@ class _ActiveRideTrackingScreenState
     LiveTrackingSheet.show(
       context,
       title: widget.type == 'ride' ? 'Ride Tracking' : 'Delivery Tracking',
-      subtitle: 'From pickup to destination',
+      subtitle: _distanceText.isNotEmpty ? '$_distanceText away' : 'From pickup to destination',
       statusText: 'Active',
       statusColor: Colors.green,
       driverName: _driverName,
       vehicleInfo: _vehicleInfo,
-      etaText: '12 min',
+      etaText: _etaText,
       steps: steps,
     );
   }
@@ -294,7 +310,7 @@ class _ActiveRideTrackingScreenState
                 ),
               ),
             ],
-            path: [widget.startPos, _driverPos, widget.destPos],
+            path: _routePoints.length >= 2 ? _routePoints : [widget.startPos, _driverPos, widget.destPos],
           ),
           Positioned(
             top: MediaQuery.of(context).padding.top + 10,

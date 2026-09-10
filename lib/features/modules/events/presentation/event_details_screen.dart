@@ -13,6 +13,9 @@ import 'package:church_on_app/core/widgets/premium_toast.dart';
 import 'package:church_on_app/core/widgets/premium_confirmation_sheet.dart';
 import 'package:church_on_app/core/config/fee_config.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/timezone.dart' as tz;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'event_host_dashboard.dart';
 
@@ -378,25 +381,105 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   }
 
   Widget _buildReminderButton(BuildContext context) {
-    bool isReminderSet = false;
-    return StatefulBuilder(
-      builder: (context, setState) {
+    return FutureBuilder<bool>(
+      future: _isReminderSet(),
+      builder: (context, snapshot) {
+        final isReminderSet = snapshot.data ?? false;
         return IconButton(
           icon: Icon(isReminderSet ? LucideIcons.bellRing : LucideIcons.bell, color: isReminderSet ? Colors.amber : null),
-          onPressed: () {
-            setState(() {
-              isReminderSet = !isReminderSet;
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(isReminderSet ? "Reminder set for 1 hour before event!" : "Reminder cancelled."),
-                backgroundColor: isReminderSet ? Colors.green : Colors.grey,
-              ),
-            );
+          onPressed: () async {
+            if (isReminderSet) {
+              await _cancelReminder();
+            } else {
+              await _scheduleReminder();
+            }
+            if (context.mounted) setState(() {});
           },
         );
-      }
+      },
     );
+  }
+
+  Future<bool> _isReminderSet() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('reminder_${widget.event['id']}') ?? false;
+  }
+
+  Future<void> _scheduleReminder() async {
+    final eventDate = widget.event['date']?.toString();
+    final eventTime = widget.event['time']?.toString();
+    final eventTitle = widget.event['title']?.toString() ?? 'Event';
+    if (eventDate == null || eventDate.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No date set for this event')),
+      );
+      return;
+    }
+    try {
+      final dateStr = eventTime != null ? '$eventDate $eventTime' : eventDate;
+      final eventDt = DateTime.tryParse(dateStr);
+      if (eventDt == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not parse event date')),
+        );
+        return;
+      }
+      final reminderTime = eventDt.subtract(const Duration(hours: 1));
+      if (reminderTime.isBefore(DateTime.now())) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Event is less than 1 hour away — too late to set a reminder')),
+        );
+        return;
+      }
+      final tzLocation = tz.local;
+      final tzScheduled = tz.TZDateTime.from(reminderTime, tzLocation);
+      final plugin = FlutterLocalNotificationsPlugin();
+      final eventId = (widget.event['id'] ?? '').hashCode.abs() % 100000;
+      await plugin.zonedSchedule(
+        id: eventId,
+        title: 'Upcoming: $eventTitle',
+        body: 'Starting in 1 hour!',
+        scheduledDate: tzScheduled,
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'events',
+            'Event Reminders',
+            channelDescription: 'Reminders for upcoming events',
+            importance: Importance.max,
+            priority: Priority.high,
+          ),
+          iOS: DarwinNotificationDetails(),
+        ),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('reminder_${widget.event['id']}', true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reminder set for 1 hour before event!'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      debugPrint('Event reminder schedule failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to set reminder')),
+        );
+      }
+    }
+  }
+
+  Future<void> _cancelReminder() async {
+    final plugin = FlutterLocalNotificationsPlugin();
+    final eventId = (widget.event['id'] ?? '').hashCode.abs() % 100000;
+    await plugin.cancel(id: eventId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('reminder_${widget.event['id']}', false);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reminder cancelled.'), backgroundColor: Colors.grey),
+      );
+    }
   }
 
   Widget _buildInfoTile(IconData icon, String label, String value) {

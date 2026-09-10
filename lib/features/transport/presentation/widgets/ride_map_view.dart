@@ -52,9 +52,9 @@ class _RideMapViewState extends ConsumerState<RideMapView> {
   }
 
   Future<void> _loadRoute(LatLng from, LatLng to) async {
-    final points = await RouteService.fetchRoute(from: from, to: to);
-    if (mounted && points.isNotEmpty) {
-      setState(() => _routePoints = points);
+    final result = await RouteService.fetchRoute(from: from, to: to);
+    if (mounted && result.points.isNotEmpty) {
+      setState(() => _routePoints = result.points);
     }
   }
 
