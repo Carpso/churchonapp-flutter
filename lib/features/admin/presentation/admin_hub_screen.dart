@@ -9,7 +9,6 @@ import 'bookshop_dashboard_screen.dart';
 import 'writer_dashboard_screen.dart';
 import 'driver_dashboard_screen.dart';
 import 'rider_dashboard_screen.dart';
-import 'event_scheduler_screen.dart';
 import 'live_viewer_heatmap_screen.dart';
 import 'logistics_dashboard_screen.dart';
 import 'church_branding_screen.dart';
@@ -258,15 +257,6 @@ class AdminHubScreen extends ConsumerWidget {
                 "Send push notifications & church-wide alerts",
                 theme.primaryColor,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const GlobalBroadcastScreen())),
-              ),
-            if (isLeadership)
-              _buildAdminTile(
-                context,
-                LucideIcons.calendarDays,
-                "Event Scheduling",
-                "Coordinate services, missions & conferences",
-                Colors.red,
-                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EventSchedulerScreen())),
               ),
             Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
             ...AdminNavigationRegistry.buildAccessibleTiles(

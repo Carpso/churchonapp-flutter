@@ -2392,6 +2392,17 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                     _downloadCurrentBookOffline();
                   },
                 ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(LucideIcons.archive),
+                  title: const Text('Download All KJV Books'),
+                  subtitle: const Text('Cache all 66 books for full offline access'),
+                  trailing: const Icon(LucideIcons.chevronRight, size: 18),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _downloadAllKJVOffline();
+                  },
+                ),
                 const Divider(height: 30),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -2465,6 +2476,47 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
         const SnackBar(
           content: Text('Download failed — check your connection'),
         ),
+      );
+    }
+  }
+
+  Future<void> _downloadAllKJVOffline() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final service = ref.read(bibleServiceProvider);
+    final kBooks = _allBooks.where((b) => b.testament == Testament.old || b.testament == Testament.nt).toList();
+    if (kBooks.isEmpty) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Text('Downloading KJV Bible...'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text('Downloading all ${kBooks.length} books for offline reading...', textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+    try {
+      int totalDownloaded = 0;
+      for (final book in kBooks) {
+        final chapters = book.chapters;
+        await service.downloadBookForOffline('kjv', book.name, chapters);
+        totalDownloaded += chapters;
+      }
+      if (!mounted) return;
+      Navigator.pop(context);
+      messenger.showSnackBar(
+        SnackBar(content: Text('KJV Bible downloaded! $totalDownloaded chapters cached offline.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Download failed — check your connection')),
       );
     }
   }
