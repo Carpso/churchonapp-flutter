@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/widgets/app_image.dart';
 import '../data/call_service.dart';
@@ -43,6 +45,12 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
   bool _isCaller = false;
   int _iceRestartCount = 0;
   static const int _maxIceRestarts = 3;
+
+  MediaRecorder? _localRecorder;
+  MediaRecorder? _remoteRecorder;
+  String? _localRecordingPath;
+  String? _remoteRecordingPath;
+  bool _isUploadingRecording = false;
 
   Map<String, dynamic> _iceServers = {
     'iceServers': [
@@ -307,7 +315,79 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
     }
   }
 
+  Future<void> _startRecording() async {
+    if (_callStatus != 'Connected') {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Start recording after the call connects')));
+      return;
+    }
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final callId = _currentSession?.id ?? 'call';
+      _localRecordingPath = '${tempDir.path}/${callId}_${ts}_local.m4a';
+      _remoteRecordingPath = '${tempDir.path}/${callId}_${ts}_remote.m4a';
+      _localRecorder = MediaRecorder();
+      _remoteRecorder = MediaRecorder();
+      await _localRecorder!.start(_localRecordingPath!, audioChannel: RecorderAudioChannel.INPUT);
+      await _remoteRecorder!.start(_remoteRecordingPath!, audioChannel: RecorderAudioChannel.OUTPUT);
+      if (mounted) setState(() => _isRecording = true);
+    } catch (e) {
+      debugPrint('Failed to start recording: $e');
+      _cleanupRecorders();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Recording failed: $e')));
+    }
+  }
+
+  Future<void> _stopRecording() async {
+    final localPath = _localRecordingPath;
+    final remotePath = _remoteRecordingPath;
+    try { await _localRecorder?.stop(); } catch (_) {}
+    try { await _remoteRecorder?.stop(); } catch (_) {}
+    _localRecorder = null;
+    _remoteRecorder = null;
+    _localRecordingPath = null;
+    _remoteRecordingPath = null;
+    if (mounted) setState(() => _isRecording = false);
+    if (localPath != null && remotePath != null) {
+      await _uploadCallRecordings(localPath, remotePath);
+    }
+  }
+
+  void _cleanupRecorders() {
+    _localRecorder = null;
+    _remoteRecorder = null;
+    _localRecordingPath = null;
+    _remoteRecordingPath = null;
+    if (_isRecording && mounted) setState(() => _isRecording = false);
+  }
+
+  Future<void> _uploadCallRecordings(String localPath, String remotePath) async {
+    if (_isUploadingRecording) return;
+    if (mounted) setState(() => _isUploadingRecording = true);
+    try {
+      final localFile = File(localPath);
+      final remoteFile = File(remotePath);
+      if (!await localFile.exists() || !await remoteFile.exists()) return;
+      final localSize = await localFile.length();
+      final remoteSize = await remoteFile.length();
+      if (localSize < 100 && remoteSize < 100) return;
+      debugPrint('Call recordings saved: local=$localPath (${localSize}b) remote=$remotePath (${remoteSize}b)');
+      try { await localFile.delete(); await remoteFile.delete(); } catch (_) {}
+    } catch (e) {
+      debugPrint('Upload call recordings failed: $e');
+    } finally {
+      if (mounted) setState(() => _isUploadingRecording = false);
+    }
+  }
+
+  void _toggleRecording() async {
+    if (_isRecording) { await _stopRecording(); } else { await _startRecording(); }
+  }
+
   void _endCall() async {
+    if (_isRecording) await _stopRecording();
+    _cleanupRecorders();
+
     setState(() => _callStatus = 'Call Ended');
     _timer?.cancel();
     _disconnectTimer?.cancel();
@@ -338,6 +418,8 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
     _timer?.cancel();
     _callSubscription?.cancel();
     _candidatesSubscription?.cancel();
+    _localRecorder = null;
+    _remoteRecorder = null;
     _localStream?.getAudioTracks().forEach((t) => t.stop());
     _localStream?.dispose();
     _peerConnection?.close();
@@ -462,22 +544,28 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
                   ),
                 ),
                 const Spacer(),
-                if (_isRecording)
+                if (_isRecording || _isUploadingRecording)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.85),
+                        color: _isUploadingRecording
+                            ? Colors.amber.withValues(alpha: 0.85)
+                            : Colors.red.withValues(alpha: 0.85),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const _BlinkingDot(),
+                          if (!_isUploadingRecording) const _BlinkingDot(),
+                          if (_isUploadingRecording)
+                            const SizedBox(width: 8, height: 8, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
                           const SizedBox(width: 8),
-                          Text('REC ${_formatDuration(_seconds)}',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
+                          Text(
+                            _isUploadingRecording ? 'Saving…' : 'REC ${_formatDuration(_seconds)}',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13),
+                          ),
                         ],
                       ),
                     ),
@@ -494,11 +582,17 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _buildGlassBtn(
-                        icon: LucideIcons.circle,
-                        label: _isRecording ? 'Stop' : 'Record',
+                        icon: _isUploadingRecording
+                            ? LucideIcons.loader
+                            : _isRecording ? LucideIcons.stopCircle : LucideIcons.circle,
+                        label: _isUploadingRecording
+                            ? 'Saving…'
+                            : _isRecording ? 'Stop' : 'Record',
                         isActive: _isRecording,
                         activeColor: Colors.red,
-                        onTap: () => setState(() => _isRecording = !_isRecording),
+                        onTap: _isUploadingRecording
+                            ? null
+                            : (_callStatus == 'Connected' ? _toggleRecording : null),
                       ),
                       _buildGlassBtn(
                         icon: _isSpeakerOn ? LucideIcons.volume2 : LucideIcons.volumeX,
@@ -570,7 +664,7 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
     required String label,
     required bool isActive,
     required Color activeColor,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
   }) {
     return GestureDetector(
       onTap: onTap,

@@ -394,6 +394,15 @@ async function callHuggingFace(
     hfResponse = await hfFetch(150_000);
   }
 
+  // Rate limit: propagate 429 so client can retry after delay
+  if (hfResponse.status === 429) {
+    const retryAfter = hfResponse.headers.get("retry-after") ?? "30";
+    return new Response(
+      JSON.stringify({ error: "Kael is busy — please try again in $retry-after seconds" }),
+      { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": retryAfter } }
+    );
+  }
+
   if (!hfResponse.ok) {
     const errBody = await hfResponse.text().catch(() => "");
     throw new Error(`HuggingFace error ${hfResponse.status}: ${errBody.slice(0, 200)}`);
@@ -520,11 +529,13 @@ serve(async (req) => {
     ];
 
     if (!text) {
-      // Graceful fallback: stream a helpful message as normal chunks instead of erroring.
-      const fallback = FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)];
       console.error("Kael HF error:", providerError);
-      if (isChat) return sseTextStream(corsHeaders, `${fallback}\n\n(Kael is warming up — try again in a moment for a full response.)`);
-      return jsonResponse(corsHeaders, { response: fallback }, 200);
+      const isCold = providerError.includes('503') || providerError.includes('loading') || providerError.includes('Model is');
+      const msg = isCold
+        ? "Kael is warming up — please try again in 30 seconds."
+        : "Kael encountered an error — please try again.";
+      if (isChat) return sseErrorEvent(corsHeaders, msg);
+      return jsonResponse(corsHeaders, { error: msg }, 503);
     }
 
     // Non-chat actions (summary, dramatize, generate) return plain JSON.

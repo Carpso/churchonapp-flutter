@@ -315,9 +315,10 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
                                   runSpacing: 8,
                                   alignment: WrapAlignment.center,
                                   children: _suggestions.map((s) => ActionChip(
-                                    label: Text(s, style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                    backgroundColor: Colors.amber.withAlpha(25),
-                                    side: BorderSide(color: Colors.amber.withAlpha(80)),
+                                    label: Text(s, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                                    labelStyle: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                                    backgroundColor: Colors.amber.withAlpha(40),
+                                    side: BorderSide(color: Colors.amber.withAlpha(120)),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                                     onPressed: _isStreaming ? null : () {
                                       _controller.text = s;

@@ -259,7 +259,12 @@ static const _fallbackResponses = [
               handled = true;
               if (payload['done'] == true) break;
               if (payload['error'] != null) {
-                yield '$_errorPrefix: ${payload['error']}';
+                final err = payload['error'].toString();
+                if (err.contains('429') || err.toLowerCase().contains('busy') || err.toLowerCase().contains('rate limit')) {
+                  yield 'Kael is busy helping others. Tap to retry in a few seconds.';
+                } else {
+                  yield '$_errorPrefix: $err';
+                }
                 return;
               }
               final chunk = payload['chunk'] as String? ?? payload['response'] as String?;
@@ -280,16 +285,31 @@ static const _fallbackResponses = [
     }
 
     // Buffered fallback — same contract, parsed from a single response.
-    try {
-      final result = await _client.functions.invoke('kael-ai', body: {
-        'messages': history,
-        'userContext': userContext,
-        'action': 'chat',
-      });
-      final parsed = _parseInvokeResult(result.data);
-      if (parsed.isNotEmpty) yield parsed;
-    } catch (e) {
-      throw Exception('$_errorPrefix: $e');
+    // Retry up to 2 times with exponential backoff on failure.
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final result = await _client.functions.invoke('kael-ai', body: {
+          'messages': history,
+          'userContext': userContext,
+          'action': 'chat',
+        }).timeout(const Duration(seconds: 90));
+        final parsed = _parseInvokeResult(result.data);
+        if (parsed.isNotEmpty) yield parsed;
+        return;
+      } catch (e) {
+        final isRateLimit = e.toString().contains('429') || e.toString().toLowerCase().contains('rate limit');
+        if (isRateLimit && attempt == 0) {
+          debugPrint('[Kael] invoke rate limited, retrying in 3s...');
+          await Future.delayed(const Duration(seconds: 3));
+          continue;
+        }
+        if (attempt == 0) {
+          debugPrint('[Kael] invoke attempt 1 failed: $e, retrying...');
+          await Future.delayed(const Duration(seconds: 2));
+          continue;
+        }
+        throw Exception('$_errorPrefix: $e');
+      }
     }
   }
 

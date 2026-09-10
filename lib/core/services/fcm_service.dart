@@ -310,6 +310,48 @@ class FcmService {
         case 'incoming_call':
           GoRouter.of(context).push('/calls');
           return;
+        case 'pvp_invite':
+        case 'pvp_match':
+        case 'pvp_result':
+        case 'pvp_rematch':
+          GoRouter.of(context).push('/quiz');
+          return;
+        case 'order':
+          GoRouter.of(context).push('/marketplace');
+          return;
+        case 'sermon':
+          GoRouter.of(context).push('/sermons');
+          return;
+        case 'event':
+          GoRouter.of(context).push('/events');
+          return;
+        case 'payment':
+        case 'wallet':
+          GoRouter.of(context).push('/wallet');
+          return;
+        case 'role':
+          GoRouter.of(context).push('/profile');
+          return;
+        case 'testimony':
+        case 'prayer':
+        case 'bible_study':
+        case 'fundraising':
+        case 'group_contribution':
+        case 'pledge_completed':
+        case 'baptism':
+        case 'missions_donation':
+          GoRouter.of(context).push('/connect');
+          return;
+        case 'driver_approval':
+        case 'sos_alert':
+        case 'church_approved':
+        case 'kyc_approved':
+        case 'kyc_rejected':
+          GoRouter.of(context).push('/profile');
+          return;
+        case 'quiz':
+          GoRouter.of(context).push('/quiz');
+          return;
         default:
           GoRouter.of(context).go('/');
           return;
@@ -339,6 +381,39 @@ class FcmService {
             return;
           case 'event':
             GoRouter.of(context).push('/events/$id');
+            return;
+          case 'pvp_invite':
+          case 'pvp_match':
+          case 'pvp_result':
+          case 'pvp_rematch':
+            GoRouter.of(context).push('/quiz/invite/$id');
+            return;
+          case 'sermon':
+            GoRouter.of(context).push('/sermons');
+            return;
+          case 'order':
+            GoRouter.of(context).push('/marketplace');
+            return;
+          case 'testimony':
+          case 'prayer':
+          case 'bible_study':
+          case 'fundraising':
+          case 'group_contribution':
+          case 'pledge_completed':
+          case 'baptism':
+          case 'missions_donation':
+            GoRouter.of(context).push('/connect');
+            return;
+          case 'role':
+          case 'driver_approval':
+          case 'sos_alert':
+          case 'church_approved':
+          case 'kyc_approved':
+          case 'kyc_rejected':
+            GoRouter.of(context).push('/profile');
+            return;
+          case 'quiz':
+            GoRouter.of(context).push('/quiz');
             return;
           default:
             GoRouter.of(context).go('/');

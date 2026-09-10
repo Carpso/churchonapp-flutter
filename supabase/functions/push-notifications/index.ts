@@ -232,6 +232,23 @@ function iconForType(type?: string): string {
     case 'job': return 'ic_notif_job';
     case 'ride': return 'ic_notif_ride';
     case 'worship': return 'ic_notif_worship';
+    case 'sermon': return 'ic_notif_general';
+    case 'incoming_call': return 'ic_notif_ride';
+    case 'driver_approval': return 'ic_notif_role';
+    case 'pvp_invite': return 'ic_notif_quiz';
+    case 'pvp_match': return 'ic_notif_quiz';
+    case 'pvp_result': return 'ic_notif_quiz';
+    case 'pvp_rematch': return 'ic_notif_quiz';
+    case 'bible_study': return 'ic_notif_prayer';
+    case 'fundraising': return 'ic_notif_payment';
+    case 'group_contribution': return 'ic_notif_payment';
+    case 'pledge_completed': return 'ic_notif_payment';
+    case 'baptism': return 'ic_notif_prayer';
+    case 'missions_donation': return 'ic_notif_payment';
+    case 'sos_alert': return 'ic_notif_general';
+    case 'church_approved': return 'ic_notif_role';
+    case 'kyc_approved': return 'ic_notif_role';
+    case 'kyc_rejected': return 'ic_notif_role';
     default: return 'ic_notif_general';
   }
 }
@@ -253,6 +270,23 @@ function channelForType(type?: string): string {
     case 'job': return 'coa_jobs';
     case 'ride': return 'coa_rides';
     case 'worship': return 'coa_worship';
+    case 'sermon': return 'coa_announcements';
+    case 'incoming_call': return 'coa_rides';
+    case 'driver_approval': return 'coa_roles';
+    case 'pvp_invite': return 'coa_quiz';
+    case 'pvp_match': return 'coa_quiz';
+    case 'pvp_result': return 'coa_quiz';
+    case 'pvp_rematch': return 'coa_quiz';
+    case 'bible_study': return 'coa_prayers';
+    case 'fundraising': return 'coa_payments';
+    case 'group_contribution': return 'coa_payments';
+    case 'pledge_completed': return 'coa_payments';
+    case 'baptism': return 'coa_prayers';
+    case 'missions_donation': return 'coa_payments';
+    case 'sos_alert': return 'coa_announcements';
+    case 'church_approved': return 'coa_roles';
+    case 'kyc_approved': return 'coa_roles';
+    case 'kyc_rejected': return 'coa_roles';
     default: return 'coa_announcements';
   }
 }

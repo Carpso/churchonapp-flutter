@@ -424,7 +424,7 @@ class PvPService {
       debugPrint('[PvP] Invite rejected: $reason — balance ${data?['balance']}');
       throw Exception(reason);
     }
-    return PvPMatch(
+    final match = PvPMatch(
       id: data!['match_id'] as String,
       player1Id: uid,
       player2Id: opponentId,
@@ -434,6 +434,19 @@ class PvPService {
       timePerQuestion: timePerQuestion,
       wagerAmount: wagerCoins,
     );
+    // Send push notification to opponent
+    try {
+      await _client.functions.invoke('push-notifications', body: {
+        'userId': opponentId,
+        'title': 'Bible Quiz Challenge!',
+        'body': wagerCoins > 0
+            ? 'You\'ve been challenged to a $wagerCoins CC wager quiz!'
+            : 'You\'ve been challenged to a Bible quiz!',
+        'type': 'pvp_invite',
+        'referenceId': match.id,
+      });
+    } catch (_) {}
+    return match;
   }
 
   /// Accept an incoming invite (charges the invitee's wager server-side).

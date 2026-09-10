@@ -104,6 +104,9 @@ class BibleService {
   /// Translations bible-api.com actually serves (remote fallback layer).
   static const _remoteCodes = {'kjv', 'web', 'asv', 'bbe', 'ylt', 'dra'};
 
+  /// One-time flag to avoid re-clearing KJV cache every launch
+  static bool _mojibakeCleared = false;
+
   /// Translations seeded in the local Supabase bible_verses table.
   /// KJV is fully seeded (31,102 verses, all 66 books) — reading from the
   /// local table is instant and never depends on external APIs.
@@ -163,7 +166,19 @@ class BibleService {
         // down — those stale entries short-circuited every future fetch and
         // made version switching say "not found" forever. Ignore empties.
         if (versesJson.isNotEmpty) {
-          return versesJson.map((v) => BibleVerse.fromJson(v)).toList();
+          // One-time fix: clear mojibake-cached KJV data (migration 20261037)
+          if (translation == 'kjv' && !_mojibakeCleared) {
+            final firstText = (versesJson.first as Map<String, dynamic>)['text']?.toString() ?? '';
+            if (firstText.contains('\u00E2') || firstText.contains('â€™')) {
+              _mojibakeCleared = true;
+              await _clearKjvCache();
+              // Fall through to re-fetch from DB
+            } else {
+              return versesJson.map((v) => BibleVerse.fromJson(v)).toList();
+            }
+          } else {
+            return versesJson.map((v) => BibleVerse.fromJson(v)).toList();
+          }
         }
         await prefs.remove(cacheKey);
       }
@@ -414,6 +429,20 @@ class BibleService {
       if (verses.isNotEmpty) downloaded++;
     }
     return downloaded;
+  }
+
+  /// Remove all KJV chapter caches to force re-fetch from the fixed DB
+  Future<void> _clearKjvCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys().where((k) => k.startsWith('bible_kjv_')).toList();
+      for (final key in keys) {
+        await prefs.remove(key);
+      }
+      debugPrint('BibleService: cleared ${keys.length} KJV cache entries (mojibake fix)');
+    } catch (e) {
+      debugPrint('BibleService: failed to clear KJV cache: $e');
+    }
   }
 
   /// How many chapters of [book] in [translation] are already cached for
