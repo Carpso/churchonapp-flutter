@@ -63,7 +63,9 @@ class AdminHubScreen extends ConsumerWidget {
   Widget _buildScreen(BuildContext context, WidgetRef ref, AsyncValue<AdminStats> statsAsync, UserProfile profile, Tenant? tenant) {
     final role = profile.role;
     final isLeadership = profile.isLeadershipTeam;
-    final churchName = tenant?.name ?? 'Church';
+    final isBookshopTenant = tenant?.type == 'bookshop';
+    final isChurchTenant = !isBookshopTenant;
+    final churchName = tenant?.name ?? (isBookshopTenant ? 'Bookshop' : 'Church');
 
     final theme = Theme.of(context);
     return Scaffold(
@@ -104,7 +106,7 @@ class AdminHubScreen extends ConsumerWidget {
             Text("Management Console", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
             const SizedBox(height: 20),
             // Tenant-scoped features only - no SuperAdmin/Employee features
-            if (isLeadership)
+            if (isLeadership && isChurchTenant)
               _buildAdminTile(
                 context,
                 LucideIcons.users,
@@ -113,7 +115,7 @@ class AdminHubScreen extends ConsumerWidget {
                 theme.primaryColor,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MemberManagementScreen())),
               ),
-            if (isLeadership)
+            if (isLeadership && isChurchTenant)
               _buildAdminTile(
                 context,
                 LucideIcons.award,
@@ -122,7 +124,7 @@ class AdminHubScreen extends ConsumerWidget {
                 theme.primaryColor,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BaptismRegistryScreen())),
               ),
-            if (isLeadership)
+            if (isLeadership && isChurchTenant)
               _buildAdminTile(
                 context,
                 LucideIcons.church,
@@ -131,7 +133,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.amber,
                  () => context.push('/ministry-management'),
               ),
-            if (isLeadership)
+            if (isLeadership && isChurchTenant)
               _buildAdminTile(
                 context,
                 LucideIcons.calendarClock,
@@ -140,7 +142,7 @@ class AdminHubScreen extends ConsumerWidget {
                 theme.primaryColor,
                 () => context.push('/church-schedule'),
               ),
-            if (role == 'bookshop_owner' || role == 'store_manager' || role == 'cashier' || role == 'assistant')
+            if (isBookshopTenant || role == 'bookshop_owner' || role == 'store_manager' || role == 'cashier' || role == 'assistant')
               _buildAdminTile(
                 context,
                 LucideIcons.bookOpen,
@@ -176,7 +178,7 @@ class AdminHubScreen extends ConsumerWidget {
                 theme.primaryColor,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RiderDashboardScreen())),
               ),
-            if (isLeadership)
+            if (isLeadership && isChurchTenant)
               _buildAdminTile(
                 context,
                 LucideIcons.video,
@@ -185,16 +187,16 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.red,
                  () => context.push('/live-studio'),
               ),
-            if (isLeadership)
+            if (isLeadership && isChurchTenant)
               _buildAdminTile(
                 context,
                 LucideIcons.uploadCloud,
-                "Media Hub (R2)",
-                "Upload sermons, trailers & Klips",
+                "Media Hub",
+                "Upload sermons, trailers & Klips securely",
                 Colors.orange,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MediaUploadScreen())),
               ),
-            if (isLeadership)
+            if (isLeadership && isChurchTenant)
               _buildAdminTile(
                 context,
                 LucideIcons.barChart3,
@@ -203,7 +205,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.teal,
                 () => context.push('/service-report'),
               ),
-            if (isLeadership)
+            if (isLeadership && isChurchTenant)
               _buildAdminTile(
                 context,
                 LucideIcons.bookOpen,
@@ -212,7 +214,7 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.indigo,
                 () => context.push('/finance-dashboard'),
               ),
-            if (isLeadership)
+            if (isLeadership && isChurchTenant)
               _buildAdminTile(
                 context,
                 LucideIcons.paintbrush,

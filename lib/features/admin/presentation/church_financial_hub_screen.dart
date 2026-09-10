@@ -37,7 +37,7 @@ class _ChurchFinancialHubScreenState extends ConsumerState<ChurchFinancialHubScr
           .from('transactions')
           .select('amount, category, status')
           .eq('tenant_id', tenantId)
-          .eq('status', 'settled')
+          .eq('status', 'completed')
           .inFilter('category', ['giving', 'tithe', 'offering'])
           .gte('created_at', DateTime.now().subtract(const Duration(days: 30)).toIso8601String());
 

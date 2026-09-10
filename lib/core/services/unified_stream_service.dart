@@ -30,7 +30,10 @@ class UnifiedStreamService {
         .maybeSingle();
 
     if (result == null) {
-      return StreamingConfig.defaultConfig(tenantId);
+      // Every church bought Cloudflare streaming — never fall back to a trial
+      // config. A church registered after the paid-unlock migration (20261006)
+      // has no row and would otherwise be stuck at 10 min/week.
+      return StreamingConfig.paidConfig(tenantId);
     }
 
     return StreamingConfig.fromMap(result);
@@ -40,6 +43,20 @@ class UnifiedStreamService {
   Future<StreamGateResult> checkStreamGate(String tenantId) async {
     final config = await getStreamingConfig(tenantId);
     final usage = await getStreamingUsage(tenantId);
+
+    // Auto-expire abandoned 'live' rows first (app killed mid-start, WHIP
+    // failed, operator forgot END, phone closed). Otherwise a stuck row counts
+    // against max_concurrent_streams and every future attempt is blocked with
+    // "Maximum concurrent streams reached" — the classic "streaming stopped
+    // working out of nowhere" symptom.
+    try {
+      await _client.rpc(
+        'expire_stale_live_streams',
+        params: {'p_church_id': tenantId},
+      );
+    } catch (e) {
+      debugPrint('Stale stream expiry failed (non-fatal): $e');
+    }
 
     // Check weekly minutes
     if (!config.isPaid && usage.minutesUsed >= config.maxMinutesPerWeek) {
@@ -80,12 +97,39 @@ class UnifiedStreamService {
     return StreamGateResult(allowed: true);
   }
 
+  /// Keep a live row fresh so the concurrent gate never expires an active
+  /// stream. The studio calls this every ~30 seconds while broadcasting; OBS
+  /// encoders don't (expiry for NULL-heartbeat rows only applies past the max
+  /// stream duration).
+  Future<void> sendHeartbeat(String streamId) async {
+    try {
+      await _client
+          .from('live_streams')
+          .update({'last_heartbeat': DateTime.now().toUtc().toIso8601String()})
+          .eq('id', streamId);
+    } catch (e) {
+      debugPrint('[Stream] Heartbeat failed (non-fatal): $e');
+    }
+  }
+
   /// Get streaming usage for a church (this week)
   Future<StreamingUsage> getStreamingUsage(String tenantId) async {
     try {
       final result = await _client
           .rpc('get_streaming_usage', params: {'p_church_id': tenantId});
 
+      // get_streaming_usage RETURNS TABLE → postgrest returns a List with one
+      // row, not a Map. The old `is Map` check never matched, so usage always
+      // fell back to 0/10 defaults and the gate misbehaved.
+      if (result is List && result.isNotEmpty && result.first is Map) {
+        final row = Map<String, dynamic>.from(result.first as Map);
+        return StreamingUsage(
+          tenantId: tenantId,
+          minutesUsed: (row['minutes_used'] as num?)?.toInt() ?? 0,
+          minutesLimit: (row['minutes_limit'] as num?)?.toInt() ?? 10,
+          peakViewers: (row['peak_viewers'] as num?)?.toInt() ?? 0,
+        );
+      }
       if (result != null && result is Map) {
         return StreamingUsage.fromMap(result as Map<String, dynamic>);
       }
@@ -156,7 +200,6 @@ class UnifiedStreamService {
     // sessions functions.invoke may omit the header and the edge function
     // answers 401 "Missing authorization header" → surfaced to the user as an
     // opaque "authentication error".
-    final token = _client.auth.currentSession?.accessToken;
     final response = await _client.functions.invoke(
       'cloudflare-stream',
       body: {
@@ -169,9 +212,7 @@ class UnifiedStreamService {
           'allowed_origins': ['*'],
         },
       },
-      headers: token != null && token.isNotEmpty
-          ? {'Authorization': 'Bearer $token'}
-          : null,
+      headers: _cloudflareHeaders(),
     );
 
     if (response.data == null) {
@@ -284,6 +325,7 @@ class UnifiedStreamService {
           'action': 'delete_live_input',
           'input_id': stream['cloudflare_stream_id'],
         },
+        headers: _cloudflareHeaders(),
       );
     }
 
@@ -341,6 +383,7 @@ class UnifiedStreamService {
               'action': 'delete_video',
               'video_id': stream['cloudflare_stream_id'],
             },
+            headers: _cloudflareHeaders(),
           );
         }
 
@@ -389,6 +432,7 @@ class UnifiedStreamService {
             'action': 'get_analytics',
             'input_id': stream['cloudflare_stream_id'],
           },
+          headers: _cloudflareHeaders(),
         );
 
         if (response.data != null) {
@@ -414,6 +458,15 @@ class UnifiedStreamService {
     final rng = dart_math.Random.secure();
     final random = List.generate(16, (_) => chars[rng.nextInt(chars.length)]).join();
     return 'coa_${timestamp}_$random';
+  }
+
+  /// Belt-and-braces: attach the current access token explicitly. On stale
+  /// sessions functions.invoke may omit the Authorization header and the edge
+  /// function answers 401 → surfaced as an opaque "authentication error".
+  Map<String, String>? _cloudflareHeaders() {
+    final token = _client.auth.currentSession?.accessToken;
+    if (token == null || token.isEmpty) return null;
+    return {'Authorization': 'Bearer $token'};
   }
 }
 

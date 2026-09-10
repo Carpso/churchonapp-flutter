@@ -38,7 +38,19 @@ class LiveStreamService {
       final list = List<Map<String, dynamic>>.from(result);
       if (list.isNotEmpty) return list;
     } catch (e) {
-      debugPrint('[LiveStreamService] Error fetching active streams: $e');
+      debugPrint('[LiveStreamService] join select failed, retrying plain: $e');
+      // Schema/RLS drift on the churches join must not blank the live list.
+      try {
+        final fallback = await _client
+            .from('live_streams')
+            .select()
+            .eq('status', 'live')
+            .order('started_at', ascending: false);
+        final list = List<Map<String, dynamic>>.from(fallback);
+        if (list.isNotEmpty) return list;
+      } catch (e2) {
+        debugPrint('[LiveStreamService] Error fetching active streams: $e2');
+      }
     }
 
     // No fake/demo streams — show the honest empty state so the UI never
@@ -59,7 +71,19 @@ class LiveStreamService {
       final list = List<Map<String, dynamic>>.from(result);
       if (list.isNotEmpty) return list;
     } catch (e) {
-      debugPrint('[LiveStreamService] Error fetching upcoming streams: $e');
+      debugPrint('[LiveStreamService] join select failed, retrying plain: $e');
+      try {
+        final fallback = await _client
+            .from('live_streams')
+            .select()
+            .eq('status', 'scheduled')
+            .gte('scheduled_at', DateTime.now().toIso8601String())
+            .order('scheduled_at');
+        final list = List<Map<String, dynamic>>.from(fallback);
+        if (list.isNotEmpty) return list;
+      } catch (e2) {
+        debugPrint('[LiveStreamService] Error fetching upcoming streams: $e2');
+      }
     }
 
     // No fake/demo upcoming streams — show honest empty state.

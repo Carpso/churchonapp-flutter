@@ -89,160 +89,146 @@ class NotificationService {
             AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
 
-    _createChannels();
+    await _createChannels();
   }
 
-  void _createChannels() {
-    _plugin
+  Future<void> _createChannels() async {
+    final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chChat, 'Chat Messages',
-          description: 'Notifications for new chat messages',
-          importance: Importance.high,
-          playSound: true,
-          enableVibration: true,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chPosts, 'Church Social',
-          description: 'New posts from your church community',
-          importance: Importance.defaultImportance,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chPayments, 'Payments',
-          description: 'Payment confirmations and receipts',
-          importance: Importance.max,
-          playSound: true,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chAnnouncements, 'Updates',
-          description: 'Church announcements and alerts',
-          importance: Importance.high,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chEvents, 'Events',
-          description: 'Event reminders and updates',
-          importance: Importance.high,
-          playSound: true,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chPrayers, 'Prayers',
-          description: 'Prayer requests and intercessions',
-          importance: Importance.defaultImportance,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chTestimonies, 'Testimonies',
-          description: 'New testimonies shared',
-          importance: Importance.defaultImportance,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chKlips, 'Klips',
-          description: 'New video clips uploaded',
-          importance: Importance.defaultImportance,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chFasting, 'Fasting',
-          description: 'Fasting reminders and updates',
-          importance: Importance.high,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chReminders, 'Daily Reminders',
-          description: 'Daily Bible study and devotion reminders',
-          importance: Importance.high,
-          playSound: true,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chQuiz, 'Bible Quiz & Competitions',
-          description: 'PvP challenge alerts, competitions & leaderboard updates',
-          importance: Importance.high,
-          playSound: true,
-          enableVibration: true,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chVolunteers, 'Volunteer Roster',
-          description: 'Shift assignment alerts and reminders',
-          importance: Importance.high,
-          playSound: true,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chOrders, 'Bookshop & Store Orders',
-          description: 'Order status updates, dispatch and delivery alerts',
-          importance: Importance.high,
-          playSound: true,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chRoles, 'Role & Leadership Approvals',
-          description: 'Role updates, leader verification and badge approvals',
-          importance: Importance.max,
-          playSound: true,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chJobs, 'Job Portal & Careers',
-          description: 'Job applications, interview invites, and status updates',
-          importance: Importance.high,
-          playSound: true,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chRide, 'Carpso Ride & Commute',
-          description: 'Driver matching, ride status updates, and ETA alerts',
-          importance: Importance.max,
-          playSound: true,
-          enableVibration: true,
-        ));
-    _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _chWorship, 'Worship & Setlists',
-          description: 'Sunday worship setlists, lyrics, and song additions',
-          importance: Importance.high,
-          playSound: true,
-        ));
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin == null) return;
+
+    // Delete old channels that may have wrong importance (immutable after first
+    // install). Re-creating with correct importance ensures heads-up works
+    // after app update without requiring reinstall.
+    for (final id in [_chChat, _chPosts, _chPayments, _chAnnouncements, _chEvents, _chPrayers, _chTestimonies, _chKlips, _chFasting, _chReminders, _chQuiz, _chVolunteers, _chOrders, _chRoles, _chJobs, _chRide, _chWorship]) {
+      try { await androidPlugin.deleteNotificationChannel(channelId: id); } catch (_) {}
+    }
+
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chChat, 'Chat Messages',
+      description: 'Notifications for new chat messages',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+      enableLights: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chPosts, 'Church Social',
+      description: 'New posts from your church community',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chPayments, 'Payments',
+      description: 'Payment confirmations and receipts',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+      enableLights: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chAnnouncements, 'Updates',
+      description: 'Church announcements and alerts',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chEvents, 'Events',
+      description: 'Event reminders and updates',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chPrayers, 'Prayers',
+      description: 'Prayer requests and intercessions',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chTestimonies, 'Testimonies',
+      description: 'New testimonies shared',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chKlips, 'Klips',
+      description: 'New video clips uploaded',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chFasting, 'Fasting',
+      description: 'Fasting reminders and updates',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chReminders, 'Daily Reminders',
+      description: 'Daily Bible study and devotion reminders',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chQuiz, 'Bible Quiz & Competitions',
+      description: 'PvP challenge alerts, competitions & leaderboard updates',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+      enableLights: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chVolunteers, 'Volunteer Roster',
+      description: 'Shift assignment alerts and reminders',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chOrders, 'Bookshop & Store Orders',
+      description: 'Order status updates, dispatch and delivery alerts',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chRoles, 'Role & Leadership Approvals',
+      description: 'Role updates, leader verification and badge approvals',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+      enableLights: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chJobs, 'Job Portal & Careers',
+      description: 'Job applications, interview invites, and status updates',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chRide, 'Carpso Ride & Commute',
+      description: 'Driver matching, ride status updates, and ETA alerts',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+      enableLights: true,
+    ));
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chWorship, 'Worship & Setlists',
+      description: 'Sunday worship setlists, lyrics, and song additions',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    ));
   }
 
   void _onNotificationTap(NotificationResponse response) {
@@ -928,6 +914,25 @@ class NotificationService {
     _channels.add(ch);
   }
 
+  AndroidNotificationCategory? _categoryForChannel(String channelId) {
+    switch (channelId) {
+      case _chRide:
+        return AndroidNotificationCategory.call;
+      case _chChat:
+        return AndroidNotificationCategory.message;
+      case _chPayments:
+      case _chOrders:
+        return AndroidNotificationCategory.alarm;
+      case _chEvents:
+      case _chReminders:
+        return AndroidNotificationCategory.reminder;
+      case _chAnnouncements:
+        return AndroidNotificationCategory.status;
+      default:
+        return null;
+    }
+  }
+
   String _iconForChannel(String channelId) {
     switch (channelId) {
       case _chChat:
@@ -1153,6 +1158,7 @@ class NotificationService {
       ];
     }
 
+    final isRideChannel = channelId == _chRide;
     final androidDetails = AndroidNotificationDetails(
       channelId,
       channelName,
@@ -1169,6 +1175,14 @@ class NotificationService {
       subText: 'Church On App',
       visibility: NotificationVisibility.public,
       actions: channelActions,
+      category: _categoryForChannel(channelId),
+      fullScreenIntent: isRideChannel,
+      playSound: true,
+      enableVibration: true,
+      enableLights: true,
+      ongoing: false,
+      autoCancel: true,
+      ticker: title,
     );
     const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
@@ -1303,6 +1317,7 @@ class NotificationService {
     String? type,
     String? referenceId,
     String? channelId,
+    String? channelName,
     String? payload,
   }) async {
     _overlayController.add({
@@ -1317,7 +1332,7 @@ class NotificationService {
       title: title,
       body: body,
       channelId: channelId ?? _chAnnouncements,
-      channelName: 'Announcements',
+      channelName: channelName ?? 'Announcements',
       payload: payload,
     );
   }

@@ -226,7 +226,10 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
       _filteredTenants = _tenants.where((c) {
         if (c['_osm'] == true) return false;
         final country = (c['country'] ?? '').toString().toLowerCase();
-        final matchesCountry = country.contains(countryFilter);
+        // Rows with no country stored (schema drift / legacy) must NOT be
+        // hidden — treat empty country as a match for any filter.
+        final matchesCountry =
+            country.isEmpty || country.contains(countryFilter);
         if (!matchesCountry) return false;
 
         final name = (c['name'] ?? '').toString().toLowerCase();
@@ -367,9 +370,14 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
               setState(() => _pinPosition = point);
             },
             markers:
-                _filteredTenants.map((tenant) {
-                  final lat = _parseDouble(tenant['latitude']) ?? -15.3875;
-                  final lng = _parseDouble(tenant['longitude']) ?? 28.3228;
+                _filteredTenants.where((tenant) {
+                  // Skip pins without real coordinates instead of stacking
+                  // every unknown tenant on Lusaka (-15.3875, 28.3228).
+                  return _parseDouble(tenant['latitude']) != null &&
+                      _parseDouble(tenant['longitude']) != null;
+                }).map((tenant) {
+                  final lat = _parseDouble(tenant['latitude'])!;
+                  final lng = _parseDouble(tenant['longitude'])!;
                   final isBookshop = tenant['type'] == 'bookshop';
                   final isRegistered = tenant['_registered'] == true;
                   return buildChurchMarker(
@@ -562,7 +570,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "Select Tenant",
+                              "Select Entity",
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -1448,7 +1456,10 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
 
       if (mounted) {
         ref.read(navBarVisibleProvider.notifier).show();
-        if (Navigator.of(context).canPop()) {
+        final redirect = GoRouterState.of(context).uri.queryParameters['redirect'];
+        if (redirect != null && redirect.isNotEmpty) {
+          context.go(Uri.decodeComponent(redirect));
+        } else if (Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
         } else {
           context.go('/');

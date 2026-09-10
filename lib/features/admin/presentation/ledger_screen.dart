@@ -201,12 +201,14 @@ class LedgerScreen extends ConsumerWidget {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () {
-                final total = txs.fold(0.0, (sum, item) => sum + item.amount);
+                final tithesOnly = txs.where((tx) => (tx.category == 'tithe' || tx.category == 'giving') && tx.amount > 0).toList();
+                final tithesTotal = tithesOnly.fold(0.0, (sum, item) => sum + item.amount);
+                final total = tithesTotal * 0.10;
                 showDialog(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: const Text("Confirm Remittance"),
-                    content: Text("Are you sure you want to remit K ${total.toStringAsFixed(2)} to HQ / Bishop?"),
+                    title: const Text("Confirm Remittance (10% of Tithes)"),
+                    content: Text("Remit K ${total.toStringAsFixed(2)} (10% of K ${tithesTotal.toStringAsFixed(2)} tithes) to HQ / Bishop?"),
                     actions: [
                       TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
                       ElevatedButton(

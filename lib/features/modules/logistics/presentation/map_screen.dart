@@ -60,6 +60,26 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         _isLoading = false;
       });
     }
+    // If the nearby query came back empty (e.g. no church has coordinates
+    // yet), fall back to the full listing so the map shows "N branches"
+    // instead of a blank 0 — markers below skip null-coordinate rows.
+    if (mounted && _churches.isEmpty) {
+      try {
+        final all = await ref.read(tenantServiceProvider).getAllTenants();
+        final profile = ref.read(profileProvider).value;
+        final isAdminOrEmployee = profile?.isEmployee ?? false;
+        final tenants = all
+            .where((m) => (m['type'] ?? 'church') == 'church')
+            .map((m) => Tenant.fromMap({...m, 'type': 'church'}))
+            .where((c) => isAdminOrEmployee || !c.id.startsWith('zw_'))
+            .toList();
+        if (mounted && tenants.isNotEmpty) {
+          setState(() => _churches = tenants);
+        }
+      } catch (e) {
+        debugPrint('MapScreen fallback listing failed: $e');
+      }
+    }
   }
 
   Future<void> _fetchUserPosition() async {
@@ -274,8 +294,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             markers: [
               if (_userPosition != null)
                 buildUserMarker(point: _userPosition!),
-              ...visible.map((church) => buildChurchMarker(
-                point: LatLng(church.latitude ?? 0, church.longitude ?? 0),
+              // Only churches with real coordinates get pins — (0,0) pins in
+              // the Gulf of Guinea made the map look broken.
+              ...visible.where((church) => church.latitude != null && church.longitude != null).map((church) => buildChurchMarker(
+                point: LatLng(church.latitude!, church.longitude!),
                 name: church.name,
                 color: church.primaryColor,
                 logoUrl: church.logoUrl,

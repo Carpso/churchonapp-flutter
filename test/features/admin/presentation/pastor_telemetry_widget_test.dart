@@ -23,7 +23,7 @@ void main() {
     expect(find.text('K 5K'), findsOneWidget);
     expect(find.text('Offerings'), findsOneWidget);
     expect(find.text('K 3K'), findsOneWidget);
-    expect(find.text('Pledges'), findsOneWidget);
+    expect(find.text('General Giving'), findsOneWidget);
     expect(find.text('K 2K'), findsOneWidget);
     expect(find.text('450'), findsOneWidget);
     expect(find.text('380'), findsOneWidget);

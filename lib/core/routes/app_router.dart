@@ -240,6 +240,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       final splashCompleted = ref.watch(splashCompletedProvider);
       if (!splashCompleted && state.uri.path != '/splash') {
+        final cur = state.uri.toString();
+        if (cur != '/' && cur != '/splash') {
+          return '/splash?redirect=${Uri.encodeComponent(cur)}';
+        }
         return '/splash';
       }
       if (state.uri.path == '/splash' && !splashCompleted) {
@@ -262,7 +266,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           (state.uri.path == '/onboarding' || state.uri.path == '/splash')) {
         final loggedIn = authState.user != null;
         if (!loggedIn) {
+          final redir = state.uri.queryParameters['redirect'];
+          if (redir != null && redir.isNotEmpty) {
+            final dec = Uri.decodeComponent(redir);
+            if (dec.startsWith('/')) return kIsWeb ? '/landing?redirect=${Uri.encodeComponent(dec)}' : '/login?redirect=${Uri.encodeComponent(dec)}';
+          }
           return kIsWeb ? '/landing' : '/login';
+        }
+        final redir = state.uri.queryParameters['redirect'];
+        if (redir != null && redir.isNotEmpty) {
+          final dec = Uri.decodeComponent(redir);
+          if (dec.startsWith('/') && dec != '/splash' && dec != '/onboarding') return dec;
         }
         return tenant != null ? '/' : '/select-church';
       }
@@ -290,9 +304,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           !isForgotPassword &&
            state.uri.path != '/join' &&
            state.uri.path != '/invite') {
+        // Preserve deep link so after tenant selection the user lands on the intended screen (not just /).
+        final current = state.uri.toString();
+        if (current != '/select-church' && current != '/') {
+          return '/select-church?redirect=${Uri.encodeComponent(current)}';
+        }
         return '/select-church';
       }
-
       if (!loggedIn) {
         if (isLoggingIn ||
             isSelectingChurch ||
@@ -301,6 +319,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             isRegisteringChurch ||
             isForgotPassword) {
           return null;
+        }
+        final cur = state.uri.toString();
+        if (cur != '/login' && cur != '/landing' && cur != '/') {
+          final enc = Uri.encodeComponent(cur);
+          if (kIsWeb) return '/landing?redirect=$enc';
+          return '/login?redirect=$enc';
         }
         if (kIsWeb && isLanding) return null;
         if (kIsWeb) return '/landing';
@@ -313,6 +337,17 @@ final routerProvider = Provider<GoRouter>((ref) {
               isLanding ||
               state.uri.path == '/onboarding' ||
               isSelectingChurch)) {
+        final redirect = state.uri.queryParameters['redirect'];
+        if (redirect != null && redirect.isNotEmpty) {
+          final decoded = Uri.decodeComponent(redirect);
+          if (decoded.startsWith('/') && decoded != state.uri.path) {
+            // After login/tenant selection, honor the original deep link.
+            // If tenant still null and deep link needs tenant, let the
+            // tenant-null guard above handle it on next cycle.
+            if (decoded == '/select-church' || decoded.startsWith('/select-church?')) return null;
+            return decoded;
+          }
+        }
         if (tenant != null) {
           return '/';
         } else {

@@ -139,13 +139,25 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
             .limit(5);
 
         if (mounted) {
+          final localBranches = List<Map<String, dynamic>>.from(branchesRes);
+          // LOCAL MODE: get_church_monthly_stats returns this church's real
+          // MTD numbers but get_org_branch_snapshots only runs in org mode.
+          // Build a single snapshot so the branch row isn't zeros.
+          final localSnapshot = <String, dynamic>{
+            'church_id': tenantId,
+            'church_name': localBranches.isNotEmpty ? (localBranches.first['name'] as String?) ?? 'This Church' : 'This Church',
+            'members': stats['members'] ?? 0,
+            'attendance_mtd': stats['attendance_mtd'] ?? 0,
+            'tithes_mtd': stats['tithes_mtd'] ?? 0,
+          };
           setState(() {
-            _branchCount = (branchesRes as List).length;
+            _branchCount = localBranches.length;
             _totalAttendance = (stats['attendance_mtd'] as num?)?.toInt() ?? 0;
             _lastMonthAttendance = (stats['attendance_previous'] as num?)?.toInt() ?? 0;
             _totalTithes = (stats['tithes_mtd'] as num?)?.toDouble() ?? 0;
             _totalMembers = (stats['members'] as num?)?.toInt() ?? 0;
-            _branches = List<Map<String, dynamic>>.from(branchesRes);
+            _branches = localBranches;
+            _snapshots = [localSnapshot];
             _missions = List<Map<String, dynamic>>.from(missionsRes);
             _isLoading = false;
             _error = null;
@@ -261,7 +273,11 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
   Widget _buildErrorView() => AppErrorView(error: _error, onRetry: _loadDashboard);
 
   Widget _buildHeader(ThemeData theme, String headerTitle) {
-    final attGrowth = _lastMonthAttendance > 0 ? ((_totalAttendance - _lastMonthAttendance) / _lastMonthAttendance * 100).round() : 0;
+    // Previous-month attendance is provided by get_church_monthly_stats in
+    // local mode only; in org/global mode the snapshots carry no prior-month
+    // data, so render the branch total without a fabricated 0% growth chip.
+    final hasGrowthData = _orgId == null && _lastMonthAttendance > 0;
+    final attGrowth = hasGrowthData ? ((_totalAttendance - _lastMonthAttendance) / _lastMonthAttendance * 100).round() : 0;
     return Container(
       width: double.infinity, padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
@@ -274,7 +290,7 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
         const SizedBox(width: 16),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(headerTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22)),
-          Text("$_branchCount branches • $attGrowth% growth", style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13, fontWeight: FontWeight.w500)),
+          Text("$_branchCount branches${hasGrowthData ? ' • $attGrowth% growth' : ''}", style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13, fontWeight: FontWeight.w500)),
         ])),
       ]),
     );

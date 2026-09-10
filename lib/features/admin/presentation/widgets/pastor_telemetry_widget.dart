@@ -124,7 +124,7 @@ class PastorTelemetryWidget extends StatelessWidget {
                 ),
                 Flexible(
                   flex: 1,
-                  child: _buildLegendItem("Pledges", _formatKwacha(totalPledges), const Color(0xFFF59E0B)),
+                  child: _buildLegendItem("General Giving", _formatKwacha(totalPledges), const Color(0xFFF59E0B)),
                 ),
               ],
             ),

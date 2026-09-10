@@ -13,6 +13,8 @@ import 'core/i18n/app_languages.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart'
   if (dart.library.html) 'package:church_on_app/core/services/crashlytics_stub.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'
+  if (dart.library.html) 'package:church_on_app/core/services/messaging_stub.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
@@ -68,6 +70,16 @@ void main() async {
     try {
       await Firebase.initializeApp();
       debugPrint('Firebase initialized.');
+      // Register FCM background handler immediately (must be done before runApp,
+      // and independent of permission/dialog gates, so killed-app pushes wake).
+      if (!kIsWeb) {
+        try {
+          FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+          debugPrint('FCM background handler registered.');
+        } catch (e) {
+          debugPrint('FCM background handler registration failed: $e');
+        }
+      }
       FlutterError.onError = (FlutterErrorDetails details) {
         FlutterError.presentError(details);
         FirebaseCrashlytics.instance.recordFlutterFatalError(details);
@@ -249,17 +261,22 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
     await notifService.init();
 
     if (!kIsWeb) {
+      // Always init FCM (token + background handler) regardless of permission —
+      // token needed even if user hasn't granted display permission yet.
+      try {
+        final fcm = FcmService(ref);
+        await fcm.init();
+        fcmInstance = fcm;
+        WakeService.wakeScreen();
+      } catch (e) {
+        debugPrint('FCM init error: $e');
+      }
       if (mounted) {
-        final permitted = await showNotificationPermissionDialog(context);
-        if (permitted) {
-          try {
-            final fcm = FcmService(ref);
-            await fcm.init();
-            fcmInstance = fcm;
-            WakeService.wakeScreen();
-          } catch (e) {
-            debugPrint('FCM init skipped: $e');
-          }
+        // Show permission dialog after FCM init so deny doesn't block token storage.
+        try {
+          await showNotificationPermissionDialog(context);
+        } catch (e) {
+          debugPrint('Permission dialog error: $e');
         }
       }
     }

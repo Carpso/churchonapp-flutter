@@ -21,7 +21,18 @@ class HomeNews extends ConsumerWidget {
       children: [
         kingdomNewsAsync.when(skipLoadingOnRefresh: true,
           data: (news) {
-            if (news.isEmpty) return const SizedBox.shrink();
+            if (news.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(LucideIcons.newspaper, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
+                    const SizedBox(width: 8),
+                    Text("No church news yet — stay tuned!", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12)),
+                  ],
+                ),
+              );
+            }
             return Column(
               children: [
                 Padding(
@@ -74,10 +85,32 @@ class HomeNews extends ConsumerWidget {
         ),
         publicNewsAsync.when(skipLoadingOnRefresh: true,
           data: (news) {
-            if (news.isEmpty) return const SizedBox.shrink();
+            if (news.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(LucideIcons.globe, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
+                    const SizedBox(width: 8),
+                    Text("No global news at the moment", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12)),
+                  ],
+                ),
+              );
+            }
             final kingdomTitles = kingdomNewsAsync.value?.map((a) => a.title.toLowerCase()).toSet() ?? {};
             final uniquePublicNews = news.where((a) => !kingdomTitles.contains(a.title.toLowerCase())).take(4).toList();
-            if (uniquePublicNews.isEmpty) return const SizedBox.shrink();
+            if (uniquePublicNews.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(LucideIcons.globe, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
+                    const SizedBox(width: 8),
+                    Text("No additional global news", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12)),
+                  ],
+                ),
+              );
+            }
             return Column(
               children: [
                 Padding(

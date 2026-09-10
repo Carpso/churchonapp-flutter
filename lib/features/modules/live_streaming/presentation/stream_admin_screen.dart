@@ -1,4 +1,3 @@
-import 'dart:math' as dart_math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,13 +33,6 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
 
   Future<void> _loadConfig() async {
     try {
-      // Load stream config
-      final result = await Supabase.instance.client
-          .from('church_stream_config')
-          .select()
-          .eq('church_id', widget.tenantId)
-          .maybeSingle();
-
       // Load streaming usage (same gate the stream creation enforces)
       final usage = await ref
           .read(unifiedStreamServiceProvider)
@@ -53,34 +45,24 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
           .eq('id', widget.tenantId)
           .maybeSingle();
 
+      // Real Cloudflare credentials come from live_streams (the config table
+      // has NO stream_key/rtmp_url columns). Show the newest stream's creds
+      // so OBS users have something concrete to paste; empty until go-live.
+      final latestStream = await Supabase.instance.client
+          .from('live_streams')
+          .select('stream_key, rtmp_url, status')
+          .eq('church_id', widget.tenantId)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
       setState(() {
-        if (result != null) {
-          _streamKey = result['stream_key'];
-          _rtmpUrl = result['rtmp_url'] ?? 'rtmp://stream.churchonapp.com/live';
-        }
+        _streamKey = latestStream?['stream_key'] as String?;
+        _rtmpUrl = latestStream?['rtmp_url'] as String?;
         _usage = usage;
         _isTrial = church?['subscription_status'] == 'trial';
         _loading = false;
       });
-
-      // Create default config if none exists
-      if (result == null) {
-        final rng = dart_math.Random.secure();
-        final chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-        final key = 'coa_${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}_${List.generate(8, (_) => chars[rng.nextInt(chars.length)]).join()}';
-        await Supabase.instance.client
-            .from('church_stream_config')
-            .insert({
-              'church_id': widget.tenantId,
-              'stream_key': key,
-              'rtmp_url': 'rtmp://stream.churchonapp.com/live',
-            });
-
-        setState(() {
-          _streamKey = key;
-          _rtmpUrl = 'rtmp://stream.churchonapp.com/live';
-        });
-      }
     } catch (e) {
       debugPrint('Failed to load stream config: $e');
       if (mounted) setState(() => _loading = false);
@@ -507,15 +489,16 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
 
     if (confirm != true) return;
 
-    final newKey = 'coa_${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}';
-    await Supabase.instance.client
-        .from('church_stream_config')
-        .update({'stream_key': newKey})
-        .eq('church_id', widget.tenantId);
-
+    // Cloudflare provisions the RTMP key per live input — there is no
+    // per-church key stored to regenerate. Starting a new stream creates a
+    // fresh RTMP URL + key pair (previously this UPDATE hit a non-existent
+    // church_stream_config.stream_key column and always failed 42703).
     if (mounted) {
-      setState(() => _streamKey = newKey);
-      PremiumToast.showSuccess(context, 'New stream key generated!');
+      PremiumToast.showSuccess(
+        context,
+        'A fresh Cloudflare stream key is created every time you go live. '
+        'Press "Go Live Now" to generate one.',
+      );
     }
   }
 

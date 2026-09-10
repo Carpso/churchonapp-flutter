@@ -36,6 +36,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   webrtc.MediaStream? _localStream;
   webrtc.RTCPeerConnection? _pc;
   webrtc.RTCVideoRenderer? _renderer;
+  Timer? _heartbeatTimer;
   bool _isLive = false;
   bool _isLoading = false;
   bool _permissionDenied = false;
@@ -382,6 +383,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       }
 
       _streamId = result.streamId;
+      _startHeartbeat();
       _rtmpUrl = result.rtmpUrl;
       _streamKey = result.streamKey;
       _hlsUrl = result.hlsUrl;
@@ -472,6 +474,28 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       return cleanedRaw;
     }
     return 'Streaming service error${status != null ? ' ($status)' : ''}.';
+  }
+
+  /// Ping the live row every 30s so expire_stale_live_streams() (called by
+  /// checkStreamGate on every start attempt) never mistakes an active broadcast
+  /// for an abandoned one. Abandoned rows are auto-ended on the next attempt.
+  void _startHeartbeat() {
+    _stopHeartbeat();
+    final client = Supabase.instance.client;
+    final unifiedService = UnifiedStreamService(client);
+    void ping() {
+      final id = _streamId;
+      if (id == null) return;
+      unawaited(unifiedService.sendHeartbeat(id));
+    }
+
+    ping();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) => ping());
+  }
+
+  void _stopHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
   }
 
   Future<bool> _startWhipIngest(String whipUrl) async {
@@ -582,6 +606,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
 
   Future<void> _stopStream() async {
     setState(() => _isLoading = true);
+    _stopHeartbeat();
 
     try {
       // Tear down WebRTC ingest first so the input stops receiving media.
@@ -647,6 +672,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
 
   @override
   void dispose() {
+    _stopHeartbeat();
     _titleController.dispose();
     _pc?.dispose();
     _renderer?.dispose();

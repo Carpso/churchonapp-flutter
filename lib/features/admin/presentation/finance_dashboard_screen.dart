@@ -309,7 +309,10 @@ class FinanceDashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildLedgerActions(BuildContext context, WidgetRef ref, Tenant tenant, List<Transaction> txs, ThemeData theme) {
-    final total = txs.fold<double>(0, (s, t) => s + t.amount);
+    // Only remit 10% of tithes to HQ — not the entire ledger (which includes offerings, events, marketplace, prior remittances).
+    final tithesOnly = txs.where((t) => (t.category == 'tithe' || t.category == 'giving') && t.amount > 0).toList();
+    final tithesTotal = tithesOnly.fold<double>(0, (s, t) => s + t.amount);
+    final total = tithesTotal * 0.10;
     // Stacked vertically — Row with two Expanded buttons overflowed on narrow phones.
     return Column(
       children: [
@@ -341,8 +344,8 @@ class FinanceDashboardScreen extends ConsumerWidget {
                       context: context,
                       builder: (ctx) => AlertDialog(
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        title: const Text('Confirm Remittance'),
-                        content: Text('Remit K ${total.toStringAsFixed(2)} to HQ / Bishop? This creates a negative ledger entry.'),
+                        title: const Text('Confirm Remittance (10% of Tithes)'),
+                        content: Text('Remit K ${total.toStringAsFixed(2)} (10% of K ${tithesTotal.toStringAsFixed(2)} tithes) to HQ / Bishop? This creates a negative ledger entry.'),
                         actions: [
                           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
                           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Remit')),

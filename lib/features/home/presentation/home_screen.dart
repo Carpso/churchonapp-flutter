@@ -24,7 +24,6 @@ import 'package:church_on_app/features/home/presentation/widgets/home_sparkle_gr
 import 'package:church_on_app/features/home/presentation/widgets/home_latest_sermon.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_event_timeline.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_news.dart';
-import 'package:church_on_app/features/home/data/news_service.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_daily_verse.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_section_title.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_streak_preview.dart';
@@ -663,6 +662,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             child: const LiveStreamIndicator(),
                           ),
                           const SizedBox(height: 20),
+                          Padding(
+                            key: _sectionKeys['actions'],
+                            padding: EdgeInsets.zero,
+                            child: const HomeQuickActions(),
+                          ),
+                          const SizedBox(height: 30),
                           const HomeGreetingHeader(),
                           const SizedBox(height: 16),
                           _buildContinueListening(),
@@ -677,13 +682,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           const SizedBox(height: 20),
                           if (tenant == null) const HomeSmartReminder(),
                           const SizedBox(height: 20),
-
-                          Padding(
-                            key: _sectionKeys['actions'],
-                            padding: EdgeInsets.zero,
-                            child: const HomeQuickActions(),
-                          ),
-                          const SizedBox(height: 30),
 
                           // Service priority per user feedback: latest sermon
                           // + events sit directly under quick actions.
@@ -718,41 +716,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             child: const RecommendationCarouselWidget(),
                           ),
                           const SizedBox(height: 30),
-                          Consumer(
-                            builder: (context, ref, _) {
-                              final kingdomAsync = ref.watch(newsStreamProvider);
-                              final publicAsync = ref.watch(publicNewsProvider);
-                              final kingdomOk = kingdomAsync.value != null && kingdomAsync.value!.isNotEmpty;
-                              final publicOk = publicAsync.value != null && publicAsync.value!.isNotEmpty;
-                              // Only keep the section alive while we actually have
-                              // content or are briefly loading; a stuck/errored
-                              // realtime stream must never leave a blank region.
-                              final publicLoading = publicAsync.isLoading && publicAsync.hasValue == false;
-                              final showNews = kingdomOk || publicOk || publicLoading;
-                              if (!showNews) return const SizedBox.shrink();
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Padding(
-                                    key: _sectionKeys['news'],
-                                    padding: EdgeInsets.zero,
-                                    child: const HomeSectionTitle(title: "News"),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                key: _sectionKeys['news'],
+                                padding: EdgeInsets.zero,
+                                child: const HomeSectionTitle(title: "News"),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 10, bottom: 15),
+                                child: Text(
+                                  "Disclaimer: Church On App is not affiliated with any news providers. All content belongs to respective owners.",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                                    fontStyle: FontStyle.italic,
                                   ),
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 10, bottom: 15),
-                                    child: Text(
-                                      "Disclaimer: Church On App is not affiliated with any news providers. All content belongs to respective owners.",
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
-                                        fontStyle: FontStyle.italic,
-                                      ),
-                                    ),
-                                  ),
-                                  const HomeNews(),
-                                ],
-                              );
-                            },
+                                ),
+                              ),
+                              const HomeNews(),
+                            ],
                           ),
                           SizedBox(height: 80 + bottomInset),
                         ]),

@@ -39,10 +39,12 @@ class RecommendationEngineService {
 
     final Future<List<RecommendationItem>> sermonRec = () async {
       try {
+        // Sermons are stored with either church_id or tenant_id (historical drift);
+        // query both so recommendations don't appear empty for tenants with only church_id rows.
         final rows = await _client
             .from('sermons')
-            .select('id, title, speaker, thumbnail_url')
-            .eq('tenant_id', tenantId)
+            .select('id, title, speaker, thumbnail_url, church_id, tenant_id')
+            .or('tenant_id.eq.$tenantId,church_id.eq.$tenantId')
             .order('created_at', ascending: false)
             .limit(1);
         if (rows.isEmpty) return const <RecommendationItem>[];
@@ -217,11 +219,27 @@ class RecommendationCarouselWidget extends ConsumerWidget {
         SizedBox(
           height: 230,
           child: recsAsync.when(
-            data: (items) => ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemCount: items.length,
-              itemBuilder: (context, index) {
+            data: (items) => items.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(LucideIcons.sparkles, size: 28, color: Colors.grey.shade400),
+                          const SizedBox(height: 8),
+                          Text("No recommendations yet", style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text("Publish a sermon, product, or event to see picks here", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
                 final item = items[index];
                 return GestureDetector(
                   onTap: () => context.push(item.route),

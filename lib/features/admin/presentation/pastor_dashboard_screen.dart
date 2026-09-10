@@ -166,7 +166,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           .from('transactions')
           .select('amount, category')
           .eq('tenant_id', tenantId)
-          .eq('status', 'settled')
+          .eq('status', 'completed')
           .inFilter('category', ['giving', 'tithe', 'offering'])
           .gte('created_at', firstOfMonth.toIso8601String());
 
@@ -174,7 +174,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           .from('transactions')
           .select('amount')
           .eq('tenant_id', tenantId)
-          .eq('status', 'settled')
+          .eq('status', 'completed')
           .inFilter('category', ['giving', 'tithe', 'offering'])
           .gte('created_at', firstOfLastMonth.toIso8601String())
           .lt('created_at', firstOfMonth.toIso8601String());
@@ -486,10 +486,15 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
                         // lock — once written, the month cannot be
                         // re-verified or edited by another session.
                         final monthKey = DateFormat('yyyy-MM-01').format(now);
+                        // Scoped to the church being viewed (a superadmin/COA
+                        // viewer has a null profile.tenantId — inserting that
+                        // violated the NOT NULL UNIQUE(tenant_id, month_year)
+                        // lock and every external sign-off failed 23502).
+                        final signOffTenantId = _activeTenantId ?? profile.tenantId;
                         await Supabase.instance.client
                             .from('local_monthly_verifications')
                             .upsert({
-                          'tenant_id': profile.tenantId,
+                          'tenant_id': signOffTenantId,
                           'month_year': monthKey,
                           'verified_by': profile.id,
                           'total_attendance': _attendanceCount,
@@ -618,6 +623,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
 
     return GridView.count(
       physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
       crossAxisCount: 2,
       mainAxisSpacing: 15,
       crossAxisSpacing: 15,

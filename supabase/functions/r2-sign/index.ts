@@ -98,7 +98,8 @@ serve(async (req) => {
     "video/mp4", "video/quicktime", "video/webm",
     "application/pdf", "audio/mpeg", "audio/wav", "audio/ogg",
   ];
-  if (!allowedTypes.includes(body.contentType)) {
+  const isReadAction = body.action === "read" || body.action === "download";
+  if (!isReadAction && body.contentType && !allowedTypes.includes(body.contentType)) {
     return new Response(
       JSON.stringify({ error: "File type not allowed", allowed: allowedTypes }),
       {

@@ -151,10 +151,11 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell>
       }
     });
 
-    // Handle Location Tracking based on Work Mode
+    // Handle Location Tracking based on Work Mode OR driver on-duty
     ref.listen<AsyncValue<UserProfile?>>(profileProvider, (previous, next) {
       if (next.hasValue && next.value != null) {
-        if (next.value!.isWorkMode) {
+        final isWorkOn = next.value!.isWorkMode || next.value!.driverStatus == 'online';
+        if (isWorkOn) {
           ref.read(locationTrackerProvider).startTracking();
         } else {
           ref.read(locationTrackerProvider).stopTracking();

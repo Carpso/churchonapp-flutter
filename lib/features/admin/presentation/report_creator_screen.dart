@@ -47,7 +47,7 @@ class ReportCreatorService {
         .from('transactions')
         .select('amount, category, status')
         .eq('tenant_id', tenantId)
-        .eq('status', 'settled')
+        .eq('status', 'completed')
         .inFilter('category', ['tithe', 'giving', 'offering'])
         .gte('created_at', start.toIso8601String())
         .lte('created_at', end.toIso8601String());

@@ -294,36 +294,58 @@ class TenantService {
   /// Falls back to empty church list only if churches themselves fail — the
   /// select screen then shows "No tenants found" with retry instead of a
   /// blank map.
+  Future<List<Map<String, dynamic>>> _safeSelect(
+    String table, {
+    required String fullColumns,
+    required String minimalColumns,
+    String? orderBy,
+  }) async {
+    // Try the full column list first; on schema drift (42703 column does not
+    // exist) retry with a minimal list so one missing column never wipes the
+    // whole map/listing. This is the root cause of "map listing has no
+    // churches and bookshops".
+    try {
+      dynamic q = _client.from(table).select(fullColumns);
+      if (orderBy != null) q = q.order(orderBy, ascending: true);
+      final raw = await q;
+      return List<Map<String, dynamic>>.from(
+        (raw as List).map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+    } catch (e) {
+      debugPrint('TenantService $table full select failed, retrying minimal: $e');
+    }
+    try {
+      dynamic q = _client.from(table).select(minimalColumns);
+      if (orderBy != null) {
+        try {
+          q = q.order(orderBy, ascending: true);
+        } catch (_) {}
+      }
+      final raw = await q;
+      return List<Map<String, dynamic>>.from(
+        (raw as List).map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+    } catch (e) {
+      debugPrint('Error fetching $table for all-tenants: $e');
+      return [];
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getAllTenants() async {
-    List<Map<String, dynamic>> churches = [];
-    List<Map<String, dynamic>> shops = [];
+    final churches = await _safeSelect(
+      'churches',
+      fullColumns:
+          'id, slug, name, logo_url, primary_color, latitude, longitude, address, country, is_verified, subscription_ends_at',
+      minimalColumns: 'id, name',
+      orderBy: 'name',
+    );
 
-    try {
-      final churchesRaw = await _client
-          .from('churches')
-          .select(
-            'id, slug, name, logo_url, primary_color, latitude, longitude, address, country, is_verified, subscription_ends_at',
-          )
-          .order('name', ascending: true);
-      churches = List<Map<String, dynamic>>.from(
-        (churchesRaw as List).map((e) => Map<String, dynamic>.from(e as Map)),
-      );
-    } catch (e) {
-      debugPrint('Error fetching churches for all-tenants: $e');
-    }
-
-    try {
-      final shopsRaw = await _client
-          .from('bookshops')
-          .select('id, name, logo_url, latitude, longitude, address, is_active, tenant_id, subscription_ends_at, plan, onboarding_fee_paid');
-      shops = List<Map<String, dynamic>>.from(
-        (shopsRaw as List).map((e) => Map<String, dynamic>.from(e as Map)),
-      );
-    } catch (e) {
-      // Website (anon) may not have bookshops RLS or table may be empty —
-      // churches still render; map still works.
-      debugPrint('Error fetching bookshops for all-tenants (non-fatal): $e');
-    }
+    final shops = await _safeSelect(
+      'bookshops',
+      fullColumns:
+          'id, name, logo_url, latitude, longitude, address, is_active, tenant_id, subscription_ends_at, plan, onboarding_fee_paid',
+      minimalColumns: 'id, name',
+    );
 
     final result = <Map<String, dynamic>>[];
 
@@ -360,6 +382,10 @@ class TenantService {
     double lng, {
     double radiusKm = 50,
   }) async {
+    // Resilient: full select first, then minimal. Never return [] just because
+    // an optional column (plan, settings, treasurer_phone...) is missing on
+    // the live DB — that blanked the Expansion Map.
+    List<Map<String, dynamic>> rows = [];
     try {
       final data = await _client
           .from('churches')
@@ -367,14 +393,34 @@ class TenantService {
             'id, slug, name, logo_url, logo, banner_url, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
           )
           .not('latitude', 'is', null);
-
-      return (data as List)
+      rows = List<Map<String, dynamic>>.from(
+        (data as List).map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+    } catch (e) {
+      debugPrint('getNearbyChurches full select failed, retrying minimal: $e');
+      try {
+        final data = await _client
+            .from('churches')
+            .select('id, name, latitude, longitude');
+        rows = List<Map<String, dynamic>>.from(
+          (data as List).map((e) => Map<String, dynamic>.from(e as Map)),
+        );
+      } catch (e2) {
+        debugPrint('Error fetching nearby churches: $e2');
+      }
+    }
+    if (rows.isEmpty) {
+      // Last resort: reuse the listing query (no lat filter) so the map still
+      // shows churches that lack coordinates in the count, instead of 0.
+      final all = await getAllTenants();
+      return all
+          .where((m) => (m['type'] ?? 'church') == 'church')
           .map((map) => Tenant.fromMap({...map, 'type': 'church'}))
           .toList();
-    } catch (e) {
-      debugPrint('Error fetching nearby churches: $e');
-      return fallbackChurches.map((map) => Tenant.fromMap(map)).toList();
     }
+    return rows
+        .map((map) => Tenant.fromMap({...map, 'type': 'church'}))
+        .toList();
   }
 }
 

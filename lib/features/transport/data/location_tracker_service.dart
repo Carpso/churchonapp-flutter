@@ -11,6 +11,7 @@ import '../../../core/providers/profile_provider.dart';
 class LocationTrackerService {
   final Ref _ref;
   StreamSubscription<Position>? _positionSubscription;
+  Timer? _heartbeatTimer;
   DateTime? _lastUpdate;
 
   LocationTrackerService(this._ref);
@@ -32,7 +33,7 @@ class LocationTrackerService {
     // 2. Setup Position Stream
     const LocationSettings locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 10, // Update every 10 meters
+      distanceFilter: 5, // Update every 5 meters (was 10 — stuck in traffic left rider hanging)
     );
 
     _positionSubscription?.cancel();
@@ -42,11 +43,27 @@ class LocationTrackerService {
       },
       onError: (e) => debugPrint("Location Tracking Error: $e"),
     );
+
+    // Heartbeat: force a GPS fix every 30s even if distanceFilter doesn't fire
+    // (driver stuck in traffic <5m/15s would otherwise appear frozen to rider).
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        );
+        _syncLocationToCloud(pos);
+      } catch (e) {
+        debugPrint("Location heartbeat error: $e");
+      }
+    });
   }
 
   void stopTracking() {
     _positionSubscription?.cancel();
     _positionSubscription = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
   }
 
   /// Throttled synchronization to prevent database flooding.
@@ -60,8 +77,11 @@ class LocationTrackerService {
     final profileAsync = _ref.read(profileProvider);
     final profile = profileAsync.value;
     
-    // Safety Guard: Only sync if the user is in 'Work Mode'
-    if (profile == null || !profile.isWorkMode) {
+    // Safety Guard: Only sync if the user is in 'Work Mode' OR driver online.
+    // Drivers toggle ON DUTY via driver_portal (driver_status='online') without
+    // touching is_work_mode — accept either flag to actually start tracking.
+    final isWorkOn = profile?.isWorkMode == true || profile?.driverStatus == 'online';
+    if (profile == null || !isWorkOn) {
       stopTracking();
       return;
     }

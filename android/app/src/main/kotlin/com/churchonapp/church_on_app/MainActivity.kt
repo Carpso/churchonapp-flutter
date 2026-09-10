@@ -9,14 +9,17 @@ import android.content.Intent
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.churchonapp.churchonapp/dnd_helper"
+    private val WAKE_CHANNEL = "com.churchonapp.churchonapp/wake_service"
     private var monitorHandler: Handler? = null
     private var monitorRunnable: Runnable? = null
     private val blockedPackagesList = mutableSetOf<String>()
@@ -137,6 +140,51 @@ class MainActivity : FlutterActivity() {
                 "stopAppMonitor" -> {
                     stopMonitoring()
                     result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // Wake service: turn screen on for critical notifications (ride, SOS)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WAKE_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "wakeScreen" -> {
+                    try {
+                        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+                        val isInteractive = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+                            powerManager.isInteractive
+                        } else {
+                            @Suppress("DEPRECATION")
+                            powerManager.isScreenOn
+                        }
+                        if (!isInteractive) {
+                            @Suppress("DEPRECATION")
+                            val wakeLock = powerManager.newWakeLock(
+                                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
+                                "churchonapp:wake"
+                            )
+                            wakeLock.acquire(5000L)
+                        }
+                        runOnUiThread {
+                            try {
+                                window.addFlags(
+                                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+                                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                                )
+                                // Clear KEEP_SCREEN_ON after delay to avoid battery drain
+                                Handler(Looper.getMainLooper()).postDelayed({
+                                    try {
+                                        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                                    } catch (_: Exception) {}
+                                }, 5000L)
+                            } catch (_: Exception) {}
+                        }
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("WAKE_FAILED", e.message, null)
+                    }
                 }
                 else -> result.notImplemented()
             }

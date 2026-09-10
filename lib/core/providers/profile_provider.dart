@@ -14,6 +14,7 @@ class UserProfile {
   final int streakCount;
   final DateTime? lastReadAt;
   final bool isWorkMode;
+  final String? driverStatus;
   final double lat;
   final double lng;
   final double balanceCc;
@@ -35,6 +36,7 @@ class UserProfile {
     this.streakCount = 0,
     this.lastReadAt,
     this.isWorkMode = false,
+    this.driverStatus,
     this.lat = 0.0,
     this.lng = 0.0,
     this.balanceCc = 0.0,
@@ -62,6 +64,7 @@ class UserProfile {
           ? DateTime.tryParse(map['last_read_at'].toString())
           : null,
       isWorkMode: map['is_work_mode'] == true,
+      driverStatus: map['driver_status']?.toString(),
       lat: (map['lat'] as num?)?.toDouble() ?? 0.0,
       lng: (map['lng'] as num?)?.toDouble() ?? 0.0,
       balanceCc: (map['balance_cc'] as num?)?.toDouble() ?? 0.0,
@@ -278,8 +281,6 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
 
             final assignedRole = assignment?['role_name'] as String?;
             if (assignedRole != null && assignedRole.isNotEmpty && assignedRole != profileData['role']) {
-              // Role from role_assignments differs from cached profiles.role
-              // Update the cache to stay in sync
               profileData['role'] = assignedRole;
               try {
                 await _client
@@ -290,16 +291,11 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
                 debugPrint('Error syncing role cache: $e');
               }
             } else if (assignedRole == null) {
-              // No approved role_assignments row for this tenant. role_assignments
-              // only ever GRANTS/confirms a role — it must NOT wipe a role that
-              // was already set directly on profiles.role (legacy role-onboarding,
-              // church-registration, or COA assignment flows). Demoting those
-              // users to 'member' here is what broke "Pastor dashboard not
-              // showing" — a pastor without a matching role_assignments row was
-              // silently rewritten to 'member' on every profile fetch.
-              // Only a truly empty role falls back to 'member'.
+              // Per-tenant scoping: if no approved role_assignments row for
+              // THIS tenant, user is plain member here (even if pastor elsewhere).
+              // Platform roles are global and never demoted.
               final currentRole = profileData['role'] as String?;
-              if (currentRole == null || currentRole.isEmpty) {
+              if (currentRole != null && currentRole != 'member' && currentRole.isNotEmpty) {
                 profileData['role'] = 'member';
                 try {
                   await _client
@@ -309,10 +305,23 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
                 } catch (e) {
                   debugPrint('Error resetting role to member: $e');
                 }
+              } else if (currentRole == null || currentRole.isEmpty) {
+                profileData['role'] = 'member';
               }
             }
           } catch (e) {
             debugPrint('Error deriving role from role_assignments: $e');
+          }
+        } else if (!isPlatformRole &&
+            effectiveTenantId != null &&
+            effectiveTenantId.isNotEmpty &&
+            !isUuidTenant) {
+          final currentRole = profileData['role'] as String?;
+          if (currentRole != null && currentRole != 'member' && currentRole.isNotEmpty) {
+            profileData['role'] = 'member';
+            try {
+              await _client.from('profiles').update({'role': 'member'}).eq('id', userId);
+            } catch (_) {}
           }
         }
       }

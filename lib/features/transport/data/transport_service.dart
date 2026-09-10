@@ -112,18 +112,58 @@ class TransportService {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
-    await _client.from('ride_registrations').upsert({
-      'user_id': user.id,
-      'lat': lat,
-      'lng': lng,
-      'updated_at': DateTime.now().toIso8601String(),
-    }, onConflict: 'user_id');
+    // Keep legacy ride_registrations for backwards compat
+    try {
+      await _client.from('ride_registrations').upsert({
+        'user_id': user.id,
+        'lat': lat,
+        'lng': lng,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'user_id');
+    } catch (e) {
+      debugPrint('updateLocation ride_registrations upsert failed: $e');
+    }
+    // Canonical live-location store — read by findNearestWeightedDriver
+    // and watchDriverLocation. Must stay in sync with ride_registrations.
+    try {
+      await _client.from('driver_locations').upsert({
+        'driver_id': user.id,
+        'lat': lat,
+        'lng': lng,
+        'is_online': true,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'driver_id');
+    } catch (e) {
+      debugPrint('updateLocation driver_locations upsert failed: $e');
+    }
+    // Also mirror to profiles.lat/lng so ActiveRideTracking fallback works
+    // and any legacy watcher on profiles sees the driver move.
+    try {
+      await _client.from('profiles').update({'lat': lat, 'lng': lng}).eq('id', user.id);
+    } catch (_) {}
   }
 
   Future<String?> requestRide(LatLng start, LatLng dest, double price,
       {String? pickupLabel, String? destLabel}) async {
     final user = _client.auth.currentUser;
     if (user == null) return null;
+
+    // Prevent double-booking: passenger can have only one active ride at a time.
+    try {
+      final active = await _client
+          .from('ride_requests')
+          .select('id')
+          .eq('rider_id', user.id)
+          .inFilter('status', ['pending', 'accepted'])
+          .limit(1)
+          .maybeSingle();
+      if (active != null) {
+        throw Exception('You already have an active ride. Complete or cancel it before requesting another.');
+      }
+    } catch (e) {
+      if (e.toString().contains('already have an active ride')) rethrow;
+      debugPrint('requestRide active check failed (proceeding): $e');
+    }
 
     final request = RideRequest(
       id: '',
@@ -170,6 +210,33 @@ class TransportService {
     final user = _client.auth.currentUser;
     if (user == null) return false;
 
+    // Prevent driver double-booking: one active ride at a time.
+    try {
+      final active = await _client
+          .from('ride_requests')
+          .select('id')
+          .eq('driver_id', user.id)
+          .eq('status', 'accepted')
+          .limit(1)
+          .maybeSingle();
+      if (active != null) {
+        // Check if the current ride is already in progress and allow queuing only when near completion.
+        // For now, block and inform — a queued ride would require explicit passenger consent.
+        debugPrint('transport_service: driver $user already has active ride ${active['id']} — blocking second accept');
+        // Notify the requesting passenger that driver is busy (best-effort)
+        try {
+          final req = await _client.from('ride_requests').select('rider_id').eq('id', requestId).maybeSingle();
+          if (req != null && req['rider_id'] != null) {
+            await _sendRidePush(userId: req['rider_id'], title: 'Driver Busy', body: 'The driver is completing another trip and will be available shortly. Your request is queued — you will be notified when they accept.', type: 'ride', referenceId: requestId);
+          }
+        } catch (_) {}
+        return false;
+      }
+    } catch (e) {
+      if (e.toString().contains('Driver Busy')) return false;
+      debugPrint('acceptRide active check failed (proceeding): $e');
+    }
+
     // Atomic accept: only succeed if ride is still pending (prevents double-book)
     final result = await _client
         .from('ride_requests')
@@ -192,13 +259,18 @@ class TransportService {
 
     final riderId = result['rider_id'];
 
-    // Notify the rider via Push
+    // Notify the rider via Push (DB + FCM)
+    final fareLabel = await _rideFareLabel(requestId);
+    final ridePushTitle = 'Driver Found!';
+    final ridePushBody = 'A driver accepted your request at K$fareLabel. Confirm payment to start the trip.';
     await _client.from('notifications').insert({
       'user_id': riderId,
-      'title': 'Driver Found!',
-      'body': 'A driver accepted your request at K${_rideFareLabel(requestId)}. Confirm payment to start the trip.',
+      'title': ridePushTitle,
+      'body': ridePushBody,
       'is_read': false,
     });
+    // Fire FCM heads-up push (wakes phone even if killed — DB alone is silent in background)
+    await _sendRidePush(userId: riderId, title: ridePushTitle, body: ridePushBody, type: 'ride', referenceId: requestId);
 
     // 4. Mission-Critical SMS Alert
     try {
@@ -224,6 +296,25 @@ class TransportService {
       return (fare as num?)?.toStringAsFixed(0) ?? '--';
     } catch (_) {
       return '--';
+    }
+  }
+
+  Future<void> _sendRidePush({
+    required String userId,
+    required String title,
+    required String body,
+    String type = 'ride',
+    String? referenceId,
+  }) async {
+    try {
+      await _client.functions.invoke('push-notifications', body: {
+        'userId': userId,
+        'title': title,
+        'body': body,
+        'data': {'type': type, 'reference_id': referenceId ?? '', 'ride_id': referenceId ?? ''},
+      });
+    } catch (e) {
+      debugPrint('transport_service: push-notifications invoke failed: $e');
     }
   }
 
@@ -258,6 +349,7 @@ class TransportService {
 
   /// Driver counters with a different fare (notifies the passenger).
   Future<void> counterFare(String requestId, double counter) async {
+    if (counter < 30 || counter > 10000) throw Exception('Fare must be between K30 and K10000');
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('Not authenticated');
     final res = await _client
@@ -273,21 +365,25 @@ class TransportService {
       'last_offer_by': user.id,
       'proposal_expires_at': DateTime.now().add(_negotiationTimeout()).toIso8601String(),
     }).eq('id', requestId).eq('status', 'pending');
+    final counterTitle = 'New Fare Offer';
+    final counterBody = 'The driver counter-offered K${counter.toStringAsFixed(0)}. Accept, decline or counter to continue.';
     try {
       await _client.from('notifications').insert({
         'user_id': res['rider_id'],
-        'title': 'New Fare Offer',
-        'body': 'The driver counter-offered K${counter.toStringAsFixed(0)}. Accept, decline or counter to continue.',
+        'title': counterTitle,
+        'body': counterBody,
         'is_read': false,
       });
     } catch (e) {
       debugPrint("transport_service: counter notification failed: $e");
     }
+    await _sendRidePush(userId: res['rider_id'], title: counterTitle, body: counterBody, type: 'ride', referenceId: requestId);
   }
 
   /// Passenger counters the driver's offer (inDrive-style back-and-forth).
   /// Drivers see the counter in their portal as 'passenger_countered'.
   Future<void> passengerCounterFare(String requestId, double counter) async {
+    if (counter < 30 || counter > 10000) throw Exception('Fare must be between K30 and K10000');
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('Not authenticated');
     final round = await _nextNegotiationRound('ride_requests', requestId);
@@ -332,16 +428,19 @@ class TransportService {
         .select('rider_id')
         .maybeSingle();
     if (result == null) return false;
+    const apcTitle = 'Driver Found!';
+    const apcBody = 'A driver accepted your fare. Confirm payment to start the trip.';
     try {
       await _client.from('notifications').insert({
         'user_id': result['rider_id'],
-        'title': 'Driver Found!',
-        'body': 'A driver accepted your fare. Confirm payment to start the trip.',
+        'title': apcTitle,
+        'body': apcBody,
         'is_read': false,
       });
     } catch (e) {
       debugPrint("transport_service: accept passenger counter notification failed: $e");
     }
+    await _sendRidePush(userId: result['rider_id'], title: apcTitle, body: apcBody, type: 'ride', referenceId: requestId);
     return true;
   }
 
@@ -379,12 +478,15 @@ class TransportService {
           .eq('id', requestId)
           .single();
       if (res['driver_id'] != null) {
+        const payTitle = 'Payment Confirmed';
+        const payBody = 'The passenger has paid for the ride. Head to the pickup point!';
         await _client.from('notifications').insert({
           'user_id': res['driver_id'],
-          'title': 'Payment Confirmed',
-          'body': 'The passenger has paid for the ride. Head to the pickup point!',
+          'title': payTitle,
+          'body': payBody,
           'is_read': false,
         });
+        await _sendRidePush(userId: res['driver_id'], title: payTitle, body: payBody, type: 'ride', referenceId: requestId);
       }
     } catch (e) {
       debugPrint("transport_service: driver payment notification failed: $e");
@@ -395,6 +497,7 @@ class TransportService {
 
   /// Driver counters a delivery fare (notifies the sender).
   Future<void> counterDeliveryFare(String deliveryId, double counter) async {
+    if (counter < 30 || counter > 10000) throw Exception('Fare must be between K30 and K10000');
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('Not authenticated');
     final res = await _client
@@ -410,20 +513,24 @@ class TransportService {
       'last_offer_by': user.id,
       'proposal_expires_at': DateTime.now().add(_negotiationTimeout()).toIso8601String(),
     }).eq('id', deliveryId).eq('status', 'pending');
+    final cargoCounterTitle = 'New Cargo Fare Offer';
+    final cargoCounterBody = 'The courier counter-offered K${counter.toStringAsFixed(0)}. Accept, decline or counter to continue.';
     try {
       await _client.from('notifications').insert({
         'user_id': res['sender_id'],
-        'title': 'New Cargo Fare Offer',
-        'body': 'The courier counter-offered K${counter.toStringAsFixed(0)}. Accept, decline or counter to continue.',
+        'title': cargoCounterTitle,
+        'body': cargoCounterBody,
         'is_read': false,
       });
     } catch (e) {
       debugPrint("transport_service: delivery counter notification failed: $e");
     }
+    await _sendRidePush(userId: res['sender_id'], title: cargoCounterTitle, body: cargoCounterBody, type: 'ride', referenceId: deliveryId);
   }
 
   /// Sender counters the courier's offer (inDrive-style back-and-forth).
   Future<void> senderCounterFare(String deliveryId, double counter) async {
+    if (counter < 30 || counter > 10000) throw Exception('Fare must be between K30 and K10000');
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('Not authenticated');
     final round = await _nextNegotiationRound('delivery_requests', deliveryId);
@@ -466,16 +573,19 @@ class TransportService {
         .select('sender_id')
         .maybeSingle();
     if (result == null) return false;
+    const ascTitle = 'Courier Found!';
+    const ascBody = 'A courier accepted your fare. Confirm payment to start.';
     try {
       await _client.from('notifications').insert({
         'user_id': result['sender_id'],
-        'title': 'Courier Found!',
-        'body': 'A courier accepted your fare. Confirm payment to start.',
+        'title': ascTitle,
+        'body': ascBody,
         'is_read': false,
       });
     } catch (e) {
       debugPrint("transport_service: accept sender counter notification failed: $e");
     }
+    await _sendRidePush(userId: result['sender_id'], title: ascTitle, body: ascBody, type: 'ride', referenceId: deliveryId);
     return true;
   }
 
@@ -513,12 +623,15 @@ class TransportService {
           .eq('id', deliveryId)
           .single();
       if (res['driver_id'] != null) {
+        const cdpTitle = 'Payment Confirmed';
+        const cdpBody = 'The sender has paid for the cargo mission. Head to the pickup point!';
         await _client.from('notifications').insert({
           'user_id': res['driver_id'],
-          'title': 'Payment Confirmed',
-          'body': 'The sender has paid for the cargo mission. Head to the pickup point!',
+          'title': cdpTitle,
+          'body': cdpBody,
           'is_read': false,
         });
+        await _sendRidePush(userId: res['driver_id'], title: cdpTitle, body: cdpBody, type: 'ride', referenceId: deliveryId);
       }
     } catch (e) {
       debugPrint("transport_service: courier payment notification failed: $e");
@@ -656,6 +769,25 @@ class TransportService {
   }
 
   Stream<LatLng?> watchDriverLocation(String driverId) {
+    // Canonical store is driver_locations (populated by updateLocation).
+    // Fallback to profiles for legacy rows that never wrote driver_locations.
+    return _client
+        .from('driver_locations')
+        .stream(primaryKey: ['driver_id'])
+        .eq('driver_id', driverId)
+        .map((data) {
+          if (data.isNotEmpty) {
+            final d = data.first;
+            final lat = (d['lat'] as num?)?.toDouble();
+            final lng = (d['lng'] as num?)?.toDouble();
+            if (lat != null && lng != null) return LatLng(lat, lng);
+          }
+          return null;
+        });
+  }
+
+  /// Fallback: profiles lat/lng stream for legacy watchers.
+  Stream<LatLng?> watchDriverLocationFallback(String driverId) {
     return _client
         .from('profiles')
         .stream(primaryKey: ['id'])
@@ -664,7 +796,7 @@ class TransportService {
           if (data.isEmpty) return null;
           final p = data.first;
           if (p['lat'] != null && p['lng'] != null) {
-            return LatLng(p['lat'], p['lng']);
+            return LatLng((p['lat'] as num).toDouble(), (p['lng'] as num).toDouble());
           }
           return null;
         });
@@ -687,6 +819,22 @@ class TransportService {
   }) async {
     final user = _client.auth.currentUser;
     if (user == null) return null;
+
+    try {
+      final active = await _client
+          .from('delivery_requests')
+          .select('id')
+          .eq('sender_id', user.id)
+          .inFilter('status', ['pending', 'accepted'])
+          .limit(1)
+          .maybeSingle();
+      if (active != null) {
+        throw Exception('You already have an active delivery. Complete or cancel it before requesting another.');
+      }
+    } catch (e) {
+      if (e.toString().contains('already have an active delivery')) rethrow;
+      debugPrint('requestDelivery active check failed (proceeding): $e');
+    }
 
     final request = DeliveryRequest(
       id: '',
@@ -726,6 +874,28 @@ class TransportService {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('Not authenticated');
 
+    try {
+      final active = await _client
+          .from('delivery_requests')
+          .select('id')
+          .eq('driver_id', user.id)
+          .eq('status', 'accepted')
+          .limit(1)
+          .maybeSingle();
+      if (active != null) {
+        debugPrint('transport_service: courier already has active delivery ${active['id']} — blocking second accept');
+        try {
+          final req = await _client.from('delivery_requests').select('sender_id').eq('id', deliveryId).maybeSingle();
+          if (req != null && req['sender_id'] != null) {
+            await _sendRidePush(userId: req['sender_id'], title: 'Courier Busy', body: 'The courier is completing another delivery and will be available shortly.', type: 'ride', referenceId: deliveryId);
+          }
+        } catch (_) {}
+        return false;
+      }
+    } catch (e) {
+      debugPrint('acceptDelivery active check failed (proceeding): $e');
+    }
+
     // Atomic accept: only succeed if delivery is still pending (prevents double-book)
     final res = await _client.from('delivery_requests')
         .update({
@@ -747,13 +917,16 @@ class TransportService {
 
     final senderId = res['sender_id'];
 
-    // 3. Notify the sender via Push
+    // 3. Notify the sender via Push (DB + FCM)
+    const courierTitle = 'Courier Found!';
+    const courierBody = 'A Courier has accepted your cargo mission. Confirm payment to start.';
     await _client.from('notifications').insert({
       'user_id': senderId,
-      'title': 'Courier Found!',
-      'body': 'A Courier has accepted your cargo mission. Confirm payment to start.',
+      'title': courierTitle,
+      'body': courierBody,
       'is_read': false,
     });
+    await _sendRidePush(userId: senderId, title: courierTitle, body: courierBody, type: 'ride', referenceId: deliveryId);
 
     // 4. Mission-Critical SMS Alert
     try {

@@ -107,6 +107,23 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
     }
   }
 
+  Future<String> _resolvePlaceName(LatLng point) async {
+    try {
+      final places = await placemarkFromCoordinates(point.latitude, point.longitude);
+      if (places.isNotEmpty) {
+        final p = places.first;
+        final street = [p.street, p.subLocality].where((s) => s != null && s.isNotEmpty).join(', ');
+        final area = [p.locality, p.subAdministrativeArea].where((s) => s != null && s.isNotEmpty).join(', ');
+        final name = [street, area].where((s) => s.isNotEmpty).join(', ');
+        if (name.isNotEmpty) return name;
+        if (p.name != null && p.name!.isNotEmpty) return p.name!;
+      }
+    } catch (e) {
+      debugPrint('Reverse geocode failed: $e');
+    }
+    return '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
+  }
+
   /// True only when the Supabase singleton is initialized. Guards the
   /// preference loaders so the screen renders (offline/test/no-backend)
   /// instead of crashing in initState's post-frame callback.
@@ -179,27 +196,32 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
             pickupLatLng: _pickupLatLng,
             destLatLng: _destLatLng,
             pinModeFor: _pinModeFor,
-            onPinChanged: (point) {
-              setState(() {
-                if (_pinModeFor == 'pickup') {
+            onPinChanged: (point) async {
+              if (_pinModeFor == 'pickup') {
+                setState(() {
                   _pickupLatLng = point;
-                  _pickupController.text =
-                      '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
-                } else if (_pinModeFor == 'destination') {
+                  _pickupController.text = 'Locating address...';
+                });
+                final name = await _resolvePlaceName(point);
+                if (mounted) setState(() => _pickupController.text = name);
+              } else if (_pinModeFor == 'destination') {
+                setState(() {
                   _destLatLng = point;
-                  _dropoffController.text =
-                      '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
-                }
-              });
+                  _dropoffController.text = 'Locating address...';
+                });
+                final name = await _resolvePlaceName(point);
+                if (mounted) setState(() => _dropoffController.text = name);
+              }
             },
-            onMapTapped: (point) {
+            onMapTapped: (point) async {
               if (_pinModeFor == null) {
                 setState(() {
                   _pinModeFor = 'pickup';
                   _pickupLatLng = point;
-                  _pickupController.text =
-                      '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
+                  _pickupController.text = 'Locating address...';
                 });
+                final name = await _resolvePlaceName(point);
+                if (mounted) setState(() => _pickupController.text = name);
               }
             },
             onAddressSelected: _searchAndSetLocation,
@@ -417,12 +439,10 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
                                 isLocating: _isLocating,
                               ),
                               const SizedBox(height: 10),
-                              if (pricing.estimatedPrice != null)
+                              if (pricing.estimatedPrice != null && _pickupLatLng != null && _destLatLng != null)
                                 VehicleSelectionSheet(
-                                  pickupLatLng:
-                                      _pickupLatLng ?? const LatLng(-15.3875, 28.3228),
-                                  destLatLng:
-                                      _destLatLng ?? const LatLng(-15.395, 28.35),
+                                  pickupLatLng: _pickupLatLng!,
+                                  destLatLng: _destLatLng!,
                                   onRequestRide: () => _createRideRequest(),
                                 ),
                             ],
@@ -583,12 +603,29 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
   Future<void> _createRideRequest() async {
     if (_isRequesting) return;
     final pricing = ref.read(ridePricingProvider);
-    if (pricing.estimatedPrice == null) return;
+    if (pricing.estimatedPrice == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please set pickup and destination to calculate fare"), backgroundColor: Colors.orange));
+      }
+      return;
+    }
+    if (_pickupLatLng == null || _destLatLng == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please set both pickup and destination on the map"), backgroundColor: Colors.orange));
+      }
+      return;
+    }
+    if (_pickupLatLng!.latitude == _destLatLng!.latitude && _pickupLatLng!.longitude == _destLatLng!.longitude) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Pickup and destination cannot be the same"), backgroundColor: Colors.orange));
+      }
+      return;
+    }
     final fare = pricing.displayPrice;
     final isDelivery = pricing.selectedCategory == 'marketplace' ||
         pricing.selectedCategory == 'bookshop';
-    final pickup = _pickupLatLng ?? const LatLng(-15.3875, 28.3228);
-    final dest = _destLatLng ?? const LatLng(-15.395, 28.35);
+    final pickup = _pickupLatLng!;
+    final dest = _destLatLng!;
     final pickupLabel = _pickupController.text.trim().isEmpty ? null : _pickupController.text.trim();
     final destLabel = _dropoffController.text.trim().isEmpty ? null : _dropoffController.text.trim();
 

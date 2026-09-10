@@ -21,6 +21,7 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
   StreamSubscription<List<DeliveryRequest>>? _acceptedDeliveriesSub;
   bool _isOnline = false;
   bool _statusLoaded = false;
+  final Set<String> _openedTrackingIds = {};
 
   @override
   void initState() {
@@ -57,11 +58,22 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
     try {
       final user = ref.read(profileProvider).value;
       if (user == null) return;
-      await Supabase.instance.client
+      final client = Supabase.instance.client;
+      await client
           .from('profiles')
-          .update({'driver_status': newStatus ? 'online' : 'offline'})
+          .update({'driver_status': newStatus ? 'online' : 'offline', 'is_work_mode': newStatus})
           .eq('id', user.id);
+      // Mirror is_online to driver_locations so findNearestWeightedDriver sees the driver
+      try {
+        await client.from('driver_locations').upsert({
+          'driver_id': user.id,
+          'is_online': newStatus,
+          'updated_at': DateTime.now().toIso8601String(),
+        }, onConflict: 'driver_id');
+      } catch (_) {}
       if (mounted) setState(() => _isOnline = newStatus);
+      // Force profile refresh so location tracker sees new driverStatus
+      ref.invalidate(profileProvider);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to update status: $e")));
@@ -85,7 +97,8 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
     _acceptedRidesSub = service.getMyAcceptedRidesStream().listen((rides) {
       if (!mounted) return;
       for (final ride in rides) {
-        if (ride.paymentStatus == 'paid') {
+        if (ride.paymentStatus == 'paid' && !_openedTrackingIds.contains(ride.id)) {
+          _openedTrackingIds.add(ride.id);
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -96,14 +109,15 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
                 type: 'ride',
               ),
             ),
-          );
+          ).then((_) => _openedTrackingIds.remove(ride.id));
         }
       }
     });
     _acceptedDeliveriesSub = service.getMyAcceptedDeliveriesStream().listen((deliveries) {
       if (!mounted) return;
       for (final d in deliveries) {
-        if (d.paymentStatus == 'paid') {
+        if (d.paymentStatus == 'paid' && !_openedTrackingIds.contains(d.id)) {
+          _openedTrackingIds.add(d.id);
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -114,7 +128,7 @@ class _DriverPortalScreenState extends ConsumerState<DriverPortalScreen> {
                 type: 'delivery',
               ),
             ),
-          );
+          ).then((_) => _openedTrackingIds.remove(d.id));
         }
       }
     });

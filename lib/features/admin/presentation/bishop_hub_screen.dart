@@ -498,7 +498,6 @@ class BishopHubScreen extends ConsumerWidget {
                       ),
                       title: Text(church.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       subtitle: const Text("Active Branch • Fully Synced", style: TextStyle(fontSize: 11, color: Colors.green)),
-                      trailing: const Icon(LucideIcons.chevronRight, size: 16),
                     );
                   },
                 );

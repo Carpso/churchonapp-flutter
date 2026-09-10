@@ -1,11 +1,8 @@
-import 'dart:convert';
-import 'package:universal_io/io.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/tenant_service.dart';
 import '../../../core/providers/profile_provider.dart';
@@ -108,6 +105,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
   List<Map<String, dynamic>> _pendingChurches = [];
   List<Map<String, dynamic>> _pendingPayments = [];
   bool _statsLoading = true;
+  String? _statsError;
 
   @override
   void initState() {
@@ -125,11 +123,11 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       final tenantsCount = activeChurchesRes.length;
 
       // Pending registrations list
-      final pendingRes = await client.from('churches').select('id, name, email, contact_phone, location, is_verified, subscription_ends_at, logo_url').eq('is_verified', false);
+      final pendingRes = await client.from('churches').select('id, name, pastor_name, country, contact_phone, location, is_verified, subscription_ends_at, logo_url').eq('is_verified', false);
       final pendingList = List<Map<String, dynamic>>.from(pendingRes);
 
       // Pending subscription payments
-      final paymentsRes = await client.from('churches').select('id, name, email, contact_phone, location, payment_reference, payment_amount, is_verified').not('payment_reference', 'is', null);
+      final paymentsRes = await client.from('churches').select('id, name, contact_phone, location, payment_reference, payment_submitted_at, is_verified').not('payment_reference', 'is', null);
       final paymentsList = List<Map<String, dynamic>>.from(paymentsRes)
           .where((c) => (c['payment_reference'] as String?)?.isNotEmpty == true)
           .toList();
@@ -164,7 +162,10 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
     } catch (e) {
       debugPrint("Error loading superadmin stats: $e");
       if (mounted) {
-        setState(() => _statsLoading = false);
+        setState(() {
+          _statsLoading = false;
+          _statsError = e.toString();
+        });
       }
     }
   }
@@ -687,7 +688,6 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
     'Bible Quiz',
     'Live Streaming',
     'Sermon Library',
-    'Klips',
     'Direct Chat',
     'Community Chat',
     'Audio/Video Calls',
@@ -828,7 +828,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
                 showAppSnackBar(context, AppErrorView.friendlyMessage(e), status: AppStatus.error);
               }
             }),
-            _buildGlobalAction(LucideIcons.hardDrive, "Create System Backup", "Download snapshot of database schema and settings", Theme.of(context).primaryColor, () => _performBackup()),
+            _buildGlobalAction(LucideIcons.hardDrive, "Create System Backup", "Download full database backup (server-side)", Theme.of(context).primaryColor, () => _performBackup()),
             _buildGlobalAction(LucideIcons.scrollText, "Audit Log", "View all admin actions and changes", Colors.orange, () => _showAuditLog()),
             _buildGlobalAction(LucideIcons.lifeBuoy, "Resolution Hub", "Respond to tickets, disputes & error reports", Colors.redAccent, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const ResolutionHubScreen()));
@@ -1041,14 +1041,9 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
   }
 
   Future<void> _performBackup() async {
-    final client = Supabase.instance.client;
-    final tables = [
-      'profiles', 'churches', 'transactions', 'wallet_transactions',
-      'events', 'event_registrations', 'social_posts', 'prayers',
-      'testimonies', 'klips', 'ride_requests', 'delivery_requests',
-      'service_reports', 'notifications', 'platform_settings',
-    ];
-
+    // Real server-side backup via the `database-backup` Edge Function
+    // (superadmin-only). The previous client-side row dump was RLS-filtered
+    // (silently missing wallet data) and unsupported on web (path_provider).
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1062,7 +1057,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             children: [
               CircularProgressIndicator(color: Theme.of(ctx).primaryColor),
               const SizedBox(height: 20),
-              const Text("Backing up database...", style: TextStyle(color: Colors.white70)),
+              const Text("Requesting database backup...", style: TextStyle(color: Colors.white70)),
             ],
           ),
         ),
@@ -1070,39 +1065,42 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
     );
 
     try {
-      final backup = <String, List<dynamic>>{};
-      for (final table in tables) {
-        final res = await client.from(table).select('*');
-        backup[table] = List<dynamic>.from(res);
-      }
+      final result = await Supabase.instance.client.functions.invoke(
+        'database-backup',
+        body: {'request_type': 'full'},
+      );
 
       await _audit.logAction(
         action: 'system_backup',
         entityType: 'system',
-        details: {'tables': tables, 'record_count': backup.values.fold(0, (s, t) => s + t.length)},
+        details: {'method': 'database-backup', 'backend_response': result.status == 200},
       );
 
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/churchonapp_backup_${DateTime.now().millisecondsSinceEpoch}.json');
-      await file.writeAsString(const JsonEncoder.withIndent('  ').convert(backup));
+      if (!mounted) return;
+      Navigator.pop(context);
 
-      if (mounted) Navigator.pop(context);
-
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
+      showDialog(
+        context: context,
+        builder: (ctx) {
+          dynamic data;
+          try {
+            data = result.data;
+          } catch (_) {}
+          final summary = data is Map
+              ? ((data['summary'] ?? data['message'] ?? 'Prepared by database-backup') as String)
+              : 'Prepared by database-backup';
+          return AlertDialog(
             backgroundColor: const Color(0xFF1E293B),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
             title: const Row(
               children: [
                 Icon(LucideIcons.checkCircle, color: Colors.greenAccent),
                 SizedBox(width: 10),
-                Text("Backup Complete", style: TextStyle(color: Colors.white)),
+                Text("Backup Requested", style: TextStyle(color: Colors.white)),
               ],
             ),
             content: Text(
-              "Database snapshot saved to:\n${file.path}\n\nTables backed up: ${backup.length}\nTotal records: ${backup.values.fold(0, (s, t) => s + t.length)}",
+              "$summary\n\nA full database backup is generated on the server. Download it from the Supabase dashboard (Database → Backups) or via the database-backup function.",
               style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
             actions: [
@@ -1111,9 +1109,9 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
                 child: Text("OK", style: TextStyle(color: Theme.of(ctx).primaryColor)),
               ),
             ],
-          ),
-        );
-      }
+          );
+        },
+      );
     } catch (e) {
       if (mounted) Navigator.pop(context);
       if (mounted) {
@@ -1131,6 +1129,37 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
   }
 
   Widget _buildStatCards() {
+    if (_statsError != null && !_statsLoading) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          children: [
+            Icon(LucideIcons.alertTriangle, color: Colors.red.shade300, size: 28),
+            const SizedBox(height: 8),
+            const Text("Couldn't load console stats",
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(
+              _statsError!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _statsError = null;
+                  _statsLoading = true;
+                });
+                _loadStats();
+              },
+              icon: const Icon(LucideIcons.refreshCw, size: 16),
+              label: const Text("Retry"),
+            ),
+          ],
+        ),
+      );
+    }
     if (_statsLoading) {
       return const Center(child: Padding(
         padding: EdgeInsets.symmetric(vertical: 20),

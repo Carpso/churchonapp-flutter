@@ -122,21 +122,33 @@ serve(async (req) => {
                         ttl: "43200s",
                         priority: "high",
                         notification: {
+                          channelId: channelForType(data?.type),
                           color: "#FFDA03",
                           icon: iconForType(data?.type),
                           ...(notifImage ? { image: notifImage } : {}),
-                          notification_priority: "PRIORITY_MAX",
+                          sound: "default",
+                          defaultSound: true,
+                          defaultVibrateTimings: true,
+                          defaultLightSettings: true,
                           visibility: "VISIBILITY_PUBLIC",
+                          notificationPriority: "PRIORITY_MAX",
+                          // Legacy snake_case for backward compat — FCM ignores unknown but keep both.
+                          notification_priority: "PRIORITY_MAX" as unknown as string,
+                          priority: "PRIORITY_MAX" as unknown as string,
                         },
                       },
                       apns: {
                         headers: {
                           "apns-collapse-id": data?.type ?? "general",
+                          "apns-priority": "10",
                           "apns-expiration": "43200",
                         },
                         payload: {
                           aps: {
                             "mutable-content": 1,
+                            sound: "default",
+                            badge: 1,
+                            category: data?.type === "ride" ? "RIDE_CATEGORY" : undefined,
                             alert: { title, body },
                           },
                         },
@@ -221,6 +233,27 @@ function iconForType(type?: string): string {
     case 'ride': return 'ic_notif_ride';
     case 'worship': return 'ic_notif_worship';
     default: return 'ic_notif_general';
+  }
+}
+
+function channelForType(type?: string): string {
+  switch (type) {
+    case 'chat': return 'coa_chat';
+    case 'post': return 'coa_posts';
+    case 'payment': return 'coa_payments';
+    case 'order': return 'coa_orders';
+    case 'event': return 'coa_events';
+    case 'prayer': return 'coa_prayers';
+    case 'testimony': return 'coa_testimonies';
+    case 'fasting': return 'coa_fasting';
+    case 'klip': return 'coa_klips';
+    case 'quiz': return 'coa_quiz';
+    case 'volunteer': return 'coa_volunteers';
+    case 'role': return 'coa_roles';
+    case 'job': return 'coa_jobs';
+    case 'ride': return 'coa_rides';
+    case 'worship': return 'coa_worship';
+    default: return 'coa_announcements';
   }
 }
 

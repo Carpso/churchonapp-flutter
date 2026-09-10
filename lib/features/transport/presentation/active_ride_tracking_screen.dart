@@ -42,7 +42,7 @@ class _ActiveRideTrackingScreenState
     with SingleTickerProviderStateMixin {
   String _driverName = "";
   String _driverId = "";
-  LatLng _driverPos = const LatLng(-15.39, 28.33);
+  late LatLng _driverPos;
   LatLng? _prevDriverPos;
   StreamSubscription? _statusSub;
   StreamSubscription? _locationSub;
@@ -56,6 +56,7 @@ class _ActiveRideTrackingScreenState
     super.initState();
     _driverName = widget.driverName ?? "Driver";
     _driverId = widget.driverId ?? "";
+    _driverPos = widget.startPos;
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -308,6 +309,10 @@ class _ActiveRideTrackingScreenState
                           icon: const Icon(LucideIcons.phone,
                               color: Colors.green),
                           onPressed: () {
+                            if (_driverId.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Driver not assigned yet")));
+                              return;
+                            }
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -329,6 +334,10 @@ class _ActiveRideTrackingScreenState
                           icon: const Icon(LucideIcons.messageCircle,
                               color: Colors.black87),
                           onPressed: () {
+                            if (_driverId.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Driver not assigned yet")));
+                              return;
+                            }
                             Navigator.push(
                               context,
                               MaterialPageRoute(

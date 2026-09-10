@@ -56,14 +56,14 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
       double platformRevenue = 0.0;
 
       try {
-        final pendingRes = await client.from('churches').select('id, name, email, contact_phone, location, is_verified, subscription_ends_at, logo_url').eq('is_verified', false);
+        final pendingRes = await client.from('churches').select('id, name, pastor_name, country, contact_phone, location, is_verified, subscription_ends_at, logo_url').eq('is_verified', false);
         pendingList = List<Map<String, dynamic>>.from(pendingRes);
       } catch (e) {
         debugPrint("COA stats: pending churches query failed: $e");
       }
 
       try {
-        final paymentsRes = await client.from('churches').select('id, name, email, contact_phone, location, payment_reference, payment_amount, is_verified').not('payment_reference', 'is', null);
+        final paymentsRes = await client.from('churches').select('id, name, contact_phone, location, payment_reference, payment_submitted_at, is_verified').not('payment_reference', 'is', null);
         paymentsList = List<Map<String, dynamic>>.from(paymentsRes)
             .where((c) => (c['payment_reference'] as String?)?.isNotEmpty == true)
             .toList();
