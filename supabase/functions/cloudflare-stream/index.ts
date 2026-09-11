@@ -100,10 +100,22 @@ serve(async (req) => {
         }
         return await deleteLiveInput(params, corsHeaders);
       }
-      case "get_live_input":
+      case "get_live_input": {
+        if (!params?.input_id || !(await ownsStream(supabaseAuth, params.input_id, profile))) {
+          return new Response(JSON.stringify({ error: "Not authorized to view this input" }), {
+            status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
         return await getLiveInput(params, corsHeaders);
-      case "get_analytics":
+      }
+      case "get_analytics": {
+        if (params?.input_id && !(await ownsStream(supabaseAuth, params.input_id, profile))) {
+          return new Response(JSON.stringify({ error: "Not authorized to view analytics" }), {
+            status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
         return await getAnalytics(params, corsHeaders);
+      }
       case "list_videos": {
         // Tenant-scoped: return only streams belonging to the caller's church
         // (or all if superadmin/employee). Avoids the unbounded account-wide list.
@@ -133,6 +145,11 @@ serve(async (req) => {
             status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
+        if (params?.stream_id && !(await ownsLocalStream(supabaseAuth, params.stream_id, videoId, profile))) {
+          return new Response(JSON.stringify({ error: "Not authorized to sign this video" }), {
+            status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
         return await createSignedUrl(params, key, corsHeaders);
       }
       case "whip_offer": {
@@ -154,6 +171,11 @@ serve(async (req) => {
         return await whipOffer(params, corsHeaders);
       }
       case "delete_video":
+        if (!(await ownsLocalStream(supabaseAuth, params?.stream_id, params?.video_id, profile))) {
+          return new Response(JSON.stringify({ error: "Not authorized to delete this video" }), {
+            status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
         return await deleteVideo(params, corsHeaders);
       default:
         return new Response(
@@ -185,6 +207,17 @@ async function ownsStream(supabase: any, cloudflareStreamId: string, profile: an
   } catch {
     return false;
   }
+}
+
+async function ownsLocalStream(supabase: any, streamId: string | undefined, videoId: string | undefined, profile: any): Promise<boolean> {
+  if (!streamId || !videoId) return false;
+  if (["superadmin", "coa_employee"].includes(profile.role)) return true;
+  const { data, error } = await supabase
+    .from("live_streams")
+    .select("church_id, cloudflare_video_id")
+    .eq("id", streamId)
+    .maybeSingle();
+  return !error && data?.church_id === profile.tenant_id && data?.cloudflare_video_id === videoId;
 }
 
 async function createLiveInput(params: any, corsHeaders: Record<string, string>) {
@@ -221,8 +254,19 @@ async function createLiveInput(params: any, corsHeaders: Record<string, string>)
     );
   }
 
+  // Live input responses may omit playback.hls even though the input exposes
+  // a WebRTC playback URL. Derive the standard HLS manifest when possible so
+  // OBS/RTMPS streams remain watchable by every tenant's viewer path.
+  const result = data.result ?? {};
+  const playbackUrl = result.webRTCPlayback?.url as string | undefined;
+  if (!result.playback?.hls && !result.hls && playbackUrl) {
+    result.hls = playbackUrl
+      .replace('/webRTC/playback', '/manifest/video.m3u8')
+      .replace('/webRTC', '/manifest/video.m3u8');
+  }
+
   return new Response(
-    JSON.stringify(data.result),
+    JSON.stringify(result),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 }

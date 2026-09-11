@@ -70,6 +70,7 @@ import 'package:church_on_app/features/admin/presentation/pastor_dashboard_scree
 import 'package:church_on_app/features/admin/presentation/apostle_dashboard_screen.dart';
 import 'package:church_on_app/features/admin/presentation/coa_employee_dashboard.dart';
 import 'package:church_on_app/features/admin/presentation/bookshop_dashboard_screen.dart';
+import 'package:church_on_app/features/home/presentation/live_stream_screen.dart';
 import 'package:church_on_app/features/admin/presentation/member_attendance_screen.dart';
 import 'package:church_on_app/features/marketplace/presentation/bookshop_workspace_screen.dart';
 import 'package:church_on_app/features/admin/presentation/year_planner_screen.dart';
@@ -1394,6 +1395,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/live-streaming',
         builder: (context, state) => const LiveStreamingScreen(),
+      ),
+      GoRoute(
+        path: '/live-player',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return LiveStreamScreen(
+            streamUrl: extra?['streamUrl']?.toString() ?? '',
+            title: extra?['title']?.toString() ?? 'Live Service',
+          );
+        },
       ),
       GoRoute(
         path: '/stream-admin/:tenantId',

@@ -221,8 +221,13 @@ serve(async (req: Request) => {
         metadata: Object.keys(meta).length > 0 ? meta : null,
       });
     if (insertError) {
-      // Non-fatal: the webhook can still create/resolve the row by phone
-      console.warn(`[lipila-collect] Could not pre-create coa_payments row: ${insertError.message}`);
+      // Never initiate a collection without its server-side anchor. A later
+      // webhook must not have to infer ownership or amount from a phone number.
+      console.error(`[lipila-collect] Could not pre-create coa_payments row: ${insertError.message}`);
+      return new Response(JSON.stringify({ error: "Could not create payment anchor" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const collectRes = await fetch(`${baseUrl}/v1/collections/mobile-money`, {

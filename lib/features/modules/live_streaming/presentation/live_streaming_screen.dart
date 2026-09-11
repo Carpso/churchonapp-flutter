@@ -78,14 +78,28 @@ class LiveStreamingScreen extends ConsumerWidget {
                   children: [
                     const Text('LIVE NOW', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.red)),
                     const SizedBox(height: 12),
-                    ...streams.map((stream) => Card(
-                      child: ListTile(
+                     ...streams.map((stream) => Card(
+                       child: ListTile(
                         title: Text(
                           stream['title'] ?? 'Live Stream',
                           style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
                         ),
-                        subtitle: Text("${stream['viewer_count'] ?? 0} watching", style: const TextStyle(color: Colors.black54)),
-                      ),
+                         subtitle: Text("${stream['viewer_count'] ?? 0} watching", style: const TextStyle(color: Colors.black54)),
+                         trailing: const Icon(Icons.play_circle_fill, color: Colors.red),
+                         onTap: () {
+                           final hls = stream['hls_url']?.toString();
+                           if (hls == null || hls.isEmpty) {
+                             ScaffoldMessenger.of(context).showSnackBar(
+                               const SnackBar(content: Text('This stream is not ready for playback yet.')),
+                             );
+                             return;
+                           }
+                           context.push('/live-player', extra: {
+                             'streamUrl': hls,
+                             'title': stream['title']?.toString() ?? 'Live Service',
+                           });
+                         },
+                       ),
                     )),
                   ],
                 );

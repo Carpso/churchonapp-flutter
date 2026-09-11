@@ -673,6 +673,14 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   @override
   void dispose() {
     _stopHeartbeat();
+    // A force-close, route pop, or OS kill must not leave a stream marked live.
+    final abandonedId = _isLive ? _streamId : null;
+    if (abandonedId != null) {
+      unawaited(Supabase.instance.client.from('live_streams').update({
+        'status': 'ended',
+        'ended_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', abandonedId));
+    }
     _titleController.dispose();
     _pc?.dispose();
     _renderer?.dispose();

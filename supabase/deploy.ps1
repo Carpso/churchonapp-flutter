@@ -287,6 +287,9 @@ $migrations = @(
      "20261105_baptism_registry_member_attendance.sql"
      "20261106_member_attendance_list.sql"
      "20261107_backfill_bookshop_tenants.sql"
+     "20261108_operations_hardening.sql"
+     "20261109_streaming_credentials_and_scope.sql"
+     "20261110_dashboard_rpc_hardening.sql"
     )
 
 foreach ($m in $migrations) {

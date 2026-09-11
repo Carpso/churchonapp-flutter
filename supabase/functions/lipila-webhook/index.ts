@@ -204,6 +204,48 @@ async function processWebhook(
     );
   }
 
+  // Payout callbacks reference payout_tasks.payout_ref, not coa_payments.
+  // Resolve these first so a payout can never create or mutate a collection
+  // ledger row with a colliding reference.
+  const { data: payoutTask } = await supabase
+    .from("payout_tasks")
+    .select("id, source, source_ref, status")
+    .eq("payout_ref", reference)
+    .maybeSingle();
+  if (payoutTask) {
+    const now = new Date().toISOString();
+    if (newStatus === "settled") {
+      await supabase.from("payout_tasks").update({
+        status: "paid",
+        processed_at: now,
+        updated_at: now,
+        last_error: null,
+      }).eq("id", payoutTask.id).in("status", ["processing", "pending"]);
+      if (payoutTask.source === "church_payout" && payoutTask.source_ref) {
+        await supabase.from("church_withdrawals").update({
+          status: "paid", processed_at: now, updated_at: now,
+          lipila_reference: reference,
+        }).eq("id", payoutTask.source_ref);
+      }
+    } else if (newStatus === "failed") {
+      await supabase.from("payout_tasks").update({
+        status: "pending",
+        last_error: payload.message || `lipila_${status}`,
+        updated_at: now,
+      }).eq("id", payoutTask.id).eq("status", "processing");
+      if (payoutTask.source === "church_payout" && payoutTask.source_ref) {
+        await supabase.from("church_withdrawals").update({
+          status: "failed", last_error: payload.message || `lipila_${status}`, updated_at: now,
+        }).eq("id", payoutTask.source_ref);
+      }
+    }
+    await audit("payout_webhook_processed", payoutTask.id, { reference, status, source: payoutTask.source }, clientIp);
+    return new Response(
+      JSON.stringify({ status: "processed", kind: "payout", payout_task_id: payoutTask.id }),
+      { headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   // ── IDEMPOTENCY / DEDUP ─────────────────────────────────
   for (const q of [
     supabase.from("coa_payments").select("id, status").eq("payment_ref", reference).maybeSingle(),
@@ -232,6 +274,14 @@ async function processWebhook(
     .maybeSingle();
 
   if (existing && !existingError) {
+    const priorStatus = (existing.status || "").toLowerCase();
+    if (priorStatus === "settled" && newStatus !== "settled") {
+      await audit("webhook_received", existing.id, { event: payload.type, status, reference, reason: "terminal_state" }, clientIp);
+      return new Response(
+        JSON.stringify({ status: "already_processed", payment_id: existing.id, previous_status: existing.status }),
+        { headers: { "Content-Type": "application/json" } },
+      );
+    }
     const updateData: Record<string, unknown> = {
       status: newStatus,
       updated_at: new Date().toISOString(),

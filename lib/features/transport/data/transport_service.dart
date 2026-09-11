@@ -5,9 +5,8 @@ import '../../../core/services/supabase_service.dart';
 import 'ride_request_model.dart';
 import 'delivery_model.dart';
 import '../../../core/services/sms_service.dart';
-import '../../../core/config/env.dart';
-import '../../../core/config/fee_config.dart';
 import '../../../core/config/remote_config.dart';
+import '../../../core/services/tenant_service.dart';
 import 'package:latlong2/latlong.dart';
 
 class RideRegistration {
@@ -177,9 +176,12 @@ class TransportService {
       destLabel: destLabel,
     );
 
+    final tenantId = _ref.read(currentTenantProvider)?.id;
+    final payload = request.toMap();
+    if (tenantId != null && tenantId.isNotEmpty) payload['tenant_id'] = tenantId;
     final inserted = await _client
         .from('ride_requests')
-        .insert(request.toMap())
+        .insert(payload)
         .select('id')
         .single();
     return inserted['id'] as String?;
@@ -237,23 +239,18 @@ class TransportService {
       debugPrint('acceptRide active check failed (proceeding): $e');
     }
 
-    // Atomic accept: only succeed if ride is still pending (prevents double-book)
-    final result = await _client
-        .from('ride_requests')
-        .update({
-          'driver_id': user.id,
-          'status': 'accepted',
-          'negotiation_status': 'accepted',
-          'fare_locked_at': DateTime.now().toIso8601String(),
-          'last_offer_by': null,
-        })
-        .eq('id', requestId)
-        .eq('status', 'pending')
-        .select('rider_id')
-        .maybeSingle();
+    Map<String, dynamic>? result;
+    try {
+      final rpcResult = await _client.rpc('accept_ride_request', params: {
+        'p_request_id': requestId,
+      });
+      if (rpcResult is Map) result = Map<String, dynamic>.from(rpcResult);
+    } catch (e) {
+      debugPrint('transport_service: server ride acceptance failed: $e');
+    }
 
-    if (result == null) {
-      debugPrint("transport_service: Ride $requestId already taken by another driver");
+    if (result == null || result['rider_id'] == null) {
+      debugPrint("transport_service: Ride $requestId was not accepted");
       return false;
     }
 
@@ -466,11 +463,10 @@ class TransportService {
 
   /// Passenger paid — store the Lipila anchor + mark the ride paid.
   Future<void> confirmRidePayment(String requestId, String txId) async {
-    await _client.from('ride_requests').update({
-      'payment_ref': txId,
-      'payment_status': 'paid',
-      'paid_at': DateTime.now().toIso8601String(),
-    }).eq('id', requestId);
+    await _client.rpc('confirm_ride_payment', params: {
+      'p_request_id': requestId,
+      'p_payment_ref': txId,
+    });
     try {
       final res = await _client
           .from('ride_requests')
@@ -611,11 +607,10 @@ class TransportService {
 
   /// Sender paid — store the Lipila anchor + mark the delivery paid.
   Future<void> confirmDeliveryPayment(String deliveryId, String txId) async {
-    await _client.from('delivery_requests').update({
-      'payment_ref': txId,
-      'payment_status': 'paid',
-      'paid_at': DateTime.now().toIso8601String(),
-    }).eq('id', deliveryId);
+    await _client.rpc('confirm_delivery_payment', params: {
+      'p_delivery_id': deliveryId,
+      'p_payment_ref': txId,
+    });
     try {
       final res = await _client
           .from('delivery_requests')
@@ -667,104 +662,21 @@ class TransportService {
   }
 
   Future<void> updateRideStatus(String requestId, String status) async {
-    await _client.from('ride_requests').update({'status': status}).eq('id', requestId);
-    
-    // Auto-settle if completed
-    if (status == 'completed') {
-      await _settleRide(requestId);
-    }
+    await _client.rpc('transition_ride_status', params: {
+      'p_request_id': requestId,
+      'p_status': status,
+    });
+
+    if (status == 'completed') await _settleRide(requestId);
   }
 
-  /// Business commission cut percent — read from remote FeeConfig (10% default).
-  double get _businessCutPercent =>
-      _ref.read(feeConfigProvider).value?.businessCutPercent ?? 0.10;
-
   Future<void> _settleRide(String requestId) async {
-    // 1. Fetch ride details
-    final res = await _client
-        .from('ride_requests')
-        .select('rider_id, driver_id, offered_fare, negotiated_fare, payment_status')
-        .eq('id', requestId)
-        .single();
-    final riderId = res['rider_id'];
-    final driverId = res['driver_id'];
-    final fare = ((res['negotiated_fare'] ?? res['offered_fare']) as num).toDouble();
-
-    if (driverId == null) return;
-    // Never settle a ride the passenger has not paid for.
-    if ((res['payment_status'] ?? 'unpaid') != 'paid') {
-      debugPrint("transport_service: ride $requestId not paid — skipping settlement");
-      return;
-    }
-
-    final cutPercent = _businessCutPercent;
-    final platformCut = fare * cutPercent;
-    final netEarning = fare - platformCut;
-
-    // Update ride request with platform fee
-    await _client.from('ride_requests').update({
-      'platform_fee': platformCut,
-    }).eq('id', requestId);
-
-    // 3. Log Transactions
-    await _client.from('wallet_transactions').insert({
-      'user_id': riderId,
-      'amount': -fare,
-      'type': 'ride_payment',
-      'reference_id': requestId,
-      'description': 'Payment for Ride (${(cutPercent * 100).toStringAsFixed(0)}% platform cut applied)',
-      'platform_fee': platformCut,
-    });
-
-    await _client.from('wallet_transactions').insert({
-      'user_id': driverId,
-      'amount': netEarning,
-      'type': 'ride_earning',
-      'reference_id': requestId,
-      'description': 'Earning from Ride (${(cutPercent * 100).toStringAsFixed(0)}% platform cut applied)',
-      'platform_fee': platformCut,
-    });
-
-    await _client.from('wallet_transactions').insert({
-      'user_id': Env.treasuryId,
-      'amount': platformCut,
-      'type': 'platform_cut_revenue',
-      'reference_id': requestId,
-      'description': 'Platform revenue cut from ride request $requestId',
-      'platform_fee': 0.0,
-    });
-
-    // 4. Enqueue SERVER-SIDE settlement for the driver.
-    // The settlement engine (webhook/lps-settle cron) pays the ride's recorded
-    // driver from ride_requests.offered_fare, applying fees server-side. The
-    // client can no longer move money directly.
     try {
-      await _client.rpc('enqueue_payout_task', params: {
-        'p_source': 'ride',
-        'p_source_ref': requestId,
-        'p_payment_ref': null,
-        'p_recipient_user_id': null,
-        'p_recipient_phone': '',
-        'p_gross_amount': netEarning,
+      await _client.rpc('enqueue_ride_settlements', params: {
+        'p_request_id': requestId,
       });
     } catch (e) {
-      debugPrint("transport_service: Driver settlement enqueue failed: $e");
-    }
-
-    // 5. Enqueue the PLATFORM cut payout. The settlement engine disburses it
-    // to the number set by superadmin/coa_employee (platform_settings
-    // ride_payout_mobile). Tenants never access ride money.
-    try {
-      await _client.rpc('enqueue_payout_task', params: {
-        'p_source': 'ride_cut',
-        'p_source_ref': requestId,
-        'p_payment_ref': null,
-        'p_recipient_user_id': null,
-        'p_recipient_phone': '',
-        'p_gross_amount': platformCut,
-      });
-    } catch (e) {
-      debugPrint("transport_service: Platform ride cut enqueue failed: $e");
+      debugPrint('transport_service: server ride settlement enqueue failed: $e');
     }
   }
 
@@ -946,117 +858,21 @@ class TransportService {
   }
 
   Future<void> updateDeliveryStatus(String deliveryId, String status) async {
-    await _client.from('delivery_requests').update({'status': status}).eq('id', deliveryId);
-    
-    // Auto-settle if delivered
-    if (status == 'delivered') {
-      await _settleDelivery(deliveryId);
-    }
+    await _client.rpc('transition_delivery_status', params: {
+      'p_delivery_id': deliveryId,
+      'p_status': status,
+    });
+
+    if (status == 'delivered') await _settleDelivery(deliveryId);
   }
 
   Future<void> _settleDelivery(String deliveryId) async {
-    final res = await _client
-        .from('delivery_requests')
-        .select('sender_id, driver_id, offered_fare, negotiated_fare, payment_status, item_description, vendor_phone, vendor_name, item_price')
-        .eq('id', deliveryId)
-        .single();
-    final senderId = res['sender_id'];
-    final driverId = res['driver_id'];
-    final fare = ((res['negotiated_fare'] ?? res['offered_fare']) as num).toDouble();
-
-    if (driverId == null) return;
-    // Never settle a delivery the sender has not paid for.
-    if ((res['payment_status'] ?? 'unpaid') != 'paid') {
-      debugPrint("transport_service: delivery $deliveryId not paid — skipping settlement");
-      return;
-    }
-
-    final cutPercent = _businessCutPercent;
-    final platformCut = fare * cutPercent;
-    final netEarning = fare - platformCut;
-
-    // Update delivery request with platform fee
-    await _client.from('delivery_requests').update({
-      'platform_fee': platformCut,
-    }).eq('id', deliveryId);
-
-    // Log Transactions
-    await _client.from('wallet_transactions').insert({
-      'user_id': senderId,
-      'amount': -fare,
-      'type': 'delivery_payment',
-      'reference_id': deliveryId,
-      'description': 'Payment for Cargo: ${res['item_description']} (${(cutPercent * 100).toStringAsFixed(0)}% platform cut applied)',
-      'platform_fee': platformCut,
-    });
-
-    await _client.from('wallet_transactions').insert({
-      'user_id': driverId,
-      'amount': netEarning,
-      'type': 'delivery_earning',
-      'reference_id': deliveryId,
-      'description': 'Earning from Cargo mission (${(cutPercent * 100).toStringAsFixed(0)}% platform cut applied)',
-      'platform_fee': platformCut,
-    });
-
-    await _client.from('wallet_transactions').insert({
-      'user_id': Env.treasuryId,
-      'amount': platformCut,
-      'type': 'platform_cut_revenue',
-      'reference_id': deliveryId,
-      'description': 'Platform revenue cut from cargo request $deliveryId',
-      'platform_fee': 0.0,
-    });
-
-    // 1. Enqueue SERVER-SIDE settlement for courier/driver.
-    // The settlement engine resolves the courier + gross from delivery_requests
-    // and disburses after delivery is confirmed. Client cannot move money.
     try {
-      await _client.rpc('enqueue_payout_task', params: {
-        'p_source': 'delivery',
-        'p_source_ref': deliveryId,
-        'p_payment_ref': null,
-        'p_recipient_user_id': null,
-        'p_recipient_phone': '',
-        'p_gross_amount': netEarning,
+      await _client.rpc('enqueue_delivery_settlements', params: {
+        'p_delivery_id': deliveryId,
       });
     } catch (e) {
-      debugPrint("transport_service: Courier settlement enqueue failed: $e");
-    }
-
-    // 2. Enqueue SERVER-SIDE escrow settlement for the marketplace vendor.
-    // The engine releases item_price * (1 - cut) to delivery_requests.vendor_phone
-    // after delivery is confirmed.
-    final vendorPhone = res['vendor_phone'];
-    final itemPrice = res['item_price'] != null ? (res['item_price'] as num).toDouble() : 0.0;
-
-    if (itemPrice > 0) {
-      try {
-        await _client.rpc('enqueue_payout_task', params: {
-          'p_source': 'escrow',
-          'p_source_ref': deliveryId,
-          'p_payment_ref': null,
-          'p_recipient_user_id': null,
-          'p_recipient_phone': vendorPhone?.toString() ?? '',
-          'p_gross_amount': itemPrice,
-        });
-      } catch (e) {
-        debugPrint("transport_service: Vendor escrow settlement enqueue failed: $e");
-      }
-    }
-
-    // 3. Enqueue the PLATFORM cut payout (ride_payout_mobile setting).
-    try {
-      await _client.rpc('enqueue_payout_task', params: {
-        'p_source': 'delivery_cut',
-        'p_source_ref': deliveryId,
-        'p_payment_ref': null,
-        'p_recipient_user_id': null,
-        'p_recipient_phone': '',
-        'p_gross_amount': platformCut,
-      });
-    } catch (e) {
-      debugPrint("transport_service: Platform delivery cut enqueue failed: $e");
+      debugPrint('transport_service: server delivery settlement enqueue failed: $e');
     }
   }
 

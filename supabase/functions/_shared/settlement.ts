@@ -86,6 +86,7 @@ interface Task {
   recipient_role: string | null;
   gross_amount: number;
   attempt_count: number;
+  payout_ref?: string | null;
 }
 
 // Roles that may legitimately receive church money (tithes/offerings).
@@ -192,11 +193,19 @@ async function resolveChurchRecipient(
   }
 
   // 3. Church contact numbers, in treasury-first order.
-  const { data: church } = await supabase
+  let { data: church } = await supabase
     .from("churches")
     .select("treasurer_phone, contact_phone, pastor_phone")
     .eq("id", tenantId)
     .maybeSingle();
+  if (!church) {
+    const fallback = await supabase
+      .from("churches")
+      .select("treasurer_phone, contact_phone, pastor_phone")
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    church = fallback.data;
+  }
   if (church) {
     for (const candidate of [
       church.treasurer_phone as string | null,
@@ -312,7 +321,7 @@ async function resolveSettlement(
       if (!task.source_ref) return { error: "missing_source_ref", recipient: "", gross: 0 };
       const { data: ride } = await supabase
         .from("ride_requests")
-        .select("status, driver_id, offered_fare, negotiated_fare, payment_status")
+        .select("status, rider_id, driver_id, offered_fare, negotiated_fare, payment_status, payment_ref")
         .eq("id", task.source_ref)
         .maybeSingle();
       if (!ride || (ride.status ?? "").toLowerCase() !== "completed") {
@@ -320,6 +329,15 @@ async function resolveSettlement(
       }
       // Only a ride that was actually paid may pay the driver.
       if ((ride.payment_status ?? "unpaid") !== "paid") {
+        return { retry: true, recipient: "", gross: 0 };
+      }
+      const { data: ridePayment } = await supabase
+        .from("coa_payments")
+        .select("status, amount, user_id")
+        .eq("payment_ref", ride.payment_ref)
+        .eq("user_id", ride.rider_id)
+        .maybeSingle();
+      if (!ridePayment || !CONFIRMED.includes((ridePayment.status ?? "").toLowerCase())) {
         return { retry: true, recipient: "", gross: 0 };
       }
       // Owner check: only the driver assigned to this ride may be paid for it.
@@ -336,13 +354,22 @@ async function resolveSettlement(
       if (!task.source_ref) return { error: "missing_source_ref", recipient: "", gross: 0 };
       const { data: delivery } = await supabase
         .from("delivery_requests")
-        .select("status, driver_id, offered_fare, negotiated_fare, payment_status")
+        .select("status, sender_id, driver_id, offered_fare, negotiated_fare, payment_status, payment_ref")
         .eq("id", task.source_ref)
         .maybeSingle();
       if (!delivery || (delivery.status ?? "").toLowerCase() !== "delivered") {
         return { retry: true, recipient: "", gross: 0 };
       }
       if ((delivery.payment_status ?? "unpaid") !== "paid") {
+        return { retry: true, recipient: "", gross: 0 };
+      }
+      const { data: deliveryPayment } = await supabase
+        .from("coa_payments")
+        .select("status, amount, user_id")
+        .eq("payment_ref", delivery.payment_ref)
+        .eq("user_id", delivery.sender_id)
+        .maybeSingle();
+      if (!deliveryPayment || !CONFIRMED.includes((deliveryPayment.status ?? "").toLowerCase())) {
         return { retry: true, recipient: "", gross: 0 };
       }
       if (delivery.driver_id !== task.user_id) return { error: "not_delivery_owner", recipient: "", gross: 0 };
@@ -468,7 +495,9 @@ async function disburse(
     return { taskId: task.id, ok: false, retry: false, error: "net_zero" };
   }
 
-  const payoutRef = crypto.randomUUID();
+  // Reuse one reference across retries. A network timeout after Lipila accepts
+  // a payout must never create a second disbursement on the next cron pass.
+  const payoutRef = task.payout_ref || task.id;
   const nowIso = new Date().toISOString();
 
   // Atomic claim — 'pending' -> 'processing' guards against double payment.
@@ -546,25 +575,25 @@ async function disburse(
     await supabase
       .from("payout_tasks")
       .update({
-        status: "paid",
-        processed_at: nowIso,
+        // Lipila's HTTP acceptance is not final settlement. The webhook moves
+        // this task to paid/failed using the stable payout_ref.
+        status: "processing",
         updated_at: nowIso,
       })
       .eq("id", task.id);
 
     if (task.source === "church_payout") {
       await syncWithdrawal(supabase, task, {
-        status: "paid",
+        status: "processing",
         lipila_fee: lipilaFee,
         coa_fee: coaFee,
         net_amount: net,
         lipila_reference: payoutRef,
-        processed_at: nowIso,
         updated_at: nowIso,
       });
     }
 
-    return { taskId: task.id, ok: true, retry: false };
+    return { taskId: task.id, ok: true, retry: true };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "network_error";
     await markTaskFailed(supabase, task, msg.slice(0, 400), net);
@@ -579,10 +608,11 @@ async function markTaskFailed(
   netAmount: number,
 ): Promise<void> {
   const nowIso = new Date().toISOString();
+  const shouldRetry = (task.attempt_count ?? 0) < 5;
   await supabase
     .from("payout_tasks")
     .update({
-      status: "failed",
+      status: shouldRetry ? "pending" : "failed",
       net_amount: netAmount,
       last_error: error,
       updated_at: nowIso,
@@ -622,7 +652,7 @@ export async function settleReference(
 
   const { data: tasks } = await supabase
     .from("payout_tasks")
-    .select("id, user_id, source, source_ref, payment_ref, recipient_user_id, recipient_phone, recipient_role, gross_amount, attempt_count")
+    .select("id, user_id, source, source_ref, payment_ref, recipient_user_id, recipient_phone, recipient_role, gross_amount, attempt_count, payout_ref")
     .eq("payment_ref", reference)
     .eq("status", "pending")
     .limit(20);
@@ -645,6 +675,16 @@ export async function settleTask(
 ): Promise<SettlementResult> {
   const resolved = await resolveSettlement(supabase, task, cfg);
   if (resolved.error) {
+    // Recipient configuration can be added after a task is created. Keep
+    // these tasks pending so the next settlement pass can resolve again.
+    if (["no_recipient", "withdrawal_not_found"].includes(resolved.error)) {
+      await supabase.from("payout_tasks").update({
+        status: "pending",
+        last_error: resolved.error,
+        updated_at: new Date().toISOString(),
+      }).eq("id", task.id);
+      return { taskId: task.id, ok: false, retry: true, error: resolved.error };
+    }
     // Permanent failure — mark failed so it is visible to admins.
     await markTaskFailed(supabase, task, resolved.error, 0);
     return { taskId: task.id, ok: false, retry: false, error: resolved.error };
@@ -663,7 +703,7 @@ export async function processPendingSettlements(
 
   const { data: tasks } = await supabase
     .from("payout_tasks")
-    .select("id, user_id, source, source_ref, payment_ref, recipient_user_id, recipient_phone, recipient_role, gross_amount, attempt_count")
+    .select("id, user_id, source, source_ref, payment_ref, recipient_user_id, recipient_phone, recipient_role, gross_amount, attempt_count, payout_ref")
     .eq("status", "pending")
     .order("created_at", { ascending: true })
     .limit(20);

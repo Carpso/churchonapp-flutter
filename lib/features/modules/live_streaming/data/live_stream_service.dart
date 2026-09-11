@@ -24,6 +24,9 @@ import 'package:chewie/chewie.dart';
 class LiveStreamService {
   final SupabaseClient _client;
 
+  static const _publicStreamColumns =
+      'id,church_id,title,description,status,streaming_backend,scheduled_at,started_at,ended_at,hls_url,dash_url,preview_url,viewer_count,created_at,cloudflare_video_id';
+
   LiveStreamService(this._client);
 
   /// Get active live streams
@@ -31,7 +34,7 @@ class LiveStreamService {
     try {
       final result = await _client
           .from('live_streams')
-          .select('*, churches(id, name, logo_url)')
+          .select('$_publicStreamColumns, churches(id, name, logo_url)')
           .eq('status', 'live')
           .order('started_at', ascending: false);
 
@@ -43,7 +46,7 @@ class LiveStreamService {
       try {
         final fallback = await _client
             .from('live_streams')
-            .select()
+            .select(_publicStreamColumns)
             .eq('status', 'live')
             .order('started_at', ascending: false);
         final list = List<Map<String, dynamic>>.from(fallback);
@@ -63,7 +66,7 @@ class LiveStreamService {
     try {
       final result = await _client
           .from('live_streams')
-          .select('*, churches(id, name, logo_url)')
+          .select('$_publicStreamColumns, churches(id, name, logo_url)')
           .eq('status', 'scheduled')
           .gte('scheduled_at', DateTime.now().toIso8601String())
           .order('scheduled_at');
@@ -75,7 +78,7 @@ class LiveStreamService {
       try {
         final fallback = await _client
             .from('live_streams')
-            .select()
+            .select(_publicStreamColumns)
             .eq('status', 'scheduled')
             .gte('scheduled_at', DateTime.now().toIso8601String())
             .order('scheduled_at');
@@ -94,7 +97,7 @@ class LiveStreamService {
   Future<Map<String, dynamic>?> getStream(String streamId) async {
     final result = await _client
         .from('live_streams')
-        .select('*, churches(id, name, logo_url)')
+        .select('$_publicStreamColumns, churches(id, name, logo_url)')
         .eq('id', streamId)
         .maybeSingle();
 

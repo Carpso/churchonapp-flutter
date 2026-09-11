@@ -25,7 +25,7 @@ class UnifiedStreamService {
   Future<StreamingConfig> getStreamingConfig(String tenantId) async {
     final result = await _client
         .from('church_stream_config')
-        .select()
+        .select('id,church_id,title,description,status,scheduled_at,started_at,ended_at,hls_url,dash_url,preview_url,viewer_count,created_at')
         .eq('church_id', tenantId)
         .maybeSingle();
 
