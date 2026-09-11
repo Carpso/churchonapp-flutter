@@ -18,11 +18,6 @@ SET text = REPLACE(text, E'â€œ', '"')
 WHERE translation_id = (SELECT id FROM bible_translations WHERE code = 'kjv')
   AND text LIKE E'%â€œ%';
 
-UPDATE bible_verses
-SET text = REPLACE(text, E'â€\x9d', '"')
-WHERE translation_id = (SELECT id FROM bible_translations WHERE code = 'kjv')
-  AND text LIKE E'%â€\x9d%';
-
 -- Log affected rows count
 DO $$
 DECLARE affected INT;

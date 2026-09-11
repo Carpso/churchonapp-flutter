@@ -110,7 +110,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Marketplace", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          widget.initialCategory == 'bookshop' ? 'Bookshop Store' : 'Marketplace',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         actions: [
           Stack(
             alignment: Alignment.center,
@@ -142,7 +145,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
           ? AppErrorView(error: _error, onRetry: _loadProducts)
           : Column(
               children: [
-                _buildTabRibbon(),
+                if (widget.initialCategory != 'bookshop') _buildTabRibbon(),
                 _buildCategoryRibbon(),
                 Expanded(
                   child: _products.isEmpty && !_isLoadingMore
@@ -214,7 +217,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
             ),
           );
         },
-        backgroundColor: const Color(0xFF0F172A),
+         backgroundColor: Theme.of(context).primaryColor,
         icon: const Icon(LucideIcons.plus, color: Colors.white),
         label: Text(_selectedCategory == 'bookshop' ? "Sell a Book" : "List Item", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
@@ -264,7 +267,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   }
 
   Widget _buildCategoryRibbon() {
-    final categories = ["all", "bookshop", "apparel", "worship", "tickets", "media"];
+    final categories = widget.initialCategory == 'bookshop'
+        ? const ['bookshop']
+        : const ['all', 'bookshop', 'apparel', 'worship', 'tickets', 'media'];
     return Container(
       height: 40,
       margin: const EdgeInsets.only(bottom: 10),

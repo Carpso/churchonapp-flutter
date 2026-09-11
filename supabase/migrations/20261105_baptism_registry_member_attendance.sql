@@ -63,8 +63,13 @@ AS $$
     (SELECT cnt FROM total_m)::INT,
     COALESCE(ROUND((SELECT AVG(svc_count) FROM mtd), 1), 0),
     COALESCE(
-      (SELECT jsonb_agg(jsonb_build_object('user_id', m.user_id, 'name', p.full_name, 'count', m.svc_count))
-       FROM mtd m JOIN profiles p ON p.id = m.user_id ORDER BY m.svc_count DESC LIMIT 10),
+      (SELECT jsonb_agg(jsonb_build_object('user_id', top_users.user_id, 'name', top_users.full_name, 'count', top_users.svc_count))
+       FROM (
+         SELECT m.user_id, p.full_name, m.svc_count
+         FROM mtd m JOIN profiles p ON p.id = m.user_id
+         ORDER BY m.svc_count DESC
+         LIMIT 10
+       ) top_users),
       '[]'::jsonb),
     COALESCE(
       (SELECT jsonb_agg(jsonb_build_object('user_id', p.id, 'name', p.full_name))

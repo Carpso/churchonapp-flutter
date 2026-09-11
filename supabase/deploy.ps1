@@ -282,7 +282,10 @@ $migrations = @(
     "20261033_fix_leadership_memo_leak.sql"
     "20261034_carpso_ride_rls_and_columns.sql"
     "20261035_streaming_live_status_and_marketplace_global.sql"
-    "20261036_map_listing_and_streaming_columns.sql"
+     "20261036_map_listing_and_streaming_columns.sql"
+     "20261037_bible_kjv_mojibake_fix.sql"
+     "20261105_baptism_registry_member_attendance.sql"
+     "20261106_member_attendance_list.sql"
     )
 
 foreach ($m in $migrations) {

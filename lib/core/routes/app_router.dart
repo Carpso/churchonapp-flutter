@@ -70,6 +70,8 @@ import 'package:church_on_app/features/admin/presentation/pastor_dashboard_scree
 import 'package:church_on_app/features/admin/presentation/apostle_dashboard_screen.dart';
 import 'package:church_on_app/features/admin/presentation/coa_employee_dashboard.dart';
 import 'package:church_on_app/features/admin/presentation/bookshop_dashboard_screen.dart';
+import 'package:church_on_app/features/admin/presentation/member_attendance_screen.dart';
+import 'package:church_on_app/features/marketplace/presentation/bookshop_workspace_screen.dart';
 import 'package:church_on_app/features/admin/presentation/year_planner_screen.dart';
 import 'package:church_on_app/features/admin/presentation/pastor_bishop_report_screen.dart';
 import 'package:church_on_app/features/admin/presentation/media_upload_screen.dart';
@@ -278,7 +280,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           final dec = Uri.decodeComponent(redir);
           if (dec.startsWith('/') && dec != '/splash' && dec != '/onboarding') return dec;
         }
-        return tenant != null ? '/' : '/select-church';
+        return tenant != null
+            ? (tenant.isBookshop ? '/bookshop' : '/')
+            : '/select-church';
       }
 
       // If tenant storage loading is not yet completed, wait
@@ -290,6 +294,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoggingIn = state.uri.path == '/login';
       final isSelectingChurch = state.uri.path == '/select-church';
       final isLanding = state.uri.path == '/landing';
+      final isOAuthCallback = state.uri.path == '/auth/callback';
       final isSignUp = state.uri.path == '/signup';
       final isRegisteringChurch = state.uri.path == '/register-church';
       final isForgotPassword = state.uri.path == '/forgot-password';
@@ -301,9 +306,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           state.uri.path != '/onboarding' &&
           !isLoggingIn &&
           !isSignUp &&
-          !isForgotPassword &&
-           state.uri.path != '/join' &&
-           state.uri.path != '/invite') {
+           !isForgotPassword &&
+            state.uri.path != '/join' &&
+            state.uri.path != '/invite' &&
+            state.uri.path != '/auth/callback') {
         // Preserve deep link so after tenant selection the user lands on the intended screen (not just /).
         final current = state.uri.toString();
         if (current != '/select-church' && current != '/') {
@@ -315,6 +321,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (isLoggingIn ||
             isSelectingChurch ||
             isSignUp ||
+            isOAuthCallback ||
             state.uri.path == '/onboarding' ||
             isRegisteringChurch ||
             isForgotPassword) {
@@ -333,8 +340,9 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (loggedIn &&
           seenOnboarding &&
-          (isLoggingIn ||
-              isLanding ||
+           (isLoggingIn ||
+               isOAuthCallback ||
+               isLanding ||
               state.uri.path == '/onboarding' ||
               isSelectingChurch)) {
         final redirect = state.uri.queryParameters['redirect'];
@@ -349,10 +357,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           }
         }
         if (tenant != null) {
-          return '/';
+          return tenant.isBookshop ? '/bookshop' : '/';
         } else {
           return '/select-church';
         }
+      }
+
+      if (tenant?.isChurch == true && state.uri.path.startsWith('/bookshop')) {
+        return '/';
+      }
+      if (tenant?.isBookshop == true && state.uri.path == '/') {
+        return '/bookshop';
       }
 
       // Subscription check for quiz + kids-zone routes
@@ -433,6 +448,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           return user.isPastorOrHigher || user.isLeadershipTeam;
         }
 
+        if (route == '/member-attendance') {
+          return user.isPastorOrHigher || user.isLeadershipTeam;
+        }
+
         // Finance (Treasurer / Usher / Leadership)
         if (route == '/turnover-tax') {
           return user.isLedgerManager;
@@ -503,6 +522,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LandingScreen(),
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/auth/callback',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
@@ -650,6 +673,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/bookshop-dashboard',
         builder: (context, state) => const BookshopDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/member-attendance',
+        builder: (context, state) => const MemberAttendanceScreen(),
+      ),
+      GoRoute(
+        path: '/bookshop',
+        builder: (context, state) => const BookshopWorkspaceScreen(),
       ),
       GoRoute(
         path: '/media-upload',

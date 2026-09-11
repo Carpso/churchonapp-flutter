@@ -5,7 +5,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
-import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
 import 'package:church_on_app/features/admin/data/role_hierarchy_service.dart';
@@ -215,16 +214,10 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
             ).then((_) => _loadDashboard()),
           ),
           IconButton(icon: const Icon(LucideIcons.users), onPressed: _addStaffMember, tooltip: "Add Staff"),
-          IconButton(
-            icon: const Icon(LucideIcons.globe),
-            tooltip: "Website Builder",
-            onPressed: () {
-              final tenantId = ref.read(currentTenantProvider)?.id ??
-                  ref.read(profileProvider).value?.tenantId;
-              if (tenantId != null) {
-                context.push('/church-website/$tenantId');
-              }
-            },
+           IconButton(
+             icon: const Icon(LucideIcons.settings2),
+             tooltip: "Shop settings",
+             onPressed: () => context.push('/account-settings'),
           ),
           IconButton(
             icon: const Icon(LucideIcons.refreshCw),
@@ -272,12 +265,13 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
 
   Widget _buildHeader(ThemeData theme) {
     final currency = NumberFormat.currency(symbol: 'K ', decimalDigits: 0);
+    final shopPrimary = theme.primaryColor;
     return Container(
       width: double.infinity, padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Colors.orange.shade800, Colors.orange.shade500], begin: Alignment.topLeft, end: Alignment.bottomRight),
+       decoration: BoxDecoration(
+         gradient: LinearGradient(colors: [shopPrimary, shopPrimary.withValues(alpha: 0.72)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.orange.shade200.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
+         boxShadow: [BoxShadow(color: shopPrimary.withValues(alpha: 0.25), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Row(children: [
         Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
@@ -297,7 +291,7 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 1.2,
       children: [
-        _statCard("Products", "$_totalProducts", LucideIcons.package, Colors.orange),
+         _statCard("Products", "$_totalProducts", LucideIcons.package, Theme.of(context).primaryColor),
         _statCard("Total Sales", "$_totalSales", LucideIcons.shoppingCart, Colors.green),
         _statCard("Low Stock", "$_lowStockCount", LucideIcons.alertTriangle, Colors.amber),
         _statCard("Revenue (MTD)", currency.format(_monthRevenue), LucideIcons.trendingUp, Colors.blue),
@@ -357,10 +351,10 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.orange.withValues(alpha: 0.1),
+               color: theme.primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(LucideIcons.book, color: Colors.orange, size: 18),
+             child: Icon(LucideIcons.book, color: theme.primaryColor, size: 18),
           ),
           const SizedBox(width: 14),
           Expanded(

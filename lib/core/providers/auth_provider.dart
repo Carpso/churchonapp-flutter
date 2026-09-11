@@ -125,6 +125,17 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> signInWithGoogle() async {
     state = AuthState(user: state.user, isLoading: true, errorMessage: null);
     try {
+      // The web plugin's deprecated signIn flow can produce a blank popup and
+      // does not reliably return an ID token. Supabase owns the web OAuth
+      // redirect and PKCE callback, so use it directly on web.
+      if (kIsWeb) {
+        await _client.auth.signInWithOAuth(
+          OAuthProvider.google,
+          redirectTo: '$_oauthRedirectTo/auth/callback',
+        );
+        return;
+      }
+
       final rawClientId = Env.googleWebClientId.trim();
       final webClientId = rawClientId.isNotEmpty ? rawClientId : null;
 
@@ -236,7 +247,7 @@ class AuthNotifier extends Notifier<AuthState> {
     await ref.read(currentTenantProvider.notifier).setTenant(null);
     
     await _client.auth.signOut();
-    await GoogleSignIn().signOut();
+    if (!kIsWeb) await GoogleSignIn().signOut();
   }
 }
 

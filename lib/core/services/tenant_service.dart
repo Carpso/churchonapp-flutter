@@ -87,27 +87,28 @@ class Tenant {
   PlanLimits get limits => PlanLimits.forPlan(effectivePlan);
 
   factory Tenant.fromMap(Map<String, dynamic> map) {
-    final rawId = (map['id'] ?? map['slug'] ?? '').toString().trim();
+    final rawId = (map['tenant_id'] ?? map['id'] ?? map['slug'] ?? '').toString().trim();
     final rawSlug = (map['slug'] ?? map['id'] ?? '').toString().trim();
+    final isBookshop = map['type']?.toString() == 'bookshop';
     return Tenant(
       id: rawId.isNotEmpty ? rawId : 'zm_1',
       slug: rawSlug.isNotEmpty ? rawSlug : 'rock-of-ages-kabulonga',
       organizationId: map['organization_id']?.toString(),
-      name: (map['name'] ?? 'Church On App').toString().trim(),
+      name: (map['name'] ?? (isBookshop ? 'Bookshop' : 'Church On App')).toString().trim(),
       type: map['type']?.toString() ?? 'church',
       logoUrl: (map['logo_url'] ?? map['logo'])?.toString(),
       bannerUrl: map['banner_url']?.toString(),
       primaryColor: _parseColor(
         map['primary_color']?.toString(),
-        const Color(0xFFFFD700),
+        isBookshop ? const Color(0xFF1D4ED8) : const Color(0xFFFFD700),
       ),
       accentColor: _parseColor(
         map['accent_color']?.toString(),
-        const Color(0xFF1A1A1A),
+        isBookshop ? const Color(0xFF0F172A) : const Color(0xFF1A1A1A),
       ),
       surfaceColor: _parseColor(
         map['surface_color']?.toString(),
-        const Color(0xFFFFFAEB), // TODO: replace with Theme.of(context).scaffoldBackgroundColor when context is available
+        isBookshop ? const Color(0xFFF8FAFC) : const Color(0xFFFFFAEB),
       ),
       fontFamily: map['font_family']?.toString() ?? 'Plus Jakarta Sans',
       darkMode: map['dark_mode']?.toString() ?? 'light',
@@ -263,7 +264,53 @@ class TenantService {
           }
         }
 
+        if (type == 'bookshop') {
+          try {
+            final shop = await _client
+                .from('bookshops')
+                .select()
+                .eq('tenant_id', id)
+                .maybeSingle();
+            if (shop != null) {
+              return Tenant.fromMap({
+                ...tenantData,
+                ...Map<String, dynamic>.from(shop),
+                'id': id,
+                'tenant_id': id,
+                'type': 'bookshop',
+              });
+            }
+          } catch (e) {
+            debugPrint('Error loading bookshop branding: $e');
+          }
+        }
+
         return Tenant.fromMap({...tenantData, 'id': id, 'slug': id});
+      }
+
+      // Repair old installations that persisted bookshops.id instead of the
+      // canonical tenants.id. Resolve the child row and retry its parent.
+      final shop = await _client
+          .from('bookshops')
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+      if (shop != null) {
+        final parentId = shop['tenant_id']?.toString();
+        if (parentId != null && parentId.isNotEmpty && parentId != id) {
+          final parent = await _client
+              .from('tenants')
+              .select('id, name, type')
+              .eq('id', parentId)
+              .maybeSingle();
+          return Tenant.fromMap({
+            ...(parent == null ? <String, dynamic>{} : Map<String, dynamic>.from(parent)),
+            ...Map<String, dynamic>.from(shop),
+            'id': parentId,
+            'tenant_id': parentId,
+            'type': 'bookshop',
+          });
+        }
       }
 
       // Fallback: query churches table directly
@@ -358,8 +405,12 @@ class TenantService {
     }
 
     for (final map in shops) {
+      final canonicalId = (map['tenant_id'] ?? map['id'])?.toString() ?? '';
       result.add({
         ...map,
+        'id': canonicalId,
+        'tenant_id': canonicalId,
+        'bookshop_record_id': map['id'],
         'type': 'bookshop',
         '_registered': map['is_active'] == true,
       });
@@ -463,7 +514,7 @@ class CurrentTenantNotifier extends Notifier<Tenant?> {
           'id': tenantId,
           'slug': tenantId,
           'name': cachedName,
-          'type': 'church',
+          'type': prefs.getString('selected_tenant_type') ?? 'church',
           '_cached': true,
         });
       }
@@ -495,6 +546,7 @@ class CurrentTenantNotifier extends Notifier<Tenant?> {
     if (tenant != null) {
       await prefs.setString('selected_tenant_id', tenant.id);
       await prefs.setString('selected_tenant_name', tenant.name);
+      await prefs.setString('selected_tenant_type', tenant.type);
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null && tenant.id.isNotEmpty) {
         try {
@@ -526,6 +578,7 @@ class CurrentTenantNotifier extends Notifier<Tenant?> {
       }
     } else {
       await prefs.remove('selected_tenant_id');
+      await prefs.remove('selected_tenant_type');
     }
   }
 }
