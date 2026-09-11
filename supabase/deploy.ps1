@@ -286,6 +286,7 @@ $migrations = @(
      "20261037_bible_kjv_mojibake_fix.sql"
      "20261105_baptism_registry_member_attendance.sql"
      "20261106_member_attendance_list.sql"
+     "20261107_backfill_bookshop_tenants.sql"
     )
 
 foreach ($m in $migrations) {
