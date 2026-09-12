@@ -390,7 +390,7 @@ class TenantService {
     final shops = await _safeSelect(
       'bookshops',
       fullColumns:
-          'id, name, logo_url, latitude, longitude, address, is_active, tenant_id, subscription_ends_at, plan, onboarding_fee_paid',
+          'id, name, logo_url, latitude, longitude, address, country, is_active, tenant_id, subscription_ends_at, plan, onboarding_fee_paid',
       minimalColumns: 'id, name',
     );
 

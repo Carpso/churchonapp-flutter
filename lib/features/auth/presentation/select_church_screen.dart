@@ -192,26 +192,26 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
         return regA.compareTo(regB);
       });
 
-      // List = registered/platform churches near the user only. When the
-      // user's position is known, hide tenants farther than _maxNearbyKm;
-      // tenants without coordinates are kept (distance unknown) and sort last.
-      List<Map<String, dynamic>> nearby;
-      if (pos != null) {
-        nearby = allTenants.where((t) {
-          final d = (t['_distance'] as num?)?.toDouble();
-          return d == null || d <= _maxNearbyKm * 1000;
-        }).toList();
-      } else {
-        nearby = allTenants;
+      // List = registered/platform churches & bookshops, ALL shown. "Near
+      // you" is a SORT preference (proximity first), never a hard filter —
+      // every church and bookshop stays visible even beyond 50 km so a
+      // programmatically-onboarded church (Rock Of Ages) is never hidden.
+      // Populate active countries from the data so countries that actually
+      // have churches (e.g. Zimbabwe) never show a false "Coming Soon".
+      for (final t in allTenants) {
+        final c = (t['country'] ?? '').toString().trim();
+        if (c.isNotEmpty && _supportedCountries.contains(c)) {
+          _activeCountries.add(c);
+        }
       }
 
       if (mounted) {
         setState(() {
           _tenants = allTenants;
-          _filteredTenants = nearby;
           _osmChurches = [];
           _loading = false;
         });
+        _filterTenants(_searchController.text);
       }
     } catch (e) {
       debugPrint('Error fetching tenants: $e');
@@ -255,12 +255,6 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
             country.contains(query.toLowerCase()) ||
             type.contains(query.toLowerCase());
 
-        // Keep the near-the-user filter applied on top of the search.
-        final pos = _currentPosition;
-        if (pos != null) {
-          final d = (c['_distance'] as num?)?.toDouble();
-          if (d != null && d > _maxNearbyKm * 1000) return false;
-        }
         return matchesQuery;
       }).toList();
     });
@@ -597,11 +591,9 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                             Text(
                                 _activeCountries.contains(_currentCountry)
                                     ? (_currentPosition != null
-                                        ? "Registered churches & bookshops near you in $_currentCountry"
-                                        : "Churches & Bookshops in $_currentCountry")
+                                        ? "Select churches & bookshops near you in $_currentCountry"
+                                        : "Select churches & bookshops in $_currentCountry")
                                     : "$_currentCountry — Coming Soon",
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: theme.colorScheme.onSurface.withValues(

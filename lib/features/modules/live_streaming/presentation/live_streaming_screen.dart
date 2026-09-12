@@ -132,6 +132,15 @@ class LiveStreamingScreen extends ConsumerWidget {
                           stream['title'] ?? 'Scheduled Stream',
                           style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
                         ),
+                        subtitle: stream['scheduled_at'] != null
+                            ? Text('Starts ${_formatScheduled(stream['scheduled_at'])}', style: const TextStyle(color: Colors.black54))
+                            : null,
+                        trailing: isLeader
+                            ? TextButton(
+                                onPressed: () => _startScheduledNow(context, ref, stream),
+                                child: const Text('Start Now', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                              )
+                            : null,
                       ),
                     )),
                   ],
@@ -154,5 +163,37 @@ class LiveStreamingScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  String _formatScheduled(dynamic scheduledAt) {
+    try {
+      final dt = DateTime.parse(scheduledAt.toString()).toLocal();
+      return '${dt.day}/${dt.month}/${dt.year} at ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return 'Upcoming';
+    }
+  }
+
+  Future<void> _startScheduledNow(BuildContext context, WidgetRef ref, Map<String, dynamic> stream) async {
+    final service = ref.read(liveStreamServiceProvider);
+    final streamId = stream['id']?.toString();
+    if (streamId == null || streamId.isEmpty) return;
+
+    try {
+      await service.startStream(streamId);
+      ref.invalidate(activeStreamsProvider);
+      ref.invalidate(upcomingStreamsProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Stream is now live. Connect your encoder to start broadcasting.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not start stream: $e')),
+        );
+      }
+    }
   }
 }

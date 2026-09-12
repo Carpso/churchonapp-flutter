@@ -50,6 +50,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
   List<Map<String, dynamic>> _upcomingEvents = [];
   List<Map<String, dynamic>> _givingSeries = [];
   List<Map<String, dynamic>> _recentGivers = [];
+  List<Map<String, dynamic>> _attendanceSeries = [];
   Map<String, dynamic>? _latestServiceReport;
   int _visitorsMtd = 0;
   int _salvationsMtd = 0;
@@ -240,6 +241,32 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
         if (dates.isNotEmpty) avgAttendance = (rows.length / dates.length).round();
       } catch (_) {}
 
+      // Weekly attendance trend (last 8 weeks) — the #1 ChMS metric pastors
+      // watch. Bucket attendance_logs into week-start buckets client-side.
+      List<Map<String, dynamic>> attendanceSeries = [];
+      try {
+        final eightWeeksAgo = now.subtract(const Duration(days: 56));
+        final attHistory = await client
+            .from('attendance_logs')
+            .select('created_at')
+            .eq('tenant_id', tenantId)
+            .gte('created_at', eightWeeksAgo.toIso8601String());
+        final buckets = <DateTime, int>{};
+        for (final r in (attHistory as List)) {
+          final raw = r['created_at']?.toString();
+          final dt = raw != null ? DateTime.tryParse(raw) : null;
+          if (dt == null) continue;
+          final weekStart = DateTime(dt.year, dt.month, dt.day).subtract(Duration(days: dt.weekday - 1));
+          buckets[weekStart] = (buckets[weekStart] ?? 0) + 1;
+        }
+        final sortedKeys = buckets.keys.toList()..sort();
+        attendanceSeries = sortedKeys
+            .map((k) => {'week': DateFormat('MMM d').format(k), 'total': buckets[k]})
+            .toList();
+      } catch (e) {
+        debugPrint('pastor attendance series failed: $e');
+      }
+
       // Latest service report snapshot + MTD visitors/salvations + follow-ups.
       Map<String, dynamic>? latestReport;
       int visitorsMtd = 0, salvationsMtd = 0, followUps = 0;
@@ -289,6 +316,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           _upcomingEvents = List<Map<String, dynamic>>.from(eventsRes);
           _givingSeries = givingSeries;
           _recentGivers = recentGivers;
+          _attendanceSeries = attendanceSeries;
           _latestServiceReport = latestReport;
           _visitorsMtd = visitorsMtd;
           _salvationsMtd = salvationsMtd;
@@ -378,6 +406,8 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
             _buildSummaryRow(theme),
             const SizedBox(height: 25),
             _buildGivingTrend(theme),
+            const SizedBox(height: 25),
+            _buildAttendanceTrend(theme),
             const SizedBox(height: 25),
             _buildEngagementRow(theme),
             const SizedBox(height: 25),
@@ -844,6 +874,74 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
                           Text(
                             point['month']?.toString() ?? '',
                             style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 9),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttendanceTrend(ThemeData theme) {
+    final series = _attendanceSeries;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.users, color: theme.primaryColor, size: 18),
+              const SizedBox(width: 8),
+              Text("Attendance Trend (8 weeks)", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (series.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text("No attendance data yet", style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 13)),
+              ),
+            )
+          else
+            SizedBox(
+              height: 120,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (final point in series)
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${(point['total'] as num?)?.toInt() ?? 0}',
+                            style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 9),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            height: ((point['total'] as num?)?.toInt() ?? 0) <= 0
+                                ? 4
+                                : 8 + ((point['total'] as num).toInt()).clamp(0, 400) / 3,
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            point['week']?.toString() ?? '',
+                            style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 8),
                           ),
                         ],
                       ),

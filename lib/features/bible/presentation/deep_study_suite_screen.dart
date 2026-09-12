@@ -7,7 +7,9 @@ import 'package:church_on_app/features/bible/data/study_settings_provider.dart';
 import 'package:church_on_app/features/bible/data/strongs_lexicon.dart';
 import 'package:church_on_app/features/bible/data/bible_translations.dart';
 import 'package:church_on_app/features/bible/data/bible_service.dart';
+import 'package:church_on_app/features/bible/data/biblical_atlas_data.dart';
 import 'package:church_on_app/core/services/notification_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'bible_podcast_screen.dart';
 import 'daily_devotions_screen.dart';
@@ -783,20 +785,18 @@ class _BiblicalAtlasScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final locations = [
-      {'name': 'Jerusalem', 'desc': 'Holy City, Temple Mount, crucifixion & resurrection of Christ', 'era': 'All Eras', 'icon': LucideIcons.church},
-      {'name': 'Bethlehem', 'desc': 'Birthplace of Jesus, City of David', 'era': 'NT Era', 'icon': LucideIcons.star},
-      {'name': 'Nazareth', 'desc': 'Hometown of Jesus, where He grew up', 'era': 'NT Era', 'icon': LucideIcons.home},
-      {'name': 'Galilee', 'desc': 'Region of Jesus\' ministry, Sea of Galilee miracles', 'era': 'NT Era', 'icon': LucideIcons.waves},
-      {'name': 'Egypt', 'desc': 'Bondage & Exodus, flight of Holy Family', 'era': 'OT Era', 'icon': LucideIcons.landmark},
-      {'name': 'Mount Sinai', 'desc': 'Ten Commandments given to Moses', 'era': 'OT Era', 'icon': LucideIcons.mountain},
-      {'name': 'Babylon', 'desc': 'Jewish exile, Daniel & the lions den', 'era': 'OT Era', 'icon': LucideIcons.building2},
-      {'name': 'Damascus', 'desc': 'Paul\'s conversion on the road to Damascus', 'era': 'NT Era', 'icon': LucideIcons.navigation},
-      {'name': 'Corinth', 'desc': 'Paul\'s letters to the Corinthian church', 'era': 'NT Era', 'icon': LucideIcons.mail},
-      {'name': 'Rome', 'desc': 'Center of the Roman Empire, Paul\'s imprisonment', 'era': 'NT Era', 'icon': LucideIcons.crown},
-      {'name': 'Garden of Eden', 'desc': 'Paradise where God placed Adam and Eve', 'era': 'Creation', 'icon': LucideIcons.flower2},
-      {'name': 'Jericho', 'desc': 'Walls fell down, Good Samaritan road', 'era': 'OT/NT', 'icon': LucideIcons.building},
-    ];
+    // Full biblical atlas (50+ real locations with coordinates) from
+    // biblical_atlas_data.dart, mapped into the detail-sheet shape.
+    final locations = biblicalLocations
+        .map((loc) => {
+              'name': loc.name,
+              'desc': loc.description,
+              'era': loc.era,
+              'icon': loc.icon,
+              'lat': loc.latitude,
+              'lng': loc.longitude,
+            })
+        .toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
@@ -923,11 +923,19 @@ class _BiblicalAtlasScreen extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () {
+                  final lat = loc['lat'];
+                  final lng = loc['lng'];
                   Navigator.pop(context);
-                  // TODO: Open in maps/external app
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Map integration coming soon!"), backgroundColor: Colors.amber),
-                  );
+                  if (lat is num && lng is num) {
+                    final uri = Uri.parse(
+                      "https://www.google.com/maps/search/?api=1&query=$lat,$lng",
+                    );
+                    launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("No coordinates for this location.")),
+                    );
+                  }
                 },
                 icon: const Icon(LucideIcons.mapPin, size: 18),
                 label: const Text("View on Map"),

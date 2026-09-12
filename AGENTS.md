@@ -244,6 +244,25 @@ All churches set to paid via migration `20261006_streaming_paid_unlock.sql`.
 - **WHIP on mobile**: requires WebRTC support (Android 5+, iOS Safari 11+). Falls back to RTMP/OBS if WHIP fails
 - **`live_streams` is currently empty**: no church has started a stream yet (all 30 configs are `is_paid=true` and ready)
 
+### Ingest Architecture Decision (WHIP vs RTMPS) — 2026-09-12
+
+**Decision: RTMPS/OBS is the primary ingest path for church streaming; WHIP is a
+convenience fallback for impromptu phone streaming.** Rationale:
+
+- **RTMPS (OBS/encoder)** → guaranteed HLS + auto-recording, stable on dedicated
+  encoders, best for scheduled/recurring services. Credentials (RTMP URL + stream
+  key) are shown to the operator from the studio/`stream_admin_screen`.
+- **WHIP (WebRTC phone camera)** → low-latency, no encoder needed, but dependent
+  on device battery/network and historically less reliable for long services.
+
+The studio (`live_stream_studio_screen.dart`) tries WHIP first for the "Start
+Camera Stream" flow, then falls back to the OBS/RTMPS credentials dialog. The
+Cloudflare live input is created at schedule/start time regardless of path, so
+the same `hls_url` is watchable by viewers either way. Scheduled streams are
+auto-promoted to `live` when their `scheduled_at` passes (pg_cron
+`stream-schedule-start` → `auto_start_due_streams()`), and leaders can also tap
+"Start Now" (`start_scheduled_stream` RPC) on upcoming stream cards.
+
 ## How To: Handle Payments
 
 **📄 FULL PAYMENT SYSTEM DOCUMENTATION: `PAYMENTS.md` — read it before touching

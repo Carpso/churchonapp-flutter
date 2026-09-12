@@ -137,13 +137,25 @@ class LiveStreamService {
     return result;
   }
 
-  /// Start a scheduled stream
+  /// Start a scheduled stream (leadership-gated, server-side).
   Future<void> startStream(String streamId) async {
+    try {
+      final ok = await _client.rpc(
+        'start_scheduled_stream',
+        params: {'p_stream_id': streamId},
+      );
+      if (ok == true) return;
+    } catch (e) {
+      debugPrint('[LiveStreamService] start_scheduled_stream RPC failed: $e');
+    }
+
+    // Fallback: direct update (RLS live_streams_manage still gates leadership).
     await _client
         .from('live_streams')
         .update({
           'status': 'live',
           'started_at': DateTime.now().toIso8601String(),
+          'scheduled_at': null,
         })
         .eq('id', streamId);
   }
