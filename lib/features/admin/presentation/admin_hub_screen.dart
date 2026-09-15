@@ -108,6 +108,15 @@ class AdminHubScreen extends ConsumerWidget {
             if (isLeadership && isChurchTenant)
               _buildAdminTile(
                 context,
+                LucideIcons.barChart3,
+                "Streaming Analytics",
+                "Viewers, watch-time, retention & Cloudflare cost",
+                Colors.redAccent,
+                () => context.push('/stream-analytics'),
+              ),
+            if (isLeadership && isChurchTenant)
+              _buildAdminTile(
+                context,
                 LucideIcons.users,
                 "Member Management",
                 "Track your flock, verify baptisms & attendance",
@@ -203,6 +212,24 @@ class AdminHubScreen extends ConsumerWidget {
                 "Service dashboard, attendance & offerings",
                 Colors.teal,
                 () => context.push('/service-report'),
+              ),
+            if (isLeadership && isChurchTenant)
+              _buildAdminTile(
+                context,
+                LucideIcons.trophy,
+                "Quiz Hosting",
+                "Lease the engine, upload question papers & run tournaments",
+                Colors.purple,
+                () => context.push('/quiz-hosting'),
+              ),
+            if (isLeadership && isChurchTenant)
+              _buildAdminTile(
+                context,
+                LucideIcons.landmark,
+                "Offering Baskets",
+                "Define Tithe / Offering / Missions baskets & run live offerings",
+                Colors.teal,
+                () => context.push('/offering-baskets'),
               ),
             if (isLeadership && isChurchTenant)
               _buildAdminTile(

@@ -155,20 +155,98 @@ class ChurchSocialProfileScreen extends ConsumerWidget {
                     ),
                   );
                 }
-                return Column(
-                  children: posts
-                      .map((p) => SocialPostCard(
-                            post: p,
-                            formatTimeAgo: _formatTimeAgo,
-                            onCommentTap: () => showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.transparent,
-                              builder: (_) => CommentsSheet(postId: p.id),
+                // TikTok-style GRID on profiles (the main church-social feed
+                // keeps its full SocialPostCard layout — untouched). Tap a tile
+                // to open the full post.
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 3,
+                    mainAxisSpacing: 3,
+                    childAspectRatio: 0.78,
+                  ),
+                  itemCount: posts.length,
+                  itemBuilder: (context, i) {
+                    final p = posts[i];
+                    final thumb = p.images.isNotEmpty
+                        ? p.images.first
+                        : (p.mediaUrl ?? '');
+                    return GestureDetector(
+                      onTap: () => showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => DraggableScrollableSheet(
+                          expand: false,
+                          initialChildSize: 0.9,
+                          maxChildSize: 0.95,
+                          builder: (_, __) => SingleChildScrollView(
+                            child: SocialPostCard(
+                              post: p,
+                              formatTimeAgo: _formatTimeAgo,
+                              onCommentTap: () => showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => CommentsSheet(postId: p.id),
+                              ),
+                              onShareTap: () => _sharePost(context, p.id),
                             ),
-                            onShareTap: () => _sharePost(context, p.id),
-                          ))
-                      .toList(),
+                          ),
+                        ),
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (thumb.isNotEmpty)
+                            AppImage(thumb, fit: BoxFit.cover)
+                          else
+                            Container(
+                              color: theme.colorScheme.surfaceContainerHighest,
+                              child: Icon(LucideIcons.fileText,
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.4)),
+                            ),
+                          // Overlay: views + likes (TikTok-ish counter corner)
+                          Positioned(
+                            left: 4,
+                            bottom: 4,
+                            right: 4,
+                            child: Row(
+                              children: [
+                                const Icon(LucideIcons.eye,
+                                    size: 12, color: Colors.white),
+                                const SizedBox(width: 3),
+                                Text('${p.viewsCount}',
+                                    style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        shadows: [
+                                          Shadow(blurRadius: 3, color: Colors.black54)
+                                        ])),
+                                const Spacer(),
+                                const Icon(LucideIcons.heart,
+                                    size: 12, color: Colors.white),
+                                const SizedBox(width: 3),
+                                Text('${p.likesCount}',
+                                    style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        shadows: [
+                                          Shadow(blurRadius: 3, color: Colors.black54)
+                                        ])),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 );
               },
               loading: () => Column(

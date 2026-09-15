@@ -105,11 +105,18 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
                   _actionBtn(theme, LucideIcons.map, "Book a Ride", "Request a Carpso Ride", theme.primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RideRequestScreen()))),
                   _actionBtn(theme, LucideIcons.bookmark, "Saved Places", "Quick-select frequent locations", Colors.teal, () async {
                     final place = await showSavedPlacesPicker(context);
-                    if (!mounted) return;
+                    if (!context.mounted) return;
                     if (place != null) {
-                      // ignore: use_build_context_synchronously
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Selected: ${place.address}')),
+                      // Open the ride flow with this saved place as destination.
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => RideRequestScreen(
+                            initialDropoffAddress: place.address,
+                            initialDropoffLat: place.lat,
+                            initialDropoffLng: place.lng,
+                          ),
+                        ),
                       );
                     }
                   }),

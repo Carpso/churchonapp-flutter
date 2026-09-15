@@ -511,6 +511,105 @@ class PvPService {
     }
   }
 
+  // ── Real-time matchmaking queue (presence-backed) ──
+
+  /// Heartbeat during a LIVE match.
+  ///
+  /// Keeps this player marked online; if the match was auto-paused because
+  /// someone dropped, the server resumes it once BOTH players heartbeat again.
+  /// Returns the match status ('playing' | 'paused' | 'resumed' | ...).
+  Future<String> matchHeartbeat(String matchId) async {
+    try {
+      final res = await _client.rpc('pvp_match_heartbeat', params: {
+        'p_match_id': matchId,
+      });
+      return res?.toString() ?? 'unknown';
+    } catch (e) {
+      debugPrint('[PvP] matchHeartbeat error: $e');
+      return 'error';
+    }
+  }
+
+  /// Public ELO accessor (used by the matchmaking UI to seed the queue).
+  Future<int> getUserElo() => _getUserElo();
+
+  /// Fetch a single match by id (realtime matchmaking handoff).
+  Future<PvPMatch?> getMatchById(String matchId) => _matchById(matchId);
+
+  /// Join the live matchmaking queue. Returns the match when an opponent is
+  /// already waiting, otherwise `null` — keep watching [queueMatchStream] and
+  /// send [queueHeartbeat] until matched or cancelled.
+  ///
+  /// Opponents are only considered while their heartbeat is fresh (< 15 s), so
+  /// a player who closed the app can never be matched (no ghost opponents).
+  Future<PvPMatch?> queueJoin({
+    required int elo,
+    int wager = 0,
+    int questionCount = 10,
+    int timePerQuestion = 15,
+    String mode = 'global',
+  }) async {
+    final res = await _client.rpc('pvp_queue_join', params: {
+      'p_elo': elo,
+      'p_wager': wager,
+      'p_question_count': questionCount,
+      'p_time_per_question': timePerQuestion,
+      'p_mode': mode,
+    });
+    final map = res is Map ? Map<String, dynamic>.from(res) : null;
+    if (map == null || map['matched'] != true) return null;
+    return _matchById(map['match_id'] as String);
+  }
+
+  /// Keeps my queue row eligible while I wait.
+  Future<void> queueHeartbeat() async {
+    try {
+      await _client.rpc('pvp_queue_heartbeat');
+    } catch (_) {}
+  }
+
+  /// Leave the queue (cancel search / screen closed).
+  Future<void> queueLeave() async {
+    try {
+      await _client.rpc('pvp_queue_leave');
+    } catch (_) {}
+  }
+
+  /// Emits the match id the instant MY queue row is claimed by another player.
+  Stream<String?> queueMatchStream() {
+    final uid = currentUserId;
+    if (uid == null) return const Stream.empty();
+    return _client
+        .from('pvp_matchmaking_queue')
+        .stream(primaryKey: ['user_id'])
+        .eq('user_id', uid)
+        .map((rows) =>
+            rows.isEmpty ? null : rows.first['match_id'] as String?)
+        .distinct();
+  }
+
+  /// Live count of players actually searching right now (heartbeat-fresh).
+  Stream<int> queueWaitingCountStream() {
+    return _client
+        .from('pvp_matchmaking_queue')
+        .stream(primaryKey: ['user_id'])
+        .map((rows) => rows.where((r) => r['status'] == 'waiting').length);
+  }
+
+  Future<PvPMatch?> _matchById(String matchId) async {
+    try {
+      final res = await _client
+          .from('pvp_matches')
+          .select()
+          .eq('id', matchId)
+          .maybeSingle();
+      return res == null ? null : PvPMatch.fromMap(res);
+    } catch (e) {
+      debugPrint('[PvP] _matchById error: $e');
+      return null;
+    }
+  }
+
   /// Sweep stale invites (refunds inviters). Call when opening the PvP screen.
   Future<int> expireStaleInvites() async {
     try {

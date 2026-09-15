@@ -10,6 +10,31 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Health probe: confirm the FCM credentials are wired WITHOUT returning any
+  // secret material. `GET .../push-notifications?health=fcm`
+  if (new URL(req.url).searchParams.get("health") === "fcm") {
+    const pid = Deno.env.get("FCM_PROJECT_ID") ?? "";
+    const saRaw = Deno.env.get("FCM_SERVICE_ACCOUNT") ?? "";
+    let parses = false;
+    let projectMatches = false;
+    try {
+      const sa = JSON.parse(saRaw);
+      parses = !!sa.client_email && !!sa.private_key;
+      projectMatches = sa.project_id === pid;
+    } catch {
+      parses = false;
+    }
+    return new Response(
+      JSON.stringify({
+        fcm_project_id_set: pid.length > 0,
+        fcm_service_account_set: saRaw.length > 0,
+        service_account_parses: parses,
+        project_ids_match: projectMatches,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+    );
+  }
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {

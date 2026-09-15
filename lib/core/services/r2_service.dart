@@ -16,53 +16,30 @@ class R2Service {
     '.jpg', '.jpeg', '.png', '.gif', '.webp',
     '.mp4', '.mov', '.avi', '.mkv', '.webm',
     '.pdf', '.doc', '.docx', '.xls', '.xlsx',
+    '.txt', '.csv', '.md',
     '.mp3', '.wav', '.aac', '.ogg',
   };
 
   static String get publicDomain => Env.r2PublicDomain;
 
-  // Cache of resolved (signed) read URLs. Signed URLs are valid for 3600s on
-  // the server; we cache for 50 min so a scroll/rebuild of the same image
-  // never re-hits the r2-sign edge function. Keyed by the original public URL.
+  // Legacy signed-URL cache. No longer used for reads (the bucket is public),
+  // but kept so `invalidateReadCache` remains a safe no-op for callers.
   static final Map<String, String> _readUrlCache = {};
   static final Map<String, DateTime> _readUrlCacheAt = {};
-  static final Map<String, Future<String>> _pendingReads = {};
-  static const Duration _readUrlCacheTtl = Duration(minutes: 50);
 
-  /// Resolves an R2 public-domain URL to a signed (S3 presigned) URL so the
-  /// image loads even while the bucket stays private. Non-R2 URLs pass
-  /// through untouched. In-flight requests are shared and results cached.
+  /// Resolves an R2 public-domain URL to something the <img>/player can load.
+  ///
+  /// `media.churchonapp.com` (bucket `choa-sermons-vault`) is now a PUBLIC R2
+  /// domain with a CORS policy, so the stored URL is used **as-is** — no edge
+  /// round-trip, no 50-minute signed-URL expiry, and no dependency on the
+  /// `r2-sign` function for read traffic. (Signing previously produced URLs on
+  /// the `*.r2.cloudflarestorage.com` endpoint, which browsers can block.)
+  ///
+  /// Sensitive material must NOT live in this bucket — KYC files are uploaded to
+  /// the private `choa-kyc-vault` bucket instead and are referenced as `r2://…`.
   static Future<String> resolveReadUrl(String url) async {
-    final pubDomain = R2Service.publicDomain;
-    final r2Prefix = '$pubDomain/';
-    if (!url.trim().startsWith(r2Prefix)) return url;
-
-    final cached = _readUrlCache[url];
-    if (cached != null) {
-      final at = _readUrlCacheAt[url];
-      if (at != null && DateTime.now().difference(at) < _readUrlCacheTtl) {
-        return cached;
-      }
-      _readUrlCache.remove(url);
-      _readUrlCacheAt.remove(url);
-    }
-
-    final pending = _pendingReads[url];
-    if (pending != null) return pending;
-
-    final future = () async {
-      final signed =
-          await R2Service(Supabase.instance.client).getSignedUrl(url);
-      _pendingReads.remove(url);
-      if (signed != null && signed != url) {
-        _readUrlCache[url] = signed;
-        _readUrlCacheAt[url] = DateTime.now();
-        return signed;
-      }
-      return url;
-    }();
-    _pendingReads[url] = future;
-    return future;
+    // Public bucket → return unchanged. Non-R2 URLs also pass through.
+    return url;
   }
 
   /// Force-clear a cached signed URL so the next resolve call fetches a
@@ -145,15 +122,20 @@ class R2Service {
           }
           return url.isNotEmpty ? url : null;
         }
+        debugPrint('R2 Upload Error: PUT failed ${uploadResponse.statusCode}');
+      } else {
+        debugPrint('R2 Upload Error: r2-sign failed ${response.status}');
       }
-      return await _uploadToSupabaseStorageFallback(file, path);
     } catch (e) {
-      debugPrint("R2 Upload Error: $e, trying Supabase Storage fallback...");
-      return _uploadToSupabaseStorageFallback(file, path);
+      debugPrint("R2 Upload Error: $e");
     }
+    // NOTE: no silent fallback to another storage system — every media upload
+    // must land in R2 (`media.churchonapp.com`) so URLs are consistent and a
+    // failure is visible to the caller instead of scattering files elsewhere.
+    return null;
   }
 
-  Future<String?> uploadBytes(Uint8List bytes, String path, {String? contentType}) async {
+  Future<String?> uploadBytes(Uint8List bytes, String path, {String? contentType, String? bucket}) async {
     try {
       final extension = path.split('.').last.toLowerCase();
       if (!_allowedExtensions.contains('.$extension')) {
@@ -169,6 +151,7 @@ class R2Service {
         'filename': path.split('/').last,
         'contentType': contentType ?? 'application/octet-stream',
         'folder': path.split('/').first,
+        if (bucket != null) 'bucket': bucket,
       });
 
       if (response.status == 200) {
@@ -183,7 +166,8 @@ class R2Service {
 
         if (uploadResponse.statusCode == 200) {
           String url = publicUrl ?? '';
-          if (url.contains("media.church-on-app.com")) {
+          // Private buckets return an `r2://` reference — never rewrite those.
+          if (!url.startsWith('r2://') && url.contains("media.church-on-app.com")) {
             url = url.replaceAll("media.church-on-app.com", publicDomain);
           }
           return url.isNotEmpty ? url : null;
@@ -198,9 +182,51 @@ class R2Service {
     return null;
   }
 
-  Future<String?> getSignedUrl(String url, {int expiresIn = 3600}) async {
+  /// Resolves a private-bucket reference (`r2://<bucket>/<key>`, as stored for
+  /// KYC documents) into a short-lived signed URL via the `r2-sign` function.
+  ///
+  /// Anyone (the owner) can read their own `kyc/…` docs; COA staff/superadmins
+  /// can read any user's, which is what makes driver/verified-user KYC review
+  /// possible. Returns `ref` unchanged when it is already an http(s) URL.
+  Future<String?> resolvePrivateUrl(String ref, {int expiresIn = 3600}) async {
+    final trimmed = ref.trim();
+    if (trimmed.isEmpty) return null;
+    if (!trimmed.startsWith('r2://')) return trimmed;
+
+    final withoutScheme = trimmed.substring('r2://'.length);
+    final slash = withoutScheme.indexOf('/');
+    if (slash <= 0 || slash == withoutScheme.length - 1) {
+      debugPrint('resolvePrivateUrl: malformed reference "$ref"');
+      return null;
+    }
+    final bucket = withoutScheme.substring(0, slash);
+    final key = withoutScheme.substring(slash + 1);
     try {
-      final pubDomain = publicDomain.replaceAll('https://', '');
+      final res = await _client.functions.invoke('r2-sign', body: {
+        'action': 'read',
+        'bucket': bucket,
+        'key': key,
+      });
+      if (res.status == 200) {
+        return res.data['signedUrl'] as String?;
+      }
+      debugPrint('resolvePrivateUrl: r2-sign ${res.status} for $key');
+    } catch (e) {
+      debugPrint('resolvePrivateUrl failed: $e');
+    }
+    return null;
+  }
+
+  Future<String?> getSignedUrl(String url, {int expiresIn = 3600}) async {
+    // The media bucket is PUBLIC + CORS-enabled, so the stored URL is directly
+    // usable. Do NOT exchange it for an S3-presigned URL — that points at
+    // `*.r2.cloudflarestorage.com`, which browsers can block. Signing is only
+    // meaningful for private buckets (see the upload path / `r2://` references).
+    final pubDomain = publicDomain.replaceAll('https://', '');
+    if (url.startsWith('https://$pubDomain/') || url.startsWith('$pubDomain/')) {
+      return url;
+    }
+    try {
       final r2Prefix = 'https://$pubDomain/';
       if (!url.startsWith(r2Prefix)) return url;
 
@@ -217,22 +243,6 @@ class R2Service {
       debugPrint("R2 getSignedUrl error: $e");
     }
     return url;
-  }
-
-  Future<String?> _uploadToSupabaseStorageFallback(File file, String path) async {
-    try {
-      const bucket = 'sermons-vault';
-      final storagePath = path;
-      await _client.storage.from(bucket).upload(
-        storagePath,
-        file,
-        fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
-      );
-      return _client.storage.from(bucket).getPublicUrl(storagePath);
-    } catch (e) {
-      debugPrint("Supabase Storage Fallback Upload Error: $e");
-      return null;
-    }
   }
 
   String _getContentType(String path) {

@@ -201,6 +201,9 @@ class ProBarChart extends StatelessWidget {
               showTitles: true,
               reservedSize: 22,
               getTitlesWidget: (value, meta) {
+                // fl_chart can emit non-finite axis values on degenerate data
+                // (all-zero series) — `Infinity.toInt()` throws.
+                if (!value.isFinite) return const SizedBox.shrink();
                 final i = value.toInt();
                 if (i < 0 || i >= labels.length) return const SizedBox.shrink();
                 return Padding(
@@ -354,6 +357,7 @@ class ProLineChart extends StatelessWidget {
               reservedSize: 22,
               interval: 1,
               getTitlesWidget: (value, meta) {
+                if (!value.isFinite) return const SizedBox.shrink();
                 final i = value.toInt();
                 if (i < 0 || i >= bottomLabels.length) return const SizedBox.shrink();
                 // Thin labels — show every other if crowded
@@ -377,7 +381,7 @@ class ProLineChart extends StatelessWidget {
             tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             getTooltipColor: (t) => const Color(0xFF0F172A),
             getTooltipItems: (touchedSpots) => touchedSpots.map((s) {
-              final idx = s.x.toInt();
+              final idx = s.x.isFinite ? s.x.toInt() : -1;
               final label = (idx >= 0 && idx < bottomLabels.length) ? bottomLabels[idx] : '';
               return LineTooltipItem(
                 '$label  •  ${_compactCurrency(s.y.isFinite ? s.y : 0)}',

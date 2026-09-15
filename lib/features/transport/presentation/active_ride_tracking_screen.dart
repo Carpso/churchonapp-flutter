@@ -13,6 +13,7 @@ import 'package:church_on_app/features/connect/presentation/chat_messenger_scree
 import 'package:church_on_app/features/connect/presentation/audio_call_screen.dart';
 import '../data/transport_service.dart';
 import '../data/route_service.dart';
+import 'widgets/proof_of_delivery_sheet.dart';
 
 class ActiveRideTrackingScreen extends ConsumerStatefulWidget {
   final LatLng startPos;
@@ -561,7 +562,10 @@ class _ActiveRideTrackingScreenState
               child: const Text("BACK")),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              // Capture the navigator before the async gap — using `context`
+              // afterwards is unsafe (and this previously double-popped).
+              final nav = Navigator.of(context);
+              nav.pop(); // close the confirm dialog
               try {
                 final service = ref.read(transportServiceProvider);
                 if (widget.type == 'ride' && widget.requestId != null) {
@@ -572,7 +576,7 @@ class _ActiveRideTrackingScreenState
               } catch (e) {
                 debugPrint('Ride cancel failed: $e');
               }
-              if (mounted) Navigator.pop(context);
+              if (mounted) nav.pop(); // leave the tracking screen
             },
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -651,6 +655,46 @@ class _ActiveRideTrackingScreenState
               ],
             ),
             actions: [
+              // Proof of delivery — photo + GPS at the drop-off point, stored on
+              // the request so last-mile handovers are evidenced.
+              TextButton.icon(
+                icon: const Icon(LucideIcons.camera, size: 16),
+                label: const Text('PROOF'),
+                onPressed: () async {
+                  final proof = await showProofOfDeliverySheet(context,
+                      photoRequired: true, destination: widget.destPos);
+                  if (proof == null || !context.mounted) return;
+                  final table = widget.type == 'ride'
+                      ? 'ride_requests'
+                      : 'delivery_requests';
+                  final id = widget.type == 'ride'
+                      ? widget.requestId
+                      : widget.deliveryId;
+                  if (id == null) return;
+                  try {
+                    await Supabase.instance.client.from(table).update({
+                      'proof_photo_url': proof.photoUrl,
+                      'proof_lat': proof.lat,
+                      'proof_lng': proof.lng,
+                      'proof_note': proof.note.isEmpty ? null : proof.note,
+                    }).eq('id', id);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Proof of delivery captured.'),
+                        backgroundColor: Colors.green,
+                      ));
+                    }
+                  } catch (e) {
+                    debugPrint('Proof of delivery save failed: $e');
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Could not save proof: $e'),
+                        backgroundColor: Colors.red,
+                      ));
+                    }
+                  }
+                },
+              ),
               ElevatedButton(
                 onPressed: () async {
                   final service = ref.read(transportServiceProvider);

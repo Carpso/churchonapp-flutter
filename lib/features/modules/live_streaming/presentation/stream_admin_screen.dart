@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:go_router/go_router.dart';
@@ -24,6 +25,8 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
   bool _loading = true;
   StreamingUsage? _usage;
   bool _isTrial = true;
+  List<Map<String, dynamic>> _recordings = [];
+  String? _archivingId;
 
   @override
   void initState() {
@@ -56,17 +59,151 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
           .limit(1)
           .maybeSingle();
 
+      // Finished streams that have a Cloudflare recording to archive into R2.
+      List<Map<String, dynamic>> recordings = [];
+      try {
+        final rows = await Supabase.instance.client
+            .from('live_streams')
+            .select(
+                'id, title, created_at, archive_url, archive_status, archive_error, cloudflare_stream_id')
+            .eq('church_id', widget.tenantId)
+            .not('cloudflare_stream_id', 'is', null)
+            .inFilter('status', ['ended', 'archived'])
+            .order('created_at', ascending: false)
+            .limit(20);
+        recordings = (rows as List)
+            .map((r) => Map<String, dynamic>.from(r as Map))
+            .toList();
+      } catch (e) {
+        debugPrint('recordings load failed (non-fatal): $e');
+      }
+
       setState(() {
         _streamKey = latestStream?['stream_key'] as String?;
         _rtmpUrl = latestStream?['rtmp_url'] as String?;
         _usage = usage;
         _isTrial = church?['subscription_status'] == 'trial';
+        _recordings = recordings;
         _loading = false;
       });
     } catch (e) {
       debugPrint('Failed to load stream config: $e');
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _archive(Map<String, dynamic> stream) async {
+    final id = stream['id']?.toString();
+    if (id == null || _archivingId != null) return;
+    setState(() => _archivingId = id);
+    try {
+      final res = await ref
+          .read(unifiedStreamServiceProvider)
+          .archiveRecording(id);
+      if (!mounted) return;
+      if (res['success'] == true) {
+        PremiumToast.showSuccess(context, 'Recording archived to R2');
+      } else {
+        PremiumToast.showError(
+            context, res['error']?.toString() ?? 'Archive failed');
+      }
+      await _loadConfig();
+    } catch (e) {
+      if (mounted) PremiumToast.showError(context, 'Archive failed: $e');
+    } finally {
+      if (mounted) setState(() => _archivingId = null);
+    }
+  }
+
+  Widget _buildRecordings() {
+    if (_recordings.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(LucideIcons.archive, size: 18, color: theme.primaryColor),
+            const SizedBox(width: 8),
+            const Text('Recording Archive',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Keep a permanent master copy in Cloudflare R2 (independent of Stream retention).',
+          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11),
+        ),
+        const SizedBox(height: 12),
+        ..._recordings.map((s) {
+          final status = (s['archive_status'] ?? 'none').toString();
+          final busy = _archivingId == s['id'];
+          final (color, label) = switch (status) {
+            'ready' => (Colors.green, 'ARCHIVED'),
+            'archiving' => (Colors.orange, 'ARCHIVING…'),
+            'failed' => (Colors.red, 'FAILED'),
+            _ => (Colors.grey, 'NOT ARCHIVED'),
+          };
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                const Icon(LucideIcons.video, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(s['title']?.toString() ?? 'Service',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 13)),
+                      Text(
+                        '${s['created_at']?.toString().split('T').first ?? ''}'
+                        '${(s['archive_error'] ?? '').toString().isNotEmpty ? ' · ${s['archive_error']}' : ''}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20)),
+                  child: Text(label,
+                      style: TextStyle(
+                          fontSize: 8, fontWeight: FontWeight.w900, color: color)),
+                ),
+                const SizedBox(width: 6),
+                if (status != 'ready')
+                  IconButton(
+                    tooltip: 'Archive to R2',
+                    onPressed: busy ? null : () => _archive(s),
+                    icon: busy
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(LucideIcons.uploadCloud, size: 18),
+                  ),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: 24),
+      ],
+    );
   }
 
   @override
@@ -115,6 +252,9 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
           // Schedule stream
           _buildScheduleButton(),
           SizedBox(height: 24),
+
+          // Recording archive (Cloudflare Stream -> R2)
+          _buildRecordings(),
 
           // Tips
           _buildTips(),
@@ -345,7 +485,7 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
         const SizedBox(height: 12),
         ElevatedButton.icon(
           onPressed: () {
-            final obsConfig = "Server: ${_rtmpUrl ?? 'rtmp://stream.churchonapp.com/live'}\nStream Key: ${_streamKey ?? ''}";
+            final obsConfig = "Server: ${_rtmpUrl ?? ''}\nStream Key: ${_streamKey ?? ''}";
             Clipboard.setData(ClipboardData(text: obsConfig));
             PremiumToast.showSuccess(context, "Copied OBS Server & Stream Key!");
           },
@@ -639,6 +779,31 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
               'Your stream is live. Open OBS → Settings → Stream, set Service to '
               'Custom and enter the credentials below, then Start Streaming.',
               style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF8E1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFFE082)),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Recommended for best (1080p) quality:',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 4),
+                  Text(
+                    '• Output resolution: 1920 × 1080\n'
+                    '• Video bitrate: 6000 Kbps (CBR)\n'
+                    '• Keyframe interval: 2 s\n'
+                    '• Encoder: x264 / NVENC / QuickSync\n'
+                    'Cloudflare re-encodes this into an adaptive stream for viewers.',
+                    style: TextStyle(fontSize: 11.5, height: 1.4),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             const Text('RTMP URL', style: TextStyle(fontWeight: FontWeight.bold)),

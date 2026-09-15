@@ -89,6 +89,73 @@ function validateQuestion(item: Record<string, unknown>): QuizQuestion | null {
   };
 }
 
+function decodeXmlEntities(s: string): string {
+  return s
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&");
+}
+
+/**
+ * Best-effort text extraction from a BINARY document.
+ *
+ * Uses runtime dynamic imports so a library/network failure only disables
+ * binary parsing — it can never break the plain-text path.
+ *   - PDF  -> `unpdf` (serverless pdf.js build)
+ *   - DOCX -> `fflate` unzip + strip `word/document.xml`
+ *   - DOC  -> naive printable-run scan (legacy OLE, best-effort)
+ */
+async function extractTextFromBinary(
+  bytes: Uint8Array,
+  fileName: string,
+): Promise<string | null> {
+  const ext = (fileName.split(".").pop() ?? "").toLowerCase();
+
+  try {
+    if (ext === "pdf") {
+      const unpdf = await import("https://esm.sh/unpdf@0.12.1");
+      const pdf = await unpdf.getDocumentProxy(bytes);
+      const { text } = await unpdf.extractText(pdf, { mergePages: true });
+      const joined = Array.isArray(text) ? text.join("\n") : String(text ?? "");
+      return joined.trim().length > 0 ? joined : null;
+    }
+
+    if (ext === "docx") {
+      const { unzipSync, strFromU8 } = await import(
+        "https://esm.sh/fflate@0.8.2"
+      );
+      const files = unzipSync(bytes);
+      const doc = files["word/document.xml"];
+      if (!doc) return null;
+      const xml = strFromU8(doc)
+        .replace(/<\/w:p>/g, "\n")
+        .replace(/<w:br[^>]*\/>/g, "\n")
+        .replace(/<w:tab[^>]*\/>/g, "\t");
+      const stripped = decodeXmlEntities(xml.replace(/<[^>]+>/g, ""));
+      return stripped.trim().length > 0 ? stripped : null;
+    }
+
+    if (ext === "doc") {
+      // Legacy OLE .doc — pull the printable ASCII runs. Lossy, but recovers
+      // most question text without any native dependency.
+      const raw = new TextDecoder("latin1").decode(bytes);
+      const runs = raw.match(/[\x20-\x7E]{4,}/g) ?? [];
+      const text = runs.join("\n");
+      return text.trim().length > 120 ? text : null;
+    }
+  } catch (e) {
+    console.error(`[quiz-import] binary extraction failed for .${ext}:`, e);
+    return null;
+  }
+
+  return null;
+}
+
 function buildExtractionPrompt(text: string, fileName?: string): string {
   return `You are a Bible quiz content extractor. Extract every multiple-choice question from the ${fileName ? `document "${fileName}"` : "text"} below.
 
@@ -255,11 +322,15 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { text, fileName, dataBase64, questions: providedQuestions } = body as {
+    const { text, fileName, dataBase64, questions: providedQuestions, setId, sourceFileUrl, sourceFileName, sourceFileType } = body as {
       text?: string;
       fileName?: string;
       dataBase64?: string;
       questions?: unknown[];
+      setId?: string;
+      sourceFileUrl?: string;
+      sourceFileName?: string;
+      sourceFileType?: string;
     };
 
     let parsed: QuizQuestion[] = [];
@@ -272,31 +343,48 @@ Deno.serve(async (req) => {
     } else if (typeof text === "string" && text.trim().length > 0) {
       parsed = await callHuggingFaceExtraction(buildExtractionPrompt(text));
     } else if (typeof dataBase64 === "string" && typeof fileName === "string") {
-      // Decode the uploaded file; text-only HF model, so we require the file
-      // contents to be readable as UTF-8 text (works for .txt / plain text).
-      let fileText = "";
+      // Decode the uploaded file. Plain-text formats are read directly; PDF /
+      // DOCX / DOC go through binary extraction (best-effort, no native deps).
+      let bytes: Uint8Array;
       try {
-        fileText = new TextDecoder().decode(
-          Uint8Array.from(atob(dataBase64), (c) => c.charCodeAt(0)),
-        );
+        bytes = Uint8Array.from(atob(dataBase64), (c) => c.charCodeAt(0));
       } catch (_) {
         return new Response(
           JSON.stringify({
             inserted: 0,
             skipped: 0,
             total_generated: 0,
-            errors: ["Could not decode the file as text. Please paste the questions as text instead (binary PDF/DOC file import is not supported)."],
+            errors: ["Could not decode the uploaded file. Please try again or paste the questions as text."],
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
         );
       }
+
+      const ext = (fileName.split(".").pop() ?? "").toLowerCase();
+      const isBinary = ext === "pdf" || ext === "docx" || ext === "doc";
+
+      let fileText = "";
+      if (isBinary) {
+        fileText = (await extractTextFromBinary(bytes, fileName)) ?? "";
+      } else {
+        try {
+          fileText = new TextDecoder().decode(bytes);
+        } catch (_) {
+          fileText = "";
+        }
+      }
+
       if (!fileText.trim()) {
         return new Response(
           JSON.stringify({
             inserted: 0,
             skipped: 0,
             total_generated: 0,
-            errors: ["The file contained no readable text. Please paste the questions as text instead."],
+            errors: [
+              isBinary
+                ? `Could not read text from "${fileName}". If the document is a scanned/image PDF, paste the questions as text instead.`
+                : "The file contained no readable text. Please paste the questions as text instead.",
+            ],
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
         );
@@ -310,8 +398,99 @@ Deno.serve(async (req) => {
     }
 
     if (parsed.length === 0) {
+      // If importing into a hosting set, surface the failure on the set row so
+      // the host console can show why extraction produced nothing.
+      if (setId) {
+        await supabase
+          .from("quiz_question_sets")
+          .update({ extract_status: "failed", extract_error: "No valid questions found" })
+          .eq("id", setId);
+      }
       return new Response(
         JSON.stringify({ inserted: 0, skipped: 0, total_generated: 0, errors: ["No valid questions found"] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
+
+    // ── HOSTING PIPELINE: write into quiz_set_questions ─────────────────────
+    // The church-hosted tournament flow stores questions in `quiz_set_questions`
+    // (NOT the legacy `quiz_questions` bank). The caller passes the set id
+    // created by `create_quiz_set()`.
+    if (setId) {
+      const { data: setRow } = await supabase
+        .from("quiz_question_sets")
+        .select("id, tenant_id, extracted_count")
+        .eq("id", setId)
+        .maybeSingle();
+      if (!setRow) {
+        return new Response(
+          JSON.stringify({ error: "Question set not found", inserted: 0 }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 },
+        );
+      }
+
+      await supabase
+        .from("quiz_question_sets")
+        .update({
+          extract_status: "processing",
+          extract_error: null,
+          ...(sourceFileUrl ? { source_file_url: sourceFileUrl } : {}),
+          ...(sourceFileName ? { source_file_name: sourceFileName } : {}),
+          ...(sourceFileType ? { source_file_type: sourceFileType } : {}),
+        })
+        .eq("id", setId);
+
+      const { data: existingRows } = await supabase
+        .from("quiz_set_questions")
+        .select("prompt")
+        .eq("set_id", setId);
+      const seenPrompts = new Set(
+        (existingRows ?? []).map((r) => String(r.prompt ?? "").toLowerCase().trim()),
+      );
+
+      let setInserted = 0;
+      const setErrors: string[] = [];
+      for (const q of parsed) {
+        const prompt = q.question.trim();
+        const key = prompt.toLowerCase();
+        if (seenPrompts.has(key)) continue;
+        const { error } = await supabase.from("quiz_set_questions").insert({
+          set_id: setId,
+          tenant_id: setRow.tenant_id,
+          verse_reference: q.scripture_reference,
+          category: q.category,
+          difficulty: q.difficulty,
+          prompt,
+          options: q.options,
+          correct_answers: [q.options[q.correct_answer]],
+          points: q.difficulty === "Hard" ? 30 : q.difficulty === "Medium" ? 20 : 10,
+          is_study_visible: true,
+        });
+        if (error) {
+          setErrors.push(error.message);
+        } else {
+          seenPrompts.add(key);
+          setInserted++;
+        }
+      }
+
+      await supabase
+        .from("quiz_question_sets")
+        .update({
+          extract_status: setInserted > 0 || seenPrompts.size > 0 ? "ready" : "failed",
+          extracted_count: seenPrompts.size,
+          extract_error: setErrors.length ? setErrors.slice(0, 3).join("; ").slice(0, 300) : null,
+        })
+        .eq("id", setId);
+
+      return new Response(
+        JSON.stringify({
+          inserted: setInserted,
+          skipped: parsed.length - setInserted,
+          total_generated: parsed.length,
+          set_id: setId,
+          errors: setErrors.slice(0, 20),
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
       );
     }

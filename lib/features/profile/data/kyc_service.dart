@@ -1,7 +1,8 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:universal_io/io.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
@@ -45,11 +46,58 @@ class KycService {
     }
   }
 
-  String _deriveEncryptionKey(String userId) {
+  String _deriveEncryptionKey(String userId) => deriveUserKey(userId);
+
+  /// Derives the per-user KYC encryption key.
+  ///
+  /// PUBLIC + static on purpose: a reviewer (COA/superadmin) decrypts documents
+  /// they did not create, so the same derivation must be reusable from the KYC
+  /// review screen.
+  static String deriveUserKey(String userId) {
     final configSecret = const String.fromEnvironment('KYC_ENCRYPTION_SECRET',
         defaultValue: 'churchonapp-kyc-v1');
     final hash = sha256.convert(utf8.encode('$userId-$configSecret'));
     return hash.toString();
+  }
+
+  /// Downloads a stored (private, encrypted) KYC document, decrypts it, and
+  /// returns the raw bytes — ready to render as an image / open as a PDF.
+  ///
+  /// Works for the owner AND for COA reviewers (`r2-sign` allows COA staff to
+  /// read any user's `kyc/…` object).
+  static Future<Uint8List?> fetchDecryptedDocument({
+    required Map<String, dynamic> doc,
+    required String userId,
+  }) async {
+    final ref = doc['url']?.toString() ?? '';
+    final saltB64 = doc['encrypted_key']?.toString() ?? '';
+    final ivB64 = doc['encryption_iv']?.toString() ?? '';
+    if (ref.isEmpty || saltB64.isEmpty || ivB64.isEmpty) {
+      debugPrint('KYC: document missing url/salt/iv — cannot decrypt');
+      return null;
+    }
+    try {
+      final client = Supabase.instance.client;
+      final signed = await R2Service(client).resolvePrivateUrl(ref);
+      if (signed == null) {
+        debugPrint('KYC: could not sign $ref');
+        return null;
+      }
+      final res = await http.get(Uri.parse(signed));
+      if (res.statusCode != 200) {
+        debugPrint('KYC: download failed ${res.statusCode}');
+        return null;
+      }
+      return EncryptionService.decryptFile(
+        res.bodyBytes,
+        deriveUserKey(userId),
+        base64.decode(saltB64),
+        base64.decode(ivB64),
+      );
+    } catch (e) {
+      debugPrint('KYC: decrypt failed: $e');
+      return null;
+    }
   }
 
   Future<void> submitDocument({required String filePath, required String documentType}) async {
@@ -67,7 +115,11 @@ class KycService {
 
     final fileName = '${user.id}_${documentType}_${DateTime.now().millisecondsSinceEpoch}.enc';
     final r2 = R2Service(_client);
-    final url = await r2.uploadBytes(encrypted.data, 'kyc/$fileName', contentType: 'application/octet-stream');
+    // SECURITY: KYC must NOT go in the public media bucket. Target the private
+    // `choa-kyc-vault` bucket; the returned value is an `r2://` reference, not
+    // a public URL.
+    final url = await r2.uploadBytes(encrypted.data, 'kyc/$fileName',
+        contentType: 'application/octet-stream', bucket: 'choa-kyc-vault');
     if (url == null) throw Exception("Upload failed");
 
     await _client.from('kyc_documents').insert({
@@ -97,7 +149,11 @@ class KycService {
 
     final fileName = '${user.id}_selfie_${DateTime.now().millisecondsSinceEpoch}.enc';
     final r2 = R2Service(_client);
-    final url = await r2.uploadBytes(encrypted.data, 'kyc/$fileName', contentType: 'application/octet-stream');
+    // SECURITY: KYC must NOT go in the public media bucket. Target the private
+    // `choa-kyc-vault` bucket; the returned value is an `r2://` reference, not
+    // a public URL.
+    final url = await r2.uploadBytes(encrypted.data, 'kyc/$fileName',
+        contentType: 'application/octet-stream', bucket: 'choa-kyc-vault');
     if (url == null) throw Exception("Upload failed");
 
     await _client.from('kyc_documents').insert({

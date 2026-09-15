@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/widgets/app_image.dart';
 import '../../../../core/widgets/post_image_carousel.dart';
 import '../../data/social_service.dart';
@@ -37,6 +38,145 @@ class _SocialPostCardState extends ConsumerState<SocialPostCard> with SingleTick
     _burstController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
     _burstAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(CurvedAnimation(parent: _burstController, curve: Curves.elasticOut));
     _loadLikeState();
+    _recordView();
+  }
+
+  /// Counts a view (server dedupes to one per user per post).
+  Future<void> _recordView() async {
+    try {
+      await Supabase.instance.client
+          .rpc('record_post_view', params: {'p_post_id': widget.post.id});
+    } catch (e) {
+      debugPrint('record_post_view failed (non-fatal): $e');
+    }
+  }
+
+  /// Reposts this post to the user's own feed.
+  Future<void> _repostPost() async {
+    try {
+      await Supabase.instance.client
+          .rpc('repost_post', params: {'p_post_id': widget.post.id});
+      ref.invalidate(socialPostsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Reposted to your feed'),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Could not repost: $e'.replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
+  }
+
+  /// REAL report — stores the report so COA/admin can triage it.
+  /// (Previously this only showed a SnackBar and stored nothing.)
+  Future<void> _reportPost() async {
+    const reasons = [
+      'Spam or misleading',
+      'Harassment or hate',
+      'Nudity or sexual content',
+      'Violence or dangerous acts',
+      'False information',
+      'Something else',
+    ];
+    String? reason;
+    final detailsCtrl = TextEditingController();
+
+    final submit = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: const Text('Report this post'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ...reasons.map((r) => InkWell(
+                    onTap: () => setDlg(() => reason = r),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        children: [
+                          Icon(
+                            reason == r
+                                ? LucideIcons.checkCircle
+                                : LucideIcons.circle,
+                            size: 18,
+                            color: reason == r ? Colors.green : Colors.grey,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(r, style: const TextStyle(fontSize: 13)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )),
+              TextField(
+                controller: detailsCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  hintText: 'Add details (optional)',
+                  isDense: true,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('CANCEL')),
+            FilledButton(
+              onPressed: reason == null ? null : () => Navigator.pop(ctx, true),
+              child: const Text('REPORT'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (submit != true || reason == null) return;
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+      await Supabase.instance.client.from('post_reports').insert({
+        'post_id': widget.post.id,
+        'reporter_id': user.id,
+        'reason': reason,
+        'details': detailsCtrl.text.trim().isEmpty ? null : detailsCtrl.text.trim(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Report submitted. Our team will review it.'),
+          backgroundColor: Colors.orange,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.toString().contains('duplicate')
+              ? 'You already reported this post.'
+              : 'Could not submit report: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
+  }
+
+  /// Copies the post's public link (works for WhatsApp/anywhere).
+  Future<void> _copyLink() async {
+    await Clipboard.setData(
+        ClipboardData(text: 'https://churchonapp.com/posts/${widget.post.id}'));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Link copied'),
+        backgroundColor: Colors.green,
+      ));
+    }
   }
 
   Future<void> _loadLikeState() async {
@@ -205,11 +345,11 @@ class _SocialPostCardState extends ConsumerState<SocialPostCard> with SingleTick
                         }
                       }
                     } else if (value == 'report') {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Post reported. Thank you for your feedback.'), backgroundColor: Colors.orange),
-                        );
-                      }
+                      _reportPost();
+                    } else if (value == 'repost') {
+                      _repostPost();
+                    } else if (value == 'copy_link') {
+                      _copyLink();
                     } else if (value == 'share') {
                       widget.onShareTap?.call();
                     }
@@ -219,7 +359,9 @@ class _SocialPostCardState extends ConsumerState<SocialPostCard> with SingleTick
                       const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(LucideIcons.pencil), title: Text('Edit'), dense: true)),
                       const PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(LucideIcons.trash2, color: Colors.red), title: Text('Delete', style: TextStyle(color: Colors.red)), dense: true)),
                     ],
+                    const PopupMenuItem(value: 'repost', child: ListTile(leading: Icon(LucideIcons.repeat2), title: Text('Repost'), dense: true)),
                     const PopupMenuItem(value: 'share', child: ListTile(leading: Icon(LucideIcons.share2), title: Text('Share'), dense: true)),
+                    const PopupMenuItem(value: 'copy_link', child: ListTile(leading: Icon(LucideIcons.link), title: Text('Copy link'), dense: true)),
                     if (!isOwner)
                       const PopupMenuItem(value: 'report', child: ListTile(leading: Icon(LucideIcons.flag), title: Text('Report'), dense: true)),
                   ],
@@ -340,6 +482,26 @@ class _SocialPostActionsState extends ConsumerState<SocialPostActions> {
     }
   }
 
+  Future<void> _handleRepost() async {
+    try {
+      await Supabase.instance.client
+          .rpc('repost_post', params: {'p_post_id': widget.post.id});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Reposted to your feed'),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Could not repost: $e'.replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -390,7 +552,36 @@ class _SocialPostActionsState extends ConsumerState<SocialPostActions> {
             child: const Icon(LucideIcons.send, size: 24, color: Colors.grey),
           ),
         ),
+        const SizedBox(width: 20),
+        // Repost
+        GestureDetector(
+          onTap: _handleRepost,
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: Row(
+              children: [
+                const Icon(LucideIcons.repeat2, size: 22, color: Colors.grey),
+                if (widget.post.repostCount > 0) ...[
+                  const SizedBox(width: 6),
+                  Text('${widget.post.repostCount}',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                ],
+              ],
+            ),
+          ),
+        ),
         const Spacer(),
+        // Views
+        Row(
+          children: [
+            const Icon(LucideIcons.eye, size: 18, color: Colors.grey),
+            const SizedBox(width: 4),
+            Text('${widget.post.viewsCount}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
+        const SizedBox(width: 14),
         GestureDetector(
           onTap: _handleSave,
           behavior: HitTestBehavior.opaque,

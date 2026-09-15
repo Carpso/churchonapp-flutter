@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as dart_math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -14,7 +13,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// - Max quality cap: 720p (saves ~60% bandwidth vs 1080p)
 /// - Storage gated: churches pay K50/GB beyond free tier
 ///
-enum StreamingBackend { cloudflare, mediamtx }
+enum StreamingBackend { cloudflare }
 
 class UnifiedStreamService {
   final SupabaseClient _client;
@@ -25,7 +24,10 @@ class UnifiedStreamService {
   Future<StreamingConfig> getStreamingConfig(String tenantId) async {
     final result = await _client
         .from('church_stream_config')
-        .select('id,church_id,title,description,status,scheduled_at,started_at,ended_at,hls_url,dash_url,preview_url,viewer_count,created_at')
+        // NOTE: select everything — this table has NONE of the live_streams
+        // columns (title/status/hls_url…). Selecting those caused a 42703 and
+        // broke stream start entirely.
+        .select()
         .eq('church_id', tenantId)
         .maybeSingle();
 
@@ -170,23 +172,15 @@ class UnifiedStreamService {
 
     final config = await getStreamingConfig(tenantId);
 
-    switch (config.backend) {
-      case StreamingBackend.cloudflare:
-        return _createCloudflareStream(
-          config: config,
-          title: title,
-          description: description,
-          scheduledAt: scheduledAt,
-        );
-      case StreamingBackend.mediamtx:
-        return _createMediaMTXStream(
-          config: config,
-          tenantId: tenantId,
-          title: title,
-          description: description,
-          scheduledAt: scheduledAt,
-        );
-    }
+    // Cloudflare Stream is the ONLY backend — every `church_stream_config` row
+    // is `cloudflare`. The legacy self-hosted MediaMTX path (stream.churchonapp
+    // .com) was dead code and has been removed.
+    return _createCloudflareStream(
+      config: config,
+      title: title,
+      description: description,
+      scheduledAt: scheduledAt,
+    );
   }
 
   /// Create stream via Cloudflare Stream API
@@ -265,48 +259,21 @@ class UnifiedStreamService {
     );
   }
 
-  /// Create stream via MediaMTX (self-hosted)
-  Future<StreamResult> _createMediaMTXStream({
-    required StreamingConfig config,
-    required String tenantId,
-    required String title,
-    String? description,
-    DateTime? scheduledAt,
-  }) async {
-    final streamKey = _generateStreamKey();
-    final streamPath = '$tenantId/$streamKey';
-
-    final rtmpUrl = 'rtmp://${config.mediamtxHost ?? "stream.churchonapp.com"}/live';
-    final hlsUrl = 'https://${config.mediamtxHost ?? "stream.churchonapp.com"}/$streamPath/index.m3u8';
-    final dashUrl = 'https://${config.mediamtxHost ?? "stream.churchonapp.com"}/$streamPath/index.mpd';
-
-    final result = await _client
-        .from('live_streams')
-        .insert({
-          'church_id': tenantId,
-          'title': title,
-          'description': description,
-          'status': scheduledAt != null ? 'scheduled' : 'live',
-          'scheduled_at': scheduledAt?.toIso8601String(),
-          'started_at': scheduledAt == null ? DateTime.now().toIso8601String() : null,
-          'streaming_backend': 'mediamtx',
-          'rtmp_url': rtmpUrl,
-          'stream_key': streamKey,
-          'hls_url': hlsUrl,
-          'dash_url': dashUrl,
-          'created_by': _client.auth.currentUser?.id,
-        })
-        .select()
-        .single();
-
-    return StreamResult(
-      streamId: result['id'],
-      backend: StreamingBackend.mediamtx,
-      rtmpUrl: rtmpUrl,
-      streamKey: streamKey,
-      hlsUrl: hlsUrl,
-      dashUrl: dashUrl,
+  /// Archives a finished Cloudflare Stream recording into R2 (the cheap master
+  /// copy) by streaming it server-side — no VPS. The Edge Function updates the
+  /// `live_streams` row (`archive_url`, `archive_status`).
+  Future<Map<String, dynamic>> archiveRecording(String streamId) async {
+    final response = await _client.functions.invoke(
+      'cloudflare-stream',
+      body: {
+        'action': 'archive_recording',
+        'stream_id': streamId,
+      },
+      headers: _cloudflareHeaders(),
     );
+    final data = response.data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return <String, dynamic>{};
   }
 
   /// End a live stream and trigger recording archival
@@ -452,14 +419,6 @@ class UnifiedStreamService {
     );
   }
 
-  String _generateStreamKey() {
-    final timestamp = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
-    final chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    final rng = dart_math.Random.secure();
-    final random = List.generate(16, (_) => chars[rng.nextInt(chars.length)]).join();
-    return 'coa_${timestamp}_$random';
-  }
-
   /// Belt-and-braces: attach the current access token explicitly. On stale
   /// sessions functions.invoke may omit the Authorization header and the edge
   /// function answers 401 → surfaced as an opaque "authentication error".
@@ -476,8 +435,6 @@ class StreamingConfig {
   final StreamingBackend backend;
   final String? cloudflareAccountId;
   final String? cloudflareApiToken;
-  final String? mediamtxHost;
-  final String? mediamtxSecret;
   final bool autoRecord;
   final bool enableChat;
   final bool enablePrayerRequests;
@@ -496,8 +453,6 @@ class StreamingConfig {
     this.backend = StreamingBackend.cloudflare,
     this.cloudflareAccountId,
     this.cloudflareApiToken,
-    this.mediamtxHost,
-    this.mediamtxSecret,
     this.autoRecord = true,
     this.enableChat = true,
     this.enablePrayerRequests = true,
@@ -554,8 +509,6 @@ class StreamingConfig {
       ),
       cloudflareAccountId: map['cloudflare_account_id'],
       cloudflareApiToken: map['cloudflare_api_token'],
-      mediamtxHost: map['mediamtx_host'],
-      mediamtxSecret: map['mediamtx_secret'],
       autoRecord: map['auto_record'] ?? true,
       enableChat: map['enable_chat'] ?? true,
       enablePrayerRequests: map['enable_prayer_requests'] ?? true,
@@ -576,8 +529,6 @@ class StreamingConfig {
       'backend': backend.name,
       'cloudflare_account_id': cloudflareAccountId,
       'cloudflare_api_token': cloudflareApiToken,
-      'mediamtx_host': mediamtxHost,
-      'mediamtx_secret': mediamtxSecret,
       'auto_record': autoRecord,
       'enable_chat': enableChat,
       'enable_prayer_requests': enablePrayerRequests,

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import 'package:church_on_app/core/config/env.dart';
 
 class RouteResult {
   final List<LatLng> points;
@@ -29,12 +30,15 @@ class RouteResult {
   }
 }
 
-/// Fetches a real turn-by-turn road route (OSRM demo server, free, no key)
-/// between two points and returns the geometry as a polyline. Falls back to a
-/// straight line when routing is unavailable so the map never breaks.
+/// Fetches a real turn-by-turn road route (OSRM) between two points and returns
+/// the geometry as a polyline. Falls back to a straight line when routing is
+/// unavailable so the map never breaks.
+///
+/// The endpoint is configurable via `OSRM_BASE_URL` (see [Env.osrmBaseUrl]) —
+/// switch to a self-hosted OSRM/Valhalla instance before volume grows, since
+/// the public demo server is rate-limited.
 class RouteService {
-  static const _osrmBase =
-      'https://router.project-osrm.org/route/v1/driving';
+  static String get _osrmBase => Env.osrmBaseUrl;
 
   static Future<RouteResult> fetchRoute({
     required LatLng from,

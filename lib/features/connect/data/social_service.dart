@@ -31,6 +31,12 @@ class SocialPost {
   final bool isModerated;
   final double propheticWeight;
   final String category;
+  /// Total unique views (one per user).
+  final int viewsCount;
+  /// How many times this post has been reposted.
+  final int repostCount;
+  /// When set, this post is a REPOST of another post (its id).
+  final String? repostOf;
 
   SocialPost({
     required this.id,
@@ -48,6 +54,9 @@ class SocialPost {
     this.isModerated = false,
     this.propheticWeight = 0.0,
     this.category = 'general',
+    this.viewsCount = 0,
+    this.repostCount = 0,
+    this.repostOf,
   });
 
   factory SocialPost.fromMap(Map<String, dynamic> map) {
@@ -67,6 +76,9 @@ class SocialPost {
       isModerated: map['is_moderated'] ?? false,
       propheticWeight: (map['prophetic_weight'] as num?)?.toDouble() ?? 0.0,
       category: map['category'] ?? 'general',
+      viewsCount: (map['views_count'] as num?)?.toInt() ?? 0,
+      repostCount: (map['repost_count'] as num?)?.toInt() ?? 0,
+      repostOf: map['repost_of']?.toString(),
     );
   }
 }

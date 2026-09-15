@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import '../../finance/presentation/giving_screen.dart';
 import 'package:church_on_app/features/admin/data/reporting_service.dart';
+import 'package:church_on_app/features/modules/live_streaming/data/stream_analytics_service.dart';
 import '../data/live_chat_service.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/widgets/app_image.dart';
@@ -15,11 +16,15 @@ import 'dart:async';
 class LiveStreamScreen extends ConsumerStatefulWidget {
   final String streamUrl;
   final String title;
+  /// `live_streams.id` — used to record a viewing session for analytics.
+  /// Optional so older call sites keep compiling.
+  final String? streamId;
 
   const LiveStreamScreen({
     super.key, 
     required this.streamUrl,
     required this.title,
+    this.streamId,
   });
 
   @override
@@ -27,45 +32,128 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
 }
 
 class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
-  late VideoPlayerController _videoPlayerController;
+  VideoPlayerController? _videoPlayerController;
   ChewieController? _chewieController;
+  bool _hasError = false;
   final _chatCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
+
+  // Viewing-session analytics.
+  String? _sessionId;
+  DateTime? _joinedAt;
+  Timer? _heartbeat;
 
   @override
   void initState() {
     super.initState();
     _initializePlayer();
+    _startSession();
+  }
+
+  Future<void> _startSession() async {
+    final streamId = widget.streamId;
+    if (streamId == null || streamId.isEmpty) return;
+    _joinedAt = DateTime.now();
+    _sessionId = await ref
+        .read(streamAnalyticsServiceProvider)
+        .startSession(streamId);
+    // Heartbeat so a killed app still records partial watch time.
+    _heartbeat = Timer.periodic(const Duration(minutes: 1), (_) => _flushSession());
+  }
+
+  int get _watchedSeconds =>
+      _joinedAt == null ? 0 : DateTime.now().difference(_joinedAt!).inSeconds;
+
+  Future<void> _flushSession() async {
+    final id = _sessionId;
+    if (id == null) return;
+    await ref.read(streamAnalyticsServiceProvider).endSession(id, _watchedSeconds);
   }
 
   Future<void> _initializePlayer() async {
-    _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(widget.streamUrl));
-    await _videoPlayerController.initialize();
-    
-    _chewieController = ChewieController(
-      videoPlayerController: _videoPlayerController,
-      autoPlay: true,
-      looping: false,
-      isLive: true,
-      aspectRatio: _videoPlayerController.value.aspectRatio,
-      placeholder: Container(color: Colors.black),
-      materialProgressColors: ChewieProgressColors(
-        playedColor: const Color(0xFFFFD700),
-        handleColor: const Color(0xFFFFD700),
-        backgroundColor: Colors.grey,
-        bufferedColor: Colors.white.withValues(alpha: 0.3),
-      ),
-    );
-    if (mounted) setState(() {});
+    final url = widget.streamUrl.trim();
+    final invalid = url.isEmpty ||
+        url.contains('/null/') ||
+        (!url.startsWith('http://') && !url.startsWith('https://'));
+    if (invalid) {
+      debugPrint('LiveStream: refusing invalid stream URL: "$url"');
+      if (mounted) setState(() => _hasError = true);
+      return;
+    }
+    try {
+      _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(url));
+      await _videoPlayerController!.initialize();
+
+      _chewieController = ChewieController(
+        videoPlayerController: _videoPlayerController!,
+        autoPlay: true,
+        looping: false,
+        isLive: true,
+        aspectRatio: _videoPlayerController!.value.aspectRatio == 0
+            ? 16 / 9
+            : _videoPlayerController!.value.aspectRatio,
+        placeholder: Container(color: Colors.black),
+        materialProgressColors: ChewieProgressColors(
+          playedColor: const Color(0xFFFFD700),
+          handleColor: const Color(0xFFFFD700),
+          backgroundColor: Colors.grey,
+          bufferedColor: Colors.white.withValues(alpha: 0.3),
+        ),
+      );
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('LiveStream init error: $e');
+      if (mounted) setState(() => _hasError = true);
+    }
   }
 
   @override
   void dispose() {
-    _videoPlayerController.dispose();
+    _heartbeat?.cancel();
+    _flushSession();
+    _videoPlayerController?.dispose();
     _chewieController?.dispose();
     _chatCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  Widget _buildErrorState() {
+    return Container(
+      color: Colors.black87,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(LucideIcons.videoOff, color: Colors.redAccent, size: 36),
+          const SizedBox(height: 12),
+          const Text(
+            'Stream unavailable',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              'This stream is offline or the broadcast link is invalid.',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton(
+            onPressed: () {
+              setState(() => _hasError = false);
+              _initializePlayer();
+            },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Color(0xFFFFD700)),
+            ),
+            child: const Text('RETRY'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -83,26 +171,29 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         ),
         title: Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 16)),
         actions: [
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.circular(5),
+          if (!_hasError)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: const Center(
+                child: Text("LIVE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+              ),
             ),
-            child: const Center(
-              child: Text("LIVE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
-            ),
-          ),
         ],
       ),
       body: Column(
         children: [
           AspectRatio(
             aspectRatio: 16 / 9,
-            child: _chewieController != null && _chewieController!.videoPlayerController.value.isInitialized
-                ? Chewie(controller: _chewieController!)
-                : const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))),
+            child: _hasError
+                ? _buildErrorState()
+                : (_chewieController != null && _chewieController!.videoPlayerController.value.isInitialized
+                    ? Chewie(controller: _chewieController!)
+                    : const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)))),
           ),
           Expanded(
             child: Container(

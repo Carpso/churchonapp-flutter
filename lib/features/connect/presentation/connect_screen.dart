@@ -7,8 +7,12 @@ import '../../../core/widgets/shimmer_loader.dart';
 import '../../../core/widgets/app_image.dart';
 import '../data/social_service.dart';
 import 'widgets/social_post_card.dart';
+import 'widgets/stories_bar.dart';
+import 'create_story_screen.dart';
 import 'kingdom_klips_screen.dart';
 import 'community_hub_screen.dart';
+import 'community_forms.dart';
+import '../data/community_service.dart';
 import 'create_social_post_screen.dart';
 import 'interchurch_network_screen.dart';
 import 'network_activity_screen.dart';
@@ -65,7 +69,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
           icon: Icon(LucideIcons.users, color: Theme.of(context).colorScheme.onPrimary),
           label: Text('Community', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
           backgroundColor: Theme.of(context).primaryColor,
-          onPressed: () {},
+          onPressed: _createCommunityContent,
         );
         break;
       case 2:
@@ -302,6 +306,17 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
             const Text("Church Social", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const Spacer(),
             IconButton(
+              icon: Icon(LucideIcons.plusCircle, color: Theme.of(context).primaryColor),
+              tooltip: 'New story',
+              onPressed: () async {
+                final posted = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CreateStoryScreen()),
+                );
+                if (posted == true) ref.invalidate(storiesProvider);
+              },
+            ),
+            IconButton(
               icon: Icon(LucideIcons.plusSquare, color: Theme.of(context).primaryColor),
               onPressed: () {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateSocialPostScreen()));
@@ -309,6 +324,9 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
             ),
           ],
         ),
+        // Instagram-style stories (24h, unseen ring in brand yellow).
+        const StoriesBar(),
+        const SizedBox(height: 4),
         const SizedBox(height: 12),
         _buildComposerBar(),
         const SizedBox(height: 16),
@@ -442,6 +460,26 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Post link copied to clipboard!"), backgroundColor: Colors.green),
     );
+  }
+
+  Future<void> _createCommunityContent() async {
+    final choice = await showCreateCommunityMenu(context);
+    if (choice == null || !mounted) return;
+    if (choice == 'community') {
+      await showCommunityForm(context, ref);
+    } else {
+      final communities = ref.read(communitiesStreamProvider).value ?? const [];
+      if (communities.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Create a community first.')));
+        }
+        return;
+      }
+      await showGroupForm(context, ref, communities: communities);
+    }
+    ref.invalidate(communitiesStreamProvider);
+    ref.invalidate(communityGroupsProvider);
   }
 }
 

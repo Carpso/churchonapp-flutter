@@ -135,20 +135,28 @@ class UserProfile {
 
 class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
   int _fetchSeq = 0;
+  UserProfile? _lastProfile;
 
   @override
   AsyncValue<UserProfile?> build() {
     final auth = ref.watch(authProvider);
-    // Watch tenant so we re-fetch profile and re-derive roles when context changes
-    ref.watch(currentTenantProvider);
+    // Watch only the tenant ID. Watching the whole Tenant object meant a
+    // pull-to-refresh (which swaps in a fresh Tenant instance with the same
+    // id) rebuilt this provider as `loading`, flashing the whole home header.
+    ref.watch(currentTenantProvider.select((t) => t?.id));
 
     final user = auth.user;
     if (user == null) {
+      _lastProfile = null;
       return const AsyncValue.data(null);
     }
 
     _fetchProfile(user.id, user.email);
-    return const AsyncValue.loading();
+    // Keep the previously loaded profile visible while re-fetching instead of
+    // dropping to a loading state.
+    return _lastProfile != null
+        ? AsyncValue.data(_lastProfile)
+        : const AsyncValue.loading();
   }
 
   SupabaseClient get _client => Supabase.instance.client;
@@ -327,15 +335,25 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
       }
 
       if (seq == _fetchSeq) {
-        state = AsyncValue.data(UserProfile.fromMap(profileData));
+        final profile = UserProfile.fromMap(profileData);
+        _lastProfile = profile;
+        state = AsyncValue.data(profile);
       }
     } catch (e, st) {
       debugPrint("ProfileNotifier Error: $e");
       debugPrint("PROFILE FETCH ERROR: $e\n$st");
-      if (seq == _fetchSeq) {
+      if (seq == _fetchSeq && _lastProfile == null) {
         state = AsyncValue.error(e, st);
       }
     }
+  }
+
+  /// Re-fetch the current profile WITHOUT dropping the value we already have.
+  /// Used by home pull-to-refresh so the header never flashes a loading state.
+  Future<void> refresh() async {
+    final user = ref.read(authProvider).user;
+    if (user == null) return;
+    await _fetchProfile(user.id, user.email);
   }
 
   Future<void> updateRole(String userId, String newRole) async {

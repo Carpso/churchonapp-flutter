@@ -7,20 +7,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 
-/// Church On App Live Streaming Service
+/// Church On App Live Streaming — viewer/metadata service.
 ///
-/// Architecture:
-/// - Churches stream via OBS → RTMP to MediaMTX server ($5/mo VPS)
-/// - MediaMTX converts RTMP → HLS automatically
-/// - App plays HLS directly (Flutter video_player supports natively)
-/// - Streams recorded to Cloudflare R2 for VOD
-/// - All metadata stored in Supabase
+/// Architecture (single backend: Cloudflare Stream):
+/// - Leaders ingest via WHIP (phone camera) or RTMPS (OBS / external camera)
+///   into a Cloudflare Stream live input created by `UnifiedStreamService`.
+/// - Cloudflare transcodes to adaptive HLS and auto-records (VOD).
+/// - The app plays the HLS URL directly; all metadata lives in Supabase.
 ///
-/// This is the cheapest reliable option:
-/// - MediaMTX: free, open-source, runs on any VPS
-/// - HLS: adaptive bitrate, works on slow connections
-/// - R2: $0.015/GB storage, free egress
-/// - No per-minute charges like Cloudflare Stream
+/// (The legacy self-hosted MediaMTX path was removed — no church uses it.)
 class LiveStreamService {
   final SupabaseClient _client;
 
@@ -128,7 +123,7 @@ class LiveStreamService {
           'started_at': scheduledAt == null ? DateTime.now().toIso8601String() : null,
           'stream_key': key,
           'hls_url': hlsUrl,
-          'rtmp_url': rtmpUrl ?? 'rtmp://stream.churchonapp.com/live',
+          'rtmp_url': rtmpUrl,
           'created_by': _client.auth.currentUser?.id,
         })
         .select()

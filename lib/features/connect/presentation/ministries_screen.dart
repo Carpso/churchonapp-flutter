@@ -57,6 +57,28 @@ class _MinistriesScreenState extends ConsumerState<MinistriesScreen> {
   final _client = Supabase.instance.client;
   late Future<Set<String>> _joinedFuture;
 
+  /// Who may create/edit ministries: platform staff + tenant leadership
+  /// (admin, pastor, bishop, APOSTLE, prophet, general secretary, leaders).
+  static bool _canManageMinistries(String? role) {
+    if (role == null) return false;
+    return const {
+      'superadmin',
+      'super_admin',
+      'coa_employee',
+      'employee',
+      'admin',
+      'pastor',
+      'assistant_pastor',
+      'bishop',
+      'apostle',
+      'prophet',
+      'general_secretary',
+      'general_treasurer',
+      'leader',
+      'department_leader',
+    }.contains(role);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -136,7 +158,7 @@ class _MinistriesScreenState extends ConsumerState<MinistriesScreen> {
     }
 
     final profile = ref.watch(profileProvider).value;
-    final isAdmin = profile != null && ['admin', 'pastor', 'bishop', 'superadmin', 'employee', 'coa_employee'].contains(profile.role);
+    final isAdmin = _canManageMinistries(profile?.role);
 
     final body = RefreshIndicator(
       onRefresh: () async {
@@ -186,6 +208,148 @@ class _MinistriesScreenState extends ConsumerState<MinistriesScreen> {
             : null,
       ),
       body: body,
+    );
+  }
+
+  /// Shows what's INSIDE a ministry: leader, meeting info and the member list.
+  /// (Previously tapping a ministry did nothing — you could only see a count.)
+  Future<void> _showMinistryDetails(Map<String, dynamic> ministry) async {
+    final ministryId = ministry['id'].toString();
+    final leaderId = ministry['leader_id'] as String?;
+
+    List<Map<String, dynamic>> members = [];
+    String leaderName = 'No leader';
+    String? leaderAvatar;
+
+    try {
+      final rows = await _client
+          .from('ministry_members')
+          .select('profile_id')
+          .eq('ministry_id', ministryId);
+      final ids = (rows as List)
+          .map((r) => r['profile_id']?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
+      if (ids.isNotEmpty) {
+        final profs = await _client
+            .from('profiles')
+            .select('id, full_name, avatar_url, role')
+            .inFilter('id', ids);
+        members = List<Map<String, dynamic>>.from(profs as List);
+      }
+      if (leaderId != null && leaderId.isNotEmpty) {
+        final leader = await _client
+            .from('profiles')
+            .select('full_name, avatar_url')
+            .eq('id', leaderId)
+            .maybeSingle();
+        leaderName = leader?['full_name']?.toString() ?? 'No leader';
+        leaderAvatar = leader?['avatar_url']?.toString();
+      }
+    } catch (e) {
+      debugPrint('Ministry details load failed: $e');
+    }
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(ctx).size.height * 0.75,
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                height: 5,
+                width: 40,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            Text(ministry['name']?.toString() ?? 'Ministry',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w900, fontSize: 18)),
+            const SizedBox(height: 6),
+            if (ministry['description'] != null &&
+                (ministry['description'] as String).isNotEmpty)
+              Text(ministry['description'] as String,
+                  style: const TextStyle(color: Colors.grey, fontSize: 13)),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                if (leaderAvatar != null && leaderAvatar.isNotEmpty)
+                  AppImage(leaderAvatar, width: 20, height: 20,
+                      fit: BoxFit.cover, borderRadius: BorderRadius.circular(10))
+                else
+                  const Icon(LucideIcons.user, size: 16, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text('Leader: $leaderName',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(LucideIcons.clock, size: 14, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text(
+                  ministry['meeting_day'] != null
+                      ? '${ministry['meeting_day']} • ${ministry['meeting_time'] ?? ''}'
+                      : 'No meeting schedule set',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('MEMBERS (${members.length})',
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1)),
+            const SizedBox(height: 8),
+            Expanded(
+              child: members.isEmpty
+                  ? const Center(
+                      child: Text('No members yet — be the first to join.',
+                          style: TextStyle(color: Colors.grey, fontSize: 13)))
+                  : ListView.builder(
+                      itemCount: members.length,
+                      itemBuilder: (_, i) {
+                        final m = members[i];
+                        final name = m['full_name']?.toString() ?? 'Member';
+                        final avatar = m['avatar_url']?.toString();
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.amber.withValues(alpha: 0.2),
+                            child: avatar != null && avatar.isNotEmpty
+                                ? ClipOval(
+                                    child: AppImage(avatar,
+                                        width: 40, height: 40, fit: BoxFit.cover))
+                                : Text(name.isNotEmpty ? name[0].toUpperCase() : '?'),
+                          ),
+                          title: Text(name,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 14)),
+                          subtitle: Text(
+                              (m['role'] ?? 'member').toString().replaceAll('_', ' '),
+                              style: const TextStyle(fontSize: 11)),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -295,6 +459,12 @@ class _MinistriesScreenState extends ConsumerState<MinistriesScreen> {
                   ),
                   Column(
                     children: [
+                      // View what's INSIDE the ministry (members, leader, info).
+                      IconButton(
+                        tooltip: 'View ministry',
+                        icon: const Icon(LucideIcons.users, size: 18),
+                        onPressed: () => _showMinistryDetails(ministry),
+                      ),
                       if (isAdmin)
                         IconButton(
                           icon: const Icon(LucideIcons.edit, size: 16),
@@ -330,7 +500,7 @@ class _MinistriesScreenState extends ConsumerState<MinistriesScreen> {
 
   Widget _buildEmptyState(BuildContext context) {
     final profile = ref.watch(profileProvider).value;
-    final isAdmin = profile != null && ['admin', 'pastor', 'bishop', 'superadmin', 'employee', 'coa_employee'].contains(profile.role);
+    final isAdmin = _canManageMinistries(profile?.role);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

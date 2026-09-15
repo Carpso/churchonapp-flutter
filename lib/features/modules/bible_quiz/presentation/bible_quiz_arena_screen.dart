@@ -181,6 +181,57 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   int _opponentScore = 0;
   int _opponentStreak = 0;
   PvPMatch? _pvpMatch;
+
+  /// Live-match presence. A heartbeat every 10s keeps this player marked online;
+  /// if the OPPONENT drops the server pauses the match (up to 24h) and this
+  /// banner tells the player what is happening instead of the game just hanging.
+  Timer? _heartbeatTimer;
+  bool _opponentDisconnected = false;
+
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
+      final m = _pvpMatch;
+      final svc = _pvpService;
+      if (m == null || svc == null || widget.mode == 'Solo') return;
+      final status = await svc.matchHeartbeat(m.id);
+      if (!mounted) return;
+      final paused = status == 'paused';
+      if (paused != _opponentDisconnected) {
+        setState(() => _opponentDisconnected = paused);
+      }
+    });
+  }
+
+  Widget _opponentPausedBanner(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Opponent disconnected — game paused. It resumes automatically when they return, '
+              'and is awarded after 24 hours.',
+              style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
   Map<String, dynamic>? _p1Profile;
   Map<String, dynamic>? _p2Profile;
 
@@ -218,6 +269,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
     _service = BibleQuizService();
     if (widget.mode != 'Solo') {
       _pvpService = PvPService();
+      _startHeartbeat();
     }
     
     _slideController = AnimationController(
@@ -250,6 +302,7 @@ class _BibleQuizArenaScreenState extends ConsumerState<BibleQuizArenaScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    _heartbeatTimer?.cancel();
     _countdownTimer?.cancel();
     _slideController.dispose();
     _vsController.dispose();
@@ -1172,7 +1225,12 @@ try {
       child: Scaffold(
         backgroundColor: const Color(0xFF0D1117),
         body: SafeArea(
-          child: _buildBody(theme),
+          child: Column(
+            children: [
+              if (_opponentDisconnected) _opponentPausedBanner(theme),
+              Expanded(child: _buildBody(theme)),
+            ],
+          ),
         ),
       ),
     );

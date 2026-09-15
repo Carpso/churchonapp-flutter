@@ -1,5 +1,67 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+
+/// A small, BOUNDED fallback for a SINGLE failed widget.
+///
+/// This is what `ErrorWidget.builder` must return. `ErrorWidget.builder` is
+/// invoked in place of an arbitrary failing widget — very often a small child
+/// inside a `ListView`/`Sliver` (e.g. one home-feed section). It MUST therefore
+/// be a self-sizing widget, never a `Scaffold`/`MaterialApp`: laying a full
+/// screen out inside a sliver child breaks the whole viewport and paints a
+/// blank white block under the first section that fails.
+class InlineErrorTile extends StatelessWidget {
+  final FlutterErrorDetails details;
+
+  const InlineErrorTile({super.key, required this.details});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF4E5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.orange.withValues(alpha: 0.55)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(LucideIcons.alertTriangle, color: Colors.orange, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "This section couldn't load",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  if (kDebugMode) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      details.exceptionAsString(),
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, color: Colors.black54),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 /// App Global Error Boundary
 /// Traps any unhandled exception in the widget tree

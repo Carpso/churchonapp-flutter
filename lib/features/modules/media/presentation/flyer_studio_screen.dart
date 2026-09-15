@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -68,10 +69,17 @@ Venue: ${_venueController.text}
   }
 
   Future<Uint8List> _renderFlyerPng() async {
-    final boundary = _flyerKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    final ctx = _flyerKey.currentContext;
+    final boundary = ctx?.findRenderObject();
+    if (boundary is! RenderRepaintBoundary) {
+      throw Exception('The flyer preview is not ready yet. Please try again.');
+    }
     final image = await boundary.toImage(pixelRatio: 3.0);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    return byteData!.buffer.asUint8List();
+    if (byteData == null) {
+      throw Exception('Could not render the flyer image.');
+    }
+    return byteData.buffer.asUint8List();
   }
 
   Future<void> _generateFlyer() async {
@@ -91,13 +99,24 @@ Venue: ${_venueController.text}
     setState(() => _isSharing = true);
     try {
       final png = await _renderFlyerPng();
-      final dir = await getTemporaryDirectory();
-      final file = XFile.fromData(
-        png,
-        path: '${dir.path}/church_on_app_flyer.png',
-        mimeType: 'image/png',
-        name: 'church_on_app_flyer.png',
-      );
+      // On WEB there is no temporary filesystem — build the share file purely
+      // from bytes (getTemporaryDirectory() throws on web and broke sharing).
+      final XFile file;
+      if (kIsWeb) {
+        file = XFile.fromData(
+          png,
+          mimeType: 'image/png',
+          name: 'church_on_app_flyer.png',
+        );
+      } else {
+        final dir = await getTemporaryDirectory();
+        file = XFile.fromData(
+          png,
+          path: '${dir.path}/church_on_app_flyer.png',
+          mimeType: 'image/png',
+          name: 'church_on_app_flyer.png',
+        );
+      }
       await SharePlus.instance.share(ShareParams(
         files: [file],
         text: _announcementText.trim(),

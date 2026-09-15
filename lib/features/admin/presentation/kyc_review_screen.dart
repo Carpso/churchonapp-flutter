@@ -4,6 +4,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/features/profile/data/kyc_service.dart';
+import 'dart:typed_data';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 class KycApplication {
@@ -45,7 +47,8 @@ final pendingKycProvider = FutureProvider<List<KycApplication>>((ref) async {
   for (final p in profiles) {
     final docs = await client
         .from('kyc_documents')
-        .select('id, document_type, url, status')
+        // encrypted_key + encryption_iv are REQUIRED to decrypt the document.
+        .select('id, document_type, url, status, encrypted_key, encryption_iv')
         .eq('user_id', p['id'])
         .order('created_at', ascending: false) as List;
 
@@ -242,6 +245,85 @@ class _KycReviewScreenState extends ConsumerState<KycReviewScreen> {
     );
   }
 
+  /// Downloads + DECRYPTS a user's KYC documents and shows them, so reviewers
+  /// can actually verify drivers and other verified users. Files live in the
+  /// private `choa-kyc-vault` bucket and are AES-encrypted client-side; both the
+  /// signed read and the COA cross-user read are enforced by `r2-sign`.
+  Future<void> _viewDocuments(KycApplication app) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final decoded = <MapEntry<String, Uint8List>>[];
+    final failures = <String>[];
+    for (final doc in app.documents) {
+      final type = doc['document_type']?.toString() ?? 'document';
+      final bytes =
+          await KycService.fetchDecryptedDocument(doc: doc, userId: app.userId);
+      if (bytes == null) {
+        failures.add(type);
+      } else {
+        decoded.add(MapEntry(type, bytes));
+      }
+    }
+
+    if (!mounted) return;
+    Navigator.pop(context); // close the spinner
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${app.userName} — documents',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: decoded.isEmpty
+              ? Text(failures.isEmpty
+                  ? 'No documents uploaded.'
+                  : 'Could not open: ${failures.map((f) => f.replaceAll('_', ' ')).join(', ')}')
+              : ListView(
+                  shrinkWrap: true,
+                  children: decoded
+                      .map((e) => Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                e.key.replaceAll('_', ' ').toUpperCase(),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                              const SizedBox(height: 6),
+                              _looksLikeImage(e.value)
+                                  ? Image.memory(e.value,
+                                      height: 240, fit: BoxFit.contain)
+                                  : Text(
+                                      '${(e.value.length / 1024).toStringAsFixed(0)} KB (PDF / non-image document)'),
+                              const SizedBox(height: 16),
+                            ],
+                          ))
+                      .toList(),
+                ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('CLOSE')),
+        ],
+      ),
+    );
+  }
+
+  /// Magic-byte sniff so we only feed images to `Image.memory`.
+  static bool _looksLikeImage(Uint8List b) {
+    if (b.length < 4) return false;
+    if (b[0] == 0xFF && b[1] == 0xD8) return true; // jpeg
+    if (b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) return true; // png
+    if (b[0] == 0x47 && b[1] == 0x49 && b[2] == 0x46) return true; // gif
+    if (b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 && b[3] == 0x46) return true; // webp
+    return false;
+  }
+
   Widget _buildCard(KycApplication app) {
     final isProcessing = _isProcessing && _processingUserId == app.userId;
     final docsStr = app.documents.map((d) => d['document_type']?.toString() ?? '').join(', ');
@@ -315,6 +397,21 @@ class _KycReviewScreenState extends ConsumerState<KycReviewScreen> {
             ),
           ],
           const SizedBox(height: 16),
+          if (app.documents.isNotEmpty) ...[
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: () => _viewDocuments(app),
+                icon: const Icon(LucideIcons.eye, size: 16, color: Colors.amber),
+                label: const Text('VIEW DOCUMENTS',
+                    style: TextStyle(
+                        color: Colors.amber,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12)),
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
           Row(
             children: [
               Expanded(

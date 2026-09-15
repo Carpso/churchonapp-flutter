@@ -84,7 +84,13 @@ class _CarpsoDriverApprovalScreenState extends ConsumerState<CarpsoDriverApprova
       await supabase.from('driver_applications').update({'status': 'approved'}).eq('id', app['id']);
 
       if (userId != null) {
-        await supabase.from('profiles').update({'role': 'driver'}).eq('id', userId);
+        // Honour the role the applicant applied for. Previously this ALWAYS
+        // wrote 'driver', so the `rider` role could never be granted by
+        // onboarding even though it is first-class everywhere else.
+        final requested =
+            (app['role'] ?? app['requested_role'] ?? '').toString().toLowerCase();
+        final newRole = requested == 'rider' ? 'rider' : 'driver';
+        await supabase.from('profiles').update({'role': newRole}).eq('id', userId);
       }
 
       await supabase.from('notifications').insert({

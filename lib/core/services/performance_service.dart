@@ -163,8 +163,11 @@ class OptimizedImage extends StatelessWidget {
       );
     }
 
-    final cacheWidth = width != null ? (width! * MediaQuery.devicePixelRatioOf(context)).round() : null;
-    final cacheHeight = height != null ? (height! * MediaQuery.devicePixelRatioOf(context)).round() : null;
+    // Guard against `double.infinity` / NaN: `Infinity.round()` throws
+    // "Unsupported operation: Infinity or NaN toInt" (see AppImage fix).
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final cacheWidth = (width != null && width!.isFinite && width! > 0) ? (width! * dpr).round() : null;
+    final cacheHeight = (height != null && height!.isFinite && height! > 0) ? (height! * dpr).round() : null;
 
     return ResolvedR2Image(
       url: url!,

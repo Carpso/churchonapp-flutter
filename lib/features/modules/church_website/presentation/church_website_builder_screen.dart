@@ -927,17 +927,27 @@ class _ChurchWebsiteBuilderScreenState
     }
   }
 
-  void _previewWebsite() {
+  Future<void> _previewWebsite() async {
+    final messenger = ScaffoldMessenger.of(context);
     final uri = Uri.parse(_prettyUrl);
-    canLaunchUrl(uri).then((canLaunch) {
-      if (canLaunch) {
-        launchUrl(uri, mode: LaunchMode.inAppWebView);
-      } else {
-        if (mounted) {
-          PremiumToast.showInfo(context, 'Preview URL: $_prettyUrl');
-        }
+    try {
+      // IMPORTANT: preview must open in the REAL browser.
+      //
+      // `LaunchMode.inAppWebView` was used here, but the preview URL is this
+      // same app's public website (churchonapp.com/site/<id>). On web that
+      // loads the SPA *inside itself*, which re-runs startup and ends in a
+      // reload loop — reported as "it crashes the app to reload and shows no
+      // preview". An external tab/window opens the actual published site.
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && mounted) {
+        PremiumToast.showInfo(context, 'Preview URL: $_prettyUrl');
       }
-    });
+    } catch (e) {
+      debugPrint('website preview failed: $e');
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not open preview. URL: $_prettyUrl')),
+      );
+    }
   }
 
   @override

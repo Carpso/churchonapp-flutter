@@ -439,6 +439,10 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
     return stations.isEmpty ? 'worldwide' : '${stations.length} stations';
   }
 
+  /// Stations whose stream failed to open this session. They are shown as
+  /// "COMING SOON" instead of letting the user tap into a dead player.
+  final Set<String> _unavailable = {};
+
   void _syncDirectory(List<RadioStation> stations) {
     final playable = stations.where((s) => !s.isPrivate).toList();
     if (!listEquals(playable.map((s) => s.id).toList(),
@@ -467,19 +471,36 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
             !playing &&
             (processing == AudioProcessingState.loading ||
                 processing == AudioProcessingState.buffering);
+        final isDead = station.isPrivate || _unavailable.contains(station.id);
         return GestureDetector(
-          onTap: () {
-            if (station.isPrivate) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Coming Soon 📻"),
+          onTap: () async {
+            final messenger = ScaffoldMessenger.of(context);
+            if (isDead) {
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(station.isPrivate
+                      ? "Coming Soon 📻"
+                      : "${station.name} is currently off air — coming soon"),
                   backgroundColor: Colors.amber,
                 ),
               );
               return;
             }
             setState(() => _selectedStationName = station.name);
-            service.playStation(station);
+            try {
+              await service.playStation(station);
+            } catch (e) {
+              debugPrint('radio playStation failed for ${station.name}: $e');
+              if (!mounted) return;
+              setState(() => _unavailable.add(station.id));
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                      "${station.name} is off air. Try another station."),
+                  backgroundColor: Colors.redAccent,
+                ),
+              );
+            }
           },
           child: Container(
             width: 160,
@@ -499,8 +520,8 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(color: isCurrent ? Colors.black12 : Colors.white10, shape: BoxShape.circle),
                       child: Icon(
-                        station.isPrivate ? LucideIcons.lock : LucideIcons.radio,
-                        color: isCurrent ? Colors.black : Colors.amber,
+                        isDead ? LucideIcons.lock : LucideIcons.radio,
+                        color: isCurrent ? Colors.black : (isDead ? Colors.white38 : Colors.amber),
                         size: 20,
                       ),
                     ),

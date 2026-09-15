@@ -18,6 +18,11 @@ class Sermon {
   final String? transcript;
   final String? aiSummary;
   final String? description;
+  /// R2 master/archive copy of the original source media (may equal videoUrl
+  /// when Cloudflare Stream is not used).
+  final String archiveUrl;
+  /// Cloudflare Stream video UID for the adaptive HLS rendition.
+  final String? cloudflareVideoId;
   final DateTime createdAt;
 
   Sermon({
@@ -36,6 +41,8 @@ class Sermon {
     this.transcript,
     this.aiSummary,
     this.description,
+    this.archiveUrl = '',
+    this.cloudflareVideoId,
     required this.createdAt,
   });
 
@@ -56,6 +63,8 @@ class Sermon {
       transcript: map['transcript'],
       aiSummary: map['ai_summary'],
       description: map['description'],
+      archiveUrl: map['archive_url'] ?? '',
+      cloudflareVideoId: map['cloudflare_video_id']?.toString(),
       createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
@@ -98,6 +107,34 @@ class SermonService {
     } catch (e) {
       debugPrint('Failed to fetch sermons: $e');
       return [];
+    }
+  }
+
+  /// Single sermon by id — used by the `/sermon/:id` deep link (push
+  /// notifications, share links, mini-player "back to source").
+  Future<Sermon?> fetchSermonById(String id) async {
+    try {
+      final row = await _client
+          .from('sermons')
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+      return row == null ? null : Sermon.fromMap(row);
+    } catch (e) {
+      debugPrint('fetchSermonById failed: $e');
+      return null;
+    }
+  }
+
+  /// Records a sermon view (deduped server-side to one per user per 6h) and
+  /// increments the sermon's viewer_count. Fire-and-forget — a failure here
+  /// must never block playback.
+  Future<void> recordView(String sermonId) async {
+    try {
+      if (_client.auth.currentUser == null) return;
+      await _client.rpc('record_sermon_view', params: {'p_sermon_id': sermonId});
+    } catch (e) {
+      debugPrint('recordView failed (non-fatal): $e');
     }
   }
 

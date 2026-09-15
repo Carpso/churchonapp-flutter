@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -118,22 +119,145 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
     }
   }
 
+  /// Real matchmaking.
+  ///
+  /// Previously this was cosmetic — it waited 1.5 s and pushed the arena with
+  /// no opponent lookup at all. It now joins a presence-backed queue, shows how
+  /// many players are searching, and is pushed into the arena the instant
+  /// another live player claims the queue row (realtime, no polling).
   void _startP2P(String mode) async {
+    final queueMode = mode.toLowerCase().contains('church') ? 'church' : 'global';
+    final pvp = ref.read(pvpServiceProvider);
+
     setState(() {
       _isConnecting = true;
       _connectingMode = mode;
     });
 
-    // Intentional delay for "Connecting..." state polish
-    await Future.delayed(const Duration(milliseconds: 1500));
+    PvPMatch? matched;
+    try {
+      final elo = await pvp.getUserElo();
+      matched = await pvp.queueJoin(elo: elo, mode: queueMode);
+    } catch (e) {
+      debugPrint('queueJoin failed: $e');
+    }
 
     if (!mounted) return;
     setState(() => _isConnecting = false);
 
+    if (matched != null) {
+      _enterMatchedArena(mode, matched);
+      return;
+    }
+
+    await _showSearchingDialog(mode, queueMode);
+  }
+
+  void _enterMatchedArena(String mode, PvPMatch match) {
+    if (!mounted) return;
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => BibleQuizArenaScreen(mode: mode)),
+      MaterialPageRoute(
+        builder: (_) => BibleQuizArenaScreen(
+          mode: 'PvP',
+          questionCount: match.questionCount,
+          timePerQuestionSec: match.timePerQuestion,
+          initialPvPMatch: match,
+        ),
+      ),
     );
+  }
+
+  /// "Finding opponent…" sheet with a live player count, a realtime match
+  /// listener and a heartbeat that keeps this player matchable. Cancelling
+  /// (or closing the screen) leaves the queue so nobody is matched against a
+  /// player who walked away.
+  Future<void> _showSearchingDialog(String mode, String queueMode) async {
+    if (!mounted) return;
+    final pvp = ref.read(pvpServiceProvider);
+    StreamSubscription<String?>? matchSub;
+    Timer? heartbeat;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return StatefulBuilder(builder: (ctx, setLocal) {
+          matchSub ??= pvp.queueMatchStream().listen((matchId) async {
+            if (matchId == null) return;
+            final m = await pvp.getMatchById(matchId);
+            if (m == null || !mounted) return;
+            final nav = Navigator.of(context);
+            if (nav.canPop()) nav.pop();
+            _enterMatchedArena(mode, m);
+          });
+          heartbeat ??= Timer.periodic(const Duration(seconds: 5), (_) {
+            pvp.queueHeartbeat();
+          });
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF121826),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            title: const Row(
+              children: [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Color(0xFFFFDA03)),
+                ),
+                SizedBox(width: 12),
+                Text('Finding opponent…',
+                    style: TextStyle(
+                        color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  queueMode == 'church'
+                      ? 'Matching you with a player from your church.'
+                      : 'Matching you with a player anywhere on Church On App.',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                const SizedBox(height: 14),
+                StreamBuilder<int>(
+                  stream: pvp.queueWaitingCountStream(),
+                  builder: (c, s) => Text(
+                    '${s.data ?? 0} player(s) searching now',
+                    style: const TextStyle(
+                        color: Color(0xFFFFDA03),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'You are only matched with players who are online right now.',
+                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  if (Navigator.of(ctx).canPop()) Navigator.of(ctx).pop();
+                },
+                child: const Text('CANCEL SEARCH',
+                    style: TextStyle(color: Colors.white70, fontSize: 12)),
+              ),
+            ],
+          );
+        });
+      },
+    );
+
+    await matchSub?.cancel();
+    heartbeat?.cancel();
+    await pvp.queueLeave();
   }
 
   @override
@@ -2051,6 +2175,7 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       );
       return;
     }
+    final shareMatchId = match.id;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -2059,6 +2184,12 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
               : "Free invite sent to $memberName!",
         ),
         backgroundColor: Colors.green,
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: 'SHARE',
+          textColor: Colors.white,
+          onPressed: () => _shareQuizInvite(shareMatchId),
+        ),
       ),
     );
     // CRITICAL: watch the invite so the inviter enters the arena the moment
@@ -2084,6 +2215,24 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
       );
     } catch (e) {
       debugPrint('Invite push notification failed: $e');
+    }
+  }
+
+  /// Shares a PvP invite link that deep-links straight back into the match.
+  ///
+  /// `https://churchonapp.com/quiz/invite/<id>` is an Android App Link
+  /// (autoVerify) and the router already preserves deep links through
+  /// splash → login → tenant selection, so the recipient lands on the invite
+  /// screen in the app (and on the web fallback otherwise).
+  Future<void> _shareQuizInvite(String matchId) async {
+    final me = ref.read(profileProvider).value?.name ?? 'A friend';
+    final link = 'https://churchonapp.com/quiz/invite/$matchId';
+    final text = '$me challenged you to a Bible Quiz on Church On App!\n'
+        'Tap to accept and play: $link';
+    try {
+      await SharePlus.instance.share(ShareParams(text: text, subject: 'Bible Quiz Challenge'));
+    } catch (e) {
+      debugPrint('Share quiz invite failed: $e');
     }
   }
 
@@ -2894,6 +3043,9 @@ class _OutgoingInvitesSection extends ConsumerStatefulWidget {
 
 class _OutgoingInvitesSectionState extends ConsumerState<_OutgoingInvitesSection> {
   final Map<String, String> _names = {};
+  /// Invites the user swiped away — hidden immediately, then gone for real
+  /// once the realtime stream catches up.
+  final Set<String> _dismissed = {};
 
   String _label(PvPMatch m) {
     switch (m.status) {
@@ -2952,7 +3104,9 @@ class _OutgoingInvitesSectionState extends ConsumerState<_OutgoingInvitesSection
     return StreamBuilder<List<PvPMatch>>(
       stream: ref.read(pvpServiceProvider).outgoingInvitesStream(),
       builder: (context, snap) {
-        final list = snap.data ?? const <PvPMatch>[];
+        final list = (snap.data ?? const <PvPMatch>[])
+            .where((m) => !_dismissed.contains(m.id))
+            .toList();
         if (list.isEmpty) return const SizedBox.shrink();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2971,7 +3125,46 @@ class _OutgoingInvitesSectionState extends ConsumerState<_OutgoingInvitesSection
               final color = _color(m);
               final label = _label(m);
               final isPlayable = m.status == 'accepted' || m.status == 'playing';
-              return Container(
+              // Swipe LEFT to cancel/remove an inactive invite. Terminal
+              // statuses (completed/declined/expired) can be cleared too — they
+              // are just removed from the list. Server refunds the wager.
+              return Dismissible(
+                key: ValueKey('sent_${m.id}'),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      const Icon(LucideIcons.trash2, color: Colors.white, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        (m.status == 'invited') ? 'CANCEL' : 'REMOVE',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                onDismissed: (_) async {
+                  if (m.status == 'invited') {
+                    await ref
+                        .read(pvpServiceProvider)
+                        .declineInvite(m.id);
+                  }
+                  // Hide immediately — the realtime stream may lag a moment and
+                  // Flutter asserts if a dismissed Dismissible stays in the tree.
+                  setState(() => _dismissed.add(m.id));
+                },
+                child: Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(14), border: Border.all(color: color.withValues(alpha: 0.35))),
@@ -3007,6 +3200,7 @@ class _OutgoingInvitesSectionState extends ConsumerState<_OutgoingInvitesSection
                     else if (m.status == 'completed')
                       Icon(label == 'WON' ? LucideIcons.trophy : LucideIcons.flag, color: color, size: 16),
                   ],
+                ),
                 ),
               );
             }),

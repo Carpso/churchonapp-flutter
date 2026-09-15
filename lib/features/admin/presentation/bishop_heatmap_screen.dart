@@ -6,6 +6,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/config/app_constants.dart';
+import 'package:church_on_app/core/widgets/church_map.dart';
 
 class BishopHeatmapScreen extends ConsumerStatefulWidget {
   const BishopHeatmapScreen({super.key});
@@ -44,7 +46,8 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
           point: LatLng(lat, lng),
           child: Tooltip(
             message: "$name\nAttendance: $attendance",
-            child: const Icon(Icons.location_on, color: Colors.red, size: 30),
+            child: const Icon(Icons.location_on,
+                color: AppConstants.sunflowerYellow, size: 30),
           ),
         ));
 
@@ -52,8 +55,9 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
           point: LatLng(lat, lng),
           radius: (attendance * 2.0).clamp(20.0, 100.0),
           useRadiusInMeter: true,
-          color: Colors.red.withValues(alpha: 0.2),
-          borderColor: Colors.red.withValues(alpha: 0.5),
+          // Brand sunflower heat (denser = more opaque yellow).
+          color: AppConstants.sunflowerYellow.withValues(alpha: 0.25),
+          borderColor: AppConstants.sunflowerYellow.withValues(alpha: 0.75),
           borderStrokeWidth: 1,
         ));
       }
@@ -73,21 +77,15 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
       ),
       body: Stack(
         children: [
-          FlutterMap(
-            options: MapOptions(
-              initialCenter: _initialCenter,
-              initialZoom: 6,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.churchonapp.churchonapp',
-                // TO USE R2 HOSTED TILES:
-                // urlTemplate: 'https://your-r2-worker-url.cloudflare.com/tiles/{z}/{x}/{y}.mvt',
-              ),
-              CircleLayer(circles: _circles),
-              MarkerLayer(markers: _markers),
-            ],
+          ChurchMap(
+            center: _initialCenter,
+            zoom: 6,
+            markers: _markers,
+            // Heatmap density circles over the self-hosted Protomaps basemap.
+            extraLayers: [CircleLayer(circles: _circles)],
+            showPlaces: false,
+            showSavePin: false,
+            showLocateButton: false,
           ),
           Positioned(
             top: 20,

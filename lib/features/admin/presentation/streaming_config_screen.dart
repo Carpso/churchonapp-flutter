@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
-import 'package:church_on_app/core/services/unified_stream_service.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 
 /// Streaming configuration screen for church admins
@@ -17,11 +16,6 @@ class StreamingConfigScreen extends ConsumerStatefulWidget {
 }
 
 class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
-  StreamingBackend _selectedBackend = StreamingBackend.cloudflare;
-  final _hostController = TextEditingController(text: 'stream.churchonapp.com');
-  final _cloudflareAccountIdController = TextEditingController();
-  final _cloudflareApiTokenController = TextEditingController();
-  final _mediamtxSecretController = TextEditingController();
   // Cost control state
   bool _isPaid = false;
   int _maxMinutesPerWeek = 10;
@@ -52,14 +46,8 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
 
       if (result != null) {
         setState(() {
-          _selectedBackend = StreamingBackend.values.firstWhere(
-            (b) => b.name == (result['backend'] ?? 'cloudflare'),
-            orElse: () => StreamingBackend.cloudflare,
-          );
-          _hostController.text = result['mediamtx_host'] ?? 'stream.churchonapp.com';
-          _cloudflareAccountIdController.text = result['cloudflare_account_id'] ?? '';
-          _cloudflareApiTokenController.text = result['cloudflare_api_token'] ?? '';
-          _mediamtxSecretController.text = result['mediamtx_secret'] ?? '';
+          // Cloudflare credentials are PLATFORM secrets, provisioned and held
+          // by the Edge Function environment — churches never supply them.
           _isPaid = result['is_paid'] ?? false;
           _maxMinutesPerWeek = result['max_minutes_per_week'] ?? 10;
           _maxViewers = result['max_viewers'] ?? 25;
@@ -104,71 +92,38 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
       body: ListView(
         padding: EdgeInsets.all(16),
         children: [
-          // Backend selection
+          // Backend — Cloudflare Stream is the only supported backend.
           Text('Streaming Backend', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           SizedBox(height: 12),
           _BackendCard(
             title: 'Cloudflare Stream',
             subtitle: 'Ingest + delivery — scales with usage',
             icon: Icons.cloud,
-            isSelected: _selectedBackend == StreamingBackend.cloudflare,
-            onTap: () => setState(() => _selectedBackend = StreamingBackend.cloudflare),
+            isSelected: true,
+            onTap: () {},
             children: [
               Container(
                 padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
                 child: Text(
-                  'Cloudflare handles everything: RTMP ingest, transcoding, HLS delivery, and DDoS protection. \$5/mo base + usage.',
+                  'Cloudflare handles everything: RTMP/WHIP ingest, transcoding, '
+                  'adaptive HLS delivery, recording, and DDoS protection.',
                   style: TextStyle(fontSize: 12, color: const Color(0xFF7A5C00)),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 12),
-          _BackendCard(
-            title: 'MediaMTX (Self-Hosted)',
-            subtitle: 'Flat \$5/mo, unlimited streams',
-            icon: Icons.dns,
-            isSelected: _selectedBackend == StreamingBackend.mediamtx,
-            onTap: () => setState(() => _selectedBackend = StreamingBackend.mediamtx),
-            children: [
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(8)),
-                child: Text(
-                  'One \$5 VPS handles unlimited streams. No per-minute charges. Requires server setup.',
-                  style: TextStyle(color: Colors.green[800], fontSize: 13),
                 ),
               ),
             ],
           ),
           SizedBox(height: 24),
 
-          // Backend config
-          if (_selectedBackend == StreamingBackend.cloudflare) ...[
-            _buildSection('Cloudflare Config', [
-              _buildTextField('Account ID', _cloudflareAccountIdController),
-              _buildTextField('API Token', _cloudflareApiTokenController, obscure: true),
-              SizedBox(height: 8),
-              _buildHelpBox('Setup:', [
-                '1. dash.cloudflare.com → Stream → Overview',
-                '2. Copy Account ID',
-                '3. My Profile → API Tokens → Create Stream token',
-              ], Theme.of(context).primaryColor),
-            ]),
-          ] else ...[
-            _buildSection('MediaMTX Config', [
-              _buildTextField('Server Host', _hostController),
-              _buildTextField('Stream Secret', _mediamtxSecretController, obscure: true),
-              SizedBox(height: 8),
-              _buildHelpBox('VPS Setup:', [
-                '1. Buy VPS (Hetzner \$4.50/mo)',
-                '2. Install: curl -s https://get.mediamtx.dev | sh',
-                '3. Run: mediamtx',
-                '4. Point stream.churchonapp.com → VPS IP',
-              ], Colors.green),
-            ]),
-          ],
+          // Credentials are NOT a church setting. Church On App provisions the
+          // Cloudflare Stream input automatically when a leader goes live.
+          _buildSection('Cloudflare Streaming', [
+            _buildHelpBox('Managed automatically', [
+              'Nothing to configure here.',
+              'Church On App authorises your streaming and creates the live input automatically.',
+              'Keys are held server-side and never entered or stored in the app.',
+            ], Theme.of(context).primaryColor),
+          ]),
 
           SizedBox(height: 24),
 
@@ -418,20 +373,6 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, {bool obscure = false}) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 12),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        decoration: InputDecoration(
-          labelText: label,
-          border: OutlineInputBorder(),
-        ),
-      ),
-    );
-  }
-
   Widget _buildHelpBox(String title, List<String> steps, Color color) {
     return Container(
       padding: EdgeInsets.all(12),
@@ -453,11 +394,7 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
     try {
       final config = {
         'church_id': widget.tenantId,
-        'backend': _selectedBackend.name,
-        'cloudflare_account_id': _cloudflareAccountIdController.text.trim(),
-        'cloudflare_api_token': _cloudflareApiTokenController.text.trim(),
-        'mediamtx_host': _hostController.text.trim(),
-        'mediamtx_secret': _mediamtxSecretController.text.trim(),
+        'backend': 'cloudflare',
         'is_paid': _isPaid,
         'max_minutes_per_week': _maxMinutesPerWeek,
         'max_viewers': _maxViewers,
@@ -489,10 +426,6 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
 
   @override
   void dispose() {
-    _hostController.dispose();
-    _cloudflareAccountIdController.dispose();
-    _cloudflareApiTokenController.dispose();
-    _mediamtxSecretController.dispose();
     super.dispose();
   }
 }

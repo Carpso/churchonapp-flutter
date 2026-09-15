@@ -36,9 +36,20 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
       if (response.isEmpty || response.file == null) return;
       final file = response.file!;
       if (!mounted) return;
+      // Only fill ONE empty slot — the same photo must never satisfy both the
+      // ID and the selfie step (it would defeat verification).
+      final target = _idFile == null ? 'id' : (_selfieFile == null ? 'selfie' : null);
+      if (target == null) return;
+      final bytes = await _readBytes(file);
+      if (!mounted) return;
       setState(() {
-        _selfieFile ??= file;
-        _idFile ??= file;
+        if (target == 'id') {
+          _idFile = file;
+          _idPreviewBytes = bytes;
+        } else {
+          _selfieFile = file;
+          _selfiePreviewBytes = bytes;
+        }
       });
     } catch (e) {
       debugPrint('Lost capture recovery failed: $e');

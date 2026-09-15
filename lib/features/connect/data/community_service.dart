@@ -8,37 +8,27 @@ class CommunityService {
 
   CommunityService(this._client);
 
-  /// Fetch communities with their nested groups. Own-tenant communities plus
-  /// public communities from OTHER churches (is_public = true) so tenants can
-  /// share their communities platform-wide.
+  /// Fetch communities with their nested groups.
+  ///
+  /// Church groups are **TENANT-ALIGNED**: only the caller's own church's
+  /// communities/groups are returned. The cross-church / "global" experience
+  /// lives in the church social feed (Connect), which has its own
+  /// All / My Church / Friends filters.
   Future<List<Map<String, dynamic>>> fetchCommunities({String? tenantId}) async {
     try {
-      final List<Map<String, dynamic>> communitiesRes;
-      final List<Map<String, dynamic>> groupsRes;
+      if (tenantId == null || tenantId.isEmpty) return const [];
 
-      if (tenantId != null && tenantId.isNotEmpty) {
-        communitiesRes = List<Map<String, dynamic>>.from(await _client
-            .from('community_communities')
-            .select()
-            .or('tenant_id.eq.$tenantId,is_public.is.true')
-            .order('sort_order'));
+      final communitiesRes = List<Map<String, dynamic>>.from(await _client
+          .from('community_communities')
+          .select()
+          .eq('tenant_id', tenantId)
+          .order('sort_order'));
 
-        groupsRes = List<Map<String, dynamic>>.from(await _client
-            .from('community_groups')
-            .select()
-            .or('tenant_id.eq.$tenantId,is_public.is.true,tenant_id.is.null')
-            .order('sort_order'));
-      } else {
-        communitiesRes = List<Map<String, dynamic>>.from(await _client
-            .from('community_communities')
-            .select()
-            .order('sort_order'));
-
-        groupsRes = List<Map<String, dynamic>>.from(await _client
-            .from('community_groups')
-            .select()
-            .order('sort_order'));
-      }
+      final groupsRes = List<Map<String, dynamic>>.from(await _client
+          .from('community_groups')
+          .select()
+          .eq('tenant_id', tenantId)
+          .order('sort_order'));
 
       final allGroups = List<Map<String, dynamic>>.from(groupsRes);
 
@@ -48,6 +38,7 @@ class CommunityService {
             .where((g) => g['community_id'] == community['id'])
             .map((g) => {
                   'id': g['id'],
+                  'communityId': g['community_id'],
                   'title': g['title'] ?? '',
                   'subtitle': g['subtitle'] ?? '',
                   'image': g['image_url'] ?? '',
@@ -56,15 +47,18 @@ class CommunityService {
                   'isPublic': g['is_public'] ?? true,
                   'count': g['member_count'] ?? 0,
                   'tenantId': g['tenant_id'],
+                  'createdBy': g['created_by'],
                 })
             .toList();
         result.add({
+          'id': community['id'],
           'name': community['name'] ?? '',
           'description': community['description'] ?? '',
           'banner': community['banner_url'] ?? '',
           'avatar': community['avatar_url'] ?? '',
           'isPublic': community['is_public'] ?? false,
           'tenantId': community['tenant_id'],
+          'createdBy': community['created_by'],
           'groups': communityGroups,
         });
       }
@@ -75,16 +69,19 @@ class CommunityService {
     }
   }
 
-  /// Fetch groups directly (flattened) for the communities screen
+  /// Fetch groups directly (flattened) for the communities screen.
+  /// TENANT-ALIGNED — only the caller's own church's groups.
   Future<List<Map<String, dynamic>>> fetchGroups({String? tenantId}) async {
     try {
-      var query = _client.from('community_groups').select();
-      if (tenantId != null && tenantId.isNotEmpty) {
-        query = query.or('tenant_id.eq.$tenantId,is_public.is.true,tenant_id.is.null');
-      }
-      final res = await query.order('sort_order');
+      if (tenantId == null || tenantId.isEmpty) return const [];
+      final res = await _client
+          .from('community_groups')
+          .select()
+          .eq('tenant_id', tenantId)
+          .order('sort_order');
       return List<Map<String, dynamic>>.from(res).map((g) => {
         'id': g['id'],
+        'communityId': g['community_id'],
         'title': g['title'] ?? '',
         'subtitle': g['subtitle'] ?? '',
         'image': g['image_url'] ?? '',
@@ -93,6 +90,7 @@ class CommunityService {
         'isPublic': g['is_public'] ?? true,
         'count': g['member_count'] ?? 0,
         'tenantId': g['tenant_id'],
+        'createdBy': g['created_by'],
       }).toList();
     } catch (e) {
       debugPrint('[CommunityService] fetchGroups error: $e');
@@ -100,9 +98,124 @@ class CommunityService {
     }
   }
 
-  /// Check if the current user has joined a group
-  Future<bool> isMember(String groupId) async {
+  // ── Create / edit ─────────────────────────────────────────────────────────
+
+  Future<String?> _myTenantId() async {
     final user = _client.auth.currentUser;
+    if (user == null) return null;
+    try {
+      final p = await _client
+          .from('profiles')
+          .select('tenant_id')
+          .eq('id', user.id)
+          .maybeSingle();
+      return p?['tenant_id']?.toString();
+    } catch (e) {
+      debugPrint('[CommunityService] tenant lookup failed: $e');
+      return null;
+    }
+  }
+
+  /// Create a community in the caller's own church. Returns the new id.
+  Future<String?> createCommunity({
+    required String name,
+    String? description,
+    bool isPublic = true,
+  }) async {
+    final user = _client.auth.currentUser;
+    final tenantId = await _myTenantId();
+    if (user == null || tenantId == null) return null;
+    final res = await _client
+        .from('community_communities')
+        .insert({
+          'name': name,
+          'description': description,
+          'is_public': isPublic,
+          'tenant_id': tenantId,
+          'created_by': user.id,
+          'sort_order': 99,
+        })
+        .select('id')
+        .maybeSingle();
+    return res?['id']?.toString();
+  }
+
+  Future<void> updateCommunity(
+    String id, {
+    String? name,
+    String? description,
+    bool? isPublic,
+  }) async {
+    final patch = <String, dynamic>{};
+    if (name != null) patch['name'] = name;
+    if (description != null) patch['description'] = description;
+    if (isPublic != null) patch['is_public'] = isPublic;
+    if (patch.isEmpty) return;
+    await _client.from('community_communities').update(patch).eq('id', id);
+  }
+
+  Future<void> deleteCommunity(String id) async {
+    await _client.from('community_communities').delete().eq('id', id);
+  }
+
+  /// Create a group inside a community. Uses the community's tenant so the
+  /// row stays church-aligned even if the caller's profile is out of sync.
+  Future<String?> createGroup({
+    required String communityId,
+    required String title,
+    String? subtitle,
+    bool isAnnouncement = false,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return null;
+    String? tenantId = await _myTenantId();
+    try {
+      final c = await _client
+          .from('community_communities')
+          .select('tenant_id')
+          .eq('id', communityId)
+          .maybeSingle();
+      tenantId = c?['tenant_id']?.toString() ?? tenantId;
+    } catch (_) {}
+    final res = await _client
+        .from('community_groups')
+        .insert({
+          'community_id': communityId,
+          'title': title,
+          'subtitle': subtitle,
+          'group_identifier':
+              'grp-${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}',
+          'is_announcement': isAnnouncement,
+          'is_public': true,
+          'tenant_id': tenantId,
+          'created_by': user.id,
+          'sort_order': 99,
+        })
+        .select('id')
+        .maybeSingle();
+    return res?['id']?.toString();
+  }
+
+  Future<void> updateGroup(
+    String id, {
+    String? title,
+    String? subtitle,
+    bool? isAnnouncement,
+  }) async {
+    final patch = <String, dynamic>{};
+    if (title != null) patch['title'] = title;
+    if (subtitle != null) patch['subtitle'] = subtitle;
+    if (isAnnouncement != null) patch['is_announcement'] = isAnnouncement;
+    if (patch.isEmpty) return;
+    await _client.from('community_groups').update(patch).eq('id', id);
+  }
+
+  Future<void> deleteGroup(String id) async {
+    await _client.from('community_groups').delete().eq('id', id);
+  }
+
+  /// Check if the current user has joined a group
+  Future<bool> isMember(String groupId) async {    final user = _client.auth.currentUser;
     if (user == null) return false;
     try {
       final existing = await _client

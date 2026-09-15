@@ -315,10 +315,13 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
                                   runSpacing: 8,
                                   alignment: WrapAlignment.center,
                                   children: _suggestions.map((s) => ActionChip(
-                                    label: Text(s, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
-                                    labelStyle: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
-                                    backgroundColor: Colors.amber.withAlpha(40),
-                                    side: BorderSide(color: Colors.amber.withAlpha(120)),
+                                    label: Text(s, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                                    labelStyle: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                                    // Dark translucent chip + white text = high
+                                    // contrast. The old amber-tinted fill behind
+                                    // white text was hard to read.
+                                    backgroundColor: Colors.white.withAlpha(22),
+                                    side: BorderSide(color: Colors.amber.withAlpha(160)),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                                     onPressed: _isStreaming ? null : () {
                                       _controller.text = s;
@@ -381,7 +384,7 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
                   padding: const EdgeInsets.all(15),
                   constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
                   decoration: BoxDecoration(
-                    color: isUser ? Colors.amber.withAlpha(200) : Colors.white.withAlpha(15),
+                    color: isUser ? const Color(0xFFFFD700) : Colors.white.withAlpha(15),
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(20),
                       topRight: const Radius.circular(20),
@@ -391,7 +394,9 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
                   ),
                   child: Text(
                     msg.content,
-                    style: TextStyle(color: isUser ? Colors.white : Colors.white70, fontSize: 15, height: 1.4),
+                    // Brand yellow bubble needs DARK text — white on amber was
+                    // unreadable.
+                    style: TextStyle(color: isUser ? Colors.black87 : Colors.white70, fontSize: 15, height: 1.4),
                   ),
                 ),
               ),

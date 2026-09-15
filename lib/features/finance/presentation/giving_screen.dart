@@ -14,6 +14,7 @@ import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/config/remote_config.dart';
 import 'package:church_on_app/core/i18n/l10n.dart';
 import 'package:church_on_app/features/finance/data/offline_giving_queue.dart';
+import 'package:church_on_app/features/finance/data/offering_basket_service.dart';
 import 'widgets/giving_category_selector.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 import 'package:church_on_app/core/widgets/entity_selector.dart';
@@ -35,7 +36,13 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
   String _selectedTitheRecipient = "Pastor";
   final TextEditingController _amountController = TextEditingController();
 
-  final List<String> _categories = ["Offering", "Tithe", "Mission", "Building Fund", "Other"];
+  static const List<String> _defaultCategories = [
+    "Offering",
+    "Tithe",
+    "Mission",
+    "Building Fund",
+    "Other"
+  ];
   final List<String> _titheRecipients = ["Pastor", "Bishop", "Treasurer"];
 
   @override
@@ -78,6 +85,15 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
   Widget _buildScreen(BuildContext context, UserProfile? profile) {
     final txAsync = ref.watch(transactionsStreamProvider);
     final churchAsync = ref.watch(churchGivingOverviewProvider);
+    final baskets = ref.watch(offeringBasketsProvider).value ??
+        const <OfferingBasket>[];
+    final activeSession = ref.watch(activeOfferingSessionProvider).value;
+    final categories = baskets.isNotEmpty
+        ? baskets.map((b) => b.name).toList()
+        : _defaultCategories;
+    if (!categories.contains(_selectedCategory)) {
+      _selectedCategory = categories.first;
+    }
     final config = widgetRemoteConfig(ref);
     final personalGoal = config.getInt('giving_monthly_goal_kwacha', 500);
     final churchGoal = config.getInt('church_monthly_goal_kwacha', 10000);
@@ -115,6 +131,10 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
         child: Column(
           children: [
             _buildOfflineQueueBanner(),
+            if (activeSession != null) ...[
+              _buildLiveOfferingCard(activeSession),
+              const SizedBox(height: 16),
+            ],
             _buildTotalGivenCard(profile, monthlyGiven, personalGoal),
             const SizedBox(height: 16),
             _buildChurchGoalCard(churchAsync, churchGoal),
@@ -124,11 +144,11 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
             _buildGroupGivingShortcut(),
             const SizedBox(height: 30),
              GivingCategorySelector(
-              categories: _categories,
+              categories: categories,
               selectedCategory: _selectedCategory,
               onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
             ),
-            if (_selectedCategory == "Tithe") ...[
+            if (_selectedCategory.toLowerCase().contains("tithe")) ...[
               const SizedBox(height: 16),
               _buildTitheRecipientSelector(),
             ],
@@ -146,7 +166,8 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
                 }
                 final amount = double.tryParse(_amountController.text) ?? 0.0;
                 final tenant = ref.read(currentTenantProvider);
-                final recipient = _selectedCategory.toLowerCase() == 'tithe'
+                final isTithe = _selectedCategory.toLowerCase().contains('tithe');
+                final recipient = isTithe
                     ? _titheRecipientPhone(tenant)
                     : (tenant?.treasurerPhone ?? tenant?.contactPhone ?? tenant?.pastorPhone);
                 if (recipient == null || recipient.isEmpty) {
@@ -167,7 +188,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
                       description: 'Giving: $_selectedCategory',
                       category: _selectedCategory.toLowerCase(),
                      recipientName: tenant?.name ?? 'Local Church',
-                     recipientAccount: _selectedCategory.toLowerCase() == 'tithe'
+                     recipientAccount: isTithe
                          ? _titheRecipientPhone(tenant)
                          : (tenant?.treasurerPhone ??
                              tenant?.contactPhone ??
@@ -185,11 +206,20 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
                                 tenantId: tenant?.id,
                                 recipientPhone: tenant?.treasurerPhone,
                                 recipientName: tenant?.name,
-                                recipientRole:
-                                    _selectedCategory.toLowerCase() == 'tithe'
-                                        ? _selectedTitheRecipient
-                                        : null,
+                                recipientRole: isTithe
+                                    ? _selectedTitheRecipient
+                                    : null,
                               );
+                          if (activeSession != null) {
+                            await ref
+                                .read(offeringBasketServiceProvider)
+                                .recordContribution(
+                                  sessionId: activeSession.id,
+                                  amount: amount,
+                                  paymentRef: txId,
+                                );
+                            ref.invalidate(activeOfferingSessionProvider);
+                          }
                           ref.invalidate(transactionsStreamProvider);
                           ref.invalidate(profileProvider);
                           if (mounted) _showSuccessSheet(txId);
@@ -253,8 +283,115 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
     ref.invalidate(groupContributionsProvider(tenant.id));
   }
 
-  Widget _buildOfflineQueueBanner() {
-    final pendingAsync = ref.watch(offlineGivingPendingProvider);
+  /// Member-facing LIVE offering card. While a leader has an offering open,
+  /// members see which basket is live and how much has been given so far. The
+  /// selected category is switched to the live basket so one tap gives to it.
+  Widget _buildLiveOfferingCard(OfferingSession session) {
+    final profile = ref.read(profileProvider).value;
+    final isLeader = profile?.isLeadershipTeam == true ||
+        profile?.isLedgerManager == true ||
+        profile?.isSuperadmin == true;
+    final isCurrent = _selectedCategory == session.basketName;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFB91C1C), Color(0xFFEF4444)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withValues(alpha: 0.25),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(LucideIcons.radio, size: 12, color: Colors.white),
+                    SizedBox(width: 4),
+                    Text('LIVE OFFERING',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1)),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              Text('${session.contributionCount} gift(s)',
+                  style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(session.basketName ?? 'Offering',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900)),
+          if ((session.title ?? '').isNotEmpty)
+            Text(session.title!,
+                style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          const SizedBox(height: 6),
+          Text('${formatKwacha(session.totalAmount)} given so far',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700)),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  onPressed: isCurrent
+                      ? null
+                      : () => setState(
+                            () => _selectedCategory =
+                                session.basketName ?? _selectedCategory,
+                          ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.red.shade900,
+                    disabledBackgroundColor: Colors.white24,
+                    disabledForegroundColor: Colors.white70,
+                  ),
+                  child: Text(isCurrent ? 'SELECTED ▾' : 'GIVE TO THIS'),
+                ),
+              ),
+              if (isLeader) ...[
+                const SizedBox(width: 10),
+                OutlinedButton(
+                  onPressed: () => context.push('/offering-baskets'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white54),
+                  ),
+                  child: const Text('MANAGE'),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfflineQueueBanner() {    final pendingAsync = ref.watch(offlineGivingPendingProvider);
     return pendingAsync.when(
       data: (pending) {
         if (pending.isEmpty) return const SizedBox.shrink();
@@ -599,12 +736,18 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
 
   Widget _buildFeatureTiles(BuildContext context) {
     final brand = Theme.of(context).primaryColor;
+    final profile = ref.read(profileProvider).value;
+    final isLeader = profile?.isLeadershipTeam == true ||
+        profile?.isLedgerManager == true ||
+        profile?.isSuperadmin == true;
     final features = [
       (LucideIcons.coins, "Fundraising", "Active campaigns", '/fundraising', brand),
       (LucideIcons.scrollText, "My Pledges", "Track promises", '/my-pledges', brand.withValues(alpha: 0.6)),
       (LucideIcons.creditCard, "Tithe Card", "Physical giving card", '/tithe-card', Colors.amber),
       (LucideIcons.bellRing, "Transaction Alerts", "Monitor giving activity", '/alerts', Colors.deepOrange),
       (LucideIcons.wallet, "Wallet", "Manage funds", '/wallet', Colors.green),
+      if (isLeader)
+        (LucideIcons.landmark, "Baskets", "Manage & report offerings", '/offering-baskets', Colors.teal),
     ];
 
     return Column(

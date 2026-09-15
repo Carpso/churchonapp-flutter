@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../../../core/providers/profile_provider.dart';
 import '../data/network_service.dart';
 
 class NetworkActivityScreen extends ConsumerWidget {
@@ -11,12 +12,28 @@ class NetworkActivityScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activitiesAsync = ref.watch(networkActivityStreamProvider);
+    final profile = ref.watch(profileProvider).value;
+    final canPost = profile != null &&
+        (profile.isLeadershipTeam ||
+            profile.isPastor ||
+            profile.isBishop ||
+            profile.isSuperadmin);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Network Activity"),
       ),
+      floatingActionButton: canPost
+          ? FloatingActionButton.extended(
+              onPressed: () => _compose(context, ref),
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.black,
+              icon: const Icon(LucideIcons.megaphone),
+              label: const Text('UPDATE',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
+            )
+          : null,
       body: activitiesAsync.when(
         data: (activities) => RefreshIndicator(
           onRefresh: () async {
@@ -172,5 +189,112 @@ class NetworkActivityScreen extends ConsumerWidget {
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
     return DateFormat.MMMd().format(dt);
+  }
+}
+
+Future<void> _compose(BuildContext context, WidgetRef ref) async {
+  final titleCtrl = TextEditingController();
+  final descCtrl = TextEditingController();
+  var type = 'update';
+  var busy = false;
+
+  final saved = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setLocal) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Share an update',
+                  style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              const Text('Post to the church network activity feed.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: type,
+                decoration: const InputDecoration(
+                    labelText: 'Type', border: OutlineInputBorder()),
+                items: const [
+                  DropdownMenuItem(value: 'update', child: Text('Update')),
+                  DropdownMenuItem(value: 'sermon', child: Text('Sermon')),
+                  DropdownMenuItem(value: 'event', child: Text('Event')),
+                  DropdownMenuItem(value: 'prayer', child: Text('Prayer')),
+                ],
+                onChanged: (v) => setLocal(() => type = v ?? 'update'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: titleCtrl,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                    labelText: 'Title', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descCtrl,
+                maxLines: 3,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                    labelText: 'Details (optional)',
+                    border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          final title = titleCtrl.text.trim();
+                          if (title.isEmpty) return;
+                          setLocal(() => busy = true);
+                          try {
+                            await ref
+                                .read(networkServiceProvider)
+                                .postNetworkActivity(
+                                  type: type,
+                                  title: title,
+                                  description: descCtrl.text.trim().isEmpty
+                                      ? null
+                                      : descCtrl.text.trim(),
+                                );
+                            if (ctx.mounted) Navigator.pop(ctx, true);
+                          } catch (e) {
+                            setLocal(() => busy = false);
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(
+                                      content: Text('Could not post: $e')));
+                            }
+                          }
+                        },
+                  style: FilledButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 52)),
+                  child: const Text('POST UPDATE'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
+  titleCtrl.dispose();
+  descCtrl.dispose();
+  if (saved == true && context.mounted) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Update posted')));
   }
 }

@@ -1,6 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:church_on_app/core/services/tenant_service.dart';
 export 'cart_provider.dart';
 
 class MarketProduct {
@@ -128,18 +127,21 @@ class MarketplaceService {
 
 final marketplaceServiceProvider = Provider((ref) => MarketplaceService(Supabase.instance.client));
 
-final productsProvider = FutureProvider.family<List<MarketProduct>, Map<String, String?>>((ref, filters) async {
-  final tenant = ref.watch(currentTenantProvider);
+/// Filter key for [productsProvider].
+///
+/// IMPORTANT: this is a Dart record, NOT a Map. A `Map` argument has no value
+/// equality, so `{'category': 'all'} != {'category': 'all'}` — Riverpod would
+/// treat every rebuild as a NEW family instance, start it in `loading`, resolve,
+/// rebuild again… an endless fetch/reload loop that made the home Marketplace
+/// section (and its siblings) flash and vanish. Records compare structurally.
+typedef ProductFilter = ({String? category, String? marketType});
+
+final productsProvider = FutureProvider.family<List<MarketProduct>, ProductFilter>((ref, filters) async {
   final service = ref.watch(marketplaceServiceProvider);
-  final tenantProducts = await service.fetchProducts(
-    category: filters['category'],
-    marketType: filters['marketType'],
-    tenantId: tenant?.id,
-  );
-  if (tenantProducts.isNotEmpty || tenant == null) return tenantProducts;
+  // Marketplace is global — all active items visible to all users.
   return service.fetchProducts(
-    category: filters['category'],
-    marketType: filters['marketType'],
+    category: filters.category,
+    marketType: filters.marketType,
   );
 });
 

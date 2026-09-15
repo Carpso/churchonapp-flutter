@@ -17,27 +17,48 @@ class DiscoverTab extends ConsumerWidget {
     final eventsAsync = ref.watch(eventsStreamProvider);
 
     return eventsAsync.when(
-      data: (events) => events.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(LucideIcons.calendarOff, size: 64, color: Colors.grey.withValues(alpha: 0.3)),
-                  const SizedBox(height: 16),
-                  Text("No upcoming events found.", style: TextStyle(color: Colors.grey[500], fontSize: 16, fontWeight: FontWeight.w600)),
-                ],
-              ),
-            )
-          : RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(eventsStreamProvider);
-              },
-              child: ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: events.length,
-                itemBuilder: (context, index) => _buildPremiumEventCard(context, ref, events[index]),
-              ),
+      data: (events) {
+        if (events.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(LucideIcons.calendarOff, size: 64, color: Colors.grey.withValues(alpha: 0.3)),
+                const SizedBox(height: 16),
+                Text("No events yet", style: TextStyle(color: Colors.grey[500], fontSize: 16, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                Text("Events posted by your church will appear here.",
+                    style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+              ],
             ),
+          );
+        }
+
+        // Order: upcoming (soonest first), then the most recent past events so
+        // the hub is never an empty "No upcoming events" wall when a church has
+        // no future event scheduled.
+        final now = DateTime.now();
+        final upcoming = events.where((e) => e.date.isAfter(now)).toList()
+          ..sort((a, b) => a.date.compareTo(b.date));
+        final past = events.where((e) => !e.date.isAfter(now)).toList()
+          ..sort((a, b) => b.date.compareTo(a.date));
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(eventsStreamProvider);
+          },
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              if (upcoming.isNotEmpty) _sectionHeader(context, 'UPCOMING EVENTS'),
+              ...upcoming.map((e) => _buildPremiumEventCard(context, ref, e)),
+              if (past.isNotEmpty)
+                _sectionHeader(context, upcoming.isEmpty ? 'RECENT EVENTS' : 'PAST EVENTS'),
+              ...past.take(10).map((e) => _buildPremiumEventCard(context, ref, e)),
+            ],
+          ),
+        );
+      },
       loading: () => ListView.builder(
         padding: const EdgeInsets.all(20),
         itemCount: 3,
@@ -46,6 +67,27 @@ class DiscoverTab extends ConsumerWidget {
       error: (err, stack) => ErrorRetryWidget(
         message: "Failed to load events",
         onRetry: () => ref.invalidate(eventsStreamProvider),
+      ),
+    );
+  }
+
+  Widget _sectionHeader(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, top: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 16,
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1)),
+        ],
       ),
     );
   }

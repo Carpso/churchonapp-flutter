@@ -14,14 +14,17 @@ import 'package:church_on_app/features/auth/presentation/splash_screen.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:church_on_app/features/home/presentation/home_screen.dart';
 import 'package:church_on_app/features/home/presentation/sermon_library_screen.dart';
+import 'package:church_on_app/features/home/presentation/sermon_by_id_screen.dart';
 import 'package:church_on_app/features/transport/presentation/ride_request_screen.dart';
 import 'package:church_on_app/features/connect/presentation/connect_screen.dart';
 import 'package:church_on_app/features/connect/presentation/church_social_profile_screen.dart';
+import 'package:church_on_app/features/connect/presentation/followers_screen.dart';
 import 'package:church_on_app/features/connect/presentation/saved_posts_screen.dart';
 import 'package:church_on_app/features/finance/presentation/giving_screen.dart';
 import 'package:church_on_app/features/profile/presentation/profile_screen.dart';
 import 'package:church_on_app/features/modules/jobs/presentation/jobs_portal_screen.dart';
 import 'package:church_on_app/features/modules/jobs/presentation/job_details_screen.dart';
+import 'package:church_on_app/features/modules/jobs/presentation/job_by_id_screen.dart';
 import 'package:church_on_app/features/modules/jobs/presentation/manage_applications_screen.dart';
 import 'package:church_on_app/features/modules/jobs/data/job_model.dart';
 import 'package:church_on_app/features/connect/presentation/audio_call_screen.dart';
@@ -144,8 +147,12 @@ import 'package:church_on_app/features/connect/presentation/create_klip_screen.d
 import 'package:church_on_app/features/data_import/presentation/data_import_screen.dart';
 import 'package:church_on_app/features/admin/presentation/feature_toggles_screen.dart';
 import 'package:church_on_app/features/admin/presentation/platform_analytics_screen.dart';
+import 'package:church_on_app/features/admin/presentation/webview_analytics_screen.dart';
+import 'package:church_on_app/features/admin/presentation/tenant_owners_screen.dart';
 import 'package:church_on_app/features/modules/kids/presentation/kids_zone_screen.dart';
 import 'package:church_on_app/features/finance/presentation/giving_history_screen.dart';
+import 'package:church_on_app/features/finance/presentation/offering_basket_manager_screen.dart';
+import 'package:church_on_app/features/finance/presentation/offering_basket_summary_screen.dart';
 import 'package:church_on_app/features/finance/presentation/my_pledges_screen.dart';
 import 'package:church_on_app/features/finance/presentation/qr_payment_screen.dart';
 import 'package:church_on_app/features/finance/presentation/tithe_card_screen.dart';
@@ -166,6 +173,9 @@ import 'package:church_on_app/features/modules/ai_sermon_notes/presentation/ai_s
 import 'package:church_on_app/features/modules/bible_quiz/presentation/bible_quiz_arena_screen.dart';
 import 'package:church_on_app/features/modules/bible_quiz/data/pvp_service.dart';
 import 'package:church_on_app/features/modules/bible_quiz/presentation/bible_quiz_hub_screen.dart';
+import 'package:church_on_app/features/modules/bible_quiz/presentation/quiz_hosting_screen.dart';
+import 'package:church_on_app/features/modules/bible_quiz/presentation/quiz_set_questions_screen.dart';
+import 'package:church_on_app/features/modules/bible_quiz/presentation/quiz_bracket_screen.dart';
 import 'package:church_on_app/features/modules/bible_quiz/presentation/church_competition_lobby_screen.dart';
 import 'package:church_on_app/features/modules/bible_quiz/presentation/quiz_invite_handler_screen.dart';
 import 'package:church_on_app/features/modules/church_website/presentation/church_website_builder_screen.dart';
@@ -177,6 +187,9 @@ import 'package:church_on_app/features/modules/jobs/presentation/my_applications
 import 'package:church_on_app/features/modules/jobs/presentation/my_jobs_screen.dart';
 import 'package:church_on_app/features/modules/jobs/presentation/post_job_screen.dart';
 import 'package:church_on_app/features/modules/live_streaming/presentation/live_streaming_screen.dart';
+import 'package:church_on_app/features/modules/live_streaming/presentation/stream_analytics_screen.dart';
+import 'package:church_on_app/features/admin/presentation/organization_branches_screen.dart';
+import 'package:church_on_app/features/home/presentation/recommendations_screen.dart';
 import 'package:church_on_app/features/modules/live_streaming/presentation/stream_admin_screen.dart';
 import 'package:church_on_app/features/modules/media/presentation/flyer_studio_screen.dart';
 import 'package:church_on_app/features/modules/media/presentation/worship_lyrics_screen.dart';
@@ -458,6 +471,19 @@ final routerProvider = Provider<GoRouter>((ref) {
           return user.isLedgerManager;
         }
 
+        // Offering baskets (church leadership / treasurer manage + report)
+        if (route == '/offering-baskets' ||
+            route == '/offering-baskets-summary') {
+          return user.isLeadershipTeam || user.isLedgerManager;
+        }
+
+        // Quiz hosting console (church leadership)
+        if (route == '/quiz-hosting' || route.startsWith('/quiz-hosting/')) {
+          return user.isLeadershipTeam ||
+              user.isLedgerManager ||
+              user.isSuperadmin;
+        }
+
         // Church staff scanning (Usher / Admin / Leader)
         if (route == '/attendance-scanner' ||
             route == '/ride-scanner' ||
@@ -484,6 +510,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         // Writer (author / manuscript studio)
         if (route == '/writer-dashboard') {
           return user.role == 'writer' || user.isEmployee;
+        }
+
+        // Onboarding routes were UNGUARDED (fell through to `true`) — any
+        // authenticated user could open them. Drivers/riders and bookshop
+        // owners only.
+        if (route == '/rider-onboarding') {
+          return user.role == 'driver' ||
+              user.role == 'rider' ||
+              user.role == 'member' ||
+              user.isEmployee;
+        }
+        if (route == '/bookshop-onboarding') {
+          return user.isBookshopStaff ||
+              user.role == 'bookshop_owner' ||
+              user.isEmployee;
         }
 
         return true;
@@ -515,7 +556,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/register-church',
-        builder: (context, state) => const RegisterChurchScreen(),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return RegisterChurchScreen(
+            initialName: extra?['name']?.toString(),
+            initialAddress: extra?['address']?.toString(),
+            initialLat: (extra?['lat'] as num?)?.toDouble(),
+            initialLng: (extra?['lng'] as num?)?.toDouble(),
+          );
+        },
       ),
 
       GoRoute(
@@ -835,6 +884,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'post',
             builder: (context, state) => const PostJobScreen(),
+          ),
+          // Deep link: https://churchonapp.com/jobs/<id>
+          // (literal routes above take precedence). Lets a job shared on
+          // WhatsApp/push open the right job inside the app.
+          GoRoute(
+            path: ':id',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return JobByIdScreen(jobId: id);
+            },
           ),
         ],
       ),
@@ -1163,6 +1222,41 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const GivingHistoryScreen(),
       ),
       GoRoute(
+        path: '/offering-baskets',
+        builder: (context, state) => const OfferingBasketManagerScreen(),
+      ),
+      GoRoute(
+        path: '/offering-baskets-summary',
+        builder: (context, state) => const OfferingBasketSummaryScreen(),
+      ),
+      GoRoute(
+        path: '/quiz-hosting',
+        builder: (context, state) => const QuizHostingScreen(),
+      ),
+      GoRoute(
+        path: '/quiz-hosting/questions/:setId',
+        builder: (context, state) {
+          final setId = state.pathParameters['setId']!;
+          return QuizSetQuestionsScreen(
+            setId: setId,
+            title: state.extra is String ? state.extra as String : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/quiz-hosting/bracket/:tournamentId',
+        builder: (context, state) {
+          final tournamentId = state.pathParameters['tournamentId']!;
+          final extra = state.extra;
+          final map = extra is Map ? extra : const <String, dynamic>{};
+          return QuizBracketScreen(
+            tournamentId: tournamentId,
+            title: map['title']?.toString() ?? 'Tournament',
+            isHost: map['isHost'] == true,
+          );
+        },
+      ),
+      GoRoute(
         path: '/my-pledges',
         builder: (context, state) => const MyPledgesScreen(),
       ),
@@ -1272,6 +1366,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             categories: List<String>.from(extra['categories'] as List),
             child: extra['child'] as Widget,
           );
+        },
+      ),
+      GoRoute(
+        path: '/sermon/:sermonId',
+        builder: (context, state) {
+          final sermonId = state.pathParameters['sermonId']!;
+          return SermonByIdScreen(sermonId: sermonId);
         },
       ),
       GoRoute(
@@ -1397,12 +1498,37 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LiveStreamingScreen(),
       ),
       GoRoute(
+        path: '/stream-analytics',
+        builder: (context, state) => const StreamAnalyticsScreen(),
+      ),
+      GoRoute(
+        path: '/network-stream-analytics',
+        builder: (context, state) => const StreamAnalyticsScreen(platform: true),
+      ),
+      GoRoute(
+        path: '/webview-analytics',
+        builder: (context, state) => const WebviewAnalyticsScreen(),
+      ),
+      GoRoute(
+        path: '/church-owners',
+        builder: (context, state) => const TenantOwnersScreen(),
+      ),
+      GoRoute(
+        path: '/organization-branches',
+        builder: (context, state) => const OrganizationBranchesScreen(),
+      ),
+      GoRoute(
+        path: '/recommendations',
+        builder: (context, state) => const RecommendationsScreen(),
+      ),
+      GoRoute(
         path: '/live-player',
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>?;
           return LiveStreamScreen(
             streamUrl: extra?['streamUrl']?.toString() ?? '',
             title: extra?['title']?.toString() ?? 'Live Service',
+            streamId: extra?['streamId']?.toString(),
           );
         },
       ),
@@ -1513,6 +1639,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final userId = state.pathParameters['userId']!;
           return ProfileDeepLinkHandlerScreen(userId: userId);
+        },
+      ),
+      GoRoute(
+        path: '/followers/:userId',
+        builder: (context, state) {
+          final userId = state.pathParameters['userId']!;
+          final tab = state.uri.queryParameters['tab'];
+          return FollowersScreen(
+            userId: userId,
+            showFollowing: tab == 'following',
+          );
         },
       ),
       GoRoute(

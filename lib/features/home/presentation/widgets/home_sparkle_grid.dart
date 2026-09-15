@@ -12,7 +12,7 @@ class HomeSparkleGrid extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final productsAsync = ref.watch(productsProvider({'category': 'all'}));
+    final productsAsync = ref.watch(productsProvider((category: 'all', marketType: null)));
 
     return productsAsync.when(
       data: (products) {

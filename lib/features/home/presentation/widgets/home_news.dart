@@ -7,7 +7,7 @@ import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 import 'package:church_on_app/features/home/data/news_service.dart';
 import 'package:church_on_app/features/home/presentation/news_detail_screen.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:church_on_app/core/services/webview_analytics_service.dart';
 
 class HomeNews extends ConsumerWidget {
   const HomeNews({super.key});
@@ -45,7 +45,7 @@ class HomeNews extends ConsumerWidget {
                     ],
                   ),
                 ),
-                ...news.map((article) => _buildNewsCard(context, article)),
+                ...news.map((article) => _buildNewsCard(context, ref, article)),
               ],
             );
           },
@@ -123,7 +123,7 @@ class HomeNews extends ConsumerWidget {
                     ],
                   ),
                 ),
-                ...uniquePublicNews.map((article) => _buildNewsCard(context, article)),
+                ...uniquePublicNews.map((article) => _buildNewsCard(context, ref, article)),
               ],
             );
           },
@@ -159,7 +159,7 @@ class HomeNews extends ConsumerWidget {
     );
   }
 
-  Widget _buildNewsCard(BuildContext context, NewsArticle article) {
+  Widget _buildNewsCard(BuildContext context, WidgetRef ref, NewsArticle article) {
     // Null-safe guards — a malformed feed row must never blank the list.
     final title = (article.title.isEmpty ? 'Untitled' : article.title);
     final source = (article.source.isEmpty ? 'Church News' : article.source).toUpperCase();
@@ -179,7 +179,11 @@ class HomeNews extends ConsumerWidget {
             if (article.isLocal) {
               Navigator.push(context, MaterialPageRoute(builder: (_) => NewsDetailScreen(article: article)));
             } else {
-              launchUrl(Uri.parse(article.link), mode: LaunchMode.inAppWebView);
+              // In-app browser + COA analytics on external opens.
+              ref.read(webviewAnalyticsProvider).openTracked(
+                    article.link,
+                    source: 'home_news',
+                  );
             }
           },
           borderRadius: BorderRadius.circular(20),

@@ -25,6 +25,18 @@ class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   Future<void> stop() => _player.stop();
 
   @override
+  Future<void> seek(Duration position) => _player.seek(position);
+
+  /// The underlying engine — lets callers read position/duration directly
+  /// when they need finer control than [playbackState].
+  AudioPlayer get player => _player;
+
+  /// Convenience for on-screen players (duration + live position).
+  Stream<Duration> get positionStream => _player.positionStream;
+  Stream<Duration?> get durationStream => _player.durationStream;
+  Stream<bool> get playingStream => _player.playingStream;
+
+  @override
   Future<void> playFromUri(Uri uri, [Map<String, dynamic>? extras]) async {
     final mediaItem = MediaItem(
       id: uri.toString(),
@@ -32,14 +44,18 @@ class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       title: extras?['title'] ?? "Live Stream",
       artist: extras?['artist'] ?? "Church On App",
       artUri: Uri.parse(extras?['artUri'] ?? "https://media.churchonapp.com/radio_cover.png"),
+      // Carry through so the mini-player can deep-link back to the source
+      // (e.g. `route: /sermon/<id>`).
+      extras: extras,
     );
     this.mediaItem.add(mediaItem);
-    
+
     try {
       await _player.setAudioSource(AudioSource.uri(uri));
       play();
     } catch (e) {
       debugPrint("Error loading audio: $e");
+      rethrow;
     }
   }
 

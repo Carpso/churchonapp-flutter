@@ -437,6 +437,7 @@ _buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHi
         const SizedBox(height: 8),
         _buildGroupHeader(context, "COMMUNITY & SUPPORT"),
         _buildPremiumItem(context, LucideIcons.bell, "Notification Preferences", onTap: () => context.push('/notification-preferences')),
+        _buildPremiumItem(context, LucideIcons.shieldCheck, "Church Owners", onTap: () => context.push('/church-owners')),
         _buildPremiumItem(context, LucideIcons.lightbulb, "Request a Feature", onTap: () => context.push('/feature-request')),
         _buildPremiumItem(context, LucideIcons.church, "Can't Find Your Church?", onTap: () => context.push('/refer-church')),
         _buildPremiumItem(context, LucideIcons.helpCircle, "Help & Support", onTap: () => context.push('/support')),

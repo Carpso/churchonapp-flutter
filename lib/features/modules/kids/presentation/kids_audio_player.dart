@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:church_on_app/core/services/coins_service.dart';
+import 'package:church_on_app/core/providers/audio_provider.dart';
 import 'package:church_on_app/features/bible/data/audio_bible_service.dart';
 
 class KidsAudioPlayer extends ConsumerStatefulWidget {
@@ -29,6 +30,7 @@ class KidsAudioPlayer extends ConsumerStatefulWidget {
 
 class _KidsAudioPlayerState extends ConsumerState<KidsAudioPlayer> {
   final _player = AudioPlayer();
+  bool _useHandler = false;
   AudioBibleService? _tts;
   StreamSubscription<bool>? _ttsStateSub;
   bool _isPlaying = false;
@@ -61,6 +63,32 @@ class _KidsAudioPlayerState extends ConsumerState<KidsAudioPlayer> {
     if (widget.audioUrl == null || widget.audioUrl!.isEmpty) {
       await _startTtsFallback();
       return;
+    }
+    // Prefer the shared background audio service so a bedtime story keeps
+    // playing when the screen is closed (lock-screen controls included).
+    final handler = ref.read(audioHandlerProvider);
+    if (handler != null) {
+      try {
+        _useHandler = true;
+        handler.positionStream.listen(
+            (p) => mounted ? setState(() => _position = p) : null);
+        handler.durationStream.listen((d) {
+          if (d != null && mounted) setState(() => _duration = d);
+        });
+        handler.playingStream.listen((playing) {
+          if (mounted) setState(() => _isPlaying = playing);
+        });
+        await handler.playFromUri(Uri.parse(widget.audioUrl!), {
+          'title': widget.storyTitle.isNotEmpty ? widget.storyTitle : widget.title,
+          'artist': 'Church On App Kids',
+          'album': 'Kids Stories',
+        });
+        setState(() { _isLoading = false; _error = null; });
+        return;
+      } catch (e) {
+        _useHandler = false;
+        debugPrint('kids handler playback failed, falling back: $e');
+      }
     }
     try {
       await _player.setUrl(widget.audioUrl!);
@@ -126,12 +154,26 @@ class _KidsAudioPlayerState extends ConsumerState<KidsAudioPlayer> {
       }
       return;
     }
+    final handler = ref.read(audioHandlerProvider);
+    if (_useHandler && handler != null) {
+      if (_isPlaying) {
+        handler.pause();
+      } else {
+        handler.play();
+      }
+      return;
+    }
     if (_isPlaying) { _player.pause(); } else { _player.play(); }
   }
 
   void _seekRelative(Duration delta) {
     final newMs = (_position.inMilliseconds + delta.inMilliseconds).clamp(0, _duration.inMilliseconds);
-    _player.seek(Duration(milliseconds: newMs));
+    final handler = ref.read(audioHandlerProvider);
+    if (_useHandler && handler != null) {
+      handler.seek(Duration(milliseconds: newMs));
+    } else {
+      _player.seek(Duration(milliseconds: newMs));
+    }
   }
 
   void _setSleepTimer(int minutes) {
@@ -139,7 +181,12 @@ class _KidsAudioPlayerState extends ConsumerState<KidsAudioPlayer> {
     if (minutes > 0) {
       Future.delayed(Duration(minutes: minutes), () {
         if (mounted && _isPlaying) {
-          _player.pause();
+          final handler = ref.read(audioHandlerProvider);
+          if (_useHandler && handler != null) {
+            handler.pause();
+          } else {
+            _player.pause();
+          }
           setState(() => _sleepMinutes = 0);
         }
       });

@@ -254,7 +254,7 @@ class TenantService {
           final churchData = await _client
               .from('churches')
               .select(
-                'id, slug, name, logo_url, logo, banner_url, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
+                'id, slug, name, logo_url, logo, banner_url, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, onboarding_fee_paid, promotion_platinum_until, organization_id',
               )
               .eq('id', id)
               .maybeSingle();
@@ -441,7 +441,7 @@ class TenantService {
       final data = await _client
           .from('churches')
           .select(
-            'id, slug, name, logo_url, logo, banner_url, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, plan, onboarding_fee_paid, promotion_platinum_until',
+            'id, slug, name, logo_url, logo, banner_url, primary_color, accent_color, surface_color, font_family, dark_mode, settings, latitude, longitude, treasurer_phone, subscription_ends_at, payment_reference, payment_submitted_at, onboarding_fee_paid, promotion_platinum_until, organization_id',
           )
           .not('latitude', 'is', null);
       rows = List<Map<String, dynamic>>.from(

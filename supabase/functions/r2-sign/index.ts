@@ -66,7 +66,7 @@ serve(async (req) => {
 
   const userId = user.id;
 
-  let body: { action?: string; filename?: string; contentType?: string; folder?: string; key?: string };
+  let body: { action?: string; filename?: string; contentType?: string; folder?: string; key?: string; bucket?: string };
   try {
     body = await req.json();
   } catch {
@@ -93,15 +93,67 @@ serve(async (req) => {
 
   body.action ??= "upload";
 
+  // SECURITY: the media bucket (R2_BUCKET / choa-sermons-vault) is PUBLIC
+  // (media.churchonapp.com). Sensitive material must never land there. Callers
+  // may target the PRIVATE KYC bucket instead; any other bucket is rejected.
+  const PRIVATE_BUCKETS = ["choa-kyc-vault"];
+  const SERVICE_BUCKETS = ["choa-sermons-vault", "choa-kyc-vault"];
+  if (body.bucket && !SERVICE_BUCKETS.includes(body.bucket)) {
+    return new Response(
+      JSON.stringify({ error: "Bucket not allowed" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+    );
+  }
+  const targetBucket = body.bucket ?? bucket;
+  const isPrivateBucket = PRIVATE_BUCKETS.includes(targetBucket);
+
+  // Must stay in sync with R2Service._allowedExtensions on the client, or
+  // legitimate uploads fail with 400 "File type not allowed" (this previously
+  // broke KYC docs + chat attachments, which use application/octet-stream).
   const allowedTypes = [
-    "image/jpeg", "image/png", "image/gif", "image/webp",
+    // images
+    "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp",
+    "image/heic", "image/heif",
+    // video
     "video/mp4", "video/quicktime", "video/webm",
-    "application/pdf", "audio/mpeg", "audio/wav", "audio/ogg",
+    "video/x-msvideo", "video/x-matroska",
+    // audio
+    "audio/mpeg", "audio/wav", "audio/ogg", "audio/aac",
+    "audio/mp4", "audio/x-m4a", "audio/webm",
+    // documents
+    "application/pdf", "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    // plain-text documents (quiz question papers, CSV imports)
+    "text/plain", "text/csv", "text/markdown",
+    // encrypted KYC blobs + unknown-but-authenticated binaries. Uploads are
+    // already gated by auth + the folder allowlist below, so this is safe.
+    "application/octet-stream",
   ];
   const isReadAction = body.action === "read" || body.action === "download";
   if (!isReadAction && body.contentType && !allowedTypes.includes(body.contentType)) {
     return new Response(
       JSON.stringify({ error: "File type not allowed", allowed: allowedTypes }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      }
+    );
+  }
+
+  // Folder allowlist — every upload must land under a known prefix, so a bug
+  // (or a bad key) can never scatter objects into an unexpected location.
+  const allowedFolders = [
+    "avatars", "products", "social", "chat", "klips", "kyc", "events",
+    "marketplace", "sermons", "ventures", "flyers", "delivery-proof",
+    "profile", "driver-documents", "churches", "church-logos",
+    "church-banners", "church-website-logos", "church-website-banners",
+    "special-offers", "audio", "quiz-questions",
+  ];
+  if (!isReadAction && body.folder && !allowedFolders.includes(body.folder)) {
+    return new Response(
+      JSON.stringify({ error: "Folder not allowed", allowed: allowedFolders }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
@@ -137,7 +189,11 @@ serve(async (req) => {
     );
   }
 
-  // User-scoped folders: only the user's own subfolder is allowed
+  // User-scoped folders: only the user's own subfolder is allowed.
+  //
+  // EXCEPTION — reads from the PRIVATE KYC bucket: a user may read their own
+  // documents, and COA staff / superadmins may read ANY user's (that is the
+  // whole point of KYC verification for drivers and other verified users).
   const userScopedFolders = ["profile", "driver-documents", "kyc"];
   const requestedKey = body.action === "read" || body.action === "download"
     ? (body.key ?? "")
@@ -146,10 +202,22 @@ serve(async (req) => {
   if (scopedFolder) {
     const expectedPrefix = `${scopedFolder}/${userId}`;
     if (!requestedKey.startsWith(expectedPrefix)) {
-      return new Response(
-        JSON.stringify({ error: `Can only access your own ${scopedFolder} folder (${expectedPrefix}/...)` }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403 }
-      );
+      const reviewerRead = isReadAction && isPrivateBucket && scopedFolder === "kyc";
+      let allowed = false;
+      if (reviewerRead) {
+        const { data: prof } = await supabaseAuth
+          .from("profiles")
+          .select("role")
+          .eq("id", userId)
+          .maybeSingle();
+        allowed = ["superadmin", "coa_employee"].includes(prof?.role ?? "");
+      }
+      if (!allowed) {
+        return new Response(
+          JSON.stringify({ error: `Can only access your own ${scopedFolder} folder (${expectedPrefix}/...)` }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403 }
+        );
+      }
     }
   }
 
@@ -194,14 +262,18 @@ serve(async (req) => {
     });
 
     const command = body.action === "read" || body.action === "download"
-      ? new GetObjectCommand({ Bucket: bucket, Key: key })
-      : new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: body.contentType! });
+      ? new GetObjectCommand({ Bucket: targetBucket, Key: key })
+      : new PutObjectCommand({ Bucket: targetBucket, Key: key, ContentType: body.contentType! });
 
     const signedUrl = await getSignedUrl(s3Client, command, {
       expiresIn,
     });
 
-    const publicUrl = `https://${publicDomain}/${key}`;
+    // Private buckets have no public URL — return an `r2://` reference instead
+    // so the client never stores a (non-working) public link for KYC files.
+    const publicUrl = isPrivateBucket
+      ? `r2://${targetBucket}/${key}`
+      : `https://${publicDomain}/${key}`;
 
     return new Response(JSON.stringify({ signedUrl, publicUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

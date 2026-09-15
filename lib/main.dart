@@ -49,9 +49,15 @@ import 'core/services/wake_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // ErrorWidget.builder replaces an ARBITRARY failing widget — very often a
+  // small child inside a ListView/Sliver (e.g. one home-feed section). It must
+  // return a SMALL, BOUNDED widget. Returning the full-screen
+  // `CustomErrorBoundary` (a MaterialApp + Scaffold) laid a Scaffold out inside
+  // a sliver child, which broke the whole viewport and painted a blank white
+  // block under the first section that failed.
   ErrorWidget.builder = (FlutterErrorDetails details) {
     FirebaseCrashlytics.instance.recordFlutterError(details);
-    return CustomErrorBoundary(errorDetails: details);
+    return InlineErrorTile(details: details);
   };
 
   // Capture async errors outside the Flutter framework

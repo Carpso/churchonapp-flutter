@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/widgets/app_image.dart';
+import '../../../core/providers/profile_provider.dart';
 import '../data/network_service.dart';
 
 class PastorsCornerScreen extends ConsumerStatefulWidget {
@@ -18,12 +19,28 @@ class _PastorsCornerScreenState extends ConsumerState<PastorsCornerScreen> {
   @override
   Widget build(BuildContext context) {
     final messagesAsync = ref.watch(pastorMessagesProvider);
+    final profile = ref.watch(profileProvider).value;
+    final canPost = profile != null &&
+        (profile.isLeadershipTeam ||
+            profile.isPastor ||
+            profile.isBishop ||
+            profile.isSuperadmin);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Pastor's Corner"),
       ),
+      floatingActionButton: canPost
+          ? FloatingActionButton.extended(
+              onPressed: _compose,
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.black,
+              icon: const Icon(LucideIcons.edit3),
+              label: const Text('POST',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
+            )
+          : null,
       body: messagesAsync.when(
         data: (messages) => RefreshIndicator(
           onRefresh: () async {
@@ -156,5 +173,96 @@ class _PastorsCornerScreenState extends ConsumerState<PastorsCornerScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _compose() async {
+    final titleCtrl = TextEditingController();
+    final contentCtrl = TextEditingController();
+    var busy = false;
+
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('New message',
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                const Text(
+                    'Share a word, encouragement or update with your church.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: titleCtrl,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                      labelText: 'Title', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: contentCtrl,
+                  maxLines: 6,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                      labelText: 'Message', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: busy
+                        ? null
+                        : () async {
+                            final title = titleCtrl.text.trim();
+                            final content = contentCtrl.text.trim();
+                            if (title.isEmpty || content.isEmpty) return;
+                            setLocal(() => busy = true);
+                            try {
+                              await ref
+                                  .read(networkServiceProvider)
+                                  .createPastorMessage(
+                                      title: title, content: content);
+                              ref.invalidate(pastorMessagesProvider);
+                              if (ctx.mounted) Navigator.pop(ctx, true);
+                            } catch (e) {
+                              setLocal(() => busy = false);
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                    SnackBar(
+                                        content:
+                                            Text('Could not post: $e')));
+                              }
+                            }
+                          },
+                    style: FilledButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 52)),
+                    child: const Text('POST MESSAGE'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    titleCtrl.dispose();
+    contentCtrl.dispose();
+    if (saved == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Message posted')));
+    }
   }
 }

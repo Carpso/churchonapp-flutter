@@ -16,7 +16,21 @@ import '../../../core/utils/country_detection_util.dart';
 import '../../../core/config/remote_config.dart';
 
 class RegisterChurchScreen extends ConsumerStatefulWidget {
-  const RegisterChurchScreen({super.key});
+  /// Pre-fill values when the user came from a map pin ("Register This Church").
+  /// Passing the tapped place's own name/address/coords means the new church is
+  /// created AT that place instead of as a duplicate pin somewhere else.
+  final String? initialName;
+  final String? initialAddress;
+  final double? initialLat;
+  final double? initialLng;
+
+  const RegisterChurchScreen({
+    super.key,
+    this.initialName,
+    this.initialAddress,
+    this.initialLat,
+    this.initialLng,
+  });
 
   @override
   ConsumerState<RegisterChurchScreen> createState() => _RegisterChurchScreenState();
@@ -36,17 +50,31 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
   @override
   void initState() {
     super.initState();
+    // Pre-fill from the tapped map place (if any).
+    if (widget.initialName != null && widget.initialName!.trim().isNotEmpty) {
+      _nameController.text = widget.initialName!.trim();
+    }
+    if (widget.initialAddress != null && widget.initialAddress!.trim().isNotEmpty) {
+      _locationController.text = widget.initialAddress!.trim();
+    }
+    _lat = widget.initialLat;
+    _lng = widget.initialLng;
     _detectLocation();
   }
 
   Future<void> _detectLocation() async {
+    // Don't overwrite coordinates that came from the tapped place — the church
+    // must be created exactly where the user tapped.
+    if (_lat != null && _lng != null) return;
     try {
       final pos = await Geolocator.getCurrentPosition();
       final placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
       if (placemarks.isNotEmpty) {
         setState(() {
-          _lat = pos.latitude;
-          _lng = pos.longitude;
+          if (_lat == null || _lng == null) {
+            _lat = pos.latitude;
+            _lng = pos.longitude;
+          }
           _detectedCountry = detectCountryFromPlacemark(
             placemarks.first.country,
           ) ?? 'Zambia';

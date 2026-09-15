@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/widgets/app_image.dart';
@@ -246,9 +247,20 @@ class _FollowCounts extends ConsumerWidget {
         final followers = snap.data?['followers'] ?? 0;
         final following = snap.data?['following'] ?? 0;
         return Row(children: [
-          Expanded(child: _stat(context, 'Followers', '$followers')),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => context.push('/followers/$userId'),
+              child: _stat(context, 'Followers', '$followers'),
+            ),
+          ),
           const SizedBox(width: 8),
-          Expanded(child: _stat(context, 'Following', '$following')),
+          Expanded(
+            child: GestureDetector(
+              onTap: () =>
+                  context.push('/followers/$userId?tab=following'),
+              child: _stat(context, 'Following', '$following'),
+            ),
+          ),
         ]);
       },
     );

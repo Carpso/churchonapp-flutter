@@ -239,6 +239,60 @@ class NetworkService {
       return [];
     }
   }
+
+  /// Post a message to the church's Pastor's Corner (leadership only, enforced
+  /// by RLS on `pastors_corner`).
+  Future<bool> createPastorMessage({
+    required String title,
+    required String content,
+  }) async {
+    final user = _client.auth.currentUser;
+    final tenant = _ref.read(currentTenantProvider);
+    if (user == null || tenant == null) return false;
+
+    String? name;
+    String? photo;
+    try {
+      final p = await _client
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', user.id)
+          .maybeSingle();
+      name = p?['full_name']?.toString();
+      photo = p?['avatar_url']?.toString();
+    } catch (_) {}
+
+    await _client.from('pastors_corner').insert({
+      'church_id': tenant.id,
+      'pastor_name': (name == null || name.isEmpty) ? 'Pastor' : name,
+      'pastor_photo': photo,
+      'title': title,
+      'excerpt': content.length <= 140 ? content : '${content.substring(0, 140)}…',
+      'content': content,
+      'created_by': user.id,
+    });
+    return true;
+  }
+
+  /// Post a network update visible on Network Activity (leadership only).
+  Future<bool> postNetworkActivity({
+    required String type,
+    required String title,
+    String? description,
+  }) async {
+    final user = _client.auth.currentUser;
+    final tenant = _ref.read(currentTenantProvider);
+    if (user == null || tenant == null) return false;
+    await _client.from('network_activity').insert({
+      'church_id': tenant.id,
+      'church_name': tenant.name,
+      'type': type,
+      'title': title,
+      'description': description,
+      'created_by': user.id,
+    });
+    return true;
+  }
 }
 
 final networkServiceProvider = Provider((ref) => NetworkService(Supabase.instance.client, ref));

@@ -140,7 +140,14 @@ class OfflineService {
       if (value is String && value.startsWith('local://')) {
         try {
           final uri = Uri.parse(value);
-          final remotePath = uri.host + uri.path;
+          // Derive the R2 object key. Strip a leading domain if the encoded
+          // value carried one, so a full URL can never leak into the key
+          // (which would upload to a "media.churchonapp.com/..." prefix).
+          var remotePath = (uri.host + uri.path).replaceFirst(RegExp(r'^/+'), '');
+          final firstSeg = remotePath.contains('/') ? remotePath.split('/').first : remotePath;
+          if (firstSeg.contains('.') && !firstSeg.contains('-')) {
+            remotePath = remotePath.substring(firstSeg.length + 1);
+          }
           final localPath = uri.queryParameters['localPath'];
           if (localPath != null) {
             final file = File(localPath);

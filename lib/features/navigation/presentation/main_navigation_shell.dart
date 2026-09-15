@@ -12,6 +12,7 @@ import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/providers/auth_provider.dart';
 import 'package:church_on_app/features/admin/presentation/lockdown_overlay.dart';
 import 'package:church_on_app/core/widgets/global_media_player.dart';
+import 'package:church_on_app/core/widgets/mini_player_bar.dart';
 import 'package:church_on_app/core/services/session_guard_service.dart';
 import 'package:church_on_app/core/services/offline_service.dart';
 import 'package:church_on_app/core/services/coins_service.dart';
@@ -231,28 +232,38 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell>
           ),
           bottomNavigationBar: isWide
               ? null
-              : AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  height: isVisible ? 80 + MediaQuery.of(context).padding.bottom : 0,
-                  decoration: const BoxDecoration(),
-                  clipBehavior: Clip.hardEdge,
-                  child: BottomAppBar(
-                    padding: EdgeInsets.zero,
-                    color: Theme.of(context).colorScheme.surface,
-                    elevation: 8,
-                    shadowColor: Theme.of(context).shadowColor,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildNavItem(0, LucideIcons.home, context.tr('Home')),
-                        _buildNavItem(1, LucideIcons.video, context.tr('Sermons')),
-                        _buildNavItem(2, LucideIcons.hand, context.tr('Give')),
-                        _buildNavItem(3, LucideIcons.users, context.tr('Connect')),
-                        _buildNavItem(4, LucideIcons.user, context.tr('Profile')),
-                      ],
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // "Now playing" strip for background audio (radio, audio
+                    // sermons, kids stories) — hidden when nothing is loaded.
+                    const MiniPlayerBar(),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      height: isVisible
+                          ? 80 + MediaQuery.of(context).padding.bottom
+                          : 0,
+                      decoration: const BoxDecoration(),
+                      clipBehavior: Clip.hardEdge,
+                      child: BottomAppBar(
+                        padding: EdgeInsets.zero,
+                        color: Theme.of(context).colorScheme.surface,
+                        elevation: 8,
+                        shadowColor: Theme.of(context).shadowColor,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildNavItem(0, LucideIcons.home, context.tr('Home')),
+                            _buildNavItem(1, LucideIcons.video, context.tr('Sermons')),
+                            _buildNavItem(2, LucideIcons.hand, context.tr('Give')),
+                            _buildNavItem(3, LucideIcons.users, context.tr('Connect')),
+                            _buildNavItem(4, LucideIcons.user, context.tr('Profile')),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
         ),
       ),

@@ -96,6 +96,7 @@ class LiveStreamingScreen extends ConsumerWidget {
                            }
                            context.push('/live-player', extra: {
                              'streamUrl': hls,
+                             'streamId': stream['id']?.toString(),
                              'title': stream['title']?.toString() ?? 'Live Service',
                            });
                          },

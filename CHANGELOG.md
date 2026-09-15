@@ -1,5 +1,45 @@
 # Changelog
 
+## Unreleased — 2026-09-14 (Home white-screen root cause, broken images, sermon playback, Cloudflare VOD)
+
+### Fixed — Home tab "blank white block under Latest Sermon" (ROOT CAUSE)
+- **`ErrorWidget.builder` was returning a full-screen `MaterialApp` + `Scaffold`** (`CustomErrorBoundary`). Because `ErrorWidget.builder` substitutes an *arbitrary* failing widget — usually a small child inside the home `SliverList` — laying a full-screen Scaffold out inside a sliver child **broke the whole viewport** and painted a blank white block under the first section that failed. This is why the sections were only visible while scrolling fast and "vanished" when scrolling stopped.
+- Fix: `ErrorWidget.builder` now returns a new **bounded** `InlineErrorTile` (`lib/core/widgets/error_boundary.dart`). `CustomErrorBoundary` is reserved for genuine ROOT-level failures. New PERMANENT RULE recorded in AGENTS.md.
+
+### Fixed — Home "Marketplace Picks" flashing/vanish (ROOT CAUSE)
+- `productsProvider` was a `FutureProvider.family` keyed by a **`Map`**, which has no value equality — so every rebuild created a NEW family instance (`loading` → resolve → rebuild → refetch…), an endless reload loop that made the section flash/vanish and destabilised its neighbours.
+- Fix: the family key is now a value-equal **Dart record** (`ProductFilter`), call site `productsProvider((category: 'all', marketType: null))`. New PERMANENT RULE recorded in AGENTS.md.
+
+### Fixed — ALL broken images (avatars, social, sermon thumbnails)
+- `R2Service.resolveReadUrl` tested `url.startsWith('media.churchonapp.com/')`, but stored URLs are `https://media.churchonapp.com/...`, so the check **always failed** → R2 URLs were never signed → private-bucket **403** → images broke app-wide. Now matches with **and** without the `https://` prefix.
+
+### Fixed — Home feed sections never populated
+- **Marketplace Picks**: SELECT policy was tenant-scoped; now global (`status='active'`) and the provider fetches globally.
+- **Events**: RLS now global and `HomeEventTimeline` falls back to the 3 most recent **past** events ("Recent Events") when nothing is upcoming.
+- **Writers / Kingdom News**: `kingdom_news` was missing from the `supabase_realtime` publication (realtime `.stream()` emitted nothing despite 10 published rows). Added it (+`sermons`) with `REPLICA IDENTITY FULL`.
+- **Global News**: rss2json was rate-limited with no cache → `[]`. Now falls back to raw RSS via CORS proxy (regex-parsed) → last-good cache → curated static links.
+
+### Fixed — Pull-to-refresh flicker
+- Home `onRefresh` no longer `ref.invalidate(profileProvider)`. Added `ProfileNotifier.refresh()` (re-fetch in place) and `build()` watches only the tenant **id**, so a refreshed `Tenant` instance no longer resets the profile to `loading` and flashes the header.
+
+### Added / Fixed — Sermon playback, upload & VOD quality
+- **YouTube playback**: 70/78 sermons were YouTube URLs that `video_player` cannot play. Added `youtube_player_iframe` + `youTubeVideoIdFromUrl()`; YouTube sources now use an embedded player (fullscreen supported).
+- **Audio sermons**: new AUDIO media type in Media Manager (`file_picker`, bytes-based) writing `sermons.audio_url`; the player gained a dedicated `just_audio` audio stage (artwork, seek, ±10 s, play/pause).
+- **UPCI sample sermons** (`20261118`): replaced fake/dead sample rows (non-existent YouTube ids + rickroll) with 12 real, oEmbed-verified UPCI sermon videos.
+- **Viewership**: `viewer_count` was never incremented. Added `sermon_views` + `record_sermon_view(uuid)` RPC (dedup 1/user/6 h) and the player records a view on open.
+- **VOD → Cloudflare Stream**: `cloudflare-stream` gained `create_upload_url` (Direct Creator Upload) + `get_video`; new `VodUploadService` uploads and stores adaptive-HLS playback + auto thumbnail.
+- **R2 master archive**: sermons are *also* written to R2 (`archive_url`) as the cheap master copy — CF Stream is only the playback layer, so the source media is always owned and re-encodable elsewhere.
+
+### Fixed — HLS on web (Chrome/Firefox)
+- Bundled **self-hosted `web/hls.min.js`** (satisfies the `'self'` CSP) + `video_player_web_hls`, so Cloudflare Stream live + VOD HLS now plays in the browser (previously Safari-only).
+
+### Removed — Legacy MediaMTX backend
+- No `church_stream_config` row selected it (31/31 `cloudflare`) and no server was ever deployed. Removed the enum value, `_createMediaMTXStream`, `mediamtxHost/Secret`, the admin backend selector, the `stream.churchonapp.com` hardcoded fallbacks, and `Env.liveStreamUrl`. **Cloudflare Stream is the single streaming backend.**
+
+### Fixed — Live stream viewer & Kael contrast
+- `LiveStreamScreen` now validates the stream URL (rejects empty/`/null/`/non-http), catches init errors, and shows a "Stream unavailable" + RETRY state instead of crashing. The stale `.../null/index.m3u8` row was closed.
+- Kael chat: user bubble is now brand-yellow with `Colors.black87` text; suggestion chips use a dark translucent fill with white text (both were unreadable).
+
 ## Unreleased — 2026-09-08 (Cross-References, Parallel Reader, Streaming Consolidation)
 
 ### Added — Bible cross-references (finally real)

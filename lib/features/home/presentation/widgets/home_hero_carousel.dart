@@ -25,7 +25,16 @@ class _HomeHeroCarouselState extends ConsumerState<HomeHeroCarousel> {
   void initState() {
     super.initState();
     _controller.addListener(() {
-      final page = _controller.page?.round() ?? 0;
+      // `PageController.page` is `(pixels - initial) / viewportDimension` and
+      // returns Infinity/NaN before the viewport is laid out (dimension 0) —
+      // `.round()` on that throws "Unsupported operation: Infinity.round()".
+      // Only read it once the position has real content dimensions.
+      if (!_controller.hasClients || !_controller.position.hasContentDimensions) {
+        return;
+      }
+      final raw = _controller.page;
+      if (raw == null || !raw.isFinite) return;
+      final page = raw.round();
       if (page != _currentPage && mounted) {
         setState(() => _currentPage = page);
       }

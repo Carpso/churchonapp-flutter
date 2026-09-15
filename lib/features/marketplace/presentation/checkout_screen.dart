@@ -16,6 +16,7 @@ import 'package:church_on_app/core/config/fee_config.dart';
 import 'package:church_on_app/core/config/remote_config.dart';
 import 'package:church_on_app/features/give/presentation/widgets/momo_phone_input_widget.dart';
 import 'package:church_on_app/features/transport/data/transport_service.dart';
+import 'package:church_on_app/features/transport/presentation/saved_places_sheet.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
@@ -1058,6 +1059,35 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           ],
           if (_deliveryMethod == 'carpso') ...[
             const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () async {
+                  final place = await showSavedPlacesPicker(context);
+                  if (!context.mounted || place == null) return;
+                  // Setting _geocodedDest is enough — _deliveryDistanceKm and
+                  // _deliveryFee are computed getters, so the fare updates too.
+                  _geocodeTimer?.cancel();
+                  setState(() {
+                    _carpsoAddressCtrl.text = place.address;
+                    _geocoding = false;
+                    _geocodeError = null;
+                    if (place.lat != null && place.lng != null) {
+                      _geocodedDest = LatLng(place.lat!, place.lng!);
+                    }
+                  });
+                  // Cancel the debounce the text edit just scheduled.
+                  _geocodeTimer?.cancel();
+                  // Saved without coordinates → geocode the typed address.
+                  if (place.lat == null || place.lng == null) {
+                    await _geocodeAddress();
+                  }
+                },
+                icon: const Icon(LucideIcons.bookmark, size: 16),
+                label: const Text('USE A SAVED PLACE',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+            ),
             TextField(
               controller: _carpsoAddressCtrl,
               maxLines: 2,

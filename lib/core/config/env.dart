@@ -20,9 +20,16 @@ class Env {
   
   static String get mapsZambiaUrl => dotenv.env['MAPS_ZAMBIA_URL'] ?? 'https://maps.churchonapp.com/zambia.pmtiles';
   static String get mapsZimbabweUrl => dotenv.env['MAPS_ZIMBABWE_URL'] ?? 'https://maps.churchonapp.com/zimbabwe.pmtiles';
-  static String get liveStreamUrl => dotenv.env['LIVE_STREAM_URL'] ?? 'https://stream.churchonapp.com/live/';
   
   static String get r2PublicDomain => dotenv.env['R2_PUBLIC_DOMAIN'] ?? 'media.churchonapp.com';
+
+  /// Turn-by-turn routing endpoint (OSRM-compatible).
+  ///
+  /// Defaults to the public OSRM demo server, which is rate-limited and has no
+  /// SLA — point `OSRM_BASE_URL` at your own OSRM/Valhalla instance before the
+  /// ride/delivery volume grows.
+  static String get osrmBaseUrl =>
+      dotenv.env['OSRM_BASE_URL'] ?? 'https://router.project-osrm.org/route/v1/driving';
 
   // Public OAuth web client ID (safe to ship — Google publishes it in web
   // bundles; it is NOT a secret).

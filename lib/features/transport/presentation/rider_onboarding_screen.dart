@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -29,9 +29,15 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
   String _makeModel = '';
   String _licensePlate = '';
   String _color = '';
-  String? _vehiclePhotoPath;
-  String? _licensePhotoPath;
-  String? _idPhotoPath;
+  // Documents are held as BYTES (not dart:io File paths) so the same flow
+  // works on web, where there is no filesystem. image_picker's XFile gives us
+  // bytes on every platform.
+  Uint8List? _vehiclePhotoBytes;
+  String? _vehiclePhotoExt;
+  Uint8List? _licensePhotoBytes;
+  String? _licensePhotoExt;
+  Uint8List? _idPhotoBytes;
+  String? _idPhotoExt;
   bool _vehicleUploaded = false;
   bool _licenseUploaded = false;
   bool _idUploaded = false;
@@ -127,15 +133,28 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
       String? licensePhotoUrl;
       String? idPhotoUrl;
 
-      Future<String?> uploadToR2(String filePath, String folder) async {
+      Future<String?> uploadToR2(
+        Uint8List bytes,
+        String ext,
+        String folder,
+      ) async {
         try {
-          final file = File(filePath);
-          final bytes = await file.readAsBytes();
           if (bytes.isEmpty) return null;
 
-          final ext = filePath.split('.').last;
           final fileName = '$userId-${DateTime.now().millisecondsSinceEpoch}.$ext';
-          final contentType = ext == 'pdf' ? 'application/pdf' : 'image/$ext';
+          // NOTE: `image/jpg` is NOT a valid MIME type and was rejected by
+          // r2-sign — normalise it (and HEIC etc.) to a real content type.
+          final contentType = ext == 'pdf'
+              ? 'application/pdf'
+              : (ext == 'jpg' || ext == 'jpeg')
+                  ? 'image/jpeg'
+                  : ext == 'png'
+                      ? 'image/png'
+                      : ext == 'heic'
+                          ? 'image/heic'
+                          : ext == 'webp'
+                              ? 'image/webp'
+                              : 'image/jpeg';
           final key = '$folder/$userId/$fileName';
 
           final response = await client.functions.invoke('r2-sign', body: {
@@ -169,14 +188,17 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
         }
       }
 
-      if (_vehiclePhotoPath != null) {
-        vehiclePhotoUrl = await uploadToR2(_vehiclePhotoPath!, 'driver-documents');
+      if (_vehiclePhotoBytes != null) {
+        vehiclePhotoUrl = await uploadToR2(
+            _vehiclePhotoBytes!, _vehiclePhotoExt ?? 'jpg', 'driver-documents');
       }
-      if (_licensePhotoPath != null) {
-        licensePhotoUrl = await uploadToR2(_licensePhotoPath!, 'driver-documents');
+      if (_licensePhotoBytes != null) {
+        licensePhotoUrl = await uploadToR2(
+            _licensePhotoBytes!, _licensePhotoExt ?? 'jpg', 'driver-documents');
       }
-      if (_idPhotoPath != null) {
-        idPhotoUrl = await uploadToR2(_idPhotoPath!, 'driver-documents');
+      if (_idPhotoBytes != null) {
+        idPhotoUrl = await uploadToR2(
+            _idPhotoBytes!, _idPhotoExt ?? 'jpg', 'driver-documents');
       }
 
       if (vehiclePhotoUrl == null || licensePhotoUrl == null || idPhotoUrl == null) {
@@ -222,18 +244,37 @@ class _RiderOnboardingScreenState extends ConsumerState<RiderOnboardingScreen> {
   Future<void> _pickDocument(String type) async {
     try {
       final picker = ImagePicker();
-      final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 1080, maxHeight: 1080);
+      final picked = await picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 80,
+          maxWidth: 1080,
+          maxHeight: 1080);
       if (picked == null) return;
+
+      // Bytes work on mobile AND web (no dart:io File path).
+      final bytes = await picked.readAsBytes();
+      if (bytes.isEmpty) {
+        throw Exception('The selected file is empty');
+      }
+      final name = picked.name;
+      final extFromName = name.contains('.') ? name.split('.').last : '';
+      final ext = (extFromName.isNotEmpty
+              ? extFromName
+              : (picked.path.contains('.') ? picked.path.split('.').last : 'jpg'))
+          .toLowerCase();
 
       setState(() {
         if (type == 'vehicle') {
-          _vehiclePhotoPath = picked.path;
+          _vehiclePhotoBytes = bytes;
+          _vehiclePhotoExt = ext;
           _vehicleUploaded = true;
         } else if (type == 'license') {
-          _licensePhotoPath = picked.path;
+          _licensePhotoBytes = bytes;
+          _licensePhotoExt = ext;
           _licenseUploaded = true;
         } else if (type == 'id') {
-          _idPhotoPath = picked.path;
+          _idPhotoBytes = bytes;
+          _idPhotoExt = ext;
           _idUploaded = true;
         }
       });

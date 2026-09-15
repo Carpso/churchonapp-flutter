@@ -1,6 +1,8 @@
 class EmergencyContact {
   final String? id;
   final String? tenantId;
+  /// Owner of a PERSONAL contact. Null = a shared (tenant/global) contact.
+  final String? userId;
   final String name;
   final String phone;
   final String icon;
@@ -10,6 +12,7 @@ class EmergencyContact {
   EmergencyContact({
     this.id,
     this.tenantId,
+    this.userId,
     required this.name,
     required this.phone,
     this.icon = 'phone',
@@ -21,6 +24,7 @@ class EmergencyContact {
     return EmergencyContact(
       id: map['id']?.toString(),
       tenantId: map['tenant_id']?.toString(),
+      userId: map['user_id']?.toString(),
       name: map['name'] ?? '',
       phone: map['phone'] ?? '',
       icon: map['icon'] ?? 'phone',
@@ -33,6 +37,7 @@ class EmergencyContact {
     return {
       if (id != null) 'id': id,
       if (tenantId != null) 'tenant_id': tenantId,
+      if (userId != null) 'user_id': userId,
       'name': name,
       'phone': phone,
       'icon': icon,
@@ -44,6 +49,7 @@ class EmergencyContact {
   EmergencyContact copyWith({
     String? id,
     String? tenantId,
+    String? userId,
     String? name,
     String? phone,
     String? icon,
@@ -53,6 +59,7 @@ class EmergencyContact {
     return EmergencyContact(
       id: id ?? this.id,
       tenantId: tenantId ?? this.tenantId,
+      userId: userId ?? this.userId,
       name: name ?? this.name,
       phone: phone ?? this.phone,
       icon: icon ?? this.icon,

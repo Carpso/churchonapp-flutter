@@ -64,9 +64,12 @@ import 'system_docs_screen.dart';
 import 'feature_toggles_screen.dart';
 import 'platform_analytics_screen.dart';
 import 'expansion_leads_screen.dart';
+import 'webview_analytics_screen.dart';
 import 'turnover_tax_ledger_screen.dart';
 import '../../../features/modules/bible_quiz/presentation/quiz_event_host_screen.dart';
 import '../../../features/profile/presentation/church_referral_screen.dart';
+import '../../../features/modules/live_streaming/presentation/stream_analytics_screen.dart';
+import 'organization_branches_screen.dart';
 
 class SuperadminHubScreen extends ConsumerStatefulWidget {
   const SuperadminHubScreen({super.key});
@@ -941,6 +944,12 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             const SizedBox(height: 40),
             const Text("Platform Tools", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
+            _buildGlobalAction(LucideIcons.video, "Network Streaming Analytics", "Viewers, watch-time & Cloudflare cost by church", Colors.redAccent, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const StreamAnalyticsScreen(platform: true)));
+            }),
+            _buildGlobalAction(LucideIcons.network, "Organisations & Branches", "Group churches under a bishop-led organisation", Colors.indigo, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const OrganizationBranchesScreen()));
+            }),
             _buildGlobalAction(LucideIcons.coins, "Subscription Pricing", "Edit plan fees, trials & remote config keys", Colors.amber, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionPricingScreen()));
             }),
@@ -1027,6 +1036,9 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             }),
             _buildGlobalAction(LucideIcons.userPlus, "Expansion Leads", "New-church expansion pipeline", Colors.green, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const ExpansionLeadsScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.globe, "In-App Browser Analytics", "External links opened by members", Colors.indigo, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const WebviewAnalyticsScreen()));
             }),
             _buildGlobalAction(LucideIcons.receipt, "Turnover Tax Ledger", "ZRA turnover tax tracking", Colors.brown, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TurnoverTaxLedgerScreen()));

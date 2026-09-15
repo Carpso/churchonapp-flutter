@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -56,6 +57,24 @@ class JobDetailsScreen extends ConsumerWidget {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Share this job',
+            icon: const Icon(LucideIcons.share2, size: 20),
+            onPressed: () async {
+              final link = 'https://churchonapp.com/jobs/${job.id}';
+              try {
+                await SharePlus.instance.share(ShareParams(
+                  text: '${job.title} at ${job.company} — '
+                      'apply on Church On App: $link',
+                  subject: job.title,
+                ));
+              } catch (e) {
+                debugPrint('Share job failed: $e');
+              }
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(25),

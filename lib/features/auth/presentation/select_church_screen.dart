@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -7,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:church_on_app/core/utils/country_detection_util.dart';
+import 'package:church_on_app/core/config/app_constants.dart';
 import 'package:church_on_app/core/widgets/church_map.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:go_router/go_router.dart';
@@ -80,6 +82,12 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
   }
 
   Future<void> _getUserLocation() async {
+    // Geolocator is not supported on the web platform; skip it entirely so we
+    // don't spam the console with UnsupportedError and misleading toasts.
+    if (kIsWeb) {
+      debugPrint('Location skipped on web — showing all churches.');
+      return;
+    }
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
         if (mounted) {
@@ -109,9 +117,14 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
       }
       if (permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always) {
-        Position? position = await Geolocator.getLastKnownPosition();
-        if (position != null && DateTime.now().difference(position.timestamp) > const Duration(minutes: 10)) {
-          position = null;
+        Position? position;
+        try {
+          position = await Geolocator.getLastKnownPosition();
+          if (position != null && DateTime.now().difference(position.timestamp) > const Duration(minutes: 10)) {
+            position = null;
+          }
+        } catch (locErr) {
+          debugPrint('getLastKnownPosition failed (non-fatal): $locErr');
         }
         try {
           position ??= await Geolocator.getCurrentPosition(
@@ -137,9 +150,9 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
       // Show a less alarming message — location failure is non-fatal
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text("Could not get location — showing all churches."),
-            duration: const Duration(seconds: 2),
+          const SnackBar(
+            content: Text("Could not get location — showing all churches."),
+            duration: Duration(seconds: 2),
           ),
         );
       }
@@ -235,26 +248,25 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
   void _filterTenants(String query) {
     setState(() {
       final countryFilter = _currentCountry.toLowerCase();
+      final q = query.toLowerCase();
       // List shows platform (DB) churches & bookshops only — unregistered
       // OpenStreetMap results never appear here (they are map pins only).
       _filteredTenants = _tenants.where((c) {
         if (c['_osm'] == true) return false;
-        final country = (c['country'] ?? '').toString().toLowerCase();
-        // Rows with no country stored (schema drift / legacy) must NOT be
-        // hidden — treat empty country as a match for any filter.
-        final matchesCountry =
-            country.isEmpty || country.contains(countryFilter);
-        if (!matchesCountry) return false;
-
         final name = (c['name'] ?? '').toString().toLowerCase();
         final address = (c['address'] ?? '').toString().toLowerCase();
         final type = (c['type'] ?? '').toString().toLowerCase();
-        final matchesQuery = query.isEmpty ||
-            name.contains(query.toLowerCase()) ||
-            address.contains(query.toLowerCase()) ||
-            country.contains(query.toLowerCase()) ||
-            type.contains(query.toLowerCase());
-
+        final country = (c['country'] ?? '').toString().toLowerCase();
+        // When searching, match by name/address/type/country regardless of
+        // the user's current country — the user is explicitly searching.
+        // When not searching, scope to the current country.
+        final matchesQuery = q.isEmpty ||
+            name.contains(q) ||
+            address.contains(q) ||
+            country.contains(q) ||
+            type.contains(q);
+        final matchesCountry = country.isEmpty || country.contains(countryFilter);
+        if (q.isEmpty && !matchesCountry) return false;
         return matchesQuery;
       }).toList();
     });
@@ -392,7 +404,9 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                     point: LatLng(lat, lng),
                     name: tenant['name'] ?? 'Tenant',
                     color: isRegistered
-                        ? (isBookshop ? Colors.blue : Theme.of(context).primaryColor)
+                        ? (isBookshop
+                            ? AppConstants.primaryDark
+                            : AppConstants.sunflowerYellow)
                         : Colors.amber,
                     logoUrl: tenant['logo_url'],
                     isBookshop: isBookshop,
@@ -1323,7 +1337,17 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
               const Expanded(child: Text("Are you the owner? Register your church to claim this listing and appear to nearby members.", style: TextStyle(fontSize: 11, color: Color(0xFF7A5C00)))),
             ])),
             const SizedBox(height: 16),
-            SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: () { Navigator.pop(ctx); context.push('/register-church'); }, icon: const Icon(Icons.app_registration, size: 18), label: const Text("Register This Church"))),
+            SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: () {
+              Navigator.pop(ctx);
+              // Pass the tapped place so registration CLAIMS this location
+              // instead of creating a second pin elsewhere on the map.
+              context.push('/register-church', extra: {
+                'name': name,
+                'address': address,
+                'lat': lat,
+                'lng': lng,
+              });
+            }, icon: const Icon(Icons.app_registration, size: 18), label: const Text("Register This Church"))),
             const SizedBox(height: 8),
             SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: () { Navigator.pop(ctx); _toast("Share: $name — invite at churchonapp.com/register-church"); }, icon: const Icon(Icons.share, size: 16), label: const Text("Share Invite"))),
           ],

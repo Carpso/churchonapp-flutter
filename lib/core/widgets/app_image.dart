@@ -146,11 +146,17 @@ class _AppImageState extends State<AppImage> {
 
   @override
   Widget build(BuildContext context) {
-    final cacheWidth = widget.width != null
-        ? (widget.width! * MediaQuery.devicePixelRatioOf(context)).round()
+    // NOTE: callers routinely pass `width: double.infinity` (e.g. banners and
+    // grid tiles). `infinity * dpr` is `Infinity`, and `Infinity.round()`
+    // THROWS "Unsupported operation: Infinity or NaN toInt" during build — which
+    // killed the whole AppImage widget and left the image blank/broken.
+    // Only derive a cache size when the dimension is finite and > 0.
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final cacheWidth = (widget.width != null && widget.width!.isFinite && widget.width! > 0)
+        ? (widget.width! * dpr).round()
         : null;
-    final cacheHeight = widget.height != null
-        ? (widget.height! * MediaQuery.devicePixelRatioOf(context)).round()
+    final cacheHeight = (widget.height != null && widget.height!.isFinite && widget.height! > 0)
+        ? (widget.height! * dpr).round()
         : null;
 
     final url = _displayUrl;

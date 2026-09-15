@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/services/tenant_service.dart';
 
 class ChurchEvent {
   final String id;
@@ -62,17 +61,12 @@ class EventService {
   EventService(this._client, this._ref);
 
   Stream<List<ChurchEvent>> getEventsStream() {
-    final tenant = _ref.watch(currentTenantProvider);
     final baseStream = _client.from('events').stream(primaryKey: ['id']);
     final sorted = _sortEvents;
-    final mapped = (tenant != null)
-        ? baseStream
-            .eq('tenant_id', tenant.id)
-            .limit(100)
-            .map((data) => sorted(data.map((map) => ChurchEvent.fromMap(map)).toList()))
-        : baseStream
-            .limit(100)
-            .map((data) => sorted(data.map((map) => ChurchEvent.fromMap(map)).toList()));
+    // Events are global — all visible to all users via RLS.
+    final mapped = baseStream
+        .limit(100)
+        .map((data) => sorted(data.map((map) => ChurchEvent.fromMap(map)).toList()));
     return mapped;
   }
 

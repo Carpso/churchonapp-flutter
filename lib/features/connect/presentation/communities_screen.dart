@@ -10,6 +10,7 @@ import '../data/community_service.dart';
 import '../data/presence_service.dart';
 import 'chat_messenger_screen.dart';
 import 'group_details_screen.dart';
+import 'community_forms.dart';
 import '../../modules/media/presentation/events_list_screen.dart';
 import '../../../core/widgets/shimmer_loader.dart';
 
@@ -73,7 +74,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final groupsAsync = ref.watch(communityGroupsProvider);
+    final communitiesAsync = ref.watch(communitiesStreamProvider);
 
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
@@ -89,38 +90,38 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
                   const SizedBox(height: 25),
                   _buildEventGateway(context),
                   const SizedBox(height: 30),
-                   _buildSectionLabel('CHURCH GROUPS'),
+                  _buildGroupsHeader(context, ref),
                  ],
               ),
             ),
           ),
 
-          // Church Groups — from real Supabase data
-          groupsAsync.when(
-            data: (groups) {
-              if (groups.isEmpty) {
-                return const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 40),
-                    child: Center(
-                      child: Column(
-                        children: [
-                          Icon(LucideIcons.users, size: 48, color: Colors.grey),
-                          SizedBox(height: 12),
-                          Text('No groups available yet', style: TextStyle(color: Colors.grey)),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
+          // Church Groups — communities with their nested groups.
+          communitiesAsync.when(
+            data: (communities) {
+              if (communities.isEmpty) {
+                return SliverToBoxAdapter(child: _buildEmptyGroups(context, ref));
+              }
+              final widgets = <Widget>[];
+              for (final c in communities) {
+                widgets.add(_buildCommunityHeader(context, ref, c));
+                final groups = ((c['groups'] as List?) ?? const [])
+                    .cast<Map<String, dynamic>>();
+                if (groups.isEmpty) {
+                  widgets.add(_buildEmptyGroupRow(context, ref, c));
+                } else {
+                  for (final g in groups) {
+                    widgets.add(Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                      child: _buildGroupTile(context, g),
+                    ));
+                  }
+                }
               }
               return SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) => Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                    child: _buildGroupTile(context, groups[index]),
-                  ),
-                  childCount: groups.length,
+                  (_, i) => widgets[i],
+                  childCount: widgets.length,
                 ),
               );
             },
@@ -190,6 +191,201 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
         color: Colors.grey,
       ),
     );
+  }
+
+  Widget _buildGroupsHeader(BuildContext context, WidgetRef ref) {
+    return Row(
+      children: [
+        _buildSectionLabel('CHURCH GROUPS'),
+        const Spacer(),
+        TextButton.icon(
+          onPressed: () => _promptCreate(context, ref),
+          icon: const Icon(LucideIcons.plus, size: 16),
+          label: const Text('NEW',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _promptCreate(BuildContext context, WidgetRef ref) async {
+    final choice = await showCreateCommunityMenu(context);
+    if (choice == null || !context.mounted) return;
+    if (choice == 'community') {
+      await showCommunityForm(context, ref);
+    } else {
+      final communities =
+          ref.read(communitiesStreamProvider).value ?? const [];
+      if (communities.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Create a community first.')));
+        return;
+      }
+      await showGroupForm(context, ref, communities: communities);
+    }
+    ref.invalidate(communitiesStreamProvider);
+    ref.invalidate(communityGroupsProvider);
+  }
+
+  Widget _buildEmptyGroups(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 30),
+      child: Center(
+        child: Column(
+          children: [
+            const Icon(LucideIcons.users, size: 48, color: Colors.grey),
+            const SizedBox(height: 12),
+            const Text('No communities yet',
+                style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => _promptCreate(context, ref),
+              icon: const Icon(LucideIcons.plus, size: 16),
+              label: const Text('CREATE COMMUNITY'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyGroupRow(
+      BuildContext context, WidgetRef ref, Map<String, dynamic> community) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: OutlinedButton.icon(
+        onPressed: () async {
+          await showGroupForm(context, ref, communities: [community]);
+          ref.invalidate(communitiesStreamProvider);
+          ref.invalidate(communityGroupsProvider);
+        },
+        icon: const Icon(LucideIcons.plus, size: 16),
+        label: const Text('ADD A GROUP', style: TextStyle(fontSize: 12)),
+        style: OutlinedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 46)),
+      ),
+    );
+  }
+
+  Widget _buildCommunityHeader(
+      BuildContext context, WidgetRef ref, Map<String, dynamic> c) {
+    final theme = Theme.of(context);
+    final manageable = canManageCommunity(ref, c);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 12, 10),
+      child: Row(
+        children: [
+          Icon(LucideIcons.layoutGrid, size: 16, color: theme.primaryColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text((c['name'] ?? 'Community').toString(),
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w900)),
+                if ((c['description'] ?? '').toString().isNotEmpty)
+                  Text(c['description'].toString(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+              ],
+            ),
+          ),
+          if (manageable)
+            PopupMenuButton<String>(
+              icon: Icon(LucideIcons.moreVertical,
+                  size: 18, color: Colors.grey.shade500),
+              onSelected: (v) => _handleCommunityAction(context, ref, c, v),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'edit', child: Text('Edit')),
+                PopupMenuItem(value: 'add_group', child: Text('Add group')),
+                PopupMenuItem(value: 'delete', child: Text('Delete')),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleCommunityAction(BuildContext context, WidgetRef ref,
+      Map<String, dynamic> c, String action) async {
+    if (action == 'edit') {
+      await showCommunityForm(context, ref, existing: c);
+    } else if (action == 'add_group') {
+      await showGroupForm(context, ref, communities: [c]);
+    } else if (action == 'delete') {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Delete "${c['name'] ?? 'community'}"?'),
+          content: const Text(
+              'This also removes its groups. This cannot be undone.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('CANCEL')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child:
+                    const Text('DELETE', style: TextStyle(color: Colors.red))),
+          ],
+        ),
+      );
+      if (ok == true) {
+        try {
+          await ref
+              .read(communityServiceProvider)
+              .deleteCommunity(c['id'].toString());
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+          }
+        }
+      }
+    }
+    ref.invalidate(communitiesStreamProvider);
+    ref.invalidate(communityGroupsProvider);
+  }
+
+  Future<void> _handleGroupAction(
+      BuildContext context, WidgetRef ref, Map<String, dynamic> g, String action) async {
+    if (action == 'edit') {
+      await showGroupForm(context, ref, existing: g);
+    } else if (action == 'delete') {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Delete "${g['title'] ?? 'group'}"?'),
+          content: const Text('This cannot be undone.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('CANCEL')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child:
+                    const Text('DELETE', style: TextStyle(color: Colors.red))),
+          ],
+        ),
+      );
+      if (ok == true) {
+        try {
+          await ref
+              .read(communityServiceProvider)
+              .deleteGroup(g['id'].toString());
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+          }
+        }
+      }
+    }
+    ref.invalidate(communitiesStreamProvider);
+    ref.invalidate(communityGroupsProvider);
   }
 
   Widget _buildHeader(BuildContext context) {
@@ -375,7 +571,19 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
                 ],
               ),
             ),
-            Icon(LucideIcons.chevronRight, color: theme.colorScheme.onSurface.withValues(alpha: 0.3), size: 18),
+            if (canManageCommunity(ref, group))
+              PopupMenuButton<String>(
+                icon: Icon(LucideIcons.moreVertical,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    size: 18),
+                onSelected: (v) => _handleGroupAction(context, ref, group, v),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'edit', child: Text('Edit')),
+                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                ],
+              )
+            else
+              Icon(LucideIcons.chevronRight, color: theme.colorScheme.onSurface.withValues(alpha: 0.3), size: 18),
           ],
         ),
       ),

@@ -41,12 +41,19 @@ class RecommendationEngineService {
       try {
         // Sermons are stored with either church_id or tenant_id (historical drift);
         // query both so recommendations don't appear empty for tenants with only church_id rows.
-        final rows = await _client
+        var rows = await _client
             .from('sermons')
             .select('id, title, speaker, thumbnail_url, church_id, tenant_id')
             .or('tenant_id.eq.$tenantId,church_id.eq.$tenantId')
             .order('created_at', ascending: false)
             .limit(1);
+        if (rows.isEmpty) {
+          rows = await _client
+              .from('sermons')
+              .select('id, title, speaker, thumbnail_url, church_id, tenant_id')
+              .order('created_at', ascending: false)
+              .limit(1);
+        }
         if (rows.isEmpty) return const <RecommendationItem>[];
         final s = rows.first;
         return [
@@ -70,13 +77,21 @@ class RecommendationEngineService {
 
     final Future<List<RecommendationItem>> productRec = () async {
       try {
-        final rows = await _client
+        var rows = await _client
             .from('marketplace_items')
             .select('id, name, image, price')
             .eq('tenant_id', tenantId)
             .eq('status', 'active')
             .order('created_at', ascending: false)
             .limit(1);
+        if (rows.isEmpty) {
+          rows = await _client
+              .from('marketplace_items')
+              .select('id, name, image, price')
+              .eq('status', 'active')
+              .order('created_at', ascending: false)
+              .limit(1);
+        }
         if (rows.isEmpty) return const <RecommendationItem>[];
         final p = rows.first;
         return [
@@ -100,13 +115,21 @@ class RecommendationEngineService {
 
     final Future<List<RecommendationItem>> eventRec = () async {
       try {
-        final rows = await _client
+        var rows = await _client
             .from('events')
             .select('id, title, category, location, date')
             .eq('tenant_id', tenantId)
             .gte('date', now)
             .order('date', ascending: true)
             .limit(1);
+        if (rows.isEmpty) {
+          rows = await _client
+              .from('events')
+              .select('id, title, category, location, date')
+              .gte('date', now)
+              .order('date', ascending: true)
+              .limit(1);
+        }
         if (rows.isEmpty) return const <RecommendationItem>[];
         final e = rows.first;
         return [
@@ -130,12 +153,19 @@ class RecommendationEngineService {
 
     final Future<List<RecommendationItem>> prayerRec = () async {
       try {
-        final rows = await _client
+        var rows = await _client
             .from('prayers')
             .select('id, content, user_name, prayer_count')
             .eq('tenant_id', tenantId)
             .order('prayer_count', ascending: false)
             .limit(1);
+        if (rows.isEmpty) {
+          rows = await _client
+              .from('prayers')
+              .select('id, content, user_name, prayer_count')
+              .order('prayer_count', ascending: false)
+              .limit(1);
+        }
         if (rows.isEmpty) return const <RecommendationItem>[];
         final p = rows.first;
         final content = (p['content'] as String? ?? '').trim();
@@ -171,9 +201,9 @@ final recommendationEngineServiceProvider = Provider<RecommendationEngineService
 
 final universalRecommendationsProvider = FutureProvider.autoDispose<List<RecommendationItem>>((ref) async {
   final tenant = ref.watch(currentTenantProvider);
-  final tenantId = tenant?.id ?? 'zm_1';
+  if (tenant == null) return const <RecommendationItem>[];
   final service = ref.watch(recommendationEngineServiceProvider);
-  return service.getRecommendations(tenantId);
+  return service.getRecommendations(tenant.id);
 });
 
 class RecommendationCarouselWidget extends ConsumerWidget {
@@ -206,7 +236,7 @@ class RecommendationCarouselWidget extends ConsumerWidget {
                 ],
               ),
               TextButton(
-                onPressed: () => context.push('/sermons'),
+                onPressed: () => context.push('/recommendations'),
                 style: TextButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,

@@ -37,6 +37,10 @@ import 'package:church_on_app/features/admin/presentation/widgets/ad_banner_widg
 import '../widgets/announcement_ticker.dart';
 
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/providers/tenant_owner_provider.dart';
+import 'package:church_on_app/features/home/data/sermon_service.dart';
+import 'package:church_on_app/features/home/data/news_service.dart';
+import 'package:church_on_app/features/marketplace/data/marketplace_service.dart';
 import 'package:church_on_app/core/theme/app_theme.dart';
 import 'package:church_on_app/core/utils/responsive.dart';
 
@@ -258,6 +262,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return Column(
       children: [
+        // Special offers + ads are for EVERYONE — rendered whenever an active
+        // offer exists. (Previously an ADMIN only saw them inside the COLLAPSED
+        // "Admin & Promotions" section, so offers looked admin-hidden.)
+        const HomePromoCarousel(),
+        const SizedBox(height: 16),
+        const AdBannerWidget(placement: 'home'),
+        const SizedBox(height: 30),
         if (isAdmin) ...[
           GestureDetector(
             onTap: () => setState(() => _showAdminPromo = !_showAdminPromo),
@@ -358,17 +369,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
               ),
             ],
-            const HomePromoCarousel(),
-            const SizedBox(height: 16),
-            const AdBannerWidget(placement: 'home'),
-            const SizedBox(height: 30),
           ],
-        ],
-        if (!isAdmin) ...[
-          const HomePromoCarousel(),
-          const SizedBox(height: 16),
-          const AdBannerWidget(placement: 'home'),
-          const SizedBox(height: 30),
         ],
       ],
     );
@@ -622,6 +623,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.build(context);
     final tenant = ref.watch(currentTenantProvider);
     final isExpired = tenant != null && tenant.isSubscriptionExpired;
+    // Only the tenancy's OWNER TIER is ever asked to pay. Members and
+    // non-owner leaders (assistant pastor/bishop, etc.) never see a paywall.
+    final isOwner = ref.watch(isTenantOwnerProvider).value ?? false;
 
     final bottomInset =
         MediaQuery.of(context).padding.bottom + kBottomNavigationBarHeight;
@@ -633,12 +637,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         bottom: false,
         child: RefreshIndicator(
           onRefresh: () async {
-            ref.invalidate(profileProvider);
-            // In-place tenant reload — invalidating currentTenantProvider
-            // resets state to null, which makes the router redirect to
-            // /select-church while the home tab is being refreshed.
+            // Refresh IN PLACE. Never invalidate the profile (or reset the
+            // tenant) — that drops them to a loading state and flashes the
+            // whole home header while the drag spinner is still showing.
+            ref.read(profileProvider.notifier).refresh();
             await ref.read(currentTenantProvider.notifier).reload();
-            await Future.delayed(const Duration(milliseconds: 300));
+            // Re-fetch feed content. These are consumed with
+            // `skipLoadingOnRefresh: true`, so their cards stay on screen
+            // (no shimmer flash) until fresh data arrives.
+            ref.invalidate(latestSermonsProvider);
+            ref.invalidate(publicNewsProvider);
+            ref.invalidate(productsProvider);
           },
           child: CustomScrollView(
             controller: _scrollCtrl,
@@ -646,7 +655,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               SliverToBoxAdapter(child: HomeTopBar(tenant: tenant)),
               SliverPadding(
                 padding: EdgeInsets.symmetric(horizontal: hPad),
-                sliver: isExpired
+                sliver: (isExpired && isOwner)
                     ? SliverToBoxAdapter(
                         child: HomeSubscriptionPaywall(tenant: tenant),
                       )

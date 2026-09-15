@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../core/services/r2_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/services/vod_upload_service.dart';
 
 class MediaUploadScreen extends ConsumerStatefulWidget {
   const MediaUploadScreen({super.key});
@@ -19,7 +21,6 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
   double _progress = 0.0;
   String _targetFolder = 'klips';
   String _mediaType = 'video';
-  XFile? _selectedFile;
   Uint8List? _selectedBytes;
   String? _selectedName;
   final _titleController = TextEditingController();
@@ -28,8 +29,25 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
   final List<String> _folders = ['klips', 'sermons', 'marketplace'];
 
   Future<void> _pickFile() async {
-    final picker = ImagePicker();
     try {
+      // Audio (sermon podcasts) — picked via file_picker, which returns bytes
+      // on every platform (works on web too).
+      if (_mediaType == 'audio') {
+        final result = await FilePicker.pickFiles(
+          type: FileType.audio,
+          withData: true,
+        );
+        final f = result?.files.single;
+        if (f != null && f.bytes != null && mounted) {
+          setState(() {
+            _selectedBytes = f.bytes;
+            _selectedName = f.name;
+          });
+        }
+        return;
+      }
+
+      final picker = ImagePicker();
       XFile? file;
       if (_mediaType == 'image') {
         file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
@@ -39,7 +57,6 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
       if (file != null && mounted) {
         final bytes = await file.readAsBytes();
         setState(() {
-          _selectedFile = file;
           _selectedBytes = bytes;
           _selectedName = file!.name;
         });
@@ -52,12 +69,20 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
   }
 
   Future<void> _startUpload() async {
-    if (_titleController.text.isEmpty || _selectedFile == null || _selectedBytes == null) {
+    if (_titleController.text.isEmpty || _selectedBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Title and File are required")));
       return;
     }
     if (_targetFolder == 'marketplace' && _mediaType != 'image') {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Marketplace assets must be images")));
+      return;
+    }
+    if (_targetFolder == 'klips' && _mediaType != 'video') {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Klips must be a video")));
+      return;
+    }
+    if (_targetFolder == 'sermons' && _mediaType == 'image') {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sermons must be video or audio")));
       return;
     }
 
@@ -72,19 +97,69 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
       final user = client.auth.currentUser;
       final tenant = ref.read(currentTenantProvider);
 
-      final originalName = _selectedName ?? _selectedFile!.name;
+      final originalName = _selectedName ?? 'upload';
       final ext = originalName.split('.').last.toLowerCase();
       final contentType = _mediaType == 'image'
           ? (ext == 'png' ? 'image/png' : ext == 'webp' ? 'image/webp' : 'image/jpeg')
-          : (ext == 'mov' ? 'video/quicktime' : 'video/mp4');
+          : _mediaType == 'audio'
+              ? (ext == 'wav'
+                  ? 'audio/wav'
+                  : ext == 'm4a'
+                      ? 'audio/mp4'
+                      : ext == 'ogg'
+                          ? 'audio/ogg'
+                          : 'audio/mpeg')
+              : (ext == 'mov' ? 'video/quicktime' : 'video/mp4');
       final fileName = "${DateTime.now().millisecondsSinceEpoch}_${_titleController.text.trim().replaceAll(RegExp(r'[^a-zA-Z0-9]+'), '_')}.$ext";
       // Use bytes path — works on web and mobile, avoids dart:io File on web.
-      final publicUrl = await r2Service.uploadBytes(_selectedBytes!, "$_targetFolder/$fileName", contentType: contentType);
 
-      if (publicUrl == null) {
-        throw Exception("R2 Upload Failed");
+      // Two-layer storage for sermon media:
+      //   1. Cloudflare Stream (video) → adaptive-bitrate HLS playback layer.
+      //   2. R2 → the cheap MASTER/archive copy of the original upload.
+      // R2 is always written (it is the only copy for audio/images/klips, and
+      // the permanent archive for videos). If Cloudflare fails, R2 doubles as
+      // the fallback playback URL.
+      String publicUrl = '';
+      String? r2ArchiveUrl;
+      String? cfVideoId;
+      String? cfThumbnail;
+      int? cfDurationMinutes;
+      final isSermonVideo = _targetFolder == 'sermons' && _mediaType == 'video';
+
+      if (isSermonVideo) {
+        setState(() => _progress = 0.35);
+        try {
+          final vod = await ref.read(vodUploadServiceProvider).uploadVideo(
+                _selectedBytes!,
+                filename: fileName,
+                churchId: tenant?.id,
+              );
+          if (vod != null && vod.hasPlayback) {
+            publicUrl = vod.hlsUrl;
+            cfVideoId = vod.uid;
+            if (vod.thumbnailUrl.isNotEmpty) cfThumbnail = vod.thumbnailUrl;
+            if (vod.durationSeconds > 0) {
+              cfDurationMinutes = (vod.durationSeconds / 60).round();
+            }
+          }
+        } catch (e) {
+          debugPrint('Cloudflare Stream sermon upload failed, using R2: $e');
+        }
       }
-      setState(() => _progress = 0.8);
+
+      setState(() => _progress = 0.6);
+      final uploaded = await r2Service.uploadBytes(
+        _selectedBytes!,
+        "$_targetFolder/$fileName",
+        contentType: contentType,
+      );
+      if (uploaded != null) {
+        r2ArchiveUrl = uploaded;
+        if (publicUrl.isEmpty) publicUrl = uploaded;
+      } else if (publicUrl.isEmpty) {
+        throw Exception("Upload Failed");
+      }
+      setState(() => _progress = 0.85);
 
       final tenantId = tenant?.id;
       final churchId = tenant?.id;
@@ -109,11 +184,13 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
           'speaker': _speakerController.text.isEmpty ? 'Church Ministry' : _speakerController.text,
           'preacher': _speakerController.text.isEmpty ? 'Church Ministry' : _speakerController.text,
           'video_url': _mediaType == 'video' ? publicUrl : null,
-          'audio_url': null,
-          'thumbnail_url': '',
+          'audio_url': _mediaType == 'audio' ? publicUrl : null,
+          'archive_url': r2ArchiveUrl,
+          'cloudflare_video_id': cfVideoId,
+          'thumbnail_url': cfThumbnail ?? '',
           'is_live': false,
           'viewer_count': 0,
-          'duration_minutes': 0,
+          'duration_minutes': cfDurationMinutes ?? 0,
           'category': 'Media Manager',
         });
         // Notify church members of new sermon (fire-and-forget)
@@ -219,6 +296,7 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
     final types = [
       {'id': 'video', 'label': 'VIDEO'},
       {'id': 'image', 'label': 'IMAGE'},
+      {'id': 'audio', 'label': 'AUDIO'},
     ];
     return SizedBox(
       height: 45,
@@ -230,7 +308,8 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
           return GestureDetector(
             onTap: () => setState(() {
               _mediaType = types[index]['id'] as String;
-              _selectedFile = null;
+              _selectedBytes = null;
+              _selectedName = null;
             }),
             child: Container(
               margin: const EdgeInsets.only(right: 12),
@@ -289,7 +368,8 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
           return GestureDetector(
             onTap: () => setState(() {
               _targetFolder = _folders[index];
-              _selectedFile = null;
+              _selectedBytes = null;
+              _selectedName = null;
             }),
             child: Container(
               margin: const EdgeInsets.only(right: 12),
@@ -329,14 +409,26 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
       child: Column(
         children: [
           Icon(
-            _selectedFile == null ? (isImage ? LucideIcons.image : LucideIcons.fileVideo) : LucideIcons.checkCircle,
+            _selectedBytes == null
+                ? (isImage
+                    ? LucideIcons.image
+                    : _mediaType == 'audio'
+                        ? LucideIcons.music
+                        : LucideIcons.fileVideo)
+                : LucideIcons.checkCircle,
             size: 50,
-            color: _selectedFile == null ? Theme.of(context).primaryColor : Colors.green,
+            color: _selectedBytes == null ? Theme.of(context).primaryColor : Colors.green,
           ),
           const SizedBox(height: 20),
           const Text("TAP TO SELECT MEDIA", style: TextStyle(fontWeight: FontWeight.bold)),
           Text(
-            _selectedFile != null ? displayName : (isImage ? "Supports JPG, PNG" : "Supports MP4, MKV"),
+            _selectedBytes != null
+                ? displayName
+                : (isImage
+                    ? "Supports JPG, PNG"
+                    : _mediaType == 'audio'
+                        ? "Supports MP3, M4A, WAV"
+                        : "Supports MP4, MKV"),
             style: const TextStyle(color: Colors.grey, fontSize: 11),
           ),
         ],

@@ -25,7 +25,19 @@ import 'widgets/vehicle_selection_sheet.dart';
 
 class RideRequestScreen extends ConsumerStatefulWidget {
   final String mode;
-  const RideRequestScreen({super.key, this.mode = 'ride'});
+
+  /// Optional prefilled destination (from a saved place / map pin).
+  final String? initialDropoffAddress;
+  final double? initialDropoffLat;
+  final double? initialDropoffLng;
+
+  const RideRequestScreen({
+    super.key,
+    this.mode = 'ride',
+    this.initialDropoffAddress,
+    this.initialDropoffLat,
+    this.initialDropoffLng,
+  });
 
   @override
   ConsumerState<RideRequestScreen> createState() => _RideRequestScreenState();
@@ -48,6 +60,15 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
     final initialCategory = widget.mode == 'delivery' ? 'marketplace' : 'people';
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(ridePricingProvider.notifier).setCategory(initialCategory);
+      // Prefill a saved place / dropped pin as the destination so it flows
+      // straight into pricing + the courier's route.
+      if (widget.initialDropoffAddress != null &&
+          widget.initialDropoffAddress!.trim().isNotEmpty) {
+        _dropoffController.text = widget.initialDropoffAddress!;
+        if (widget.initialDropoffLat != null && widget.initialDropoffLng != null) {
+          _destLatLng = LatLng(widget.initialDropoffLat!, widget.initialDropoffLng!);
+        }
+      }
       _loadPreferences();
       _detectCurrentLocation();
     });

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 
 class UniversalSearchScreen extends ConsumerStatefulWidget {
@@ -18,6 +19,46 @@ class _UniversalSearchScreenState extends ConsumerState<UniversalSearchScreen> {
   Timer? _debounce;
   bool _loading = false;
   List<Map<String, dynamic>> _results = [];
+
+  /// Recent queries — "suggested queries" the user actually makes, most recent
+  /// first (persisted, so the search screen is useful from the second visit).
+  static const _recentKey = 'universal_search_recent_v1';
+  List<String> _recent = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecent();
+  }
+
+  Future<void> _loadRecent() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList(_recentKey) ?? const [];
+      if (mounted) setState(() => _recent = saved);
+    } catch (_) {}
+  }
+
+  Future<void> _rememberQuery(String query) async {
+    final q = query.trim();
+    if (q.length < 2) return;
+    final next = [q, ..._recent.where((r) => r.toLowerCase() != q.toLowerCase())]
+        .take(6)
+        .toList();
+    setState(() => _recent = next);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_recentKey, next);
+    } catch (_) {}
+  }
+
+  Future<void> _clearRecent() async {
+    setState(() => _recent = []);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_recentKey);
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -41,6 +82,7 @@ class _UniversalSearchScreenState extends ConsumerState<UniversalSearchScreen> {
       return;
     }
     setState(() => _loading = true);
+    _rememberQuery(q);
     try {
       // Client access inside try: an uninitialized backend must fall into
       // the catch → empty state, never leave the spinner hanging.
@@ -185,6 +227,37 @@ class _UniversalSearchScreenState extends ConsumerState<UniversalSearchScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_recent.isNotEmpty) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("RECENT SEARCHES",
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        letterSpacing: 1.2,
+                        color: Colors.grey)),
+                TextButton(
+                  onPressed: _clearRecent,
+                  style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 0),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                  child: const Text('CLEAR',
+                      style: TextStyle(fontSize: 11, color: Colors.grey)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: _recent
+                  .map((r) => _buildSuggestionChip(r, LucideIcons.history))
+                  .toList(),
+            ),
+            const SizedBox(height: 26),
+          ],
           const Text("QUICK SUGGESTIONS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1.2, color: Colors.grey)),
           const SizedBox(height: 15),
           Wrap(
@@ -196,6 +269,11 @@ class _UniversalSearchScreenState extends ConsumerState<UniversalSearchScreen> {
               _buildSuggestionChip("Prayer Request", LucideIcons.flame),
               _buildSuggestionChip("Klips", LucideIcons.play),
               _buildSuggestionChip("My Schedule", LucideIcons.calendar),
+              _buildSuggestionChip("Bible Study", LucideIcons.bookOpen),
+              _buildSuggestionChip("Events", LucideIcons.calendarDays),
+              _buildSuggestionChip("Bible Quiz", LucideIcons.trophy),
+              _buildSuggestionChip("Marketplace", LucideIcons.shoppingBag),
+              _buildSuggestionChip("Jobs", LucideIcons.briefcase),
             ],
           ),
         ],
