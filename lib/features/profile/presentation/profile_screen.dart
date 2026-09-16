@@ -311,7 +311,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildWalletAction(context, LucideIcons.send, "GIVE", () => context.push('/giving')),
+            _buildWalletAction(context, LucideIcons.send, "GIVE", () => context.go('/giving')),
             _buildWalletAction(context, LucideIcons.coins, "MY CC", () => context.push('/payout-request')),
             _buildWalletAction(context, LucideIcons.shieldCheck, "IDENTITY", () => context.push('/kyc-verification')),
           ],

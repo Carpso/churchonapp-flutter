@@ -72,63 +72,61 @@ class GivingCategorySelector extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 12),
-        SizedBox(
-          height: 45,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: categories.length,
-            itemBuilder: (context, index) {
-              final cat = categories[index];
-              final isSelected = selectedCategory == cat;
-              final icon = _categoryIcons[cat] ?? Icons.help_outline;
-              return GestureDetector(
-                onTap: () => onCategoryChanged(cat),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.only(right: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: isSelected ? secondary : Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(
-                      color: isSelected
-                          ? secondary
-                          : Colors.grey.withValues(alpha: 0.15),
-                      width: isSelected ? 2 : 1,
-                    ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: secondary.withValues(alpha: 0.2),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
+        // Wrap (not a horizontal ListView): every category is visible at once
+        // — on web a horizontal list could hide all but the first chip behind a
+        // scroll with no visible scrollbar.
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: categories.map((cat) {
+            final isSelected = selectedCategory == cat;
+            final icon = _categoryIcons[cat] ?? Icons.help_outline;
+            return GestureDetector(
+              onTap: () => onCategoryChanged(cat),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isSelected ? secondary : Colors.white,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: isSelected
+                        ? secondary
+                        : Colors.grey.withValues(alpha: 0.15),
+                    width: isSelected ? 2 : 1,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        icon,
-                        size: 16,
-                        color: isSelected ? Colors.white : Colors.grey,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        context.tr(cat),
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.grey,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: secondary.withValues(alpha: 0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
                 ),
-              );
-            },
-          ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 16,
+                      color: isSelected ? Colors.white : Colors.grey,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      context.tr(cat),
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.grey,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
         ),
       ],
     );

@@ -309,7 +309,7 @@ class HomeHeroCard extends ConsumerWidget {
         child: ElevatedButton.icon(
           onPressed: () {
             if (label == "Giving") {
-              context.push('/giving');
+              context.go('/giving');
             } else if (label == "Prayer") {
               context.push('/prayer-wall');
             } else if (label == "Notes") {

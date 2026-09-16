@@ -88,9 +88,15 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
     final baskets = ref.watch(offeringBasketsProvider).value ??
         const <OfferingBasket>[];
     final activeSession = ref.watch(activeOfferingSessionProvider).value;
-    final categories = baskets.isNotEmpty
-        ? baskets.map((b) => b.name).toList()
-        : _defaultCategories;
+    // De-duplicate by NAME: defensive against any duplicate/mis-scoped rows so
+    // the selector can never render the same basket (e.g. "Tithe") repeatedly.
+    final seenNames = <String>{};
+    final basketNames = <String>[];
+    for (final b in baskets) {
+      if (seenNames.add(b.name)) basketNames.add(b.name);
+    }
+    final categories =
+        basketNames.isNotEmpty ? basketNames : _defaultCategories;
     if (!categories.contains(_selectedCategory)) {
       _selectedCategory = categories.first;
     }
