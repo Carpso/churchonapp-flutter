@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:church_on_app/core/services/tenant_service.dart';
+
 /// A church offering basket type (Tithe, Sunday Offering, Missions…).
 ///
 /// `tenantId == null` means the basket is ORGANISATION-wide: every church in
@@ -141,39 +143,81 @@ class OfferingBasketService {
   OfferingBasketService(this._client);
 
   /// Baskets visible to the signed-in user — their church's baskets plus any
-  /// organisation-wide baskets (RLS enforces the scoping).
-  Future<List<OfferingBasket>> fetchBaskets({bool activeOnly = true}) async {
-    dynamic q = _client.from('offering_basket_types').select();
-    if (activeOnly) q = q.eq('is_active', true);
-    final rows = await q
-        .order('sort_order', ascending: true)
-        .order('name', ascending: true);
-    return (rows as List)
-        .map((e) => OfferingBasket.fromMap(Map<String, dynamic>.from(e as Map)))
-        .toList();
+  /// organisation-wide baskets.
+  ///
+  /// IMPORTANT: this is scoped explicitly by [tenantId]/[organizationId] and
+  /// does NOT rely on RLS alone. Staff (superadmin / COA) bypass the tenant
+  /// branch of the read policy, so without this filter the Give tab would list
+  /// every church's baskets (e.g. 33× "Tithe").
+  Future<List<OfferingBasket>> fetchBaskets({
+    String? tenantId,
+    String? organizationId,
+    bool activeOnly = true,
+  }) async {
+    Future<List<OfferingBasket>> run({
+      String? eqTenant,
+      bool nullTenant = false,
+      String? eqOrg,
+    }) async {
+      dynamic q = _client.from('offering_basket_types').select();
+      if (activeOnly) q = q.eq('is_active', true);
+      if (eqTenant != null && eqTenant.isNotEmpty) q = q.eq('tenant_id', eqTenant);
+      if (nullTenant) q = q.isFilter('tenant_id', null);
+      if (eqOrg != null && eqOrg.isNotEmpty) q = q.eq('organization_id', eqOrg);
+      final rows = await q
+          .order('sort_order', ascending: true)
+          .order('name', ascending: true);
+      return (rows as List)
+          .map((e) =>
+              OfferingBasket.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
+
+    if (tenantId == null || tenantId.isEmpty) {
+      // No church context — only organisation-wide baskets are meaningful.
+      return run(nullTenant: true, eqOrg: organizationId);
+    }
+
+    final own = await run(eqTenant: tenantId);
+    if (organizationId == null || organizationId.isEmpty) return own;
+
+    final org = await run(nullTenant: true, eqOrg: organizationId);
+    final merged = <String, OfferingBasket>{
+      for (final b in own) b.id: b,
+      for (final b in org) b.id: b,
+    }.values.toList()
+      ..sort((a, b) {
+        final c = a.sortOrder.compareTo(b.sortOrder);
+        return c != 0 ? c : a.name.compareTo(b.name);
+      });
+    return merged;
   }
 
-  Future<List<OfferingSession>> fetchSessions({int days = 60}) async {
+  Future<List<OfferingSession>> fetchSessions({
+    String? tenantId,
+    int days = 60,
+  }) async {
     final since = DateTime.now().subtract(Duration(days: days));
-    final rows = await _client
+    dynamic q = _client
         .from('offering_sessions')
         .select()
-        .gte('opened_at', since.toIso8601String())
-        .order('opened_at', ascending: false)
-        .limit(200);
+        .gte('opened_at', since.toIso8601String());
+    if (tenantId != null && tenantId.isNotEmpty) {
+      q = q.eq('tenant_id', tenantId);
+    }
+    final rows = await q.order('opened_at', ascending: false).limit(200);
     return (rows as List)
         .map((e) => OfferingSession.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();
   }
 
   /// The currently-live offering session for the church, if any.
-  Future<OfferingSession?> fetchActiveSession() async {
-    final rows = await _client
-        .from('offering_sessions')
-        .select()
-        .eq('status', 'open')
-        .order('opened_at', ascending: false)
-        .limit(1);
+  Future<OfferingSession?> fetchActiveSession({String? tenantId}) async {
+    dynamic q = _client.from('offering_sessions').select().eq('status', 'open');
+    if (tenantId != null && tenantId.isNotEmpty) {
+      q = q.eq('tenant_id', tenantId);
+    }
+    final rows = await q.order('opened_at', ascending: false).limit(1);
     final list = rows as List;
     if (list.isEmpty) return null;
     return OfferingSession.fromMap(Map<String, dynamic>.from(list.first as Map));
@@ -313,20 +357,30 @@ final offeringBasketServiceProvider =
 /// Baskets visible to the current user (church + organisation-wide).
 final offeringBasketsProvider =
     FutureProvider<List<OfferingBasket>>((ref) async {
-  return ref.watch(offeringBasketServiceProvider).fetchBaskets();
+  final tenant = ref.watch(currentTenantProvider);
+  return ref.watch(offeringBasketServiceProvider).fetchBaskets(
+        tenantId: tenant?.id,
+        organizationId: tenant?.organizationId,
+      );
 });
 
 /// The live offering session (if any) — polled so the Give tab reflects a
 /// leader opening/closing the offering without an app restart.
 final activeOfferingSessionProvider =
     FutureProvider<OfferingSession?>((ref) async {
-  return ref.watch(offeringBasketServiceProvider).fetchActiveSession();
+  final tenant = ref.watch(currentTenantProvider);
+  return ref
+      .watch(offeringBasketServiceProvider)
+      .fetchActiveSession(tenantId: tenant?.id);
 });
 
 /// Recent offering sessions (history / totals).
 final offeringSessionsProvider =
     FutureProvider<List<OfferingSession>>((ref) async {
-  return ref.watch(offeringBasketServiceProvider).fetchSessions();
+  final tenant = ref.watch(currentTenantProvider);
+  return ref
+      .watch(offeringBasketServiceProvider)
+      .fetchSessions(tenantId: tenant?.id);
 });
 
 /// Basket summary keyed by `(tenantId|orgId, days)`. A Dart record key gives

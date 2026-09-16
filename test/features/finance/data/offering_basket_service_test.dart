@@ -84,30 +84,55 @@ void main() {
   });
 
   group('fetchBaskets', () {
-    test('queries active baskets ordered by sort order then name', () async {
+    test('scopes to the given tenant (guards the staff RLS bypass)', () async {
       when(() => mockClient.from('offering_basket_types'))
           .thenAnswer((_) => mockQuery);
       when(() => mockQuery.select()).thenAnswer((_) => mockFilter);
       when(() => mockFilter.eq('is_active', true)).thenAnswer((_) => mockFilter);
+      when(() => mockFilter.eq('tenant_id', 't1'))
+          .thenAnswer((_) => mockFilter);
       when(() => mockFilter.order(any(), ascending: any(named: 'ascending')))
           .thenAnswer((_) => mockFilter);
       mockFilter.mockResult = [
         {'id': 'b1', 'tenant_id': 't1', 'name': 'Tithe', 'sort_order': 1},
       ];
 
-      final baskets = await service.fetchBaskets();
+      final baskets = await service.fetchBaskets(tenantId: 't1');
 
       expect(baskets, hasLength(1));
       expect(baskets.first.name, 'Tithe');
-      verify(() => mockFilter.eq('is_active', true)).called(1);
+      // The whole point: never return another church's baskets.
+      verify(() => mockFilter.eq('tenant_id', 't1')).called(1);
       verify(() => mockFilter.order('sort_order', ascending: true)).called(1);
       verify(() => mockFilter.order('name', ascending: true)).called(1);
+    });
+
+    test('with no tenant context only organisation-wide baskets are read',
+        () async {
+      when(() => mockClient.from('offering_basket_types'))
+          .thenAnswer((_) => mockQuery);
+      when(() => mockQuery.select()).thenAnswer((_) => mockFilter);
+      when(() => mockFilter.eq('is_active', true)).thenAnswer((_) => mockFilter);
+      when(() => mockFilter.isFilter('tenant_id', null))
+          .thenAnswer((_) => mockFilter);
+      when(() => mockFilter.eq('organization_id', 'o1'))
+          .thenAnswer((_) => mockFilter);
+      when(() => mockFilter.order(any(), ascending: any(named: 'ascending')))
+          .thenAnswer((_) => mockFilter);
+      mockFilter.mockResult = [];
+
+      await service.fetchBaskets(organizationId: 'o1');
+
+      verify(() => mockFilter.isFilter('tenant_id', null)).called(1);
+      verify(() => mockFilter.eq('organization_id', 'o1')).called(1);
     });
 
     test('skips the is_active filter when activeOnly is false', () async {
       when(() => mockClient.from('offering_basket_types'))
           .thenAnswer((_) => mockQuery);
       when(() => mockQuery.select()).thenAnswer((_) => mockFilter);
+      when(() => mockFilter.isFilter('tenant_id', null))
+          .thenAnswer((_) => mockFilter);
       when(() => mockFilter.order(any(), ascending: any(named: 'ascending')))
           .thenAnswer((_) => mockFilter);
       mockFilter.mockResult = [];

@@ -57,9 +57,14 @@ class _OfferingBasketManagerScreenState
       _error = null;
     });
     try {
+      final profile = ref.read(profileProvider).value;
       final results = await Future.wait([
-        _service.fetchBaskets(activeOnly: false),
-        _service.fetchSessions(days: 30),
+        _service.fetchBaskets(
+          tenantId: profile?.tenantId,
+          organizationId: profile?.organizationId,
+          activeOnly: false,
+        ),
+        _service.fetchSessions(tenantId: profile?.tenantId, days: 30),
       ]);
       if (!mounted) return;
       final sessions = results[1] as List<OfferingSession>;
