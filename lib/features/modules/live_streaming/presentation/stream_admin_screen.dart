@@ -51,13 +51,37 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
       // Real Cloudflare credentials come from live_streams (the config table
       // has NO stream_key/rtmp_url columns). Show the newest stream's creds
       // so OBS users have something concrete to paste; empty until go-live.
+      // Broadcast credentials are NOT SELECT-granted (they'd leak to any user
+      // through the public read RLS). Read the newest stream's id, then fetch
+      // the credentials via the leadership-only RPC.
       final latestStream = await Supabase.instance.client
           .from('live_streams')
-          .select('stream_key, rtmp_url, status')
+          .select('id, status')
           .eq('church_id', widget.tenantId)
           .order('created_at', ascending: false)
           .limit(1)
           .maybeSingle();
+
+      String? streamKey;
+      String? rtmpUrl;
+      final latestId = latestStream?['id']?.toString();
+      if (latestId != null) {
+        try {
+          final creds = await Supabase.instance.client.rpc(
+            'get_my_stream_credentials',
+            params: {'p_stream_id': latestId},
+          );
+          final credMap = creds is Map
+              ? Map<String, dynamic>.from(creds)
+              : <String, dynamic>{};
+          if (credMap['ok'] == true) {
+            streamKey = credMap['stream_key']?.toString();
+            rtmpUrl = credMap['rtmp_url']?.toString();
+          }
+        } catch (e) {
+          debugPrint('stream credentials RPC failed (non-fatal): $e');
+        }
+      }
 
       // Finished streams that have a Cloudflare recording to archive into R2.
       List<Map<String, dynamic>> recordings = [];
@@ -79,8 +103,8 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
       }
 
       setState(() {
-        _streamKey = latestStream?['stream_key'] as String?;
-        _rtmpUrl = latestStream?['rtmp_url'] as String?;
+        _streamKey = streamKey;
+        _rtmpUrl = rtmpUrl;
         _usage = usage;
         _isTrial = church?['subscription_status'] == 'trial';
         _recordings = recordings;

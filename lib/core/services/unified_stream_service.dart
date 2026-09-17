@@ -256,7 +256,10 @@ class UnifiedStreamService {
             'thumbnail_url': thumbnailUrl,
           'created_by': _client.auth.currentUser?.id,
         })
-        .select()
+        // NOT `.select()` (= RETURNING *): the credentials columns
+        // (stream_key/rtmp_url/whip_url) are deliberately not SELECT-granted, so
+        // a star select fails with 42501. `id` is all we need here.
+        .select('id')
         .single();
 
     return StreamResult(
