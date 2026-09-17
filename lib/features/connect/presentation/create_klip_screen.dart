@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -38,6 +39,14 @@ class _CreateKlipScreenState extends ConsumerState<CreateKlipScreen> {
     final picker = ImagePicker();
     final video = await picker.pickVideo(source: ImageSource.gallery);
     if (video == null) return;
+
+    // On WEB there is no dart:io / VideoCompress, so compression + duration
+    // probing throw and nothing could ever be posted. Upload the picked bytes
+    // directly instead.
+    if (kIsWeb) {
+      await _pickVideoWeb(video);
+      return;
+    }
 
     try {
       // Check duration before doing anything expensive
@@ -149,6 +158,57 @@ class _CreateKlipScreenState extends ConsumerState<CreateKlipScreen> {
     }
   }
 
+  /// Web-safe klip upload: bytes only (no VideoCompress / dart:io).
+  Future<void> _pickVideoWeb(XFile video) async {
+    setState(() {
+      _isUploading = true;
+      _uploadProgress = 0.3;
+    });
+    try {
+      final supabase = Supabase.instance.client;
+      final r2 = ref.read(r2ServiceProvider);
+      final userId = supabase.auth.currentUser?.id ?? 'anon';
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final name = video.name;
+      final ext =
+          name.contains('.') ? name.split('.').last.toLowerCase() : 'mp4';
+      final bytes = await video.readAsBytes();
+      if (bytes.isEmpty) throw Exception('The selected video is empty');
+      final contentType = ext == 'mov'
+          ? 'video/quicktime'
+          : ext == 'webm'
+              ? 'video/webm'
+              : 'video/mp4';
+      final url = await r2.uploadBytes(
+        bytes,
+        'klips/${userId}_$ts.$ext',
+        contentType: contentType,
+      );
+      if (url == null) throw Exception('Upload failed');
+      if (!mounted) return;
+      setState(() {
+        _videoUrl = url;
+        _thumbnailUrl = null;
+        _durationSeconds = null;
+        _uploadProgress = 0.9;
+      });
+    } catch (e) {
+      debugPrint('Klip web upload failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+          _uploadProgress = 0;
+        });
+      }
+    }
+  }
+
   Future<void> _submit() async {
     if (_videoUrl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -168,18 +228,23 @@ class _CreateKlipScreenState extends ConsumerState<CreateKlipScreen> {
       final supabase = Supabase.instance.client;
       final profile = ref.read(profileProvider).value;
       final tenant = ref.read(currentTenantProvider);
-      await supabase.from('klips').insert({
-        'video_url': _videoUrl,
-        'thumbnail_url': _thumbnailUrl,
-        'description': _captionCtrl.text.trim(),
-        'user_id': supabase.auth.currentUser?.id,
-        'user_name': profile?.name ?? 'Believer',
-        'user_avatar': profile?.avatarUrl,
-        'duration': _durationSeconds,
-        'amen_count': 0,
-        'comments_count': 0,
-        if (tenant?.id != null) 'tenant_id': tenant!.id,
-      });
+      final inserted = await supabase
+          .from('klips')
+          .insert({
+            'video_url': _videoUrl,
+            'thumbnail_url': _thumbnailUrl,
+            'description': _captionCtrl.text.trim(),
+            'user_id': supabase.auth.currentUser?.id,
+            'user_name': profile?.name ?? 'Believer',
+            'user_avatar': profile?.avatarUrl,
+            'duration': _durationSeconds,
+            'amen_count': 0,
+            'comments_count': 0,
+            if (tenant?.id != null) 'tenant_id': tenant!.id,
+          })
+          .select('id')
+          .maybeSingle();
+      final klipId = inserted?['id']?.toString();
 
       // Notify church members about new Klip
       if (tenant?.id != null) {
@@ -204,6 +269,7 @@ class _CreateKlipScreenState extends ConsumerState<CreateKlipScreen> {
               'body': caption.length > 80 ? '${caption.substring(0, 80)}...' : caption,
               'data': {
                 'type': 'klip',
+                if (klipId != null) 'reference_id': klipId,
                 'channel_id': 'coa_klips',
               },
             });
