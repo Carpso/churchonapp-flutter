@@ -11,6 +11,7 @@ import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 import 'package:church_on_app/core/widgets/premium_confirmation_sheet.dart';
+import 'package:church_on_app/core/widgets/kael_explain_sheet.dart';
 import 'package:church_on_app/core/config/fee_config.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -54,6 +55,22 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
               ),
             ),
             actions: [
+              IconButton(
+                icon: const Icon(LucideIcons.sparkles, color: Colors.amber),
+                tooltip: 'Ask Kael',
+                onPressed: () {
+                  final speakers = (event['speakers'] as String?)?.trim();
+                  showKaelExplainSheet(
+                    context,
+                    action: 'summary',
+                    title: 'Kael suggests discussion points',
+                    prompt:
+                        'Suggest 4 thoughtful discussion points or reflection questions for a church event titled "${event['title']}" (${event['type'] ?? 'Event'})'
+                        '${speakers != null && speakers.isNotEmpty ? ' featuring $speakers' : ''}. '
+                        'Keep them warm, biblical and practical for a small-group setting.',
+                  );
+                },
+              ),
               IconButton(
                 icon: const Icon(LucideIcons.scanLine),
                 tooltip: 'Scan Tickets',

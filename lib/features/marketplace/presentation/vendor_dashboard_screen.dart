@@ -8,6 +8,7 @@ import 'package:church_on_app/features/marketplace/data/marketplace_service.dart
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/providers/auth_provider.dart';
 import 'package:church_on_app/features/admin/data/order_service.dart';
+import 'package:church_on_app/features/admin/data/writer_approval_service.dart';
 
 final vendorStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final userId = ref.watch(authProvider).user?.id;
@@ -144,6 +145,7 @@ class _VendorDashboardScreenState extends ConsumerState<VendorDashboardScreen> {
     final statsAsync = ref.watch(vendorStatsProvider);
     final productsAsync = ref.watch(vendorProductsProvider);
     final ordersAsync = ref.watch(vendorRecentOrdersProvider);
+    final isVerifiedWriter = ref.watch(isVerifiedWriterProvider).value ?? false;
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -153,6 +155,14 @@ class _VendorDashboardScreenState extends ConsumerState<VendorDashboardScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         actions: [
+          if (isVerifiedWriter)
+            IconButton(
+              tooltip: "Sell a Book",
+              icon: const Icon(LucideIcons.bookOpen),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const PostProductScreen(initialCategory: 'book')));
+              },
+            ),
           IconButton(
             icon: const Icon(LucideIcons.plus),
             onPressed: () {
@@ -180,7 +190,7 @@ class _VendorDashboardScreenState extends ConsumerState<VendorDashboardScreen> {
               const SizedBox(height: 30),
               Text("Quick Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
               const SizedBox(height: 15),
-              _buildQuickActions(),
+              _buildQuickActions(isVerifiedWriter),
               const SizedBox(height: 30),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -257,9 +267,15 @@ class _VendorDashboardScreenState extends ConsumerState<VendorDashboardScreen> {
     );
   }
 
-  Widget _buildQuickActions() {
+  Widget _buildQuickActions(bool isVerifiedWriter) {
     return Row(
       children: [
+        if (isVerifiedWriter) ...[
+          Expanded(child: _buildActionButton(LucideIcons.bookOpen, "Sell a Book", () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const PostProductScreen(initialCategory: 'book')));
+          })),
+          const SizedBox(width: 10),
+        ],
         Expanded(child: _buildActionButton(LucideIcons.plus, "Add Product", () {
           Navigator.push(context, MaterialPageRoute(builder: (_) => const PostProductScreen()));
         })),

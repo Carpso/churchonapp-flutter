@@ -7,6 +7,7 @@ import 'package:church_on_app/core/providers/auth_provider.dart';
 import '../data/marketplace_service.dart';
 import 'post_product_screen.dart';
 import 'vendor_dashboard_screen.dart' show vendorProductsProvider;
+import 'package:church_on_app/features/admin/data/writer_approval_service.dart';
 
 class ProductDetailsScreen extends ConsumerWidget {
   final MarketProduct product;
@@ -29,6 +30,9 @@ class ProductDetailsScreen extends ConsumerWidget {
             'market_type': product.marketType,
             'stock': product.stock,
             'download_url': product.downloadUrl,
+            'isbn': product.isbn,
+            'author': product.author,
+            'pages': product.pages,
           },
         ),
       ),
@@ -81,6 +85,10 @@ class ProductDetailsScreen extends ConsumerWidget {
     final currentUserId = ref.watch(authProvider).user?.id;
     final isOwner =
         currentUserId != null && product.vendorId == currentUserId;
+    final verifiedWriterIds =
+        ref.watch(verifiedWriterIdsProvider).value ?? const <String>{};
+    final isVerifiedWriter =
+        product.vendorId != null && verifiedWriterIds.contains(product.vendorId);
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
@@ -163,8 +171,74 @@ class ProductDetailsScreen extends ConsumerWidget {
                         product.vendorName ?? "Verified Vendor",
                         style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold),
                       ),
+                      if (isVerifiedWriter) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7C3AED),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(LucideIcons.badgeCheck, color: Colors.white, size: 11),
+                              SizedBox(width: 4),
+                              Text("VERIFIED WRITER",
+                                  style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
+                  if (product.category == 'book' &&
+                      (product.author != null ||
+                          product.isbn != null ||
+                          product.pages != null)) ...[
+                    const SizedBox(height: 15),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(LucideIcons.bookOpen, size: 16, color: Theme.of(context).primaryColor),
+                              const SizedBox(width: 8),
+                              Text(
+                                product.isDigitalBook ? "EBOOK" : "PHYSICAL BOOK",
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                          if (product.author != null && product.author!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text("Author: ${product.author}",
+                                  style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+                            ),
+                          if (product.isbn != null && product.isbn!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text("ISBN: ${product.isbn}",
+                                  style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+                            ),
+                          if (product.pages != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text("Pages: ${product.pages}",
+                                  style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 25),
                   const Text("Description", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),

@@ -793,6 +793,53 @@ class BibleVerseService {
       return [];
     }
   }
+
+  /// Toggles one reading-plan entry done/undone for the signed-in user via the
+  /// `toggle_reading_plan_entry` RPC (server-authoritative progress). Returns
+  /// the plan's new completed-entry count. Throws on failure so the caller can
+  /// surface a snackbar.
+  Future<int> toggleReadingPlanEntry({
+    required String entryId,
+    required bool done,
+  }) async {
+    if (_client.auth.currentUser == null) {
+      throw Exception('Not authenticated');
+    }
+    final result = await _client.rpc(
+      'toggle_reading_plan_entry',
+      params: {'p_entry_id': entryId, 'p_done': done},
+    );
+    if (result is Map && result['ok'] == true) {
+      return (result['completed'] as num?)?.toInt() ?? 0;
+    }
+    final reason = result is Map ? result['reason']?.toString() : null;
+    throw Exception(reason ?? 'Could not update reading progress');
+  }
+
+  /// Completed entry ids for [planId] for the signed-in user, read from the
+  /// `get_reading_plan_completed` RPC (persisted server-side, survives
+  /// restarts). Returns an empty set on error/empty so the UI never crashes.
+  Future<Set<String>> fetchCompletedPlanEntries(String planId) async {
+    try {
+      if (_client.auth.currentUser == null || planId.isEmpty) {
+        return <String>{};
+      }
+      final data = await _client.rpc(
+        'get_reading_plan_completed',
+        params: {'p_plan_id': planId},
+      );
+      return (data as List<dynamic>)
+          .map((row) => row is Map ? row['entry_id'] : row)
+          .whereType<Object>()
+          .map((id) => id.toString())
+          .where((id) => id.isNotEmpty)
+          .toSet();
+    } catch (e, s) {
+      debugPrint('Fetch completed plan entries error: $e');
+      debugPrint(s.toString());
+      return <String>{};
+    }
+  }
 }
 
 final bibleVerseServiceProvider = Provider((ref) {

@@ -328,6 +328,9 @@ $migrations = @(
       "20261146_repost_media.sql"
       "20261147_radio_stories_join.sql"
       "20261148_bible_study_image_and_plan_progress.sql"
+      "20261149_writer_books.sql"
+      "20261150_worship_lyrics.sql"
+      "20261151_kael_chat_history_settings.sql"
     )
 
 foreach ($m in $migrations) {

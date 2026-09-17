@@ -6,6 +6,7 @@ import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/core/widgets/premium_confirmation_sheet.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/core/widgets/kael_explain_sheet.dart';
 import 'package:church_on_app/core/config/fee_config.dart';
 import 'package:church_on_app/core/utils/money.dart';
 import 'tithe_history_screen.dart';
@@ -145,6 +146,17 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
       appBar: AppBar(
         title: Text(context.tr('Give'), style: const TextStyle(fontWeight: FontWeight.bold)),
         actions: [
+          IconButton(
+            tooltip: 'Ask Kael about giving',
+            icon: const Icon(LucideIcons.sparkles, color: Colors.amber, size: 18),
+            onPressed: () => showKaelExplainSheet(
+              context,
+              action: 'exegesis',
+              prompt:
+                  'Explain in 2-3 warm, pastoral sentences the biblical basis for giving and tithing, referencing key scriptures such as Malachi 3:10, 2 Corinthians 9:7 and Proverbs 3:9. '
+                  'Encourage cheerful, generous giving without guilt or pressure.',
+            ),
+          ),
           IconButton(
             tooltip: 'QR Payment',
             icon: const Icon(LucideIcons.qrCode, size: 18),

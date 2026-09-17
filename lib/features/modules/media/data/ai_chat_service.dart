@@ -31,6 +31,35 @@ class AiChatMessage {
   }
 }
 
+class AiChatSession {
+  final String id;
+  final String title;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  AiChatSession({
+    required this.id,
+    required this.title,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory AiChatSession.fromMap(Map<String, dynamic> map) {
+    final created = DateTime.tryParse(map['created_at']?.toString() ?? '') ?? DateTime.now();
+    // `updated_at` only exists after migration 20261151 — fall back to creation
+    // time so an un-migrated DB still lists history correctly.
+    final updated = DateTime.tryParse(map['updated_at']?.toString() ?? '') ?? created;
+    return AiChatSession(
+      id: map['id'].toString(),
+      title: (map['title']?.toString().trim().isNotEmpty ?? false)
+          ? map['title'].toString()
+          : 'New Chat',
+      createdAt: created,
+      updatedAt: updated,
+    );
+  }
+}
+
 class AiChatService {
   final SupabaseClient _client;
 
@@ -71,13 +100,79 @@ static const _fallbackResponses = [
   ///
   /// Returns a [Stream<String>] of text chunks as they arrive from the Edge Function.
   /// The full accumulated response is saved to the database when the stream completes.
-  Stream<String> sendMessageStreaming(String sessionId, String content) {
-    return _send(sessionId, content, insertUserMessage: true);
+  ///
+  /// [options] is merged into the request's `userContext` and [system] is sent
+  /// as an optional top-level `system` field. Both carry the user's Kael
+  /// settings; the Edge Function tolerates the extra fields.
+  Stream<String> sendMessageStreaming(
+    String sessionId,
+    String content, {
+    Map<String, dynamic>? options,
+    String? system,
+  }) {
+    return _send(sessionId, content, insertUserMessage: true, options: options, system: system);
   }
 
   /// Starts a fresh chat session (new conversation thread).
   Future<String> newChat(String title) async {
     return createSession(title);
+  }
+
+  /// Lists the signed-in user's chat sessions, newest activity first.
+  ///
+  /// Prefers `updated_at` (added in migration 20261151); if the column is not
+  /// deployed yet the query is retried against `created_at` so History never
+  /// breaks against an older database.
+  Future<List<AiChatSession>> fetchSessions() async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+
+    try {
+      final rows = await _client
+          .from('ai_chat_sessions')
+          .select('id, title, created_at, updated_at')
+          .eq('user_id', user.id)
+          .order('updated_at', ascending: false);
+      return rows.map(AiChatSession.fromMap).toList();
+    } catch (e) {
+      debugPrint('[Kael] fetchSessions(updated_at) failed, falling back: $e');
+      final rows = await _client
+          .from('ai_chat_sessions')
+          .select('id, title, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', ascending: false);
+      return rows.map(AiChatSession.fromMap).toList();
+    }
+  }
+
+  /// Loads a session's messages once (chronological). The live view keeps a
+  /// realtime stream; this is used when opening a session from History.
+  Future<List<AiChatMessage>> loadSession(String sessionId) async {
+    final rows = await _client
+        .from('ai_chat_messages')
+        .select('id, role, content, created_at')
+        .eq('session_id', sessionId)
+        .order('created_at', ascending: true);
+    return rows.map(AiChatMessage.fromMap).toList();
+  }
+
+  /// Renames a session (used by the History view).
+  Future<void> renameSession(String sessionId, String title) async {
+    final clean = title.trim().replaceAll('\n', ' ');
+    if (clean.isEmpty) return;
+    await _client.from('ai_chat_sessions').update({'title': clean}).eq('id', sessionId);
+  }
+
+  /// Deletes a session and (via cascade) all of its messages.
+  Future<void> deleteSession(String sessionId) async {
+    await _client.from('ai_chat_sessions').delete().eq('id', sessionId);
+  }
+
+  /// Deletes every session belonging to the signed-in user.
+  Future<void> clearAllSessions() async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception("Not authenticated");
+    await _client.from('ai_chat_sessions').delete().eq('user_id', user.id);
   }
 
   /// Titles a session from its first user message when the auto-title hasn't
@@ -115,7 +210,11 @@ static const _fallbackResponses = [
 
   /// Re-fetches the last assistant message for regeneration.
   /// Does NOT duplicate the user message — it reuses the last user row.
-  Stream<String> regenerateStreaming(String sessionId) async* {
+  Stream<String> regenerateStreaming(
+    String sessionId, {
+    Map<String, dynamic>? options,
+    String? system,
+  }) async* {
     // Find and delete the last assistant message
     final lastMsg = await _client
         .from('ai_chat_messages')
@@ -143,13 +242,16 @@ static const _fallbackResponses = [
     if (lastUserMsg == null) return;
 
     // Re-send using the streaming pipeline without re-inserting the user row
-    yield* _send(sessionId, lastUserMsg['content'] as String, insertUserMessage: false);
+    yield* _send(sessionId, lastUserMsg['content'] as String,
+        insertUserMessage: false, options: options, system: system);
   }
 
   Stream<String> _send(
     String sessionId,
     String content, {
     required bool insertUserMessage,
+    Map<String, dynamic>? options,
+    String? system,
   }) async* {
     if (insertUserMessage) {
       await _client.from('ai_chat_messages').insert({
@@ -165,14 +267,19 @@ static const _fallbackResponses = [
     // gives Kael proper conversational memory.
     final history = await _fetchMessageHistory(sessionId, limit: 20);
 
-    // Fetch user context for personalized responses
-    final userContext = await _fetchUserContext();
+    // Fetch user context for personalized responses, then layer the user's
+    // Kael settings on top (defensive: settings win on key clashes).
+    final baseContext = await _fetchUserContext();
+    final userContext = <String, dynamic>{
+      ...?baseContext,
+      ...?options,
+    };
 
     String fullResponse = '';
     var isError = false;
     try {
       var isFirstChunk = true;
-      await for (final rawChunk in _streamKael(history, userContext)) {
+      await for (final rawChunk in _streamKael(history, userContext, system: system)) {
         var chunk = rawChunk;
         if (isFirstChunk) {
           chunk = _cleanResponse(chunk, content, allowFallback: false);
@@ -215,8 +322,10 @@ static const _fallbackResponses = [
   /// 60s functions.invoke timeout). Fallback: buffered functions.invoke.
   Stream<String> _streamKael(
     List<Map<String, String>> history,
-    Map<String, dynamic>? userContext,
-  ) async* {
+    Map<String, dynamic>? userContext, {
+    String? system,
+  }) async* {
+    final systemHint = (system != null && system.trim().isNotEmpty) ? system.trim() : null;
     // HuggingFace free-tier models go cold after ~15 min idle; a cold start
     // retries with wait_for_model for up to 90s server-side. 45s timeouts made
     // Kael fail whenever the model was cold — keep the client patient.
@@ -237,6 +346,7 @@ static const _fallbackResponses = [
               'messages': history,
               'userContext': userContext,
               'action': 'chat',
+              if (systemHint != null) 'system': systemHint,
             });
 
           final streamed = await httpClient.send(request).timeout(sseTimeout);
@@ -292,6 +402,7 @@ static const _fallbackResponses = [
           'messages': history,
           'userContext': userContext,
           'action': 'chat',
+          if (systemHint != null) 'system': systemHint,
         }).timeout(const Duration(seconds: 90));
         final parsed = _parseInvokeResult(result.data);
         if (parsed.isNotEmpty) yield parsed;

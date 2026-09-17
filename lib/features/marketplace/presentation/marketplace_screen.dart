@@ -11,6 +11,7 @@ import 'package:church_on_app/core/widgets/app_error_view.dart';
 
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/features/admin/data/writer_approval_service.dart';
 
 class MarketplaceScreen extends ConsumerStatefulWidget {
   final String? initialCategory;
@@ -106,6 +107,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   @override
   Widget build(BuildContext context) {
     final cartItems = ref.watch(cartProvider);
+    final verifiedWriterIds =
+        ref.watch(verifiedWriterIdsProvider).value ?? const <String>{};
+    final isVerifiedWriter = ref.watch(isVerifiedWriterProvider).value ?? false;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -201,7 +205,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                                       ),
                                     );
                             }
-                            return _buildMarketItem(_products[index]);
+                            return _buildMarketItem(
+                              _products[index],
+                              verifiedWriterIds,
+                            );
                           },
                         ),
                       ),
@@ -210,16 +217,23 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
+          // Verified writers get a dedicated "Sell a Book" action pre-set to
+          // the BOOK category (physical book or digital/eBook).
+          final bookPreset =
+              _selectedCategory == 'book' || _selectedCategory == 'bookshop' || isVerifiedWriter;
           Navigator.push(
-            context, 
+            context,
             MaterialPageRoute(
-              builder: (context) => PostProductScreen(initialCategory: _selectedCategory == 'bookshop' ? 'bookshop' : null),
+              builder: (context) => PostProductScreen(initialCategory: bookPreset ? 'book' : null),
             ),
           );
         },
          backgroundColor: Theme.of(context).primaryColor,
         icon: const Icon(LucideIcons.plus, color: Colors.white),
-        label: Text(_selectedCategory == 'bookshop' ? "Sell a Book" : "List Item", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: Text(
+          (_selectedCategory == 'bookshop' || isVerifiedWriter) ? "Sell a Book" : "List Item",
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
@@ -269,7 +283,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   Widget _buildCategoryRibbon() {
     final categories = widget.initialCategory == 'bookshop'
         ? const ['bookshop']
-        : const ['all', 'bookshop', 'apparel', 'worship', 'tickets', 'media'];
+        : const ['all', 'bookshop', 'book', 'apparel', 'worship', 'tickets', 'media'];
     return Container(
       height: 40,
       margin: const EdgeInsets.only(bottom: 10),
@@ -350,7 +364,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     );
   }
 
-  Widget _buildMarketItem(MarketProduct product) {
+  Widget _buildMarketItem(MarketProduct product, Set<String> verifiedWriterIds) {
+    final isVerifiedWriter =
+        product.vendorId != null && verifiedWriterIds.contains(product.vendorId);
     return GestureDetector(
       onTap: () {
         Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(product: product)));
@@ -381,6 +397,22 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                   ),
                 ),
               ),
+              if (isVerifiedWriter)
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: const Color(0xFF7C3AED), borderRadius: BorderRadius.circular(8)),
+                    child: const Row(
+                      children: [
+                        Icon(LucideIcons.badgeCheck, color: Colors.white, size: 10),
+                        SizedBox(width: 4),
+                        Text("VERIFIED WRITER", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ),
               if (product.isCurated)
                 Positioned(
                   top: 10,
@@ -407,6 +439,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                 Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 5),
                 Text(product.vendorName ?? "Verified Vendor", style: const TextStyle(color: Colors.grey, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                if (product.category == 'book') ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    product.isDigitalBook ? "EBOOK" : "PHYSICAL BOOK",
+                    style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

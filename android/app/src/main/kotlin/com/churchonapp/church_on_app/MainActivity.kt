@@ -6,11 +6,14 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.database.ContentObserver
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.os.Process
+import android.provider.MediaStore
 import android.provider.Settings
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
@@ -20,12 +23,17 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.churchonapp.churchonapp/dnd_helper"
     private val WAKE_CHANNEL = "com.churchonapp.churchonapp/wake_service"
+    private val SCREENSHOT_CHANNEL = "com.churchonapp.churchonapp/screenshot"
     private var monitorHandler: Handler? = null
     private var monitorRunnable: Runnable? = null
     private val blockedPackagesList = mutableSetOf<String>()
+    private var screenshotObserver: ContentObserver? = null
+    private var screenshotChannel: MethodChannel? = null
+    private var lastShotAt = 0L
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        setupScreenshotChannel(flutterEngine)
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
@@ -191,6 +199,85 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    // ── Screenshot detection ────────────────────────────────────────────────
+    // Detects a taken screenshot (does NOT block it) and notifies Dart so the
+    // app can offer a "share instead" sheet.
+    private fun setupScreenshotChannel(flutterEngine: FlutterEngine) {
+        screenshotChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger, SCREENSHOT_CHANNEL
+        )
+        screenshotChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startWatching" -> { startScreenshotWatch(); result.success(true) }
+                "stopWatching" -> { stopScreenshotWatch(); result.success(true) }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun startScreenshotWatch() {
+        if (screenshotObserver != null) return
+        try {
+            val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean, uri: Uri?) {
+                    super.onChange(selfChange, uri)
+                    val now = System.currentTimeMillis()
+                    if (now - lastShotAt < 1500) return
+                    if (isScreenshot(uri)) {
+                        lastShotAt = now
+                        runOnUiThread {
+                            screenshotChannel?.invokeMethod("screenshot", null)
+                        }
+                    }
+                }
+            }
+            contentResolver.registerContentObserver(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI, true, observer
+            )
+            screenshotObserver = observer
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun stopScreenshotWatch() {
+        try {
+            screenshotObserver?.let { contentResolver.unregisterContentObserver(it) }
+        } catch (_: Exception) {
+        }
+        screenshotObserver = null
+    }
+
+    private fun isScreenshot(uri: Uri?): Boolean {
+        if (uri == null) return false
+        return try {
+            val cols = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                arrayOf(
+                    MediaStore.Images.Media.DISPLAY_NAME,
+                    MediaStore.Images.Media.RELATIVE_PATH,
+                    MediaStore.Images.Media.DATE_ADDED
+                )
+            } else {
+                arrayOf(
+                    MediaStore.Images.Media.DATA,
+                    MediaStore.Images.Media.DATE_ADDED
+                )
+            }
+            contentResolver.query(uri, cols, null, null, null)?.use { c ->
+                if (!c.moveToFirst()) return false
+                val added = c.getLong(c.getColumnIndex(MediaStore.Images.Media.DATE_ADDED))
+                val fresh = (System.currentTimeMillis() / 1000 - added) < 10
+                val path = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    c.getString(c.getColumnIndex(MediaStore.Images.Media.RELATIVE_PATH))
+                } else {
+                    c.getString(c.getColumnIndex(MediaStore.Images.Media.DATA))
+                }
+                fresh && (path?.contains("screenshot", ignoreCase = true) == true)
+            } ?: false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun startMonitoring() {
         stopMonitoring()
         monitorHandler = Handler(Looper.getMainLooper())
@@ -235,6 +322,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         stopMonitoring()
+        stopScreenshotWatch()
         super.onDestroy()
     }
 }

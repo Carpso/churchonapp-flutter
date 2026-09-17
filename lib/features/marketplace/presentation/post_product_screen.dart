@@ -8,6 +8,9 @@ import '../../../core/providers/profile_provider.dart';
 import '../../../core/services/tenant_service.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/services/r2_service.dart';
+import '../../../core/widgets/kael_explain_sheet.dart';
+import '../../../core/config/fee_config.dart';
+import '../../admin/data/writer_approval_service.dart';
 import 'package:universal_io/io.dart';
 
 class PostProductScreen extends ConsumerStatefulWidget {
@@ -30,14 +33,22 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
   final _imageCtrl = TextEditingController();
   final _stockCtrl = TextEditingController();
   final _downloadUrlCtrl = TextEditingController();
+  final _isbnCtrl = TextEditingController();
+  final _authorCtrl = TextEditingController();
+  final _pagesCtrl = TextEditingController();
   String _selectedCategory = "apparel";
   String _selectedType = "general";
   bool _isSubmitting = false;
+  // Book format (only meaningful when category == 'book'). Digital books carry
+  // a download_url; physical books carry stock. No extra column is invented.
+  bool _isDigitalBook = false;
   File? _imageFile;
   // ignore: unused_field
   String? _uploadedImageUrl;
 
-  final List<String> _categories = ["bookshop", "apparel", "worship", "tickets", "media", "electronics", "home"];
+  final List<String> _categories = ["book", "bookshop", "apparel", "worship", "tickets", "media", "electronics", "home"];
+
+  bool get _isBook => _selectedCategory == "book";
 
   bool get _isEditing => widget.product != null;
 
@@ -60,6 +71,10 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
       if (type != null && type.isNotEmpty) _selectedType = type;
       _stockCtrl.text = p['stock']?.toString() ?? '';
       _downloadUrlCtrl.text = p['download_url']?.toString() ?? '';
+      _isbnCtrl.text = p['isbn']?.toString() ?? '';
+      _authorCtrl.text = p['author']?.toString() ?? '';
+      _pagesCtrl.text = p['pages']?.toString() ?? '';
+      _isDigitalBook = cat == 'book' && _downloadUrlCtrl.text.trim().isNotEmpty;
     }
   }
 
@@ -71,6 +86,9 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
     _imageCtrl.dispose();
     _stockCtrl.dispose();
     _downloadUrlCtrl.dispose();
+    _isbnCtrl.dispose();
+    _authorCtrl.dispose();
+    _pagesCtrl.dispose();
     super.dispose();
   }
 
@@ -113,7 +131,9 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
         }
       }
 
-      final stock = int.tryParse(_stockCtrl.text.trim()) ?? 0;
+      final rawStock = int.tryParse(_stockCtrl.text.trim()) ?? 0;
+      // A digital/eBook has no stock; a physical book is stock-counted.
+      final stock = _isBook && _isDigitalBook ? 0 : rawStock;
       final productData = {
         'name': _nameCtrl.text.trim(),
         'price': double.tryParse(_priceCtrl.text.trim()) ?? 0.0,
@@ -127,6 +147,11 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
         'download_url': _downloadUrlCtrl.text.trim().isEmpty ? null : _downloadUrlCtrl.text.trim(),
         'condition': 'new',
         'is_curated': false,
+        if (_isBook) ...{
+          'author': _authorCtrl.text.trim().isEmpty ? null : _authorCtrl.text.trim(),
+          'isbn': _isbnCtrl.text.trim().isEmpty ? null : _isbnCtrl.text.trim(),
+          'pages': int.tryParse(_pagesCtrl.text.trim()),
+        },
       };
 
       if (_isEditing) {
@@ -166,10 +191,17 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isVerifiedWriter = ref.watch(isVerifiedWriterProvider).value ?? false;
+    final bookFeePercent =
+        (ref.watch(feeConfigProvider).value ?? FeeConfig.defaults)
+            .marketplaceBookFeePercent;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(_isEditing ? "Edit Item" : "List an Item", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        title: Text(
+          _isBook ? (_isEditing ? "Edit Book" : "List a Book") : (_isEditing ? "Edit Item" : "List an Item"),
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(25),
@@ -178,6 +210,10 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (isVerifiedWriter) ...[
+                _buildVerifiedWriterBadge(),
+                const SizedBox(height: 20),
+              ],
               _buildSectionHeader("Product Details", LucideIcons.package),
               const SizedBox(height: 20),
               _buildTextField(
@@ -199,25 +235,96 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
                 items: _categories,
                 onChanged: (v) => setState(() => _selectedCategory = v!),
               ),
+              if (_isBook) ...[
+                const SizedBox(height: 25),
+                _buildSectionHeader("Book Details", LucideIcons.bookOpen),
+                const SizedBox(height: 15),
+                _buildBookFormatSelector(),
+                const SizedBox(height: 15),
+                _buildTextField(
+                  controller: _authorCtrl,
+                  label: "Author (optional)",
+                  hint: "e.g. David K. Bernard",
+                ),
+                const SizedBox(height: 15),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _isbnCtrl,
+                        label: "ISBN (optional)",
+                        hint: "978-...",
+                      ),
+                    ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _pagesCtrl,
+                        label: "Pages (optional)",
+                        hint: "e.g. 240",
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return null;
+                          final n = int.tryParse(v.trim());
+                          if (n == null || n <= 0) return 'Invalid';
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(LucideIcons.info, size: 18, color: Colors.amber),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          "COA marketplace fee: ${(bookFeePercent * 100).toStringAsFixed(1)}% per sale — applied through the same marketplace checkout as every other item.",
+                          style: TextStyle(color: Colors.orange.shade900, fontSize: 11.5, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 15),
               _buildSectionHeader("Inventory", LucideIcons.package),
               const SizedBox(height: 15),
-              _buildTextField(
-                controller: _stockCtrl,
-                label: "Stock Quantity",
-                hint: "e.g. 10 (0 = out of stock)",
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return null;
-                  final n = int.tryParse(v.trim());
-                  if (n == null || n < 0) return 'Enter a valid number';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 15),
+              if (!(_isBook && _isDigitalBook))
+                _buildTextField(
+                  controller: _stockCtrl,
+                  label: "Stock Quantity",
+                  hint: "e.g. 10 (0 = out of stock)",
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return null;
+                    final n = int.tryParse(v.trim());
+                    if (n == null || n < 0) return 'Enter a valid number';
+                    return null;
+                  },
+                ),
+              if (!(_isBook && _isDigitalBook)) const SizedBox(height: 15),
               _buildTextField(
                 controller: _downloadUrlCtrl,
-                label: "Digital Download URL (optional)",
-                hint: "https://... for e-books",
+                label: _isBook && _isDigitalBook
+                    ? "eBook Download URL"
+                    : "Digital Download URL (optional)",
+                hint: _isBook && _isDigitalBook
+                    ? "https://... link buyers receive"
+                    : "https://... for e-books",
+                validator: (_isBook && _isDigitalBook)
+                    ? (v) => (v == null || v.trim().isEmpty)
+                        ? 'A download link is required for an eBook'
+                        : null
+                    : null,
               ),
               const SizedBox(height: 25),
               _buildSectionHeader("Market Settings", LucideIcons.settings),
@@ -225,6 +332,27 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
               _buildTypeSelector(),
               const SizedBox(height: 25),
               _buildSectionHeader("Description & Media", LucideIcons.image),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    final name = _nameCtrl.text.trim().isEmpty
+                        ? 'this item'
+                        : '"${_nameCtrl.text.trim()}"';
+                    showKaelExplainSheet(
+                      context,
+                      action: 'summary',
+                      title: 'Kael suggests a description',
+                      prompt:
+                          'Write a short, warm, persuasive marketplace listing description (3-4 sentences) for a church marketplace item named $name in the $_selectedCategory category. '
+                          'Keep it honest, friendly and clear, and end with a one-line call to action.',
+                    );
+                  },
+                  icon: const Icon(LucideIcons.sparkles, size: 16, color: Colors.amber),
+                  label: const Text('Ask Kael to write it', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+              ),
               const SizedBox(height: 20),
               _buildTextField(
                 controller: _descCtrl,
@@ -290,6 +418,65 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
               ),
               const SizedBox(height: 20),
               const Center(child: Text("All listings undergo automated safety checks.", style: TextStyle(color: Colors.grey, fontSize: 11))),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerifiedWriterBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFF6D28D9), Color(0xFF9333EA)]),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(LucideIcons.badgeCheck, color: Colors.white, size: 16),
+          SizedBox(width: 8),
+          Text(
+            "VERIFIED WRITER",
+            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBookFormatSelector() {
+    return Row(
+      children: [
+        _buildBookFormatCard(false, "Physical Book", LucideIcons.book),
+        const SizedBox(width: 15),
+        _buildBookFormatCard(true, "Digital / eBook", LucideIcons.bookOpen),
+      ],
+    );
+  }
+
+  Widget _buildBookFormatCard(bool digital, String label, IconData icon) {
+    final isSelected = _isDigitalBook == digital;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _isDigitalBook = digital),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? Theme.of(context).primaryColor : Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: isSelected ? Theme.of(context).primaryColor : Colors.white),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: isSelected ? Colors.white : Colors.grey, size: 20),
+              const SizedBox(height: 5),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: isSelected ? Colors.white : Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
         ),

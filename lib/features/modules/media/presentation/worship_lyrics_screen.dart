@@ -1,7 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import 'package:church_on_app/features/modules/media/data/lyrics_service.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
@@ -19,6 +25,7 @@ class _WorshipLyricsScreenState extends ConsumerState<WorshipLyricsScreen> {
   String _searchQuery = '';
   String _selectedCategory = 'all';
   bool _showChords = true;
+  int _tabIndex = 0;
 
   final List<Map<String, String>> _categories = [
     {'id': 'all', 'name': 'All Songs'},
@@ -35,18 +42,26 @@ class _WorshipLyricsScreenState extends ConsumerState<WorshipLyricsScreen> {
     super.dispose();
   }
 
+  bool _canManage(UserProfile? profile) {
+    if (profile == null) return false;
+    return profile.isEmployee ||
+        profile.isLeadershipTeam ||
+        profile.isWorshipLeader ||
+        profile.isPraiseTeam;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final profileAsync = ref.watch(profileProvider);
-    final profile = profileAsync.value;
-    final canAddLyrics = profile != null &&
-        (profile.isEmployee ||
-            profile.isAdminOrHigher ||
-            profile.isPraiseTeam);
-    final lyricsAsync = _selectedCategory == 'all'
+    final profile = ref.watch(profileProvider).value;
+    final canManage = _canManage(profile);
+
+    final libraryAsync = _selectedCategory == 'all'
         ? ref.watch(lyricsStreamProvider)
         : ref.watch(lyricsByCategoryProvider(_selectedCategory));
+    final manageAsync = ref.watch(myTenantLyricsStreamProvider);
+
+    final showManageTab = canManage && _tabIndex == 1;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -73,7 +88,7 @@ class _WorshipLyricsScreenState extends ConsumerState<WorshipLyricsScreen> {
           ),
         ],
       ),
-      floatingActionButton: canAddLyrics
+      floatingActionButton: canManage
           ? FloatingActionButton.extended(
               onPressed: () => _showAddLyricDialog(context),
               icon: const Icon(LucideIcons.plus),
@@ -84,140 +99,272 @@ class _WorshipLyricsScreenState extends ConsumerState<WorshipLyricsScreen> {
           : null,
       body: Column(
         children: [
-          // Search & Filter
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: TextField(
-              controller: _searchCtrl,
-              decoration: InputDecoration(
-                hintText: 'Search songs by title or artist...',
-                prefixIcon: const Icon(LucideIcons.search, size: 18),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(LucideIcons.x, size: 16),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: theme.colorScheme.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          if (canManage)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(value: 0, label: Text('Library'), icon: Icon(LucideIcons.library, size: 16)),
+                  ButtonSegment(value: 1, label: Text('Manage'), icon: Icon(LucideIcons.settings2, size: 16)),
+                ],
+                selected: {_tabIndex},
+                onSelectionChanged: (s) => setState(() => _tabIndex = s.first),
               ),
-              onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
             ),
-          ),
 
-          // Categories
-          SizedBox(
-            height: 40,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _categories.length,
-              itemBuilder: (context, index) {
-                final cat = _categories[index];
-                final isSelected = _selectedCategory == cat['id'];
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(cat['name']!),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() => _selectedCategory = cat['id']!);
-                    },
-                    selectedColor: theme.primaryColor.withValues(alpha: 0.2),
-                    checkmarkColor: theme.primaryColor,
+          if (!showManageTab) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: TextField(
+                controller: _searchCtrl,
+                decoration: InputDecoration(
+                  hintText: 'Search songs by title or artist...',
+                  prefixIcon: const Icon(LucideIcons.search, size: 18),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(LucideIcons.x, size: 16),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: theme.colorScheme.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
                   ),
-                );
-              },
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
+              ),
             ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Songs List
-          Expanded(
-            child: lyricsAsync.when(
-              data: (lyrics) {
-                final filtered = lyrics.where((l) {
-                  if (_searchQuery.isEmpty) return true;
-                  return l.title.toLowerCase().contains(_searchQuery) ||
-                      l.artist.toLowerCase().contains(_searchQuery);
-                }).toList();
-
-                if (filtered.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(LucideIcons.music2, size: 48, color: theme.disabledColor),
-                        const SizedBox(height: 12),
-                        Text(
-                          _searchQuery.isNotEmpty ? 'No songs match "$_searchQuery"' : 'No lyrics available',
-                          style: TextStyle(color: theme.disabledColor),
-                        ),
-                      ],
+            SizedBox(
+              height: 40,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _categories.length,
+                itemBuilder: (context, index) {
+                  final cat = _categories[index];
+                  final isSelected = _selectedCategory == cat['id'];
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(cat['name']!),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        setState(() => _selectedCategory = cat['id']!);
+                      },
+                      selectedColor: theme.primaryColor.withValues(alpha: 0.2),
+                      checkmarkColor: theme.primaryColor,
                     ),
                   );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) {
-                    final song = filtered[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        leading: CircleAvatar(
-                          backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-                          child: Icon(LucideIcons.music, color: theme.primaryColor, size: 20),
-                        ),
-                        title: Text(
-                          song.title,
-                          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        subtitle: Row(
-                          children: [
-                            Text(song.artist, style: const TextStyle(fontSize: 13)),
-                            if (song.key != null) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.amber.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  'Key: ${song.key}',
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        trailing: const Icon(LucideIcons.chevronRight, size: 18),
-                        onTap: () => _openLyricDetail(context, song),
-                      ),
-                    );
-                  },
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, stack) => Center(child: Text('Error loading lyrics: $err')),
+                },
+              ),
             ),
+            const SizedBox(height: 8),
+          ] else
+            const SizedBox(height: 8),
+
+          Expanded(
+            child: showManageTab
+                ? _buildAsyncList(
+                    context,
+                    manageAsync,
+                    management: true,
+                  )
+                : _buildAsyncList(context, libraryAsync),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildAsyncList(
+    BuildContext context,
+    AsyncValue<List<WorshipLyric>> async, {
+    bool management = false,
+  }) {
+    final theme = Theme.of(context);
+    return async.when(
+      data: (lyrics) {
+        final filtered = lyrics.where((l) {
+          if (_searchQuery.isEmpty) return true;
+          return l.title.toLowerCase().contains(_searchQuery) ||
+              l.artist.toLowerCase().contains(_searchQuery);
+        }).toList();
+
+        if (filtered.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(LucideIcons.music2, size: 48, color: theme.disabledColor),
+                const SizedBox(height: 12),
+                Text(
+                  management
+                      ? 'Your church has no songs yet. Tap ADD SONG to create one.'
+                      : (_searchQuery.isNotEmpty
+                          ? 'No songs match "$_searchQuery"'
+                          : 'No lyrics available'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: theme.disabledColor),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          itemCount: filtered.length,
+          itemBuilder: (context, index) {
+            final song = filtered[index];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: CircleAvatar(
+                  backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
+                  child: Icon(LucideIcons.music, color: theme.primaryColor, size: 20),
+                ),
+                title: Text(
+                  song.title,
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                subtitle: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        song.artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    if (song.key != null) ...[
+                      const SizedBox(width: 8),
+                      _chip('Key: ${song.key}', Colors.amber),
+                    ],
+                    if (management && !song.isPublished) ...[
+                      const SizedBox(width: 6),
+                      _chip('DRAFT', Colors.orange),
+                    ],
+                    if (song.isGlobal) ...[
+                      const SizedBox(width: 6),
+                      _chip('GLOBAL', Colors.teal),
+                    ],
+                  ],
+                ),
+                trailing: management
+                    ? PopupMenuButton<String>(
+                        icon: const Icon(LucideIcons.moreVertical, size: 18),
+                        onSelected: (v) => _onManageAction(v, song),
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                          PopupMenuItem(
+                            value: 'publish',
+                            child: Text(song.isPublished ? 'Unpublish' : 'Publish'),
+                          ),
+                          PopupMenuItem(
+                            value: 'global',
+                            child: Text(song.isGlobal ? 'Remove from global' : 'Air globally'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text('Delete', style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(LucideIcons.eye, size: 14, color: theme.disabledColor),
+                          const SizedBox(width: 3),
+                          Text('${song.views}', style: TextStyle(fontSize: 12, color: theme.disabledColor)),
+                          const SizedBox(width: 10),
+                          Icon(LucideIcons.heart, size: 14, color: theme.disabledColor),
+                          const SizedBox(width: 3),
+                          Text('${song.likes}', style: TextStyle(fontSize: 12, color: theme.disabledColor)),
+                        ],
+                      ),
+                onTap: () => _openLyricDetail(context, song),
+              ),
+            );
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(child: Text('Error loading lyrics: $err')),
+    );
+  }
+
+  Widget _chip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+      ),
+    );
+  }
+
+  Future<void> _onManageAction(String action, WorshipLyric song) async {
+    final service = ref.read(lyricsServiceProvider);
+    try {
+      switch (action) {
+        case 'edit':
+          _showAddLyricDialog(context, existing: song);
+          break;
+        case 'publish':
+          await service.publishLyric(song.id, !song.isPublished);
+          if (mounted) {
+            PremiumToast.showSuccess(
+              context,
+              song.isPublished ? 'Song unpublished' : 'Song published',
+            );
+          }
+          break;
+        case 'global':
+          await service.setGlobalAirPermission(song.id, !song.isGlobal);
+          if (mounted) {
+            PremiumToast.showSuccess(
+              context,
+              song.isGlobal ? 'Removed from global library' : 'Now airing globally',
+            );
+          }
+          break;
+        case 'delete':
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Delete song?'),
+              content: Text('"${song.title}" will be permanently removed.'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                ),
+              ],
+            ),
+          );
+          if (confirmed == true) {
+            await service.deleteLyric(song.id);
+            if (mounted) PremiumToast.showSuccess(context, 'Song deleted');
+          }
+          break;
+      }
+    } catch (e) {
+      if (mounted) PremiumToast.showError(context, 'Action failed: $e');
+    }
   }
 
   void _openLyricDetail(BuildContext context, WorshipLyric lyric) {
@@ -229,13 +376,18 @@ class _WorshipLyricsScreenState extends ConsumerState<WorshipLyricsScreen> {
     );
   }
 
-  void _showAddLyricDialog(BuildContext context) {
-    final titleCtrl = TextEditingController();
-    final artistCtrl = TextEditingController();
-    final lyricsCtrl = TextEditingController();
-    final chordsCtrl = TextEditingController();
-    final keyCtrl = TextEditingController();
-    String category = 'worship';
+  void _showAddLyricDialog(BuildContext context, {WorshipLyric? existing}) {
+    final titleCtrl = TextEditingController(text: existing?.title);
+    final artistCtrl = TextEditingController(text: existing?.artist);
+    final lyricsCtrl = TextEditingController(text: existing?.lyrics);
+    final chordsCtrl = TextEditingController(text: existing?.chords);
+    final keyCtrl = TextEditingController(text: existing?.key);
+    final bpmCtrl = TextEditingController(text: existing?.bpm?.toString());
+    final mediaCtrl = TextEditingController(text: existing?.mediaUrl);
+    String category = existing?.category ?? 'worship';
+    if (!_categories.any((c) => c['id'] == category)) category = 'worship';
+
+    final categories = _categories.where((c) => c['id'] != 'all').toList();
 
     showModalBottomSheet(
       context: context,
@@ -243,7 +395,7 @@ class _WorshipLyricsScreenState extends ConsumerState<WorshipLyricsScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-          height: MediaQuery.of(context).size.height * 0.85,
+          height: MediaQuery.of(context).size.height * 0.9,
           decoration: BoxDecoration(
             color: Theme.of(context).scaffoldBackgroundColor,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -263,7 +415,10 @@ class _WorshipLyricsScreenState extends ConsumerState<WorshipLyricsScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text('Add New Worship Song', style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.bold)),
+                  Text(
+                    existing == null ? 'Add New Worship Song' : 'Edit Worship Song',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: titleCtrl,
@@ -285,18 +440,33 @@ class _WorshipLyricsScreenState extends ConsumerState<WorshipLyricsScreen> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: category,
-                          decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
-                          items: _categories.where((c) => c['id'] != 'all').map((c) {
-                            return DropdownMenuItem(value: c['id'], child: Text(c['name']!));
-                          }).toList(),
-                          onChanged: (v) {
-                            if (v != null) setModalState(() => category = v);
-                          },
+                        child: TextField(
+                          controller: bpmCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'BPM', border: OutlineInputBorder()),
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: category,
+                    decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
+                    items: categories.map((c) {
+                      return DropdownMenuItem(value: c['id'], child: Text(c['name']!));
+                    }).toList(),
+                    onChanged: (v) {
+                      if (v != null) setModalState(() => category = v);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: mediaCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'YouTube / Media link (optional)',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(LucideIcons.link, size: 18),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -323,27 +493,49 @@ class _WorshipLyricsScreenState extends ConsumerState<WorshipLyricsScreen> {
                         PremiumToast.showError(context, 'Title and lyrics are required');
                         return;
                       }
+                      final service = ref.read(lyricsServiceProvider);
+                      final payload = {
+                        'title': titleCtrl.text.trim(),
+                        'artist': artistCtrl.text.trim().isEmpty ? 'Unknown' : artistCtrl.text.trim(),
+                        'lyrics': lyricsCtrl.text.trim(),
+                        'chords': chordsCtrl.text.trim().isEmpty ? null : chordsCtrl.text.trim(),
+                        'category': category,
+                        'musical_key': keyCtrl.text.trim().isEmpty ? null : keyCtrl.text.trim(),
+                        'bpm': int.tryParse(bpmCtrl.text.trim()),
+                        'media_url': mediaCtrl.text.trim().isEmpty ? null : mediaCtrl.text.trim(),
+                      };
                       try {
-                        final lyric = WorshipLyric(
-                          id: '',
-                          title: titleCtrl.text.trim(),
-                          artist: artistCtrl.text.trim().isEmpty ? 'Unknown' : artistCtrl.text.trim(),
-                          lyrics: lyricsCtrl.text.trim(),
-                          chords: chordsCtrl.text.trim().isEmpty ? null : chordsCtrl.text.trim(),
-                          category: category,
-                          key: keyCtrl.text.trim().isEmpty ? null : keyCtrl.text.trim(),
-                          createdAt: DateTime.now(),
-                        );
-                        await ref.read(lyricsServiceProvider).createLyric(lyric);
+                        if (existing == null) {
+                          await service.createLyric(WorshipLyric(
+                            id: '',
+                            title: payload['title']! as String,
+                            artist: payload['artist']! as String,
+                            lyrics: payload['lyrics']! as String,
+                            chords: payload['chords'] as String?,
+                            category: category,
+                            key: payload['musical_key'] as String?,
+                            bpm: payload['bpm'] as int?,
+                            mediaUrl: payload['media_url'] as String?,
+                            createdAt: DateTime.now(),
+                          ));
+                        } else {
+                          await service.updateLyric(existing.id, payload);
+                        }
                         if (context.mounted) {
                           Navigator.pop(context);
-                          PremiumToast.showSuccess(context, 'Song added successfully!');
+                          PremiumToast.showSuccess(
+                            context,
+                            existing == null ? 'Song added successfully!' : 'Song updated!',
+                          );
                         }
                       } catch (e) {
-                        if (context.mounted) PremiumToast.showError(context, 'Failed to add song: $e');
+                        if (context.mounted) PremiumToast.showError(context, 'Failed to save song: $e');
                       }
                     },
-                    child: const Text('SAVE SONG', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text(
+                      existing == null ? 'SAVE SONG' : 'UPDATE SONG',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ],
               );
@@ -355,7 +547,7 @@ class _WorshipLyricsScreenState extends ConsumerState<WorshipLyricsScreen> {
   }
 }
 
-class SongDetailScreen extends StatefulWidget {
+class SongDetailScreen extends ConsumerStatefulWidget {
   final WorshipLyric lyric;
   final bool initialShowChords;
 
@@ -366,18 +558,128 @@ class SongDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<SongDetailScreen> createState() => _SongDetailScreenState();
+  ConsumerState<SongDetailScreen> createState() => _SongDetailScreenState();
 }
 
-class _SongDetailScreenState extends State<SongDetailScreen> {
+class _SongDetailScreenState extends ConsumerState<SongDetailScreen> {
+  final _scrollCtrl = ScrollController();
   late bool _showChords;
   bool _presentationMode = false;
   double _fontSize = 18.0;
+  bool _autoScroll = false;
+  Timer? _autoScrollTimer;
+  late WorshipLyric _lyric;
+  final Set<String> _liked = {};
 
   @override
   void initState() {
     super.initState();
+    _lyric = widget.lyric;
     _showChords = widget.initialShowChords && widget.lyric.chords != null;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _recordView());
+  }
+
+  Future<void> _recordView() async {
+    if (_lyric.id.isEmpty) return;
+    try {
+      final views = await ref.read(lyricsServiceProvider).incrementView(_lyric.id);
+      if (mounted) setState(() => _lyric = _copyWith(views: views));
+    } catch (e) {
+      debugPrint('Failed to record lyric view: $e');
+    }
+  }
+
+  WorshipLyric _copyWith({int? views, int? likes}) {
+    return WorshipLyric(
+      id: _lyric.id,
+      title: _lyric.title,
+      artist: _lyric.artist,
+      lyrics: _lyric.lyrics,
+      chords: _lyric.chords,
+      category: _lyric.category,
+      key: _lyric.key,
+      bpm: _lyric.bpm,
+      mediaUrl: _lyric.mediaUrl,
+      tenantId: _lyric.tenantId,
+      createdBy: _lyric.createdBy,
+      createdAt: _lyric.createdAt,
+      isGlobal: _lyric.isGlobal,
+      isPublished: _lyric.isPublished,
+      views: views ?? _lyric.views,
+      likes: likes ?? _lyric.likes,
+    );
+  }
+
+  bool get _isLiked => _liked.contains(_lyric.id);
+
+  Future<void> _toggleLike() async {
+    if (_lyric.id.isEmpty) return;
+    try {
+      final liked = await ref.read(lyricsServiceProvider).toggleLike(_lyric.id);
+      if (!mounted) return;
+      setState(() {
+        if (liked) {
+          _liked.add(_lyric.id);
+          _lyric = _copyWith(likes: _lyric.likes + 1);
+        } else {
+          _liked.remove(_lyric.id);
+          _lyric = _copyWith(likes: (_lyric.likes - 1).clamp(0, 1 << 31));
+        }
+      });
+    } catch (e) {
+      if (mounted) PremiumToast.showError(context, 'Could not update like');
+    }
+  }
+
+  void _toggleAutoScroll() {
+    setState(() => _autoScroll = !_autoScroll);
+    _autoScrollTimer?.cancel();
+    if (_autoScroll) {
+      _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 120), (_) {
+        if (!mounted || !_scrollCtrl.hasClients) return;
+        final max = _scrollCtrl.position.maxScrollExtent;
+        final next = _scrollCtrl.offset + 1.2;
+        if (next >= max) {
+          _scrollCtrl.jumpTo(max);
+          _autoScrollTimer?.cancel();
+          if (mounted) setState(() => _autoScroll = false);
+        } else {
+          _scrollCtrl.jumpTo(next);
+        }
+      });
+    }
+  }
+
+  Future<void> _copyLyrics() async {
+    final text = '${_lyric.title}\n${_lyric.artist}\n\n${_lyric.lyrics}';
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) PremiumToast.showSuccess(context, 'Lyrics copied');
+  }
+
+  Future<void> _shareLyrics() async {
+    await SharePlus.instance.share(ShareParams(
+      text: '${_lyric.title} — ${_lyric.artist}\n\n${_lyric.lyrics}',
+    ));
+  }
+
+  Future<void> _openMedia() async {
+    final url = _lyric.mediaUrl;
+    if (url == null || url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      if (mounted) PremiumToast.showError(context, 'Invalid media link');
+      return;
+    }
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) PremiumToast.showError(context, 'Could not open link');
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoScrollTimer?.cancel();
+    _scrollCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -390,8 +692,13 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
         appBar: AppBar(
           backgroundColor: Colors.black,
           iconTheme: const IconThemeData(color: Colors.white),
-          title: Text(widget.lyric.title, style: const TextStyle(color: Colors.white)),
+          title: Text(_lyric.title, style: const TextStyle(color: Colors.white)),
           actions: [
+            IconButton(
+              icon: Icon(_autoScroll ? LucideIcons.pause : LucideIcons.play, color: Colors.white),
+              tooltip: 'Auto-scroll',
+              onPressed: _toggleAutoScroll,
+            ),
             IconButton(
               icon: const Icon(LucideIcons.minus, color: Colors.white),
               onPressed: () => setState(() => _fontSize = (_fontSize - 2).clamp(12, 36)),
@@ -406,11 +713,12 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
             ),
           ],
         ),
-        body: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+        body: SingleChildScrollView(
+          controller: _scrollCtrl,
+          padding: const EdgeInsets.all(24),
+          child: Center(
             child: Text(
-              widget.lyric.lyrics,
+              _lyric.lyrics,
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
                 color: Colors.white,
@@ -427,9 +735,25 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(widget.lyric.title, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        title: Text(_lyric.title, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
         actions: [
-          if (widget.lyric.chords != null)
+          if (_lyric.mediaUrl != null && _lyric.mediaUrl!.isNotEmpty)
+            IconButton(
+              icon: const Icon(LucideIcons.playCircle),
+              tooltip: 'Play media',
+              onPressed: _openMedia,
+            ),
+          IconButton(
+            icon: const Icon(LucideIcons.copy),
+            tooltip: 'Copy lyrics',
+            onPressed: _copyLyrics,
+          ),
+          IconButton(
+            icon: const Icon(LucideIcons.share2),
+            tooltip: 'Share',
+            onPressed: _shareLyrics,
+          ),
+          if (_lyric.chords != null)
             IconButton(
               icon: Icon(_showChords ? LucideIcons.music : LucideIcons.fileText),
               tooltip: _showChords ? 'Hide Chords' : 'Show Chords',
@@ -443,6 +767,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
         ],
       ),
       body: SingleChildScrollView(
+        controller: _scrollCtrl,
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,21 +775,23 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.lyric.artist,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 16, color: theme.disabledColor, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.lyric.category.toUpperCase(),
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: theme.primaryColor),
-                    ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _lyric.artist,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 16, color: theme.disabledColor, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _lyric.category.toUpperCase(),
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: theme.primaryColor),
+                      ),
+                    ],
+                  ),
                 ),
-                if (widget.lyric.key != null)
+                if (_lyric.key != null)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
@@ -473,15 +800,48 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
                       border: Border.all(color: Colors.amber),
                     ),
                     child: Text(
-                      'KEY: ${widget.lyric.key}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber, fontSize: 13),
+                      'KEY: ${_lyric.key}${_lyric.bpm != null ? ' · ${_lyric.bpm} BPM' : ''}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber, fontSize: 12),
                     ),
                   ),
               ],
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(LucideIcons.eye, size: 16, color: theme.disabledColor),
+                const SizedBox(width: 4),
+                Text('${_lyric.views} views', style: TextStyle(fontSize: 13, color: theme.disabledColor)),
+                const SizedBox(width: 16),
+                InkWell(
+                  onTap: _toggleLike,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _isLiked ? Icons.favorite : LucideIcons.heart,
+                          size: 16,
+                          color: _isLiked ? Colors.red : theme.disabledColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text('${_lyric.likes}', style: TextStyle(fontSize: 13, color: theme.disabledColor)),
+                      ],
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _toggleAutoScroll,
+                  icon: Icon(_autoScroll ? LucideIcons.pause : LucideIcons.arrowDown, size: 16),
+                  label: Text(_autoScroll ? 'Pause' : 'Auto-scroll'),
+                ),
+              ],
+            ),
             const Divider(height: 32),
 
-            if (_showChords && widget.lyric.chords != null) ...[
+            if (_showChords && _lyric.chords != null) ...[
               Text(
                 'CHORDS',
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: theme.primaryColor),
@@ -496,7 +856,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
                   border: Border.all(color: theme.primaryColor.withValues(alpha: 0.2)),
                 ),
                 child: SelectableText(
-                  widget.lyric.chords!,
+                  _lyric.chords!,
                   style: GoogleFonts.robotoMono(fontSize: 14, fontWeight: FontWeight.bold, color: theme.primaryColor),
                 ),
               ),
@@ -509,7 +869,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
             ),
             const SizedBox(height: 12),
             SelectableText(
-              widget.lyric.lyrics,
+              _lyric.lyrics,
               style: GoogleFonts.plusJakartaSans(fontSize: _fontSize, height: 1.7),
             ),
             const SizedBox(height: 40),

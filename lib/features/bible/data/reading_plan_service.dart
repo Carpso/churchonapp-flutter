@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
+import 'bible_verse_service.dart';
 
 class ReadingPlan {
   final String id;
@@ -100,4 +101,71 @@ final readingPlanServiceProvider = Provider((ref) {
 
 final readingPlansProvider = FutureProvider<List<ReadingPlan>>((ref) {
   return ref.watch(readingPlanServiceProvider).getPlans();
+});
+
+/// A single tickable reading-plan entry (backed by `reading_plan_entries`).
+class ReadingPlanEntry {
+  final String id;
+  final int dayNumber;
+  final String bookName;
+  final int chapter;
+  final int? verseStart;
+  final int? verseEnd;
+
+  ReadingPlanEntry({
+    required this.id,
+    required this.dayNumber,
+    required this.bookName,
+    required this.chapter,
+    this.verseStart,
+    this.verseEnd,
+  });
+
+  /// Human reference, e.g. `John 3:16` or `Psalms 23:1-6`.
+  String get reference {
+    final base = '$bookName $chapter';
+    if (verseStart == null) return base;
+    if (verseEnd != null && verseEnd != verseStart) {
+      return '$base:$verseStart-$verseEnd';
+    }
+    return '$base:$verseStart';
+  }
+
+  factory ReadingPlanEntry.fromMap(Map<String, dynamic> map) {
+    dynamic book = map['book'];
+    if (book is List) book = book.isNotEmpty ? book.first : null;
+    final bookName =
+        book is Map ? (book['name']?.toString() ?? 'Scripture') : 'Scripture';
+    return ReadingPlanEntry(
+      id: map['id']?.toString() ?? '',
+      dayNumber: (map['day_number'] as num?)?.toInt() ?? 0,
+      bookName: bookName,
+      chapter: (map['chapter'] as num?)?.toInt() ?? 1,
+      verseStart: (map['verse_start'] as num?)?.toInt(),
+      verseEnd: (map['verse_end'] as num?)?.toInt(),
+    );
+  }
+}
+
+/// True only for a canonical UUID string (RPCs take `uuid` args; default/seed
+/// plan ids like `faith_wisdom` would just error).
+bool isUuidString(String value) => RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    ).hasMatch(value);
+
+/// Entries for a plan, read from `reading_plan_entries`.
+final readingPlanEntriesProvider =
+    FutureProvider.family<List<ReadingPlanEntry>, String>((ref, planId) async {
+  if (!isUuidString(planId)) return <ReadingPlanEntry>[];
+  final rows = await ref
+      .watch(bibleVerseServiceProvider)
+      .fetchReadingPlanEntries(planId: planId);
+  return rows.map(ReadingPlanEntry.fromMap).toList();
+});
+
+/// Completed entry ids for a plan (RPC-backed, persists across restarts).
+final readingPlanCompletedProvider =
+    FutureProvider.family<Set<String>, String>((ref, planId) async {
+  if (!isUuidString(planId)) return <String>{};
+  return ref.watch(bibleVerseServiceProvider).fetchCompletedPlanEntries(planId);
 });

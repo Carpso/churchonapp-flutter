@@ -35,6 +35,10 @@ class PlatformSettings {
   /// Carpso delivery per-km rate (K8 fallback, Yango-comparable).
   final double rideDeliveryPerKmKwacha;
 
+  /// COA fee on marketplace BOOK sales (10% fallback). Read from the remote
+  /// `marketplace_book_fee_percent` platform setting — never hardcoded.
+  final double marketplaceBookFeePercent;
+
   PlatformSettings({
     required this.onboardingFee,
     required this.goldMonthlyFee,
@@ -52,6 +56,7 @@ class PlatformSettings {
     this.rideBaseFareKwacha = 10.0,
     this.rideDeliveryBaseFareKwacha = 15.0,
     this.rideDeliveryPerKmKwacha = 8.0,
+    this.marketplaceBookFeePercent = 0.10,
   });
 
   /// Legacy keys that still exist in platform_settings but are no longer read:
@@ -77,6 +82,7 @@ class PlatformSettings {
     double rideBaseFare = 10.0;
     double deliveryBaseFare = 15.0;
     double deliveryPerKm = 8.0;
+    double bookFee = 0.10;
 
     for (var row in list) {
       if (row is Map) {
@@ -127,6 +133,9 @@ class PlatformSettings {
         } else if (key == 'ride_delivery_per_km_kwacha') {
           final numVal = double.tryParse(val);
           if (numVal != null) deliveryPerKm = numVal;
+        } else if (key == 'marketplace_book_fee_percent') {
+          final numVal = double.tryParse(val);
+          if (numVal != null) bookFee = numVal;
         }
       }
     }
@@ -148,6 +157,7 @@ class PlatformSettings {
       rideBaseFareKwacha: rideBaseFare,
       rideDeliveryBaseFareKwacha: deliveryBaseFare,
       rideDeliveryPerKmKwacha: deliveryPerKm,
+      marketplaceBookFeePercent: bookFee,
     );
   }
 }

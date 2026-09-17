@@ -28,6 +28,13 @@ class FeeConfig {
   /// Per-km rate for cargo delivery, Yango-comparable (K8 fallback).
   final double rideDeliveryPerKmKwacha;
 
+  /// COA fee on marketplace BOOK sales (0.10 = 10% fallback). Remote-controlled
+  /// via the `marketplace_book_fee_percent` platform setting so it is never
+  /// hardcoded. Books are sold through the SAME marketplace checkout path as
+  /// every other item (buyer-side `platformFee`), so this percent only documents
+  /// the book-specific cut and is consumed by book-selling surfaces.
+  final double marketplaceBookFeePercent;
+
   const FeeConfig({
     required this.coaFeePercent,
     required this.momoFeePercent,
@@ -39,6 +46,7 @@ class FeeConfig {
     this.rideBaseFareKwacha = 10.0,
     this.rideDeliveryBaseFareKwacha = 15.0,
     this.rideDeliveryPerKmKwacha = 8.0,
+    this.marketplaceBookFeePercent = 0.10,
   });
 
   /// Build from remote PlatformSettings
@@ -54,6 +62,7 @@ class FeeConfig {
       rideBaseFareKwacha: settings.rideBaseFareKwacha,
       rideDeliveryBaseFareKwacha: settings.rideDeliveryBaseFareKwacha,
       rideDeliveryPerKmKwacha: settings.rideDeliveryPerKmKwacha,
+      marketplaceBookFeePercent: settings.marketplaceBookFeePercent,
     );
   }
 
@@ -69,6 +78,7 @@ class FeeConfig {
     rideBaseFareKwacha: 10.0,
     rideDeliveryBaseFareKwacha: 15.0,
     rideDeliveryPerKmKwacha: 8.0,
+    marketplaceBookFeePercent: 0.10,
   );
 
   // ── Customer-facing fee ──────────────────────────────────────────────
@@ -100,6 +110,17 @@ class FeeConfig {
 
   /// Net amount a business receives after commission.
   double businessNet(double amount) => amount - businessCut(amount);
+
+  // ── Marketplace book fee (COA cut on book sales) ─────────────────────
+
+  /// COA fee on a marketplace book sale, resolved from the remote
+  /// `marketplace_book_fee_percent` (default 10%). Books deliberately go
+  /// through the SAME marketplace checkout/settlement path as other items, so
+  /// this is not a second charge — it reports the book-specific cut.
+  double marketplaceBookFee(double amount) => amount * marketplaceBookFeePercent;
+
+  /// Seller proceeds from a book sale after the COA book fee.
+  double marketplaceBookNet(double amount) => amount - marketplaceBookFee(amount);
 
   // ── Lipila disbursement fee (real 1.5% on money out) ──────────────────
 

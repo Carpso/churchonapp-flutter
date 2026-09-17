@@ -141,3 +141,31 @@ final writerApprovalServiceProvider = Provider<WriterApprovalService>((ref) {
 final pendingWriterApplicationsProvider = FutureProvider<List<WriterApplication>>((ref) async {
   return ref.read(writerApprovalServiceProvider).getPendingApplications();
 });
+
+/// True when the signed-in user is a VERIFIED writer, i.e. their own
+/// `writer_applications.status = 'approved'`. Reuses the existing writer
+/// approval flow — no separate verification mechanism.
+final isVerifiedWriterProvider = FutureProvider<bool>((ref) async {
+  try {
+    final app = await ref.read(writerApprovalServiceProvider).getMyApplication();
+    return app?.status == 'approved';
+  } catch (_) {
+    return false;
+  }
+});
+
+/// user_ids of every approved writer, used to badge their marketplace
+/// listings. Calls the `verified_writer_ids()` RPC which returns ONLY user_ids
+/// (raw writer rows are owner/admin-only under RLS, so no PII is exposed).
+final verifiedWriterIdsProvider = FutureProvider<Set<String>>((ref) async {
+  try {
+    final client = ref.read(supabaseServiceProvider).client;
+    final rows = await client.rpc('verified_writer_ids');
+    return (rows as List)
+        .map((r) => (r is Map ? r['user_id'] : r)?.toString() ?? '')
+        .where((e) => e.isNotEmpty)
+        .toSet();
+  } catch (_) {
+    return <String>{};
+  }
+});

@@ -18,6 +18,12 @@ class MarketProduct {
   final int stock;
   final String? downloadUrl;
 
+  /// Optional book metadata (set when the listing is a BOOK). `downloadUrl`
+  /// present + category 'book' means a digital/eBook; otherwise a physical book.
+  final String? isbn;
+  final String? author;
+  final int? pages;
+
   MarketProduct({
     required this.id,
     required this.name,
@@ -33,7 +39,14 @@ class MarketProduct {
     this.isCurated = false,
     this.stock = 0,
     this.downloadUrl,
+    this.isbn,
+    this.author,
+    this.pages,
   });
+
+  /// A book listing sold as a digital/eBook (has a download URL).
+  bool get isDigitalBook =>
+      category == 'book' && (downloadUrl?.isNotEmpty ?? false);
 
   factory MarketProduct.fromMap(Map<String, dynamic> map) {
     return MarketProduct(
@@ -51,6 +64,9 @@ class MarketProduct {
       isCurated: map['is_curated'] ?? false,
       stock: (map['stock'] as num?)?.toInt() ?? 0,
       downloadUrl: map['download_url']?.toString(),
+      isbn: map['isbn']?.toString(),
+      author: map['author']?.toString(),
+      pages: (map['pages'] as num?)?.toInt(),
     );
   }
 }
@@ -60,7 +76,7 @@ class MarketplaceService {
   MarketplaceService(this._client);
 
   Future<List<MarketProduct>> fetchProducts({String? category, String? marketType, String? tenantId, int offset = 0, int limit = 30}) async {
-    var query = _client.from('marketplace_items').select('id, name, price, category, image, description, vendor_name, vendor_id, tenant_id, condition, market_type, is_curated, stock, download_url').eq('status', 'active');
+    var query = _client.from('marketplace_items').select('id, name, price, category, image, description, vendor_name, vendor_id, tenant_id, condition, market_type, is_curated, stock, download_url, isbn, author, pages').eq('status', 'active');
     
     if (tenantId != null) {
       query = query.eq('tenant_id', tenantId);

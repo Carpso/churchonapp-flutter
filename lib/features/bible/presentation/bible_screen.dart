@@ -24,6 +24,7 @@ import '../data/streak_service.dart';
 import '../../notebook/presentation/notebook_screen.dart';
 import '../../notebook/data/notebook_service.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/widgets/kael_explain_sheet.dart';
 import 'bible_audio_player.dart';
 import 'scripture_audio_button.dart';
 import 'study_plans_screen.dart';
@@ -221,6 +222,17 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.sparkles, color: Colors.amber),
+            onPressed: () => showKaelExplainSheet(
+              context,
+              action: 'exegesis',
+              prompt:
+                  'Give a warm, pastoral explanation of $selectedBook chapter $selectedChapter in 3-4 sentences. Highlight the key theme, brief historical context, and one practical takeaway for a believer today.',
+            ),
+            tooltip: "Ask Kael",
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 40),
+          ),
           IconButton(
             icon: const Icon(LucideIcons.listTodo),
             onPressed: _showStudyHub,

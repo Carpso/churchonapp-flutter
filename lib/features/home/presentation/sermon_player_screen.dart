@@ -17,6 +17,7 @@ import 'package:church_on_app/core/providers/audio_provider.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/core/widgets/kael_explain_sheet.dart';
 import '../data/sermon_service.dart';
 import 'sermon_notes_screen.dart';
 
@@ -1190,6 +1191,18 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
             MaterialPageRoute(
               builder: (context) => SermonNotesScreen(sermon: widget.sermon),
             ),
+          );
+        }),
+        _buildActionItem(LucideIcons.sparkles, "Ask Kael", onTap: () {
+          final description = (widget.sermon.description ?? '').trim();
+          showKaelExplainSheet(
+            context,
+            action: 'summary',
+            title: 'Kael summarizes',
+            prompt:
+                'Summarize this sermon in 3 short, plain-language takeaways for a believer, then one question to reflect on. '
+                'Title: "${widget.sermon.title}" by ${widget.sermon.preacher}.'
+                '${description.isNotEmpty ? ' Description: $description' : ''}',
           );
         }),
       ],

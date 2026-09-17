@@ -64,6 +64,7 @@ class _SubscriptionPricingScreenState extends ConsumerState<SubscriptionPricingS
     {'key': 'subscription_manual_payment_days', 'label': 'Manual Subscribe Grant (days)', 'default': '30'},
     {'key': 'event_commission_percent', 'label': 'Event Commission % (e.g. 0.10 = 10%)', 'default': '0.10'},
     {'key': 'marketplace_delivery_fee_kwacha', 'label': 'Marketplace Delivery Fee (K)', 'default': '15'},
+    {'key': 'marketplace_book_fee_percent', 'label': 'Marketplace Book Fee % (e.g. 0.10 = 10%)', 'default': '0.10'},
     {'key': 'church_payout_min_kwacha', 'label': 'Church Auto-Payout Min Balance (K)', 'default': '100'},
     {'key': 'ride_payout_mobile', 'label': 'Carpso Ride Payout Number (platform receives ride/delivery cuts)', 'default': ''},
     {'key': 'ride_payout_network', 'label': 'Carpso Ride Payout Network (MTN/Airtel/Zamtel)', 'default': 'MTN'},

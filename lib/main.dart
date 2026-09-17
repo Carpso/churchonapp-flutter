@@ -46,6 +46,9 @@ import 'core/services/session_guard_service.dart';
 import 'core/services/smart_prefetch_service.dart';
 import 'core/services/tutorial_service.dart';
 import 'core/services/wake_service.dart';
+import 'core/services/navigation_service.dart';
+import 'core/services/screenshot_service.dart';
+import 'core/widgets/screenshot_share_sheet.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -167,6 +170,23 @@ Future<void> _initBackgroundServices() async {
 
     // Create foreground notification channels for media, location, data sync
     await ForegroundServiceHelper.createNotificationChannels();
+
+    // Screenshot detection → offer a "share instead" sheet (Android only).
+    try {
+      final screenshots = ScreenshotService();
+      await screenshots.start();
+      screenshots.onScreenshot.listen((_) {
+        final ctx = NavigationService.navigatorKey.currentContext;
+        if (ctx == null || !ctx.mounted) return;
+        showScreenshotShareSheet(
+          ctx,
+          shareText: 'Church On App',
+          shareUrl: 'https://churchonapp.com',
+        );
+      });
+    } catch (e) {
+      debugPrint('Screenshot service error: $e');
+    }
   } catch (e) {
     debugPrint('Background service error: $e');
   }

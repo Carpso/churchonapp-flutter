@@ -1,7 +1,9 @@
 import 'package:universal_io/io.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path_provider/path_provider.dart';
@@ -9,7 +11,10 @@ import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
+import 'package:church_on_app/core/config/app_constants.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/features/modules/bible_quiz/data/achievement_service.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -21,6 +26,12 @@ class Certificate {
   final String icon;
   final DateTime? earnedAt;
 
+  /// The issuing tenant's id, when the certificate belongs to a specific
+  /// church (e.g. a baptism recorded for that church). `null` (and anything
+  /// that does not match the current tenant) means the certificate was issued
+  /// by Church On App itself.
+  final String? tenantId;
+
   Certificate({
     required this.id,
     required this.title,
@@ -28,7 +39,47 @@ class Certificate {
     required this.category,
     required this.icon,
     this.earnedAt,
+    this.tenantId,
   });
+}
+
+/// Resolved branding for a certificate: COA (sunflower yellow + dark accent,
+/// app logo) or tenant (the church's own theme colours + church logo).
+class CertificateBrand {
+  final Color primary;
+  final Color accent;
+  final String? logoUrl;
+  final String issuerName;
+  final bool tenantIssued;
+
+  const CertificateBrand({
+    required this.primary,
+    required this.accent,
+    required this.logoUrl,
+    required this.issuerName,
+    required this.tenantIssued,
+  });
+}
+
+CertificateBrand certificateBrandFor(Certificate cert, Tenant? tenant) {
+  final id = cert.tenantId;
+  final isTenant = id != null && id.isNotEmpty && tenant != null && tenant.id == id;
+  if (isTenant) {
+    return CertificateBrand(
+      primary: tenant.primaryColor,
+      accent: tenant.accentColor,
+      logoUrl: tenant.logoUrl,
+      issuerName: tenant.name,
+      tenantIssued: true,
+    );
+  }
+  return const CertificateBrand(
+    primary: AppConstants.sunflowerYellow,
+    accent: AppConstants.primaryDark,
+    logoUrl: null,
+    issuerName: 'Church On App',
+    tenantIssued: false,
+  );
 }
 
 final certificatesProvider = FutureProvider<List<Certificate>>((ref) async {
@@ -61,7 +112,7 @@ final certificatesProvider = FutureProvider<List<Certificate>>((ref) async {
   try {
     final baptisms = await Supabase.instance.client
         .from('baptisms')
-        .select('id, name, date, minister, location, created_at')
+        .select('id, name, date, minister, location, created_at, tenant_id')
         .eq('created_by', user.id)
         .order('date', ascending: false);
 
@@ -73,6 +124,7 @@ final certificatesProvider = FutureProvider<List<Certificate>>((ref) async {
         category: 'Baptism',
         icon: 'droplets',
         earnedAt: b['date'] != null ? DateTime.tryParse(b['date'].toString()) : null,
+        tenantId: b['tenant_id']?.toString(),
       ));
     }
   } catch (e) {
@@ -109,6 +161,7 @@ class CertificatesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final certsAsync = ref.watch(certificatesProvider);
+    final tenant = ref.watch(currentTenantProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -144,6 +197,7 @@ class CertificatesScreen extends ConsumerWidget {
           }
 
           final categories = certs.map((c) => c.category).toSet().toList();
+          final userName = ref.watch(profileProvider).value?.name ?? 'Believer';
 
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(certificatesProvider),
@@ -152,49 +206,110 @@ class CertificatesScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               itemCount: categories.length,
               itemBuilder: (context, catIndex) {
-              final category = categories[catIndex];
-              final categoryCerts = certs.where((c) => c.category == category).toList();
+                final category = categories[catIndex];
+                final categoryCerts = certs.where((c) => c.category == category).toList();
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4, top: 16, bottom: 8),
-                    child: Text(
-                      category,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurface,
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, top: 16, bottom: 8),
+                      child: Text(
+                        category,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
                       ),
                     ),
-                  ),
-                  ...categoryCerts.map((cert) => _CertificateCard(cert: cert, userName: ref.watch(profileProvider).value?.name ?? 'Believer')),
-                ],
-              );
-            },
-          ),
-        );
-      },
-      loading: () => Shimmer.fromColors(
-        baseColor: Colors.grey.shade200,
-        highlightColor: Colors.grey.shade100,
-        child: const Padding(
-          padding: EdgeInsets.all(24),
-          child: Column(
-            children: [
-              SizedBox(width: double.infinity, height: 30, child: DecoratedBox(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.all(Radius.circular(12))))),
-              SizedBox(height: 16),
-              SizedBox(width: double.infinity, height: 80, child: DecoratedBox(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.all(Radius.circular(16))))),
-              SizedBox(height: 12),
-              SizedBox(width: double.infinity, height: 80, child: DecoratedBox(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.all(Radius.circular(16))))),
-              SizedBox(height: 12),
-              SizedBox(width: double.infinity, height: 80, child: DecoratedBox(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.all(Radius.circular(16))))),
-            ],
+                    ...categoryCerts.map((cert) => _CertificateCard(
+                          cert: cert,
+                          userName: userName,
+                          brand: certificateBrandFor(cert, tenant),
+                        )),
+                  ],
+                );
+              },
+            ),
+          );
+        },
+        loading: () => Shimmer.fromColors(
+          baseColor: Colors.grey.shade200,
+          highlightColor: Colors.grey.shade100,
+          child: const Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              children: [
+                SizedBox(width: double.infinity, height: 30, child: DecoratedBox(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.all(Radius.circular(12))))),
+                SizedBox(height: 16),
+                SizedBox(width: double.infinity, height: 80, child: DecoratedBox(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.all(Radius.circular(16))))),
+                SizedBox(height: 12),
+                SizedBox(width: double.infinity, height: 80, child: DecoratedBox(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.all(Radius.circular(16))))),
+                SizedBox(height: 12),
+                SizedBox(width: double.infinity, height: 80, child: DecoratedBox(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.all(Radius.circular(16))))),
+              ],
+            ),
           ),
         ),
+        error: (e, _) => Center(child: Text('Error loading certificates: $e')),
       ),
-      error: (e, _) => Center(child: Text('Error loading certificates: $e')),
+    );
+  }
+}
+
+/// Foreground colour that stays readable on top of [background].
+Color _onBrand(Color background) =>
+    ThemeData.estimateBrightnessForColor(background) == Brightness.dark
+        ? Colors.white
+        : AppConstants.primaryDark;
+
+/// Issuer logo: the tenant church logo when available, otherwise the bundled
+/// Church On App logo. Both degrade to a brand-tinted icon.
+class _BrandLogo extends StatelessWidget {
+  final CertificateBrand brand;
+  final double size;
+
+  const _BrandLogo({required this.brand, this.size = 44});
+
+  @override
+  Widget build(BuildContext context) {
+    final url = brand.logoUrl?.trim();
+    if (url != null && url.isNotEmpty) {
+      return AppImage(
+        url,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        borderRadius: BorderRadius.circular(size * 0.28),
+        errorWidget: (_, __) => _fallback(context),
+      );
+    }
+
+    final px = (size * MediaQuery.devicePixelRatioOf(context)).round();
+    return Image.asset(
+      'assets/app_logo.png',
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      cacheWidth: px,
+      cacheHeight: px,
+      errorBuilder: (_, __, ___) => _fallback(context),
+    );
+  }
+
+  Widget _fallback(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: brand.primary.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(size * 0.28),
+      ),
+      child: Icon(
+        brand.tenantIssued ? Icons.church : LucideIcons.award,
+        size: size * 0.55,
+        color: brand.accent,
       ),
     );
   }
@@ -203,8 +318,13 @@ class CertificatesScreen extends ConsumerWidget {
 class _CertificateCard extends StatelessWidget {
   final Certificate cert;
   final String userName;
+  final CertificateBrand brand;
 
-  const _CertificateCard({required this.cert, required this.userName});
+  const _CertificateCard({
+    required this.cert,
+    required this.userName,
+    required this.brand,
+  });
 
   Color _categoryColor(String category) {
     switch (category) {
@@ -250,9 +370,35 @@ class _CertificateCard extends StatelessWidget {
     }
   }
 
-  Future<Uint8List> _buildPdf(ThemeData theme) async {
+  /// Loads the issuer logo bytes for the PDF: the tenant logo when present,
+  /// otherwise the bundled Church On App logo. Returns null on failure.
+  Future<pw.MemoryImage?> _loadPdfLogo() async {
+    final url = brand.logoUrl?.trim();
+    if (url != null && url.isNotEmpty) {
+      try {
+        final res = await http
+            .get(Uri.parse(url))
+            .timeout(const Duration(seconds: 8));
+        if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+          return pw.MemoryImage(res.bodyBytes);
+        }
+      } catch (e) {
+        debugPrint('Certificate PDF logo fetch failed (non-fatal): $e');
+      }
+    }
+    try {
+      final data = await rootBundle.load('assets/app_logo.png');
+      return pw.MemoryImage(data.buffer.asUint8List());
+    } catch (e) {
+      debugPrint('Certificate PDF asset logo failed (non-fatal): $e');
+      return null;
+    }
+  }
+
+  Future<Uint8List> _buildPdf() async {
     final pdf = pw.Document();
-    final color = _categoryColor(cert.category);
+    final color = brand.primary;
+    final logo = await _loadPdfLogo();
 
     pdf.addPage(
       pw.Page(
@@ -262,7 +408,11 @@ class _CertificateCard extends StatelessWidget {
           return pw.Column(
             mainAxisAlignment: pw.MainAxisAlignment.center,
             children: [
-              pw.SizedBox(height: 60),
+              if (logo != null) ...[
+                pw.Center(child: pw.Image(logo, width: 90, height: 90)),
+                pw.SizedBox(height: 20),
+              ] else
+                pw.SizedBox(height: 60),
               pw.Container(
                 padding: const pw.EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                 decoration: pw.BoxDecoration(
@@ -302,14 +452,14 @@ class _CertificateCard extends StatelessWidget {
                   borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
                 ),
                 child: pw.Text(
-                      cert.title,
-                      style: pw.TextStyle(
-                        fontSize: 22,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColor.fromInt(color.toARGB32()),
-                      ),
-                      textAlign: pw.TextAlign.center,
-                    ),
+                  cert.title,
+                  style: pw.TextStyle(
+                    fontSize: 22,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromInt(color.toARGB32()),
+                  ),
+                  textAlign: pw.TextAlign.center,
+                ),
               ),
               pw.SizedBox(height: 20),
               pw.Text(
@@ -327,11 +477,13 @@ class _CertificateCard extends StatelessWidget {
               pw.Divider(),
               pw.SizedBox(height: 16),
               pw.Text(
-                'Church On App - Digital Certificate',
+                '${brand.issuerName} - Digital Certificate',
                 style: pw.TextStyle(fontSize: 10, color: PdfColors.grey400),
               ),
               pw.Text(
-                'Verified at churchonapp.com',
+                brand.tenantIssued
+                    ? 'Issued via Church On App - churchonapp.com'
+                    : 'Verified at churchonapp.com',
                 style: pw.TextStyle(fontSize: 9, color: PdfColors.grey400),
               ),
             ],
@@ -343,21 +495,23 @@ class _CertificateCard extends StatelessWidget {
     return pdf.save();
   }
 
-  Future<String> _generatePdfFile(ThemeData theme) async {
-    final bytes = await _buildPdf(theme);
+  Future<String> _generatePdfFile() async {
+    final bytes = await _buildPdf();
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/certificate_${cert.id.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf');
     await file.writeAsBytes(bytes);
     return file.path;
   }
 
-  Future<void> _sharePdf(ThemeData theme) async {
-    final path = await _generatePdfFile(theme);
-    await SharePlus.instance.share(ShareParams(files: [XFile(path)], text: '${cert.title} - Church On App'));
+  Future<void> _sharePdf() async {
+    final path = await _generatePdfFile();
+    await SharePlus.instance.share(ShareParams(files: [XFile(path)], text: '${cert.title} - ${brand.issuerName}'));
   }
 
-  Future<void> _showDetail(BuildContext context, ThemeData theme) {
-    final color = _categoryColor(cert.category);
+  Future<void> _showDetail(BuildContext context) {
+    final categoryColor = _categoryColor(cert.category);
+    final onPrimary = _onBrand(brand.primary);
+
     return showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -375,23 +529,55 @@ class _CertificateCard extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: brand.primary.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
+                  border: Border.all(color: brand.primary.withValues(alpha: 0.35)),
                 ),
-                child: Icon(_resolveIcon(cert.icon), size: 48, color: color),
+                child: _BrandLogo(brand: brand, size: 56),
               ),
-              const SizedBox(height: 20),
-              Text(cert.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Text(cert.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
               const SizedBox(height: 8),
               Text(cert.description, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600, height: 1.4)),
               const SizedBox(height: 12),
-              Text(cert.category, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-              if (cert.earnedAt != null) ...[
-                const SizedBox(height: 4),
-                Text('Earned ${DateFormat.yMMMd().format(cert.earnedAt!)}', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-              ],
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: brand.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(brand.tenantIssued ? Icons.church : LucideIcons.award, size: 14, color: brand.accent),
+                    const SizedBox(width: 6),
+                    Text(
+                      brand.issuerName,
+                      style: TextStyle(color: brand.accent, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(_resolveIcon(cert.icon), size: 14, color: categoryColor),
+                      const SizedBox(width: 4),
+                      Text(cert.category, style: TextStyle(color: categoryColor, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  if (cert.earnedAt != null)
+                    Text('Earned ${DateFormat.yMMMd().format(cert.earnedAt!)}', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                ],
+              ),
               const SizedBox(height: 24),
               Row(
                 children: [
@@ -399,11 +585,13 @@ class _CertificateCard extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: () async {
                         Navigator.pop(ctx);
-                        await _sharePdf(theme);
+                        await _sharePdf();
                       },
                       icon: const Icon(LucideIcons.share2, size: 18),
                       label: const Text('Share'),
                       style: OutlinedButton.styleFrom(
+                        foregroundColor: brand.accent,
+                        side: BorderSide(color: brand.primary.withValues(alpha: 0.6)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
@@ -414,14 +602,14 @@ class _CertificateCard extends StatelessWidget {
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         Navigator.pop(ctx);
-                        final path = await _generatePdfFile(theme);
-                        await SharePlus.instance.share(ShareParams(files: [XFile(path)], text: '${cert.title} - Church On App'));
+                        final path = await _generatePdfFile();
+                        await SharePlus.instance.share(ShareParams(files: [XFile(path)], text: '${cert.title} - ${brand.issuerName}'));
                       },
                       icon: const Icon(LucideIcons.download, size: 18),
                       label: const Text('Download'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: color,
-                        foregroundColor: Colors.white,
+                        backgroundColor: brand.primary,
+                        foregroundColor: onPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
@@ -440,7 +628,7 @@ class _CertificateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = _categoryColor(cert.category);
+    final categoryColor = _categoryColor(cert.category);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -449,22 +637,22 @@ class _CertificateCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _showDetail(context, theme),
+          onTap: () => _showDetail(context),
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: color.withValues(alpha: 0.2)),
+              border: Border.all(color: brand.primary.withValues(alpha: 0.35)),
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(14),
+                    color: brand.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(_resolveIcon(cert.icon), color: color, size: 24),
+                  child: _BrandLogo(brand: brand, size: 34),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -474,14 +662,40 @@ class _CertificateCard extends StatelessWidget {
                       Text(cert.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                       const SizedBox(height: 4),
                       Text(cert.description, style: TextStyle(color: Colors.grey.shade600, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            brand.tenantIssued ? Icons.church : LucideIcons.award,
+                            size: 12,
+                            color: brand.accent,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              brand.issuerName,
+                              style: TextStyle(color: brand.accent, fontSize: 11, fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(width: 4, height: 4, decoration: BoxDecoration(color: categoryColor, shape: BoxShape.circle)),
+                          const SizedBox(width: 6),
+                          Text(cert.category, style: TextStyle(color: categoryColor, fontSize: 11, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
                       if (cert.earnedAt != null) ...[
                         const SizedBox(height: 4),
-                        Text(DateFormat.yMMMd().format(cert.earnedAt!), style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+                        Text(
+                          DateFormat.yMMMd().format(cert.earnedAt!),
+                          style: TextStyle(color: brand.accent.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
                       ],
                     ],
                   ),
                 ),
-                Icon(LucideIcons.chevronRight, color: color.withValues(alpha: 0.5), size: 20),
+                Icon(LucideIcons.chevronRight, color: brand.accent.withValues(alpha: 0.5), size: 20),
               ],
             ),
           ),

@@ -11,10 +11,14 @@ class WorshipLyric {
   final String category; // 'praise', 'worship', 'hymn', 'gospel', 'contemporary'
   final String? key; // Musical key: C, D, E, etc.
   final int? bpm;
+  final String? mediaUrl; // YouTube / streaming link
   final String? tenantId;
   final String? createdBy;
   final DateTime createdAt;
   final bool isGlobal;
+  final bool isPublished;
+  final int views;
+  final int likes;
 
   WorshipLyric({
     required this.id,
@@ -25,10 +29,14 @@ class WorshipLyric {
     required this.category,
     this.key,
     this.bpm,
+    this.mediaUrl,
     this.tenantId,
     this.createdBy,
     required this.createdAt,
     this.isGlobal = false,
+    this.isPublished = true,
+    this.views = 0,
+    this.likes = 0,
   });
 
   factory WorshipLyric.fromMap(Map<String, dynamic> map) {
@@ -40,12 +48,16 @@ class WorshipLyric {
       chords: map['chords'],
       category: map['category'] ?? 'worship',
       key: map['musical_key'],
-      bpm: map['bpm'] as int?,
-      tenantId: map['tenant_id'],
-      createdBy: map['created_by'],
-      createdAt: DateTime.parse(
-          map['created_at'] ?? DateTime.now().toIso8601String()),
+      bpm: (map['bpm'] as num?)?.toInt(),
+      mediaUrl: map['media_url'],
+      tenantId: map['tenant_id']?.toString(),
+      createdBy: map['created_by']?.toString(),
+      createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ??
+          DateTime.now(),
       isGlobal: map['is_global'] == true,
+      isPublished: map['is_published'] != false,
+      views: (map['views'] as num?)?.toInt() ?? 0,
+      likes: (map['likes'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -57,9 +69,11 @@ class WorshipLyric {
         'category': category,
         'musical_key': key,
         'bpm': bpm,
+        'media_url': mediaUrl,
         'tenant_id': tenantId,
         'created_by': createdBy,
         'is_global': isGlobal,
+        'is_published': isPublished,
       };
 }
 
@@ -176,22 +190,61 @@ class LyricsService {
     return WorshipLyric.fromMap(data);
   }
 
+  /// Management stream: ONLY the current tenant's own lyrics (no globals).
+  Stream<List<WorshipLyric>> getMyTenantLyricsStream() {
+    final tenant = _ref.watch(currentTenantProvider);
+    if (tenant == null) return Stream.value([]);
+    return _client
+        .from('worship_lyrics')
+        .stream(primaryKey: ['id'])
+        .eq('tenant_id', tenant.id)
+        .order('title', ascending: true)
+        .map((data) => data.map((map) => WorshipLyric.fromMap(map)).toList());
+  }
+
   /// Request or toggle permission to air song globally across all churches.
   Future<void> setGlobalAirPermission(String lyricId, bool isGlobal) async {
     await _client
         .from('worship_lyrics')
-        .update({'is_global': isGlobal})
+        .update({'is_global': isGlobal, 'updated_at': DateTime.now().toIso8601String()})
         .eq('id', lyricId);
+  }
+
+  /// Publish / unpublish a lyric (leadership only, enforced by RLS).
+  Future<void> publishLyric(String id, bool isPublished) async {
+    await _client.from('worship_lyrics').update({
+      'is_published': isPublished,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', id);
   }
 
   /// Update an existing lyric.
   Future<void> updateLyric(String id, Map<String, dynamic> updates) async {
-    await _client.from('worship_lyrics').update(updates).eq('id', id);
+    await _client
+        .from('worship_lyrics')
+        .update({...updates, 'updated_at': DateTime.now().toIso8601String()})
+        .eq('id', id);
   }
 
   /// Delete a lyric.
   Future<void> deleteLyric(String id) async {
     await _client.from('worship_lyrics').delete().eq('id', id);
+  }
+
+  /// Spectator view counter — returns the new total.
+  Future<int> incrementView(String id) async {
+    final result = await _client.rpc('increment_lyric_view', params: {
+      'p_lyric_id': id,
+    });
+    return (result as num?)?.toInt() ?? 0;
+  }
+
+  /// Toggle the current user's like. Returns true when the song is now liked.
+  Future<bool> toggleLike(String id) async {
+    final result = await _client.rpc('toggle_lyric_like', params: {
+      'p_lyric_id': id,
+    });
+    return result == true;
   }
 
   // ── Setlist Operations ─────────────────────────────
@@ -264,6 +317,11 @@ final lyricsByCategoryProvider =
 
 final setlistsStreamProvider = StreamProvider<List<Setlist>>(
   (ref) => ref.watch(lyricsServiceProvider).getSetlistsStream(),
+);
+
+/// Management list — the current tenant's own songs only.
+final myTenantLyricsStreamProvider = StreamProvider<List<WorshipLyric>>(
+  (ref) => ref.watch(lyricsServiceProvider).getMyTenantLyricsStream(),
 );
 
 final lyricsSearchProvider =
