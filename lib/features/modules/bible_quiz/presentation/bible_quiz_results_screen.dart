@@ -745,9 +745,15 @@ class BibleQuizResultsScreen extends ConsumerWidget {
           late Future<String> future;
           future = call();
           return Container(
+            // Cap the sheet height and make the body scrollable. Without a
+            // scroll view a long explanation overflowed, and dragging on it
+            // dismissed the sheet (the "screen disappears when I scroll" bug).
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.8,
+            ),
             padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
             decoration: const BoxDecoration(color: Color(0xFF151A2E), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,

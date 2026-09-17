@@ -17,7 +17,9 @@ import 'create_social_post_screen.dart';
 import 'interchurch_network_screen.dart';
 import 'network_activity_screen.dart';
 import 'pastors_corner_screen.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:church_on_app/features/modules/bible_quiz/presentation/bible_quiz_hub_screen.dart';
+import 'create_klip_screen.dart';
 import '../../../core/utils/connectivity_util.dart';
 import 'package:church_on_app/features/navigation/presentation/main_navigation_shell.dart';
 
@@ -78,7 +80,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
           icon: Icon(LucideIcons.video, color: Theme.of(context).colorScheme.onPrimary),
           label: Text('Create Klip', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
           backgroundColor: Theme.of(context).primaryColor,
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateSocialPostScreen())),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateKlipScreen())),
         );
         break;
       default:
@@ -455,11 +457,23 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
     );
   }
 
-  void _sharePost(String postId) {
-    Clipboard.setData(ClipboardData(text: "https://churchonapp.com/posts/$postId"));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Post link copied to clipboard!"), backgroundColor: Colors.green),
-    );
+  Future<void> _sharePost(String postId) async {
+    // REAL share (WhatsApp/anywhere) with the post's public link — the old
+    // behaviour only copied the URL to the clipboard.
+    final link = 'https://churchonapp.com/posts/$postId';
+    try {
+      await SharePlus.instance.share(
+        ShareParams(text: 'Check this out on Church On App:\n$link'),
+      );
+    } catch (e) {
+      debugPrint('share failed, copying instead: $e');
+      await Clipboard.setData(ClipboardData(text: link));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Post link copied'), backgroundColor: Colors.green),
+        );
+      }
+    }
   }
 
   Future<void> _createCommunityContent() async {

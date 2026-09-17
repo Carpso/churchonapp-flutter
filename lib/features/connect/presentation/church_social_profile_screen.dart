@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/widgets/app_image.dart';
 import '../data/social_service.dart';
@@ -53,15 +54,21 @@ class ChurchSocialProfileScreen extends ConsumerWidget {
     return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
   }
 
-  void _sharePost(BuildContext context, String postId) {
-    Clipboard.setData(
-        ClipboardData(text: "https://churchonapp.com/posts/$postId"));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Post link copied to clipboard!"),
-        backgroundColor: Colors.green,
-      ),
-    );
+  Future<void> _sharePost(BuildContext context, String postId) async {
+    final link = "https://churchonapp.com/posts/$postId";
+    try {
+      await SharePlus.instance.share(
+        ShareParams(text: 'Check this out on Church On App:\n$link'),
+      );
+    } catch (e) {
+      debugPrint('share failed, copying instead: $e');
+      await Clipboard.setData(ClipboardData(text: link));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Post link copied"), backgroundColor: Colors.green),
+        );
+      }
+    }
   }
 
   @override

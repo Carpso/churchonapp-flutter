@@ -301,27 +301,42 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(LucideIcons.bot, size: 48, color: Colors.white24),
+                                // Theme-aware colours — the hardcoded whites were
+                                // invisible on the (light) default background.
+                                Icon(LucideIcons.bot,
+                                    size: 48,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.25)),
                                 const SizedBox(height: 16),
-                                const Text("Ask Kael anything",
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                                Text("Ask Kael anything",
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context).colorScheme.onSurface)),
                                 const SizedBox(height: 8),
-                                const Text("Your AI Bible study assistant remembers this conversation.",
+                                Text("Your AI Bible study assistant remembers this conversation.",
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.white38)),
+                                  style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withValues(alpha: 0.6))),
                                 const SizedBox(height: 24),
                                 Wrap(
                                   spacing: 8,
                                   runSpacing: 8,
                                   alignment: WrapAlignment.center,
                                   children: _suggestions.map((s) => ActionChip(
-                                    label: Text(s, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                                    labelStyle: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                                    // Dark translucent chip + white text = high
-                                    // contrast. The old amber-tinted fill behind
-                                    // white text was hard to read.
-                                    backgroundColor: Colors.white.withAlpha(22),
-                                    side: BorderSide(color: Colors.amber.withAlpha(160)),
+                                    label: Text(s, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                    labelStyle: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurface,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600),
+                                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                    side: BorderSide(
+                                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6)),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                                     onPressed: _isStreaming ? null : () {
                                       _controller.text = s;
