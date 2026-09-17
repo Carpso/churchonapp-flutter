@@ -1048,7 +1048,11 @@ curl https://daboihiudmglwhdfvsku.supabase.co/functions/v1/well-known/.well-know
 curl https://churchonapp.com/.well-known/assetlinks.json
 ```
 
-Expected: 3 SHA-256 fingerprints + `get_login_creds` relation for credential sharing.
+Expected: SHA-256 fingerprints for BOTH the Play **app-signing** key and the
+**upload** key (live file currently has **2** — it does NOT yet include the
+`delegate_permission/common.get_login_creds` relation, so Android credential
+sharing is not enabled). Verify both hashes against Play Console → App
+integrity → App signing, and add any missing one before relying on App Links.
 
 ### 7. Flutter Analyze Before Release
 

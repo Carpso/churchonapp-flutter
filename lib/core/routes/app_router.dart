@@ -1494,6 +1494,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const MyJobsScreen(),
       ),
       GoRoute(
+        path: '/live',
+        redirect: (context, state) => '/live-streaming',
+      ),
+      GoRoute(
         path: '/live-streaming',
         builder: (context, state) => const LiveStreamingScreen(),
       ),

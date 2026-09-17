@@ -37,7 +37,17 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+
+    // ── Service mode ────────────────────────────────────────────────────────
+    // DB triggers / pg_cron have NO user session, so they authenticate with the
+    // shared CRON_SECRET (the same secret lps-settle/event crons use). Without
+    // this, every notification created inside SQL (role approved, writer
+    // approved, role change, trial expiry) could never produce a push.
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const providedSecret = req.headers.get("x-cron-secret");
+    const isService = !!cronSecret && !!providedSecret && providedSecret === cronSecret;
+
+    if (!isService && !authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization header" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
@@ -48,13 +58,17 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      });
+    let actorId = "00000000-0000-0000-0000-000000000000";
+    if (!isService) {
+      const token = (authHeader ?? "").replace("Bearer ", "");
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        });
+      }
+      actorId = user.id;
     }
 
     const payload = await req.json();
@@ -65,6 +79,7 @@ serve(async (req) => {
       channelId: topChannel,
       action,
       tenantId: broadcastTenantId,
+      skipInApp,
     } = payload;
     const userIds = payload.userIds;
 
@@ -81,8 +96,8 @@ serve(async (req) => {
     const isBroadcast = action === "broadcast" && !!broadcastTenantId;
 
     const { allowed } = isBroadcast
-      ? await checkRateLimit(supabase, user.id, "push_broadcast", 10, 1)
-      : await checkRateLimit(supabase, user.id, "push_notification", 60, 1);
+      ? await checkRateLimit(supabase, actorId, "push_broadcast", isService ? 600 : 10, 1)
+      : await checkRateLimit(supabase, actorId, "push_notification", isService ? 600 : 60, 1);
     if (!allowed) {
       return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again later." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -102,7 +117,7 @@ serve(async (req) => {
         .limit(2000);
       for (const m of members ?? []) {
         const id = m?.id?.toString();
-        if (id && id !== user.id) targetUserIds.push(id);
+        if (id && id !== actorId) targetUserIds.push(id);
       }
     } else {
       if (userId) targetUserIds.push(userId);
@@ -144,14 +159,18 @@ serve(async (req) => {
           .eq("id", targetUserId)
           .single();
 
-        await supabase.from("notifications").insert({
-          user_id: targetUserId,
-          title,
-          body,
-          is_read: false,
-          type: effType,
-          reference_id: effRef,
-        });
+        // `skipInApp` is set by DB triggers/cron that have ALREADY inserted the
+        // in-app row (avoids a duplicate bell entry) and only need the push.
+        if (skipInApp !== true) {
+          await supabase.from("notifications").insert({
+            user_id: targetUserId,
+            title,
+            body,
+            is_read: false,
+            type: effType,
+            reference_id: effRef,
+          });
+        }
 
         if (profile?.fcm_token) {
           const projectId = Deno.env.get("FCM_PROJECT_ID") ?? "";

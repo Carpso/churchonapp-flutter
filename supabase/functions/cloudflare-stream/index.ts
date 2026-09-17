@@ -16,7 +16,15 @@ serve(async (req) => {
   }
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
+
+  // ── Service mode (pg_cron) ──────────────────────────────────────────────
+  // The nightly archive sweep has no user session; it authenticates with the
+  // shared CRON_SECRET and may ONLY archive recordings.
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const providedSecret = req.headers.get("x-cron-secret");
+  const isService = !!cronSecret && !!providedSecret && providedSecret === cronSecret;
+
+  if (!isService && !authHeader) {
     return new Response(JSON.stringify({ error: "Missing authorization header" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 401,
@@ -27,41 +35,54 @@ serve(async (req) => {
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const supabaseAuth = createClient(supabaseUrl, supabaseServiceKey);
 
-  const token = authHeader.replace("Bearer ", "");
-  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
-  if (authError || !user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 401,
-    });
-  }
-
   // SECURITY: only church leadership may manage stream infrastructure
   // (create/delete live inputs, WHIP ingest, video deletion, analytics).
   // Viewers consume HLS directly and never invoke this function.
-  const { data: profile, error: profileError } = await supabaseAuth
-    .from("profiles")
-    .select("role, tenant_id, organization_id")
-    .eq("id", user.id)
-    .maybeSingle();
+  let profile: { role: string; tenant_id: string | null; organization_id: string | null } | null = null;
 
-  if (profileError || !profile) {
-    return new Response(JSON.stringify({ error: "User profile not found" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 403,
-    });
-  }
+  if (!isService) {
+    const token = (authHeader ?? "").replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
 
-  const leadershipRoles = ["superadmin", "coa_employee", "bishop", "apostle", "prophet", "general_secretary", "pastor", "admin", "leader", "department_leader"];
-  if (!leadershipRoles.includes(profile.role)) {
-    return new Response(JSON.stringify({ error: "Insufficient role", role: profile.role }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 403,
-    });
+    const { data: prof, error: profileError } = await supabaseAuth
+      .from("profiles")
+      .select("role, tenant_id, organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError || !prof) {
+      return new Response(JSON.stringify({ error: "User profile not found" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403,
+      });
+    }
+    profile = prof;
+
+    const leadershipRoles = ["superadmin", "coa_employee", "bishop", "apostle", "prophet", "general_secretary", "pastor", "admin", "leader", "department_leader"];
+    if (!leadershipRoles.includes(profile.role)) {
+      return new Response(JSON.stringify({ error: "Insufficient role", role: profile.role }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403,
+      });
+    }
   }
 
   try {
     const { action, ...params } = await req.json();
+
+    // Service (cron) may only archive.
+    if (isService && action !== "archive_recording") {
+      return new Response(JSON.stringify({ error: "Service key may only archive recordings" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403,
+      });
+    }
 
     switch (action) {
       case "create_live_input": {
@@ -218,7 +239,8 @@ serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        const isSuper = ["superadmin", "coa_employee"].includes(profile.role);
+        const isSuper = isService ||
+          ["superadmin", "coa_employee"].includes(profile?.role ?? "");
 
         if (streamId) {
           const { data: row } = await supabaseAuth
@@ -231,7 +253,7 @@ serve(async (req) => {
               status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
-          if (!isSuper && row.church_id !== profile.tenant_id) {
+          if (!isSuper && row.church_id !== profile?.tenant_id) {
             return new Response(JSON.stringify({ error: "Not authorized to archive this stream" }), {
               status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
@@ -244,7 +266,7 @@ serve(async (req) => {
           .select("id, church_id, cloudflare_stream_id, cloudflare_video_id")
           .eq("cloudflare_video_id", videoIdParam)
           .maybeSingle();
-        if (!byVideo || (!isSuper && byVideo.church_id !== profile.tenant_id)) {
+        if (!byVideo || (!isSuper && byVideo.church_id !== profile?.tenant_id)) {
           return new Response(JSON.stringify({ error: "Not authorized to archive this video" }), {
             status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });

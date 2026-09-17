@@ -324,6 +324,7 @@ $migrations = @(
       "20261142_streaming_audio_thumbnails_samples.sql"
       "20261143_klips_user_avatar.sql"
       "20261144_live_streams_read_grants.sql"
+      "20261145_service_push_and_reminders.sql"
     )
 
 foreach ($m in $migrations) {

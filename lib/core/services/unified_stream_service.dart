@@ -336,6 +336,14 @@ class UnifiedStreamService {
         })
         .eq('id', streamId);
 
+    // Best-effort R2 archive of the recording (often returns 409 "not ready
+    // yet" right after a stream ends — the nightly archive sweep retries).
+    try {
+      await archiveRecording(streamId);
+    } catch (e) {
+      debugPrint('[Stream] Immediate archive attempt failed (non-fatal): $e');
+    }
+
     // Trigger auto-cleanup of old recordings (background)
     _cleanupOldRecordings(stream['church_id']);
   }

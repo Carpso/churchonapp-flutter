@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as webrtc;
@@ -683,18 +683,19 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     }
   }
 
-  void _shareStream() {
-    final link = _hlsUrl ?? "https://churchonapp.com/live";
-    if (!kIsWeb) {
-      // Copy to clipboard + share sheet where possible
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Live link copied: $link"), duration: const Duration(seconds: 3)),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Live link: $link"), duration: const Duration(seconds: 3)),
-      );
-    }
+  Future<void> _shareStream() async {
+    // Share an APP link (opens the streaming hub in-app / on web) rather than
+    // the raw HLS manifest, and actually copy it — the old code showed
+    // "copied" without copying anything and pointed at the non-existent /live.
+    const link = 'https://churchonapp.com/live-streaming';
+    await Clipboard.setData(const ClipboardData(text: link));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Live link copied — share it so members can watch."),
+        duration: Duration(seconds: 3),
+      ),
+    );
   }
 
   @override

@@ -222,16 +222,10 @@ class EventRsvpService {
     final codeGen = _ref.read(codeGeneratorProvider);
     final ticketRef = await codeGen.generateTicketId();
 
-    // Check if already registered
-    final existing = await _client
-        .from('event_registrations')
-        .select('id')
-        .eq('event_id', eventId)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-    final regId = existing != null ? existing['id'] : ticketRef;
-    final deepLink = 'https://churchonapp.com/ticket/$regId';
+    // Deep link must target a REAL route — `/ticket/<id>` never existed, so the
+    // QR link opened a permanent spinner. The scanner still uses the ticketRef
+    // (before the `|`); the link itself opens the event.
+    final deepLink = 'https://churchonapp.com/events/$eventId';
     
     // Combined payload: TicketRef | DeepLink
     return '$ticketRef|$deepLink';
