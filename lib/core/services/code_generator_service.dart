@@ -264,6 +264,30 @@ class CodeGeneratorService {
   }
 
   Future<Map<String, dynamic>?> lookupCode(String code) async {
+    // Invite codes MUST be validated via the SECURITY DEFINER RPC: the
+    // `generated_codes` table is owner-scoped by RLS, so the direct select
+    // always returned null for the invited member and the join link/code showed
+    // "Invalid invite code".
+    try {
+      final rpc =
+          await _client.rpc('lookup_invite_code', params: {'p_code': code});
+      if (rpc is List && rpc.isNotEmpty) {
+        final row = Map<String, dynamic>.from(rpc.first as Map);
+        return {
+          'code_type': row['code_type'],
+          'code_value': code,
+          'user_id': null,
+          'metadata': {
+            'tenant_id': row['tenant_id']?.toString(),
+            'tenant_name': row['tenant_name']?.toString(),
+          },
+        };
+      }
+    } catch (e) {
+      debugPrint('CodeGenerator: lookup_invite_code RPC failed: $e');
+    }
+
+    // Fallback: the caller's OWN codes (owner-scoped select still works).
     try {
       final result = await _client
           .from('generated_codes')

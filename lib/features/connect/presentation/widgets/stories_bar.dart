@@ -92,7 +92,10 @@ final storiesProvider = FutureProvider<List<StoryGroup>>((ref) async {
         .select('id, user_id, tenant_id, media_url, media_type, caption, '
             'thumbnail_url, view_count, created_at, expires_at')
         .gt('expires_at', DateTime.now().toIso8601String())
-        .order('created_at', ascending: true)
+        // Newest first: with ascending order + limit(100) a just-posted story
+        // was pushed off the end once >100 active platform-wide stories existed
+        // (RLS also returns other churches' public stories).
+        .order('created_at', ascending: false)
         .limit(100);
 
     final list = (rows as List).cast<Map<String, dynamic>>();

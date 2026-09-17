@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'core/utils/responsive.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/supabase_service.dart';
@@ -48,6 +49,13 @@ import 'core/services/wake_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Clean web URLs (no `#`): makes shared links like
+  // `churchonapp.com/join?code=XXXX`, `/sermon/<id>`, `/jobs/<id>` route
+  // directly instead of relying on the hash/`app_links_web` sniffer.
+  if (kIsWeb) {
+    usePathUrlStrategy();
+  }
 
   // ErrorWidget.builder replaces an ARBITRARY failing widget — very often a
   // small child inside a ListView/Sliver (e.g. one home-feed section). It must

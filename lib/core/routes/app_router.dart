@@ -254,6 +254,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           publicPath.startsWith('/c/')) {
         return null;
       }
+      // Join-by-code links (`churchonapp.com/join?code=XXXX`) must open directly
+      // — the screen itself offers Sign Up / Login when logged out, and the code
+      // is carried through `?redirect=`.
+      if (publicPath == '/join' ||
+          publicPath.startsWith('/invite-church/') ||
+          publicPath.startsWith('/invite/church/')) {
+        return null;
+      }
       final splashCompleted = ref.watch(splashCompletedProvider);
       if (!splashCompleted && state.uri.path != '/splash') {
         final cur = state.uri.toString();

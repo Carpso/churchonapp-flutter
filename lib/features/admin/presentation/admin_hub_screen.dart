@@ -353,12 +353,13 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.orange,
                 () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewsManagementScreen())),
               ),
-            if (isLeadership)
+            // Radio station CONFIG is COA-only — tenants must never see it.
+            if (profile.isSuperadmin || profile.role == 'coa_employee')
               _buildAdminTile(
                 context,
                 LucideIcons.radio,
                 "Radio Stations",
-                "Manage church radio stations & streams",
+                "Manage global radio stations & streams (COA)",
                 Colors.redAccent,
                 () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RadioStationManagementScreen())),
               ),

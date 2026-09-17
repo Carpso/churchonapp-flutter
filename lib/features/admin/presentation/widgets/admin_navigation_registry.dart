@@ -54,14 +54,9 @@ class AdminNavigationRegistry {
       route: "/admin/event-scheduler",
       canAccess: _isLeadership,
     ),
-    AdminTileConfig(
-      title: "Radio Station Mgmt",
-      subtitle: "Stream audio, broadcasts & radio ads",
-      icon: LucideIcons.radio,
-      color: Color(0xFF8B5CF6),
-      route: "/admin/radio-mgmt",
-      canAccess: _isLeadership,
-    ),
+    // NOTE: Radio Station Management is intentionally NOT listed here — it is
+    // COA-only config (Superadmin Hub → Platform Tools → /radio-stations) and
+    // tenants must never see a station-settings entry point.
     AdminTileConfig(
       title: "Ad Promotions & Coins",
       subtitle: "Manage COA promo campaigns and ads",

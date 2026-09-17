@@ -223,7 +223,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
         ),
         const SizedBox(width: 30),
         GestureDetector(
-          onTap: () => playing ? service.pause() : service.play(),
+          onTap: () => _togglePlay(service, playing),
           child: Container(
             width: 90, height: 90,
             decoration: BoxDecoration(
@@ -444,12 +444,54 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
   final Set<String> _unavailable = {};
 
   void _syncDirectory(List<RadioStation> stations) {
-    final playable = stations.where((s) => !s.isPrivate).toList();
+    // Prefer HTTPS streams first — the http:// ones are blocked by browsers on
+    // an https page (mixed content) and many are retired hosts.
+    final playable = stations.where((s) => !s.isPrivate).toList()
+      ..sort((a, b) {
+        final aHttps = a.streamUrl.toLowerCase().startsWith('https');
+        final bHttps = b.streamUrl.toLowerCase().startsWith('https');
+        if (aHttps != bHttps) return aHttps ? -1 : 1;
+        return 0;
+      });
     if (!listEquals(playable.map((s) => s.id).toList(),
         _directory.map((s) => s.id).toList())) {
       _directory = playable;
-      final idx = _directory.indexWhere((s) => s.name == _selectedStationName);
+      var idx = _directory.indexWhere((s) => s.name == _selectedStationName);
+      if (idx < 0 && _directory.isNotEmpty) {
+        _selectedStationName = _directory.first.name;
+        idx = 0;
+      }
       _directoryIndex = math.max(0, math.min(idx, _directory.length - 1));
+    }
+  }
+
+  /// The big play button previously called `service.play()` on an empty player
+  /// (no source loaded) so nothing ever played and the badge stayed OFFLINE.
+  Future<void> _togglePlay(RadioService service, bool playing) async {
+    if (playing) {
+      await service.pause();
+      return;
+    }
+    if (_directory.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No radio stations available yet.')),
+        );
+      }
+      return;
+    }
+    final station = _directory.firstWhere(
+      (s) => s.name == _selectedStationName,
+      orElse: () => _directory.first,
+    );
+    try {
+      await service.playStation(station);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not play ${station.name}: ${e.toString().replaceFirst('Exception: ', '')}')),
+        );
+      }
     }
   }
 

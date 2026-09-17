@@ -142,7 +142,13 @@ class RadioService {
   }
 
   Future<void> playStation(RadioStation station) async {
-    if (_handler == null) return;
+    // Throw instead of a silent no-op: on web the audio_service engine cannot
+    // initialise, so the old `return;` made every tap do nothing and the screen
+    // stayed permanently OFFLINE with no explanation.
+    if (_handler == null) {
+      throw Exception(
+          'Audio playback is not available on this platform (radio needs the mobile app).');
+    }
     await _handler.playFromUri(Uri.parse(station.streamUrl), {
       'title': station.name,
       'album': "Radio",
