@@ -9,23 +9,23 @@ import 'package:church_on_app/core/services/navigation_service.dart';
 import 'package:church_on_app/core/theme/app_theme.dart';
 
 // ─── Notification Channel IDs ─────────────────────────────────────────────────
-const String _chChat = 'coa_chat';
-const String _chPosts = 'coa_posts';
-const String _chPayments = 'coa_payments';
-const String _chAnnouncements = 'coa_announcements';
-const String _chEvents = 'coa_events';
-const String _chPrayers = 'coa_prayers';
-const String _chTestimonies = 'coa_testimonies';
-const String _chKlips = 'coa_klips';
-const String _chFasting = 'coa_fasting';
-const String _chReminders = 'coa_reminders';
-const String _chQuiz = 'coa_quiz';
-const String _chVolunteers = 'coa_volunteers';
-const String _chOrders = 'coa_orders';
-const String _chRoles = 'coa_roles';
-const String _chJobs = 'coa_jobs';
-const String _chRide = 'coa_rides';
-const String _chWorship = 'coa_worship';
+const String _chChat = 'coa_chat_v2';
+const String _chPosts = 'coa_posts_v2';
+const String _chPayments = 'coa_payments_v2';
+const String _chAnnouncements = 'coa_announcements_v2';
+const String _chEvents = 'coa_events_v2';
+const String _chPrayers = 'coa_prayers_v2';
+const String _chTestimonies = 'coa_testimonies_v2';
+const String _chKlips = 'coa_klips_v2';
+const String _chFasting = 'coa_fasting_v2';
+const String _chReminders = 'coa_reminders_v2';
+const String _chQuiz = 'coa_quiz_v2';
+const String _chVolunteers = 'coa_volunteers_v2';
+const String _chOrders = 'coa_orders_v2';
+const String _chRoles = 'coa_roles_v2';
+const String _chJobs = 'coa_jobs_v2';
+const String _chRide = 'coa_rides_v2';
+const String _chWorship = 'coa_worship_v2';
 
 class NotificationService {
   final SupabaseClient _client;
@@ -116,7 +116,7 @@ class NotificationService {
     await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
       _chPosts, 'Church Social',
       description: 'New posts from your church community',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
     ));
@@ -131,49 +131,49 @@ class NotificationService {
     await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
       _chAnnouncements, 'Updates',
       description: 'Church announcements and alerts',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
     ));
     await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
       _chEvents, 'Events',
       description: 'Event reminders and updates',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
     ));
     await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
       _chPrayers, 'Prayers',
       description: 'Prayer requests and intercessions',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
     ));
     await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
       _chTestimonies, 'Testimonies',
       description: 'New testimonies shared',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
     ));
     await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
       _chKlips, 'Klips',
       description: 'New video clips uploaded',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
     ));
     await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
       _chFasting, 'Fasting',
       description: 'Fasting reminders and updates',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
     ));
     await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
       _chReminders, 'Daily Reminders',
       description: 'Daily Bible study and devotion reminders',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
     ));
@@ -188,14 +188,14 @@ class NotificationService {
     await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
       _chVolunteers, 'Volunteer Roster',
       description: 'Shift assignment alerts and reminders',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
     ));
     await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
       _chOrders, 'Bookshop & Store Orders',
       description: 'Order status updates, dispatch and delivery alerts',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
     ));
@@ -210,7 +210,7 @@ class NotificationService {
     await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
       _chJobs, 'Job Portal & Careers',
       description: 'Job applications, interview invites, and status updates',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
     ));
@@ -225,7 +225,7 @@ class NotificationService {
     await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
       _chWorship, 'Worship & Setlists',
       description: 'Sunday worship setlists, lyrics, and song additions',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
     ));
@@ -1225,7 +1225,7 @@ class NotificationService {
       _chReminders,
       'Daily Reminders',
       channelDescription: 'Daily Bible study and devotion reminders',
-      importance: Importance.high,
+      importance: Importance.max,
       priority: Priority.high,
       styleInformation: const BigTextStyleInformation(
         'Time for your daily devotion! Open Deep Study to continue your streak. 🕊️',
@@ -1270,7 +1270,7 @@ class NotificationService {
       _chReminders,
       'Weekly Reminders',
       channelDescription: 'Weekly study reminder',
-      importance: Importance.high,
+      importance: Importance.max,
       priority: Priority.high,
       styleInformation: BigTextStyleInformation(
         'It\'s $day — time for your weekly deep study session! 🕊️',

@@ -399,7 +399,9 @@ class UnifiedStreamService {
   Future<StreamAnalytics> getAnalytics(String streamId) async {
     final stream = await _client
         .from('live_streams')
-        .select()
+        // Explicit columns (NOT `select()`): the credential columns are not
+        // SELECT-granted, so a star select fails with 42501.
+        .select('viewer_count, started_at, ended_at')
         .eq('id', streamId)
         .single();
 

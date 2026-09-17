@@ -361,39 +361,39 @@ function iconForType(type?: string): string {
 
 function channelForType(type?: string): string {
   switch (type) {
-    case 'chat': return 'coa_chat';
-    case 'post': return 'coa_posts';
-    case 'payment': return 'coa_payments';
-    case 'order': return 'coa_orders';
-    case 'event': return 'coa_events';
-    case 'prayer': return 'coa_prayers';
-    case 'testimony': return 'coa_testimonies';
-    case 'fasting': return 'coa_fasting';
-    case 'klip': return 'coa_klips';
-    case 'quiz': return 'coa_quiz';
-    case 'volunteer': return 'coa_volunteers';
-    case 'role': return 'coa_roles';
-    case 'job': return 'coa_jobs';
-    case 'ride': return 'coa_rides';
-    case 'worship': return 'coa_worship';
-    case 'sermon': return 'coa_announcements';
-    case 'incoming_call': return 'coa_rides';
-    case 'driver_approval': return 'coa_roles';
-    case 'pvp_invite': return 'coa_quiz';
-    case 'pvp_match': return 'coa_quiz';
-    case 'pvp_result': return 'coa_quiz';
-    case 'pvp_rematch': return 'coa_quiz';
-    case 'bible_study': return 'coa_prayers';
-    case 'fundraising': return 'coa_payments';
-    case 'group_contribution': return 'coa_payments';
-    case 'pledge_completed': return 'coa_payments';
-    case 'baptism': return 'coa_prayers';
-    case 'missions_donation': return 'coa_payments';
-    case 'sos_alert': return 'coa_announcements';
-    case 'church_approved': return 'coa_roles';
-    case 'kyc_approved': return 'coa_roles';
-    case 'kyc_rejected': return 'coa_roles';
-    default: return 'coa_announcements';
+    case 'chat': return 'coa_chat_v2';
+    case 'post': return 'coa_posts_v2';
+    case 'payment': return 'coa_payments_v2';
+    case 'order': return 'coa_orders_v2';
+    case 'event': return 'coa_events_v2';
+    case 'prayer': return 'coa_prayers_v2';
+    case 'testimony': return 'coa_testimonies_v2';
+    case 'fasting': return 'coa_fasting_v2';
+    case 'klip': return 'coa_klips_v2';
+    case 'quiz': return 'coa_quiz_v2';
+    case 'volunteer': return 'coa_volunteers_v2';
+    case 'role': return 'coa_roles_v2';
+    case 'job': return 'coa_jobs_v2';
+    case 'ride': return 'coa_rides_v2';
+    case 'worship': return 'coa_worship_v2';
+    case 'sermon': return 'coa_announcements_v2';
+    case 'incoming_call': return 'coa_rides_v2';
+    case 'driver_approval': return 'coa_roles_v2';
+    case 'pvp_invite': return 'coa_quiz_v2';
+    case 'pvp_match': return 'coa_quiz_v2';
+    case 'pvp_result': return 'coa_quiz_v2';
+    case 'pvp_rematch': return 'coa_quiz_v2';
+    case 'bible_study': return 'coa_prayers_v2';
+    case 'fundraising': return 'coa_payments_v2';
+    case 'group_contribution': return 'coa_payments_v2';
+    case 'pledge_completed': return 'coa_payments_v2';
+    case 'baptism': return 'coa_prayers_v2';
+    case 'missions_donation': return 'coa_payments_v2';
+    case 'sos_alert': return 'coa_announcements_v2';
+    case 'church_approved': return 'coa_roles_v2';
+    case 'kyc_approved': return 'coa_roles_v2';
+    case 'kyc_rejected': return 'coa_roles_v2';
+    default: return 'coa_announcements_v2';
   }
 }
 
