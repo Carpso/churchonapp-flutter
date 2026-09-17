@@ -525,18 +525,33 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     _heartbeatTimer = null;
   }
 
+  String? _whipError;
+
   Future<bool> _startWhipIngest(String whipUrl) async {
+    _whipError = null;
     try {
       await _loadTurnCredentials();
-      final iceConfig = _iceServers.isNotEmpty
-          ? _iceServers
-          : <String, dynamic>{
-              'iceServers': [
-                {'urls': 'stun:stun.l.google.com:19302'},
-                {'urls': 'stun:stun1.l.google.com:19302'},
-              ],
-            };
-      if (iceConfig['sdpSemantics'] == null) iceConfig['sdpSemantics'] = 'unified-plan';
+
+      // Validate the ICE servers — a malformed `turn-credentials` reply must
+      // not break phone streaming. Fall back to plain STUN.
+      var servers = <Map<String, dynamic>>[
+        {'urls': 'stun:stun.l.google.com:19302'},
+        {'urls': 'stun:stun1.l.google.com:19302'},
+      ];
+      try {
+        final raw = _iceServers['iceServers'];
+        if (raw is List &&
+            raw.isNotEmpty &&
+            raw.every((e) => e is Map && e['urls'] != null)) {
+          servers = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        }
+      } catch (_) {}
+
+      final iceConfig = <String, dynamic>{
+        'iceServers': servers,
+        'sdpSemantics': 'unified-plan',
+      };
+
       _pc = await webrtc.createPeerConnection(
         iceConfig,
         {'trickle': false},
@@ -545,6 +560,11 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       for (final track in _localStream!.getTracks()) {
         _pc!.addTrack(track, _localStream!);
       }
+
+      var candidates = 0;
+      _pc!.onIceCandidate = (c) {
+        if ((c.candidate ?? '').isNotEmpty) candidates++;
+      };
 
       _pc!.onConnectionState = (webrtc.RTCPeerConnectionState state) {
         debugPrint('WHIP connection state: $state');
@@ -568,10 +588,16 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       });
       await _pc!.setLocalDescription(offer);
 
-      // WHIP requires a full (non-trickle) offer — wait for ICE gathering.
+      // WHIP requires a full (non-trickle) offer. Prefer "complete", but accept
+      // a settled candidate set — several phones never report `complete` and
+      // previously produced a candidate-less offer, which Cloudflare rejects.
       var waited = 0;
-      while (_pc!.iceGatheringState != webrtc.RTCIceGatheringState.RTCIceGatheringStateComplete &&
-          waited < 10000) {
+      while (waited < 12000) {
+        if (_pc!.iceGatheringState ==
+            webrtc.RTCIceGatheringState.RTCIceGatheringStateComplete) {
+          break;
+        }
+        if (candidates > 0 && waited >= 2000) break;
         await Future.delayed(const Duration(milliseconds: 200));
         waited += 200;
       }
@@ -580,17 +606,31 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       final sdp = ld?.sdp;
       if (sdp == null) {
         debugPrint('WHIP: no local SDP after gathering');
+        _whipError = 'Could not build a media offer from this phone.';
         return false;
       }
 
-      final res = await http.post(
-        Uri.parse(whipUrl),
-        headers: {'Content-Type': 'application/sdp'},
-        body: sdp,
-      );
+      // Retry once — the first WHIP POST occasionally races ICE on mobile.
+      http.Response? res;
+      for (var attempt = 0; attempt < 2; attempt++) {
+        res = await http.post(
+          Uri.parse(whipUrl),
+          headers: {'Content-Type': 'application/sdp'},
+          body: sdp,
+        );
+        if (res.statusCode >= 200 && res.statusCode < 300) break;
+        debugPrint(
+            'WHIP offer rejected (attempt ${attempt + 1}): ${res.statusCode} ${res.body}');
+        if (attempt == 0) {
+          await Future.delayed(const Duration(milliseconds: 800));
+        }
+      }
 
-      if (res.statusCode < 200 || res.statusCode >= 300) {
-        debugPrint('WHIP offer rejected: ${res.statusCode} ${res.body}');
+      if (res == null || res.statusCode < 200 || res.statusCode >= 300) {
+        final body = (res?.body ?? '');
+        _whipError =
+            'Cloudflare rejected the phone stream (${res?.statusCode ?? 'no response'})'
+            '${body.isEmpty ? '' : ': ${body.substring(0, body.length.clamp(0, 160))}'}';
         return false;
       }
 
@@ -598,6 +638,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       return true;
     } catch (e) {
       debugPrint('WHIP ingest error: $e');
+      _whipError = e.toString();
       return false;
     }
   }
@@ -612,7 +653,12 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Phone streaming is unavailable right now. Use these in OBS or any RTMP encoder:", style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              _whipError == null
+                  ? "Phone streaming is unavailable right now. Use these in OBS or any RTMP encoder:"
+                  : "Phone streaming failed: $_whipError\n\nUse these in OBS or any RTMP encoder:",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 12),
             const Text("RTMP URL:", style: TextStyle(fontSize: 12, color: Colors.grey)),
             SelectableText(_rtmpUrl ?? "N/A", style: const TextStyle(fontSize: 13, fontFamily: 'monospace')),
