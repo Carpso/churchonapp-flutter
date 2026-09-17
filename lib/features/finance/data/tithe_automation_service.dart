@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
@@ -29,6 +30,7 @@ class TitheAutomationService {
     final profiles = await query;
 
     final smsService = _ref.read(smsServiceProvider);
+    final reminderIds = <String>[];
 
     for (var profile in profiles) {
       final userId = profile['id'];
@@ -56,6 +58,26 @@ class TitheAutomationService {
           'body': 'A gentle reminder to honor your tithing for $currentPeriod.',
           'is_read': false,
         });
+        reminderIds.add(userId.toString());
+      }
+    }
+
+    // Also PUSH the reminder to those members' phones (one batched call — the
+    // per-caller rate limit applies per invocation, so a single call with many
+    // userIds works). Previously this was in-app + SMS only.
+    if (reminderIds.isNotEmpty) {
+      try {
+        await _client.functions.invoke('push-notifications', body: {
+          'userIds': reminderIds,
+          'title': 'Stewardship Reminder',
+          'body': 'A gentle reminder to honor your tithing for $currentPeriod.',
+          'data': {
+            'type': 'tithe_reminder',
+            'channel_id': 'coa_payments',
+          },
+        });
+      } catch (e) {
+        debugPrint('Tithe reminder push failed (non-fatal): $e');
       }
     }
   }

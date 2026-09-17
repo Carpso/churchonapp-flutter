@@ -36,7 +36,7 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
     try {
       final data = await Supabase.instance.client
           .from('notifications')
-          .select('title, message, target_audience, channel, created_at')
+          .select('title, body, type, created_at')
           .order('created_at', ascending: false)
           .limit(50);
       if (mounted) setState(() => _history = data);
@@ -67,18 +67,41 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
         return;
       }
 
-      await Supabase.instance.client.from('notifications').insert({
-        'title': title,
-        'message': body,
-        'target_audience': _selectedTarget,
-        'channel': _selectedChannel,
-        'priority': 'high',
-        'created_by': Supabase.instance.client.auth.currentUser?.id,
-        'created_at': DateTime.now().toIso8601String(),
-      });
+      final tenant = ref.read(currentTenantProvider);
+      if (tenant?.id == null) {
+        if (mounted) PremiumToast.showError(context, "No church selected.");
+        return;
+      }
+
+      // Real broadcast: the Edge Function inserts the in-app notification for
+      // every member AND sends the FCM push (one server-side fan-out). The old
+      // direct insert wrote columns that don't exist (`message`,
+      // `target_audience`, `channel`, `created_by`) so nothing was ever sent.
+      final res = await Supabase.instance.client.functions.invoke(
+        'push-notifications',
+        body: {
+          'action': 'broadcast',
+          'tenantId': tenant!.id,
+          'title': title,
+          'body': body,
+          'data': {
+            'type': 'broadcast',
+            'channel_id': 'coa_announcements',
+          },
+        },
+      );
+      final map = res.data is Map
+          ? Map<String, dynamic>.from(res.data as Map)
+          : <String, dynamic>{};
+      final sent = (map['sentCount'] as num?)?.toInt() ?? 0;
+      final total = (map['totalTargets'] as num?)?.toInt() ?? 0;
 
       if (mounted) {
-        PremiumToast.showSuccess(context, "Broadcast sent to $_selectedTarget via $_selectedChannel", title: "Message Dispatched");
+        PremiumToast.showSuccess(
+          context,
+          "Broadcast sent to $total member(s) — $sent push delivered.",
+          title: "Message Dispatched",
+        );
         _titleCtrl.clear();
         _bodyCtrl.clear();
         _loadHistory();
@@ -102,7 +125,7 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
     List<Map<String, dynamic>> members;
 
     try {
-      final query = client.from('profiles').select('phone').not('phone', 'is', null).eq('tenant_id', tenant.id);
+      final query = client.from('profiles').select('phone_number').not('phone_number', 'is', null).eq('tenant_id', tenant.id);
       if (_selectedTarget != "All Members") {
         final roleMap = {
           "Pastoral Staff": "pastor",
@@ -127,7 +150,7 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
       return;
     }
 
-    final phones = members.map((m) => m['phone']?.toString() ?? '').where((p) => p.isNotEmpty).toList();
+    final phones = members.map((m) => m['phone_number']?.toString() ?? '').where((p) => p.isNotEmpty).toList();
     if (phones.isEmpty) {
       if (mounted) PremiumToast.showWarning(context, "No phone numbers found for this audience");
       setState(() => _sending = false);
@@ -348,7 +371,7 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
   }
 
   Widget _buildHistoryItem(Map<String, dynamic> h) {
-    final channel = h['channel']?.toString() ?? '';
+    final channel = h['type']?.toString() ?? 'broadcast';
     final isSms = channel == "SMS";
 
     return Container(
@@ -366,7 +389,7 @@ class _GlobalBroadcastScreenState extends ConsumerState<GlobalBroadcastScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(h['message']?.toString() ?? '', style: TextStyle(color: Colors.grey.shade700, fontSize: 13, height: 1.3)),
+          Text(h['body']?.toString() ?? '', style: TextStyle(color: Colors.grey.shade700, fontSize: 13, height: 1.3)),
           const SizedBox(height: 12),
           Row(
             children: [
