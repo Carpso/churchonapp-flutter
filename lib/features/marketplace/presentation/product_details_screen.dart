@@ -3,14 +3,84 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/core/providers/auth_provider.dart';
 import '../data/marketplace_service.dart';
+import 'post_product_screen.dart';
+import 'vendor_dashboard_screen.dart' show vendorProductsProvider;
 
 class ProductDetailsScreen extends ConsumerWidget {
   final MarketProduct product;
   const ProductDetailsScreen({super.key, required this.product});
 
+  /// The seller edits/deletes their own listing without needing a vendor role
+  /// or the seller dashboard (any member may list an item).
+  Future<void> _editListing(BuildContext context, WidgetRef ref) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PostProductScreen(
+          product: {
+            'id': product.id,
+            'name': product.name,
+            'price': product.price,
+            'description': product.description,
+            'image': product.image,
+            'category': product.category,
+            'market_type': product.marketType,
+            'stock': product.stock,
+            'download_url': product.downloadUrl,
+          },
+        ),
+      ),
+    );
+    ref.invalidate(productsProvider);
+    ref.invalidate(vendorProductsProvider);
+  }
+
+  Future<void> _deleteListing(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete listing?'),
+        content: Text('Delete "${product.name}"? This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('CANCEL')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('DELETE'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      final done =
+          await ref.read(marketplaceServiceProvider).deleteProduct(product.id);
+      ref.invalidate(productsProvider);
+      ref.invalidate(vendorProductsProvider);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(done
+            ? 'Listing deleted'
+            : 'Could not delete this listing (not found or not yours).'),
+        backgroundColor: done ? Colors.green : Colors.redAccent,
+      ));
+      if (done) Navigator.of(context).pop();
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final currentUserId = ref.watch(authProvider).user?.id;
+    final isOwner =
+        currentUserId != null && product.vendorId == currentUserId;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
@@ -18,6 +88,23 @@ class ProductDetailsScreen extends ConsumerWidget {
           SliverAppBar(
             expandedHeight: 350,
             pinned: true,
+            actions: isOwner
+                ? [
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert),
+                      onSelected: (v) {
+                        if (v == 'edit') _editListing(context, ref);
+                        if (v == 'delete') _deleteListing(context, ref);
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                            value: 'edit', child: Text('Edit listing')),
+                        PopupMenuItem(
+                            value: 'delete', child: Text('Delete listing')),
+                      ],
+                    ),
+                  ]
+                : null,
             flexibleSpace: FlexibleSpaceBar(
               background: ClipRRect(
                 borderRadius: BorderRadius.circular(12),

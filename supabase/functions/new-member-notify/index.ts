@@ -118,7 +118,8 @@ serve(async (req) => {
       is_read: false,
       type: "new_member",
       reference_id: newUserId,
-      channel_id: channelId,
+      // NOTE: `channel_id` is an FCM-transport concept, NOT a column on
+      // `notifications` — including it made the whole insert fail with 42703.
     }));
 
     const { error: notifError } = await supabase.from("notifications").insert(notifications);

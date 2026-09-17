@@ -308,7 +308,7 @@ class FcmService {
           GoRouter.of(context).push('/connect');
           return;
         case 'incoming_call':
-          GoRouter.of(context).push('/calls');
+          GoRouter.of(context).push('/call');
           return;
         case 'pvp_invite':
         case 'pvp_match':
@@ -389,7 +389,16 @@ class FcmService {
             GoRouter.of(context).push('/quiz/invite/$id');
             return;
           case 'sermon':
-            GoRouter.of(context).push('/sermons');
+            GoRouter.of(context).push('/sermon/$id');
+            return;
+          case 'post':
+            GoRouter.of(context).push('/posts/$id');
+            return;
+          case 'klip':
+            GoRouter.of(context).push('/klips/$id');
+            return;
+          case 'job':
+            GoRouter.of(context).push('/jobs/$id');
             return;
           case 'order':
             GoRouter.of(context).push('/marketplace');
@@ -423,6 +432,24 @@ class FcmService {
       GoRouter.of(context).go('/');
     } catch (_) {
       GoRouter.of(context).go('/');
+    }
+  }
+
+  /// Fetches the current FCM token and persists it.
+  ///
+  /// Must be called after sign-in (and on resume): the initial [init] commonly
+  /// runs before the user is authenticated, and `_storeToken` silently drops the
+  /// token when there is no session — so `profiles.fcm_token` stayed NULL and
+  /// the server had no device to push to.
+  Future<void> syncToken() async {
+    try {
+      if (ref.read(supabaseServiceProvider).client.auth.currentUser == null) {
+        return;
+      }
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) await _storeToken(token);
+    } catch (e) {
+      debugPrint('[FCM] syncToken failed: $e');
     }
   }
 

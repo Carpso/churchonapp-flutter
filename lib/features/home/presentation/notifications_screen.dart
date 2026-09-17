@@ -256,16 +256,30 @@ class NotificationsScreen extends ConsumerWidget {
           }
           break;
         case 'sermon':
-          context.go('/sermons');
+          if (id != null && id.isNotEmpty) {
+            context.push('/sermon/$id');
+          } else {
+            context.go('/sermons');
+          }
           break;
         case 'prayer':
         case 'testimony':
-        case 'klip':
         case 'announcement':
           context.go('/connect');
           break;
+        case 'klip':
+          if (id != null && id.isNotEmpty) {
+            context.push('/klips/$id');
+          } else {
+            context.go('/connect');
+          }
+          break;
         case 'job':
-          context.go('/jobs');
+          if (id != null && id.isNotEmpty) {
+            context.push('/jobs/$id');
+          } else {
+            context.go('/jobs');
+          }
           break;
         case 'ride':
         case 'transport':

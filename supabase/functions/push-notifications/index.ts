@@ -57,7 +57,32 @@ serve(async (req) => {
       });
     }
 
-    const { allowed } = await checkRateLimit(supabase, user.id, "push_notification", 60, 1);
+    const payload = await req.json();
+    const {
+      userId, title, body, imageUrl, avatarUrl, data,
+      type: topType,
+      referenceId: topRef,
+      channelId: topChannel,
+      action,
+      tenantId: broadcastTenantId,
+    } = payload;
+    const userIds = payload.userIds;
+
+    // Normalize routing fields. Many callers historically passed `type` /
+    // `referenceId` / `channelId` at the TOP level instead of inside `data`,
+    // which silently downgraded every push to type "general" and dropped the
+    // reference id (so a tap went to the wrong screen).
+    const effType = (data?.type ?? topType ?? "general").toString();
+    const effRef = data?.reference_id ?? topRef ?? null;
+    const outData: Record<string, unknown> = { ...(data ?? {}), type: effType };
+    if (effRef) outData.reference_id = effRef;
+    if (topChannel) outData.channel_id = topChannel;
+
+    const isBroadcast = action === "broadcast" && !!broadcastTenantId;
+
+    const { allowed } = isBroadcast
+      ? await checkRateLimit(supabase, user.id, "push_broadcast", 10, 1)
+      : await checkRateLimit(supabase, user.id, "push_notification", 60, 1);
     if (!allowed) {
       return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again later." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -65,20 +90,37 @@ serve(async (req) => {
       });
     }
 
-    const { userId, userIds, title, body, imageUrl, avatarUrl, data } = await req.json();
-
     const targetUserIds: string[] = [];
-    if (userId) targetUserIds.push(userId);
-    if (userIds && Array.isArray(userIds)) targetUserIds.push(...userIds);
+    if (isBroadcast) {
+      // Server-side fan-out: resolve the church's members in ONE call so a
+      // sermon/news/klip broadcast doesn't hit the per-caller rate limit after
+      // ~60 recipients (which previously silently dropped the rest).
+      const { data: members } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("tenant_id", broadcastTenantId)
+        .limit(2000);
+      for (const m of members ?? []) {
+        const id = m?.id?.toString();
+        if (id && id !== user.id) targetUserIds.push(id);
+      }
+    } else {
+      if (userId) targetUserIds.push(userId);
+      if (userIds && Array.isArray(userIds)) targetUserIds.push(...userIds);
+    }
 
     if (targetUserIds.length === 0 || !title || !body) {
-      return new Response(JSON.stringify({ error: "Missing required fields: userId or userIds, title, body" }), {
+      return new Response(JSON.stringify({ error: "Missing required fields: userId/userIds (or action:broadcast + tenantId), title, body" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
       });
     }
 
     let sentCount = 0;
+    const skipped: Record<string, number> = {};
+    const bump = (k: string) => {
+      skipped[k] = (skipped[k] ?? 0) + 1;
+    };
 
     for (const targetUserId of targetUserIds) {
       try {
@@ -107,8 +149,8 @@ serve(async (req) => {
           title,
           body,
           is_read: false,
-          type: data?.type ?? "general",
-          reference_id: data?.reference_id ?? null,
+          type: effType,
+          reference_id: effRef,
         });
 
         if (profile?.fcm_token) {
@@ -117,6 +159,7 @@ serve(async (req) => {
 
           if (!projectId) {
             console.warn("FCM_PROJECT_ID not set, skipping push");
+            bump("no_project_id");
           } else {
             const accessToken = await getFcmAccessToken();
             if (accessToken) {
@@ -136,20 +179,20 @@ serve(async (req) => {
                         body,
                         ...(notifImage ? { image: notifImage } : {}),
                       },
-                      data: data ?? {},
+                      data: outData,
                       android: {
                         // Collapse key + TTL stop the offline flood: while the
                         // device is offline FCM queues pushes, then delivers
                         // them ALL at once on reconnect. With a per-type
                         // collapse key only the LATEST queued message per type
                         // is delivered, and nothing older than the TTL is kept.
-                        collapseKey: data?.type ?? "general",
+                        collapseKey: effType,
                         ttl: "43200s",
                         priority: "high",
                         notification: {
-                          channelId: channelForType(data?.type),
+                          channelId: channelForType(effType),
                           color: "#FFDA03",
-                          icon: iconForType(data?.type),
+                          icon: iconForType(effType),
                           ...(notifImage ? { image: notifImage } : {}),
                           sound: "default",
                           defaultSound: true,
@@ -164,7 +207,7 @@ serve(async (req) => {
                       },
                       apns: {
                         headers: {
-                          "apns-collapse-id": data?.type ?? "general",
+                          "apns-collapse-id": effType,
                           "apns-priority": "10",
                           "apns-expiration": "43200",
                         },
@@ -173,7 +216,7 @@ serve(async (req) => {
                             "mutable-content": 1,
                             sound: "default",
                             badge: 1,
-                            category: data?.type === "ride" ? "RIDE_CATEGORY" : undefined,
+                            category: effType === "ride" ? "RIDE_CATEGORY" : undefined,
                             alert: { title, body },
                           },
                         },
@@ -186,8 +229,23 @@ serve(async (req) => {
                 }
               );
 
-              if (fcmRes.ok) sentCount++;
-              else console.error(`FCM V1 send failed: ${fcmRes.status}`);
+              if (fcmRes.ok) {
+                sentCount++;
+              } else {
+                const errText = await fcmRes.text().catch(() => "");
+                console.error(`FCM V1 send failed: ${fcmRes.status} ${errText.slice(0, 300)}`);
+                // Dead/rotated token → clear it so the next send skips this device
+                // instead of silently failing forever.
+                if (/UNREGISTERED|NOT_FOUND|INVALID_ARGUMENT|SENDER_ID_MISMATCH/.test(errText)) {
+                  await supabase
+                    .from("profiles")
+                    .update({ fcm_token: null })
+                    .eq("id", targetUserId);
+                  bump("invalid_token_cleared");
+                } else {
+                  bump("fcm_error");
+                }
+              }
             } else {
               const serverKey = Deno.env.get("FCM_SERVER_KEY");
               if (serverKey) {
@@ -203,21 +261,25 @@ serve(async (req) => {
                       title,
                       body,
                       color: "#FFDA03",
-                      icon: iconForType(data?.type),
+                      icon: iconForType(effType),
                       ...(notifImage ? { image: notifImage } : {}),
                     },
-                    data: data ?? {},
-                    collapse_key: data?.type ?? "general",
+                    data: outData,
+                    collapse_key: effType,
                     time_to_live: 43200,
                     android: { priority: "high" },
                   }),
                 });
 
                 if (fcmRes.ok) sentCount++;
-                else console.error(`FCM Legacy send failed: ${fcmRes.status}`);
+                else bump("fcm_legacy_error");
+              } else {
+                bump("no_credentials");
               }
             }
           }
+        } else {
+          bump("no_token");
         }
 
         if (targetUserIds.length > 1) {
@@ -228,7 +290,7 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ success: true, sentCount, totalTargets: targetUserIds.length }), {
+    return new Response(JSON.stringify({ success: true, sentCount, skipped, totalTargets: targetUserIds.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

@@ -41,6 +41,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   bool _isLoading = false;
   bool _permissionDenied = false;
   bool _fillPreview = false;
+  bool _audioOnly = false;
   String _streamStatus = "OFFLINE";
   String _streamTitle = "Sunday Celebration Live";
   String _streamDescription = '';
@@ -88,15 +89,24 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
 
   Future<void> _initPreview() async {
     try {
-      final stream = await webrtc.navigator.mediaDevices.getUserMedia({
-        'audio': true,
-        'video': {
-          'facingMode': _cameraFacing == 0 ? 'user' : 'environment',
-          'width': 1280,
-          'height': 720,
-          'frameRate': 24,
-        },
-      });
+      // Release the previous tracks before re-acquiring (e.g. when toggling
+      // audio-only) so we don't leak a camera/mic.
+      try {
+        _localStream?.getTracks().forEach((t) => t.stop());
+      } catch (_) {}
+      final stream = await webrtc.navigator.mediaDevices.getUserMedia(
+        _audioOnly
+            ? {'audio': true, 'video': false}
+            : {
+                'audio': true,
+                'video': {
+                  'facingMode': _cameraFacing == 0 ? 'user' : 'environment',
+                  'width': 1280,
+                  'height': 720,
+                  'frameRate': 24,
+                },
+              },
+      );
       if (!mounted) {
         stream.getTracks().forEach((t) => t.stop());
         return;
@@ -135,6 +145,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   }
 
   Future<void> _switchCamera() async {
+    if (_audioOnly) return; // no video track to switch
     setState(() => _cameraFacing = _cameraFacing == 0 ? 1 : 0);
     final tracks = _localStream?.getVideoTracks() ?? const [];
     for (final t in tracks) {
@@ -287,6 +298,21 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
               const SizedBox(height: 12),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
+                secondary: Icon(_audioOnly ? LucideIcons.mic : LucideIcons.video),
+                title: const Text('Audio-only broadcast'),
+                subtitle: const Text(
+                    'On = stream sound only (no camera). Off = video + audio.'),
+                value: _audioOnly,
+                onChanged: (v) async {
+                  setState(() => _audioOnly = v);
+                  // Re-acquire the local media with the new track set so the WHIP
+                  // offer is genuinely audio-only / audio+video.
+                  await _initPreview();
+                },
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
                 title: const Text('Fill screen preview (crop)'),
                 subtitle: const Text('Off = fit whole frame, On = fill the screen'),
                 value: _fillPreview,
@@ -372,6 +398,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
         tenantId: tenantId,
         title: _streamTitle,
         description: _streamDescription,
+        audioOnly: _audioOnly,
       );
 
       if (_verseText != null || _verseRef != null || _logoUrl != null) {
@@ -737,15 +764,35 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       body: Stack(
         children: [
           Positioned.fill(
-            child: _renderer == null
-                ? const ColoredBox(color: Colors.black)
-                : webrtc.RTCVideoView(
-                    _renderer!,
-                    mirror: _cameraFacing == 0,
-                    objectFit: _fillPreview
-                        ? webrtc.RTCVideoViewObjectFit.RTCVideoViewObjectFitCover
-                        : webrtc.RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
-                  ),
+            child: _audioOnly
+                ? const ColoredBox(
+                    color: Colors.black,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(LucideIcons.mic,
+                              color: Color(0xFFFFD700), size: 56),
+                          SizedBox(height: 12),
+                          Text('AUDIO-ONLY BROADCAST',
+                              style: TextStyle(
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 12,
+                                  letterSpacing: 1.5)),
+                        ],
+                      ),
+                    ),
+                  )
+                : _renderer == null
+                    ? const ColoredBox(color: Colors.black)
+                    : webrtc.RTCVideoView(
+                        _renderer!,
+                        mirror: _cameraFacing == 0,
+                        objectFit: _fillPreview
+                            ? webrtc.RTCVideoViewObjectFit.RTCVideoViewObjectFitCover
+                            : webrtc.RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
+                      ),
           ),
           if (_isLoading)
             Container(color: Colors.black54, child: const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)))),

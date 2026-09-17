@@ -1529,6 +1529,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             streamUrl: extra?['streamUrl']?.toString() ?? '',
             title: extra?['title']?.toString() ?? 'Live Service',
             streamId: extra?['streamId']?.toString(),
+            isAudioOnly: extra?['isAudioOnly'] == true,
+            thumbnailUrl: extra?['thumbnailUrl']?.toString(),
           );
         },
       ),
@@ -1711,7 +1713,9 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/giving',
-                builder: (context, state) => const GivingScreen(),
+                builder: (context, state) => GivingScreen(
+                  initialCategory: state.uri.queryParameters['category'],
+                ),
               ),
             ],
           ),

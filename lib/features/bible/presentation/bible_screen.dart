@@ -471,10 +471,10 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                           ? const <VerseNote>[]
                           : ref
                                   .watch(
-                                    verseNotesProvider({
-                                      'bookId': bookOrder,
-                                      'chapter': selectedChapter,
-                                    }),
+                                    verseNotesProvider((
+                                      bookId: bookOrder,
+                                      chapter: selectedChapter,
+ verse: null,)),
                                   )
                                   .value ??
                               const <VerseNote>[];
@@ -518,10 +518,10 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                                     verse: v.verse,
                                     isFavorite: !saved,
                                   );
-                              ref.invalidate(verseNotesProvider({
-                                'bookId': bookOrder,
-                                'chapter': selectedChapter,
-                              }));
+                              ref.invalidate(verseNotesProvider((
+                                bookId: bookOrder,
+                                chapter: selectedChapter,
+ verse: null,)));
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(!saved
@@ -716,10 +716,10 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
         if (ok) deletedAny = true;
       }
       ref.invalidate(
-        verseNotesProvider({
-          'bookId': bookOrder,
-          'chapter': verse.chapter,
-        }),
+        verseNotesProvider((
+          bookId: bookOrder,
+          chapter: verse.chapter,
+ verse: null,)),
       );
       messenger.showSnackBar(
         SnackBar(
@@ -780,17 +780,17 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
         );
       }
       ref.invalidate(
-        verseNotesProvider({
-          'bookId': bookOrder,
-          'chapter': verse.chapter,
-        }),
+        verseNotesProvider((
+          bookId: bookOrder,
+          chapter: verse.chapter,
+ verse: null,)),
       );
       ref.invalidate(
-        verseNotesProvider({
-          'bookId': bookOrder,
-          'chapter': verse.chapter,
-          'verse': verse.verse,
-        }),
+        verseNotesProvider((
+          bookId: bookOrder,
+          chapter: verse.chapter,
+          verse: verse.verse,
+        )),
       );
       messenger.showSnackBar(
         SnackBar(
@@ -811,11 +811,11 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               ? const <VerseNote>[]
               : ref
                       .watch(
-                        verseNotesProvider({
-                          'bookId': bookOrder,
-                          'chapter': verse.chapter,
-                          'verse': verse.verse,
-                        }),
+                        verseNotesProvider((
+                          bookId: bookOrder,
+                          chapter: verse.chapter,
+                          verse: verse.verse,
+                        )),
                       )
                       .value ??
                   const <VerseNote>[];

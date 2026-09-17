@@ -34,15 +34,26 @@ class NotebookService {
     return Note.fromMap(response);
   }
 
-  Future<void> updateNote(String noteId, Map<String, dynamic> updates) async {
-    await _client.from('user_notes').update({
-      ...updates,
-      'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', noteId);
+  /// Updates a note and returns whether a row was actually written (a 0-row
+  /// write means the RLS/owner check rejected it).
+  Future<bool> updateNote(String noteId, Map<String, dynamic> updates) async {
+    final rows = await _client
+        .from('user_notes')
+        .update({
+          ...updates,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', noteId)
+        .select('id');
+    return (rows as List).isNotEmpty;
   }
 
-  Future<void> deleteNote(String noteId) async {
-    await _client.from('user_notes').delete().eq('id', noteId);
+  /// Deletes a note. Returns false when nothing was deleted (wrong owner / RLS)
+  /// so the UI can surface a real error instead of pretending success.
+  Future<bool> deleteNote(String noteId) async {
+    final rows =
+        await _client.from('user_notes').delete().eq('id', noteId).select('id');
+    return (rows as List).isNotEmpty;
   }
 
   Stream<List<Note>> streamNotes(String userId, {String category = 'general'}) {

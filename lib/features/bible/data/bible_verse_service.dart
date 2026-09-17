@@ -254,13 +254,28 @@ class BibleVerseService {
       final user = _client.auth.currentUser;
       if (user == null) return [];
 
+      // `verse_notes.book_id` is a UUID FK to `bible_books(id)`, but callers
+      // pass the integer book ORDER. Resolve it first — filtering a uuid column
+      // with an int raised 22P02, was swallowed, and made every verse read as
+      // "not highlighted".
+      String? bookUuid;
+      if (bookId != null) {
+        final book = await _client
+            .from('bible_books')
+            .select('id')
+            .eq('book_order', bookId)
+            .maybeSingle();
+        if (book == null) return [];
+        bookUuid = book['id'] as String;
+      }
+
       var queryBuilder = _client
           .from('verse_notes')
           .select('id, note, is_bookmark, is_favorite, is_liked, tags, created_at, chapter, verse')
           .eq('user_id', user.id);
 
-      if (bookId != null) {
-        queryBuilder = queryBuilder.eq('book_id', bookId);
+      if (bookUuid != null) {
+        queryBuilder = queryBuilder.eq('book_id', bookUuid);
       }
       if (chapter != null) {
         queryBuilder = queryBuilder.eq('chapter', chapter);
@@ -795,12 +810,17 @@ final bibleSearchProvider = FutureProvider.family<List<Map<String, dynamic>>, St
   },
 );
 
-final verseNotesProvider = FutureProvider.family<List<VerseNote>, Map<String, dynamic>>(
-  (ref, params) async {
+/// Value-equal family key for [verseNotesProvider] (a Map key has no value
+/// equality → endless family churn; see the Riverpod rule in AGENTS.md).
+typedef VerseNotesQuery = ({int? bookId, int? chapter, int? verse});
+
+final verseNotesProvider =
+    FutureProvider.family<List<VerseNote>, VerseNotesQuery>(
+  (ref, q) async {
     return ref.watch(bibleVerseServiceProvider).fetchVerseNotes(
-      bookId: params['bookId'] as int?,
-      chapter: params['chapter'] as int?,
-      verse: params['verse'] as int?,
+      bookId: q.bookId,
+      chapter: q.chapter,
+      verse: q.verse,
     );
   },
 );

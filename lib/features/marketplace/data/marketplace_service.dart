@@ -116,12 +116,26 @@ class MarketplaceService {
   }
 
   /// Update an existing listing. Only the fields present in `changes` are
-  /// written; RLS still scopes the row to its owner/vendor.
-  Future<void> updateProduct(String productId, Map<String, dynamic> changes) async {
-    await _client
+  /// written; RLS still scopes the row to its owner/vendor. Returns false when
+  /// no row was written (owner/RLS mismatch) so callers can surface an error
+  /// instead of reporting a silent success.
+  Future<bool> updateProduct(String productId, Map<String, dynamic> changes) async {
+    final rows = await _client
         .from('marketplace_items')
         .update(changes)
-        .eq('id', productId);
+        .eq('id', productId)
+        .select('id');
+    return (rows as List).isNotEmpty;
+  }
+
+  /// Delete a listing the caller owns. Returns false when nothing was deleted.
+  Future<bool> deleteProduct(String productId) async {
+    final rows = await _client
+        .from('marketplace_items')
+        .delete()
+        .eq('id', productId)
+        .select('id');
+    return (rows as List).isNotEmpty;
   }
 }
 

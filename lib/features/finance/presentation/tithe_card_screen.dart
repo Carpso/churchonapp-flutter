@@ -143,7 +143,7 @@ class _TitheCardScreenState extends ConsumerState<TitheCardScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: () => context.go('/giving'),
+              onPressed: () => context.go('/giving?category=Tithe'),
               icon: const Icon(LucideIcons.gift),
               label: const Text("Give Tithe"),
               style: ElevatedButton.styleFrom(
@@ -588,7 +588,7 @@ decoration: BoxDecoration(
     return Column(
       children: [
         ElevatedButton.icon(
-          onPressed: () => context.go('/giving'),
+          onPressed: () => context.go('/giving?category=Tithe'),
           icon: Icon(LucideIcons.gift, color: Colors.black),
           label: const Text(
             "Give Tithe Now",

@@ -20,7 +20,7 @@ class LiveStreamService {
   final SupabaseClient _client;
 
   static const _publicStreamColumns =
-      'id,church_id,title,description,status,streaming_backend,scheduled_at,started_at,ended_at,hls_url,dash_url,preview_url,viewer_count,created_at,cloudflare_video_id';
+      'id,church_id,title,description,status,streaming_backend,scheduled_at,started_at,ended_at,hls_url,dash_url,preview_url,viewer_count,created_at,cloudflare_video_id,thumbnail_url,is_audio_only';
 
   LiveStreamService(this._client);
 

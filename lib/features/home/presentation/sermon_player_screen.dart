@@ -1170,9 +1170,13 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
         }),
         _buildActionItem(LucideIcons.share2, "Forward", onTap: () async {
           try {
+            // Include a real deep link so the recipient opens this sermon in-app
+            // (https://churchonapp.com/sermon/<id> → /sermon/:sermonId).
+            final link = 'https://churchonapp.com/sermon/${widget.sermon.id}';
             await SharePlus.instance.share(ShareParams(
-              text: 'Check out this sermon: ${widget.sermon.title} by ${widget.sermon.preacher}',
-              title: 'Share Sermon',
+              text:
+                  'Check out this sermon: ${widget.sermon.title} by ${widget.sermon.preacher}\n$link',
+              title: widget.sermon.title,
             ));
             if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sharing spiritual wisdom...")));
           } catch (e) {

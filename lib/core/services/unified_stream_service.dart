@@ -163,6 +163,8 @@ class UnifiedStreamService {
     required String title,
     String? description,
     DateTime? scheduledAt,
+    bool audioOnly = false,
+    String? thumbnailUrl,
   }) async {
     // Gate check: ensure church is within limits
     final gate = await checkStreamGate(tenantId);
@@ -180,6 +182,8 @@ class UnifiedStreamService {
       title: title,
       description: description,
       scheduledAt: scheduledAt,
+      audioOnly: audioOnly,
+      thumbnailUrl: thumbnailUrl,
     );
   }
 
@@ -189,6 +193,8 @@ class UnifiedStreamService {
     required String title,
     String? description,
     DateTime? scheduledAt,
+    bool audioOnly = false,
+    String? thumbnailUrl,
   }) async {
     // Belt-and-braces: attach the current access token explicitly. On stale
     // sessions functions.invoke may omit the header and the edge function
@@ -242,6 +248,9 @@ class UnifiedStreamService {
           'dash_url': dashUrl,
           'preview_url': previewUrl,
           'whip_url': whipUrl,
+          'is_audio_only': audioOnly,
+          if (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
+            'thumbnail_url': thumbnailUrl,
           'created_by': _client.auth.currentUser?.id,
         })
         .select()

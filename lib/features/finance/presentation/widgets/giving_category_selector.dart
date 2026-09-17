@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/i18n/l10n.dart';
 
 class GivingCategorySelector extends StatelessWidget {
@@ -7,12 +8,17 @@ class GivingCategorySelector extends StatelessWidget {
   final ValueChanged<String> onCategoryChanged;
   final Color? activeColor;
 
+  /// When provided (tenant leaders), a "+ Add category" chip is shown so
+  /// leaders can create special-giving categories without leaving the Give tab.
+  final VoidCallback? onAddCategory;
+
   const GivingCategorySelector({
     super.key,
     required this.categories,
     required this.selectedCategory,
     required this.onCategoryChanged,
     this.activeColor,
+    this.onAddCategory,
   });
 
   static const _categoryIcons = {
@@ -128,6 +134,24 @@ class GivingCategorySelector extends StatelessWidget {
             );
           }).toList(),
         ),
+        if (onAddCategory != null) ...[
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: onAddCategory,
+              icon: const Icon(LucideIcons.plus, size: 16),
+              label: const Text('Add category',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: secondary,
+                side: BorderSide(color: secondary.withValues(alpha: 0.5)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15)),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

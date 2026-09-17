@@ -301,6 +301,8 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
         final u = event.session!.user;
         final tenant = container.read(currentTenantProvider);
         notifService.startListening(u.id, tenant?.id ?? u.id);
+        // Persist the FCM token now that we have a session (init ran pre-login).
+        fcmInstance?.syncToken();
       }
     });
   }
@@ -315,6 +317,10 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.detached) {
       ap.audioHandler?.stop();
+    } else if (state == AppLifecycleState.resumed) {
+      // Re-sync the FCM token on resume — covers a token rotation that happened
+      // while the app was backgrounded/killed.
+      fcmInstance?.syncToken();
     }
   }
 

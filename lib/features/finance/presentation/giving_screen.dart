@@ -21,7 +21,11 @@ import 'package:church_on_app/core/widgets/entity_selector.dart';
 import 'package:church_on_app/features/fundraising/data/fundraising_providers.dart';
 
 class GivingScreen extends ConsumerStatefulWidget {
-  const GivingScreen({super.key});
+  const GivingScreen({super.key, this.initialCategory});
+
+  /// Optional category to preselect (e.g. the Tithe Card deep-links to
+  /// `/giving?category=Tithe`).
+  final String? initialCategory;
 
   @override
   ConsumerState<GivingScreen> createState() => _GivingScreenState();
@@ -44,6 +48,23 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
     "Other"
   ];
   final List<String> _titheRecipients = ["Pastor", "Bishop", "Treasurer"];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialCategory != null && widget.initialCategory!.isNotEmpty) {
+      _selectedCategory = widget.initialCategory!;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant GivingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final cat = widget.initialCategory;
+    if (cat != null && cat.isNotEmpty && cat != oldWidget.initialCategory) {
+      _selectedCategory = cat;
+    }
+  }
 
   @override
   void dispose() {
@@ -88,6 +109,10 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
     final baskets = ref.watch(offeringBasketsProvider).value ??
         const <OfferingBasket>[];
     final activeSession = ref.watch(activeOfferingSessionProvider).value;
+    final isTenantLeader = profile != null &&
+        (profile.isLeadershipTeam ||
+            profile.isLedgerManager ||
+            profile.isSuperadmin);
     // De-duplicate by NAME: defensive against any duplicate/mis-scoped rows so
     // the selector can never render the same basket (e.g. "Tithe") repeatedly.
     final seenNames = <String>{};
@@ -153,6 +178,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
               categories: categories,
               selectedCategory: _selectedCategory,
               onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
+              onAddCategory: isTenantLeader ? _showAddCategorySheet : null,
             ),
             if (_selectedCategory.toLowerCase().contains("tithe")) ...[
               const SizedBox(height: 16),
@@ -395,6 +421,148 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
         ],
       ),
     );
+  }
+
+  /// Tenant leaders can add a special-giving category (an offering basket)
+  /// directly from the Give tab. It becomes selectable immediately.
+  Future<void> _showAddCategorySheet() async {
+    final profile = ref.read(profileProvider).value;
+    final canOrgWide = profile != null &&
+        const {
+          'bishop',
+          'apostle',
+          'prophet',
+          'general_secretary',
+          'general_treasurer',
+          'superadmin',
+          'super_admin',
+          'coa_employee',
+          'employee',
+        }.contains(profile.role);
+
+    final nameCtrl = TextEditingController();
+    final codeCtrl = TextEditingController();
+    var orgWide = false;
+    var busy = false;
+    String? createdName;
+
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Add a giving category',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(
+                  'Create a special-giving category for your church '
+                  '(e.g. Building Project, Missions Sunday).',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(ctx)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.6)),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameCtrl,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Category name',
+                    hintText: 'e.g. Building Project',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: codeCtrl,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(
+                    labelText: 'GL code (optional)',
+                    hintText: 'BLD',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                if (canOrgWide)
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: orgWide,
+                    onChanged: (v) => setLocal(() => orgWide = v),
+                    title: const Text('Share with my whole organisation',
+                        style: TextStyle(fontSize: 13)),
+                    subtitle: const Text(
+                        'Every branch in your organisation will see it.',
+                        style: TextStyle(fontSize: 11)),
+                  ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: busy
+                        ? null
+                        : () async {
+                            final name = nameCtrl.text.trim();
+                            if (name.isEmpty) return;
+                            setLocal(() => busy = true);
+                            try {
+                              await ref
+                                  .read(offeringBasketServiceProvider)
+                                  .createBasket(
+                                    name: name,
+                                    code: codeCtrl.text.trim().isEmpty
+                                        ? null
+                                        : codeCtrl.text.trim(),
+                                    orgWide: orgWide,
+                                  );
+                              createdName = name;
+                              if (ctx.mounted) Navigator.pop(ctx, true);
+                            } catch (e) {
+                              setLocal(() => busy = false);
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                                    content: Text(
+                                        'Could not add category: $e')));
+                              }
+                            }
+                          },
+                    style: FilledButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 52)),
+                    child: const Text('ADD CATEGORY'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    nameCtrl.dispose();
+    codeCtrl.dispose();
+
+    if (saved == true) {
+      ref.invalidate(offeringBasketsProvider);
+      if (createdName != null && mounted) {
+        setState(() => _selectedCategory = createdName!);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('"$createdName" added — you can now give to it.'),
+          backgroundColor: Colors.green,
+        ));
+      }
+    }
   }
 
   Widget _buildOfflineQueueBanner() {    final pendingAsync = ref.watch(offlineGivingPendingProvider);

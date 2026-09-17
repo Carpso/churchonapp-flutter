@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:church_on_app/features/marketplace/presentation/post_product_screen.dart';
+import 'package:church_on_app/features/marketplace/data/marketplace_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/providers/auth_provider.dart';
 import 'package:church_on_app/features/admin/data/order_service.dart';
@@ -42,9 +43,13 @@ final vendorStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
 final vendorProductsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final userId = ref.watch(authProvider).user?.id;
   if (userId == null) return [];
+  // Select the FULL row the edit form reads, otherwise editing resets
+  // description/category/market_type/stock/download_url to defaults.
   final data = await Supabase.instance.client
       .from('marketplace_items')
-      .select('id, name, price, image, status, created_at, vendor_id')
+      .select(
+          'id, name, price, image, status, created_at, vendor_id, description, '
+          'category, market_type, stock, download_url, condition, tenant_id')
       .eq('vendor_id', userId)
       .order('created_at', ascending: false);
   return (data as List).cast<Map<String, dynamic>>();
@@ -107,16 +112,29 @@ class _VendorDashboardScreenState extends ConsumerState<VendorDashboardScreen> {
     );
 
     if (confirmed == true) {
-      await Supabase.instance.client
-          .from('marketplace_items')
-          .delete()
-          .eq('id', productId);
-      ref.invalidate(vendorProductsProvider);
-      ref.invalidate(vendorStatsProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Product deleted"), backgroundColor: Colors.green),
-        );
+      try {
+        final ok = await ref
+            .read(marketplaceServiceProvider)
+            .deleteProduct(productId);
+        ref.invalidate(vendorProductsProvider);
+        ref.invalidate(vendorStatsProvider);
+        ref.invalidate(productsProvider);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(ok
+                  ? "Product deleted"
+                  : "Could not delete this listing (not found or not yours)."),
+              backgroundColor: ok ? Colors.green : Colors.redAccent,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Delete failed: $e"), backgroundColor: Colors.redAccent),
+          );
+        }
       }
     }
   }

@@ -177,24 +177,37 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
           'church_id': churchId,
         });
       } else if (_targetFolder == 'sermons') {
-        await client.from('sermons').insert({
-          'tenant_id': tenantId,
-          'church_id': churchId,
-          'title': _titleController.text,
-          'speaker': _speakerController.text.isEmpty ? 'Church Ministry' : _speakerController.text,
-          'preacher': _speakerController.text.isEmpty ? 'Church Ministry' : _speakerController.text,
-          'video_url': _mediaType == 'video' ? publicUrl : null,
-          'audio_url': _mediaType == 'audio' ? publicUrl : null,
-          'archive_url': r2ArchiveUrl,
-          'cloudflare_video_id': cfVideoId,
-          'thumbnail_url': cfThumbnail ?? '',
-          'is_live': false,
-          'viewer_count': 0,
-          'duration_minutes': cfDurationMinutes ?? 0,
-          'category': 'Media Manager',
-        });
-        // Notify church members of new sermon (fire-and-forget)
-        if (tenantId != null) _notifySermonPublished(client, tenantId, _titleController.text);
+        final inserted = await client
+            .from('sermons')
+            .insert({
+              'tenant_id': tenantId,
+              'church_id': churchId,
+              'title': _titleController.text,
+              'speaker': _speakerController.text.isEmpty ? 'Church Ministry' : _speakerController.text,
+              'preacher': _speakerController.text.isEmpty ? 'Church Ministry' : _speakerController.text,
+              'video_url': _mediaType == 'video' ? publicUrl : null,
+              'audio_url': _mediaType == 'audio' ? publicUrl : null,
+              'archive_url': r2ArchiveUrl,
+              'cloudflare_video_id': cfVideoId,
+              'thumbnail_url': cfThumbnail ?? '',
+              'is_live': false,
+              'viewer_count': 0,
+              'duration_minutes': cfDurationMinutes ?? 0,
+              'category': 'Media Manager',
+            })
+            .select('id')
+            .maybeSingle();
+        // Notify church members of new sermon (fire-and-forget). One server-side
+        // broadcast — the old per-member loop hit the rate limit after ~60 and
+        // silently dropped the rest.
+        if (tenantId != null) {
+          _notifySermonPublished(
+            client,
+            tenantId,
+            _titleController.text,
+            sermonId: inserted?['id']?.toString(),
+          );
+        }
       } else {
         // Marketplace asset: stored securely for use in product listings.
         if (mounted) _showSuccessDialog(message: "Asset uploaded and will be available in your product listings.");
@@ -452,30 +465,31 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
     );
   }
 
-  /// Notify church members of new sermon (fire-and-forget).
-  void _notifySermonPublished(SupabaseClient client, String tenantId, String title) {
+  /// Notify church members of a new sermon (fire-and-forget).
+  ///
+  /// Uses the server-side `broadcast` action so ALL members are reached in one
+  /// call (the previous per-member loop hit the 60/min rate limit and dropped
+  /// everyone past ~60). `reference_id` makes the push deep-link to the sermon.
+  void _notifySermonPublished(
+    SupabaseClient client,
+    String tenantId,
+    String title, {
+    String? sermonId,
+  }) {
     try {
-      // Best-effort: find a few church member IDs and push to each
-      client
-          .from('profiles')
-          .select('id')
-          .eq('tenant_id', tenantId)
-          .neq('id', client.auth.currentUser?.id ?? '')
-          .limit(200)
-          .then((members) {
-        for (final m in (members as List)) {
-          final uid = m['id']?.toString();
-          if (uid == null) continue;
-          try {
-            client.functions.invoke('push-notifications', body: {
-              'userId': uid,
-              'title': 'New Sermon',
-              'body': '"$title" has been published.',
-              'type': 'sermon',
-            });
-          } catch (_) {}
-        }
+      client.functions.invoke('push-notifications', body: {
+        'action': 'broadcast',
+        'tenantId': tenantId,
+        'title': 'New Sermon',
+        'body': '"$title" has been published.',
+        'data': {
+          'type': 'sermon',
+          if (sermonId != null && sermonId.isNotEmpty) 'reference_id': sermonId,
+          'channel_id': 'coa_announcements',
+        },
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Sermon push failed (non-fatal): $e');
+    }
   }
 }

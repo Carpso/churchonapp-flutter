@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/live_stream_service.dart';
 
@@ -80,11 +82,34 @@ class LiveStreamingScreen extends ConsumerWidget {
                     const SizedBox(height: 12),
                      ...streams.map((stream) => Card(
                        child: ListTile(
+                        leading: SizedBox(
+                          width: 56,
+                          height: 40,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: (stream['thumbnail_url']?.toString().isNotEmpty ?? false)
+                                ? AppImage(stream['thumbnail_url'].toString(), fit: BoxFit.cover)
+                                : Container(
+                                    color: Colors.black12,
+                                    child: Icon(
+                                      stream['is_audio_only'] == true
+                                          ? LucideIcons.mic
+                                          : LucideIcons.video,
+                                      size: 18,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                          ),
+                        ),
                         title: Text(
                           stream['title'] ?? 'Live Stream',
                           style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
                         ),
-                         subtitle: Text("${stream['viewer_count'] ?? 0} watching", style: const TextStyle(color: Colors.black54)),
+                         subtitle: Text(
+                           "${stream['viewer_count'] ?? 0} watching"
+                           "${stream['is_audio_only'] == true ? ' · Audio only' : ''}",
+                           style: const TextStyle(color: Colors.black54),
+                         ),
                          trailing: const Icon(Icons.play_circle_fill, color: Colors.red),
                          onTap: () {
                            final hls = stream['hls_url']?.toString();
@@ -98,6 +123,8 @@ class LiveStreamingScreen extends ConsumerWidget {
                              'streamUrl': hls,
                              'streamId': stream['id']?.toString(),
                              'title': stream['title']?.toString() ?? 'Live Service',
+                             'isAudioOnly': stream['is_audio_only'] == true,
+                             'thumbnailUrl': stream['thumbnail_url']?.toString(),
                            });
                          },
                        ),

@@ -156,7 +156,13 @@ class _NotebookScreenState extends ConsumerState<NotebookScreen> {
           children: [
             IconButton(
               icon: Icon(note.isFavorite ? LucideIcons.bookmark : LucideIcons.bookmark, color: note.isFavorite ? Colors.amber : const Color(0xFFCBD5E1)),
-              onPressed: () => ref.read(notebookServiceProvider).updateNote(note.id, {'is_favorite': !note.isFavorite}),
+              onPressed: () async {
+                final userId = ref.read(authProvider).user?.id;
+                await ref
+                    .read(notebookServiceProvider)
+                    .updateNote(note.id, {'is_favorite': !note.isFavorite});
+                if (userId != null) ref.invalidate(notesProvider(userId));
+              },
             ),
             IconButton(
               icon: const Icon(LucideIcons.trash2, color: Color(0xFFEF4444)),
@@ -189,8 +195,22 @@ class _NotebookScreenState extends ConsumerState<NotebookScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
+    final userId = ref.read(authProvider).user?.id;
     try {
-      await ref.read(notebookServiceProvider).deleteNote(note.id);
+      final deleted =
+          await ref.read(notebookServiceProvider).deleteNote(note.id);
+      // `user_notes` is not (and may never be) in the realtime publication, so
+      // the stream never emits the DELETE. Invalidate to re-fetch immediately.
+      if (userId != null) ref.invalidate(notesProvider(userId));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(deleted
+              ? "Note deleted"
+              : "Could not delete this note (not found or not yours)."),
+          backgroundColor: deleted ? Colors.green : Colors.redAccent,
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

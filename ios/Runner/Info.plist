@@ -62,6 +62,7 @@
 	<array>
 		<string>audio</string>
 		<string>location</string>
+		<string>remote-notification</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Church On App uses your location to find nearby churches, connect with ride services, and track event check-ins.</string>

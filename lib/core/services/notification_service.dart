@@ -332,7 +332,9 @@ class NotificationService {
         case 'chat':
           GoRouter.of(context).push('/chat/$id');
         case 'post':
-          GoRouter.of(context).push('/connect');
+          GoRouter.of(context).push('/posts/$id');
+        case 'sermon':
+          GoRouter.of(context).push('/sermon/$id');
         case 'payment':
           GoRouter.of(context).push('/wallet');
         case 'announcement':
@@ -348,9 +350,9 @@ class NotificationService {
         case 'fasting':
           GoRouter.of(context).push('/daily-devotions');
         case 'job':
-          GoRouter.of(context).push('/job-notifications');
+          GoRouter.of(context).push('/jobs/$id');
         case 'quiz':
-          GoRouter.of(context).go('/connect');
+          GoRouter.of(context).go('/quiz');
         case 'volunteer':
           GoRouter.of(context).push('/volunteer-schedule');
         case 'order':

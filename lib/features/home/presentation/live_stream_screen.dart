@@ -20,11 +20,19 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
   /// Optional so older call sites keep compiling.
   final String? streamId;
 
+  /// Audio-only broadcast (no camera on the publisher side).
+  final bool isAudioOnly;
+
+  /// Poster/thumbnail shown before playback starts.
+  final String? thumbnailUrl;
+
   const LiveStreamScreen({
     super.key, 
     required this.streamUrl,
     required this.title,
     this.streamId,
+    this.isAudioOnly = false,
+    this.thumbnailUrl,
   });
 
   @override
@@ -92,7 +100,10 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         aspectRatio: _videoPlayerController!.value.aspectRatio == 0
             ? 16 / 9
             : _videoPlayerController!.value.aspectRatio,
-        placeholder: Container(color: Colors.black),
+        placeholder: (widget.thumbnailUrl != null &&
+                widget.thumbnailUrl!.isNotEmpty)
+            ? AppImage(widget.thumbnailUrl!, fit: BoxFit.cover)
+            : Container(color: Colors.black),
         materialProgressColors: ChewieProgressColors(
           playedColor: const Color(0xFFFFD700),
           handleColor: const Color(0xFFFFD700),
