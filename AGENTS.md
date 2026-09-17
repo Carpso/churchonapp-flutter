@@ -736,9 +736,9 @@ flutter clean; flutter pub get
 .\build_release.ps1           # AAB for Play Store (bumps build number)
 .\build_release.ps1 -Type apk # APK (bumps build number)
 
-# Outputs:
-# APK:  build\app\outputs\flutter-apk\app-release.apk
-# AAB:  build\app\outputs\bundle\release\app-release.aab
+# Outputs (gradle archivesBaseName — NOT `app-release.*`):
+# APK:  build\app\outputs\flutter-apk\Church On App.apk
+# AAB:  build\app\outputs\bundle\release\Church On App.aab
 ```
 
 ### ⚠️ After every release build: ALSO upload the APK/AAB to R2
@@ -748,8 +748,8 @@ R2 is linked (Cloudflare account `ab82a97ce2c926279c483fef36c41945`, bucket
 build must be published to R2** so testers/users can download it without Play:
 
 ```powershell
-$apk = "build\app\outputs\flutter-apk\app-release.apk"
-$aab = "build\app\outputs\bundle\release\app-release.aab"
+$apk = "build\app\outputs\flutter-apk\Church On App.apk"
+$aab = "build\app\outputs\bundle\release\Church On App.aab"
 
 # Versioned copies (use the actual version from pubspec.yaml)
 npx wrangler r2 object put "choa-sermons-vault/builds/ChurchOnApp-<VER>.apk" --file $apk --content-type application/vnd.android.package-archive --remote
