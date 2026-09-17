@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/empty_state_widget.dart';
@@ -255,6 +256,22 @@ class _BibleStudyListScreenState extends ConsumerState<BibleStudyListScreen> {
           ),
           child: Row(
             children: [
+              // Cover image (falls back to a branded book icon) so each study
+              // in the schedule is visually identifiable.
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: (study.imageUrl != null && study.imageUrl!.isNotEmpty)
+                    ? AppImage(
+                        study.imageUrl!,
+                        width: 56,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        placeholder: _studyImageFallback(),
+                        errorWidget: (c, u) => _studyImageFallback(),
+                      )
+                    : _studyImageFallback(),
+              ),
+              const SizedBox(width: 4),
               Container(
                 width: 4,
                 height: 60,
@@ -292,6 +309,14 @@ class _BibleStudyListScreenState extends ConsumerState<BibleStudyListScreen> {
       ),
     );
   }
+
+  Widget _studyImageFallback() => Container(
+        width: 56,
+        height: 60,
+        color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+        child: Icon(LucideIcons.bookOpen,
+            color: Theme.of(context).primaryColor, size: 22),
+      );
 
   Widget _buildStatusBadge(String status) {
     return Container(

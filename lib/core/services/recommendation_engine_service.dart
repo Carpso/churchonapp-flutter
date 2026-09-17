@@ -247,7 +247,7 @@ class RecommendationCarouselWidget extends ConsumerWidget {
           ),
         ),
         SizedBox(
-          height: 230,
+          height: 330,
           child: recsAsync.when(
             data: (items) => items.isEmpty
                 ? Center(
@@ -295,6 +295,35 @@ class RecommendationCarouselWidget extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Thumbnail — the card previously showed text only, so
+                        // sermon/product/event picks had no picture at all.
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: (item.imageUrl != null && item.imageUrl!.isNotEmpty)
+                              ? AppImage(
+                                  item.imageUrl!,
+                                  width: double.infinity,
+                                  height: 104,
+                                  fit: BoxFit.cover,
+                                  placeholder: Container(
+                                    height: 104,
+                                    color: item.themeColor.withValues(alpha: 0.10),
+                                    child: Icon(item.icon, color: item.themeColor, size: 30),
+                                  ),
+                                  errorWidget: (c, u) => Container(
+                                    height: 104,
+                                    color: item.themeColor.withValues(alpha: 0.10),
+                                    child: Icon(item.icon, color: item.themeColor, size: 30),
+                                  ),
+                                )
+                              : Container(
+                                  height: 104,
+                                  width: double.infinity,
+                                  color: item.themeColor.withValues(alpha: 0.10),
+                                  child: Icon(item.icon, color: item.themeColor, size: 30),
+                                ),
+                        ),
+                        const SizedBox(height: 10),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [

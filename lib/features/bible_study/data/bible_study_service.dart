@@ -12,6 +12,7 @@ class BibleStudy {
   final String leader;
   final String location;
   final String? materialsUrl;
+  final String? imageUrl;
   final int maxAttendees;
   final int currentAttendees;
   final String status;
@@ -27,6 +28,7 @@ class BibleStudy {
     required this.leader,
     required this.location,
     this.materialsUrl,
+    this.imageUrl,
     this.maxAttendees = 0,
     this.currentAttendees = 0,
     this.status = 'scheduled',
@@ -44,6 +46,7 @@ class BibleStudy {
       leader: map['leader']?.toString() ?? '',
       location: map['location']?.toString() ?? '',
       materialsUrl: map['materials_url']?.toString(),
+      imageUrl: (map['image_url'] ?? map['cover_url'])?.toString(),
       maxAttendees: int.tryParse(map['max_attendees']?.toString() ?? '0') ?? 0,
       currentAttendees: int.tryParse(map['current_attendees']?.toString() ?? '0') ?? 0,
       status: map['status']?.toString() ?? 'scheduled',
@@ -62,6 +65,7 @@ class BibleStudy {
       'leader': leader,
       'location': location,
       'materials_url': materialsUrl,
+      'image_url': imageUrl,
       'max_attendees': maxAttendees,
       'current_attendees': currentAttendees,
       'status': status,
@@ -178,6 +182,7 @@ class BibleStudyService {
     required String leader,
     required String location,
     String? materialsUrl,
+    String? imageUrl,
     int maxAttendees = 0,
   }) async {
     final data = {
@@ -189,6 +194,7 @@ class BibleStudyService {
       'leader': leader,
       'location': location,
       'materials_url': materialsUrl,
+      'image_url': imageUrl,
       'max_attendees': maxAttendees,
       'current_attendees': 0,
       'status': 'scheduled',
@@ -216,6 +222,7 @@ class BibleStudyService {
     String? leader,
     String? location,
     String? materialsUrl,
+    String? imageUrl,
     int? maxAttendees,
     String? status,
   }) async {
@@ -227,6 +234,7 @@ class BibleStudyService {
     if (leader != null) data['leader'] = leader;
     if (location != null) data['location'] = location;
     if (materialsUrl != null) data['materials_url'] = materialsUrl;
+    if (imageUrl != null) data['image_url'] = imageUrl;
     if (maxAttendees != null) data['max_attendees'] = maxAttendees;
     if (status != null) data['status'] = status;
 

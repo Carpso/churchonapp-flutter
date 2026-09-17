@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:church_on_app/features/marketplace/data/marketplace_service.dart';
@@ -51,12 +52,36 @@ class HomeSparkleGrid extends ConsumerWidget {
                       children: [
                         ClipRRect(
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                          child: AppImage(
-                            prod.image != null && prod.image!.isNotEmpty ? prod.image! : "",
-                            width: double.infinity,
-                            height: 160,
-                            fit: BoxFit.cover,
-                          ),
+                          child: (prod.image != null && prod.image!.isNotEmpty)
+                              ? AppImage(
+                                  prod.image!,
+                                  width: double.infinity,
+                                  height: 160,
+                                  fit: BoxFit.cover,
+                                  placeholder: Container(
+                                    height: 160,
+                                    width: double.infinity,
+                                    color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+                                    child: Icon(LucideIcons.shoppingBag,
+                                        color: Theme.of(context).primaryColor, size: 32),
+                                  ),
+                                  errorWidget: (c, u) => Container(
+                                    height: 160,
+                                    width: double.infinity,
+                                    color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+                                    child: Icon(LucideIcons.shoppingBag,
+                                        color: Theme.of(context).primaryColor, size: 32),
+                                  ),
+                                )
+                              : Container(
+                                  // No image → branded placeholder instead of a
+                                  // blank/white tile.
+                                  height: 160,
+                                  width: double.infinity,
+                                  color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+                                  child: Icon(LucideIcons.shoppingBag,
+                                      color: Theme.of(context).primaryColor, size: 32),
+                                ),
                         ),
                         Padding(
                           padding: const EdgeInsets.all(12.0),
