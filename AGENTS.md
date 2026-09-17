@@ -729,14 +729,49 @@ Manual (`workflow_dispatch`) + on `v*` tags. Builds debug APK + `integration_tes
 ## How To: Build & Release
 
 ```powershell
+# Clean build (recommended): clear cache first
+flutter clean; flutter pub get
+
 # Bump version in pubspec.yaml (or use build_release.ps1)
-.\build_release.ps1           # AAB for Play Store
-.\build_release.ps1 -Type apk # APK
+.\build_release.ps1           # AAB for Play Store (bumps build number)
+.\build_release.ps1 -Type apk # APK (bumps build number)
 
 # Outputs:
 # APK:  build\app\outputs\flutter-apk\app-release.apk
-# AAB:  build\app\outputs\bundle\release\Church On App.aab
+# AAB:  build\app\outputs\bundle\release\app-release.aab
 ```
+
+### ⚠️ After every release build: ALSO upload the APK/AAB to R2
+
+R2 is linked (Cloudflare account `ab82a97ce2c926279c483fef36c41945`, bucket
+`choa-sermons-vault`, public domain `media.churchonapp.com`). **Every APK/AAB
+build must be published to R2** so testers/users can download it without Play:
+
+```powershell
+$apk = "build\app\outputs\flutter-apk\app-release.apk"
+$aab = "build\app\outputs\bundle\release\app-release.aab"
+
+# Versioned copies (use the actual version from pubspec.yaml)
+npx wrangler r2 object put "choa-sermons-vault/builds/ChurchOnApp-<VER>.apk" --file $apk --content-type application/vnd.android.package-archive --remote
+npx wrangler r2 object put "choa-sermons-vault/builds/ChurchOnApp-<VER>.aab" --file $aab --content-type application/octet-stream --remote
+
+# "latest" pointers (stable URLs people can bookmark)
+npx wrangler r2 object put "choa-sermons-vault/builds/latest/ChurchOnApp.apk" --file $apk --content-type application/vnd.android.package-archive --remote
+npx wrangler r2 object put "choa-sermons-vault/builds/latest/ChurchOnApp.aab" --file $aab --content-type application/octet-stream --remote
+```
+
+- **`--remote` is REQUIRED** — without it wrangler writes to a local simulator
+  and the object never reaches R2 (see the Maps/R2 gotcha elsewhere in this file).
+- Stable download URLs:
+  `https://media.churchonapp.com/builds/latest/ChurchOnApp.apk` and `…/aab`.
+- Keep a `builds/latest.json` manifest (version + url + size + built_at) and
+  overwrite it each release so the site/QA can read the current build.
+- If a new bucket/domain is desired (`builds.churchonapp.com`), set it up once
+  in Cloudflare (R2 → bucket → Settings → Custom domain) BEFORE changing the
+  commands above.
+- **Wrangler uploads are large (200 MB+)** — allow several minutes; the command
+  prints `Upload complete.` on success. Verify with a `HEAD` request to the
+  public URL.
 
 ## How To: Understand the Trial & Subscription Flow
 
