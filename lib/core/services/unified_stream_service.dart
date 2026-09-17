@@ -204,12 +204,15 @@ class UnifiedStreamService {
       'cloudflare-stream',
       body: {
         'action': 'create_live_input',
+        // Cloudflare `meta` only accepts STRING values — never send ints or
+        // arrays here (that returns 400/10005).
         'meta': {
           'name': title,
-          'description': description,
-          'max_duration': config.maxStreamDurationSec,
+          if (description != null && description.isNotEmpty)
+            'description': description,
           'church_id': config.tenantId,
-          'allowed_origins': ['*'],
+          'max_duration': config.maxStreamDurationSec.toString(),
+          'audio_only': 'false',
         },
       },
       headers: _cloudflareHeaders(),

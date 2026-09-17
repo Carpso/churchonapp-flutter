@@ -295,6 +295,21 @@ async function ownsLocalStream(supabase: any, streamId: string | undefined, vide
 }
 
 async function createLiveInput(params: any, corsHeaders: Record<string, string>) {
+  // Cloudflare `meta` accepts STRING values only (max 1024 chars). Sending an
+  // int/array (e.g. `max_duration` or `allowed_origins`) makes the whole
+  // request invalid → 400 code 10005 "Bad Request". Coerce/clean here so no
+  // client can break stream creation, and return a clear error if it still fails.
+  const rawMeta =
+    params?.meta && typeof params.meta === "object" && !Array.isArray(params.meta)
+      ? params.meta as Record<string, unknown>
+      : {};
+  const meta: Record<string, string> = {};
+  for (const [k, v] of Object.entries(rawMeta)) {
+    if (v === null || v === undefined) continue;
+    const s = Array.isArray(v) ? v.join(",") : String(v);
+    if (s.length > 0) meta[k] = s.slice(0, 1024);
+  }
+
   const response = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs`,
     {
@@ -307,7 +322,7 @@ async function createLiveInput(params: any, corsHeaders: Record<string, string>)
         enabled: true,
         preferLowLatency: false,
         deleteRecordingAfterDays: 90,
-        meta: params.meta || {},
+        meta,
         recording: {
           mode: "automatic",
           requireSignedURLs: false,
