@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:church_on_app/core/services/geocoding_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'dart:async';
 import 'package:universal_io/io.dart';
@@ -99,16 +100,10 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
       final point = LatLng(pos.latitude, pos.longitude);
       var label = '${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}';
       try {
-        final places = await placemarkFromCoordinates(pos.latitude, pos.longitude);
-        if (places.isNotEmpty) {
-          final p = places.first;
-          final street = [p.street, p.subLocality].where((s) => s != null && s.isNotEmpty).join(', ');
-          final area = [p.locality, p.subAdministrativeArea].where((s) => s != null && s.isNotEmpty).join(', ');
-          label = [street, area].where((s) => s.isNotEmpty).join(', ');
-          if (label.isEmpty) {
-            label = p.name ?? label;
-          }
-        }
+        // GeocodingService works on every platform (the `geocoding` plugin
+        // needs a Google key on web and silently returned coordinates).
+        final name = await GeocodingService.reverse(pos.latitude, pos.longitude);
+        if (name != null && name.trim().isNotEmpty) label = name;
       } catch (e) {
         debugPrint('Reverse geocode failed (using coords): $e');
       }
@@ -130,15 +125,9 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
 
   Future<String> _resolvePlaceName(LatLng point) async {
     try {
-      final places = await placemarkFromCoordinates(point.latitude, point.longitude);
-      if (places.isNotEmpty) {
-        final p = places.first;
-        final street = [p.street, p.subLocality].where((s) => s != null && s.isNotEmpty).join(', ');
-        final area = [p.locality, p.subAdministrativeArea].where((s) => s != null && s.isNotEmpty).join(', ');
-        final name = [street, area].where((s) => s.isNotEmpty).join(', ');
-        if (name.isNotEmpty) return name;
-        if (p.name != null && p.name!.isNotEmpty) return p.name!;
-      }
+      final name =
+          await GeocodingService.reverse(point.latitude, point.longitude);
+      if (name != null && name.trim().isNotEmpty) return name;
     } catch (e) {
       debugPrint('Reverse geocode failed: $e');
     }

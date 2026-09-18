@@ -50,6 +50,95 @@ class GeocodingService {
     return hit;
   }
 
+  /// Reverse geocode a coordinate into a human place NAME (not "lat,lng").
+  ///
+  /// The `geocoding` plugin needs a Google API key on web, so reverse lookups
+  /// silently fell back to raw coordinates there. Fallback chain:
+  /// cache → self-hosted (if set) → Nominatim → Photon.
+  static Future<String?> reverse(double lat, double lng) async {
+    final key = 'rev:${lat.toStringAsFixed(5)},${lng.toStringAsFixed(5)}';
+    final cached = await _readCache(key);
+    if (cached != null && cached.label.trim().isNotEmpty) return cached.label;
+
+    String? label;
+    if (_overrideBase.isNotEmpty) {
+      label = await _nominatimReverse(_overrideBase, lat, lng);
+    }
+    label ??=
+        await _nominatimReverse('https://nominatim.openstreetmap.org', lat, lng);
+    label ??= await _photonReverse(lat, lng);
+
+    if (label != null && label.trim().isNotEmpty) {
+      await _writeCache(key, GeoPoint(lat: lat, lng: lng, label: label));
+      return label;
+    }
+    return null;
+  }
+
+  static const _ua = 'ChurchOnApp/1.0 (churchonapp.com)';
+
+  static Future<String?> _nominatimReverse(
+      String base, double lat, double lng) async {
+    try {
+      final uri = Uri.https(base, '/reverse', {
+        'lat': lat.toString(),
+        'lon': lng.toString(),
+        'format': 'jsonv2',
+        'addressdetails': '1',
+        'zoom': '18',
+      });
+      final res = await http.get(uri, headers: {'User-Agent': _ua}).timeout(
+            const Duration(seconds: 8),
+          );
+      if (res.statusCode != 200) return null;
+      final data = jsonDecode(res.body);
+      if (data is! Map) return null;
+      final addr = data['address'];
+      if (addr is Map) {
+        final parts = <String>[
+          for (final k in ['amenity', 'building', 'shop', 'road', 'suburb', 'city', 'town'])
+            if ((addr[k]?.toString().trim().isNotEmpty ?? false))
+              addr[k].toString().trim(),
+        ];
+        if (parts.isNotEmpty) return parts.take(3).join(', ');
+      }
+      final display = data['display_name']?.toString();
+      if (display != null && display.isNotEmpty) {
+        return display.split(',').take(3).join(',').trim();
+      }
+    } catch (e) {
+      debugPrint('geocoding reverse failed: $e');
+    }
+    return null;
+  }
+
+  static Future<String?> _photonReverse(double lat, double lng) async {
+    try {
+      final uri = Uri.https('photon.komoot.io', '/reverse', {
+        'lat': lat.toString(),
+        'lon': lng.toString(),
+      });
+      final res = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return null;
+      final data = jsonDecode(res.body);
+      final features = data['features'];
+      if (features is List && features.isNotEmpty) {
+        final props = (features.first as Map)['properties'];
+        if (props is Map) {
+          final parts = <String>[
+            for (final k in ['name', 'street', 'city'])
+              if ((props[k]?.toString().trim().isNotEmpty ?? false))
+                props[k].toString().trim(),
+          ];
+          if (parts.isNotEmpty) return parts.take(3).join(', ');
+        }
+      }
+    } catch (e) {
+      debugPrint('photon reverse failed: $e');
+    }
+    return null;
+  }
+
   /// Nominatim-shaped `/search` endpoint.
   static Future<GeoPoint?> _nominatimLike(String base, String q,
       {String? withCountry}) async {
