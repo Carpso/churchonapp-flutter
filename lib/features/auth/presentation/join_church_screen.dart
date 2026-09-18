@@ -25,6 +25,7 @@ class _JoinChurchScreenState extends ConsumerState<JoinChurchScreen> {
   String? _error;
   Map<String, dynamic>? _foundTenant;
   final _codeController = TextEditingController();
+  bool _autoLookedUp = false;
 
   @override
   void initState() {
@@ -102,7 +103,15 @@ class _JoinChurchScreenState extends ConsumerState<JoinChurchScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final user = authState.user;
+    final linkCode = widget.inviteCode ?? widget.referralCode;
     if (user == null) {
+      // Carry the invite code through sign-up/login so the link still works
+      // after the user authenticates.
+      final redirect = (linkCode != null && linkCode.isNotEmpty)
+          ? '/join?code=${Uri.encodeComponent(linkCode)}'
+          : null;
+      void goSignUp() => context.go(
+          redirect == null ? '/signup' : '/signup?redirect=${Uri.encodeComponent(redirect)}');
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(title: const Text("Join Church")),
@@ -119,7 +128,7 @@ class _JoinChurchScreenState extends ConsumerState<JoinChurchScreen> {
                 const Text("Sign in or create an account to join this church.", textAlign: TextAlign.center),
                 const SizedBox(height: 30),
                 ElevatedButton(
-                  onPressed: () => context.go('/signup'),
+                  onPressed: goSignUp,
                   style: ElevatedButton.styleFrom(minimumSize: const Size(200, 50)),
                   child: const Text("Sign Up / Login"),
                 ),
@@ -128,6 +137,19 @@ class _JoinChurchScreenState extends ConsumerState<JoinChurchScreen> {
           ),
         ),
       );
+    }
+
+    // The invite-lookup RPC requires an authenticated caller, so a link opened
+    // while logged out could not resolve. Re-run it once signed in.
+    if (!_autoLookedUp &&
+        _foundTenant == null &&
+        !_joining &&
+        linkCode != null &&
+        linkCode.isNotEmpty) {
+      _autoLookedUp = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _lookupCode(linkCode);
+      });
     }
 
     final hasCodeParam = (widget.inviteCode != null && widget.inviteCode!.isNotEmpty) ||
