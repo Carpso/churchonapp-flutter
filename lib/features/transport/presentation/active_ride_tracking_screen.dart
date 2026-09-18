@@ -13,6 +13,9 @@ import 'package:church_on_app/features/connect/presentation/chat_messenger_scree
 import 'package:church_on_app/features/connect/presentation/audio_call_screen.dart';
 import '../data/transport_service.dart';
 import '../data/route_service.dart';
+import '../data/navigation_controller.dart';
+import 'widgets/navigation_banner.dart';
+import 'widgets/route_steps_sheet.dart';
 import 'widgets/proof_of_delivery_sheet.dart';
 
 class ActiveRideTrackingScreen extends ConsumerStatefulWidget {
@@ -54,7 +57,6 @@ class _ActiveRideTrackingScreenState
   late AnimationController _animController;
   Animation<LatLng>? _driverAnim;
   String _rideStatusText = "En Route";
-  bool _voiceEnabled = false;
   double _distanceToPickup = 0;
   double _distanceToDest = 0;
   bool _pickupAnnounced = false;
@@ -62,6 +64,12 @@ class _ActiveRideTrackingScreenState
   List<LatLng> _routePoints = [];
   String _etaText = '...';
   String _distanceText = '';
+  // Real turn-by-turn routing. Guidance starts on the pickup leg, then
+  // switches to `_destRoute` once the pickup is reached.
+  RouteResult? _destRoute;
+  bool _switchedToDest = false;
+  final StreamController<LatLng> _posController =
+      StreamController<LatLng>.broadcast();
 
   @override
   void initState() {
@@ -82,14 +90,46 @@ class _ActiveRideTrackingScreenState
   }
 
   Future<void> _fetchRoute() async {
-    final pickupRoute = await RouteService.fetchRoute(from: _driverPos, to: widget.startPos);
-    final destRoute = await RouteService.fetchRoute(from: widget.startPos, to: widget.destPos);
+    final pickupRoute =
+        await RouteService.fetchRoute(from: _driverPos, to: widget.startPos);
+    final destRoute = await RouteService.fetchRoute(
+      from: widget.startPos,
+      to: widget.destPos,
+    );
     if (!mounted) return;
     setState(() {
-      _routePoints = [...pickupRoute.points, ...destRoute.points.skip(1)];
+      _destRoute = destRoute;
+      if (pickupRoute.hasGuidance && destRoute.hasGuidance) {
+        _routePoints = [...pickupRoute.points, ...destRoute.points.skip(1)];
+      } else {
+        _routePoints = [widget.startPos, widget.destPos];
+      }
       _etaText = destRoute.etaText;
       _distanceText = destRoute.distanceText;
     });
+
+    // Start guidance towards the pickup (falls back to proximity alerts when
+    // OSRM returned a straight line).
+    ref.read(navigationProvider.notifier).start(
+          route: pickupRoute,
+          destination: widget.startPos,
+          origin: _driverPos,
+          positions: _posController.stream,
+        );
+  }
+
+  /// Once the driver reaches the pickup, real guidance switches to the
+  /// destination leg.
+  void _maybeSwitchToDestRoute() {
+    if (_switchedToDest || _destRoute == null) return;
+    if (_distanceToPickup > 40) return;
+    _switchedToDest = true;
+    ref.read(navigationProvider.notifier).start(
+          route: _destRoute!,
+          destination: widget.destPos,
+          origin: _driverPos,
+          positions: _posController.stream,
+        );
   }
 
   void _initTracking() {
@@ -123,7 +163,9 @@ class _ActiveRideTrackingScreenState
             CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
           );
           _animController.forward(from: 0.0);
-          // Voice direction: announce as driver approaches pickup / destination
+          // Feed the live driver position to the navigation controller (real
+          // guidance) and keep the proximity fallback in sync.
+          if (!_posController.isClosed) _posController.add(pos);
           _updateVoiceDirections(pos);
         }
       },
@@ -148,7 +190,13 @@ class _ActiveRideTrackingScreenState
       });
     }
 
-    if (!_voiceEnabled) return;
+    // Switch guidance to the destination leg once the pickup is reached.
+    _maybeSwitchToDestRoute();
+
+    // With real guidance the navigation controller owns the voice
+    // announcements; only use the legacy proximity alerts on a fallback route.
+    if (ref.read(navigationProvider).hasGuidance) return;
+    if (ref.read(voiceMuteProvider)) return;
 
     // Voice direction: announce as driver approaches pickup / destination
     if (!_pickupAnnounced && _distanceToPickup < 300) {
@@ -218,12 +266,17 @@ class _ActiveRideTrackingScreenState
     _animController.dispose();
     _statusSub?.cancel();
     _locationSub?.cancel();
+    // Closing the stream ends the navigation controller's subscription without
+    // mutating providers mid-teardown.
+    _posController.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final navState = ref.watch(navigationProvider);
+    final muted = ref.watch(voiceMuteProvider);
     return Scaffold(
       body: Stack(
         children: [
@@ -329,21 +382,52 @@ class _ActiveRideTrackingScreenState
             top: MediaQuery.of(context).padding.top + 10,
             left: 70,
             child: CircleAvatar(
-              backgroundColor: _voiceEnabled ? Theme.of(context).primaryColor : Colors.white,
+              backgroundColor:
+                  muted ? Colors.white : Theme.of(context).primaryColor,
               child: IconButton(
                 icon: Icon(
-                  _voiceEnabled ? LucideIcons.volume2 : LucideIcons.volumeX,
-                  color: _voiceEnabled ? Colors.white : Colors.black,
+                  muted ? LucideIcons.volumeX : LucideIcons.volume2,
+                  color: muted ? Colors.black : Colors.white,
                 ),
                 onPressed: () {
-                  setState(() => _voiceEnabled = !_voiceEnabled);
-                  if (_voiceEnabled) {
-                    VoiceDirectionService.speak('Voice directions enabled. I will announce as the driver approaches.');
-                  } else {
+                  final nowMuted = !muted;
+                  ref.read(voiceMuteProvider.notifier).setMuted(nowMuted);
+                  if (nowMuted) {
                     VoiceDirectionService.stop();
+                  } else {
+                    VoiceDirectionService.speak(navState.hasGuidance
+                        ? 'Voice directions enabled. I will announce each turn.'
+                        : 'Voice directions enabled. I will announce as the driver approaches.');
                   }
                 },
               ),
+            ),
+          ),
+          // Real turn-by-turn guidance banner (hidden on straight-line routes).
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 66,
+            left: 12,
+            right: 12,
+            child: NavigationBanner(
+              state: navState,
+              muted: muted,
+              onToggleMute: () {
+                final nowMuted = !muted;
+                ref.read(voiceMuteProvider.notifier).setMuted(nowMuted);
+                if (nowMuted) {
+                  VoiceDirectionService.stop();
+                } else {
+                  VoiceDirectionService.speak('Voice directions enabled.');
+                }
+              },
+              onShowSteps: navState.route != null &&
+                      navState.route!.steps.isNotEmpty
+                  ? () => showRouteStepsSheet(
+                        context,
+                        route: navState.route!,
+                        currentIndex: navState.stepIndex,
+                      )
+                  : null,
             ),
           ),
           Align(
