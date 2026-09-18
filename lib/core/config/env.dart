@@ -31,6 +31,13 @@ class Env {
   static String get osrmBaseUrl =>
       dotenv.env['OSRM_BASE_URL'] ?? 'https://router.project-osrm.org/route/v1/driving';
 
+  /// Optional live-traffic RASTER tile template (e.g.
+  /// `https://.../{z}/{x}/{y}.png`). Compile-time only — pass it with
+  /// `--dart-define=TRAFFIC_TILES_URL=...`. When empty (the default) the map
+  /// falls back to the crowd-sourced driver-speed overlay instead.
+  static const String trafficTilesUrl =
+      String.fromEnvironment('TRAFFIC_TILES_URL');
+
   // Public OAuth web client ID (safe to ship — Google publishes it in web
   // bundles; it is NOT a secret).
   static String get googleWebClientId => dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '';

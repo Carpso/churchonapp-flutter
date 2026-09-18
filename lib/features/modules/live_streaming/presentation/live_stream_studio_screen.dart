@@ -5,10 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as webrtc;
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:church_on_app/core/services/unified_stream_service.dart';
+import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/features/home/data/live_streaming_service.dart';
 
 const kKjvBooks = [
@@ -53,6 +56,9 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   String? _verseText;
   String? _verseRef;
   String? _logoUrl;
+  String? _posterUrl;
+  bool _uploadingPoster = false;
+  int _viewerCount = 0;
   int _cameraFacing = 1; // 0 = front (user), 1 = back (environment)
   Map<String, dynamic> _iceServers = {
     'iceServers': [
@@ -78,8 +84,66 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       debugPrint('TURN credentials fetch failed, using STUN-only: $e');
     }
   }
-  final List<String> _chatMessages = [];
   final _titleController = TextEditingController();
+
+  /// Pick + upload a stream poster/thumbnail to R2. Bytes-based so it works on
+  /// web as well as mobile (no temp-file dance).
+  Future<void> _pickPoster({VoidCallback? onChanged}) async {
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1280,
+        maxHeight: 720,
+      );
+      if (picked == null) return;
+      final bytes = await picked.readAsBytes();
+      if (bytes.length > 5 * 1024 * 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Poster must be under 5 MB')),
+          );
+        }
+        return;
+      }
+      setState(() => _uploadingPoster = true);
+      final url = await R2Service(Supabase.instance.client).uploadBytes(
+        bytes,
+        'stream-posters/poster_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        contentType: 'image/jpeg',
+      );
+      if (!mounted) return;
+      setState(() {
+        _uploadingPoster = false;
+        if (url != null) _posterUrl = url;
+      });
+      onChanged?.call();
+      if (url == null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not upload the poster — try again.')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Poster pick error: $e');
+      if (mounted) setState(() => _uploadingPoster = false);
+      onChanged?.call();
+    }
+  }
+
+  /// Poll the live row's viewer count while broadcasting (the heartbeat cycle).
+  Future<void> _refreshViewerCount() async {
+    final id = _streamId;
+    if (id == null || !mounted) return;
+    try {
+      final row = await Supabase.instance.client
+          .from('live_streams')
+          .select('viewer_count')
+          .eq('id', id)
+          .maybeSingle();
+      final count = (row?['viewer_count'] as num?)?.toInt() ?? 0;
+      if (mounted && count != _viewerCount) setState(() => _viewerCount = count);
+    } catch (_) {}
+  }
 
   @override
   void initState() {
@@ -271,7 +335,8 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
-      builder: (ctx) => SafeArea(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => SafeArea(
         child: Padding(
           padding: EdgeInsets.only(
             left: 20, right: 20, top: 20,
@@ -332,6 +397,43 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                 title: const Text('Tenant logo'),
                 subtitle: Text(_logoUrl == null ? 'No church logo found' : 'Using church logo'),
               ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: (_posterUrl != null && _posterUrl!.isNotEmpty)
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: AppImage(_posterUrl!, width: 40, height: 40, fit: BoxFit.cover),
+                      )
+                    : const Icon(LucideIcons.imagePlus),
+                title: const Text('Stream poster'),
+                subtitle: Text(
+                  _uploadingPoster
+                      ? 'Uploading…'
+                      : (_posterUrl == null
+                          ? 'Optional thumbnail shown to viewers'
+                          : 'Poster set'),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_posterUrl != null)
+                      IconButton(
+                        tooltip: 'Remove poster',
+                        icon: const Icon(LucideIcons.x, size: 18),
+                        onPressed: () {
+                          setState(() => _posterUrl = null);
+                          setSheetState(() {});
+                        },
+                      ),
+                    TextButton(
+                      onPressed: _uploadingPoster
+                          ? null
+                          : () => _pickPoster(onChanged: () => setSheetState(() {})),
+                      child: Text(_posterUrl == null ? 'Choose' : 'Change'),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -368,6 +470,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
               ),
             ],
           ),
+          ),
         ),
       ),
     );
@@ -399,6 +502,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
         title: _streamTitle,
         description: _streamDescription,
         audioOnly: _audioOnly,
+        thumbnailUrl: _posterUrl,
       );
 
       if (_verseText != null || _verseRef != null || _logoUrl != null) {
@@ -514,6 +618,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       final id = _streamId;
       if (id == null) return;
       unawaited(unifiedService.sendHeartbeat(id));
+      unawaited(_refreshViewerCount());
     }
 
     ping();
@@ -713,7 +818,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
           _rtmpUrl = null;
           _streamKey = null;
           _whipUrl = null;
-          _chatMessages.clear();
+          _viewerCount = 0;
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -858,22 +963,45 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                           onPressed: () => Navigator.pop(context),
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              _streamStatus == "LIVE" ? LucideIcons.radioReceiver : LucideIcons.videoOff,
-                              color: Colors.white, size: 16,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: statusColor,
+                              borderRadius: BorderRadius.circular(20),
                             ),
-                            const SizedBox(width: 5),
-                            Text(_streamStatus, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _streamStatus == "LIVE" ? LucideIcons.radioReceiver : LucideIcons.videoOff,
+                                  color: Colors.white, size: 16,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(_streamStatus, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                          if (_isLive) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.55),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(LucideIcons.eye, color: Colors.white, size: 14),
+                                  const SizedBox(width: 4),
+                                  Text('$_viewerCount',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                ],
+                              ),
+                            ),
                           ],
-                        ),
+                        ],
                       ),
                       IconButton(
                         icon: const Icon(LucideIcons.settings, color: Colors.white),
@@ -885,19 +1013,31 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                 if (!_isLive)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
-                    child: TextField(
-                      style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                      textAlign: TextAlign.center,
-                      decoration: const InputDecoration(
-                        hintText: "Enter Broadcast Title",
-                        hintStyle: TextStyle(color: Colors.white54),
-                        border: InputBorder.none,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      onChanged: (v) => _streamTitle = v,
-                      controller: _titleController,
+                      child: TextField(
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          shadows: [Shadow(color: Colors.black87, blurRadius: 6)],
+                        ),
+                        textAlign: TextAlign.center,
+                        decoration: const InputDecoration(
+                          hintText: "Enter Broadcast Title",
+                          hintStyle: TextStyle(color: Colors.white70),
+                          border: InputBorder.none,
+                        ),
+                        onChanged: (v) => _streamTitle = v,
+                        controller: _titleController,
+                      ),
                     ),
                   ),
-                if (!_isLive && (_verseRef != null || _logoUrl != null))
+                if (!_isLive && (_verseRef != null || _logoUrl != null || _posterUrl != null))
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Wrap(
@@ -916,31 +1056,16 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                             decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
                             child: const Text('🏛 Church logo', style: TextStyle(color: Colors.white, fontSize: 12)),
                           ),
+                        if (_posterUrl != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
+                            child: const Text('🖼 Poster set', style: TextStyle(color: Colors.white, fontSize: 12)),
+                          ),
                       ],
                     ),
                   ),
                 const Spacer(),
-                if (_isLive && _chatMessages.isNotEmpty)
-                  Align(
-                    alignment: Alignment.bottomLeft,
-                    child: Container(
-                      width: 250,
-                      height: 150,
-                      margin: const EdgeInsets.only(left: 20, bottom: 20),
-                      child: ListView.builder(
-                        reverse: true,
-                        itemCount: _chatMessages.length,
-                        itemBuilder: (context, index) {
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(15)),
-                            child: Text(_chatMessages[_chatMessages.length - 1 - index], style: const TextStyle(color: Colors.white, fontSize: 12)),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
                 Container(
                   padding: const EdgeInsets.only(bottom: 30, top: 20),
                   decoration: const BoxDecoration(

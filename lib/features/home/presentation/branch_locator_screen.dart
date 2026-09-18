@@ -70,6 +70,10 @@ class _BranchLocatorScreenState extends ConsumerState<BranchLocatorScreen> {
             onPinChanged: (point) {
               setState(() => _pinPosition = point);
             },
+            // Nearby POI search + crowd-sourced live traffic (controls sit
+            // top-right so the bottom sheet never covers them).
+            showNearby: true,
+            showTraffic: true,
             showAddressSearch: true,
             addressSearchHint: "Search for a branch location...",
             markers: _churches.map((church) {

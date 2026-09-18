@@ -5,10 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/config/app_constants.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/church_map.dart';
+import 'package:church_on_app/features/admin/data/organization_service.dart';
 
+/// Organisation branch density map — real branches of the bishop's
+/// organisation, weighted by actual member count, plotted on the self-hosted
+/// Protomaps basemap. Replaces the old single-tenant query that read
+/// non-existent `lat`/`lng`/`attendance` columns and therefore rendered nothing.
 class BishopHeatmapScreen extends ConsumerStatefulWidget {
   const BishopHeatmapScreen({super.key});
 
@@ -19,8 +24,11 @@ class BishopHeatmapScreen extends ConsumerStatefulWidget {
 class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
   final List<Marker> _markers = [];
   final List<CircleMarker> _circles = [];
-
-  final LatLng _initialCenter = const LatLng(-15.3875, 28.3228); // Standardized focus (e.g. Lusaka)
+  LatLng _center = const LatLng(-15.3875, 28.3228);
+  bool _isLoading = true;
+  bool _empty = false;
+  int _plotted = 0;
+  int _totalMembers = 0;
 
   @override
   void initState() {
@@ -29,40 +37,95 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
   }
 
   Future<void> _loadHeatmapData() async {
-    final tenant = ref.read(currentTenantProvider);
-    if (tenant == null) return;
-
+    setState(() => _isLoading = true);
     try {
-      final supabase = Supabase.instance.client;
-      final response = await supabase.from('churches').select('name, lat, lng, attendance').eq('tenant_id', tenant.id);
+      final profile = ref.read(profileProvider).value;
+      final client = Supabase.instance.client;
+      final uid = client.auth.currentUser?.id;
 
-      for (var church in response) {
-        final name = church['name']?.toString() ?? '';
-        final lat = (church['lat'] ?? 0) is int ? (church['lat'] as int).toDouble() : (church['lat'] as num).toDouble();
-        final lng = (church['lng'] ?? 0) is int ? (church['lng'] as int).toDouble() : (church['lng'] as num).toDouble();
-        final attendance = (church['attendance'] ?? 0) is int ? church['attendance'] as int : 0;
+      String? orgId = profile?.organizationId;
+      if ((orgId == null || orgId.isEmpty) && uid != null) {
+        try {
+          final org = await client.from('organizations').select('id').eq('bishop_id', uid).maybeSingle();
+          orgId = org?['id']?.toString();
+        } catch (e) {
+          debugPrint('heatmap org fallback failed: $e');
+        }
+      }
+      if (orgId == null || orgId.isEmpty) {
+        if (mounted) setState(() { _isLoading = false; _empty = true; });
+        return;
+      }
 
-        _markers.add(Marker(
-          point: LatLng(lat, lng),
+      final counts = await ref.read(organizationServiceProvider).getOrganizationChurchMemberCounts(orgId);
+      final memberByChurch = <String, int>{
+        for (final c in counts)
+          if (c['church_id'] != null) c['church_id'].toString(): (c['member_count'] as num?)?.toInt() ?? 0,
+      };
+
+      final branches = await client
+          .from('churches')
+          .select('id, name, latitude, longitude, is_verified')
+          .eq('organization_id', orgId);
+
+      final markers = <Marker>[];
+      final circles = <CircleMarker>[];
+      var members = 0;
+      double? sumLat;
+      double? sumLng;
+      var plotted = 0;
+
+      for (final b in (branches as List)) {
+        final lat = (b['latitude'] as num?)?.toDouble();
+        final lng = (b['longitude'] as num?)?.toDouble();
+        if (lat == null || lng == null) continue;
+        final name = b['name']?.toString() ?? 'Branch';
+        final memberCount = memberByChurch[b['id']?.toString()] ?? 0;
+        members += memberCount;
+        sumLat = (sumLat ?? 0) + lat;
+        sumLng = (sumLng ?? 0) + lng;
+        plotted++;
+        final point = LatLng(lat, lng);
+
+        markers.add(Marker(
+          point: point,
+          width: 44,
+          height: 44,
           child: Tooltip(
-            message: "$name\nAttendance: $attendance",
-            child: const Icon(Icons.location_on,
-                color: AppConstants.sunflowerYellow, size: 30),
+            message: '$name\n$memberCount members',
+            child: const Icon(Icons.location_on, color: AppConstants.sunflowerYellow, size: 34),
           ),
         ));
 
-        _circles.add(CircleMarker(
-          point: LatLng(lat, lng),
-          radius: (attendance * 2.0).clamp(20.0, 100.0),
+        circles.add(CircleMarker(
+          point: point,
+          radius: (18 + memberCount * 1.6).clamp(24.0, 140.0),
           useRadiusInMeter: true,
-          // Brand sunflower heat (denser = more opaque yellow).
-          color: AppConstants.sunflowerYellow.withValues(alpha: 0.25),
-          borderColor: AppConstants.sunflowerYellow.withValues(alpha: 0.75),
+          color: AppConstants.sunflowerYellow.withValues(alpha: 0.22),
+          borderColor: AppConstants.sunflowerYellow.withValues(alpha: 0.7),
           borderStrokeWidth: 1,
         ));
       }
+
+      if (!mounted) return;
+      setState(() {
+        _markers
+          ..clear()
+          ..addAll(markers);
+        _circles
+          ..clear()
+          ..addAll(circles);
+        _plotted = plotted;
+        _totalMembers = members;
+        if (plotted > 0 && sumLat != null && sumLng != null) {
+          _center = LatLng(sumLat / plotted, sumLng / plotted);
+        }
+        _isLoading = false;
+        _empty = plotted == 0;
+      });
     } catch (e) {
-      debugPrint('[bishop_heatmap_screen] Failed to load churches: $e');
+      debugPrint('[bishop_heatmap_screen] Failed to load branches: $e');
+      if (mounted) setState(() { _isLoading = false; _empty = true; });
     }
   }
 
@@ -70,23 +133,32 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("DENSITY MAP", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        title: Text('BRANCH MAP', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
+        actions: [
+          IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _isLoading ? null : _loadHeatmapData),
+        ],
       ),
       body: Stack(
         children: [
           ChurchMap(
-            center: _initialCenter,
+            center: _center,
             zoom: 6,
             markers: _markers,
-            // Heatmap density circles over the self-hosted Protomaps basemap.
             extraLayers: [CircleLayer(circles: _circles)],
             showPlaces: false,
             showSavePin: false,
             showLocateButton: false,
           ),
+          if (_isLoading)
+            const Positioned.fill(
+              child: ColoredBox(
+                color: Color(0x33000000),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ),
           Positioned(
             top: 20,
             left: 20,
@@ -102,27 +174,55 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
                 children: [
                   Icon(LucideIcons.activity, color: Theme.of(context).primaryColor),
                   const SizedBox(width: 15),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Bishop's Intelligence", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        Text("Privacy-First Asset Mapping (OSM)", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                        const Text('Branch Density', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        Text(
+                          _empty
+                              ? 'No mapped branches yet'
+                              : '$_plotted branches • $_totalMembers members plotted',
+                          style: const TextStyle(color: Colors.grey, fontSize: 11),
+                        ),
                       ],
                     ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                    child: const Text("LIVE", style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                    child: const Text('LIVE', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
             ),
           ),
+          if (_empty && !_isLoading)
+            Positioned(
+              bottom: 40,
+              left: 20,
+              right: 20,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10)],
+                ),
+                child: const Row(children: [
+                  Icon(LucideIcons.info, color: Colors.grey, size: 18),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Branches appear here once their latitude and longitude are set in Church Settings.',
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
         ],
       ),
     );
   }
 }
-

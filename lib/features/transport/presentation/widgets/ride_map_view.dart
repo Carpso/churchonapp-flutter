@@ -144,6 +144,9 @@ class _RideMapViewState extends ConsumerState<RideMapView> {
           // Saved places layer: tapping a place drops the pin on it, so riders
           // can set pickup/dropoff from Home / Work / church landmarks.
           showPlaces: true,
+          // Nearby POI search + crowd-sourced live traffic.
+          showNearby: true,
+          showTraffic: true,
           showAddressSearch: widget.pinModeFor != null,
           addressSearchHint: widget.pinModeFor == 'pickup'
               ? 'Search pickup address...'

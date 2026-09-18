@@ -89,6 +89,9 @@ class LocationTrackerService {
     await _ref.read(transportServiceProvider).updateLocation(
       position.latitude,
       position.longitude,
+      // Geolocator reports m/s; store km/h for the traffic baseline. Negative
+      // values mean "unknown" and are dropped rather than guessed.
+      speed: position.speed >= 0 ? position.speed * 3.6 : null,
     );
     
     _lastUpdate = now;

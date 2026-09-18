@@ -14,6 +14,7 @@ class LiveStreamingScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final activeStreamsAsync = ref.watch(activeStreamsProvider);
     final upcomingStreamsAsync = ref.watch(upcomingStreamsProvider);
+    final recentAsync = ref.watch(recentRecordingsProvider);
     final profile = ref.watch(profileProvider).value;
     final isLeader = profile?.isLeadershipTeam == true || profile?.isSuperadmin == true;
 
@@ -74,61 +75,18 @@ class LiveStreamingScreen extends ConsumerWidget {
             if (isLeader) const SizedBox(height: 16),
             activeStreamsAsync.when(
               data: (streams) {
-                if (streams.isEmpty) return const Padding(padding: EdgeInsets.all(20), child: Center(child: Text("No live streams")));
+                if (streams.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(child: Text("No live streams right now")),
+                  );
+                }
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('LIVE NOW', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.red)),
                     const SizedBox(height: 12),
-                     ...streams.map((stream) => Card(
-                       child: ListTile(
-                        leading: SizedBox(
-                          width: 56,
-                          height: 40,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: (stream['thumbnail_url']?.toString().isNotEmpty ?? false)
-                                ? AppImage(stream['thumbnail_url'].toString(), fit: BoxFit.cover)
-                                : Container(
-                                    color: Colors.black12,
-                                    child: Icon(
-                                      stream['is_audio_only'] == true
-                                          ? LucideIcons.mic
-                                          : LucideIcons.video,
-                                      size: 18,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                        title: Text(
-                          stream['title'] ?? 'Live Stream',
-                          style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
-                        ),
-                         subtitle: Text(
-                           "${stream['viewer_count'] ?? 0} watching"
-                           "${stream['is_audio_only'] == true ? ' · Audio only' : ''}",
-                           style: const TextStyle(color: Colors.black54),
-                         ),
-                         trailing: const Icon(Icons.play_circle_fill, color: Colors.red),
-                         onTap: () {
-                           final hls = stream['hls_url']?.toString();
-                           if (hls == null || hls.isEmpty) {
-                             ScaffoldMessenger.of(context).showSnackBar(
-                               const SnackBar(content: Text('This stream is not ready for playback yet.')),
-                             );
-                             return;
-                           }
-                           context.push('/live-player', extra: {
-                             'streamUrl': hls,
-                             'streamId': stream['id']?.toString(),
-                             'title': stream['title']?.toString() ?? 'Live Service',
-                             'isAudioOnly': stream['is_audio_only'] == true,
-                             'thumbnailUrl': stream['thumbnail_url']?.toString(),
-                           });
-                         },
-                       ),
-                    )),
+                    ...streams.map((stream) => _streamTile(context, stream)),
                   ],
                 );
               },
@@ -148,29 +106,18 @@ class LiveStreamingScreen extends ConsumerWidget {
             const SizedBox(height: 24),
             upcomingStreamsAsync.when(
               data: (streams) {
-                if (streams.isEmpty) return const Padding(padding: EdgeInsets.all(20), child: Center(child: Text("No upcoming streams")));
+                if (streams.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(child: Text("No upcoming streams")),
+                  );
+                }
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('UPCOMING', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
-                    ...streams.map((stream) => Card(
-                      child: ListTile(
-                        title: Text(
-                          stream['title'] ?? 'Scheduled Stream',
-                          style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: stream['scheduled_at'] != null
-                            ? Text('Starts ${_formatScheduled(stream['scheduled_at'])}', style: const TextStyle(color: Colors.black54))
-                            : null,
-                        trailing: isLeader
-                            ? TextButton(
-                                onPressed: () => _startScheduledNow(context, ref, stream),
-                                child: const Text('Start Now', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                              )
-                            : null,
-                      ),
-                    )),
+                    ...streams.map((stream) => _upcomingTile(context, ref, stream, isLeader)),
                   ],
                 );
               },
@@ -187,10 +134,182 @@ class LiveStreamingScreen extends ConsumerWidget {
               ),
               error: (e, _) => Center(child: Text('Error: $e')),
             ),
+            const SizedBox(height: 24),
+            recentAsync.when(
+              data: (streams) => _replaySection(context, streams),
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _replaySection(BuildContext context, List<Map<String, dynamic>> streams) {
+    if (streams.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(LucideIcons.history, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+            const SizedBox(width: 6),
+            const Text('RECENT SERVICES', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Saved replays (archived to Church On storage — playable any time).',
+          style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
+        ),
+        const SizedBox(height: 12),
+        ...streams.map((stream) => _replayTile(context, stream)),
+      ],
+    );
+  }
+
+  Widget _audioOnlyBadge() => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.mic, size: 10, color: Colors.white),
+            SizedBox(width: 3),
+            Text('AUDIO',
+                style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+          ],
+        ),
+      );
+
+  Widget _thumb(Map<String, dynamic> stream) {
+    final thumb = stream['thumbnail_url']?.toString() ?? '';
+    return SizedBox(
+      width: 64,
+      height: 44,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: thumb.isNotEmpty
+                  ? AppImage(thumb, fit: BoxFit.cover)
+                  : Container(
+                      color: Colors.black12,
+                      child: Icon(
+                        stream['is_audio_only'] == true ? LucideIcons.mic : LucideIcons.video,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
+                    ),
+            ),
+          ),
+          if (stream['is_audio_only'] == true)
+            Positioned(left: 3, bottom: 3, child: _audioOnlyBadge()),
+        ],
+      ),
+    );
+  }
+
+  Widget _streamTile(BuildContext context, Map<String, dynamic> stream) {
+    final theme = Theme.of(context);
+    return Card(
+      child: ListTile(
+        leading: _thumb(stream),
+        title: Text(
+          stream['title']?.toString() ?? 'Live Stream',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          "${stream['viewer_count'] ?? 0} watching${stream['is_audio_only'] == true ? ' · Audio only' : ''}",
+          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+        ),
+        trailing: const Icon(Icons.play_circle_fill, color: Colors.red),
+        onTap: () => _openPlayer(context, stream, live: true),
+      ),
+    );
+  }
+
+  Widget _upcomingTile(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> stream,
+    bool isLeader,
+  ) {
+    final theme = Theme.of(context);
+    return Card(
+      child: ListTile(
+        leading: _thumb(stream),
+        title: Text(
+          stream['title']?.toString() ?? 'Scheduled Stream',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w600),
+        ),
+        subtitle: stream['scheduled_at'] != null
+            ? Text(
+                'Starts ${_formatScheduled(stream['scheduled_at'])}',
+                style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+              )
+            : null,
+        trailing: isLeader
+            ? TextButton(
+                onPressed: () => _startScheduledNow(context, ref, stream),
+                child: const Text('Start Now', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              )
+            : null,
+      ),
+    );
+  }
+
+  Widget _replayTile(BuildContext context, Map<String, dynamic> stream) {
+    final theme = Theme.of(context);
+    return Card(
+      child: ListTile(
+        leading: _thumb(stream),
+        title: Text(
+          stream['title']?.toString() ?? 'Service Replay',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          'Recorded ${_formatScheduled(stream['ended_at'] ?? stream['archived_at'])}',
+          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+        ),
+        trailing: const Icon(Icons.play_circle_fill, color: Colors.red),
+        onTap: () => _openPlayer(context, stream, live: false),
+      ),
+    );
+  }
+
+  /// Opens the viewer. Live streams use HLS; replays use the R2 archive URL —
+  /// the permanent master copy, so a finished service stays playable in-app
+  /// even after Cloudflare Stream expires the recording.
+  void _openPlayer(BuildContext context, Map<String, dynamic> stream, {required bool live}) {
+    final archive = stream['archive_url']?.toString();
+    final hls = stream['hls_url']?.toString();
+    final url = live ? (hls ?? '') : (archive ?? hls ?? '');
+    if (url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This stream is not ready for playback yet.')),
+      );
+      return;
+    }
+    context.push('/live-player', extra: {
+      'streamUrl': url,
+      'streamId': stream['id']?.toString(),
+      'title': stream['title']?.toString() ?? 'Live Service',
+      'isAudioOnly': stream['is_audio_only'] == true,
+      'thumbnailUrl': stream['thumbnail_url']?.toString(),
+    });
   }
 
   String _formatScheduled(dynamic scheduledAt) {

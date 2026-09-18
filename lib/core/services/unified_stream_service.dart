@@ -212,7 +212,7 @@ class UnifiedStreamService {
             'description': description,
           'church_id': config.tenantId,
           'max_duration': config.maxStreamDurationSec.toString(),
-          'audio_only': 'false',
+          'audio_only': audioOnly ? 'true' : 'false',
         },
       },
       headers: _cloudflareHeaders(),
@@ -299,19 +299,10 @@ class UnifiedStreamService {
         .eq('id', streamId)
         .single();
 
-    // If Cloudflare, delete the live input (stops billing for ingest)
-    if (stream['streaming_backend'] == 'cloudflare' && stream['cloudflare_stream_id'] != null) {
-      await _client.functions.invoke(
-        'cloudflare-stream',
-        body: {
-          'action': 'delete_live_input',
-          'input_id': stream['cloudflare_stream_id'],
-        },
-        headers: _cloudflareHeaders(),
-      );
-    }
+    final isCloudflare = stream['streaming_backend'] == 'cloudflare' &&
+        stream['cloudflare_stream_id'] != null;
 
-    // BUG-3: Record streaming minutes for usage tracking / cost control
+    // Record streaming minutes for usage tracking / cost control.
     if (stream['started_at'] != null && stream['church_id'] != null) {
       try {
         final startedAt = DateTime.parse(stream['started_at']);
@@ -327,7 +318,8 @@ class UnifiedStreamService {
       }
     }
 
-    // Update status
+    // Update status FIRST so the nightly `auto_archive_stream_recordings()`
+    // sweep will pick this row up even if the immediate archive below fails.
     await _client
         .from('live_streams')
         .update({
@@ -336,12 +328,33 @@ class UnifiedStreamService {
         })
         .eq('id', streamId);
 
-    // Best-effort R2 archive of the recording (often returns 409 "not ready
-    // yet" right after a stream ends — the nightly archive sweep retries).
+    // Best-effort immediate R2 archive. Cloudflare usually needs a few minutes
+    // to finalise the recording, so a 409 here is normal — the cron retries.
+    // This MUST happen before the live input is touched, so the recording can
+    // still be resolved.
     try {
       await archiveRecording(streamId);
     } catch (e) {
       debugPrint('[Stream] Immediate archive attempt failed (non-fatal): $e');
+    }
+
+    // Stop ingest by DISABLING the live input — never delete it here. Deleting
+    // removes the input the archive resolves recordings through, which is why
+    // recordings were previously un-archivable. Recordings stay for the CF
+    // retention window; R2 is the permanent master.
+    if (isCloudflare) {
+      try {
+        await _client.functions.invoke(
+          'cloudflare-stream',
+          body: {
+            'action': 'disable_live_input',
+            'input_id': stream['cloudflare_stream_id'],
+          },
+          headers: _cloudflareHeaders(),
+        );
+      } catch (e) {
+        debugPrint('[Stream] Failed to disable live input (non-fatal): $e');
+      }
     }
 
     // Trigger auto-cleanup of old recordings (background)
@@ -358,14 +371,28 @@ class UnifiedStreamService {
       final cutoff = DateTime.now().subtract(Duration(days: retentionDays));
       final oldStreams = await _client
           .from('live_streams')
-          .select('id, cloudflare_stream_id')
+          .select('id, cloudflare_stream_id, archive_status')
           .eq('church_id', tenantId)
           .eq('status', 'ended')
           .lt('ended_at', cutoff.toIso8601String())
           .not('cloudflare_stream_id', 'is', null);
 
       for (final stream in oldStreams) {
-        // Delete from Cloudflare Stream (frees storage)
+        final archived = stream['archive_status'] == 'ready';
+
+        // Never delete the Cloudflare recording until the R2 master exists —
+        // otherwise the service recording is lost forever when CF expires it.
+        if (!archived) {
+          try {
+            final res = await archiveRecording(stream['id'].toString());
+            if (res['success'] != true) continue; // retry on the next pass
+          } catch (e) {
+            debugPrint('[Stream] Deferred cleanup archive failed: $e');
+            continue;
+          }
+        }
+
+        // Delete from Cloudflare Stream (frees storage) — R2 holds the master.
         if (stream['cloudflare_stream_id'] != null) {
           await _client.functions.invoke(
             'cloudflare-stream',
@@ -377,7 +404,7 @@ class UnifiedStreamService {
           );
         }
 
-        // Mark as archived (recording deleted, metadata kept)
+        // Mark as archived (CF recording deleted; R2 archive_url is retained).
         await _client
             .from('live_streams')
             .update({

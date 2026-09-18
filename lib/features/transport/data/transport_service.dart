@@ -107,7 +107,7 @@ class TransportService {
             .toList());
   }
 
-  Future<void> updateLocation(double lat, double lng) async {
+  Future<void> updateLocation(double lat, double lng, {double? speed}) async {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
@@ -124,12 +124,15 @@ class TransportService {
     }
     // Canonical live-location store — read by findNearestWeightedDriver
     // and watchDriverLocation. Must stay in sync with ride_registrations.
+    // `speed` (km/h) feeds the crowd-sourced traffic overlay; null when the
+    // device reports no valid speed so stale/absent data is never guessed.
     try {
       await _client.from('driver_locations').upsert({
         'driver_id': user.id,
         'lat': lat,
         'lng': lng,
         'is_online': true,
+        if (speed != null && speed.isFinite && speed >= 0) 'speed': speed,
         'updated_at': DateTime.now().toIso8601String(),
       }, onConflict: 'driver_id');
     } catch (e) {

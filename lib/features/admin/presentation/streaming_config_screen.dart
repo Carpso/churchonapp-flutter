@@ -1,11 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/core/config/remote_config.dart';
+import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 
-/// Streaming configuration screen for church admins
-/// Cloudflare Stream + R2 only. No third-party CDNs.
+/// Streaming configuration for a church.
+///
+/// Two tiers of control, deliberately separated:
+///  - **Church leaders** get the safe, functional switches (auto-record, live
+///    chat, prayer requests). Capacity/cost/pricing fields are READ-ONLY —
+///    they are commercial platform settings, not church settings.
+///  - **COA / superadmin staff** additionally get the platform-level controls
+///    (tier, weekly minutes, viewers, quality, retention, storage).
+///
+/// Cloudflare Account ID / API token are PLATFORM SECRETS held server-side in
+/// the Edge Function environment — they are never shown, entered, or stored by
+/// a tenant (the "Managed automatically" card explains this).
 class StreamingConfigScreen extends ConsumerStatefulWidget {
   final String tenantId;
 
@@ -16,24 +29,33 @@ class StreamingConfigScreen extends ConsumerStatefulWidget {
 }
 
 class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
-  // Cost control state
-  bool _isPaid = false;
-  int _maxMinutesPerWeek = 10;
-  int _maxViewers = 25;
-  int _retentionDays = 7;
-  double _maxStorageGb = 1.0;
-  int _maxStreamDuration = 60; // minutes
-  int _maxQuality = 720;
+  // Platform-level (COA) values — read-only for leaders.
+  bool _isPaid = true;
+  int _maxMinutesPerWeek = 480;
+  int _maxViewers = 1000;
+  int _retentionDays = 90;
+  double _maxStorageGb = 10.0;
+  int _maxStreamDuration = 240; // minutes
+  int _maxQuality = 1080;
+
+  // Church-level values — editable by leadership.
   bool _autoRecord = true;
   bool _enableChat = true;
   bool _enablePrayerRequests = true;
+
   bool _loading = true;
   bool _saving = false;
+  bool _hasRow = false;
 
   @override
   void initState() {
     super.initState();
     _loadConfig();
+  }
+
+  bool get _isPlatformStaff {
+    final profile = ref.read(profileProvider).value;
+    return profile?.isEmployee == true || profile?.isSuperadmin == true;
   }
 
   Future<void> _loadConfig() async {
@@ -46,15 +68,14 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
 
       if (result != null) {
         setState(() {
-          // Cloudflare credentials are PLATFORM secrets, provisioned and held
-          // by the Edge Function environment — churches never supply them.
-          _isPaid = result['is_paid'] ?? false;
-          _maxMinutesPerWeek = result['max_minutes_per_week'] ?? 10;
-          _maxViewers = result['max_viewers'] ?? 25;
-          _retentionDays = result['retention_days'] ?? 7;
-          _maxStorageGb = (result['max_storage_gb'] ?? 1.0).toDouble();
-          _maxStreamDuration = (result['max_stream_duration_sec'] ?? 3600) ~/ 60;
-          _maxQuality = result['max_quality'] ?? 720;
+          _hasRow = true;
+          _isPaid = result['is_paid'] ?? true;
+          _maxMinutesPerWeek = result['max_minutes_per_week'] ?? 480;
+          _maxViewers = result['max_viewers'] ?? 1000;
+          _retentionDays = result['retention_days'] ?? 90;
+          _maxStorageGb = (result['max_storage_gb'] ?? 10.0).toDouble();
+          _maxStreamDuration = ((result['max_stream_duration_sec'] ?? 14400) as num) ~/ 60;
+          _maxQuality = result['max_quality'] ?? 1080;
           _autoRecord = result['auto_record'] ?? true;
           _enableChat = result['enable_chat'] ?? true;
           _enablePrayerRequests = result['enable_prayer_requests'] ?? true;
@@ -64,6 +85,7 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
         setState(() => _loading = false);
       }
     } catch (e) {
+      debugPrint('Streaming config load failed: $e');
       setState(() => _loading = false);
     }
   }
@@ -72,279 +94,247 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: Text('Streaming Config')),
+        appBar: AppBar(title: const Text('Streaming Config')),
         body: const Center(child: ListSkeleton()),
       );
     }
 
+    final rc = widgetRemoteConfig(ref);
+    final staff = _isPlatformStaff;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Streaming Config'),
+        title: const Text('Streaming Config'),
         actions: [
           TextButton(
             onPressed: _saving ? null : _saveConfig,
             child: _saving
-                ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold)),
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
       body: ListView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         children: [
-          // Backend — Cloudflare Stream is the only supported backend.
-          Text('Streaming Backend', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          SizedBox(height: 12),
-          _BackendCard(
+          // ── Backend ─────────────────────────────────────────────────────
+          const Text('Streaming Backend', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          const _BackendCard(
             title: 'Cloudflare Stream',
             subtitle: 'Ingest + delivery — scales with usage',
             icon: Icons.cloud,
-            isSelected: true,
-            onTap: () {},
-            children: [
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
-                child: Text(
-                  'Cloudflare handles everything: RTMP/WHIP ingest, transcoding, '
-                  'adaptive HLS delivery, recording, and DDoS protection.',
-                  style: TextStyle(fontSize: 12, color: const Color(0xFF7A5C00)),
-                ),
-              ),
-            ],
           ),
-          SizedBox(height: 24),
+          const SizedBox(height: 24),
 
-          // Credentials are NOT a church setting. Church On App provisions the
-          // Cloudflare Stream input automatically when a leader goes live.
+          // ── Managed automatically (no tenant credentials) ───────────────
           _buildSection('Cloudflare Streaming', [
-            _buildHelpBox('Managed automatically', [
-              'Nothing to configure here.',
-              'Church On App authorises your streaming and creates the live input automatically.',
-              'Keys are held server-side and never entered or stored in the app.',
-            ], Theme.of(context).primaryColor),
-          ]),
-
-          SizedBox(height: 24),
-
-          // Subscription tier toggle
-          _buildSection('Subscription Tier', [
-            Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _isPaid ? Colors.green[50] : Colors.orange[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _isPaid ? Colors.green[200]! : Colors.orange[200]!),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Icon(_isPaid ? Icons.verified : Icons.lock, color: _isPaid ? Colors.green : Colors.orange),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(_isPaid ? 'PAID SUBSCRIBER' : 'TRIAL (FREE)',
-                                style: TextStyle(fontWeight: FontWeight.bold, color: _isPaid ? Colors.green[800] : Colors.orange[800])),
-                            Text(_isPaid ? 'Paid plan — Full access' : '30-day trial with limits',
-                                style: TextStyle(fontSize: 12, color: _isPaid ? Colors.green[600] : Colors.orange[600])),
-                          ],
-                        ),
-                      ),
-                      Switch(
-                        value: _isPaid,
-                        onChanged: (v) => setState(() {
-                          _isPaid = v;
-                          if (v) {
-                            _maxMinutesPerWeek = 480;
-                            _maxViewers = 1000;
-                            _retentionDays = 90;
-                            _maxStorageGb = 10.0;
-                            _maxStreamDuration = 240;
-                          } else {
-                            _maxMinutesPerWeek = 10;
-                            _maxViewers = 25;
-                            _retentionDays = 7;
-                            _maxStorageGb = 1.0;
-                            _maxStreamDuration = 60;
-                          }
-                        }),
-                        activeThumbColor: Colors.green,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+            _buildHelpBox(
+              'Managed automatically',
+              const [
+                'Nothing to configure here.',
+                'Church On App authorises your streaming and creates the live input automatically.',
+                'Account keys are held server-side and are never entered or stored in the app.',
+              ],
+              Theme.of(context).primaryColor,
             ),
           ]),
 
-          SizedBox(height: 24),
-
-          // Cost controls
-          _buildSection('Streaming Limits', [
-            _buildSlider('Minutes/Week', _maxMinutesPerWeek.toDouble(), 10, 480, '$_maxMinutesPerWeek min', (v) {
-              setState(() => _maxMinutesPerWeek = v.round());
-            }),
-            _buildSlider('Max Viewers', _maxViewers.toDouble(), 10, 1000, '$_maxViewers', (v) {
-              setState(() => _maxViewers = v.round());
-            }, divisions: 20),
-            _buildSlider('Max Duration (min)', _maxStreamDuration.toDouble(), 15, 240, '$_maxStreamDuration min', (v) {
-              setState(() => _maxStreamDuration = v.round());
-            }),
-            _buildSlider('Max Quality', _maxQuality.toDouble(), 360, 1080, '${_maxQuality}p', (v) {
-              setState(() => _maxQuality = v.round());
-            }, divisions: 4),
-            _buildSlider('Retention (days)', _retentionDays.toDouble(), 1, 365, '$_retentionDays days', (v) {
-              setState(() => _retentionDays = v.round());
-            }, divisions: 12),
-            SizedBox(height: 8),
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(8)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Overage Pricing:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange[800], fontSize: 13)),
-                  SizedBox(height: 4),
-                  Text(
-                    'Viewers above $_maxViewers: K5/viewer extra\n'
-                    'Storage above ${_maxStorageGb.toStringAsFixed(1)}GB: K50/GB extra\n'
-                    'All overages billed monthly via MoMo',
-                    style: TextStyle(fontSize: 12, color: Colors.orange[700]),
-                  ),
-                ],
-              ),
-            ),
+          // ── Plan / capacity ─────────────────────────────────────────────
+          _buildSection('Your Streaming Plan', [
+            _planCard(staff),
           ]),
 
-          SizedBox(height: 24),
+          if (staff) ...[
+            const SizedBox(height: 24),
+            _buildSection('Platform Limits (COA)', [
+              _buildSlider('Minutes/Week', _maxMinutesPerWeek.toDouble(), 10, 1440, '$_maxMinutesPerWeek min',
+                  (v) => setState(() => _maxMinutesPerWeek = v.round())),
+              _buildSlider('Max Viewers', _maxViewers.toDouble(), 10, 5000, '$_maxViewers',
+                  (v) => setState(() => _maxViewers = v.round()), divisions: 50),
+              _buildSlider('Max Duration (min)', _maxStreamDuration.toDouble(), 15, 480, '$_maxStreamDuration min',
+                  (v) => setState(() => _maxStreamDuration = v.round())),
+              _buildSlider('Max Quality', _maxQuality.toDouble(), 360, 1080, '${_maxQuality}p',
+                  (v) => setState(() => _maxQuality = v.round()), divisions: 4),
+              _buildSlider('Retention (days)', _retentionDays.toDouble(), 1, 365, '$_retentionDays days',
+                  (v) => setState(() => _retentionDays = v.round()), divisions: 60),
+              _buildSlider('Max Storage', _maxStorageGb, 1, 100, '${_maxStorageGb.toStringAsFixed(0)} GB',
+                  (v) => setState(() => _maxStorageGb = v), divisions: 99),
+              _tierSwitch(),
+            ]),
+          ],
 
-          // Storage gating
-          _buildSection('Storage (R2)', [
-            _buildSlider('Max Storage', _maxStorageGb, 1, 50, '${_maxStorageGb.toStringAsFixed(1)} GB', (v) {
-              setState(() => _maxStorageGb = double.tryParse(v.toStringAsFixed(1)) ?? 0.0);
-            }, divisions: 50),
-            SizedBox(height: 8),
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.amber[50], borderRadius: BorderRadius.circular(8)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Storage Gating:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber[800], fontSize: 13)),
-                  SizedBox(height: 4),
-                  Text(
-                    'Free tier: ${_isPaid ? "10 GB" : "1 GB"} included\n'
-                    'Excess: K50/GB/month charged automatically\n'
-                    'Recordings auto-deleted after $_retentionDays days\n'
-                    'Cloudflare R2 free tier covers first 10 GB',
-                    style: TextStyle(fontSize: 12, color: Colors.amber[700]),
-                  ),
-                ],
-              ),
-            ),
-          ]),
-
-          SizedBox(height: 24),
-
-          // Stream settings
+          // ── Church settings (leadership-editable) ───────────────────────
           _buildSection('Stream Settings', [
             SwitchListTile(
-              title: Text('Auto-Record'),
-              subtitle: Text('Save live streams as VOD'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Auto-Record'),
+              subtitle: const Text('Save services as replays (archived to Church On storage)'),
               value: _autoRecord,
               onChanged: (v) => setState(() => _autoRecord = v),
             ),
             SwitchListTile(
-              title: Text('Live Chat'),
-              subtitle: Text('Allow viewers to chat'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Live Chat'),
+              subtitle: const Text('Allow viewers to chat during the service'),
               value: _enableChat,
               onChanged: (v) => setState(() => _enableChat = v),
             ),
             SwitchListTile(
-              title: Text('Prayer Requests'),
-              subtitle: Text('Allow prayer request button'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Prayer Requests'),
+              subtitle: const Text('Allow the prayer request button during a stream'),
               value: _enablePrayerRequests,
               onChanged: (v) => setState(() => _enablePrayerRequests = v),
             ),
           ]),
 
-          SizedBox(height: 24),
-
-          // Cost breakdown
-          _buildCostEstimate(),
-          SizedBox(height: 40),
+          // ── Real, remote-config-driven rates ────────────────────────────
+          _buildSection('Cloud Rates (platform)', [
+            _rateRow('Stream delivery', rc.getDouble('cf_stream_delivery_usd_per_1000_min', 1.0)),
+            _rateRow('Recording storage', rc.getDouble('cf_stream_storage_usd_per_1000_min', 5.0)),
+            _rateRowFx('Exchange rate (USD→ZMW)', rc.getDouble('cf_stream_usd_to_zmw', 18.0)),
+            const SizedBox(height: 8),
+            Text(
+              'Churches never see or pay these rates directly — they are covered by the church subscription.',
+              style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55)),
+            ),
+          ]),
+          const SizedBox(height: 40),
         ],
       ),
     );
   }
 
-  Widget _buildCostEstimate() {
-    // Rough cost estimate based on config
-    final cfBaseFee = 5.0;
-    // Assume 4hrs/week streaming, 50 viewers avg, 2Mbps = ~36GB/month per church
-    final estimatedBandwidthGb = 36.0;
-    final cfUsageFee = estimatedBandwidthGb * 0.10; // $0.10/GB delivery
-    final r2StorageFee = _maxStorageGb > 10 ? (_maxStorageGb - 10) * 0.015 : 0; // Free first 10GB
-    final totalCost = cfBaseFee + cfUsageFee + r2StorageFee;
-
+  Widget _planCard(bool staff) {
+    final theme = Theme.of(context);
+    final rows = <String>[
+      '$_maxMinutesPerWeek streaming minutes / week',
+      '$_maxViewers concurrent viewers',
+      '$_retentionDays-day recording retention',
+      '${_maxStorageGb.toStringAsFixed(0)} GB storage included',
+      '${_maxQuality}p maximum quality',
+    ];
     return Container(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: _isPaid ? Colors.green.withValues(alpha: 0.08) : Colors.orange.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        border: Border.all(color: _isPaid ? Colors.green.withValues(alpha: 0.4) : Colors.orange.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Estimated Monthly Cost', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          SizedBox(height: 12),
-          _buildCostRow('Cloudflare Stream base', '\$${cfBaseFee.toStringAsFixed(2)}'),
-          _buildCostRow('Bandwidth (${estimatedBandwidthGb.toStringAsFixed(0)} GB)', '\$${cfUsageFee.toStringAsFixed(2)}'),
-          if (r2StorageFee > 0) _buildCostRow('R2 storage excess', '\$${r2StorageFee.toStringAsFixed(2)}'),
-          Divider(),
-          _buildCostRow('TOTAL PER CHURCH', '\$${totalCost.toStringAsFixed(2)}', bold: true),
-          SizedBox(height: 8),
-          Text(
-            'With $_maxViewers viewers, $_maxMinutesPerWeek min/week, $_retentionDays-day retention',
-            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          Row(
+            children: [
+              Icon(_isPaid ? Icons.verified : Icons.lock, color: _isPaid ? Colors.green : Colors.orange),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _isPaid ? 'PAID SUBSCRIBER' : 'TRIAL (LIMITED)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: _isPaid ? Colors.green[800] : Colors.orange[800],
+                  ),
+                ),
+              ),
+              if (staff)
+                const Text('Editable', style: TextStyle(fontSize: 11, color: Colors.grey))
+              else
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.lock_outline, size: 13, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                    const SizedBox(width: 4),
+                    const Text('Set by Church On App', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  ],
+                ),
+            ],
           ),
+          const SizedBox(height: 10),
+          ...rows.map((r) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle, size: 15, color: Colors.green[600]),
+                    const SizedBox(width: 8),
+                    Text(r, style: const TextStyle(fontSize: 13)),
+                  ],
+                ),
+              )),
         ],
       ),
     );
   }
 
-  Widget _buildCostRow(String label, String amount, {bool bold = false}) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal, fontSize: bold ? 15 : 13)),
-          Text(amount, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.w600, fontSize: bold ? 15 : 13)),
-        ],
-      ),
+  Widget _tierSwitch() {
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Paid tier'),
+      subtitle: const Text('Off = trial limits (COA only)'),
+      value: _isPaid,
+      activeThumbColor: Colors.green,
+      onChanged: (v) => setState(() {
+        _isPaid = v;
+        if (v) {
+          _maxMinutesPerWeek = 480;
+          _maxViewers = 1000;
+          _retentionDays = 90;
+          _maxStorageGb = 10.0;
+          _maxStreamDuration = 240;
+          _maxQuality = 1080;
+        } else {
+          _maxMinutesPerWeek = 10;
+          _maxViewers = 25;
+          _retentionDays = 7;
+          _maxStorageGb = 1.0;
+          _maxStreamDuration = 60;
+          _maxQuality = 720;
+        }
+      }),
     );
   }
+
+  Widget _rateRow(String label, double usdPer1000) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 13)),
+            Text('\$${usdPer1000.toStringAsFixed(2)} / 1000 min',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          ],
+        ),
+      );
+
+  Widget _rateRowFx(String label, double rate) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 13)),
+            Text('K${rate.toStringAsFixed(2)} / \$1',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          ],
+        ),
+      );
 
   int _computeDivisions(double min, double max) {
     if (min <= 0 || !(max - min).isFinite) return 2;
-    final d = ((max - min) / min).round().clamp(2, 50);
-    return d;
+    return ((max - min) / min).round().clamp(2, 100);
   }
 
-  Widget _buildSlider(String label, double value, double min, double max, String display, ValueChanged<double> onChanged, {int? divisions}) {
+  Widget _buildSlider(String label, double value, double min, double max, String display,
+      ValueChanged<double> onChanged, {int? divisions}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-            Text(display, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor, fontSize: 13)),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            Text(display,
+                style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor, fontSize: 13)),
           ],
         ),
         Slider(
@@ -361,12 +351,16 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
 
   Widget _buildSection(String title, List<Widget> children) {
     return Container(
-      margin: EdgeInsets.only(bottom: 24),
+      margin: const EdgeInsets.only(bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[800])),
-          SizedBox(height: 12),
+          Text(title,
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface)),
+          const SizedBox(height: 12),
           ...children,
         ],
       ),
@@ -375,13 +369,19 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
 
   Widget _buildHelpBox(String title, List<String> steps, Color color) {
     return Container(
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-          SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(LucideIcons.shieldCheck, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+            ],
+          ),
+          const SizedBox(height: 4),
           Text(steps.join('\n'), style: TextStyle(fontSize: 12, color: color)),
         ],
       ),
@@ -390,43 +390,53 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
 
   Future<void> _saveConfig() async {
     setState(() => _saving = true);
-
     try {
-      final config = {
+      final staff = _isPlatformStaff;
+      final payload = <String, dynamic>{
         'church_id': widget.tenantId,
         'backend': 'cloudflare',
-        'is_paid': _isPaid,
-        'max_minutes_per_week': _maxMinutesPerWeek,
-        'max_viewers': _maxViewers,
-        'retention_days': _retentionDays,
-        'max_storage_gb': _maxStorageGb,
-        'max_stream_duration_sec': _maxStreamDuration * 60,
-        'max_quality': _maxQuality,
         'auto_record': _autoRecord,
         'enable_chat': _enableChat,
         'enable_prayer_requests': _enablePrayerRequests,
         'updated_at': DateTime.now().toIso8601String(),
       };
 
+      if (staff) {
+        payload.addAll({
+          'is_paid': _isPaid,
+          'max_minutes_per_week': _maxMinutesPerWeek,
+          'max_viewers': _maxViewers,
+          'retention_days': _retentionDays,
+          'max_storage_gb': _maxStorageGb,
+          'max_stream_duration_sec': _maxStreamDuration * 60,
+          'max_quality': _maxQuality,
+        });
+      } else if (!_hasRow) {
+        // First-ever write by a church leader: seed the paid baseline so the
+        // insert can never silently downgrade the church to trial limits.
+        // (A DB trigger also enforces this server-side.)
+        payload.addAll({
+          'is_paid': true,
+          'max_minutes_per_week': 480,
+          'max_viewers': 1000,
+          'retention_days': 90,
+          'max_storage_gb': 10.0,
+          'max_stream_duration_sec': 14400,
+          'max_quality': 1080,
+        });
+      }
+
       await Supabase.instance.client
           .from('church_stream_config')
-          .upsert(config, onConflict: 'church_id');
+          .upsert(payload, onConflict: 'church_id');
 
-      if (mounted) {
-        PremiumToast.showSuccess(context, 'Streaming config saved!');
-      }
+      await _loadConfig();
+      if (mounted) PremiumToast.showSuccess(context, 'Streaming settings saved');
     } catch (e) {
-      if (mounted) {
-        PremiumToast.showError(context, 'Error: $e');
-      }
+      if (mounted) PremiumToast.showError(context, 'Could not save: $e');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }
 
@@ -434,58 +444,55 @@ class _BackendCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final List<Widget> children;
 
   const _BackendCard({
     required this.title,
     required this.subtitle,
     required this.icon,
-    required this.isSelected,
-    required this.onTap,
-    required this.children,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.05) : Colors.white,
-          border: Border.all(
-            color: isSelected ? Theme.of(context).primaryColor : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: isSelected ? Theme.of(context).primaryColor : Colors.grey),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isSelected ? Theme.of(context).primaryColor : null)),
-                      Text(subtitle, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                    ],
-                  ),
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.primaryColor.withValues(alpha: 0.05),
+        border: Border.all(color: theme.primaryColor, width: 2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: theme.primaryColor),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: theme.primaryColor)),
+                    Text(subtitle, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 13)),
+                  ],
                 ),
-                if (isSelected) Icon(Icons.check_circle, color: Theme.of(context).primaryColor),
-              ],
-            ),
-            if (children.isNotEmpty && isSelected) ...[
-              SizedBox(height: 12),
-              ...children,
+              ),
+              Icon(Icons.check_circle, color: theme.primaryColor),
             ],
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+                color: theme.primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+            child: Text(
+              'Cloudflare handles everything: RTMP/WHIP ingest, transcoding, adaptive HLS '
+              'delivery, recording, and DDoS protection.',
+              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.75)),
+            ),
+          ),
+        ],
       ),
     );
   }

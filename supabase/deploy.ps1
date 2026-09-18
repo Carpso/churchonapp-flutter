@@ -331,6 +331,7 @@ $migrations = @(
       "20261149_writer_books.sql"
       "20261150_worship_lyrics.sql"
       "20261151_kael_chat_history_settings.sql"
+      "20261152_stream_config_platform_guard.sql"
     )
 
 foreach ($m in $migrations) {

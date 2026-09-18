@@ -8,6 +8,8 @@ import 'package:church_on_app/core/services/tenant_service.dart';
 import '../../finance/presentation/giving_screen.dart';
 import 'package:church_on_app/features/admin/data/reporting_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/stream_analytics_service.dart';
+import 'package:church_on_app/features/modules/live_streaming/data/live_stream_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/live_chat_service.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/widgets/app_image.dart';
@@ -43,6 +45,14 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   VideoPlayerController? _videoPlayerController;
   ChewieController? _chewieController;
   bool _hasError = false;
+  /// True once playback has fallen back to the R2 archive of a finished stream.
+  bool _isReplay = false;
+  int _viewerCount = 0;
+  Timer? _viewerTimer;
+  /// Guards the archive fallback so it is attempted at most once per stream.
+  String? _archiveTriedFor;
+  /// R2 master URL once the archive fallback has resolved.
+  String? _archiveUrl;
   final _chatCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
@@ -56,6 +66,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     super.initState();
     _initializePlayer();
     _startSession();
+    _startViewerCount();
   }
 
   Future<void> _startSession() async {
@@ -72,19 +83,43 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   int get _watchedSeconds =>
       _joinedAt == null ? 0 : DateTime.now().difference(_joinedAt!).inSeconds;
 
+  /// Live viewer count — polled while the stream is open so the badge reflects
+  /// the real audience without extra realtime wiring.
+  void _startViewerCount() {
+    final id = widget.streamId;
+    if (id == null || id.isEmpty) return;
+    Future<void> poll() async {
+      try {
+        final row = await Supabase.instance.client
+            .from('live_streams')
+            .select('viewer_count')
+            .eq('id', id)
+            .maybeSingle();
+        final c = (row?['viewer_count'] as num?)?.toInt() ?? 0;
+        if (mounted && c != _viewerCount) setState(() => _viewerCount = c);
+      } catch (_) {}
+    }
+
+    poll();
+    _viewerTimer = Timer.periodic(const Duration(seconds: 30), (_) => poll());
+  }
+
   Future<void> _flushSession() async {
     final id = _sessionId;
     if (id == null) return;
     await ref.read(streamAnalyticsServiceProvider).endSession(id, _watchedSeconds);
   }
 
-  Future<void> _initializePlayer() async {
-    final url = widget.streamUrl.trim();
+  Future<void> _initializePlayer({String? overrideUrl}) async {
+    final url = (overrideUrl ?? _archiveUrl ?? widget.streamUrl).trim();
     final invalid = url.isEmpty ||
         url.contains('/null/') ||
         (!url.startsWith('http://') && !url.startsWith('https://'));
     if (invalid) {
       debugPrint('LiveStream: refusing invalid stream URL: "$url"');
+      // The Cloudflare recording may be gone (retention expired) but the R2
+      // master may still be playable — prefer it, then surface RETRY.
+      if (overrideUrl == null && await _tryArchiveFallback()) return;
       if (mounted) setState(() => _hasError = true);
       return;
     }
@@ -96,7 +131,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         videoPlayerController: _videoPlayerController!,
         autoPlay: true,
         looping: false,
-        isLive: true,
+        isLive: !_isReplay,
         aspectRatio: _videoPlayerController!.value.aspectRatio == 0
             ? 16 / 9
             : _videoPlayerController!.value.aspectRatio,
@@ -111,16 +146,41 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
           bufferedColor: Colors.white.withValues(alpha: 0.3),
         ),
       );
-      if (mounted) setState(() {});
+      if (mounted) setState(() => _hasError = false);
     } catch (e) {
       debugPrint('LiveStream init error: $e');
+      if (overrideUrl == null && await _tryArchiveFallback()) return;
       if (mounted) setState(() => _hasError = true);
+    }
+  }
+
+  /// Resolves and plays the R2 master archive for this stream. Returns true if
+  /// an archive was found and playback restarted from it.
+  Future<bool> _tryArchiveFallback() async {
+    final id = widget.streamId;
+    if (id == null || id.isEmpty || _archiveTriedFor == id) return false;
+    _archiveTriedFor = id;
+    try {
+      final archive = await ref.read(liveStreamServiceProvider).getArchiveUrl(id);
+      if (archive == null || archive.isEmpty) return false;
+      if (!mounted) return false;
+      _archiveUrl = archive;
+      setState(() {
+        _isReplay = true;
+        _hasError = false;
+      });
+      await _initializePlayer(overrideUrl: archive);
+      return true;
+    } catch (e) {
+      debugPrint('LiveStream archive fallback failed: $e');
+      return false;
     }
   }
 
   @override
   void dispose() {
     _heartbeat?.cancel();
+    _viewerTimer?.cancel();
     _flushSession();
     _videoPlayerController?.dispose();
     _chewieController?.dispose();
@@ -153,7 +213,14 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
           const SizedBox(height: 14),
           OutlinedButton(
             onPressed: () {
-              setState(() => _hasError = false);
+              setState(() {
+                _hasError = false;
+                _archiveTriedFor = null;
+              });
+              _videoPlayerController?.dispose();
+              _videoPlayerController = null;
+              _chewieController?.dispose();
+              _chewieController = null;
               _initializePlayer();
             },
             style: OutlinedButton.styleFrom(
@@ -180,20 +247,50 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
           icon: const Icon(LucideIcons.chevronLeft, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 16)),
+        title: Text(
+          widget.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            shadows: [Shadow(color: Colors.black87, blurRadius: 6)],
+          ),
+        ),
         actions: [
-          if (!_hasError)
+          if (!_hasError) ...[
+            if (_viewerCount > 0 && !_isReplay)
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(LucideIcons.eye, color: Colors.white, size: 12),
+                    const SizedBox(width: 4),
+                    Text('$_viewerCount',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                  ],
+                ),
+              ),
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+              margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
-                color: Colors.red,
+                color: _isReplay ? Colors.black54 : Colors.red,
                 borderRadius: BorderRadius.circular(5),
               ),
-              child: const Center(
-                child: Text("LIVE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+              child: Center(
+                child: Text(
+                  _isReplay ? "REPLAY" : "LIVE",
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                ),
               ),
             ),
+          ],
         ],
       ),
       body: Column(
@@ -224,7 +321,14 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(tenant?.name ?? "Church", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          Text("Join the community", style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
+                          Text(
+                            _isReplay
+                                ? "Recorded service"
+                                : (_viewerCount > 0
+                                    ? '$_viewerCount watching · Join the community'
+                                    : "Join the community"),
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+                          ),
                         ],
                       ),
                       const Spacer(),

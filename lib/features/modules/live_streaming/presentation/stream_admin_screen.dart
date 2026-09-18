@@ -210,6 +210,17 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
                           fontSize: 8, fontWeight: FontWeight.w900, color: color)),
                 ),
                 const SizedBox(width: 6),
+                if (status == 'ready' &&
+                    (s['archive_url']?.toString().isNotEmpty ?? false))
+                  IconButton(
+                    tooltip: 'Play R2 archive',
+                    onPressed: () => context.push('/live-player', extra: {
+                      'streamUrl': s['archive_url'].toString(),
+                      'streamId': s['id']?.toString(),
+                      'title': s['title']?.toString() ?? 'Service Replay',
+                    }),
+                    icon: const Icon(Icons.play_circle_fill, size: 20, color: Colors.red),
+                  ),
                 if (status != 'ready')
                   IconButton(
                     tooltip: 'Archive to R2',
@@ -478,6 +489,27 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 8),
+        if ((_streamKey ?? '').isEmpty && (_rtmpUrl ?? '').isEmpty)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(LucideIcons.info, size: 16, color: Theme.of(context).primaryColor),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'No active broadcast yet. Press "Go Live Now" to create a fresh '
+                    'Cloudflare stream key, or use the phone studio.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
         Container(
           padding: EdgeInsets.all(12),
           decoration: BoxDecoration(

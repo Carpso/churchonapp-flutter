@@ -22,6 +22,7 @@ import 'baptism_registry_screen.dart';
 import 'content_moderation_screen.dart';
 import 'church_financial_hub_screen.dart';
 import 'attendance_checkin_screen.dart';
+import 'organization_overview_screen.dart';
 
 class PastorDashboardScreen extends ConsumerStatefulWidget {
   const PastorDashboardScreen({super.key});
@@ -660,7 +661,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
       childAspectRatio: 1.1,
       children: [
         _statCard(theme, "Total Members", _formatNumber(_memberCount), LucideIcons.users, theme.primaryColor, null),
-        _statCard(theme, "Sermons This Month", _formatNumber(_sermonCount), LucideIcons.bookOpen, Colors.amber, null),
+        _statCard(theme, "Upcoming Events", _formatNumber(_upcomingEvents.length), LucideIcons.calendarDays, Colors.amber, null),
         _statCard(theme, "Attendance", _formatNumber(_attendanceCount), LucideIcons.calendarCheck, Colors.green, attGrowth),
         _statCard(theme, "Giving This Month", currencyFormat.format(_givingTotal), LucideIcons.heartPulse, Colors.red, givingGrowth),
       ],
@@ -1134,11 +1135,18 @@ child: avatarUrl != null && avatarUrl!.isNotEmpty
            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceCheckinScreen()))),
          _actionTile(theme, LucideIcons.userCheck, "Member Attendance", "Review attendance rates and record service check-ins", theme.primaryColor,
            () => context.push('/member-attendance')),
+         _actionTile(theme, LucideIcons.piggyBank, "Offering Baskets", "Live basket offerings and church basket setup", Colors.teal,
+           () => context.push('/offering-baskets')),
+         _actionTile(theme, LucideIcons.barChart3, "Stream Analytics", "Watch-time and delivery cost for your streams", Colors.indigo,
+           () => context.push('/stream-analytics')),
          _actionTile(theme, LucideIcons.piggyBank, "Church Financial Hub", "Building funds, group contributions & goals", Colors.green,
            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchFinancialHubScreen()))),
          _actionTile(theme, LucideIcons.userPlus, "Invite Members", "Share church invite link, QR code & more", theme.primaryColor,
            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchInviteScreen()))),
-       ],
+         if (ref.read(profileProvider).value?.organizationId?.isNotEmpty == true)
+           _actionTile(theme, LucideIcons.globe, "View Organisation", "See your wider church network", Colors.purple,
+             () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OrganizationOverviewScreen()))),
+        ],
      );
    }
 

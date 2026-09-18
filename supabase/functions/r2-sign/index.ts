@@ -149,7 +149,7 @@ serve(async (req) => {
     "marketplace", "sermons", "ventures", "flyers", "delivery-proof",
     "profile", "driver-documents", "churches", "church-logos",
     "church-banners", "church-website-logos", "church-website-banners",
-    "special-offers", "audio", "quiz-questions",
+    "special-offers", "audio", "quiz-questions", "stream-posters",
   ];
   if (!isReadAction && body.folder && !allowedFolders.includes(body.folder)) {
     return new Response(

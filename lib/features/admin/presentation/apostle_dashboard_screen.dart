@@ -6,8 +6,8 @@ import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/pro_charts.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
-import 'member_management_screen.dart';
-import 'service_report_screen.dart';
+import 'pastor_bishop_report_screen.dart';
+import 'bishop_heatmap_screen.dart';
 import 'global_broadcast_screen.dart';
 
 class ApostleDashboardScreen extends ConsumerStatefulWidget {
@@ -197,21 +197,11 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
                     ),
                     const SizedBox(height: 15),
-                    _buildQuickAction(context, LucideIcons.church, "Member Management", Theme.of(context).primaryColor, () {
-                      final tenant = ref.read(currentTenantProvider);
-                      if (tenant == null) {
-                        _noTenantSnack(context);
-                        return;
-                      }
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const MemberManagementScreen()));
+                    _buildQuickAction(context, LucideIcons.fileText, "Pastor Reports", Theme.of(context).primaryColor, () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PastorBishopReportScreen()));
                     }),
-                    _buildQuickAction(context, LucideIcons.fileText, "Ministry Reports", Theme.of(context).primaryColor, () {
-                      final tenant = ref.read(currentTenantProvider);
-                      if (tenant == null) {
-                        _noTenantSnack(context);
-                        return;
-                      }
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ServiceReportScreen()));
+                    _buildQuickAction(context, LucideIcons.map, "Branch Map", Theme.of(context).primaryColor, () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const BishopHeatmapScreen()));
                     }),
                     _buildQuickAction(context, LucideIcons.megaphone, "Send Broadcast", Colors.amber, () {
                       final tenant = ref.read(currentTenantProvider);

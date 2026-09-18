@@ -121,6 +121,27 @@ serve(async (req) => {
         }
         return await deleteLiveInput(params, corsHeaders);
       }
+      case "disable_live_input": {
+        // Preferred over deleting: stopping ingest by DISABLING the live input
+        // keeps the input (and therefore its recording list) intact, so the
+        // R2 archive can still resolve the recording. Deleting the input first
+        // is what made every archive attempt fail once the input was gone.
+        const inputId = params?.input_id;
+        if (!inputId) {
+          return new Response(
+            JSON.stringify({ error: "input_id is required for disable_live_input" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        const ok = await ownsStream(supabaseAuth, inputId, profile);
+        if (!ok) {
+          return new Response(
+            JSON.stringify({ error: "Not authorized to disable this stream" }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        return await disableLiveInput(params, corsHeaders);
+      }
       case "get_live_input": {
         if (!params?.input_id || !(await ownsStream(supabaseAuth, params.input_id, profile))) {
           return new Response(JSON.stringify({ error: "Not authorized to view this input" }), {
@@ -401,6 +422,38 @@ async function deleteLiveInput(params: any, corsHeaders: Record<string, string>)
   );
 }
 
+// Stops ingest without deleting the input (and its recordings). Cloudflare has
+// no cheap "stop broadcast" call, so we flip `enabled` to false via PUT; the
+// input and its recorded videos stay resolvable for archiving.
+async function disableLiveInput(params: any, corsHeaders: Record<string, string>) {
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${params.input_id}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ enabled: false }),
+    }
+  );
+
+  const data = await response.json();
+  if (!data.success) {
+    const msg = data.errors?.[0]?.message || "Failed to disable live input";
+    console.error(`[cloudflare-stream] disable_live_input CF API error ${response.status}: ${msg}`);
+    return new Response(
+      JSON.stringify({ success: false, error: msg, errors: data.errors ?? [] }),
+      { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  return new Response(
+    JSON.stringify({ success: true, enabled: data.result?.enabled ?? false }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
 async function getLiveInput(params: any, corsHeaders: Record<string, string>) {
   const response = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${params.input_id}`,
@@ -673,7 +726,13 @@ async function archiveRecording(
   if (row?.id) {
     await supabase
       .from("live_streams")
-      .update({ archive_status: "archiving", archive_error: null })
+      .update({
+        archive_status: "archiving",
+        archive_error: null,
+        // Persist the resolved video id so every later retry (and the nightly
+        // cron) is deterministic and no longer depends on the live input.
+        cloudflare_video_id: videoId,
+      })
       .eq("id", row.id);
   }
 
@@ -764,6 +823,9 @@ async function archiveRecording(
 }
 
 // Finds the Cloudflare Stream video uid for a live input's latest recording.
+// Prefers the per-input video list, then falls back to the ACCOUNT video list
+// filtered by `liveInput` — so archiving still works after an input is deleted
+// (the old code relied solely on the input, and archived nothing once it was).
 async function resolveRecordingVideoId(
   row: any,
   videoIdParam: string | undefined,
@@ -772,17 +834,46 @@ async function resolveRecordingVideoId(
   if (row?.cloudflare_video_id) return row.cloudflare_video_id;
   if (!row?.cloudflare_stream_id) return null;
 
-  const res = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${row.cloudflare_stream_id}/videos`,
-    { headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` } },
-  );
-  const j = await res.json().catch(() => null);
-  const list: any[] = Array.isArray(j?.result) ? j.result : [];
-  if (list.length === 0) return null;
+  const pickLatest = (list: any[]): string | null => {
+    if (list.length === 0) return null;
+    const ready = list
+      .filter((v) => v?.readyToStream)
+      .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+    const chosen = ready[0] ?? list[0];
+    return chosen?.uid ?? null;
+  };
 
-  const ready = list
-    .filter((v) => v?.readyToStream)
-    .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
-  const chosen = ready[0] ?? list[0];
-  return chosen?.uid ?? null;
+  let list: any[] = [];
+  try {
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${row.cloudflare_stream_id}/videos`,
+      { headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` } },
+    );
+    const j = await res.json().catch(() => null);
+    list = Array.isArray(j?.result) ? j.result : [];
+  } catch (_) {
+    list = [];
+  }
+  const fromInput = pickLatest(list);
+  if (fromInput) return fromInput;
+
+  // Fallback: the live input may already be gone, but its recordings survive
+  // in the account and carry `liveInput` back-reference.
+  try {
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream?limit=100`,
+      { headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` } },
+    );
+    const j = await res.json().catch(() => null);
+    const all: any[] = Array.isArray(j?.result) ? j.result : [];
+    const mine = all.filter(
+      (v) =>
+        v?.liveInput === row.cloudflare_stream_id ||
+        v?.meta?.live_input === row.cloudflare_stream_id ||
+        v?.meta?.cloudflare_stream_id === row.cloudflare_stream_id,
+    );
+    return pickLatest(mine);
+  } catch (_) {
+    return null;
+  }
 }

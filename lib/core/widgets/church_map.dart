@@ -11,10 +11,16 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:church_on_app/core/config/app_constants.dart';
+import 'package:church_on_app/core/config/env.dart';
 import 'package:church_on_app/core/services/geocoding_service.dart';
+import 'package:church_on_app/core/services/nearby_places_service.dart';
+import 'package:church_on_app/features/transport/data/traffic_service.dart';
 import 'package:church_on_app/features/transport/presentation/saved_places_sheet.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'maps/business_poi_layers.dart';
 import 'maps/protomaps_light_v4_layers.dart';
 import 'maps/protomaps_dark_v4_layers.dart';
+import 'nearby_places_sheet.dart';
 import 'app_image.dart';
 
 /// Protomaps v4 "light" theme with **self-hosted** glyphs + sprites.
@@ -28,7 +34,12 @@ import 'app_image.dart';
 final _brandLightMapTheme = ProtomapsThemes(
   glyphs: 'https://maps.churchonapp.com/map-assets/fonts/{fontstack}/{range}.pbf',
   sprites: 'https://maps.churchonapp.com/map-assets/sprites/v4/light',
-).build(kProtomapsLightV4Layers);
+).build([
+  ...kProtomapsLightV4Layers,
+  // Business/amenity POI labels appended after every stock layer so existing
+  // street/place labels keep their placement priority.
+  businessPoiLayer(dark: false),
+]);
 
 /// Protomaps v4 "dark" theme with **self-hosted** glyphs + sprites (mirrors the
 /// light theme above). Labels are drawn with local Flutter fonts by the current
@@ -37,7 +48,10 @@ final _brandLightMapTheme = ProtomapsThemes(
 final _brandDarkMapTheme = ProtomapsThemes(
   glyphs: 'https://maps.churchonapp.com/map-assets/fonts/{fontstack}/{range}.pbf',
   sprites: 'https://maps.churchonapp.com/map-assets/sprites/v4/dark',
-).build(kProtomapsDarkV4Layers);
+).build([
+  ...kProtomapsDarkV4Layers,
+  businessPoiLayer(dark: true),
+]);
 
 /// A reusable map widget: self-hosted Protomaps basemap, optional pin
 /// placement + save, saved-places layer, address search, and theme awareness.
@@ -69,6 +83,16 @@ class ChurchMap extends ConsumerStatefulWidget {
   final bool showAddressSearch;
   final String? addressSearchHint;
   final ValueChanged<String>? onAddressSelected;
+
+  /// Enables the "Nearby" search panel (OSM Overpass: fuel, food, banks,
+  /// pharmacies, hotels...) as an extra map control. Default false so existing
+  /// maps are unchanged.
+  final bool showNearby;
+
+  /// Enables the live-traffic overlay + toggle. Uses a real raster traffic tile
+  /// source when `TRAFFIC_TILES_URL` is defined, otherwise crowd-sourced speed
+  /// segments from `driver_locations`. Default false.
+  final bool showTraffic;
 
   // Interaction
   final ValueChanged<LatLng>? onMapTapped;
@@ -108,6 +132,8 @@ class ChurchMap extends ConsumerStatefulWidget {
     this.showAddressSearch = false,
     this.addressSearchHint,
     this.onAddressSelected,
+    this.showNearby = false,
+    this.showTraffic = false,
     this.onMapTapped,
     this.extraLayers = const [],
     this.showLocateButton = true,
@@ -128,6 +154,9 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
   bool _savingPin = false;
   bool _placesVisible = false;
   bool _downloading = false;
+  bool _trafficVisible = false;
+  TrafficBounds? _trafficBounds;
+  NearbyPlace? _nearbySelected;
   double _zoom = 14;
   final TextEditingController _searchCtrl = TextEditingController();
 
@@ -335,6 +364,7 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
     super.initState();
     _pinPosition = widget.initialPinPosition;
     _placesVisible = widget.showPlaces;
+    _trafficVisible = widget.showTraffic;
     _zoom = widget.zoom;
     _initializeProvider();
   }
@@ -350,6 +380,9 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
     }
     if (oldWidget.showPlaces != widget.showPlaces) {
       _placesVisible = widget.showPlaces;
+    }
+    if (oldWidget.showTraffic != widget.showTraffic) {
+      _trafficVisible = widget.showTraffic;
     }
   }
 
@@ -424,15 +457,207 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
     }
   }
 
+  /// The controller actually driving this map (external one wins when given).
+  MapController get _controller => widget.mapController ?? _mapController;
+
+  /// Refreshes the coarse (~1 km) bounds used to query the traffic overlay.
+  /// Called on map ready and after each position change; the 2-dp rounding keeps
+  /// the Riverpod family key stable so camera pans don't refetch continuously.
+  void _updateTrafficBounds() {
+    if (!widget.showTraffic || !_trafficVisible) return;
+    try {
+      final b = _controller.camera.visibleBounds;
+      final next = (
+        minLat: _round2(b.south),
+        maxLat: _round2(b.north),
+        minLng: _round2(b.west),
+        maxLng: _round2(b.east),
+      );
+      if (next != _trafficBounds && mounted) {
+        setState(() => _trafficBounds = next);
+      }
+    } catch (_) {
+      // Camera not attached yet — harmless, retried on the next event.
+    }
+  }
+
+  static double _round2(double v) => (v * 100).roundToDouble() / 100;
+
+  static Color _trafficColor(TrafficLevel level) {
+    switch (level) {
+      case TrafficLevel.slow:
+        return const Color(0xFFE53935);
+      case TrafficLevel.medium:
+        return const Color(0xFFFFB300);
+      case TrafficLevel.fast:
+        return AppConstants.sunflowerYellow;
+    }
+  }
+
+  /// Opens the Nearby panel around the current view (or the selected place) and,
+  /// on selection, drops the pin + shows a name/address card with directions.
+  Future<void> _openNearby() async {
+    LatLng center;
+    try {
+      center = _nearbySelected != null
+          ? LatLng(_nearbySelected!.lat, _nearbySelected!.lng)
+          : _controller.camera.center;
+    } catch (_) {
+      center = widget.center;
+    }
+
+    final place = await showNearbyPlacesSheet(context, center: center);
+    if (place == null || !mounted) return;
+
+    final point = LatLng(place.lat, place.lng);
+    _controller.move(point, 16);
+    setState(() {
+      _nearbySelected = place;
+      if (widget.showPin) _pinPosition = point;
+    });
+    if (widget.showPin) widget.onPinChanged?.call(point);
+  }
+
+  Future<void> _openDirections(NearbyPlace place) async {
+    final uri = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}');
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('church_map: directions launch failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open directions')),
+        );
+      }
+    }
+  }
+
+  Widget _buildNearbyCard(NearbyPlace place, ThemeData theme) {
+    return Material(
+      elevation: 6,
+      borderRadius: BorderRadius.circular(16),
+      color: theme.cardColor,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: AppConstants.sunflowerYellow.withValues(alpha: 0.25),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(nearbyCategoryIcon(place.category),
+                  size: 19, color: AppConstants.primaryDark),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    place.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    place.address ?? place.category.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.textTheme.bodySmall?.color
+                          ?.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Take me there',
+              icon: Icon(LucideIcons.navigation,
+                  size: 20, color: theme.primaryColor),
+              onPressed: () => _openDirections(place),
+            ),
+            IconButton(
+              tooltip: 'Close',
+              icon: const Icon(LucideIcons.x, size: 18),
+              onPressed: () =>
+                  setState(() => _nearbySelected = null),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrafficLegend(ThemeData theme) {
+    Widget row(Color color, String label) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                    color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 6),
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        );
+
+    return Material(
+      elevation: 4,
+      borderRadius: BorderRadius.circular(12),
+      color: theme.cardColor,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('TRAFFIC',
+                style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1)),
+            const SizedBox(height: 4),
+            row(_trafficColor(TrafficLevel.slow), 'Slow'),
+            row(_trafficColor(TrafficLevel.medium), 'Medium'),
+            row(_trafficColor(TrafficLevel.fast), 'Fast'),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     // Saved places (own + tenant landmarks) — only watched when the layer is on
     // so maps that don't want it pay nothing.
     final places = _placesVisible
         ? (ref.watch(savedPlacesProvider).value ?? const <SavedPlace>[])
         : const <SavedPlace>[];
+
+    // Live traffic: prefer a configured raster tile source, else the
+    // crowd-sourced speed segments for the current coarse bounds.
+    final trafficActive = widget.showTraffic && _trafficVisible;
+    final trafficSegments =
+        trafficActive && Env.trafficTilesUrl.isEmpty && _trafficBounds != null
+            ? (ref.watch(trafficOverlayProvider(_trafficBounds!)).value ??
+                const <TrafficSegment>[])
+            : const <TrafficSegment>[];
 
     return Stack(
       children: [
@@ -442,18 +667,20 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
           builder: (context, snapshot) {
             final vectorProvider = snapshot.data;
             return FlutterMap(
-              mapController: widget.mapController ?? _mapController,
+              mapController: _controller,
               options: MapOptions(
                 initialCenter: widget.center,
                 initialZoom: widget.zoom,
                 maxZoom: 18,
                 minZoom: 3,
                 onTap: _onMapTap,
+                onMapReady: _updateTrafficBounds,
                 onPositionChanged: (camera, hasGesture) {
                   final z = camera.zoom;
                   if ((z - _zoom).abs() >= 0.25 && mounted) {
                     setState(() => _zoom = z);
                   }
+                  _updateTrafficBounds();
                 },
               ),
               children: [
@@ -483,6 +710,46 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
                         ),
                 ),
                 ...widget.extraLayers,
+                // Live traffic — crowd-sourced speed segments (drawn semi-
+                // transparent above the basemap, below routes/markers).
+                if (trafficSegments.isNotEmpty)
+                  PolylineLayer(
+                    polylines: [
+                      for (final s in trafficSegments)
+                        Polyline(
+                          points: s.points,
+                          color: _trafficColor(s.level).withValues(alpha: 0.75),
+                          strokeWidth: 6,
+                          borderColor: Colors.white.withValues(alpha: 0.4),
+                          borderStrokeWidth: 1,
+                        ),
+                    ],
+                  ),
+                if (trafficSegments.isNotEmpty)
+                  CircleLayer(
+                    circles: [
+                      for (final s in trafficSegments)
+                        CircleMarker(
+                          point: s.midpoint,
+                          radius: 150,
+                          useRadiusInMeter: true,
+                          color: _trafficColor(s.level).withValues(alpha: 0.18),
+                          borderColor:
+                              _trafficColor(s.level).withValues(alpha: 0.5),
+                          borderStrokeWidth: 1,
+                        ),
+                    ],
+                  ),
+                // Optional real traffic raster tiles (when configured).
+                if (trafficActive && Env.trafficTilesUrl.isNotEmpty)
+                  Opacity(
+                    opacity: 0.6,
+                    child: TileLayer(
+                      urlTemplate: Env.trafficTilesUrl,
+                      userAgentPackageName: 'com.churchonapp.flutter',
+                      tileDisplay: const TileDisplay.fadeIn(),
+                    ),
+                  ),
                 if (widget.path != null && widget.path!.isNotEmpty)
                   PolylineLayer(
                     polylines: [
@@ -553,6 +820,56 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
               color: AppConstants.primaryDark,
               onTap: _downloading ? () {} : _downloadArea,
             ),
+          ),
+
+        // Nearby & traffic controls — top-right so they stay clear of the
+        // bottom controls and any bottom sheet on the host screen.
+        if (widget.showNearby)
+          Positioned(
+            right: 16,
+            top: MediaQuery.of(context).padding.top +
+                (widget.showAddressSearch ? 74 : 14),
+            child: _buildFloatingButton(
+              icon: LucideIcons.compass,
+              color: AppConstants.primaryDark,
+              filled: _nearbySelected != null,
+              onTap: _openNearby,
+            ),
+          ),
+        if (widget.showTraffic)
+          Positioned(
+            right: 16,
+            top: MediaQuery.of(context).padding.top +
+                (widget.showAddressSearch ? 74 : 14) +
+                (widget.showNearby ? 52 : 0),
+            child: _buildFloatingButton(
+              icon: LucideIcons.navigation,
+              color: AppConstants.primaryDark,
+              filled: _trafficVisible,
+              onTap: () {
+                setState(() => _trafficVisible = !_trafficVisible);
+                if (_trafficVisible) _updateTrafficBounds();
+              },
+            ),
+          ),
+        if (widget.showTraffic && _trafficVisible)
+          Positioned(
+            left: 16,
+            top: MediaQuery.of(context).padding.top +
+                (widget.showAddressSearch ? 74 : 14),
+            child: _buildTrafficLegend(theme),
+          ),
+        // Selected nearby place: name/address card + "take me there".
+        if (_nearbySelected != null)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: (widget.showPin &&
+                    widget.showSavePin &&
+                    _pinPosition != null)
+                ? 80
+                : 16,
+            child: _buildNearbyCard(_nearbySelected!, theme),
           ),
 
         // "Save this pin" — persists the dropped pin as a map place so it can

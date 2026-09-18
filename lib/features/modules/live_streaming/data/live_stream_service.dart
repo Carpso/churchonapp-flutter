@@ -1,11 +1,7 @@
-import 'dart:async';
-import 'package:universal_io/io.dart';
 import 'dart:math' as dart_math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:video_player/video_player.dart';
-import 'package:chewie/chewie.dart';
 
 /// Church On App Live Streaming — viewer/metadata service.
 ///
@@ -20,7 +16,7 @@ class LiveStreamService {
   final SupabaseClient _client;
 
   static const _publicStreamColumns =
-      'id,church_id,title,description,status,streaming_backend,scheduled_at,started_at,ended_at,hls_url,dash_url,preview_url,viewer_count,created_at,cloudflare_video_id,thumbnail_url,is_audio_only';
+      'id,church_id,title,description,status,streaming_backend,scheduled_at,started_at,ended_at,hls_url,dash_url,preview_url,viewer_count,created_at,cloudflare_video_id,thumbnail_url,is_audio_only,archive_url,archive_status,archived_at';
 
   LiveStreamService(this._client);
 
@@ -86,6 +82,46 @@ class LiveStreamService {
 
     // No fake/demo upcoming streams — show honest empty state.
     return [];
+  }
+
+  /// Past services with an R2 master copy ready to play back in-app.
+  ///
+  /// `archive_url` is the permanent R2 URL, so a replay survives even after
+  /// Cloudflare Stream deletes the recording at the end of retention.
+  Future<List<Map<String, dynamic>>> getRecentRecordings({int limit = 12}) async {
+    try {
+      final result = await _client
+          .from('live_streams')
+          .select('$_publicStreamColumns, churches(id, name, logo_url)')
+          .eq('archive_status', 'ready')
+          .not('archive_url', 'is', null)
+          .inFilter('status', ['ended', 'archived'])
+          .order('archived_at', ascending: false)
+          .limit(limit);
+      return List<Map<String, dynamic>>.from(result);
+    } catch (e) {
+      debugPrint('[LiveStreamService] recent recordings failed: $e');
+      return [];
+    }
+  }
+
+  /// Resolves the R2 archive URL for a stream (used by the viewer as a playback
+  /// fallback once the Cloudflare recording expires).
+  Future<String?> getArchiveUrl(String streamId) async {
+    try {
+      final row = await _client
+          .from('live_streams')
+          .select('archive_url, archive_status')
+          .eq('id', streamId)
+          .maybeSingle();
+      if (row == null) return null;
+      if (row['archive_status'] != 'ready') return null;
+      final url = row['archive_url']?.toString();
+      return (url != null && url.isNotEmpty) ? url : null;
+    } catch (e) {
+      debugPrint('[LiveStreamService] archive url lookup failed: $e');
+      return null;
+    }
   }
 
   /// Get stream by ID
@@ -274,313 +310,9 @@ final upcomingStreamsProvider = FutureProvider<List<Map<String, dynamic>>>((ref)
   return service.getUpcomingStreams();
 });
 
-/// Adaptive quality player - adjusts based on connection speed
-class AdaptiveStreamPlayer extends StatefulWidget {
-  final String hlsUrl;
-  final bool autoPlay;
-  final VoidCallback? onLive;
+/// Past services whose R2 archive is ready — replayable in-app.
+final recentRecordingsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final service = ref.watch(liveStreamServiceProvider);
+  return service.getRecentRecordings();
+});
 
-  const AdaptiveStreamPlayer({
-    super.key,
-    required this.hlsUrl,
-    this.autoPlay = true,
-    this.onLive,
-  });
-
-  @override
-  State<AdaptiveStreamPlayer> createState() => _AdaptiveStreamPlayerState();
-}
-
-class _AdaptiveStreamPlayerState extends State<AdaptiveStreamPlayer> {
-  late VideoPlayerController _videoController;
-  ChewieController? _chewieController;
-  bool _isLoading = true;
-  String? _error;
-  bool _isRetrying = false;
-  int _retryCount = 0;
-  static const int _maxRetries = 5;
-
-  @override
-  void initState() {
-    super.initState();
-    _initPlayer();
-  }
-
-  Future<void> _initPlayer() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      _videoController = VideoPlayerController.networkUrl(
-        Uri.parse(widget.hlsUrl),
-        httpHeaders: {
-          'Connection': 'keep-alive',
-        },
-      );
-
-      await _videoController.initialize();
-
-      _chewieController = ChewieController(
-        videoPlayerController: _videoController,
-        autoPlay: widget.autoPlay,
-        looping: false,
-        showControls: true,
-        allowFullScreen: true,
-        allowMuting: true,
-        // Adaptive quality - let the player handle it
-        allowPlaybackSpeedChanging: false,
-        materialProgressColors: ChewieProgressColors(
-          playedColor: Colors.red,
-          handleColor: Colors.redAccent,
-          bufferedColor: Colors.grey[300]!,
-        ),
-      );
-
-      // Listen for live status
-      _videoController.addListener(_onVideoProgress);
-
-      setState(() {
-        _isLoading = false;
-        _retryCount = 0;
-      });
-
-      widget.onLive?.call();
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _error = e.toString();
-      });
-
-      // Auto-retry on network errors (common in Zambia)
-      if (_retryCount < _maxRetries && !_isRetrying) {
-        _scheduleRetry();
-      }
-    }
-  }
-
-  void _scheduleRetry() {
-    _isRetrying = true;
-    _retryCount++;
-
-    // Exponential backoff: 2s, 4s, 8s, 16s, 32s
-    final delay = Duration(seconds: 2 * (1 << (_retryCount - 1)));
-
-    Future.delayed(delay, () {
-      if (mounted) {
-        _isRetrying = false;
-        _initPlayer();
-      }
-    });
-  }
-
-  void _onVideoProgress() {
-    // Check if stream is live (near the end)
-    if (_videoController.value.isInitialized) {
-      final position = _videoController.value.position;
-      final duration = _videoController.value.duration;
-
-      // If we're within 10 seconds of the end, it's live
-      if (duration - position < Duration(seconds: 10)) {
-        widget.onLive?.call();
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: Colors.white),
-            SizedBox(height: 16),
-            Text(
-              'Connecting to stream...',
-              style: TextStyle(color: Colors.white70),
-            ),
-            if (_retryCount > 0)
-              Text(
-                'Retry $_retryCount/$_maxRetries',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-          ],
-        ),
-      );
-    }
-
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, color: Colors.red[300], size: 48),
-            SizedBox(height: 16),
-            Text(
-              'Stream unavailable',
-              style: TextStyle(color: Colors.white70, fontSize: 18),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Check your connection and try again',
-              style: TextStyle(color: Colors.white54),
-            ),
-            SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () {
-                _retryCount = 0;
-                _initPlayer();
-              },
-              icon: Icon(Icons.refresh),
-              label: Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_chewieController == null) {
-      return Center(child: Text('Player not ready'));
-    }
-
-    return Chewie(controller: _chewieController!);
-  }
-
-  @override
-  void dispose() {
-    _videoController.removeListener(_onVideoProgress);
-    _videoController.dispose();
-    _chewieController?.dispose();
-    super.dispose();
-  }
-}
-
-/// Connection quality indicator for low-bandwidth users
-class ConnectionQualityIndicator extends StatefulWidget {
-  final String hlsUrl;
-
-  const ConnectionQualityIndicator({super.key, required this.hlsUrl});
-
-  @override
-  State<ConnectionQualityIndicator> createState() => _ConnectionQualityIndicatorState();
-}
-
-class _ConnectionQualityIndicatorState extends State<ConnectionQualityIndicator> {
-  String _quality = 'checking';
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkConnection();
-    _timer = Timer.periodic(Duration(seconds: 30), (_) => _checkConnection());
-  }
-
-  Future<void> _checkConnection() async {
-    try {
-      final start = DateTime.now();
-      final request = await HttpClient().getUrl(Uri.parse(widget.hlsUrl));
-      await request.close();
-      final duration = DateTime.now().difference(start).inMilliseconds;
-
-      if (!mounted) return;
-
-      setState(() {
-        if (duration < 500) {
-          _quality = 'excellent';
-        } else if (duration < 1500) {
-          _quality = 'good';
-        } else if (duration < 3000) {
-          _quality = 'fair';
-        } else {
-          _quality = 'poor';
-        }
-      });
-    } catch (e) {
-      if (mounted) setState(() => _quality = 'offline');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: _getColor().withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            _getIcon(),
-            size: 14,
-            color: _getColor(),
-          ),
-          SizedBox(width: 4),
-          Text(
-            _getLabel(),
-            style: TextStyle(
-              fontSize: 11,
-              color: _getColor(),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _getColor() {
-    switch (_quality) {
-      case 'excellent':
-        return Colors.green;
-      case 'good':
-        return Colors.blue;
-      case 'fair':
-        return Colors.orange;
-      case 'poor':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getIcon() {
-    switch (_quality) {
-      case 'excellent':
-        return Icons.signal_cellular_4_bar;
-      case 'good':
-        return Icons.signal_cellular_alt;
-      case 'fair':
-        return Icons.signal_cellular_alt_2_bar;
-      case 'poor':
-        return Icons.signal_cellular_alt_1_bar;
-      default:
-        return Icons.signal_cellular_off;
-    }
-  }
-
-  String _getLabel() {
-    switch (_quality) {
-      case 'excellent':
-        return 'HD';
-      case 'good':
-        return 'SD';
-      case 'fair':
-        return 'Low';
-      case 'poor':
-        return 'Very Low';
-      default:
-        return 'Checking...';
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-}
