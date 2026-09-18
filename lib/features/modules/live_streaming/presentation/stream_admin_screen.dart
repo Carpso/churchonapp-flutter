@@ -155,7 +155,7 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Keep a permanent master copy in Cloudflare R2 (independent of Stream retention).',
+          'Keep a permanent master copy of every service recording, independent of normal retention.',
           style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11),
         ),
         const SizedBox(height: 12),
@@ -503,7 +503,7 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
                 const Expanded(
                   child: Text(
                     'No active broadcast yet. Press "Go Live Now" to create a fresh '
-                    'Cloudflare stream key, or use the phone studio.',
+                    'stream key, or use the phone studio.',
                     style: TextStyle(fontSize: 12),
                   ),
                 ),
@@ -692,7 +692,7 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
     if (mounted) {
       PremiumToast.showSuccess(
         context,
-        'A fresh Cloudflare stream key is created every time you go live. '
+        'A fresh stream key is created every time you go live. '
         'Press "Go Live Now" to generate one.',
       );
     }
@@ -855,7 +855,8 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
                     '• Video bitrate: 6000 Kbps (CBR)\n'
                     '• Keyframe interval: 2 s\n'
                     '• Encoder: x264 / NVENC / QuickSync\n'
-                    'Cloudflare re-encodes this into an adaptive stream for viewers.',
+                    'Your stream is automatically converted into an adaptive '
+                    'stream so every viewer gets the best quality their connection allows.',
                     style: TextStyle(fontSize: 11.5, height: 1.4),
                   ),
                 ],

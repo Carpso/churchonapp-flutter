@@ -110,7 +110,7 @@ class AdminHubScreen extends ConsumerWidget {
                 context,
                 LucideIcons.barChart3,
                 "Streaming Analytics",
-                "Viewers, watch-time, retention & Cloudflare cost",
+                "Viewers, watch-time & recording usage",
                 Colors.redAccent,
                 () => context.push('/stream-analytics'),
               ),

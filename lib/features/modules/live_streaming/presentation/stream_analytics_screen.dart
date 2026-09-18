@@ -151,10 +151,14 @@ class _StreamAnalyticsScreenState extends ConsumerState<StreamAnalyticsScreen> {
       ['Watch minutes', _n(t['watch_minutes'])],
       ['Avg watch / viewer', '${_n(t['avg_watch_minutes'])} min'],
       ['Broadcast minutes', _n(t['broadcast_minutes'])],
-      ['CF delivered min', _n(t['delivered_minutes'])],
-      ['Cost (delivery)', 'K${_n(t['delivery_cost_kwacha'])}'],
-      ['Cost (storage)', 'K${_n(t['storage_cost_kwacha'])}'],
-      if (widget.platform) ['Total cost', 'K${_n(t['total_cost_kwacha'])}'],
+      ['Delivered minutes', _n(t['delivered_minutes'])],
+      // Cost / delivery-provider metrics are platform-only — tenants must
+      // never see infrastructure or cost breakdowns.
+      if (widget.platform) ...[
+        ['Cost (delivery)', 'K${_n(t['delivery_cost_kwacha'])}'],
+        ['Cost (storage)', 'K${_n(t['storage_cost_kwacha'])}'],
+        ['Total cost', 'K${_n(t['total_cost_kwacha'])}'],
+      ],
     ];
     return Wrap(
       spacing: 10,

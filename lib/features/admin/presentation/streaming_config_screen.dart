@@ -47,6 +47,11 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
   bool _saving = false;
   bool _hasRow = false;
 
+  /// True once a church-level preference has been changed since load. Drives
+  /// the SAVE affordance: when there is nothing tenant-editable left to save,
+  /// tenants should not see a SAVE button at all.
+  bool _prefsDirty = false;
+
   @override
   void initState() {
     super.initState();
@@ -79,6 +84,7 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
           _autoRecord = result['auto_record'] ?? true;
           _enableChat = result['enable_chat'] ?? true;
           _enablePrayerRequests = result['enable_prayer_requests'] ?? true;
+          _prefsDirty = false;
           _loading = false;
         });
       } else {
@@ -106,35 +112,32 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
       appBar: AppBar(
         title: const Text('Streaming Config'),
         actions: [
-          TextButton(
-            onPressed: _saving ? null : _saveConfig,
-            child: _saving
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
+          if (staff || _prefsDirty)
+            TextButton(
+              onPressed: _saving ? null : _saveConfig,
+              child: _saving
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── Backend ─────────────────────────────────────────────────────
-          const Text('Streaming Backend', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          // ── Plan benefits (tenants see plans, never infrastructure) ─────
+          const Text('Church On App Streaming', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          const _BackendCard(
-            title: 'Cloudflare Stream',
-            subtitle: 'Ingest + delivery — scales with usage',
-            icon: Icons.cloud,
-          ),
+          _buildPlanBenefitsCard(),
           const SizedBox(height: 24),
 
           // ── Managed automatically (no tenant credentials) ───────────────
-          _buildSection('Cloudflare Streaming', [
+          _buildSection('Streaming Service', [
             _buildHelpBox(
-              'Managed automatically',
+              'Managed for you',
               const [
-                'Nothing to configure here.',
-                'Church On App authorises your streaming and creates the live input automatically.',
-                'Account keys are held server-side and are never entered or stored in the app.',
+                'There is nothing to configure here.',
+                'Church On App authorises your account and starts your broadcasts automatically.',
+                'No technical keys are ever shown, entered, or stored in the app.',
               ],
               Theme.of(context).primaryColor,
             ),
@@ -162,6 +165,17 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
                   (v) => setState(() => _maxStorageGb = v), divisions: 99),
               _tierSwitch(),
             ]),
+            const SizedBox(height: 24),
+            _buildSection('Platform Rates (COA only)', [
+              _rateRow('Stream delivery', rc.getDouble('cf_stream_delivery_usd_per_1000_min', 1.0)),
+              _rateRow('Recording storage', rc.getDouble('cf_stream_storage_usd_per_1000_min', 5.0)),
+              _rateRowFx('Exchange rate (USD→ZMW)', rc.getDouble('cf_stream_usd_to_zmw', 18.0)),
+              const SizedBox(height: 8),
+              Text(
+                'Church On App covers these costs — churches are never billed usage rates directly.',
+                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55)),
+              ),
+            ]),
           ],
 
           // ── Church settings (leadership-editable) ───────────────────────
@@ -171,36 +185,86 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
               title: const Text('Auto-Record'),
               subtitle: const Text('Save services as replays (archived to Church On storage)'),
               value: _autoRecord,
-              onChanged: (v) => setState(() => _autoRecord = v),
+              onChanged: (v) => setState(() {
+                _autoRecord = v;
+                _prefsDirty = true;
+              }),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Live Chat'),
               subtitle: const Text('Allow viewers to chat during the service'),
               value: _enableChat,
-              onChanged: (v) => setState(() => _enableChat = v),
+              onChanged: (v) => setState(() {
+                _enableChat = v;
+                _prefsDirty = true;
+              }),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Prayer Requests'),
               subtitle: const Text('Allow the prayer request button during a stream'),
               value: _enablePrayerRequests,
-              onChanged: (v) => setState(() => _enablePrayerRequests = v),
-            ),
-          ]),
-
-          // ── Real, remote-config-driven rates ────────────────────────────
-          _buildSection('Cloud Rates (platform)', [
-            _rateRow('Stream delivery', rc.getDouble('cf_stream_delivery_usd_per_1000_min', 1.0)),
-            _rateRow('Recording storage', rc.getDouble('cf_stream_storage_usd_per_1000_min', 5.0)),
-            _rateRowFx('Exchange rate (USD→ZMW)', rc.getDouble('cf_stream_usd_to_zmw', 18.0)),
-            const SizedBox(height: 8),
-            Text(
-              'Churches never see or pay these rates directly — they are covered by the church subscription.',
-              style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55)),
+              onChanged: (v) => setState(() {
+                _enablePrayerRequests = v;
+                _prefsDirty = true;
+              }),
             ),
           ]),
           const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  /// Tenant-facing plan benefits. Deliberately contains NO provider,
+  /// infrastructure or cost wording — the streaming backend is an internal
+  /// implementation detail owned by Church On App.
+  Widget _buildPlanBenefitsCard() {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.primaryColor.withValues(alpha: 0.05),
+        border: Border.all(color: theme.primaryColor, width: 2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.video, color: theme.primaryColor),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Standard Streaming',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold, color: theme.primaryColor)),
+                    Text('Live video, viewer chat & recordings',
+                        style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            fontSize: 13)),
+                  ],
+                ),
+              ),
+              Icon(Icons.check_circle, color: theme.primaryColor),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+                color: theme.primaryColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8)),
+            child: Text(
+              'Your plan includes live video, viewer chat, recordings and multi-device '
+              'delivery. Church On App manages everything for you — nothing to set up.',
+              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.75)),
+            ),
+          ),
         ],
       ),
     );
@@ -213,7 +277,7 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
       '$_maxViewers concurrent viewers',
       '$_retentionDays-day recording retention',
       '${_maxStorageGb.toStringAsFixed(0)} GB storage included',
-      '${_maxQuality}p maximum quality',
+      'Up to ${_maxQuality}p HD quality',
     ];
     return Container(
       padding: const EdgeInsets.all(16),
@@ -231,7 +295,7 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  _isPaid ? 'PAID SUBSCRIBER' : 'TRIAL (LIMITED)',
+                  _isPaid ? 'STANDARD STREAMING' : 'TRIAL (LIMITED)',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: _isPaid ? Colors.green[800] : Colors.orange[800],
@@ -433,67 +497,18 @@ class _StreamingConfigScreenState extends ConsumerState<StreamingConfigScreen> {
       await _loadConfig();
       if (mounted) PremiumToast.showSuccess(context, 'Streaming settings saved');
     } catch (e) {
-      if (mounted) PremiumToast.showError(context, 'Could not save: $e');
+      debugPrint('Streaming config save failed: $e');
+      if (mounted) {
+        final raw = e.toString();
+        final friendly = raw.contains('row-level security') ||
+                raw.contains('permission denied') ||
+                raw.contains('42501')
+            ? 'You do not have permission to change those settings.'
+            : 'Could not save the streaming settings. Please try again.';
+        PremiumToast.showError(context, friendly);
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-  }
-}
-
-class _BackendCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-
-  const _BackendCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.primaryColor.withValues(alpha: 0.05),
-        border: Border.all(color: theme.primaryColor, width: 2),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: theme.primaryColor),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: theme.primaryColor)),
-                    Text(subtitle, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 13)),
-                  ],
-                ),
-              ),
-              Icon(Icons.check_circle, color: theme.primaryColor),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-                color: theme.primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
-            child: Text(
-              'Cloudflare handles everything: RTMP/WHIP ingest, transcoding, adaptive HLS '
-              'delivery, recording, and DDoS protection.',
-              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.75)),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

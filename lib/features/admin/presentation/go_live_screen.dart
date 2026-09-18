@@ -13,7 +13,7 @@ class GoLiveScreen extends ConsumerStatefulWidget {
 }
 
 class _GoLiveScreenState extends ConsumerState<GoLiveScreen> {
-  final _urlController = TextEditingController(text: "rtmp://live.churchonapp.com/live");
+  final _urlController = TextEditingController();
   final _titleController = TextEditingController(text: "Sunday Morning Service");
   bool _isBroadcasting = false;
 
@@ -27,14 +27,14 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen> {
     await ref.read(liveStreamingServiceProvider).setLiveStatus(
       tenant.id, 
       _isBroadcasting,
-      streamUrl: "https://live.churchonapp.com/hls/stream.m3u8", // HLS endpoint for players
+      streamUrl: "https://live.churchonapp.com/hls/stream.m3u8", // playback endpoint for players
       title: _titleController.text,
     );
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_isBroadcasting ? "Streaming to VPS Started!" : "Broadcast Ended"),
+        content: Text(_isBroadcasting ? "You are live!" : "Broadcast ended"),
         backgroundColor: _isBroadcasting ? Colors.green : Colors.red,
       ),
     );
@@ -94,11 +94,11 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("VPS CONFIGURATION", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1.5, color: Colors.grey)),
+                const Text("BROADCAST SETTINGS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1.5, color: Colors.grey)),
                 const SizedBox(height: 15),
                 _buildInput("Stream Title", _titleController, LucideIcons.type),
                 const SizedBox(height: 15),
-                _buildInput("RTMP Endpoint", _urlController, LucideIcons.server),
+                _buildInput("Broadcast Server", _urlController, LucideIcons.server),
                 const SizedBox(height: 30),
                 ElevatedButton(
                   onPressed: _toggleLive,
@@ -121,7 +121,7 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen> {
                 ),
                 const SizedBox(height: 15),
                 const Center(
-                  child: Text("All media will be automatically archived to R2", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                  child: Text("Your service is automatically saved to your church recordings", style: TextStyle(color: Colors.grey, fontSize: 11)),
                 ),
               ],
             ),

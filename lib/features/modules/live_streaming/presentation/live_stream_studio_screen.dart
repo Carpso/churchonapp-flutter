@@ -734,18 +734,54 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       if (res == null || res.statusCode < 200 || res.statusCode >= 300) {
         final body = (res?.body ?? '');
         _whipError =
-            'Cloudflare rejected the phone stream (${res?.statusCode ?? 'no response'})'
+            'Phone streaming was not accepted (${res?.statusCode ?? 'no response'})'
             '${body.isEmpty ? '' : ': ${body.substring(0, body.length.clamp(0, 160))}'}';
         return false;
       }
 
-      await _pc!.setRemoteDescription(webrtc.RTCSessionDescription('answer', res.body));
+      // The answer body MUST be a valid SDP. A JSON/HTML error body must never
+      // be handed to setRemoteDescription (it throws inside the platform
+      // channel, e.g. `No enum constant …Type.V=0`). Normalise line endings,
+      // guarantee the mandatory leading `v=0`, and pass the SDP TYPE explicitly
+      // ('answer') — the type must never be inferred from the body.
+      final answerSdp = _normaliseSdpAnswer(res);
+      if (answerSdp == null) {
+        final body = res.body.trim();
+        _whipError = 'Phone streaming failed: the service sent an invalid response'
+            '${body.isEmpty ? '.' : ' — ${body.substring(0, body.length.clamp(0, 140))}'}';
+        return false;
+      }
+
+      await _pc!.setRemoteDescription(
+        webrtc.RTCSessionDescription(answerSdp, 'answer'),
+      );
       return true;
     } catch (e) {
       debugPrint('WHIP ingest error: $e');
       _whipError = e.toString();
       return false;
     }
+  }
+
+  /// Turn a WHIP POST response into a valid SDP answer, or `null` if the body
+  /// is not SDP (e.g. a JSON error envelope).
+  ///
+  /// Rules:
+  ///  - never strip/replace the first line — only *ensure* it starts with `v=`;
+  ///  - prepend `v=0\r\n` when the mandatory version line is missing;
+  ///  - normalise every line ending to `\r\n` and ensure a trailing newline.
+  String? _normaliseSdpAnswer(http.Response res) {
+    final contentType = (res.headers['content-type'] ?? '').toLowerCase();
+    final raw = res.body.trim();
+    if (raw.isEmpty) return null;
+    if (contentType.contains('json') || contentType.contains('html')) return null;
+    if (raw.startsWith('{') || raw.startsWith('<') || raw.startsWith('[')) return null;
+
+    var sdp = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    sdp = sdp.split('\n').map((l) => l.trimRight()).join('\r\n');
+    if (!sdp.startsWith('v=')) sdp = 'v=0\r\n$sdp';
+    if (!sdp.endsWith('\r\n')) sdp = '$sdp\r\n';
+    return sdp;
   }
 
   void _showStreamCredentials() {
@@ -806,8 +842,14 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       }
 
       if (tenantId != null) {
-        final streamingService = ref.read(liveStreamingServiceProvider);
-        await streamingService.setLiveStatus(tenantId, false);
+        // Isolate the live-status write: it is a best-effort "viewers can stop
+        // seeing the LIVE pill" cleanup and must never block the local teardown.
+        try {
+          final streamingService = ref.read(liveStreamingServiceProvider);
+          await streamingService.setLiveStatus(tenantId, false);
+        } catch (e) {
+          debugPrint('Failed to clear live status (non-fatal): $e');
+        }
       }
 
       if (mounted) {
@@ -829,9 +871,27 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       debugPrint("Stream stop error: $e");
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to end stream: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Could not end the stream: ${_friendlyEndError(e)}")),
+        );
       }
     }
+  }
+
+  /// Human-readable message for an end-stream failure — never surface a raw
+  /// PostgrestException to the operator.
+  String _friendlyEndError(Object e) {
+    final raw = e.toString();
+    if (raw.contains('23505') || raw.contains('duplicate key')) {
+      return 'the stream was already marked as ended. Pull to refresh and try again.';
+    }
+    if (raw.contains('Unauthorized') || raw.contains('401') || raw.contains('session')) {
+      return 'your session expired. Sign out and sign in again, then retry.';
+    }
+    if (raw.contains('SocketException') || raw.contains('Failed host lookup')) {
+      return 'you appear to be offline. Check your connection and try again.';
+    }
+    return 'something went wrong. Please try again.';
   }
 
   Future<void> _shareStream() async {

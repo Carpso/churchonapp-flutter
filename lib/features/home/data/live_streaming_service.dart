@@ -49,6 +49,13 @@ class LiveStreamingService {
     }
   }
 
+  /// Start AND end both go through this single writer.
+  ///
+  /// MUST upsert on `church_id` (the table's UNIQUE key), NOT the default `id`
+  /// primary key. `church_live_status` has `id` generated on insert and a
+  /// separate UNIQUE(church_id); the previous bare `.upsert(...)` targeted the
+  /// PK, so the second write (ending a stream) collided on
+  /// `church_live_status_church_id_key` and threw 23505.
   Future<void> setLiveStatus(String churchId, bool isLive, {String? streamUrl, String? title}) async {
     await _client.from('church_live_status').upsert({
       'church_id': churchId,
@@ -56,7 +63,7 @@ class LiveStreamingService {
       if (streamUrl != null) 'stream_url': streamUrl,
       if (title != null) 'title': title,
       'updated_at': DateTime.now().toIso8601String(),
-    });
+    }, onConflict: 'church_id');
   }
 }
 
