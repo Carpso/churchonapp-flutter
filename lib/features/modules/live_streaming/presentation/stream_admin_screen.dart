@@ -5,8 +5,10 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:church_on_app/core/services/unified_stream_service.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
+import 'package:church_on_app/features/modules/live_streaming/presentation/stream_projector_screen.dart';
 
 /// Church admin streaming dashboard with trial limits
 /// Shows usage, stream key, go live, and upgrade prompt
@@ -22,6 +24,7 @@ class StreamAdminScreen extends ConsumerStatefulWidget {
 class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
   String? _streamKey;
   String? _rtmpUrl;
+  String? _hlsUrl;
   bool _loading = true;
   StreamingUsage? _usage;
   bool _isTrial = true;
@@ -56,7 +59,7 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
       // the credentials via the leadership-only RPC.
       final latestStream = await Supabase.instance.client
           .from('live_streams')
-          .select('id, status')
+          .select('id, status, hls_url')
           .eq('church_id', widget.tenantId)
           .order('created_at', ascending: false)
           .limit(1)
@@ -105,6 +108,7 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
       setState(() {
         _streamKey = streamKey;
         _rtmpUrl = rtmpUrl;
+        _hlsUrl = latestStream?['hls_url']?.toString();
         _usage = usage;
         _isTrial = church?['subscription_status'] == 'trial';
         _recordings = recordings;
@@ -278,6 +282,10 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
 
           // RTMP URL
           _buildRTMPSection(),
+          SizedBox(height: 24),
+
+          // Projector / share / encoder guidance
+          _buildSecondScreenCard(),
           SizedBox(height: 24),
 
           // Go live button (respects limits)
@@ -471,7 +479,7 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
             ],
           ),
           SizedBox(height: 12),
-          _Step(number: '1', text: 'Use the Church On App or OBS on your computer'),
+          _Step(number: '1', text: 'Use the Church On App, or any RTMP source (OBS, Wirecast, vMix or a drone)'),
           _Step(number: '2', text: 'Enter the RTMP URL and Stream Key below'),
           _Step(number: '3', text: 'Click "Start Streaming" in OBS or "Go Live" in the app'),
           _Step(number: '4', text: 'Your stream appears in the Church On App automatically'),
@@ -591,6 +599,112 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSecondScreenCard() {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.cast, color: theme.colorScheme.primary, size: 18),
+              const SizedBox(width: 8),
+              const Text('Projector, TV & encoders',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Throw the service to a projector or TV, share a QR link, or connect any '
+            'RTMP source — OBS, Wirecast, vMix, a drone controller or a hardware encoder.',
+            style: TextStyle(
+                fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _openProjector,
+                  icon: const Icon(LucideIcons.monitor, size: 16),
+                  label: const Text('PROJECTOR'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _showShareQr,
+                  icon: const Icon(LucideIcons.share2, size: 16),
+                  label: const Text('SHARE / QR'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openProjector() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => StreamProjectorScreen(
+          title: 'Live Service',
+          hlsUrl: _hlsUrl,
+        ),
+      ),
+    );
+  }
+
+  void _showShareQr() {
+    const link = 'https://churchonapp.com/live-streaming';
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Share the live link',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(12)),
+              child: QrImageView(
+                data: link,
+                version: QrVersions.auto,
+                size: 180,
+                backgroundColor: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(link,
+                style: TextStyle(fontSize: 12, fontFamily: 'monospace')),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(const ClipboardData(text: link));
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) PremiumToast.showSuccess(context, 'Live link copied');
+              },
+              icon: const Icon(LucideIcons.copy, size: 16),
+              label: const Text('COPY LINK'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

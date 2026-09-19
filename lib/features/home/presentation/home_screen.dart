@@ -5,7 +5,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
-import 'package:church_on_app/core/i18n/l10n.dart';
 import 'package:church_on_app/core/services/recommendation_engine_service.dart';
 import 'package:church_on_app/core/services/app_update_service.dart';
 import 'package:church_on_app/core/services/birthday_service.dart';
@@ -375,113 +374,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  void _scrollToSection(String id) {
-    final ctx = _sectionKeys[id]?.currentContext;
-    if (ctx != null) {
-      Scrollable.ensureVisible(
-        ctx,
-        duration: const Duration(milliseconds: 450),
-        curve: Curves.easeInOut,
-        alignment: 0.08,
-      );
-      return;
-    }
-    // SliverList children are built lazily — sections far below the viewport
-    // have no BuildContext yet, so the old tap silently did nothing. Jump
-    // proportionally into the section's region, then reveal once built.
-    unawaited(_jumpToLazySection(id));
-  }
-
-  Future<void> _jumpToLazySection(String id) async {
-    const order = [
-      'actions',
-      'sparkle',
-      'sermons',
-      'events',
-      'recommended',
-      'news',
-    ];
-    final idx = order.indexOf(id);
-    if (idx < 0) return;
-    final controller = _scrollCtrl;
-    if (!controller.hasClients) return;
-    await controller.animateTo(
-      controller.position.maxScrollExtent * (idx + 1) / (order.length + 1),
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOut,
-    );
-    final retryCtx = _sectionKeys[id]?.currentContext;
-    if (!mounted || retryCtx == null) return;
-    // retryCtx comes from a GlobalKey (not State.context) — safe across the
-    // scroll-animation await; lint can't see that.
-    Scrollable.ensureVisible(
-      // ignore: use_build_context_synchronously
-      retryCtx,
-      duration: const Duration(milliseconds: 450),
-      curve: Curves.easeInOut,
-      alignment: 0.08,
-    );
-  }
-
-  Widget _buildQuickJumpBar() {
-    final items = <(String, IconData, String)>[
-      ('actions', LucideIcons.zap, context.tr('Quick Actions')),
-      ('sparkle', LucideIcons.sparkles, 'Picks'),
-      ('sermons', LucideIcons.mic2, context.tr('Sermons')),
-      ('events', LucideIcons.calendar, context.tr('Events')),
-      ('recommended', LucideIcons.thumbsUp, 'For You'),
-      ('news', LucideIcons.newspaper, 'News'),
-    ];
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, i) {
-          final (id, icon, label) = items[i];
-          return GestureDetector(
-            onTap: () => _scrollToSection(id),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13),
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.surface.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(19),
-                border: Border.all(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.outlineVariant.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    icon,
-                    size: 13,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   Widget _buildContinueListening() {
     return ValueListenableBuilder<GlobalMediaState>(
       valueListenable: globalMediaPlayerController.state,
@@ -661,8 +553,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       )
                     : SliverList(
                         delegate: SliverChildListDelegate([
-                          _buildQuickJumpBar(),
-                          const SizedBox(height: 16),
                           const AnnouncementTicker(),
                           const SizedBox(height: 16),
                           FeatureLock(

@@ -4,6 +4,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:video_player/video_player.dart';
 
 import 'package:church_on_app/core/services/supabase_service.dart';
+import 'package:church_on_app/features/connect/data/story_service.dart';
+import 'package:church_on_app/features/connect/presentation/story_archive_screen.dart';
 
 /// Plays a video story inline (looping, muted-safe) instead of showing a
 /// placeholder icon. Disposed as soon as the story changes.
@@ -155,6 +157,7 @@ class StoriesBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(storiesProvider);
     final theme = Theme.of(context);
+    final uid = ref.watch(supabaseServiceProvider).client.auth.currentUser?.id;
 
     return SizedBox(
       height: 104,
@@ -162,17 +165,28 @@ class StoriesBar extends ConsumerWidget {
         loading: () => const SizedBox.shrink(),
         error: (_, __) => const SizedBox.shrink(),
         data: (groups) {
-          if (groups.isEmpty) return const SizedBox.shrink();
+          final hasArchiveTile = uid != null;
+          if (groups.isEmpty && !hasArchiveTile) return const SizedBox.shrink();
+          final itemCount = groups.length + (hasArchiveTile ? 1 : 0);
           return ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            itemCount: groups.length,
+            itemCount: itemCount,
             itemBuilder: (context, i) {
-              final g = groups[i];
+              if (hasArchiveTile && i == 0) {
+                return _ArchiveTile(
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const StoryArchiveScreen(),
+                  )),
+                );
+              }
+              final gi = hasArchiveTile ? i - 1 : i;
+              final g = groups[gi];
               final ring = g.seen ? Colors.grey.shade400 : theme.primaryColor;
               return GestureDetector(
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => StoryViewerScreen(groups: groups, initial: i),
+                  builder: (_) =>
+                      StoryViewerScreen(groups: groups, initial: gi),
                 )),
                 child: Container(
                   width: 76,
@@ -211,6 +225,52 @@ class StoriesBar extends ConsumerWidget {
             },
           );
         },
+      ),
+    );
+  }
+}
+
+/// Leading tile that opens the poster's own story archive.
+class _ArchiveTile extends StatelessWidget {
+  final VoidCallback onTap;
+  const _ArchiveTile({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 76,
+        margin: const EdgeInsets.only(right: 10),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                    width: 2.5),
+              ),
+              child: CircleAvatar(
+                radius: 26,
+                backgroundColor:
+                    theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                child: Icon(LucideIcons.archive,
+                    size: 20,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+              ),
+            ),
+            const SizedBox(height: 5),
+            const Text(
+              'Archive',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -525,6 +585,17 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
                   ),
                 ),
               ),
+            // Quick reaction bar (❤️ 🙏 🔥 😂 👏). Counts are visible to all,
+            // and the owner also sees the aggregate on the bar below.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: author.userId == meId ? 58 : 18,
+              child: _StoryReactionBar(
+                key: ValueKey('story-reactions-${story['id']}'),
+                storyId: story['id'].toString(),
+              ),
+            ),
             // Owner-only: view count + who watched.
             if (author.userId == meId)
               Positioned(
@@ -556,10 +627,96 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
                     ),
                   ),
                 ),
-              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Quick reactions for the currently shown story.
+class _StoryReactionBar extends ConsumerStatefulWidget {
+  final String storyId;
+  const _StoryReactionBar({super.key, required this.storyId});
+
+  @override
+  ConsumerState<_StoryReactionBar> createState() => _StoryReactionBarState();
+}
+
+class _StoryReactionBarState extends ConsumerState<_StoryReactionBar> {
+  String? _mine;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMine();
+  }
+
+  Future<void> _loadMine() async {
+    final r = await ref.read(storyServiceProvider).myReaction(widget.storyId);
+    if (mounted) setState(() => _mine = r);
+  }
+
+  Future<void> _react(String emoji) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(storyServiceProvider)
+          .reactToStory(widget.storyId, emoji);
+      ref.invalidate(storyReactionSummaryProvider(widget.storyId));
+      await _loadMine();
+    } catch (e) {
+      debugPrint('react to story failed: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final summary =
+        ref.watch(storyReactionSummaryProvider(widget.storyId)).asData?.value ??
+            const <String, int>{};
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (final emoji in kStoryReactions)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: _busy ? null : () => _react(emoji),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _mine == emoji
+                      ? Theme.of(context).primaryColor
+                      : Colors.black38,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    Text(emoji, style: const TextStyle(fontSize: 16)),
+                    if ((summary[emoji] ?? 0) > 0) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        '${summary[emoji]}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

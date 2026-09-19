@@ -6,6 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
+import 'package:church_on_app/features/connect/data/story_service.dart';
 
 /// Post a 24-hour story to Church Social.
 ///
@@ -26,6 +27,61 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
   bool _isVideo = false;
   bool _isPublic = false;
   bool _busy = false;
+  int _durationHours = 24;
+
+  bool get _isCustomDuration =>
+      !kStoryDurationOptions.any((o) => o.hours == _durationHours);
+
+  String get _durationLabel {
+    final match =
+        kStoryDurationOptions.where((o) => o.hours == _durationHours);
+    if (match.isNotEmpty) return match.first.label;
+    if (_durationHours % 24 == 0) return '${_durationHours ~/ 24} day(s)';
+    return '$_durationHours hours';
+  }
+
+  Future<void> _pickCustomDuration() async {
+    var days = (_durationHours / 24).clamp(1, 365).toDouble();
+    final picked = await showDialog<double>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Custom duration'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${days.round()} day(s) — up to 1 year',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              Slider(
+                value: days,
+                min: 1,
+                max: 365,
+                divisions: 364,
+                label: '${days.round()} days',
+                onChanged: (v) => setLocal(() => days = v),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('CANCEL'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(days),
+              child: const Text('USE'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _durationHours =
+            (picked * 24).round().clamp(1, kStoryMaxHours).toInt();
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -91,13 +147,14 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
         'media_type': _isVideo ? 'video' : 'image',
         'caption': _caption.text.trim().isEmpty ? null : _caption.text.trim(),
         'is_public': _isPublic,
+        'duration_hours': _durationHours,
       });
 
       if (!mounted) return;
       Navigator.of(context).pop(true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Story posted — live for 24 hours'),
+        SnackBar(
+          content: Text('Story posted — live for $_durationLabel'),
           backgroundColor: Colors.green,
         ),
       );
@@ -234,8 +291,34 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
             contentPadding: EdgeInsets.zero,
           ),
           const SizedBox(height: 8),
+          const Text('How long should this story last?',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (final o in kStoryDurationOptions)
+                ChoiceChip(
+                  label: Text(o.label),
+                  selected: _durationHours == o.hours,
+                  onSelected: _busy
+                      ? null
+                      : (_) => setState(() => _durationHours = o.hours),
+                ),
+              ChoiceChip(
+                label: Text(_isCustomDuration
+                    ? 'Custom: $_durationLabel'
+                    : 'Custom'),
+                selected: _isCustomDuration,
+                onSelected: _busy ? null : (_) => _pickCustomDuration(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           Text(
-            'Stories disappear automatically after 24 hours.',
+            'Stories disappear automatically after $_durationLabel '
+            '(24h is the default).',
             style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
           ),
         ],

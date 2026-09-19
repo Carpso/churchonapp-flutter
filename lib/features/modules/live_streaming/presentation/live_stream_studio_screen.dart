@@ -8,11 +8,15 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:church_on_app/core/services/unified_stream_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/features/home/data/live_streaming_service.dart';
+import 'package:church_on_app/features/modules/live_streaming/data/live_stream_overlay_service.dart';
+import 'package:church_on_app/features/modules/live_streaming/data/stream_analytics_service.dart';
+import 'package:church_on_app/features/modules/live_streaming/presentation/stream_projector_screen.dart';
 
 const kKjvBooks = [
   'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges',
@@ -59,6 +63,13 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   String? _posterUrl;
   bool _uploadingPoster = false;
   int _viewerCount = 0;
+  int _peakViewers = 0;
+  String? _tickerMessage;
+  int _tickerSpeed = 40;
+  bool _tickerEnabled = true;
+  bool _publishingOverlay = false;
+  late final StreamAnalyticsService _analytics;
+  late final LiveStreamOverlayService _overlays;
   int _cameraFacing = 1; // 0 = front (user), 1 = back (environment)
   Map<String, dynamic> _iceServers = {
     'iceServers': [
@@ -130,24 +141,25 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     }
   }
 
-  /// Poll the live row's viewer count while broadcasting (the heartbeat cycle).
+  /// Ask the server to recompute presence for this broadcast. The RPC expires
+  /// silent viewers, republishes `live_streams.viewer_count` and returns the
+  /// current count + all-time peak — so the streamer's badge finally moves.
   Future<void> _refreshViewerCount() async {
     final id = _streamId;
     if (id == null || !mounted) return;
-    try {
-      final row = await Supabase.instance.client
-          .from('live_streams')
-          .select('viewer_count')
-          .eq('id', id)
-          .maybeSingle();
-      final count = (row?['viewer_count'] as num?)?.toInt() ?? 0;
-      if (mounted && count != _viewerCount) setState(() => _viewerCount = count);
-    } catch (_) {}
+    final res = await _analytics.refreshViewerCount(id);
+    if (res == null || !mounted) return;
+    setState(() {
+      _viewerCount = res.count;
+      if (res.peak > _peakViewers) _peakViewers = res.peak;
+    });
   }
 
   @override
   void initState() {
     super.initState();
+    _analytics = ref.read(streamAnalyticsServiceProvider);
+    _overlays = ref.read(liveStreamOverlayServiceProvider);
     _initPreview();
   }
 
@@ -505,15 +517,21 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
         thumbnailUrl: _posterUrl,
       );
 
-      if (_verseText != null || _verseRef != null || _logoUrl != null) {
+      _streamId = result.streamId;
+
+      if (_verseText != null || _verseRef != null || _logoUrl != null ||
+          _tickerMessage != null) {
         await client.from('live_streams').update({
           if (_verseText != null) 'overlay_verse': _verseText,
           if (_verseRef != null) 'overlay_verse_ref': _verseRef,
           if (_logoUrl != null) 'overlay_logo_url': _logoUrl,
+          'ticker_message': _tickerMessage,
+          'ticker_speed': _tickerSpeed,
+          'ticker_enabled': _tickerEnabled,
         }).eq('id', result.streamId);
+        await _publishOverlay(tenantId: tenantId, silent: true);
       }
 
-      _streamId = result.streamId;
       _startHeartbeat();
       _rtmpUrl = result.rtmpUrl;
       _streamKey = result.streamKey;
@@ -622,7 +640,8 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     }
 
     ping();
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) => ping());
+    // 15 s so the live viewer badge tracks the audience closely.
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (_) => ping());
   }
 
   void _stopHeartbeat() {
@@ -784,34 +803,97 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     return sdp;
   }
 
+  Widget _credRow(BuildContext ctx, String label, String value) {
+    final hasValue = value.trim().isNotEmpty;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: Theme.of(ctx)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.6))),
+                SelectableText(
+                  hasValue ? value : 'Creating…',
+                  style: const TextStyle(fontSize: 12.5, fontFamily: 'monospace'),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(LucideIcons.copy, size: 18),
+            onPressed: hasValue
+                ? () {
+                    Clipboard.setData(ClipboardData(text: value));
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(content: Text('$label copied')),
+                    );
+                  }
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showStreamCredentials() {
     if (!mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Stream Credentials"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _whipError == null
-                  ? "Phone streaming is unavailable right now. Use these in OBS or any RTMP encoder:"
-                  : "Phone streaming failed: $_whipError\n\nUse these in OBS or any RTMP encoder:",
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            const Text("RTMP URL:", style: TextStyle(fontSize: 12, color: Colors.grey)),
-            SelectableText(_rtmpUrl ?? "N/A", style: const TextStyle(fontSize: 13, fontFamily: 'monospace')),
-            const SizedBox(height: 8),
-            const Text("Stream Key:", style: TextStyle(fontSize: 12, color: Colors.grey)),
-            SelectableText(_streamKey ?? "N/A", style: const TextStyle(fontSize: 13, fontFamily: 'monospace')),
-            const SizedBox(height: 12),
-            const Text("HLS URL (for viewers):", style: TextStyle(fontSize: 12, color: Colors.grey)),
-            SelectableText(_hlsUrl ?? "N/A", style: const TextStyle(fontSize: 13, fontFamily: 'monospace')),
-          ],
+        title: const Text("Connect an encoder or drone"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _whipError == null
+                    ? "Phone streaming is unavailable right now. Any RTMP source works — OBS, Wirecast, vMix, a drone controller or a hardware encoder. Paste these credentials and start streaming:"
+                    : "Phone streaming failed: $_whipError\n\nAny RTMP source works — OBS, Wirecast, vMix, a drone or a hardware encoder:",
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              const SizedBox(height: 14),
+              _credRow(ctx, 'RTMP / RTMPS server', _rtmpUrl ?? ''),
+              const SizedBox(height: 8),
+              _credRow(ctx, 'Stream key', _streamKey ?? ''),
+              const SizedBox(height: 8),
+              _credRow(ctx, 'Viewer playback (HLS)', _hlsUrl ?? ''),
+              const SizedBox(height: 12),
+              const Text(
+                'Recommended: 1920×1080 · 6000 Kbps CBR · 2 s keyframe. '
+                'Your stream is converted to adaptive quality automatically.',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ],
+          ),
         ),
         actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _openProjector();
+            },
+            child: const Text("PROJECTOR"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showShareQr();
+            },
+            child: const Text("SHARE / QR"),
+          ),
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("DISMISS")),
         ],
       ),
@@ -853,6 +935,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       }
 
       if (mounted) {
+        final peak = _peakViewers;
         setState(() {
           _isLive = false;
           _streamStatus = "OFFLINE";
@@ -861,10 +944,16 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
           _streamKey = null;
           _whipUrl = null;
           _viewerCount = 0;
+          _peakViewers = 0;
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Stream Ended."), backgroundColor: Colors.green),
+          SnackBar(
+            content: Text(peak > 0
+                ? "Stream Ended · Peak $peak viewers"
+                : "Stream Ended."),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
@@ -892,6 +981,226 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       return 'you appear to be offline. Check your connection and try again.';
     }
     return 'something went wrong. Please try again.';
+  }
+
+  /// Push the verse / ticker to every viewer in realtime.
+  Future<void> _publishOverlay({
+    String? tenantId,
+    bool silent = false,
+    bool clearVerse = false,
+  }) async {
+    final streamId = _streamId;
+    if (streamId == null) return;
+    final tid = tenantId ??
+        widget.tenantId ??
+        ref.read(profileProvider).value?.tenantId;
+
+    if (clearVerse) {
+      _verseText = null;
+      _verseRef = null;
+    }
+
+    if (mounted) setState(() => _publishingOverlay = true);
+    try {
+      await _overlays.publishOverlay(
+        streamId: streamId,
+        tenantId: tid,
+        clearVerse: clearVerse,
+        verseText: _verseText,
+        verseRef: _verseRef,
+        tickerMessage: _tickerMessage,
+        tickerSpeed: _tickerSpeed,
+        tickerEnabled: _tickerEnabled,
+        logoUrl: _logoUrl,
+      );
+      if (!silent && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('On-air overlay updated'),
+              backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      debugPrint('publish overlay failed: $e');
+      if (!silent && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update overlay: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _publishingOverlay = false);
+    }
+  }
+
+  /// Live control of the verse of the moment + scrolling ticker.
+  Future<void> _showOverlayControls() async {
+    final tickerCtrl = TextEditingController(text: _tickerMessage ?? '');
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Center(
+                    child: Text('On-air Overlay & Ticker',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(LucideIcons.bookOpen),
+                    title: const Text('Verse of the moment'),
+                    subtitle: Text(_verseRef ?? 'No verse on screen'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_verseRef != null)
+                          IconButton(
+                            tooltip: 'Clear verse',
+                            icon: const Icon(LucideIcons.x, size: 18),
+                            onPressed: () async {
+                              await _publishOverlay(clearVerse: true);
+                              setSheet(() {});
+                            },
+                          ),
+                        TextButton(
+                          onPressed: () async {
+                            await _pickVerse();
+                            if (_streamId != null) {
+                              await _publishOverlay();
+                            }
+                            setSheet(() {});
+                          },
+                          child: Text(_verseRef == null ? 'Choose' : 'Change'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: tickerCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Scrolling message (theme / announcement)',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => _tickerMessage = v,
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Show ticker'),
+                    value: _tickerEnabled,
+                    onChanged: (v) => setSheet(() => _tickerEnabled = v),
+                  ),
+                  Row(
+                    children: [
+                      const Icon(LucideIcons.gauge, size: 18),
+                      const SizedBox(width: 8),
+                      const Text('Speed'),
+                      Expanded(
+                        child: Slider(
+                          min: 10,
+                          max: 120,
+                          divisions: 11,
+                          value: _tickerSpeed.toDouble(),
+                          label: '$_tickerSpeed',
+                          onChanged: (v) =>
+                              setSheet(() => _tickerSpeed = v.round()),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    onPressed: _publishingOverlay
+                        ? null
+                        : () async {
+                            await _publishOverlay();
+                            if (ctx.mounted) Navigator.pop(ctx);
+                          },
+                    icon: const Icon(LucideIcons.send),
+                    label: const Text('PUBLISH TO VIEWERS'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openProjector() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => StreamProjectorScreen(
+          title: _streamTitle,
+          hlsUrl: _hlsUrl,
+          streamId: _streamId,
+          logoUrl: _logoUrl,
+        ),
+      ),
+    );
+  }
+
+  void _showShareQr() {
+    const link = 'https://churchonapp.com/live-streaming';
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Share the live link',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(12)),
+              child: QrImageView(
+                data: link,
+                version: QrVersions.auto,
+                size: 180,
+                backgroundColor: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(link,
+                style: TextStyle(fontSize: 12, fontFamily: 'monospace')),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(const ClipboardData(text: link));
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Live link copied')),
+                  );
+                }
+              },
+              icon: const Icon(LucideIcons.copy, size: 16),
+              label: const Text('COPY LINK'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _shareStream() async {
@@ -926,6 +1235,17 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     _localStream?.getTracks().forEach((t) => t.stop());
     _localStream?.dispose();
     super.dispose();
+  }
+
+  Widget _bottomAction(IconData icon, String label, VoidCallback onTap,
+      {Color color = Colors.white}) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(icon: Icon(icon, color: color, size: 26), onPressed: onTap),
+        Text(label, style: const TextStyle(color: Colors.white, fontSize: 10)),
+      ],
+    );
   }
 
   @override
@@ -1134,25 +1454,15 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      Column(
-                        children: [
-                          IconButton(
-                            icon: const Icon(LucideIcons.maximize, color: Colors.white, size: 28),
-                            onPressed: () => setState(() => _fillPreview = !_fillPreview),
-                          ),
-                          Text(_fillPreview ? "Fill" : "Fit", style: const TextStyle(color: Colors.white, fontSize: 11)),
-                        ],
-                      ),
+                      if (!_isLive)
+                        _bottomAction(LucideIcons.maximize,
+                            _fillPreview ? "Fill" : "Fit",
+                            () => setState(() => _fillPreview = !_fillPreview))
+                      else
+                        _bottomAction(LucideIcons.columns, "Overlay", _showOverlayControls,
+                            color: Colors.amber),
                       if (_isLive)
-                        Column(
-                          children: [
-                            IconButton(
-                              icon: const Icon(LucideIcons.share, color: Colors.amber, size: 28),
-                              onPressed: _shareStream,
-                            ),
-                            const Text("Share Link", style: TextStyle(color: Colors.white, fontSize: 11)),
-                          ],
-                        ),
+                        _bottomAction(LucideIcons.monitor, "Projector", _openProjector),
                       GestureDetector(
                         onTap: _isLoading ? null : (_isLive ? _stopStream : _startStream),
                         child: Container(
@@ -1174,15 +1484,14 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                           ),
                         ),
                       ),
-                      Column(
-                        children: [
-                          IconButton(
-                            icon: const Icon(LucideIcons.refreshCcw, color: Colors.white, size: 28),
-                            onPressed: _switchCamera,
-                          ),
-                          const Text("Flip", style: TextStyle(color: Colors.white, fontSize: 11)),
-                        ],
-                      ),
+                      if (_isLive)
+                        _bottomAction(LucideIcons.share2, "Share / QR", _showShareQr,
+                            color: Colors.amber)
+                      else
+                        _bottomAction(LucideIcons.share, "Share", _shareStream,
+                            color: Colors.amber),
+                      _bottomAction(
+                          LucideIcons.refreshCcw, "Flip", _switchCamera),
                     ],
                   ),
                 ),

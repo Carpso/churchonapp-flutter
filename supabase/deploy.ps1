@@ -333,6 +333,8 @@ $migrations = @(
       "20261151_kael_chat_history_settings.sql"
       "20261152_stream_config_platform_guard.sql"
       "20261153_stream_max_quality_paid_baseline.sql"
+      "20261154_social_stories_upgrade.sql"
+      "20261200_live_stream_engagement.sql"
     )
 
 foreach ($m in $migrations) {

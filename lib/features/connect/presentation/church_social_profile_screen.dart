@@ -8,6 +8,7 @@ import '../../../core/widgets/app_image.dart';
 import '../data/social_service.dart';
 import 'connect_screen.dart' show CommentsSheet;
 import 'widgets/social_post_card.dart';
+import 'widgets/story_highlights_row.dart';
 
 final churchSocialPostsProvider =
     StreamProvider.autoDispose.family<List<SocialPost>, String>((ref, tenantId) {
@@ -76,6 +77,7 @@ class ChurchSocialProfileScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final postsAsync = ref.watch(churchSocialPostsProvider(tenantId));
     final tenantAsync = ref.watch(churchSocialTenantProvider(tenantId));
+    final meId = Supabase.instance.client.auth.currentUser?.id;
 
     return Scaffold(
       appBar: AppBar(
@@ -125,6 +127,36 @@ class ChurchSocialProfileScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 20),
+            if (meId != null) ...[
+              Row(
+                children: [
+                  Text("HIGHLIGHTS",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.8,
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.7),
+                      )),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      "Tap a cover, long-press to edit your own",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              StoryHighlightsRow(userId: meId, canManage: true),
+              const SizedBox(height: 16),
+            ],
             postsAsync.when(
               data: (posts) {
                 if (posts.isEmpty) {
@@ -359,6 +391,9 @@ class ChurchSocialProfileScreen extends ConsumerWidget {
                 const SizedBox(height: 4),
                 Text(
                   "$members members · Community feed",
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.85),
                     fontSize: 12,

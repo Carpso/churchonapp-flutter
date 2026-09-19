@@ -204,7 +204,6 @@ import 'package:church_on_app/features/profile/presentation/subscription_screen.
 import 'package:church_on_app/features/transport/presentation/driver_earnings_screen.dart';
 import 'package:church_on_app/features/transport/presentation/ride_history_screen.dart';
 import 'package:church_on_app/features/transport/presentation/sos_trigger_screen.dart';
-import 'package:church_on_app/features/admin/presentation/bishop_hub_screen.dart';
 import 'package:church_on_app/features/admin/presentation/bishop_dashboard_screen.dart';
 import 'package:church_on_app/features/admin/presentation/superadmin_hub_screen.dart';
 import 'package:church_on_app/features/finance/presentation/buy_coins_screen.dart';
@@ -244,7 +243,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       body: Center(child: CircularProgressIndicator()),
     ),
     redirect: (context, state) {
-      // Public church websites — no splash, login or tenant required.
+      // Public church websites â€” no splash, login or tenant required.
       // Shared links `churchonapp.com/church/<churchId>` and
       // `churchonapp.com/site/<tenantId>` render a published website for
       // anyone (the RLS policy exposes `is_published = true` rows to anon).
@@ -255,7 +254,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         return null;
       }
       // Join-by-code links (`churchonapp.com/join?code=XXXX`) must open directly
-      // — the screen itself offers Sign Up / Login when logged out, and the code
+      // â€” the screen itself offers Sign Up / Login when logged out, and the code
       // is carried through `?redirect=`.
       if (publicPath == '/join' ||
           publicPath.startsWith('/invite-church/') ||
@@ -274,7 +273,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      // Wait for session recovery before deciding "logged out" — reading
+      // Wait for session recovery before deciding "logged out" â€” reading
       // authState.user while Supabase is still restoring the persisted session
       // bounced logged-in users to /login|/landing on every cold start / web
       // reload (they appeared to be "logged out again").
@@ -520,7 +519,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           return user.role == 'writer' || user.isEmployee;
         }
 
-        // Onboarding routes were UNGUARDED (fell through to `true`) — any
+        // Onboarding routes were UNGUARDED (fell through to `true`) â€” any
         // authenticated user could open them. Drivers/riders and bookshop
         // owners only.
         if (route == '/rider-onboarding') {
@@ -1122,7 +1121,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // === NEW ROUTES FOR ORPHANED SCREENS ===
       GoRoute(
         path: '/bishop-hub',
-        builder: (context, state) => const BishopHubScreen(),
+        builder: (context, state) => const BishopDashboardScreen(),
       ),
       GoRoute(
         path: '/bishop-dashboard',

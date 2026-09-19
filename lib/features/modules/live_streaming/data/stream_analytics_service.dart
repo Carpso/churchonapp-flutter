@@ -43,6 +43,57 @@ class StreamAnalyticsService {
     }
   }
 
+  /// Keeps a viewing session alive so it is not expired as a stale viewer.
+  Future<void> heartbeatSession(String sessionId) async {
+    try {
+      await _client.rpc('stream_viewer_heartbeat', params: {
+        'p_session_id': sessionId,
+      });
+    } catch (e) {
+      debugPrint('stream_viewer_heartbeat failed (non-fatal): $e');
+    }
+  }
+
+  /// Read-only viewer count/peak for a stream. Viewers poll this (cheap) while
+  /// the streamer (or a session open/close) performs the server-side refresh.
+  Future<({int count, int peak})?> getViewerCount(String streamId) async {
+    try {
+      final row = await _client
+          .from('live_streams')
+          .select('viewer_count, peak_viewer_count')
+          .eq('id', streamId)
+          .maybeSingle();
+      if (row == null) return null;
+      return (
+        count: (row['viewer_count'] as num?)?.toInt() ?? 0,
+        peak: (row['peak_viewer_count'] as num?)?.toInt() ?? 0,
+      );
+    } catch (e) {
+      debugPrint('getViewerCount failed (non-fatal): $e');
+      return null;
+    }
+  }
+
+  /// Recomputes the published live viewer count for a stream (server-side).
+  /// Returns `(count, peak)` — the current audience and the all-time high.
+  Future<({int count, int peak})?> refreshViewerCount(String streamId) async {
+    try {
+      final res = await _client.rpc('stream_refresh_viewer_count', params: {
+        'p_stream_id': streamId,
+      });
+      if (res is Map) {
+        final row = Map<String, dynamic>.from(res);
+        return (
+          count: (row['count'] as num?)?.toInt() ?? 0,
+          peak: (row['peak'] as num?)?.toInt() ?? 0,
+        );
+      }
+    } catch (e) {
+      debugPrint('stream_refresh_viewer_count failed (non-fatal): $e');
+    }
+    return null;
+  }
+
   Future<Map<String, dynamic>?> getTenantAnalytics(
     String tenantId, {
     DateTime? from,
