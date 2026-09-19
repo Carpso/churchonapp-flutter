@@ -12,9 +12,17 @@ class OrderTrackingScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('My Orders')),
-      body: ordersAsync.when(
+      body: RefreshIndicator(
+        onRefresh: () async => ref.invalidate(myOrdersProvider),
+        child: ordersAsync.when(
         data: (orders) => orders.isEmpty
-            ? const Center(child: Text('No orders yet'))
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  SizedBox(height: 200),
+                  Center(child: Text('No orders yet')),
+                ],
+              )
             : ListView.builder(
                 itemCount: orders.length,
                 itemBuilder: (context, index) {
@@ -104,6 +112,7 @@ class OrderTrackingScreen extends ConsumerWidget {
               ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
+        ),
       ),
     );
   }

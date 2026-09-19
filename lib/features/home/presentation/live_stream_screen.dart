@@ -32,6 +32,10 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
   /// `live_streams.id` — used for viewer counting, overlays and analytics.
   final String? streamId;
 
+  /// Tenant id — lets the viewer resolve the live row when the caller only had
+  /// a (possibly stale/empty) `church_live_status.stream_url`.
+  final String? churchId;
+
   /// Audio-only broadcast (no camera on the publisher side).
   final bool isAudioOnly;
 
@@ -43,6 +47,7 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
     required this.streamUrl,
     required this.title,
     this.streamId,
+    this.churchId,
     this.isAudioOnly = false,
     this.thumbnailUrl,
   });
@@ -55,14 +60,30 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   static const _initTimeout = Duration(seconds: 20);
   static const _shareUrl = 'https://churchonapp.com/live-streaming';
 
+  /// How many times the player silently re-attempts before RETRY is offered.
+  static const _maxAutoRetries = 2;
+
   VideoPlayerController? _videoPlayerController;
   ChewieController? _chewieController;
 
   _PlayerPhase _phase = _PlayerPhase.loading;
   Timer? _initWatchdog;
+  Timer? _retryTimer;
   bool _isReplay = false;
   bool _reconnecting = false;
   String? _resolvedPlaybackUrl;
+
+  /// Mutable ids — resolved from `churchId` when the caller had no streamId.
+  String? _effectiveStreamId;
+
+  /// Real server-side state, used to distinguish "starting" from "offline".
+  String? _rowStatus;
+  bool _inputConnected = false;
+
+  /// Auto-retry bookkeeping.
+  int _autoRetries = 0;
+  int _totalFailures = 0;
+  String? _statusNote;
 
   int _viewerCount = 0;
   int _peakViewers = 0;
@@ -86,8 +107,6 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     super.initState();
     _analytics = ref.read(streamAnalyticsServiceProvider);
     _resolveAndInitialize();
-    _startSession();
-    _startViewerCount();
   }
 
   bool _isValidUrl(String url) =>
@@ -96,29 +115,72 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
       (url.startsWith('http://') || url.startsWith('https://'));
 
   /// The viewer may be opened with a stale/empty URL (e.g. a push notification
-  /// carrying only the stream id). Resolve the real playback URL from the row
-  /// before handing it to the player.
+  /// or a home card carrying only the tenant). Resolve the real playback URL
+  /// from the row before handing it to the player.
   Future<void> _resolveAndInitialize() async {
+    _effectiveStreamId ??=
+        (widget.streamId != null && widget.streamId!.isNotEmpty)
+            ? widget.streamId
+            : null;
+
     var url = widget.streamUrl.trim();
-    final id = widget.streamId;
-    if (!_isValidUrl(url) && id != null && id.isNotEmpty) {
-      try {
-        final row = await ref.read(liveStreamServiceProvider).getStream(id);
-        final hls = row?['hls_url']?.toString() ?? '';
-        final archive = row?['archive_url']?.toString() ?? '';
-        if (_isValidUrl(hls)) {
-          url = hls;
-        } else if (_isValidUrl(archive)) {
-          url = archive;
-          _isReplay = true;
-        }
-      } catch (e) {
-        debugPrint('LiveStream: could not resolve stream row: $e');
-      }
+    if (_effectiveStreamId == null || !_isValidUrl(url)) {
+      await _loadRow(allowHttpRefresh: false);
+      url = _resolvedPlaybackUrl ?? url;
     }
     if (!mounted) return;
+    _startSession();
+    _startViewerCount();
     await _initializePlayer(overrideUrl: url);
   }
+
+  /// Loads/refreshes the `live_streams` row for this stream, updating the row
+  /// status + resolved playback URL. When [allowHttpRefresh] is set it also
+  /// asks the Edge Function to repair a stale/empty `hls_url` from Cloudflare
+  /// and reports whether the live input is actually connected.
+  Future<void> _loadRow({required bool allowHttpRefresh}) async {
+    final service = ref.read(liveStreamServiceProvider);
+    try {
+      if ((_effectiveStreamId == null || _effectiveStreamId!.isEmpty) &&
+          widget.churchId != null &&
+          widget.churchId!.isNotEmpty) {
+        final row = await service.getActiveStreamForChurch(widget.churchId!);
+        final id = row?['id']?.toString();
+        if (id != null && id.isNotEmpty) _effectiveStreamId = id;
+        _applyRow(row);
+      } else if (_effectiveStreamId != null && _effectiveStreamId!.isNotEmpty) {
+        _applyRow(await service.getStream(_effectiveStreamId!));
+      }
+
+      if (allowHttpRefresh &&
+          _effectiveStreamId != null &&
+          _effectiveStreamId!.isNotEmpty) {
+        final info = await service.refreshPlayback(_effectiveStreamId!);
+        if (info != null && info.success) {
+          _inputConnected = info.connected;
+          final hls = info.hlsUrl;
+          if (hls != null && _isValidUrl(hls)) _resolvedPlaybackUrl = hls;
+        }
+      }
+    } catch (e) {
+      debugPrint('LiveStream: could not resolve stream row: $e');
+    }
+  }
+
+  void _applyRow(Map<String, dynamic>? row) {
+    if (row == null) return;
+    _rowStatus = row['status']?.toString();
+    final hls = row['hls_url']?.toString() ?? '';
+    final archive = row['archive_url']?.toString() ?? '';
+    if (_isValidUrl(hls)) {
+      _resolvedPlaybackUrl = hls;
+    } else if (_isValidUrl(archive)) {
+      _resolvedPlaybackUrl = archive;
+      _isReplay = true;
+    }
+  }
+
+  bool get _isLiveRow => _rowStatus == 'live';
 
   Future<void> _initializePlayer({String? overrideUrl}) async {
     final url =
@@ -126,8 +188,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
 
     if (!_isValidUrl(url)) {
       debugPrint('LiveStream: refusing invalid stream URL: "$url"');
-      if (overrideUrl == null && await _tryArchiveFallback()) return;
-      if (mounted) setState(() => _phase = _PlayerPhase.error);
+      await _handlePlaybackFailure();
       return;
     }
 
@@ -144,6 +205,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     final oldVideo = _videoPlayerController;
     _chewieController = null;
     _videoPlayerController = null;
+    _retryTimer?.cancel();
     try {
       oldChewie?.dispose();
     } catch (_) {}
@@ -168,8 +230,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
       // `isInitialized` (404/empty HLS/manifest). This was the silent spinner.
       if (!controller.value.isInitialized) {
         debugPrint('LiveStream: initialize() completed but isInitialized=false');
-        if (overrideUrl == null && await _tryArchiveFallback()) return;
-        if (mounted) setState(() => _phase = _PlayerPhase.error);
+        await _handlePlaybackFailure();
         return;
       }
 
@@ -177,9 +238,60 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     } catch (e) {
       _initWatchdog?.cancel();
       debugPrint('LiveStream init error: $e');
-      if (overrideUrl == null && await _tryArchiveFallback()) return;
-      if (mounted) setState(() => _phase = _PlayerPhase.error);
+      await _handlePlaybackFailure();
     }
+  }
+
+  /// Called whenever playback cannot start. Re-resolves the row + asks
+  /// Cloudflare for the real state, retries silently a couple of times with
+  /// backoff, and only then surfaces the RETRY state — with copy that matches
+  /// the actual server-side state (scheduled / starting / genuinely offline).
+  Future<void> _handlePlaybackFailure() async {
+    if (!mounted || _phase == _PlayerPhase.ready) return;
+    _totalFailures++;
+    if (_totalFailures > 8) {
+      if (mounted) setState(() => _phase = _PlayerPhase.error);
+      return;
+    }
+
+    // 1) Reconcile with the server (repairs a stale/empty hls_url + real state).
+    final previousUrl = _resolvedPlaybackUrl;
+    await _loadRow(allowHttpRefresh: true);
+    if (!mounted) return;
+
+    final fresh = _resolvedPlaybackUrl;
+    if (fresh != null && _isValidUrl(fresh) && fresh != previousUrl) {
+      _autoRetries = 0;
+      await _initializePlayer(overrideUrl: fresh);
+      return;
+    }
+
+    // 2) Archive fallback for finished services.
+    if (await _tryArchiveFallback()) return;
+    if (!mounted) return;
+
+    // 3) Silent auto-retry with backoff before ever exposing RETRY.
+    if (_autoRetries < _maxAutoRetries) {
+      _autoRetries++;
+      final delay = Duration(seconds: 3 * _autoRetries);
+      if (mounted) {
+        setState(() {
+          _phase = _PlayerPhase.loading;
+          _statusNote = _isLiveRow
+              ? 'Stream is starting — reconnecting…'
+              : 'Reconnecting…';
+        });
+      }
+      _retryTimer?.cancel();
+      _retryTimer = Timer(delay, () {
+        if (!mounted) return;
+        _initializePlayer(overrideUrl: _resolvedPlaybackUrl);
+      });
+      return;
+    }
+
+    // 4) Give up → state-specific error copy (never "offline" while live).
+    if (mounted) setState(() => _phase = _PlayerPhase.error);
   }
 
   void _buildChewie(VideoPlayerController controller, String url) {
@@ -206,13 +318,16 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
       setState(() {
         _phase = _PlayerPhase.ready;
         _reconnecting = false;
+        _autoRetries = 0;
+        _totalFailures = 0;
+        _statusNote = null;
       });
     }
   }
 
   /// Watchdog: guarantees the loading spinner can never spin forever. If the
-  /// controller is actually initialized we promote to ready; otherwise we try
-  /// the R2 archive and finally surface the error + RETRY state.
+  /// controller is actually initialized we promote to ready; otherwise we
+  /// reconcile with the server + retry, and finally surface the error state.
   void _startWatchdog() {
     _initWatchdog?.cancel();
     _initWatchdog = Timer(_initTimeout, () async {
@@ -223,8 +338,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         return;
       }
       debugPrint('LiveStream: init watchdog fired after ${_initTimeout.inSeconds}s');
-      if (await _tryArchiveFallback()) return;
-      if (mounted) setState(() => _phase = _PlayerPhase.error);
+      await _handlePlaybackFailure();
     });
   }
 
@@ -242,7 +356,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   /// Resolves and plays the R2 master archive for this stream. Returns true if
   /// an archive was found and playback restarted from it.
   Future<bool> _tryArchiveFallback() async {
-    final id = widget.streamId;
+    final id = _effectiveStreamId;
     if (id == null || id.isEmpty || _archiveTriedFor == id) return false;
     _archiveTriedFor = id;
     try {
@@ -262,8 +376,8 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   }
 
   Future<void> _startSession() async {
-    final streamId = widget.streamId;
-    if (streamId == null || streamId.isEmpty) return;
+    final streamId = _effectiveStreamId;
+    if (streamId == null || streamId.isEmpty || _sessionId != null) return;
     _joinedAt = DateTime.now();
     _sessionId = await _analytics.startSession(streamId);
     if (_sessionId == null) return;
@@ -289,8 +403,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   /// Live viewer count — the RPC recomputes presence server-side and returns
   /// both the current audience and the peak.
   void _startViewerCount() {
-    final id = widget.streamId;
+    final id = _effectiveStreamId;
     if (id == null || id.isEmpty) return;
+    _viewerTimer?.cancel();
 
     Future<void> poll() async {
       // Read-only: the streamer + each session open/close republish the count.
@@ -311,6 +426,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     _heartbeat?.cancel();
     _viewerTimer?.cancel();
     _initWatchdog?.cancel();
+    _retryTimer?.cancel();
     unawaited(_flushSession());
     _videoPlayerController?.removeListener(_onPlayerChanged);
     _videoPlayerController?.dispose();
@@ -450,8 +566,23 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         }
         return _buildErrorState();
       case _PlayerPhase.loading:
-        return const Center(
-          child: CircularProgressIndicator(color: Color(0xFFFFD700)),
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: Color(0xFFFFD700)),
+              if (_statusNote != null) ...[
+                const SizedBox(height: 14),
+                Text(
+                  _statusNote!,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.75),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
+          ),
         );
     }
   }
@@ -530,22 +661,52 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   }
 
   Widget _buildErrorState() {
+    // Copy must reflect the REAL server-side state — never claim "offline"
+    // while the stream row is actually live.
+    final scheduled = _rowStatus == 'scheduled';
+    final live = _isLiveRow;
+    final starting = live && !_inputConnected;
+
+    final IconData icon;
+    final String title;
+    final String message;
+    if (scheduled) {
+      icon = LucideIcons.calendarClock;
+      title = "Stream hasn't started";
+      message = 'This service is scheduled and has not gone live yet. '
+          'Please check back when the broadcast begins.';
+    } else if (starting) {
+      icon = LucideIcons.radioReceiver;
+      title = 'Stream is starting…';
+      message = 'The church is live, but the video feed is still connecting. '
+          'Hang tight — we will reconnect automatically.';
+    } else if (live) {
+      icon = LucideIcons.wifiOff;
+      title = 'Playback problem';
+      message = 'This service is live, but the video could not load on your '
+          'connection. Tap retry.';
+    } else {
+      icon = LucideIcons.videoOff;
+      title = 'Stream unavailable';
+      message = 'This stream has ended or the broadcast link is invalid.';
+    }
+
     return Container(
       color: Colors.black87,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(LucideIcons.videoOff, color: Colors.redAccent, size: 36),
+          Icon(icon, color: Colors.redAccent, size: 36),
           const SizedBox(height: 12),
-          const Text(
-            'Stream unavailable',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+          Text(
+            title,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
           ),
           const SizedBox(height: 6),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Text(
-              'This stream is offline or the broadcast link is invalid.',
+              message,
               style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
               textAlign: TextAlign.center,
             ),
@@ -557,8 +718,11 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
                 _phase = _PlayerPhase.loading;
                 _archiveTriedFor = null;
                 _reconnecting = false;
+                _autoRetries = 0;
+                _totalFailures = 0;
+                _statusNote = null;
               });
-              _initializePlayer();
+              _resolveAndInitialize();
             },
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
@@ -863,7 +1027,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   // ---------------------------------------------------------------------------
 
   LiveStreamOverlay? _watchOverlay() {
-    final id = widget.streamId;
+    final id = _effectiveStreamId;
     if (id == null || id.isEmpty) return null;
     return ref.watch(liveStreamOverlayProvider(id)).value;
   }
@@ -895,7 +1059,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   // ---------------------------------------------------------------------------
 
   void _openProjector(Tenant? tenant) {
-    final id = widget.streamId;
+    final id = _effectiveStreamId;
     // `ref.read` (not watch) — this runs from a callback, outside build.
     final overlay = (id == null || id.isEmpty)
         ? null
@@ -906,7 +1070,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         builder: (context) => StreamProjectorScreen(
           title: widget.title,
           hlsUrl: _resolvedPlaybackUrl,
-          streamId: widget.streamId,
+          streamId: _effectiveStreamId,
           tenantName: tenant?.name,
           logoUrl: overlay?.logoUrl ?? tenant?.logoUrl,
         ),

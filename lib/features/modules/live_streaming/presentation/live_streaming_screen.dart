@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/core/config/sample_posters.dart';
 import 'package:go_router/go_router.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/live_stream_service.dart';
 
@@ -189,6 +190,12 @@ class LiveStreamingScreen extends ConsumerWidget {
 
   Widget _thumb(Map<String, dynamic> stream) {
     final thumb = stream['thumbnail_url']?.toString() ?? '';
+    final isAudioOnly = stream['is_audio_only'] == true;
+    // Default poster art when a stream has no thumbnail (audio-only keeps its
+    // mic icon instead — a photo would misrepresent it).
+    final displayUrl = (!isAudioOnly && thumb.isEmpty)
+        ? posterOrDefault(thumb, seed: stream['id'] ?? stream['title'] ?? '')
+        : thumb;
     return SizedBox(
       width: 64,
       height: 44,
@@ -197,19 +204,19 @@ class LiveStreamingScreen extends ConsumerWidget {
           Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: thumb.isNotEmpty
-                  ? AppImage(thumb, fit: BoxFit.cover)
+              child: displayUrl.isNotEmpty
+                  ? AppImage(displayUrl, fit: BoxFit.cover)
                   : Container(
                       color: Colors.black12,
                       child: Icon(
-                        stream['is_audio_only'] == true ? LucideIcons.mic : LucideIcons.video,
+                        isAudioOnly ? LucideIcons.mic : LucideIcons.video,
                         size: 18,
                         color: Colors.grey,
                       ),
                     ),
             ),
           ),
-          if (stream['is_audio_only'] == true)
+          if (isAudioOnly)
             Positioned(left: 3, bottom: 3, child: _audioOnlyBadge()),
         ],
       ),
@@ -296,8 +303,13 @@ class LiveStreamingScreen extends ConsumerWidget {
   void _openPlayer(BuildContext context, Map<String, dynamic> stream, {required bool live}) {
     final archive = stream['archive_url']?.toString();
     final hls = stream['hls_url']?.toString();
+    final streamId = stream['id']?.toString();
     final url = live ? (hls ?? '') : (archive ?? hls ?? '');
-    if (url.isEmpty) {
+    // A live row may have an empty/stale hls_url (Cloudflare's manifest is not
+    // ready until the input connects). Still open the viewer with the streamId
+    // so it can resolve/refresh the real playback URL instead of dead-ending.
+    final canRepair = live && streamId != null && streamId.isNotEmpty;
+    if (url.isEmpty && !canRepair) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('This stream is not ready for playback yet.')),
       );
@@ -305,10 +317,13 @@ class LiveStreamingScreen extends ConsumerWidget {
     }
     context.push('/live-player', extra: {
       'streamUrl': url,
-      'streamId': stream['id']?.toString(),
+      'streamId': streamId,
       'title': stream['title']?.toString() ?? 'Live Service',
       'isAudioOnly': stream['is_audio_only'] == true,
-      'thumbnailUrl': stream['thumbnail_url']?.toString(),
+      'thumbnailUrl': posterOrDefault(
+        stream['thumbnail_url']?.toString(),
+        seed: stream['id'] ?? stream['title'] ?? '',
+      ),
     });
   }
 

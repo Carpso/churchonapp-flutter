@@ -169,7 +169,15 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(transactionsStreamProvider);
+          ref.invalidate(churchGivingOverviewProvider);
+          ref.invalidate(profileProvider);
+          ref.invalidate(offeringBasketsProvider);
+          ref.invalidate(activeOfferingSessionProvider);
+        },
+        child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(25, 25, 25, 25 + MediaQuery.of(context).padding.bottom + 90),
         child: Column(
           children: [
@@ -279,6 +287,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
               child: const Text('PROCEED TO SECURE PAYMENT'),
             ),
           ],
+        ),
         ),
       ),
     );

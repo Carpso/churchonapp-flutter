@@ -35,6 +35,19 @@ serve(async (req) => {
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const supabaseAuth = createClient(supabaseUrl, supabaseServiceKey);
 
+  // Parse the body early: the leadership gate below must be able to allow the
+  // viewer-safe `refresh_live_input` action (which every authenticated member
+  // may call to reconcile a stale live_streams row with Cloudflare's real
+  // input status/playback URLs). All other actions stay leadership-only.
+  let bodyJson: any = null;
+  try {
+    bodyJson = await req.json();
+  } catch (_) {
+    bodyJson = null;
+  }
+  const earlyAction = bodyJson?.action;
+  const VIEWER_SAFE_ACTIONS = ["refresh_live_input"];
+
   // SECURITY: only church leadership may manage stream infrastructure
   // (create/delete live inputs, WHIP ingest, video deletion, analytics).
   // Viewers consume HLS directly and never invoke this function.
@@ -65,7 +78,8 @@ serve(async (req) => {
     profile = prof;
 
     const leadershipRoles = ["superadmin", "coa_employee", "bishop", "apostle", "prophet", "general_secretary", "pastor", "admin", "leader", "department_leader"];
-    if (!leadershipRoles.includes(profile.role)) {
+    const viewerSafe = VIEWER_SAFE_ACTIONS.includes(earlyAction);
+    if (!leadershipRoles.includes(profile.role) && !viewerSafe) {
       return new Response(JSON.stringify({ error: "Insufficient role", role: profile.role }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 403,
@@ -74,7 +88,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, ...params } = await req.json();
+    const { action, ...params } = bodyJson ?? {};
 
     // Service (cron) may only archive.
     if (isService && action !== "archive_recording") {
@@ -149,6 +163,13 @@ serve(async (req) => {
           });
         }
         return await getLiveInput(params, corsHeaders);
+      }
+      case "refresh_live_input": {
+        // Viewer-safe: reconciles a stale live_streams row with Cloudflare's
+        // real live-input status/playback URLs. Any authenticated member may
+        // call it (viewers must be able to repair a stream that is genuinely
+        // live but whose stored hls_url is empty/temporarily unavailable).
+        return await refreshLiveInput(supabaseAuth, params, corsHeaders);
       }
       case "get_analytics": {
         if (params?.input_id && !(await ownsStream(supabaseAuth, params.input_id, profile))) {
@@ -386,21 +407,33 @@ async function createLiveInput(params: any, corsHeaders: Record<string, string>)
     );
   }
 
-  // Live input responses may omit playback.hls even though the input exposes
-  // a WebRTC playback URL. Derive the standard HLS manifest when possible so
-  // OBS/RTMPS streams remain watchable by every tenant's viewer path.
+  // Live input responses usually include `playback.hls`, but older inputs /
+  // WHIP-only inputs may omit it while still exposing a WebRTC playback URL.
+  // Derive the standard HLS manifest from that so OBS/RTMPS streams remain
+  // watchable. (Note: the WebRTC playback path ends `/webRTC/play`, NOT
+  // `/webRTC/playback` — the old replace produced `.../manifest/video.m3u8/play`.)
   const result = data.result ?? {};
-  const playbackUrl = result.webRTCPlayback?.url as string | undefined;
-  if (!result.playback?.hls && !result.hls && playbackUrl) {
-    result.hls = playbackUrl
-      .replace('/webRTC/playback', '/manifest/video.m3u8')
-      .replace('/webRTC', '/manifest/video.m3u8');
-  }
+  const playback = deriveLivePlayback(result);
+  if (!result.playback) result.playback = {};
+  if (playback.hls && !result.playback.hls) result.playback.hls = playback.hls;
+  if (playback.dash && !result.playback.dash) result.playback.dash = playback.dash;
 
   return new Response(
     JSON.stringify(result),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
+}
+
+// Normalises a Cloudflare live-input result into playable manifest URLs.
+function deriveLivePlayback(result: any): { hls?: string; dash?: string; preview?: string } {
+  const hls = result?.playback?.hls ?? result?.hls ?? undefined;
+  const dash = result?.playback?.dash ?? result?.dash ?? undefined;
+  const webrtc = result?.webRTCPlayback?.url ?? result?.preview ?? undefined;
+  let derived = hls;
+  if (!derived && webrtc) {
+    derived = String(webrtc).replace(/\/webRTC\/(play|playback)\/?$/, "/manifest/video.m3u8");
+  }
+  return { hls: derived, dash, preview: webrtc };
 }
 
 async function deleteLiveInput(params: any, corsHeaders: Record<string, string>) {
@@ -472,7 +505,89 @@ async function getLiveInput(params: any, corsHeaders: Record<string, string>) {
   );
 }
 
-// Creates a Cloudflare Stream Direct Creator Upload URL. The caller PUTs the
+// Reconciles a `live_streams` row with Cloudflare's real live-input state.
+// The viewer calls this whenever playback fails so that:
+//   - a missing/stale `hls_url` is repaired from the live input, and
+//   - the real state is surfaced: connected (genuinely live), not-yet-connected
+//     (starting/arming), or no input (scheduled without a Cloudflare input).
+// Any authenticated member may call it; it can never mutate anything except the
+// playback URLs of the referenced row.
+async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<string, string>) {
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+  const streamId = params?.stream_id;
+  if (!streamId) return json({ error: "stream_id is required" }, 400);
+
+  const { data: row } = await supabase
+    .from("live_streams")
+    .select("id, church_id, status, cloudflare_stream_id, hls_url")
+    .eq("id", streamId)
+    .maybeSingle();
+  if (!row) return json({ error: "Stream not found" }, 404);
+
+  if (!row.cloudflare_stream_id) {
+    return json({
+      success: true,
+      id: row.id,
+      status: row.status,
+      input_status: null,
+      connected: false,
+      hls: row.hls_url ?? null,
+      reason: "no_input",
+    });
+  }
+
+  let payload: any = null;
+  try {
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${row.cloudflare_stream_id}`,
+      { headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` } },
+    );
+    payload = await res.json();
+    if (!res.ok || !payload?.success) {
+      const msg = payload?.errors?.[0]?.message || `Live input lookup failed (HTTP ${res.status})`;
+      return json({ success: false, error: msg }, 502);
+    }
+  } catch (e) {
+    return json({ success: false, error: e instanceof Error ? e.message : String(e) }, 502);
+  }
+
+  const r = payload.result ?? {};
+  const playback = deriveLivePlayback(r);
+  const inputStatus = (r.status as string | undefined) ?? null;
+  const CONNECTED = ["connected", "reconnected", "reconnecting", "new_configuration_accepted"];
+  const connected = !!inputStatus && CONNECTED.includes(inputStatus);
+
+  // Persist repaired playback URLs (service role) so every later viewer gets a
+  // valid URL without another round-trip.
+  const patch: Record<string, unknown> = {};
+  if (playback.hls && playback.hls !== row.hls_url) patch.hls_url = playback.hls;
+  if (playback.dash) patch.dash_url = playback.dash;
+  if (playback.preview) patch.preview_url = playback.preview;
+  if (Object.keys(patch).length > 0) {
+    try {
+      await supabase.from("live_streams").update(patch).eq("id", row.id);
+    } catch (_) {
+      // Non-fatal: playback still proceeds with the freshly fetched URLs.
+    }
+  }
+
+  return json({
+    success: true,
+    id: row.id,
+    status: row.status,
+    input_status: inputStatus,
+    connected,
+    enabled: r.enabled ?? null,
+    hls: playback.hls ?? row.hls_url ?? null,
+    dash: playback.dash ?? null,
+    preview: playback.preview ?? null,
+  });
+}
 // raw video bytes to `uploadURL`; Cloudflare then transcodes to adaptive HLS.
 async function createDirectUpload(params: any, corsHeaders: Record<string, string>) {
   // Cloudflare caps VOD duration per upload. Default 4h, hard-capped at 8h.

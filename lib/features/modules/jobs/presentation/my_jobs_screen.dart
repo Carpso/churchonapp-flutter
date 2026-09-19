@@ -48,7 +48,9 @@ class MyJobsScreen extends ConsumerWidget {
         foregroundColor: Colors.black,
         elevation: 0,
       ),
-      body: jobsAsync.when(
+      body: RefreshIndicator(
+        onRefresh: () async => ref.invalidate(myJobPostingsProvider),
+        child: jobsAsync.when(
         data: (jobs) {
           if (jobs.isEmpty) {
             return Center(
@@ -204,6 +206,7 @@ foregroundColor: Theme.of(context).primaryColor,
             child: const Center(child: CircularProgressIndicator()),
           ),
         error: (e, _) => Center(child: Text("Error: $e")),
+        ),
       ),
     );
   }

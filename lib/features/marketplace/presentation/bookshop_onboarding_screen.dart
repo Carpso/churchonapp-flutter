@@ -100,7 +100,13 @@ class _BookshopOnboardingScreenState extends ConsumerState<BookshopOnboardingScr
 
       if (!mounted) return;
       await _showSuccessDialog(inviteCode, tenantId);
-      if (mounted) Navigator.pop(context);
+      if (!mounted) return;
+      // Only pop when this screen is a pushed route — popping the root route
+      // left a blank white screen (e.g. when opened as a deep link).
+      final nav = Navigator.of(context);
+      if (nav.canPop()) {
+        nav.pop();
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

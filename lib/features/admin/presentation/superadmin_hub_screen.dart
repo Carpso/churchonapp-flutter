@@ -757,7 +757,12 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: SingleChildScrollView(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await _loadStats();
+          ref.invalidate(currentTenantProvider);
+        },
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(25),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1047,6 +1052,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const QuizEventHostScreen()));
             }),
           ],
+        ),
         ),
       ),
     );

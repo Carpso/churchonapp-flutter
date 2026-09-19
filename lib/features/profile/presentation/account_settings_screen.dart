@@ -9,6 +9,8 @@ import '../../../core/widgets/app_image.dart';
 import '../../../core/widgets/error_retry_widget.dart';
 import '../../../core/i18n/app_languages.dart';
 import '../../../core/i18n/l10n.dart';
+import '../../auth/presentation/select_church_screen.dart'
+    show SelectTenantScreen;
 
 class AccountSettingsScreen extends ConsumerStatefulWidget {
   const AccountSettingsScreen({super.key});
@@ -116,9 +118,11 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
             _buildSettingsInput("USER CODE", profile?.walletId ?? userCode),
             const SizedBox(height: 15),
             _buildLanguageSelector(context),
+            const SizedBox(height: 20),
+            _buildSwitchTenantTile(context),
             const SizedBox(height: 40),
             ElevatedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => _closeOrSwitch(context),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.secondary,
                 minimumSize: const Size(double.infinity, 60),
@@ -126,6 +130,69 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
               ),
               child: const Text("CLOSE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Safe close: if this screen is a pushed route, pop it. When it is embedded
+  /// as a shell tab (e.g. the bookshop workspace has no route to pop), opening
+  /// the tenant chooser keeps the user in the app instead of popping the root
+  /// route — which previously left a blank white screen.
+  void _closeOrSwitch(BuildContext context) {
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop();
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SelectTenantScreen()),
+    );
+  }
+
+  Widget _buildSwitchTenantTile(BuildContext context) {
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const SelectTenantScreen()),
+      ),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context)
+              .colorScheme
+              .surfaceContainerHighest
+              .withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            const Icon(LucideIcons.arrowLeftRight),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(context.tr('Switch Church / Bookshop'),
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Choose another church or bookshop to enter',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(LucideIcons.chevronRight, size: 18),
           ],
         ),
       ),

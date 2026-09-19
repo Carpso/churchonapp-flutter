@@ -11,6 +11,7 @@ import 'package:church_on_app/core/widgets/app_error_view.dart';
 import 'package:church_on_app/features/home/presentation/live_stream_screen.dart';
 import 'package:church_on_app/features/church/data/church_schedule_service.dart';
 import 'package:church_on_app/features/church/data/church_service_time.dart';
+import 'package:church_on_app/features/modules/live_streaming/data/live_stream_service.dart';
 
 import '../../data/live_streaming_service.dart';
 
@@ -28,6 +29,16 @@ class HomeHeroCard extends ConsumerWidget {
         : null;
 
     final bool isLive = liveStatus?.isLive ?? false;
+
+    // Resolve the actual live_streams row so the viewer opens with a streamId
+    // (and a repaired HLS URL) instead of a possibly-stale status URL.
+    final activeRow = (tenant != null && isLive)
+        ? ref.watch(churchActiveStreamProvider(tenant.id)).value
+        : null;
+    final String? liveStreamId = activeRow?['id']?.toString();
+    final String rowHls = activeRow?['hls_url']?.toString() ?? '';
+    final String playbackUrl =
+        rowHls.isNotEmpty ? rowHls : (liveStatus?.streamUrl ?? '');
     final String title = isLive
         ? (liveStatus?.title ?? "Live Service")
         : (tenant != null
@@ -152,16 +163,15 @@ class HomeHeroCard extends ConsumerWidget {
                     const Spacer(),
                     GestureDetector(
                       onTap: () {
-                        final streamUrl = liveStatus?.streamUrl;
-                        if (isLive &&
-                            streamUrl != null &&
-                            streamUrl.isNotEmpty) {
+                        if (isLive && playbackUrl.isNotEmpty) {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => LiveStreamScreen(
-                                streamUrl: streamUrl,
+                                streamUrl: playbackUrl,
                                 title: liveStatus?.title ?? "Live Service",
+                                streamId: liveStreamId,
+                                churchId: tenant?.id,
                               ),
                             ),
                           );

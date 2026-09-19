@@ -78,7 +78,12 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
 
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
-      child: CustomScrollView(
+      child: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(communitiesStreamProvider);
+          ref.invalidate(communityGroupsProvider);
+        },
+        child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
@@ -177,6 +182,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
 
           const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],
+      ),
       ),
     );
   }

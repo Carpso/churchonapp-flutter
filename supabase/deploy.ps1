@@ -335,6 +335,10 @@ $migrations = @(
       "20261153_stream_max_quality_paid_baseline.sql"
       "20261154_social_stories_upgrade.sql"
       "20261200_live_stream_engagement.sql"
+      "20261201_daily_verse_pool.sql"
+      "20261202_sample_stream_posters.sql"
+      "20261203_recorded_services_as_sermons.sql"
+      "20261204_bookshop_tenant_enhancements.sql"
     )
 
 foreach ($m in $migrations) {

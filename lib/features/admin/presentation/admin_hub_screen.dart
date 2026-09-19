@@ -81,7 +81,12 @@ class AdminHubScreen extends ConsumerWidget {
         elevation: 0,
         foregroundColor: theme.colorScheme.onSurface,
       ),
-      body: SingleChildScrollView(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(adminStatsProvider);
+          ref.invalidate(profileProvider);
+        },
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(25),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,6 +396,7 @@ class AdminHubScreen extends ConsumerWidget {
                 () => _sendTitheReminders(context, ref),
               ),
           ],
+        ),
         ),
       ),
     );

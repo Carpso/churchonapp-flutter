@@ -2,18 +2,21 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
+import 'package:church_on_app/features/bible/data/curated_daily_verses.dart';
 
 class DailyBibleVerse {
   final String id;
   final String reference;
   final String text;
   final DateTime createdAt;
+  final String theme;
 
   DailyBibleVerse({
     required this.id,
     required this.reference,
     required this.text,
     required this.createdAt,
+    this.theme = '',
   });
 
   factory DailyBibleVerse.fromMap(Map<String, dynamic> map) {
@@ -21,6 +24,7 @@ class DailyBibleVerse {
       id: map['id']?.toString() ?? '',
       reference: map['reference'] ?? map['media_url'] ?? 'Scripture',
       text: map['text'] ?? map['content'] ?? '',
+      theme: map['theme']?.toString() ?? '',
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'])
           : DateTime.now(),
@@ -112,78 +116,65 @@ class BibleVerseService {
   final SupabaseClient _client;
   BibleVerseService(this._client);
 
+  /// Verse of the Day — curated, thematic rotation served server-side by the
+  /// `get_verse_of_the_day(p_date)` RPC over the `daily_verse_pool` table.
+  ///
+  /// Deterministic per calendar day (same verse for everyone, stable across
+  /// reinstalls/tenants), complete KJV sentences, no repeat within ~60 days
+  /// (the pool is >= 120 verses and rotates as a full cycle). When the RPC is
+  /// unreachable we fall back to a small built-in uplifting set — NEVER to
+  /// random `bible_verses` rows (those produced contextless fragments).
   Future<DailyBibleVerse> fetchLatestVerse() async {
-    // Auto-generate Verse of the Day deterministically from bible_verses
-    // (populated via R2 uploads / bible_books). One verse per calendar day,
-    // stable across reinstalls and tenants — no manual daily_bible_verses needed.
+    final today = DateTime.now();
+    final isoDate =
+        '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
     try {
-      final now = DateTime.now();
-      // Days since epoch anchor gives a stable daily index
-      final dayIndex = now.difference(DateTime(2020, 1, 1)).inDays;
-      // bible_verses contains 31k+ KJV verses (and growing via R2). Order by book/chapter/verse for reproducibility.
-      // Use modulo so we cycle deterministically without needing a COUNT query.
-      const approxTotal = 31102;
-      final offset = dayIndex % approxTotal;
-      final response = await _client
-          .from('bible_verses')
-          .select('id, reference, text, book_id, chapter, verse')
-          .order('book_id', ascending: true)
-          .order('chapter', ascending: true)
-          .order('verse', ascending: true)
-          .range(offset, offset)
-          .maybeSingle();
-      if (response != null && (response['text']?.toString().isNotEmpty ?? false)) {
-        debugPrint('[BibleVerseService] VOTD auto dayIndex=$dayIndex offset=$offset ref=${response['reference']}');
+      final data = await _client.rpc(
+        'get_verse_of_the_day',
+        params: {'p_date': isoDate},
+      );
+      Map<String, dynamic>? row;
+      if (data is List && data.isNotEmpty) {
+        final first = data.first;
+        if (first is Map) row = Map<String, dynamic>.from(first);
+      } else if (data is Map) {
+        row = Map<String, dynamic>.from(data);
+      }
+      final text = row?['verse_text']?.toString() ?? '';
+      final reference = row?['reference']?.toString() ?? '';
+      if (text.trim().isNotEmpty && reference.trim().isNotEmpty) {
+        debugPrint('[BibleVerseService] VOTD RPC $isoDate ref=$reference');
         return DailyBibleVerse(
-          id: response['id']?.toString() ?? 'auto_$offset',
-          reference: response['reference']?.toString() ?? 'Scripture',
-          text: response['text']?.toString() ?? '',
-          createdAt: DateTime(now.year, now.month, now.day),
+          id: 'votd_$isoDate',
+          reference: reference,
+          text: text,
+          theme: row?['theme']?.toString() ?? '',
+          createdAt: DateTime(today.year, today.month, today.day),
         );
       }
-    } catch (e, s) {
-      debugPrint('Auto VOTD from bible_verses failed: $e');
-      debugPrint(s.toString());
+    } catch (e) {
+      debugPrint('[BibleVerseService] VOTD RPC failed, using curated set: $e');
     }
 
-    // Fallback: any verse with text (unordered) before giving up
-    try {
-      final response = await _client
-          .from('bible_verses')
-          .select('id, reference, text')
-          .limit(1)
-          .maybeSingle();
-      if (response != null) {
-        return DailyBibleVerse(
-          id: response['id']?.toString() ?? 'random',
-          reference: response['reference'] ?? 'Scripture',
-          text: response['text'] ?? '',
-          createdAt: DateTime.now(),
-        );
-      }
-    } catch (e, s) {
-      debugPrint('Querying random bible_verses failed: $e');
-      debugPrint(s.toString());
-    }
-
+    final curated = curatedVerseForDate(today);
     return DailyBibleVerse(
-      id: 'default',
-      reference: 'Jeremiah 29:11',
-      text:
-          'For I know the thoughts that I think toward you, saith the Lord, thoughts of peace, and not of evil, to give you an expected end.',
-      createdAt: DateTime.now(),
+      id: 'votd_curated_$isoDate',
+      reference: curated.reference,
+      text: curated.text,
+      theme: curated.theme,
+      createdAt: DateTime(today.year, today.month, today.day),
     );
   }
 
-  /// Deprecated: VOTD is now auto-generated from bible_verses (R2 uploads).
-  /// Kept for test compat; no longer called from UI. If invoked, it still
-  /// inserts but the home feed ignores it in favour of the deterministic verse.
-  @Deprecated('VOTD is auto from bible_verses; manual post removed from UI')
+  /// Deprecated: the Verse of the Day is now a curated rotation served by the
+  /// `get_verse_of_the_day(p_date)` RPC (with a built-in uplifting fallback).
+  /// Kept for test compat; no longer called from UI.
+  @Deprecated('VOTD is served by the curated daily_verse_pool rotation')
   Future<void> postDailyVerse({
     required String reference,
     required String text,
   }) async {
-    debugPrint('[BibleVerseService] postDailyVerse deprecated — VOTD is auto from bible_verses, ignoring manual insert');
+    debugPrint('[BibleVerseService] postDailyVerse deprecated — VOTD is the curated rotation, ignoring manual insert');
     return;
   }
 

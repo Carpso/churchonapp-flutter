@@ -12,6 +12,8 @@ import 'package:church_on_app/core/widgets/app_error_view.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/features/admin/data/writer_approval_service.dart';
+import 'package:church_on_app/features/auth/presentation/select_church_screen.dart'
+    show SelectTenantScreen;
 
 class MarketplaceScreen extends ConsumerStatefulWidget {
   final String? initialCategory;
@@ -51,6 +53,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         category: _selectedCategory,
         marketType: _tabs.firstWhere((t) => t['id'] == _activeTab)['marketType'] as String?,
         tenantId: tenant?.id,
+        includeCrossListedBookshops: tenant != null && !tenant.isBookshop,
         offset: 0,
         limit: _limit,
       );
@@ -81,6 +84,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         category: _selectedCategory,
         marketType: _tabs.firstWhere((t) => t['id'] == _activeTab)['marketType'] as String?,
         tenantId: tenant?.id,
+        includeCrossListedBookshops: tenant != null && !tenant.isBookshop,
         offset: _offset + _limit,
         limit: _limit,
       );
@@ -119,6 +123,17 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
+          if (widget.initialCategory == 'bookshop')
+            IconButton(
+              icon: const Icon(LucideIcons.arrowLeftRight),
+              tooltip: 'Switch church / bookshop',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SelectTenantScreen(),
+                ),
+              ),
+            ),
           Stack(
             alignment: Alignment.center,
             children: [

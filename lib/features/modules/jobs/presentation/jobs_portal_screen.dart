@@ -27,7 +27,9 @@ class JobsPortalScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: jobsAsync.when(
+      body: RefreshIndicator(
+        onRefresh: () async => ref.invalidate(jobsPortalProvider),
+        child: jobsAsync.when(
         data: (jobs) => SingleChildScrollView(
           padding: const EdgeInsets.all(25),
           child: Column(
@@ -54,6 +56,7 @@ class JobsPortalScreen extends ConsumerWidget {
         ),
         loading: () => const ListSkeleton(),
         error: (e, st) => Center(child: Text("Error: $e")),
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/jobs/post'),

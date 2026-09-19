@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 export 'cart_provider.dart';
@@ -75,11 +76,42 @@ class MarketplaceService {
   final SupabaseClient _client;
   MarketplaceService(this._client);
 
-  Future<List<MarketProduct>> fetchProducts({String? category, String? marketType, String? tenantId, int offset = 0, int limit = 30}) async {
+  /// [includeCrossListedBookshops] should be true only for a CHURCH tenant:
+  /// the church marketplace then also shows catalogue items from bookshops
+  /// whose owner enabled `show_in_marketplace`. A bookshop storefront keeps
+  /// `false` so it stays scoped to its own products. RLS enforces the same
+  /// visibility server-side, so this can never widen beyond opted-in shops.
+  Future<List<MarketProduct>> fetchProducts({
+    String? category,
+    String? marketType,
+    String? tenantId,
+    bool includeCrossListedBookshops = false,
+    int offset = 0,
+    int limit = 30,
+  }) async {
     var query = _client.from('marketplace_items').select('id, name, price, category, image, description, vendor_name, vendor_id, tenant_id, condition, market_type, is_curated, stock, download_url, isbn, author, pages').eq('status', 'active');
-    
-    if (tenantId != null) {
-      query = query.eq('tenant_id', tenantId);
+
+    if (tenantId != null && tenantId.isNotEmpty) {
+      List<String> crossListed = const [];
+      if (includeCrossListedBookshops) {
+        try {
+          final res = await _client.rpc('get_marketplace_bookshop_tenants');
+          crossListed = (res as List)
+              .map((e) => (e is Map ? e['tenant_id'] : e)?.toString())
+              .whereType<String>()
+              .where((s) => s.isNotEmpty)
+              .toList();
+        } catch (e) {
+          debugPrint('Cross-listed bookshops lookup failed: $e');
+        }
+      }
+      if (crossListed.isEmpty) {
+        query = query.eq('tenant_id', tenantId);
+      } else {
+        query = query.or(
+          'tenant_id.eq.$tenantId,tenant_id.in.(${crossListed.join(",")})',
+        );
+      }
     }
     
     if (category != null && category != 'all') {

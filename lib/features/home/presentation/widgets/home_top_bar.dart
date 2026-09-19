@@ -26,9 +26,11 @@ class HomeTopBar extends StatelessWidget {
       child: Row(
         children: [
           Semantics(
-            label: "Select church",
+            label: "Switch church or bookshop",
             button: true,
-            child: GestureDetector(
+            child: Tooltip(
+              message: 'Switch church / bookshop',
+              child: GestureDetector(
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -55,6 +57,7 @@ child: Row(
                      ),
                   ],
                 ],
+              ),
               ),
             ),
           ),

@@ -135,6 +135,65 @@ class LiveStreamService {
     return result;
   }
 
+  /// The church's current live stream row (if any). Used by home entry points
+  /// that only know the tenant — so the viewer can still resolve a streamId and
+  /// repair a stale/empty playback URL instead of showing "offline".
+  Future<Map<String, dynamic>?> getActiveStreamForChurch(String churchId) async {
+    if (churchId.isEmpty) return null;
+    try {
+      return await _client
+          .from('live_streams')
+          .select(_publicStreamColumns)
+          .eq('church_id', churchId)
+          .eq('status', 'live')
+          .order('started_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+    } catch (e) {
+      debugPrint('[LiveStreamService] active stream lookup failed: $e');
+      return null;
+    }
+  }
+
+  /// Reconciles a stale `live_streams` row with Cloudflare's REAL live-input
+  /// state via the viewer-safe `refresh_live_input` Edge action. This is what
+  /// lets a viewer recover when the row is `live` but its `hls_url` is empty or
+  /// the live input's HLS manifest is not ready yet.
+  Future<LiveStreamPlaybackInfo?> refreshPlayback(String streamId) async {
+    if (streamId.isEmpty) return null;
+    try {
+      final token = _client.auth.currentSession?.accessToken;
+      final res = await _client.functions.invoke(
+        'cloudflare-stream',
+        body: {'action': 'refresh_live_input', 'stream_id': streamId},
+        headers: (token == null || token.isEmpty)
+            ? null
+            : {'Authorization': 'Bearer $token'},
+      );
+      final data = res.data;
+      if (data is Map) {
+        final m = Map<String, dynamic>.from(data);
+        return LiveStreamPlaybackInfo(
+          success: m['success'] == true,
+          hlsUrl: _asString(m['hls']),
+          dashUrl: _asString(m['dash']),
+          inputStatus: _asString(m['input_status']),
+          connected: m['connected'] == true,
+          enabled: m['enabled'] == true,
+          reason: _asString(m['reason']),
+        );
+      }
+    } catch (e) {
+      debugPrint('[LiveStreamService] refreshPlayback failed: $e');
+    }
+    return null;
+  }
+
+  static String? _asString(dynamic v) {
+    final s = v?.toString();
+    return (s == null || s.isEmpty || s == 'null') ? null : s;
+  }
+
   /// Create a new live stream (church admin)
   Future<Map<String, dynamic>> createStream({
     required String title,
@@ -300,6 +359,34 @@ final liveStreamServiceProvider = Provider<LiveStreamService>((ref) {
   return LiveStreamService(Supabase.instance.client);
 });
 
+/// Result of a `refresh_live_input` reconciliation.
+class LiveStreamPlaybackInfo {
+  final bool success;
+  final String? hlsUrl;
+  final String? dashUrl;
+
+  /// Cloudflare live-input status: connected/reconnecting/client_disconnect…
+  final String? inputStatus;
+  final bool connected;
+  final bool enabled;
+
+  /// `no_input` when the row has no Cloudflare live input (e.g. scheduled).
+  final String? reason;
+
+  const LiveStreamPlaybackInfo({
+    required this.success,
+    this.hlsUrl,
+    this.dashUrl,
+    this.inputStatus,
+    this.connected = false,
+    this.enabled = false,
+    this.reason,
+  });
+
+  bool get notYetStarted =>
+      !connected && (inputStatus == null || inputStatus != 'connected');
+}
+
 final activeStreamsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final service = ref.watch(liveStreamServiceProvider);
   return service.getActiveStreams();
@@ -314,5 +401,12 @@ final upcomingStreamsProvider = FutureProvider<List<Map<String, dynamic>>>((ref)
 final recentRecordingsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final service = ref.watch(liveStreamServiceProvider);
   return service.getRecentRecordings();
+});
+
+/// The church's current live stream row (or null). Keyed by tenant id.
+final churchActiveStreamProvider =
+    FutureProvider.family<Map<String, dynamic>?, String>((ref, churchId) async {
+  final service = ref.watch(liveStreamServiceProvider);
+  return service.getActiveStreamForChurch(churchId);
 });
 

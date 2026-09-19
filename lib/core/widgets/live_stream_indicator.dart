@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/features/home/data/live_streaming_service.dart';
 import 'package:church_on_app/features/home/presentation/live_stream_screen.dart';
+import 'package:church_on_app/features/modules/live_streaming/data/live_stream_service.dart';
 
 class _PulsingDot extends StatefulWidget {
   const _PulsingDot();
@@ -74,6 +75,15 @@ class LiveStreamIndicator extends ConsumerWidget {
 
     if (!isLive) return const SizedBox.shrink();
 
+    // Resolve the actual live_streams row so the viewer can repair a stale /
+    // empty `stream_url` from `church_live_status`.
+    final activeRow = ref.watch(churchActiveStreamProvider(tenant.id)).value;
+    final streamId = activeRow?['id']?.toString();
+    final rowHls = activeRow?['hls_url']?.toString();
+    final playbackUrl = (rowHls != null && rowHls.isNotEmpty)
+        ? rowHls
+        : (liveStatus?.streamUrl ?? '');
+
     return Container(
       height: 60,
       margin: const EdgeInsets.only(bottom: 16),
@@ -126,8 +136,10 @@ class LiveStreamIndicator extends ConsumerWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => LiveStreamScreen(
-                    streamUrl: liveStatus?.streamUrl ?? '',
+                    streamUrl: playbackUrl,
                     title: liveStatus?.title ?? "Live Stream",
+                    streamId: streamId,
+                    churchId: tenant.id,
                   ),
                 ),
               );

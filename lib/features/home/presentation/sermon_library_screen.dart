@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/core/config/sample_posters.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/features/home/data/sermon_service.dart';
 import 'package:church_on_app/features/home/presentation/sermon_player_screen.dart';
@@ -223,6 +224,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
         Navigator.push(context, MaterialPageRoute(builder: (context) => LiveStreamScreen(
           streamUrl: liveStatus.streamUrl!,
           title: liveStatus.title ?? "Live Service",
+          churchId: ref.read(currentTenantProvider)?.id,
         )));
       },
       child: Container(
@@ -302,6 +304,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
       Navigator.push(context, MaterialPageRoute(builder: (context) => LiveStreamScreen(
         streamUrl: sermon.videoUrl,
         title: sermon.title,
+        churchId: ref.read(currentTenantProvider)?.id,
       )));
     } else {
       Navigator.push(context, MaterialPageRoute(builder: (context) => SermonPlayerScreen(sermon: sermon)));
@@ -328,7 +331,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
         child: Stack(
           fit: StackFit.expand,
           children: [
-            AppImage(sermon.thumbnailUrl, fit: BoxFit.cover),
+            AppImage(posterOrDefault(sermon.thumbnailUrl, seed: sermon.id), fit: BoxFit.cover),
             const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -490,7 +493,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: AppImage(
-                    sermon.thumbnailUrl,
+                    posterOrDefault(sermon.thumbnailUrl, seed: sermon.id),
                     fit: BoxFit.cover,
                   ),
                 ),

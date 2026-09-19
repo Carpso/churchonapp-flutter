@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/widgets/app_image.dart';
+import '../../../core/config/sample_posters.dart';
 import '../../../core/widgets/shimmer_loader.dart';
 import '../data/sermon_service.dart';
 import 'sermon_player_screen.dart';
@@ -93,7 +94,7 @@ class _SermonSearchScreenState extends ConsumerState<SermonSearchScreen> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: AppImage(sermon.thumbnailUrl, width: 80, height: 60, fit: BoxFit.cover),
+              child: AppImage(posterOrDefault(sermon.thumbnailUrl, seed: sermon.id), width: 80, height: 60, fit: BoxFit.cover),
             ),
             const SizedBox(width: 15),
             Expanded(
