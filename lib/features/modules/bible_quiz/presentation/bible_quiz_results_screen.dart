@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/core/widgets/kael_explain_sheet.dart';
 
 import '../data/bible_quiz_service.dart';
 import '../../../bible/presentation/live_scripture_text.dart';
@@ -721,87 +721,13 @@ class BibleQuizResultsScreen extends ConsumerWidget {
     final prompt =
         'Explain in 2-3 warm, pastoral sentences why the correct answer for this Bible quiz question is "${q.isMultipleAnswer ? q.correctAnswers.map((a) => q.options[a]).join(", ") : q.options[q.correctAnswer]}". Question: "${q.question}" Reference: ${q.scriptureReference ?? "n/a"}. Do not just state the answer — teach the passage context briefly.';
 
-    Future<String> call() async {
-      try {
-        final res = await Supabase.instance.client.functions.invoke('kael-ai', body: {'action': 'exegesis', 'prompt': prompt});
-        final data = res.data as Map<String, dynamic>?;
-        final t = (data?['response'] ?? '').toString().trim();
-        return t.isEmpty ? 'Seek the passage in context — the Word will make it clear.' : t;
-      } catch (e) {
-        // 429 rate-limit surfaced with a friendly retry message.
-        final isRateLimit = e.toString().toLowerCase().contains('rate limit') || e.toString().contains('429');
-        return isRateLimit
-            ? '__RATE_LIMIT__'
-            : 'Kael is resting — open your Bible to ${q.scriptureReference ?? 'the quoted passage'} for the full context.';
-      }
-    }
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) {
-          late Future<String> future;
-          future = call();
-          return Container(
-            // Cap the sheet height and make the body scrollable. Without a
-            // scroll view a long explanation overflowed, and dragging on it
-            // dismissed the sheet (the "screen disappears when I scroll" bug).
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(ctx).size.height * 0.8,
-            ),
-            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-            decoration: const BoxDecoration(color: Color(0xFF151A2E), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)), child: const Icon(LucideIcons.sparkles, color: Colors.amber, size: 18)), const SizedBox(width: 10), const Text('Kael explains', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))]),
-                  const SizedBox(height: 16),
-                  FutureBuilder<String>(
-                    future: future,
-                    builder: (c, snap) {
-                      if (snap.connectionState == ConnectionState.waiting) {
-                        return const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2)));
-                      }
-                      final text = snap.data ?? '';
-                      if (text == '__RATE_LIMIT__') {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(children: [Icon(LucideIcons.clock, color: Colors.deepOrange, size: 16), SizedBox(width: 6), Text('Kael is helping another member right now', style: TextStyle(color: Colors.deepOrange, fontWeight: FontWeight.bold, fontSize: 14))]),
-                              const SizedBox(height: 8),
-                              const Text('Kael answers up to 10 requests per minute. Wait a few seconds and try again.', style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5)),
-                              const SizedBox(height: 10),
-                              ElevatedButton.icon(
-                                onPressed: () => setSheetState(() => future = call()),
-                                icon: const Icon(LucideIcons.refreshCw, size: 16),
-                                label: const Text('Retry'),
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                      return Text(text, style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.6));
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(onPressed: () => Navigator.pop(ctx), style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('Close', style: TextStyle(fontWeight: FontWeight.bold))),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+    // Shared non-dismissing sheet: stays open while reading/scrolling and has
+    // COPY / COPY ALL / REGENERATE (was a duplicate inline sheet that reset).
+    showKaelExplainSheet(
+      context,
+      action: 'exegesis',
+      title: 'Kael AI explains',
+      prompt: prompt,
     );
   }
 

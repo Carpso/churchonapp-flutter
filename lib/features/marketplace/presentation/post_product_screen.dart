@@ -343,14 +343,16 @@ class _PostProductScreenState extends ConsumerState<PostProductScreen> {
                     showKaelExplainSheet(
                       context,
                       action: 'summary',
-                      title: 'Kael suggests a description',
+                      title: 'Kael AI description drafts',
+                      insertLabel: 'USE THIS',
                       prompt:
                           'Write a short, warm, persuasive marketplace listing description (3-4 sentences) for a church marketplace item named $name in the $_selectedCategory category. '
                           'Keep it honest, friendly and clear, and end with a one-line call to action.',
+                      onInsert: (text) => setState(() => _descCtrl.text = text),
                     );
                   },
                   icon: const Icon(LucideIcons.sparkles, size: 16, color: Colors.amber),
-                  label: const Text('Ask Kael to write it', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)),
+                  label: const Text('Draft with Kael', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
               ),
               const SizedBox(height: 20),

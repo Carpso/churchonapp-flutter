@@ -23,6 +23,7 @@ import 'church_competition_screen.dart';
 import 'quiz_cc_store_screen.dart';
 import 'quiz_event_lobby_screen.dart';
 import 'quiz_question_upload_screen.dart';
+import 'widgets/featured_tournaments_banner.dart';
 
 class BibleQuizHubScreen extends ConsumerStatefulWidget {
   const BibleQuizHubScreen({super.key});
@@ -642,6 +643,8 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
               // Premium Events
               const SizedBox(height: 24),
               _buildOrganizationQuizSection(ref),
+              const SizedBox(height: 24),
+              const FeaturedTournamentsBanner(),
               const SizedBox(height: 24),
               GestureDetector(
                 onTap: () {

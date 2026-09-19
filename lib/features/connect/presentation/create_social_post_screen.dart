@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/core/widgets/kael_explain_sheet.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:universal_io/io.dart';
 import '../data/social_service.dart';
@@ -129,6 +130,31 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
       default:
         return "What is on your mind? Share an edifying word...";
     }
+  }
+
+  /// Opens Kael AI with a context-aware drafting prompt. The user can COPY a
+  /// draft or INSERT it into the post body — never auto-inserted.
+  void _draftWithKael() {
+    final topic = _controller.text.trim();
+    final kind = _postType == "Testimony"
+        ? 'testimony'
+        : _postType == "Prayer"
+            ? 'prayer request'
+            : 'social post';
+    final prompt =
+        'Write one short, uplifting caption for a church $kind${topic.isNotEmpty ? ' about "$topic"' : ' that encourages faith and community'}. '
+        'Keep it under 220 characters, warm and encouraging, with light use of emojis. Return only the caption text with no preamble.';
+    showKaelExplainSheet(
+      context,
+      action: 'caption',
+      title: 'Kael AI caption drafts',
+      prompt: prompt,
+      insertLabel: 'USE THIS',
+      onInsert: (text) {
+        _controller.text = text;
+        setState(() {});
+      },
+    );
   }
 
   @override
@@ -298,6 +324,17 @@ class _CreateSocialPostScreenState extends ConsumerState<CreateSocialPostScreen>
                 decoration: InputDecoration(
                   hintText: _hintText,
                   border: InputBorder.none,
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: _draftWithKael,
+                icon: const Icon(LucideIcons.sparkles, size: 16, color: Colors.amber),
+                label: const Text(
+                  'Draft with Kael',
+                  style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12),
                 ),
               ),
             ),

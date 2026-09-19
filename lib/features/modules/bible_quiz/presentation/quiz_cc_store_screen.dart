@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/config/remote_config.dart';
 import '../../../../core/providers/profile_provider.dart';
 import '../../../finance/presentation/buy_coins_screen.dart';
+import '../../../finance/presentation/redeem_code_screen.dart';
 import '../data/quiz_event_service.dart';
 import 'quiz_event_lobby_screen.dart';
 
@@ -184,6 +185,19 @@ class _QuizCcStoreScreenState extends ConsumerState<QuizCcStoreScreen> {
             _earnRow('⚔️', 'PvP wager winnings', '90% of the pot'),
             _earnRow('📅', 'Daily challenge', '+10 CC per win'),
             _earnRow('📖', 'Daily open, streak & reading rewards', '5–30 CC'),
+            const SizedBox(height: 24),
+            _sectionHeader(LucideIcons.ticket, "PROMO CODES",
+                "Have a code? Redeem it for Church Coins, a quiz pass or a discount."),
+            const SizedBox(height: 10),
+            _spendCard(
+              LucideIcons.ticket,
+              "Redeem a promo code",
+              "Enter a code awarded to you by Church On App or a church",
+              "Redeem",
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const RedeemCodeScreen()),
+              ),
+            ),
             const SizedBox(height: 24),
             _sectionHeader(LucideIcons.history, "MY QUIZ CC HISTORY",
                 "All quiz wagers, passes, leases and winnings."),

@@ -1,5 +1,7 @@
+ALTER TABLE public.bookshops ADD COLUMN IF NOT EXISTS show_in_marketplace boolean NOT NULL DEFAULT false;
+
 -- ============================================================================
--- 20261204 — BOOKSHOP TENANT ENHANCEMENTS
+-- 20261204 â€” BOOKSHOP TENANT ENHANCEMENTS
 --
 -- 1. Fix orders 42P17 (infinite recursion in RLS) for bookshop staff.
 --    Root cause: the staff policies on `orders`/`order_items` used inline

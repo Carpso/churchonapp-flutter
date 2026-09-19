@@ -6,6 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
+import 'package:church_on_app/core/widgets/kael_explain_sheet.dart';
 import 'package:church_on_app/features/connect/data/story_service.dart';
 
 /// Post a 24-hour story to Church Social.
@@ -107,6 +108,20 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
         );
       }
     }
+  }
+
+  /// Opens Kael AI to draft a story caption; the user COPIES or INSERTs it.
+  void _draftCaptionWithKael() {
+    showKaelExplainSheet(
+      context,
+      action: 'caption',
+      title: 'Kael AI caption drafts',
+      insertLabel: 'USE THIS',
+      prompt:
+          'Write one short, uplifting caption for a 24-hour church photo/video story. '
+          'Keep it under 140 characters, warm and encouraging, with light emojis. Return only the caption text.',
+      onInsert: (text) => setState(() => _caption.text = text),
+    );
   }
 
   Future<void> _post() async {
@@ -277,6 +292,17 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
             decoration: const InputDecoration(
               labelText: 'Caption (optional)',
               border: OutlineInputBorder(),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _busy ? null : _draftCaptionWithKael,
+              icon: const Icon(LucideIcons.sparkles, size: 16, color: Colors.amber),
+              label: const Text(
+                'Draft with Kael',
+                style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12),
+              ),
             ),
           ),
           SwitchListTile(

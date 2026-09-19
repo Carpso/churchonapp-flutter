@@ -339,6 +339,8 @@ $migrations = @(
       "20261202_sample_stream_posters.sql"
       "20261203_recorded_services_as_sermons.sql"
       "20261204_bookshop_tenant_enhancements.sql"
+      "20261205_quiz_tournament_admin_rewards.sql"
+      "20261206_promo_codes.sql"
     )
 
 foreach ($m in $migrations) {

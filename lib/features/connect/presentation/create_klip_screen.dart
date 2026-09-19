@@ -9,6 +9,7 @@ import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/core/widgets/kael_explain_sheet.dart';
 
 class CreateKlipScreen extends ConsumerStatefulWidget {
   const CreateKlipScreen({super.key});
@@ -209,6 +210,20 @@ class _CreateKlipScreenState extends ConsumerState<CreateKlipScreen> {
     }
   }
 
+  /// Opens Kael AI to draft a caption; the user COPIES or INSERTs it.
+  void _draftCaptionWithKael() {
+    showKaelExplainSheet(
+      context,
+      action: 'caption',
+      title: 'Kael AI caption drafts',
+      insertLabel: 'USE THIS',
+      prompt:
+          'Write one short, uplifting caption for a church short-video klip. '
+          'Keep it under 180 characters, warm and encouraging, with light emojis and a call to engage. Return only the caption text.',
+      onInsert: (text) => setState(() => _captionCtrl.text = text),
+    );
+  }
+
   Future<void> _submit() async {
     if (_videoUrl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -370,6 +385,17 @@ class _CreateKlipScreenState extends ConsumerState<CreateKlipScreen> {
                       filled: true,
                       fillColor: Colors.white12,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: _draftCaptionWithKael,
+                      icon: const Icon(LucideIcons.sparkles, size: 16, color: Colors.amber),
+                      label: const Text(
+                        'Draft with Kael',
+                        style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 32),

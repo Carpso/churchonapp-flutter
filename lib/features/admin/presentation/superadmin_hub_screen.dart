@@ -67,6 +67,8 @@ import 'expansion_leads_screen.dart';
 import 'webview_analytics_screen.dart';
 import 'turnover_tax_ledger_screen.dart';
 import '../../../features/modules/bible_quiz/presentation/quiz_event_host_screen.dart';
+import '../../../features/modules/bible_quiz/presentation/quiz_tournament_admin_screen.dart';
+import 'promo_codes_screen.dart';
 import '../../../features/profile/presentation/church_referral_screen.dart';
 import '../../../features/modules/live_streaming/presentation/stream_analytics_screen.dart';
 import 'organization_branches_screen.dart';
@@ -1050,6 +1052,12 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             }),
             _buildGlobalAction(LucideIcons.trophy, "Quiz Event Host", "Host & configure quiz tournaments", Colors.amber, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const QuizEventHostScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.crown, "Tournament Control", "Create, schedule, reward & promote platform tournaments", Colors.amber, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const QuizTournamentAdminScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.ticket, "Promo Codes", "Create, award & track promo codes for any user", Colors.deepPurple, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const PromoCodesScreen()));
             }),
           ],
         ),

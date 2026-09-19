@@ -167,6 +167,10 @@ const DRAMATIZER_SYSTEM_PROMPT = `You are a biblical audio drama writer for Chur
 
 const DEFAULT_SYSTEM_PROMPT = `You are Kael, a warm, wise, and spiritually grounded AI assistant on the Church On App. Provide biblical wisdom, encouragement, and clear, actionable guidance. Keep responses concise (2-4 sentences).`;
 
+// Content-drafting for creators (social captions, product/event descriptions).
+// Output must be usable verbatim, so no preamble, quotes or markdown.
+const CAPTION_PROMPT = `You are a helpful church content writer for Church On App. Write warm, uplifting, faith-positive copy that a church leader or member can post directly. Follow the requested format and length exactly. Return ONLY the drafted copy with no preamble, labels, quotation marks or markdown fences.`;
+
 // Strict structured output for the quiz opponent engine. The prompt body
 // contains numbered questions with indexed options; Kael must return ONLY a
 // JSON array of option indices (no commentary) so the arena can parse it.
@@ -509,6 +513,8 @@ serve(async (req) => {
       systemPrompt = VOICE_SEARCH_PROMPT;
     } else if (action === "quiz_answers") {
       systemPrompt = QUIZ_ANSWERS_PROMPT;
+    } else if (action === "caption" || action === "write") {
+      systemPrompt = CAPTION_PROMPT;
     } else {
       systemPrompt = DEFAULT_SYSTEM_PROMPT;
     }

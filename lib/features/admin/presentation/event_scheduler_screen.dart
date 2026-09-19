@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/features/events/data/event_service.dart';
+import 'package:church_on_app/core/widgets/kael_explain_sheet.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/features/admin/data/event_pass_service.dart';
 import 'package:church_on_app/features/events/data/event_rsvp_service.dart';
@@ -71,6 +72,17 @@ class _EventSchedulerScreenState extends ConsumerState<EventSchedulerScreen> {
             _buildInput("Event Title", _titleController, LucideIcons.type),
             const SizedBox(height: 15),
             _buildInput("Description", _descriptionController, LucideIcons.fileText),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: _draftDescriptionWithKael,
+                icon: const Icon(LucideIcons.sparkles, size: 16, color: Colors.amber),
+                label: const Text(
+                  'Draft with Kael',
+                  style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+              ),
+            ),
             const SizedBox(height: 15),
             _buildInput("Location / Venue", _locationController, LucideIcons.mapPin),
             const SizedBox(height: 15),
@@ -210,6 +222,22 @@ class _EventSchedulerScreenState extends ConsumerState<EventSchedulerScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Opens Kael AI to draft an event description; the user COPIES or INSERTs it.
+  void _draftDescriptionWithKael() {
+    final title = _titleController.text.trim();
+    showKaelExplainSheet(
+      context,
+      action: 'summary',
+      title: 'Kael AI description drafts',
+      insertLabel: 'USE THIS',
+      prompt:
+          'Write a short, inviting description (3-4 sentences) for a church $_eventType event'
+          '${title.isNotEmpty ? ' titled "$title"' : ''}. '
+          'Make it warm and welcoming, mention who it is for and end with an encouraging call to attend. Return only the description.',
+      onInsert: (text) => setState(() => _descriptionController.text = text),
     );
   }
 

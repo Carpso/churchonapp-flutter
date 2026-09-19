@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../data/ai_chat_service.dart';
@@ -669,12 +670,17 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
                       bottomRight: isUser ? Radius.zero : const Radius.circular(20),
                     ),
                   ),
-                  child: Text(
-                    msg.content,
-                    // Brand yellow bubble needs DARK text — white on amber was
-                    // unreadable.
-                    style: TextStyle(color: isUser ? Colors.black87 : Colors.white70, fontSize: 15, height: 1.4),
-                  ),
+                  child: isUser
+                      ? Text(
+                          msg.content,
+                          // Brand yellow bubble needs DARK text — white on amber was
+                          // unreadable.
+                          style: const TextStyle(color: Colors.black87, fontSize: 15, height: 1.4),
+                        )
+                      : SelectableText(
+                          msg.content,
+                          style: const TextStyle(color: Colors.white70, fontSize: 15, height: 1.4),
+                        ),
                 ),
               ),
               if (isUser) const SizedBox(width: 10),
@@ -686,34 +692,54 @@ class _KaelChatScreenState extends ConsumerState<KaelChatScreen> with TickerProv
                 ),
             ],
           ),
-          // Regenerate button on last assistant message
-          if (showRegenerate)
+          // Assistant result actions: COPY always, REGENERATE on the last reply.
+          if (!isUser)
             Padding(
               padding: const EdgeInsets.only(left: 42, top: 6),
-              child: GestureDetector(
-                onTap: _isStreaming ? null : _regenerate,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _assistantAction(
+                    LucideIcons.copy,
+                    'Copy',
+                    () => _copyMessage(msg.content),
+                  ),
+                  if (showRegenerate) ...[
+                    const SizedBox(width: 16),
+                    _assistantAction(
                       LucideIcons.refreshCw,
-                      size: 14,
-                      color: _isStreaming ? Colors.white24 : Colors.amber.withAlpha(180),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
                       'Regenerate',
-                      style: TextStyle(
-                        color: _isStreaming ? Colors.white24 : Colors.amber.withAlpha(180),
-                        fontSize: 12,
-                      ),
+                      _isStreaming ? null : _regenerate,
                     ),
                   ],
-                ),
+                ],
               ),
             ),
         ],
       ),
+    );
+  }
+
+  Widget _assistantAction(IconData icon, String label, VoidCallback? onTap) {
+    final color = onTap == null ? Colors.white24 : Colors.amber.withAlpha(180);
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(color: color, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _copyMessage(String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 2)),
     );
   }
 
