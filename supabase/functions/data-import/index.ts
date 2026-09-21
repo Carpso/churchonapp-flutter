@@ -19,6 +19,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { callModel, getAiHealth } from "../_shared/ai.ts";
 
 const leadershipRoles = ["superadmin", "coa_employee", "bishop", "general_secretary", "pastor", "admin"];
 const networkRoles = ["superadmin", "coa_employee"];
@@ -41,6 +42,12 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status,
     });
+
+  // Secret-free health probe (which provider is active + secret presence).
+  const url = new URL(req.url);
+  if (req.method === "GET" && url.searchParams.get("health") === "ai") {
+    return ok(getAiHealth());
+  }
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return ok({ error: "Missing authorization header" }, 401);
@@ -118,7 +125,7 @@ serve(async (req) => {
         return ok({ template: data });
       }
       case "extract_document": {
-        return await extractDocument(supabase, user, params, ok);
+        return await extractDocument(params, ok);
       }
       default:
         return ok({ error: "Unknown action" }, 400);
@@ -241,9 +248,11 @@ async function runImport(
   });
 }
 
-// Document extraction via kael-ai. Accepts { file_url, text, entity_type }.
-// Returns a JSON array of structured rows parsed from the document text.
-async function extractDocument(supabase: any, user: any, params: any, ok: (body: any, status?: number) => Response) {
+// Document extraction through the shared multi-provider AI layer
+// (`_shared/ai.ts`): Workers AI primary → HuggingFace fallback.
+// Accepts { file_url, text, entity_type, prompt }. Returns a JSON array of
+// structured rows parsed from the document text.
+async function extractDocument(params: any, ok: (body: any, status?: number) => Response) {
   const entity = params?.entity_type;
   if (!allowedEntities.includes(entity)) {
     return ok({ error: `entity_type must be one of: ${allowedEntities.join(", ")}` }, 400);
@@ -261,12 +270,30 @@ async function extractDocument(supabase: any, user: any, params: any, ok: (body:
     `Extract the data in this document as a JSON array of objects matching the "${entity}" table columns. ` +
     `Only include rows that map cleanly. Return ONLY valid JSON, no markdown fences.`;
 
-  const { data, error } = await supabase.functions.invoke("kael-ai", {
-    body: { action: "summary", prompt, document: text, user_id: user.id },
-  });
-  if (error) return ok({ error: `document extraction failed: ${error.message}` }, 500);
+  let responseText: string | null = null;
+  try {
+    const result = await callModel(
+      [
+        {
+          role: "system",
+          content:
+            "You are a precise data extraction assistant. Return ONLY valid JSON matching the requested shape — no markdown, no commentary.",
+        },
+        {
+          role: "user",
+          content: `${prompt}\n\nDOCUMENT TEXT:\n"""${String(text).slice(0, 120000)}"""`,
+        },
+      ],
+      { maxTokens: 2048, temperature: 0.2, topP: 0.9, label: "data-import:extract" },
+    );
+    responseText = result.text
+      .replace(/```json\s*/g, "")
+      .replace(/```\s*/g, "")
+      .trim();
+  } catch (e) {
+    return ok({ error: `document extraction failed: ${e instanceof Error ? e.message : "AI error"}` }, 500);
+  }
 
-  const responseText = typeof data?.response === "string" ? data.response : null;
   let rows: any[] = [];
   if (responseText) {
     try { rows = JSON.parse(responseText); } catch { rows = []; }

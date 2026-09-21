@@ -1,43 +1,34 @@
 // Supabase Edge Function: hf-keep-warm
-// Pings HuggingFace inference every 10 min (via pg_cron) to keep Kael's
-// model loaded. Router endpoint is OpenAI-compatible and resolves from the
-// Supabase edge runtime (api-inference.huggingface.co does NOT). Default:
-// meta-llama/Llama-3.1-8B-Instruct — verified on this account's free tier.
-Deno.serve(async () => {
-  const hfToken = Deno.env.get("HUGGINGFACE_TOKEN");
-  const hfModel = Deno.env.get("HF_MODEL_ID") ?? "meta-llama/Llama-3.1-8B-Instruct";
+// Pings the active AI provider every 10 min (via pg_cron) to keep the model
+// loaded. Goes through the shared multi-provider layer (`_shared/ai.ts`) —
+// Cloudflare Workers AI (primary, when configured) with HuggingFace as the
+// automatic fallback, so whichever provider serves Kael is kept warm.
+import { callModel, getAiHealth } from "../_shared/ai.ts";
 
-  if (!hfToken) {
-    return new Response(JSON.stringify({ warm: false, error: "HUGGINGFACE_TOKEN not set" }), {
-      status: 500, headers: { "Content-Type": "application/json" },
-    });
+Deno.serve(async () => {
+  const health = getAiHealth();
+
+  if (health.active_provider === "none") {
+    return new Response(
+      JSON.stringify({ warm: false, error: "No AI provider configured", secrets: health.secrets }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   try {
     const start = Date.now();
-    const res = await fetch("https://router.huggingface.co/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${hfToken}`, "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(30_000),
-      body: JSON.stringify({
-        model: hfModel,
-        messages: [{ role: "user", content: "ping" }],
-        max_tokens: 4,
-        temperature: 0,
-      }),
-    });
-
-    const elapsed = Date.now() - start;
-    const data = await res.json().catch(() => null);
-    const choice = Array.isArray(data?.choices) ? data.choices[0] : undefined;
-    const message = choice && typeof choice.message === "object" ? choice.message : undefined;
-    const genText = message && typeof message.content === "string" ? message.content.trim() : null;
-    return new Response(JSON.stringify({ warm: res.ok && genText != null, ms: elapsed, model: hfModel }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    const { provider } = await callModel(
+      [{ role: "user", content: "ping" }],
+      { maxTokens: 4, temperature: 0, label: "hf-keep-warm" },
+    );
+    return new Response(
+      JSON.stringify({ warm: true, ms: Date.now() - start, provider }),
+      { headers: { "Content-Type": "application/json" } },
+    );
   } catch (e) {
-    return new Response(JSON.stringify({ warm: false, error: `${e instanceof Error ? e.message : e}` }), {
-      status: 500, headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ warm: false, error: `${e instanceof Error ? e.message : e}`, provider: health.active_provider }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
   }
 });

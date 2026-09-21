@@ -13,14 +13,13 @@
 //
 // Returns { inserted, skipped, total_generated, batch_id, errors[] }.
 //
-// AI provider: HuggingFace free-tier inference ONLY (router endpoint, OpenAI
-// compatible). NEVER add another provider (Gemini removed 2026-08-20).
+// AI provider: routed through the shared multi-provider layer (`_shared/ai.ts`)
+// — Cloudflare Workers AI (primary, when configured) with HuggingFace as the
+// automatic fallback. NEVER add another provider (Gemini removed 2026-08-20).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
-
-const HF_API_BASE = "https://router.huggingface.co/v1";
-const HF_MODEL = Deno.env.get("HF_MODEL_ID") ?? "meta-llama/Llama-3.1-8B-Instruct";
+import { callModel, getAiHealth } from "../_shared/ai.ts";
 
 interface QuizQuestion {
   question: string;
@@ -183,15 +182,11 @@ DOCUMENT TEXT:
 """${text.slice(0, 120000)}"""`;
 }
 
-async function callHuggingFaceExtraction(
+async function callAiExtraction(
   prompt: string,
 ): Promise<QuizQuestion[]> {
-  const hfToken = Deno.env.get("HUGGINGFACE_TOKEN");
-  if (!hfToken) throw new Error("HUGGINGFACE_TOKEN not configured");
-
-  const requestBody = JSON.stringify({
-    model: HF_MODEL,
-    messages: [
+  const result = await callModel(
+    [
       {
         role: "system",
         content:
@@ -199,45 +194,10 @@ async function callHuggingFaceExtraction(
       },
       { role: "user", content: prompt },
     ],
-    max_tokens: 2048,
-    temperature: 0.4,
-    top_p: 0.9,
-  });
+    { maxTokens: 2048, temperature: 0.4, topP: 0.9, label: "quiz-import:extract" },
+  );
 
-  let response = await fetch(`${HF_API_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${hfToken}`,
-      "Content-Type": "application/json",
-    },
-    signal: AbortSignal.timeout(60_000),
-    body: requestBody,
-  });
-
-  // Cold start: model is loading → wait for it
-  if (response.status === 503) {
-    response = await fetch(`${HF_API_BASE}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${hfToken}`,
-        "Content-Type": "application/json",
-      },
-      signal: AbortSignal.timeout(120_000),
-      body: requestBody,
-    });
-  }
-
-  if (!response.ok) {
-    const errBody = await response.text().catch(() => "");
-    throw new Error(`HuggingFace error ${response.status}: ${errBody.slice(0, 300)}`);
-  }
-
-  const data = await response.json();
-  const text = (data as { choices?: Array<{ message?: { content?: string } }> })
-    ?.choices?.[0]?.message?.content?.trim();
-  if (!text) throw new Error("HuggingFace returned empty response");
-
-  const cleaned = text
+  const cleaned = result.text
     .replace(/```json\s*/g, "")
     .replace(/```\s*/g, "")
     .trim();
@@ -283,6 +243,15 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  // Secret-free health probe (which provider is active + secret presence).
+  const url = new URL(req.url);
+  if (req.method === "GET" && url.searchParams.get("health") === "ai") {
+    return new Response(JSON.stringify(getAiHealth()), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
@@ -341,7 +310,7 @@ Deno.serve(async (req) => {
         if (q) parsed.push(q);
       }
     } else if (typeof text === "string" && text.trim().length > 0) {
-      parsed = await callHuggingFaceExtraction(buildExtractionPrompt(text));
+      parsed = await callAiExtraction(buildExtractionPrompt(text));
     } else if (typeof dataBase64 === "string" && typeof fileName === "string") {
       // Decode the uploaded file. Plain-text formats are read directly; PDF /
       // DOCX / DOC go through binary extraction (best-effort, no native deps).
@@ -389,7 +358,7 @@ Deno.serve(async (req) => {
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
         );
       }
-      parsed = await callHuggingFaceExtraction(buildExtractionPrompt(fileText, fileName));
+      parsed = await callAiExtraction(buildExtractionPrompt(fileText, fileName));
     } else {
       return new Response(
         JSON.stringify({ error: "Provide text, fileName+dataBase64, or questions" }),

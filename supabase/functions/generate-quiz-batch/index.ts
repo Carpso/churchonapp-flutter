@@ -1,14 +1,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import {
+  AiProvider,
+  callModel,
+  getAiHealth,
+  hasAnyProvider,
+} from "../_shared/ai.ts";
 
-// HuggingFace free-tier inference is the ONLY AI provider for quiz generation.
-// Router endpoint is OpenAI-compatible and resolves from the Supabase edge
-// runtime (api-inference.huggingface.co does not — verified via dns-probe).
-// Default is Llama-3.1-8B-Instruct — verified reachable on this account's
-// free tier via the router and strong at structured JSON output.
-// NEVER add another AI provider here (Gemini removed 2026-08-20 per request).
-const HF_API_BASE = "https://router.huggingface.co/v1";
-const HF_MODEL = Deno.env.get("HF_MODEL_ID") ?? "meta-llama/Llama-3.1-8B-Instruct";
+// All inference goes through the shared multi-provider layer (`_shared/ai.ts`):
+// Cloudflare Workers AI (primary, when configured) with HuggingFace as the
+// automatic fallback. Selection is env-driven — a Cloudflare token is required
+// to activate Workers AI. NEVER add another provider here (Gemini removed
+// 2026-08-20 per request).
 
 interface QuizQuestion {
   question: string;
@@ -135,19 +138,17 @@ Return ONLY a valid JSON array (no markdown, no code fences). Each item:
 }
 
 /**
- * HuggingFace free-tier fallback generator. Small-batch loop because the
- * free inference API has tight max-token limits (a 1.5B model cannot emit
- * 100 valid questions in a single call). Each round requests `perCall`
- * questions; only structurally valid ones (validateQuestion) are kept.
+ * Multi-provider question generator. Small-batch loop because free inference
+ * tiers have tight max-token limits (a single call cannot emit 100 valid
+ * questions). Each round requests `perCall` questions; only structurally valid
+ * ones (validateQuestion) are kept. The provider (Workers AI or HuggingFace)
+ * is chosen automatically by the shared layer.
  */
-async function callHuggingFace(
+async function generateQuizQuestions(
   prompt: string,
   perCall: number,
   maxRounds: number,
-): Promise<QuizQuestion[]> {
-  const hfToken = Deno.env.get("HUGGINGFACE_TOKEN");
-  if (!hfToken) throw new Error("HUGGINGFACE_TOKEN not configured");
-
+): Promise<{ questions: QuizQuestion[]; provider: AiProvider }> {
   const systemMsg = `You are a Bible quiz question writer. Produce only factually accurate Bible questions with 4 options and exactly one correct answer index (0-3). Difficulty: Easy, Medium, or Hard. Categories: History, People, Scripture, New Testament, Miracles, Prophecy, Law, Language, Angels, General.`;
 
   const roundPrompt = `${prompt}
@@ -156,55 +157,32 @@ Return ${perCall} questions. Strictly output ONLY a valid JSON array (no markdow
 [{"question": "...", "options": ["A", "B", "C", "D"], "correct_answer": 0, "difficulty": "Easy", "category": "History", "scripture_reference": "Genesis 6:14"}]`;
 
   const collected: QuizQuestion[] = [];
+  let provider: AiProvider = "huggingface";
+
   for (let round = 0; round < maxRounds; round++) {
-    // Router is OpenAI-compatible; api-inference.huggingface.co does not
-    // resolve from the Supabase edge runtime (verified via dns-probe).
-    const requestBody = JSON.stringify({
-      model: HF_MODEL,
-      messages: [
-        { role: "system", content: systemMsg },
-        { role: "user", content: roundPrompt },
-      ],
-      max_tokens: 1024,
-      temperature: 0.7,
-      top_p: 0.9,
-    });
+    const messages = [
+      { role: "system", content: systemMsg },
+      { role: "user", content: roundPrompt },
+    ];
 
-    let hfResponse = await fetch(`${HF_API_BASE}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${hfToken}`,
-        "Content-Type": "application/json",
-      },
-      signal: AbortSignal.timeout(60_000),
-      body: requestBody,
-    });
-
-    // Cold start: model is loading → wait for it
-    if (hfResponse.status === 503) {
-      hfResponse = await fetch(`${HF_API_BASE}/chat/completions`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${hfToken}`,
-          "Content-Type": "application/json",
-        },
-        signal: AbortSignal.timeout(90_000),
-        body: requestBody,
+    let generatedText = "";
+    try {
+      const result = await callModel(messages, {
+        maxTokens: 1024,
+        temperature: 0.7,
+        topP: 0.9,
+        label: "generate-quiz-batch",
       });
-    }
-
-    if (!hfResponse.ok) {
-      const errBody = await hfResponse.text().catch(() => "");
-      throw new Error(`HuggingFace error ${hfResponse.status}: ${errBody.slice(0, 200)}`);
-    }
-
-    const data = await hfResponse.json();
-    const generatedText = (data as { choices?: Array<{ message?: { content?: string } }> })
-      ?.choices?.[0]?.message?.content?.trim();
-    if (!generatedText) {
-      // A full round that yields no text is a model problem — bail.
-      if (round > 0) break;
-      continue;
+      provider = result.provider;
+      generatedText = result.text;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "AI error";
+      // An empty round is a model problem — retry early, bail later.
+      if (msg.includes("empty response")) {
+        if (round > 0) break;
+        continue;
+      }
+      throw e;
     }
 
     const cleaned = generatedText
@@ -242,13 +220,21 @@ Return ${perCall} questions. Strictly output ONLY a valid JSON array (no markdow
     if (validInRound === 0 && collected.length > 0) break;
   }
 
-  return collected;
+  return { questions: collected, provider };
 }
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  // Secret-free health probe (which provider is active + secret presence).
+  const url = new URL(req.url);
+  if (req.method === "GET" && url.searchParams.get("health") === "ai") {
+    return new Response(JSON.stringify(getAiHealth()), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   if (req.method !== "POST") {
@@ -375,9 +361,9 @@ Deno.serve(async (req) => {
       (existingQs ?? []).map((q) => q.question_hash as string),
     );
 
-    // HuggingFace free-tier inference is the ONLY AI provider.
-    const hfToken = Deno.env.get("HUGGINGFACE_TOKEN");
-    if (!hfToken) {
+    // A provider is required (Workers AI when a Cloudflare token is present,
+    // otherwise HuggingFace). Error string preserved for backward compatibility.
+    if (!hasAnyProvider()) {
       return new Response(
         JSON.stringify({
           error: "HUGGINGFACE_TOKEN not configured on server",
@@ -400,13 +386,12 @@ Deno.serve(async (req) => {
       topic ?? undefined,
     );
 
-    // HF free tier: one call for the whole batch (probe: 3 Qs ≈ 9s warm,
-    // ~90s cold), capped at 8 per call; at most 3 rounds to stay within
-    // the edge function wall-clock budget.
+    // Free tiers have tight max-token limits: one call for the whole batch,
+    // capped at 8 per call; at most 3 rounds to stay within the edge function
+    // wall-clock budget.
     const perCall = Math.min(batchSize, 8);
     const maxRounds = 3;
-    const questions = await callHuggingFace(prompt, perCall, maxRounds);
-    const provider = "huggingface";
+    const { questions, provider } = await generateQuizQuestions(prompt, perCall, maxRounds);
     if (questions.length === 0) {
       return new Response(
         JSON.stringify({ error: "Question generation failed: no provider produced questions", inserted: 0 }),

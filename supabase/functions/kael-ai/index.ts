@@ -2,15 +2,18 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import {
+  AiProviderError,
+  callModel,
+  getAiHealth,
+  streamModel,
+} from "../_shared/ai.ts";
 
 // ─── Provider ──────────────────────────────────────────────────────────────
-// HuggingFace free-tier inference. Model override via HF_MODEL_ID env var.
-// Router endpoint is OpenAI-compatible and resolves from the Supabase edge
-// runtime (api-inference.huggingface.co does NOT — verified via dns-probe).
-// Default: meta-llama/Llama-3.1-8B-Instruct — verified on this account's free
-// tier via the router (Qwen2.5-1.5B-Instruct is not provider-enabled).
-const HF_API_BASE = "https://router.huggingface.co/v1";
-const HF_MODEL = Deno.env.get("HF_MODEL_ID") ?? "meta-llama/Llama-3.1-8B-Instruct";
+// All inference goes through the shared multi-provider layer
+// (`_shared/ai.ts`): Cloudflare Workers AI (primary, when configured) with
+// HuggingFace as the automatic fallback. Selection is env-driven — see the
+// module header for the secret names. The client contract is unchanged.
 
 const KAEL_SYSTEM_PROMPT = `You are Kael, a warm, wise, and spiritually grounded AI assistant built into the Church On App — a comprehensive Christian church management platform for the Zambian (and African) market.
 
@@ -259,39 +262,16 @@ function sseErrorEvent(corsHeaders: Record<string, string>, error: string) {
   return new Response(stream, { status: 200, headers: { ...corsHeaders, ...SSE_HEADERS } });
 }
 
-/** Simulates token streaming by emitting the full text in word chunks (SSE). */
-function sseTextStream(corsHeaders: Record<string, string>, text: string) {
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    start(controller) {
-      const words = text.split(/(\s+)/);
-      let buffer = "";
-      let wordIndex = 0;
-
-      const sendChunk = () => {
-        if (wordIndex >= words.length) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
-          controller.close();
-          return;
-        }
-
-        const chunkSize = 2 + Math.floor(Math.random() * 4);
-        for (let i = 0; i < chunkSize && wordIndex < words.length; i++, wordIndex++) {
-          buffer += words[wordIndex];
-        }
-
-        if (buffer.length > 0) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ chunk: buffer })}\n\n`));
-          buffer = "";
-        }
-
-        setTimeout(sendChunk, 15 + Math.random() * 25);
-      };
-
-      sendChunk();
-    },
-  });
-  return new Response(stream, { status: 200, headers: { ...corsHeaders, ...SSE_HEADERS } });
+/** User-facing Kael failure message (existing wording preserved). */
+function providerFailureMessage(providerError: string): string {
+  const isCold =
+    providerError.includes("503") ||
+    providerError.includes("loading") ||
+    providerError.includes("Model is") ||
+    providerError.includes("warming");
+  return isCold
+    ? "Kael is warming up — please try again in 30 seconds."
+    : "Kael encountered an error — please try again.";
 }
 
 // ─── Prompt builders ───────────────────────────────────────────────────────
@@ -314,128 +294,18 @@ function buildSystemPrompt(
     `- Answer any questions about their personal statistics using this live context data.`;
 }
 
-/** Qwen2.5-Instruct chat format. */
-function buildChatPrompt(
-  messages: Array<{ role: string; content: string }>,
-  userContext: Record<string, unknown> | null,
-  systemPrompt: string,
-): string {
-  let prompt = `<|im_start|>system\n${buildSystemPrompt(systemPrompt, userContext)}<|im_end|>\n`;
-
-  for (const turn of messages) {
-    if (turn.role === "user") {
-      prompt += `<|im_start|>user\n${turn.content}<|im_end|>\n`;
-    } else {
-      prompt += `<|im_start|>assistant\n${turn.content}<|im_end|>\n`;
-    }
-  }
-  prompt += `<|im_start|>assistant\n`;
-  return prompt;
-}
-
-function buildDirectPrompt(prompt: string, systemPrompt: string): string {
-  return `<|im_start|>system\n${systemPrompt}<|im_end|>\n<|im_start|>user\n${prompt}<|im_end|>\n<|im_start|>assistant\n`;
-}
-
-// ─── Provider calls ────────────────────────────────────────────────────────
-
-async function callHuggingFace(
-  messages: Array<{ role: string; content: string }>,
-  userContext: Record<string, unknown> | null,
-  directPrompt: string | null,
-  systemPrompt: string,
-  isChat: boolean,
-): Promise<string> {
-  const hfToken = Deno.env.get("HUGGINGFACE_TOKEN");
-  if (!hfToken) throw new Error("HUGGINGFACE_TOKEN not configured");
-
-  const prompt = isChat
-    ? buildChatPrompt(messages, userContext, systemPrompt)
-    : buildDirectPrompt(directPrompt ?? "", systemPrompt);
-
-  const chatMessages: Array<{ role: string; content: string }> = isChat
-    ? [
-        { role: "system", content: buildSystemPrompt(systemPrompt, userContext) },
-        ...messages.slice(0, -1),
-        { role: "user", content: messages.length > 0 ? messages[messages.length - 1].content : prompt },
-      ]
-    : [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: directPrompt ?? "" },
-      ];
-
-  const chatBody = JSON.stringify({
-    model: HF_MODEL,
-    messages: chatMessages,
-    max_tokens: 512,
-    temperature: 0.7,
-    top_p: 0.9,
-  });
-
-  const hfFetch = (timeoutMs: number) =>
-    fetch(`${HF_API_BASE}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${hfToken}`,
-        "Content-Type": "application/json",
-      },
-      signal: AbortSignal.timeout(timeoutMs),
-      body: chatBody,
-    });
-
-  // Free-tier models sleep after ~15 min idle. A "loading" model may hold the
-  // request or abort it instead of answering 503 quickly — so the first
-  // attempt gets 60s and a retry with a 150s budget instead of failing fast.
-  let hfResponse: Response;
-  try {
-    hfResponse = await hfFetch(60_000);
-  } catch {
-    hfResponse = await hfFetch(150_000);
-  }
-
-  // Cold-start: model explicitly reports loading → wait for it
-  if (hfResponse.status === 503) {
-    hfResponse = await hfFetch(150_000);
-  }
-
-  // Rate limit: propagate 429 so client can retry after delay
-  if (hfResponse.status === 429) {
-    const retryAfter = hfResponse.headers.get("retry-after") ?? "30";
-    return new Response(
-      JSON.stringify({ error: "Kael is busy — please try again in $retry-after seconds" }),
-      { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": retryAfter } }
-    );
-  }
-
-  if (!hfResponse.ok) {
-    const errBody = await hfResponse.text().catch(() => "");
-    throw new Error(`HuggingFace error ${hfResponse.status}: ${errBody.slice(0, 200)}`);
-  }
-
-  const data = await hfResponse.json();
-  let generatedText = (data as { choices?: Array<{ message?: { content?: string } }> })
-    ?.choices?.[0]?.message?.content?.trim() ??
-    null;
-
-  if (!generatedText) throw new Error("HuggingFace returned empty response");
-
-  // Strip chat-format tokens if the model echoes them
-  generatedText = generatedText
-    .replace(/<\|im_start\|>[\s\S]*?<\|im_end\|>/g, "")
-    .replace(/<\|im_start\|>/g, "")
-    .replace(/<\|im_end\|>/g, "")
-    .trim();
-
-  if (!generatedText) throw new Error("HuggingFace returned only tokens — model may need warm-up");
-  return generatedText;
-}
-
 // ─── Handler ───────────────────────────────────────────────────────────────
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  // Secret-free health probe (which provider is active + secret presence).
+  const url = new URL(req.url);
+  if (req.method === "GET" && url.searchParams.get("health") === "ai") {
+    return jsonResponse(corsHeaders, getAiHealth());
   }
 
   if (req.method !== "POST") {
@@ -519,38 +389,68 @@ serve(async (req) => {
       systemPrompt = DEFAULT_SYSTEM_PROMPT;
     }
 
-    // Provider: HuggingFace free-tier inference (no Gemini charges).
+    // Build the provider message array (existing prompts/context preserved).
+    const chatMessages: Array<{ role: string; content: string }> = isChat
+      ? [
+          { role: "system", content: buildSystemPrompt(systemPrompt, userContext) },
+          ...messages.slice(0, -1).map((m) => ({
+            role: typeof m?.role === "string" ? m.role : "user",
+            content: typeof m?.content === "string" ? m.content : "",
+          })),
+          {
+            role: "user",
+            content:
+              typeof messages[messages.length - 1]?.content === "string"
+                ? messages[messages.length - 1].content
+                : "",
+          },
+        ]
+      : [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: directPrompt ?? "" },
+        ];
+
+    const callOptions = { maxTokens: 512, temperature: 0.7, topP: 0.9 };
+
+    // ── Chat: real SSE (Workers AI primary → HuggingFace fallback) ─────────
+    if (isChat) {
+      try {
+        const streamed = await streamModel(chatMessages, { ...callOptions, label: "kael-ai:chat" });
+        return new Response(streamed.stream, {
+          status: 200,
+          headers: { ...corsHeaders, ...SSE_HEADERS },
+        });
+      } catch (e) {
+        const providerError = e instanceof Error ? e.message : "AI error";
+        console.error("[kael-ai] AI provider error:", providerError);
+        if (e instanceof AiProviderError && e.status === 429) {
+          const wait = e.retryAfter ?? "30";
+          return sseErrorEvent(corsHeaders, `Kael is busy — please try again in ${wait} seconds`);
+        }
+        return sseErrorEvent(corsHeaders, providerFailureMessage(providerError));
+      }
+    }
+
+    // ── Non-chat: JSON {"response": "..."} (unchanged contract) ────────────
     let text: string | null = null;
     let providerError = "";
     try {
-      text = await callHuggingFace(messages, userContext, directPrompt, systemPrompt, isChat);
+      const result = await callModel(chatMessages, { ...callOptions, label: `kael-ai:${action}` });
+      text = result.text;
     } catch (e) {
-      providerError = e instanceof Error ? e.message : "HuggingFace error";
+      providerError = e instanceof Error ? e.message : "AI error";
+      if (e instanceof AiProviderError && e.status === 429) {
+        const wait = e.retryAfter ?? "30";
+        return jsonResponse(corsHeaders, { error: `Kael is busy — please try again in ${wait} seconds` }, 429);
+      }
     }
-
-    const FALLBACK_RESPONSES = [
-      "I'm here to help with your spiritual questions and church activities.",
-      "How can I assist you today with scripture or church matters?",
-      "I'm ready to guide you — what's on your mind regarding faith or church?",
-    ];
 
     if (!text) {
-      console.error("Kael HF error:", providerError);
-      const isCold = providerError.includes('503') || providerError.includes('loading') || providerError.includes('Model is');
-      const msg = isCold
-        ? "Kael is warming up — please try again in 30 seconds."
-        : "Kael encountered an error — please try again.";
-      if (isChat) return sseErrorEvent(corsHeaders, msg);
-      return jsonResponse(corsHeaders, { error: msg }, 503);
+      console.error("[kael-ai] AI provider error:", providerError);
+      return jsonResponse(corsHeaders, { error: providerFailureMessage(providerError) }, 503);
     }
 
-    // Non-chat actions (summary, dramatize, generate) return plain JSON.
-    if (!isChat) {
-      return jsonResponse(corsHeaders, { response: text });
-    }
-
-    // Chat returns a simulated SSE token stream for the real-time typing UI.
-    return sseTextStream(corsHeaders, text);
+    return jsonResponse(corsHeaders, { response: text });
   } catch (e) {
     const errorMsg = e instanceof Error ? e.message : "Unknown error";
     return sseErrorEvent(corsHeaders, errorMsg);
