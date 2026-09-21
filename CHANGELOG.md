@@ -231,3 +231,29 @@
 - .gitignore updated with key.properties, temp files, build artifacts
 - `flutter analyze`: **0 issues**
 - Build: APK + AAB v1.0.0+224 (AAB 116 MB)
+
+## 2026-09-19 — Maps, navigation, dashboards, streaming, stories, Kael, notifications (v1.0.0+331/+332)
+
+**Maps**
+- Southern Africa z15 PMTiles (ZM+ZW+MW+MZ) cut from the Protomaps planet and published to `https://maps.churchonapp.com/region-zm-zw-mw-mz.pmtiles` (CORS `*`); old `zambia`/`zimbabwe` tiles deleted.
+- POI/business layer (Overpass nearby search + basemap POI symbols) and crowd-sourced traffic (own driver speed heartbeats → ~200 m anonymised segments).
+- >300 MB R2 uploads must use the **S3 API** (dashboard caps at 300 MB; wrangler crashes on Windows with large files).
+
+**Navigation**
+- Real turn-by-turn: OSRM `steps`+`annotations`, typed `RouteStep`s, snap-to-route controller, next-maneuver banner with live countdown + ETA, off-route auto-reroute, spoken maneuvers at ~400/150 m and at the turn, persistent mute, route-steps sheet.
+
+**Dashboards**
+- Bishop = organisation oversight with real RPC rollups and charts; Pastor = single branch. Duplicate tiles removed; duplicate "Secure Leadership Memos" fixed; bishops no longer routed to the basic admin hub.
+
+**Streaming**
+- R2 archive before input teardown; in-app replay of `archive_url` with LIVE→REPLAY; provider-neutral tenant config; paid quality 360p→720p; `church_live_status` upsert (fixes 23505); WHIP SDP `v=0` fix.
+- "Unavailable/offline/invalid link" regression fixed via automatic `refresh_live_input` repair + auto-retry + state-aware copy. Real viewer count, live verse overlays, speaker details + editable caption, marquee ticker, projector/big-screen, QR share, cast + encoder/drone panels. Live chat contrast fixed.
+
+**Stories** — durations (24 h/1 week/1 month/custom ≤1 year), reactions, archive, highlights, text-overflow fix.
+**Kael** — non-dismissing sheet with selectable text, COPY/COPY ALL/REGENERATE; "Draft with Kael" on posts, products, klips, stories, events.
+**Bookshop** — 42P17 fixed, close crash fixed, searchable staff picker, searchable lists, seamless tenant switching, marketplace cross-listing, order status machine, low stock, sales summary, CSV export.
+**Quiz** — superadmin/COA tournament admin (custom seasons, prizes, publish/feature/cancel), awards ledger, trackable promo codes awardable to any user.
+**Verse of the Day** — 458 curated KJV verses, deterministic 458-day rotation, 201-verse offline fallback; branded in-Flutter stream posters + logo default thumbnail.
+**Notifications** — FCM payload converted to snake_case (camelCase was silently ignored → wrong default channel → no lock-screen sound), channels/aliases expanded, auto-push added for previously silent types.
+**Edge Functions** — all 31 audited; `export-user-data`, `export-church-data`, `delete-account` now wired into the app; server-only and ops functions left alone.
+**Release** — APK +331 / AAB +332 on R2; all superseded builds pruned (11 APKs + 7 AABs); web redeployed.
