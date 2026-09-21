@@ -297,7 +297,14 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
       return;
     }
 
-    // 4) Silent auto-retry with backoff before ever exposing RETRY.
+    // 4) Hard bound: never spin silently forever. After several failed attempts
+    //    with no repaired URL and no live-input waiting state, surface RETRY.
+    if (_totalFailures > 6) {
+      if (mounted) setState(() => _phase = _PlayerPhase.error);
+      return;
+    }
+
+    // 5) Silent auto-retry with backoff before ever exposing RETRY.
     if (_autoRetries < _maxAutoRetries) {
       _autoRetries++;
       final delay = Duration(seconds: 3 * _autoRetries);
@@ -317,7 +324,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
       return;
     }
 
-    // 5) Give up → state-specific error copy (never "offline" while live).
+    // 6) Give up → state-specific error copy (never "offline" while live).
     if (mounted) setState(() => _phase = _PlayerPhase.error);
   }
 

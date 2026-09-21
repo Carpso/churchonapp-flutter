@@ -1,9 +1,17 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:universal_io/io.dart';
+
+import '../config/app_constants.dart';
 
 class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final _player = AudioPlayer();
+
+  /// Local `file://` URI of the bundled logo, resolved once and reused.
+  static Uri? _defaultArtUri;
 
   MyAudioHandler() {
     // Notify the system about the current state of the player
@@ -43,7 +51,7 @@ class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       album: extras?['album'] ?? "Radio",
       title: extras?['title'] ?? "Live Stream",
       artist: extras?['artist'] ?? "Church On App",
-      artUri: Uri.parse(extras?['artUri'] ?? "https://media.churchonapp.com/radio_cover.png"),
+      artUri: _sanitizeArtUri(extras?['artUri']) ?? await _resolveDefaultArt(),
       // Carry through so the mini-player can deep-link back to the source
       // (e.g. `route: /sermon/<id>`).
       extras: extras,
@@ -56,6 +64,43 @@ class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     } catch (e) {
       debugPrint("Error loading audio: $e");
       rethrow;
+    }
+  }
+
+  /// Accepts a caller-supplied art URI only when it is well-formed and has a
+  /// scheme `audio_service` can actually load. Empty strings, garbage and
+  /// `asset:` URIs (which the plugin cannot download) are rejected so the
+  /// local logo is used instead — a missing cover can never be passed as a
+  /// remote URL that 404s and spams the console.
+  Uri? _sanitizeArtUri(Object? raw) {
+    if (raw is! String) return null;
+    final value = raw.trim();
+    if (value.isEmpty) return null;
+    final uri = Uri.tryParse(value);
+    if (uri == null) return null;
+    const allowed = {'http', 'https', 'file', 'content'};
+    return allowed.contains(uri.scheme) ? uri : null;
+  }
+
+  /// Materialises the bundled brand logo to a local `file://` URI so the OS
+  /// notification/artwork always resolves — `audio_service` reads `file` URIs
+  /// directly and never performs an HTTP request for them, so this cannot 404.
+  Future<Uri?> _resolveDefaultArt() async {
+    if (_defaultArtUri != null) return _defaultArtUri;
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/coa_default_art.png');
+      if (!await file.exists()) {
+        final data = await rootBundle.load(AppConstants.logoAsset);
+        await file.writeAsBytes(
+          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+          flush: true,
+        );
+      }
+      return _defaultArtUri = Uri.file(file.path);
+    } catch (e) {
+      debugPrint('Audio default artwork unavailable (non-fatal): $e');
+      return null;
     }
   }
 

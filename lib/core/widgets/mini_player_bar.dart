@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../config/app_constants.dart';
 import '../providers/audio_provider.dart';
+import 'app_image.dart';
 
 /// Persistent "now playing" strip shown above the bottom navigation.
 ///
@@ -70,14 +72,11 @@ class MiniPlayerBar extends ConsumerWidget {
                         child: SizedBox(
                           width: 40,
                           height: 40,
-                          child: art.isNotEmpty
-                              ? Image.network(
-                                  art,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      _artFallback(theme),
-                                )
-                              : _artFallback(theme),
+                          child: AppImage(
+                            art,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __) => _artFallback(),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -131,10 +130,13 @@ class MiniPlayerBar extends ConsumerWidget {
     );
   }
 
-  Widget _artFallback(ThemeData theme) {
-    return Container(
-      color: theme.primaryColor.withValues(alpha: 0.15),
-      child: Icon(LucideIcons.music, size: 18, color: theme.primaryColor),
+  /// Missing cover art degrades to the bundled brand logo (never a broken
+  /// image or a repeated 404).
+  Widget _artFallback() {
+    return Image.asset(
+      AppConstants.logoAsset,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
     );
   }
 }

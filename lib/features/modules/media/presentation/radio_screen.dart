@@ -6,6 +6,7 @@ import 'package:audio_service/audio_service.dart';
 import '../data/radio_service.dart';
 import 'package:church_on_app/core/providers/audio_provider.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
+import 'package:church_on_app/core/config/app_constants.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'dart:math' as math;
@@ -180,7 +181,10 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
               child: AppImage(
                 '',
                 fit: BoxFit.cover,
-                color: Colors.black38,
+                errorWidget: (_, __) => Image.asset(
+                  AppConstants.logoAsset,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           ),
@@ -488,6 +492,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
       await service.playStation(station);
     } catch (e) {
       if (mounted) {
+        setState(() => _unavailable.add(station.id));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Could not play ${station.name}: ${e.toString().replaceFirst('Exception: ', '')}')),
         );
