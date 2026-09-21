@@ -11,6 +11,7 @@ import 'package:church_on_app/features/home/presentation/live_stream_screen.dart
 import 'package:church_on_app/features/home/data/live_streaming_service.dart';
 import 'package:church_on_app/features/bible/presentation/deep_study_suite_screen.dart';
 import 'package:church_on_app/core/widgets/kael_explain_sheet.dart';
+import 'package:church_on_app/features/media/presentation/transcript_status_chip.dart';
 
 class SermonLibraryScreen extends ConsumerStatefulWidget {
   const SermonLibraryScreen({super.key});
@@ -408,6 +409,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
                           ),
                         ),
                       const Spacer(),
+                      TranscriptStatusChip(sermonId: sermon.id),
                       if (sermon.durationMinutes != null) ...[
                         const Icon(LucideIcons.clock, color: Colors.white70, size: 12),
                         const SizedBox(width: 4),
@@ -572,6 +574,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
                           ),
                         ),
                       ),
+                      TranscriptStatusChip(sermonId: sermon.id),
                       if (sermon.durationMinutes != null) ...[
                         Icon(LucideIcons.clock, size: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
                         const SizedBox(width: 5),

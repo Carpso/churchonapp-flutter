@@ -308,6 +308,33 @@ final liveStreamTranscriptProvider =
   return ref.watch(transcriptServiceProvider).fetchForLiveStream(liveStreamId);
 });
 
+/// A transcript target. A Dart record so the family key has value equality
+/// (NEVER key a family with a Map/List — see AGENTS.md).
+typedef TranscriptKey = ({String? sermonId, String? liveStreamId});
+
+/// Live transcript status: emits immediately, then re-polls every few seconds
+/// while the job is pending/processing, and stops as soon as it is ready/failed.
+///
+/// Polling (not a realtime subscription) on purpose: a `media_transcripts` row
+/// carries the full transcript + segments + VTT, and we do not want to
+/// broadcast that payload on every chunk update.
+final transcriptPollProvider = StreamProvider.autoDispose
+    .family<MediaTranscript?, TranscriptKey>((ref, key) async* {
+  final service = ref.watch(transcriptServiceProvider);
+  while (true) {
+    MediaTranscript? transcript;
+    if (key.sermonId != null) {
+      transcript = await service.fetchForSermon(key.sermonId!);
+    } else if (key.liveStreamId != null) {
+      transcript = await service.fetchForLiveStream(key.liveStreamId!);
+    }
+    yield transcript;
+    if (transcript == null || transcript.isReady || transcript.isFailed) break;
+    await Future<void>.delayed(const Duration(seconds: 6));
+  }
+});
+
+
 /// Persisted subtitles/captions on/off preference.
 class CaptionsNotifier extends Notifier<bool> {
   static const _key = 'player_captions_enabled';

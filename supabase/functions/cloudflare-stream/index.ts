@@ -287,7 +287,7 @@ serve(async (req) => {
         if (streamId) {
           const { data: row } = await supabaseAuth
             .from("live_streams")
-            .select("id, church_id, cloudflare_stream_id, cloudflare_video_id")
+            .select("id, church_id, cloudflare_stream_id, cloudflare_video_id, archive_url, archive_status")
             .eq("id", streamId)
             .maybeSingle();
           if (!row) {
@@ -305,7 +305,7 @@ serve(async (req) => {
 
         const { data: byVideo } = await supabaseAuth
           .from("live_streams")
-          .select("id, church_id, cloudflare_stream_id, cloudflare_video_id")
+          .select("id, church_id, cloudflare_stream_id, cloudflare_video_id, archive_url, archive_status")
           .eq("cloudflare_video_id", videoIdParam)
           .maybeSingle();
         if (!byVideo || (!isSuper && byVideo.church_id !== profile?.tenant_id)) {
@@ -838,11 +838,28 @@ async function archiveRecording(
     return json({ error: "No recording found for this stream yet" }, 404);
   }
 
+  // Idempotency: never re-copy (and therefore never double-charge Stream egress
+  // / R2 bandwidth for) a recording that is already the permanent master.
+  if (
+    row?.id &&
+    row.archive_status === "ready" &&
+    typeof row.archive_url === "string" &&
+    row.archive_url.length > 0 &&
+    (row.cloudflare_video_id ?? videoId) === videoId
+  ) {
+    return json({
+      success: true,
+      already_archived: true,
+      archive_url: row.archive_url,
+      video_id: videoId,
+    });
+  }
+
   if (row?.id) {
     await supabase
       .from("live_streams")
       .update({
-        archive_status: "archiving",
+        archive_status: "processing",
         archive_error: null,
         // Persist the resolved video id so every later retry (and the nightly
         // cron) is deterministic and no longer depends on the live input.
@@ -872,6 +889,18 @@ async function archiveRecording(
     const def = dlJson?.result?.default;
     const downloadUrl = def?.url as string | undefined;
     if (!downloadUrl) {
+      // The recording is not downloadable yet (Stream still finalising). Mark
+      // it queued so the archive sweep retries it instead of leaving a stale
+      // `processing` row that nothing would ever pick up.
+      if (row?.id) {
+        await supabase
+          .from("live_streams")
+          .update({
+            archive_status: "queued",
+            archive_error: `recording_not_ready (${def?.status ?? "unknown"})`,
+          })
+          .eq("id", row.id);
+      }
       return json(
         { error: "Recording download is not ready yet", status: def?.status ?? "unknown" },
         409,
@@ -886,7 +915,7 @@ async function archiveRecording(
       region: "auto",
     });
 
-    const key = `stream-archive/${videoId}.mp4`;
+    const key = `stream-recordings/${row?.id ?? videoId}.mp4`;
     const putUrl = `${R2_ENDPOINT.replace(/\/+$/, "")}/${R2_BUCKET}/${key}`;
 
     const source = await fetch(downloadUrl);
@@ -894,13 +923,22 @@ async function archiveRecording(
       throw new Error(`Cloudflare download failed (${source.status})`);
     }
 
+    // The body is piped straight from Stream's download URL to R2 — no
+    // in-memory buffering, so multi-GB recordings do not blow the Edge heap.
+    // NOTE: the Edge *wall clock* is still finite; a very long copy can be
+    // killed mid-PUT. That leaves the row `processing`, which the archive sweep
+    // retries (overwriting the partial object at the same key).
+    const putHeaders: Record<string, string> = {
+      "content-type": "video/mp4",
+      // Required for a streamed (unhashable) body.
+      "x-amz-content-sha256": "UNSIGNED-PAYLOAD",
+    };
+    const contentLength = Number(source.headers.get("content-length") ?? 0);
+    if (contentLength > 0) putHeaders["content-length"] = String(contentLength);
+
     const put = await aws.fetch(putUrl, {
       method: "PUT",
-      headers: {
-        "content-type": "video/mp4",
-        // Required for a streamed (unhashable) body.
-        "x-amz-content-sha256": "UNSIGNED-PAYLOAD",
-      },
+      headers: putHeaders,
       body: source.body,
     });
     if (!put.ok) {
@@ -920,6 +958,7 @@ async function archiveRecording(
           archive_status: "ready",
           archived_at: new Date().toISOString(),
           archive_error: null,
+          archive_attempts: 0,
         })
         .eq("id", row.id);
     }

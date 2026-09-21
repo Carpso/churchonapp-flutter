@@ -424,7 +424,10 @@ function mergeSegments(existing: WhisperSegment[] | null, added: WhisperSegment[
 }
 
 async function processRow(
-  supabase: ReturnType<typeof createClient>,
+  // Untyped service-role client (the generated DB types are not shipped to the
+  // edge runtime, so callers use the untyped `any` shape, as elsewhere).
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
   row: TranscriptRow,
   deadline: number,
 ): Promise<{ status: string; error?: string; chunksDone: number }> {

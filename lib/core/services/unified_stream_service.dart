@@ -371,7 +371,7 @@ class UnifiedStreamService {
       final cutoff = DateTime.now().subtract(Duration(days: retentionDays));
       final oldStreams = await _client
           .from('live_streams')
-          .select('id, cloudflare_stream_id, archive_status')
+          .select('id, cloudflare_stream_id, cloudflare_video_id, archive_status')
           .eq('church_id', tenantId)
           .eq('status', 'ended')
           .lt('ended_at', cutoff.toIso8601String())
@@ -392,13 +392,18 @@ class UnifiedStreamService {
           }
         }
 
-        // Delete from Cloudflare Stream (frees storage) — R2 holds the master.
-        if (stream['cloudflare_stream_id'] != null) {
+        // Delete the RECORDING (the video uid) from Cloudflare Stream — NOT the
+        // live input id, which is a different identifier (passing it deleted
+        // nothing). R2 holds the permanent master. `stream_id` is required by
+        // the Edge ownership check alongside `video_id`.
+        final videoUid = stream['cloudflare_video_id']?.toString();
+        if (videoUid != null && videoUid.isNotEmpty) {
           await _client.functions.invoke(
             'cloudflare-stream',
             body: {
               'action': 'delete_video',
-              'video_id': stream['cloudflare_stream_id'],
+              'stream_id': stream['id']?.toString(),
+              'video_id': videoUid,
             },
             headers: _cloudflareHeaders(),
           );

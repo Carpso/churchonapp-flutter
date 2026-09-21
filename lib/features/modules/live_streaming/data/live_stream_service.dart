@@ -84,19 +84,19 @@ class LiveStreamService {
     return [];
   }
 
-  /// Past services with an R2 master copy ready to play back in-app.
+  /// Past services with their real archive state.
   ///
-  /// `archive_url` is the permanent R2 URL, so a replay survives even after
-  /// Cloudflare Stream deletes the recording at the end of retention.
+  /// Ready rows play from the permanent R2 `archive_url`; rows still
+  /// queued/processing (or failed) are returned too so the UI can show
+  /// "Processing recording…" / a retry instead of hiding them.
   Future<List<Map<String, dynamic>>> getRecentRecordings({int limit = 12}) async {
     try {
       final result = await _client
           .from('live_streams')
-          .select('$_publicStreamColumns, churches(id, name, logo_url)')
-          .eq('archive_status', 'ready')
-          .not('archive_url', 'is', null)
+          .select('$_publicStreamColumns, archive_error, churches(id, name, logo_url)')
           .inFilter('status', ['ended', 'archived'])
-          .order('archived_at', ascending: false)
+          .not('cloudflare_stream_id', 'is', null)
+          .order('ended_at', ascending: false)
           .limit(limit);
       return List<Map<String, dynamic>>.from(result);
     } catch (e) {
@@ -397,10 +397,22 @@ final upcomingStreamsProvider = FutureProvider<List<Map<String, dynamic>>>((ref)
   return service.getUpcomingStreams();
 });
 
-/// Past services whose R2 archive is ready — replayable in-app.
-final recentRecordingsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+/// Past services (ready + still-archiving) — replayable once the R2 master is
+/// ready. Re-polls while any recording is queued/processing so the list updates
+/// on its own, then stops.
+final recentRecordingsProvider =
+    StreamProvider<List<Map<String, dynamic>>>((ref) async* {
   final service = ref.watch(liveStreamServiceProvider);
-  return service.getRecentRecordings();
+  while (true) {
+    final rows = await service.getRecentRecordings();
+    yield rows;
+    final working = rows.any((r) {
+      final s = (r['archive_status'] ?? 'none').toString();
+      return s == 'queued' || s == 'processing' || s == 'archiving';
+    });
+    if (!working) break;
+    await Future<void>.delayed(const Duration(seconds: 15));
+  }
 });
 
 /// The church's current live stream row (or null). Keyed by tenant id.

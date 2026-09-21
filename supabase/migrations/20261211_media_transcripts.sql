@@ -332,7 +332,7 @@ BEGIN
 
   v_query := websearch_to_tsquery('english', p_query);
 
-  SELECT COALESCE(jsonb_agg(row_to_json(t)), '[]'::jsonb)
+  SELECT COALESCE(jsonb_agg(to_jsonb(t)), '[]'::jsonb)
     INTO v_results
     FROM (
       SELECT

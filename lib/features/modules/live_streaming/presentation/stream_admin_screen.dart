@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,11 +32,32 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
   bool _isTrial = true;
   List<Map<String, dynamic>> _recordings = [];
   String? _archivingId;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _loadConfig();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Re-poll while any recording is still queued/processing so the archive
+  /// state updates on its own (and stops once nothing is working).
+  void _schedulePoll() {
+    _pollTimer?.cancel();
+    final working = _recordings.any((r) {
+      final s = (r['archive_status'] ?? 'none').toString();
+      return s == 'queued' || s == 'processing' || s == 'archiving';
+    });
+    if (!working) return;
+    _pollTimer = Timer(const Duration(seconds: 15), () {
+      if (mounted) _loadConfig();
+    });
   }
 
   Future<void> _loadConfig() async {
@@ -114,6 +137,7 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
         _recordings = recordings;
         _loading = false;
       });
+      _schedulePoll();
     } catch (e) {
       debugPrint('Failed to load stream config: $e');
       if (mounted) setState(() => _loading = false);
@@ -168,6 +192,8 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
           final busy = _archivingId == s['id'];
           final (color, label) = switch (status) {
             'ready' => (Colors.green, 'ARCHIVED'),
+            'queued' => (Colors.orange, 'QUEUED'),
+            'processing' => (Colors.orange, 'PROCESSING…'),
             'archiving' => (Colors.orange, 'ARCHIVING…'),
             'failed' => (Colors.red, 'FAILED'),
             _ => (Colors.grey, 'NOT ARCHIVED'),

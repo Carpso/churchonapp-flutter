@@ -6,6 +6,8 @@ import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/branded_stream_poster.dart';
 import 'package:go_router/go_router.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/live_stream_service.dart';
+import 'package:church_on_app/core/services/unified_stream_service.dart';
+import 'package:church_on_app/features/media/presentation/transcript_status_chip.dart';
 
 class LiveStreamingScreen extends ConsumerWidget {
   const LiveStreamingScreen({super.key});
@@ -36,6 +38,7 @@ class LiveStreamingScreen extends ConsumerWidget {
         onRefresh: () async {
           ref.invalidate(activeStreamsProvider);
           ref.invalidate(upcomingStreamsProvider);
+          ref.invalidate(recentRecordingsProvider);
         },
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -136,7 +139,7 @@ class LiveStreamingScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             recentAsync.when(
-              data: (streams) => _replaySection(context, streams),
+              data: (streams) => _replaySection(context, ref, streams, isLeader),
               loading: () => const SizedBox.shrink(),
               error: (_, __) => const SizedBox.shrink(),
             ),
@@ -146,7 +149,12 @@ class LiveStreamingScreen extends ConsumerWidget {
     );
   }
 
-  Widget _replaySection(BuildContext context, List<Map<String, dynamic>> streams) {
+  Widget _replaySection(
+    BuildContext context,
+    WidgetRef ref,
+    List<Map<String, dynamic>> streams,
+    bool isLeader,
+  ) {
     if (streams.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
     return Column(
@@ -165,7 +173,7 @@ class LiveStreamingScreen extends ConsumerWidget {
           style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
         ),
         const SizedBox(height: 12),
-        ...streams.map((stream) => _replayTile(context, stream)),
+        ...streams.map((stream) => _replayTile(context, ref, stream, isLeader)),
       ],
     );
   }
@@ -275,8 +283,28 @@ class LiveStreamingScreen extends ConsumerWidget {
     );
   }
 
-  Widget _replayTile(BuildContext context, Map<String, dynamic> stream) {
+  Widget _replayTile(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> stream,
+    bool isLeader,
+  ) {
     final theme = Theme.of(context);
+    final streamId = stream['id']?.toString();
+    final status = (stream['archive_status'] ?? 'none').toString();
+    final archive = stream['archive_url']?.toString() ?? '';
+    final ready = status == 'ready' && archive.isNotEmpty;
+    final working =
+        status == 'queued' || status == 'processing' || status == 'archiving';
+    final failed = status == 'failed';
+    final error = (stream['archive_error'] ?? '').toString();
+
+    final subtitle = working
+        ? 'Processing recording…'
+        : failed
+            ? (error.isNotEmpty ? 'Archive failed · $error' : 'Archive failed')
+            : 'Recorded ${_formatScheduled(stream['ended_at'] ?? stream['archived_at'])}';
+
     return Card(
       child: ListTile(
         leading: _thumb(stream),
@@ -286,14 +314,67 @@ class LiveStreamingScreen extends ConsumerWidget {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold),
         ),
-        subtitle: Text(
-          'Recorded ${_formatScheduled(stream['ended_at'] ?? stream['archived_at'])}',
-          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+            ),
+            if (streamId != null && streamId.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TranscriptStatusChip(liveStreamId: streamId),
+                ),
+              ),
+          ],
         ),
-        trailing: const Icon(Icons.play_circle_fill, color: Colors.red),
-        onTap: () => _openPlayer(context, stream, live: false),
+        trailing: ready
+            ? const Icon(Icons.play_circle_fill, color: Colors.red)
+            : working
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : (failed && isLeader && streamId != null
+                    ? IconButton(
+                        tooltip: 'Retry archive',
+                        icon: const Icon(LucideIcons.refreshCw,
+                            size: 18, color: Colors.red),
+                        onPressed: () => _retryArchive(context, ref, streamId),
+                      )
+                    : const SizedBox.shrink()),
+        onTap: ready ? () => _openPlayer(context, stream, live: false) : null,
       ),
     );
+  }
+
+  Future<void> _retryArchive(
+    BuildContext context,
+    WidgetRef ref,
+    String streamId,
+  ) async {
+    try {
+      await ref.read(unifiedStreamServiceProvider).archiveRecording(streamId);
+      ref.invalidate(recentRecordingsProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Archive retry started…')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Archive retry failed: $e')),
+        );
+      }
+    }
   }
 
   /// Opens the viewer. Live streams use HLS; replays use the R2 archive URL —
