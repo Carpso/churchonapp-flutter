@@ -177,6 +177,11 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
           'church_id': churchId,
         });
       } else if (_targetFolder == 'sermons') {
+        // Only a genuine AUDIO upload may write `audio_url`. A video upload
+        // (Cloudflare HLS or R2 MP4) must leave audio_url NULL: the player
+        // treats a non-empty audio_url as "audio-only sermon", so writing the
+        // video URL into audio_url made every sermon play as audio-only.
+        final isAudioUpload = _mediaType == 'audio';
         final inserted = await client
             .from('sermons')
             .insert({
@@ -185,8 +190,8 @@ class _MediaUploadScreenState extends ConsumerState<MediaUploadScreen> {
               'title': _titleController.text,
               'speaker': _speakerController.text.isEmpty ? 'Church Ministry' : _speakerController.text,
               'preacher': _speakerController.text.isEmpty ? 'Church Ministry' : _speakerController.text,
-              'video_url': _mediaType == 'video' ? publicUrl : null,
-              'audio_url': _mediaType == 'audio' ? publicUrl : null,
+              'video_url': isAudioUpload ? null : publicUrl,
+              'audio_url': isAudioUpload ? publicUrl : null,
               'archive_url': r2ArchiveUrl,
               'cloudflare_video_id': cfVideoId,
               'thumbnail_url': cfThumbnail ?? '',

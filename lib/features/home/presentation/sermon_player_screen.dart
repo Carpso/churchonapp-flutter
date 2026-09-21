@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
@@ -87,6 +88,16 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
   Duration _audioDuration = Duration.zero;
   final List<StreamSubscription<dynamic>> _audioSubs = [];
 
+  /// The viewer's persisted "audio only" choice for THIS sermon. A sermon that
+  /// has a playable video source renders video by default; the toggle lets the
+  /// viewer drop to audio and switch back.
+  bool _preferAudioOnly = false;
+
+  /// True once we know the sermon actually has a playable video source.
+  bool _hasVideoSource = false;
+
+  String get _audioOnlyPrefKey => 'sermon_audio_only_${widget.sermon.id}';
+
   static bool _looksLikeAudio(String url) {
     final clean = url.split('?').first.toLowerCase();
     return clean.endsWith('.mp3') ||
@@ -102,9 +113,21 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
   void initState() {
     super.initState();
     _amenCount = widget.sermon.amenCount;
-    _initializePlayer();
+    _bootstrapPlayer();
     _loadUserReaction();
     _recordView();
+  }
+
+  /// Loads the persisted audio-only preference, then starts playback.
+  Future<void> _bootstrapPlayer() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _preferAudioOnly = prefs.getBool(_audioOnlyPrefKey) ?? false;
+    } catch (e) {
+      debugPrint('Audio-only preference load failed (non-fatal): $e');
+    }
+    if (!mounted) return;
+    await _initializePlayer();
   }
 
   /// Counts this sermon as viewed (server dedupes to 1 per user per 6h).
@@ -127,7 +150,63 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
   }
 
   bool get _hasValidMedia {
-    return widget.sermon.videoUrl.isNotEmpty || widget.sermon.audioUrl.isNotEmpty;
+    return widget.sermon.videoUrl.isNotEmpty ||
+        widget.sermon.audioUrl.isNotEmpty ||
+        widget.sermon.archiveUrl.isNotEmpty;
+  }
+
+  /// Tears down whatever is currently playing so the stage can be re-selected
+  /// (used by the audio-only toggle and by RETRY).
+  Future<void> _resetPlayers() async {
+    try {
+      final handler = ref.read(audioHandlerProvider);
+      if (_audioPlayer == null && handler != null) {
+        await handler.stop();
+      }
+    } catch (e) {
+      debugPrint('Audio stop on reset failed (non-fatal): $e');
+    }
+    for (final s in _audioSubs) {
+      await s.cancel();
+    }
+    _audioSubs.clear();
+    if (_hasInitialized) {
+      await _videoController.dispose();
+      _hasInitialized = false;
+    }
+    try {
+      await _audioPlayer?.dispose();
+    } catch (e) {
+      debugPrint('Audio player dispose failed (non-fatal): $e');
+    }
+    _audioPlayer = null;
+    _ytController?.close();
+    _ytController = null;
+    _ytId = null;
+    _isAudioOnly = false;
+    _resolvedVideoUrl = '';
+    _hlsVariants = [];
+    _activeVariantUrl = null;
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+    }
+  }
+
+  /// Flips the persisted audio-only preference and re-selects the stage.
+  Future<void> _toggleAudioOnly() async {
+    _preferAudioOnly = !_preferAudioOnly;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_audioOnlyPrefKey, _preferAudioOnly);
+    } catch (e) {
+      debugPrint('Audio-only preference save failed (non-fatal): $e');
+    }
+    await _resetPlayers();
+    if (!mounted) return;
+    await _initializePlayer();
   }
 
   Future<void> _initializePlayer() async {
@@ -143,62 +222,85 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
 
     if (mounted) setState(() { _isLoading = true; _hasError = false; });
 
+    final videoUrl = widget.sermon.videoUrl.trim();
+    final audioUrl = widget.sermon.audioUrl.trim();
+    final archiveUrl = widget.sermon.archiveUrl.trim();
+
+    // A playable VIDEO source is any non-empty URL that is not an audio file:
+    // a YouTube link, a Cloudflare Stream HLS manifest, or an R2/direct MP4.
+    // When video_url is missing we fall back to the R2 master archive.
+    String videoSource = '';
+    if (videoUrl.isNotEmpty && !_looksLikeAudio(videoUrl)) {
+      videoSource = videoUrl;
+    } else if (audioUrl.isEmpty &&
+        archiveUrl.isNotEmpty &&
+        !_looksLikeAudio(archiveUrl)) {
+      videoSource = archiveUrl;
+    }
+    _hasVideoSource = videoSource.isNotEmpty;
+
+    // Playable audio track: the dedicated audio_url when present, otherwise the
+    // audio track of the video source (so "audio only" still works for MP4/HLS).
+    final audioSource = audioUrl.isNotEmpty
+        ? audioUrl
+        : (videoUrl.isNotEmpty ? videoUrl : archiveUrl);
+
+    final genuinelyAudio = videoSource.isEmpty && audioSource.isNotEmpty;
+    final useAudio = _preferAudioOnly && audioSource.isNotEmpty || genuinelyAudio;
+
     try {
       final client = ref.read(supabaseServiceProvider).client;
       final r2 = R2Service(client);
-      final rawUrl = widget.sermon.videoUrl.isNotEmpty ? widget.sermon.videoUrl : widget.sermon.audioUrl;
 
-      // YouTube sources are played through an embedded YouTube player — the
-      // raw `video_player` (ExoPlayer/AVPlayer) cannot play a YouTube page URL,
-      // which is why most listed sermons previously showed "Stream Unavailable".
-      final ytId = youTubeVideoIdFromUrl(rawUrl);
-      if (ytId != null) {
-        _ytId = ytId;
-        _ytController = YoutubePlayerController.fromVideoId(
-          videoId: ytId,
-          autoPlay: true,
-          params: const YoutubePlayerParams(
-            showFullscreenButton: true,
-            showControls: true,
-            playsInline: true,
-            strictRelatedVideos: true,
-            showVideoAnnotations: false,
-          ),
-        );
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _hasError = false;
-          });
+      if (!useAudio) {
+        // YouTube sources are played through an embedded YouTube player — the
+        // raw `video_player` (ExoPlayer/AVPlayer) cannot play a YouTube page URL.
+        final ytId = youTubeVideoIdFromUrl(videoSource);
+        if (ytId != null) {
+          _ytId = ytId;
+          _ytController = YoutubePlayerController.fromVideoId(
+            videoId: ytId,
+            autoPlay: true,
+            params: const YoutubePlayerParams(
+              showFullscreenButton: true,
+              showControls: true,
+              playsInline: true,
+              strictRelatedVideos: true,
+              showVideoAnnotations: false,
+            ),
+          );
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _hasError = false;
+            });
+          }
+          return;
         }
+
+        final resolved = await r2.getSignedUrl(videoSource);
+        _resolvedVideoUrl = resolved ?? videoSource;
+        _loadHlsVariants(_resolvedVideoUrl);
+
+        _videoController =
+            VideoPlayerController.networkUrl(Uri.parse(_resolvedVideoUrl));
+        _videoController.addListener(() {
+          if (mounted) setState(() {});
+        });
+        await _videoController.initialize();
+        _hasInitialized = true;
+        _videoController.play();
+        final startAt = widget.initialPosition;
+        if (startAt != null && startAt > Duration.zero) {
+          await _videoController.seekTo(startAt);
+        }
+        if (mounted) setState(() { _isLoading = false; });
         return;
       }
 
-      // Audio-only sermon (mp3/m4a/wav/…) — use a real audio player. Feeding an
-      // audio file to `video_player` renders a black stage with no seek UX.
-      final isAudio = widget.sermon.videoUrl.isEmpty || _looksLikeAudio(widget.sermon.videoUrl);
-      if (isAudio) {
-        final resolved = await r2.getSignedUrl(rawUrl) ?? rawUrl;
-        await _initAudioPlayer(resolved);
-        return;
-      }
-
-      final resolved = await r2.getSignedUrl(rawUrl);
-      _resolvedVideoUrl = resolved ?? rawUrl;
-      _loadHlsVariants(_resolvedVideoUrl);
-
-      _videoController = VideoPlayerController.networkUrl(Uri.parse(_resolvedVideoUrl));
-      _videoController.addListener(() {
-        if (mounted) setState(() {});
-      });
-      await _videoController.initialize();
-      _hasInitialized = true;
-      _videoController.play();
-      final startAt = widget.initialPosition;
-      if (startAt != null && startAt > Duration.zero) {
-        await _videoController.seekTo(startAt);
-      }
-      if (mounted) setState(() { _isLoading = false; });
+      // Audio-only stage — genuine audio, or the viewer's audio-only choice.
+      final resolved = await r2.getSignedUrl(audioSource) ?? audioSource;
+      await _initAudioPlayer(resolved);
     } catch (e) {
       debugPrint("Sermon player init error: $e");
       if (mounted) {
@@ -571,6 +673,41 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
     }
   }
 
+  /// Explicit, persisted audio-only switch for a sermon that HAS video.
+  /// Tapping it drops to the audio track (and back) without leaving the screen.
+  Widget _buildAudioOnlyToggle() {
+    return Material(
+      color: Colors.black45,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: _toggleAudioOnly,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _isAudioOnly ? LucideIcons.video : LucideIcons.headphones,
+                color: Colors.white,
+                size: 13,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _isAudioOnly ? 'VIDEO' : 'AUDIO',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildScaffold(BuildContext context, Widget? ytPlayer) {
     final transcript =
         ref.watch(sermonTranscriptProvider(widget.sermon.id)).value;
@@ -686,6 +823,8 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                 right: 6,
                 child: Row(
                   children: [
+                    if (_hasVideoSource) _buildAudioOnlyToggle(),
+                    const SizedBox(width: 6),
                     if (ytPlayer == null) const CcToggleButton(),
                     const SizedBox(width: 6),
                     TranscribeAction(
@@ -863,16 +1002,9 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
             ),
             const SizedBox(height: 16),
             GestureDetector(
-              onTap: () {
-                // `_videoController` is `late` — only dispose it if it was ever
-                // assigned (init can fail before that and throw
-                // LateInitializationError here).
-                if (_hasInitialized) {
-                  _videoController.dispose();
-                  _hasInitialized = false;
-                }
-                _resolvedVideoUrl = '';
-                _initializePlayer();
+              onTap: () async {
+                await _resetPlayers();
+                if (mounted) await _initializePlayer();
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
@@ -891,7 +1023,6 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       );
     }
 
-    final bool isInitialized = _videoController.value.isInitialized;
     final bool isPlaying = _videoController.value.isPlaying;
     final Duration position = _videoController.value.position;
     final Duration duration = _videoController.value.duration;
@@ -903,164 +1034,105 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          ResolvedR2Image(
-            url: widget.sermon.thumbnailUrl,
-            builder: (context, resolvedUrl) => CachedNetworkImage(
-              imageUrl: resolvedUrl,
-              fit: BoxFit.cover,
-              memCacheWidth: 360,
-              memCacheHeight: 640,
-              color: Colors.black.withValues(alpha: 0.85),
-              colorBlendMode: BlendMode.dstATop,
-              placeholder: (context, url) => Container(color: Colors.black87, child: const Center(child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2))),
-              errorWidget: (context, url, error) => Container(color: Colors.black87, child: const Icon(Icons.broken_image, color: Colors.grey)),
+          Center(
+            child: AspectRatio(
+              aspectRatio: _videoController.value.aspectRatio > 0
+                  ? _videoController.value.aspectRatio
+                  : 16 / 9,
+              child: VideoPlayer(_videoController),
             ),
           ),
-          SafeArea(
-        bottom: false,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
+          // Transparent tap layer so play/pause works without obstructing the
+          // native video surface.
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => setState(() {
+              if (isPlaying) {
+                _videoController.pause();
+              } else {
+                _videoController.play();
+              }
+            }),
+          ),
+          // Compact controls overlaid at the bottom of the video.
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(12, 24, 12, 6),
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Theme.of(context).primaryColor, width: 3),
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.4),
-                    blurRadius: 15,
-                    spreadRadius: 2,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)],
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 3,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                      activeTrackColor: Theme.of(context).primaryColor,
+                      inactiveTrackColor: Colors.white24,
+                      thumbColor: Theme.of(context).primaryColor,
+                    ),
+                    child: Slider(
+                      value: position.inMilliseconds.toDouble(),
+                      max: duration.inMilliseconds.toDouble() > 0
+                          ? duration.inMilliseconds.toDouble()
+                          : 1.0,
+                      onChanged: (val) {
+                        _videoController
+                            .seekTo(Duration(milliseconds: val.toInt()));
+                      },
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Text(_formatDuration(position),
+                          style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(LucideIcons.skipBack, color: Colors.white, size: 20),
+                        onPressed: () {
+                          final target = position - const Duration(seconds: 10);
+                          _videoController.seekTo(
+                              target < Duration.zero ? Duration.zero : target);
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(isPlaying ? LucideIcons.pause : LucideIcons.play,
+                            color: Colors.white, size: 22),
+                        onPressed: () => setState(() {
+                          if (isPlaying) {
+                            _videoController.pause();
+                          } else {
+                            _videoController.play();
+                          }
+                        }),
+                      ),
+                      IconButton(
+                        icon: const Icon(LucideIcons.skipForward, color: Colors.white, size: 20),
+                        onPressed: () {
+                          final target = position + const Duration(seconds: 10);
+                          _videoController.seekTo(
+                              target > duration ? duration : target);
+                        },
+                      ),
+                      const Spacer(),
+                      Text(_formatDuration(duration),
+                          style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                    ],
                   ),
                 ],
               ),
-              clipBehavior: Clip.antiAlias,
-              child: ResolvedR2Image(
-                url: widget.sermon.thumbnailUrl,
-                builder: (context, resolvedUrl) => CachedNetworkImage(
-                  imageUrl: resolvedUrl,
-                  fit: BoxFit.cover,
-                  memCacheWidth: 360,
-                  memCacheHeight: 640,
-                  placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                  errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.grey),
-                ),
-              ),
             ),
-            const SizedBox(height: 15),
-            AudioVisualizerWidget(isPlaying: isPlaying),
-            const SizedBox(height: 15),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(LucideIcons.music, color: Colors.amber, size: 14),
-                SizedBox(width: 8),
-                Text(
-                  "STREAMING AUDIO ONLY",
-                  style: TextStyle(
-                    color: Colors.amber,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 11,
-                    letterSpacing: 2,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            
-            if (isInitialized)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40),
-                child: Column(
-                  children: [
-                    SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 3,
-                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-                        activeTrackColor: Theme.of(context).primaryColor,
-                        inactiveTrackColor: Colors.white24,
-                        thumbColor: Theme.of(context).primaryColor,
-                      ),
-                      child: Slider(
-                        value: position.inMilliseconds.toDouble(),
-                        max: duration.inMilliseconds.toDouble() > 0 ? duration.inMilliseconds.toDouble() : 1.0,
-                        onChanged: (val) {
-                          _videoController.seekTo(Duration(milliseconds: val.toInt()));
-                        },
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _formatDuration(position),
-                            style: const TextStyle(color: Colors.white70, fontSize: 11),
-                          ),
-                          Text(
-                            _formatDuration(duration),
-                            style: const TextStyle(color: Colors.white70, fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            
-            const SizedBox(height: 5),
-            
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  icon: const Icon(LucideIcons.skipBack, color: Colors.white, size: 22),
-                  onPressed: () {
-                    final target = position - const Duration(seconds: 10);
-                    _videoController.seekTo(target < Duration.zero ? Duration.zero : target);
-                  },
-                ),
-                const SizedBox(width: 15),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      if (isPlaying) {
-                        _videoController.pause();
-                      } else {
-                        _videoController.play();
-                      }
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isPlaying ? LucideIcons.pause : LucideIcons.play,
-                      color: Theme.of(context).colorScheme.secondary,
-                      size: 24,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 15),
-                IconButton(
-                  icon: const Icon(LucideIcons.skipForward, color: Colors.white, size: 22),
-                  onPressed: () {
-                    final target = position + const Duration(seconds: 10);
-                    _videoController.seekTo(target > duration ? duration : target);
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-        ),
-      ],
+          ),
+        ],
       ),
     );
   }

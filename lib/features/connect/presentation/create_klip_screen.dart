@@ -10,6 +10,7 @@ import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/kael_explain_sheet.dart';
+import 'package:church_on_app/features/connect/data/klips_feed_signal.dart';
 
 class CreateKlipScreen extends ConsumerStatefulWidget {
   const CreateKlipScreen({super.key});
@@ -263,6 +264,10 @@ class _CreateKlipScreenState extends ConsumerState<CreateKlipScreen> {
             'user_name': profile?.name ?? 'Believer',
             'user_avatar': profile?.avatarUrl,
             'duration': _durationSeconds,
+            // The feed SELECTs `is_audio`; a video Klip MUST write false (the
+            // column defaults to false, but an explicit value keeps the row
+            // consistent even if a future ALTER changes the default).
+            'is_audio': false,
             'amen_count': 0,
             'comments_count': 0,
             if (tenant?.id != null) 'tenant_id': tenant!.id,
@@ -305,6 +310,10 @@ class _CreateKlipScreenState extends ConsumerState<CreateKlipScreen> {
       }
 
       if (mounted) {
+        // Signal the Klips feed to refetch so the new Klip appears immediately
+        // (the feed is kept alive in the Connect TabBarView and would otherwise
+        // show a stale list until the app restarts).
+        ref.read(klipsFeedRefreshProvider.notifier).state++;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Klip created!'), backgroundColor: Colors.green),
         );

@@ -3,19 +3,22 @@ import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/branded_stream_poster.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:church_on_app/features/connect/data/klips_feed_signal.dart';
 import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
 
-class KingdomKlipsScreen extends StatefulWidget {
+class KingdomKlipsScreen extends ConsumerStatefulWidget {
   const KingdomKlipsScreen({super.key});
 
   @override
-  State<KingdomKlipsScreen> createState() => KingdomKlipsScreenState();
+  ConsumerState<KingdomKlipsScreen> createState() => KingdomKlipsScreenState();
 }
 
-class KingdomKlipsScreenState extends State<KingdomKlipsScreen> with WidgetsBindingObserver {
+class KingdomKlipsScreenState extends ConsumerState<KingdomKlipsScreen>
+    with WidgetsBindingObserver {
   late PageController _pageController;
   late Future<List<Map<String, dynamic>>> _klipsFuture;
   int _currentPage = 0;
@@ -35,8 +38,15 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> with WidgetsBind
       final data = await Supabase.instance.client
           .from('klips')
           .select('id, video_url, user_name, description, user_avatar, amen_count, comments_count, is_audio, created_at, user_id')
-          .order('created_at', ascending: false)
+          // `created_at` is nullable; a DESC NULLS FIRST default ordering used to
+          // push freshly-posted rows with a NULL timestamp off the first page.
+          .order('created_at', ascending: false, nullsFirst: false)
           .limit(50);
+
+      // The feed shows every Klip (RLS: "Anyone can read klips"). The poster's
+      // own row is always kept in view even if it has not collected engagement
+      // yet — this is what makes a just-posted Klip appear immediately.
+      final mine = data.where((k) => k['user_id'] != null && k['user_id'] == userId).toList();
 
       // "For You" ranks by engagement; "Latest" keeps the chronological order
       // returned by the server. The feed used to ignore this toggle entirely.
@@ -50,14 +60,25 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> with WidgetsBind
 
           for (final k in data) {
             final engagement = (k['amen_count'] ?? 0) + (k['comments_count'] ?? 0) * 2;
+            final isMine = k['user_id'] != null && k['user_id'] == userId;
             final isLiked = likedIds.contains(k['id']);
-            k['_score'] = engagement - (isLiked ? 1000 : 0);
+            // Own posts are boosted so a fresh Klip is on the first screen.
+            k['_score'] = engagement + (isMine ? 100000 : 0) - (isLiked ? 1000 : 0);
           }
 
           data.sort((a, b) => (b['_score'] as int).compareTo(a['_score'] as int));
         } catch (e) {
           debugPrint('Recommendation scoring failed, using chronological: $e');
         }
+      } else if (mine.isNotEmpty) {
+        // "Latest": keep own posts pinned to the top of the list.
+        final mineIds = mine.map((k) => k['id']).toSet();
+        data.sort((a, b) {
+          final aMine = mineIds.contains(a['id']);
+          final bMine = mineIds.contains(b['id']);
+          if (aMine == bMine) return 0;
+          return aMine ? -1 : 1;
+        });
       }
 
       return List<Map<String, dynamic>>.from(data);
@@ -98,6 +119,11 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> with WidgetsBind
 
   @override
   Widget build(BuildContext context) {
+    // A Klip posted from the Create Klip screen bumps this counter; refetch so
+    // the fresh row appears without an app restart.
+    ref.listen<int>(klipsFeedRefreshProvider, (previous, next) {
+      if (previous != next) refresh();
+    });
     return Scaffold(
       backgroundColor: Colors.black,
       body: FutureBuilder<List<Map<String, dynamic>>>(
