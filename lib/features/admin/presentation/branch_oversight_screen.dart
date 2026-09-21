@@ -35,6 +35,8 @@ class _BranchOversightScreenState extends ConsumerState<BranchOversightScreen> {
   bool _isLoading = true;
   String? _error;
   Map<String, dynamic> _summary = const {};
+  Map<String, dynamic> _monthly = const {};
+  double _basketTotal = 0;
 
   @override
   void initState() {
@@ -44,12 +46,44 @@ class _BranchOversightScreenState extends ConsumerState<BranchOversightScreen> {
 
   Future<void> _load() async {
     setState(() => _isLoading = true);
+    final client = Supabase.instance.client;
     try {
-      final res = await Supabase.instance.client
-          .rpc('get_church_service_summary', params: {'p_tenant_id': widget.tenantId});
+      Map<String, dynamic> summary = const {};
+      try {
+        final res = await client
+            .rpc('get_church_service_summary', params: {'p_tenant_id': widget.tenantId});
+        summary = (res as Map<String, dynamic>?) ?? const {};
+      } catch (e) {
+        debugPrint('branch service summary failed: $e');
+      }
+
+      Map<String, dynamic> monthly = const {};
+      try {
+        final res = await client
+            .rpc('get_church_monthly_stats', params: {'p_tenant_id': widget.tenantId});
+        monthly = (res as Map<String, dynamic>?) ?? const {};
+      } catch (e) {
+        debugPrint('branch monthly stats failed: $e');
+      }
+
+      double basketTotal = 0;
+      try {
+        final res = await client.rpc('get_basket_summary', params: {
+          'p_tenant_id': widget.tenantId,
+          'p_days': 30,
+        });
+        for (final b in (res as List? ?? [])) {
+          basketTotal += ((b as Map)['total_amount'] as num?)?.toDouble() ?? 0;
+        }
+      } catch (e) {
+        debugPrint('branch basket summary failed: $e');
+      }
+
       if (!mounted) return;
       setState(() {
-        _summary = (res as Map<String, dynamic>?) ?? const {};
+        _summary = summary;
+        _monthly = monthly;
+        _basketTotal = basketTotal;
         _isLoading = false;
         _error = null;
       });
@@ -153,22 +187,48 @@ class _BranchOversightScreenState extends ConsumerState<BranchOversightScreen> {
 
   Widget _buildMetrics(ThemeData theme) {
     final currency = NumberFormat.compactCurrency(symbol: 'K');
-    return GridView.count(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      crossAxisCount: 2,
-      mainAxisSpacing: 14,
-      crossAxisSpacing: 14,
-      childAspectRatio: 1.3,
-      children: [
-        _metric(theme, 'Service Reports', '${(_summary['service_count'] as num?)?.toInt() ?? 0}', LucideIcons.fileText, theme.primaryColor),
-        _metric(theme, 'Attendance', '${(_summary['attendance'] as num?)?.toInt() ?? 0}', LucideIcons.calendarCheck, Colors.green),
-        _metric(theme, 'Offering', currency.format((_summary['offering'] as num?)?.toDouble() ?? 0), LucideIcons.church, Colors.orange),
-        _metric(theme, 'Visitors', '${(_summary['visitors'] as num?)?.toInt() ?? 0}', LucideIcons.userPlus, Colors.teal),
-        _metric(theme, 'Salvations', '${(_summary['salvations'] as num?)?.toInt() ?? 0}', LucideIcons.heartPulse, Colors.red),
-        _metric(theme, 'Online Viewers', '${(_summary['online_viewers'] as num?)?.toInt() ?? 0}', LucideIcons.video, Colors.indigo),
-      ],
-    );
+    final hasData = _summary.values.any((v) => (v as num?) != null && (v as num) > 0) ||
+        (_monthly['tithes_mtd'] as num?)?.toDouble() != null ||
+        _basketTotal > 0;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (!hasData)
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.amber.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.amber.withValues(alpha: 0.25)),
+          ),
+          child: Row(children: [
+            const Icon(LucideIcons.info, color: Colors.amber, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'No service reports, giving or basket collections recorded for this branch this month yet.',
+                style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.65), fontSize: 12, height: 1.4),
+              ),
+            ),
+          ]),
+        ),
+      GridView.count(
+        physics: const NeverScrollableScrollPhysics(),
+        shrinkWrap: true,
+        crossAxisCount: 2,
+        mainAxisSpacing: 14,
+        crossAxisSpacing: 14,
+        childAspectRatio: 1.3,
+        children: [
+          _metric(theme, 'Service Reports', '${(_summary['service_count'] as num?)?.toInt() ?? 0}', LucideIcons.fileText, theme.primaryColor),
+          _metric(theme, 'Attendance', '${(_summary['attendance'] as num?)?.toInt() ?? 0}', LucideIcons.calendarCheck, Colors.green),
+          _metric(theme, 'Giving (MTD)', currency.format((_monthly['tithes_mtd'] as num?)?.toDouble() ?? 0), LucideIcons.church, Colors.orange),
+          _metric(theme, 'Baskets (30d)', currency.format(_basketTotal), LucideIcons.piggyBank, Colors.teal),
+          _metric(theme, 'Visitors', '${(_summary['visitors'] as num?)?.toInt() ?? 0}', LucideIcons.userPlus, Colors.indigo),
+          _metric(theme, 'Salvations', '${(_summary['salvations'] as num?)?.toInt() ?? 0}', LucideIcons.heartPulse, Colors.red),
+        ],
+      ),
+    ]);
   }
 
   Widget _metric(ThemeData theme, String label, String value, IconData icon, Color color) {

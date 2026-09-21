@@ -56,6 +56,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
   int _visitorsMtd = 0;
   int _salvationsMtd = 0;
   int _followUpsDue = 0;
+  bool _hasOrganisation = false;
 
   @override
   void initState() {
@@ -108,6 +109,19 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
     final now = DateTime.now();
     final firstOfMonth = DateTime(now.year, now.month, 1);
     final firstOfLastMonth = DateTime(now.year, now.month - 1, 1);
+
+    // Resolve the wider organisation once so "View Organisation" is available
+    // whenever this branch is linked — `profiles.organization_id` is often null
+    // even when the church IS linked, which hid the entry entirely.
+    bool hasOrganisation = false;
+    try {
+      final orgs = await ref
+          .read(organizationServiceProvider)
+          .resolveMyOrganisations(tenantId: tenantId);
+      hasOrganisation = orgs.isNotEmpty;
+    } catch (e) {
+      debugPrint('pastor org resolution failed: $e');
+    }
 
     try {
       final client = Supabase.instance.client;
@@ -322,6 +336,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           _visitorsMtd = visitorsMtd;
           _salvationsMtd = salvationsMtd;
           _followUpsDue = followUps;
+          _hasOrganisation = hasOrganisation;
           _isLoading = false;
           _error = null;
         });
@@ -1143,7 +1158,7 @@ child: avatarUrl != null && avatarUrl!.isNotEmpty
            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchFinancialHubScreen()))),
          _actionTile(theme, LucideIcons.userPlus, "Invite Members", "Share church invite link, QR code & more", theme.primaryColor,
            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchInviteScreen()))),
-         if (ref.read(profileProvider).value?.organizationId?.isNotEmpty == true)
+         if (_hasOrganisation)
            _actionTile(theme, LucideIcons.globe, "View Organisation", "See your wider church network", Colors.purple,
              () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OrganizationOverviewScreen()))),
         ],

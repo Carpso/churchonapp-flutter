@@ -41,17 +41,17 @@ class _BishopHeatmapScreenState extends ConsumerState<BishopHeatmapScreen> {
     try {
       final profile = ref.read(profileProvider).value;
       final client = Supabase.instance.client;
-      final uid = client.auth.currentUser?.id;
 
-      String? orgId = profile?.organizationId;
-      if ((orgId == null || orgId.isEmpty) && uid != null) {
-        try {
-          final org = await client.from('organizations').select('id').eq('bishop_id', uid).maybeSingle();
-          orgId = org?['id']?.toString();
-        } catch (e) {
-          debugPrint('heatmap org fallback failed: $e');
-        }
+      // Central organisation resolution (bishop_id first, then the caller's
+      // church link) — the same source of truth as the bishop dashboard.
+      final orgs = await ref
+          .read(organizationServiceProvider)
+          .resolveMyOrganisations(tenantId: profile?.tenantId);
+      if (orgs.isEmpty) {
+        if (mounted) setState(() { _isLoading = false; _empty = true; });
+        return;
       }
+      final orgId = orgs.first['id']?.toString();
       if (orgId == null || orgId.isEmpty) {
         if (mounted) setState(() { _isLoading = false; _empty = true; });
         return;

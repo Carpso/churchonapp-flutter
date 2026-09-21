@@ -30,6 +30,7 @@ class BishopDashboardScreen extends ConsumerStatefulWidget {
 class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
   bool _isLoading = true;
   String? _error;
+  bool _noOrg = false;
   String? _orgId;
   String? _orgName;
 
@@ -65,42 +66,39 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
       return;
     }
 
-    final client = Supabase.instance.client;
-    final uid = client.auth.currentUser?.id;
-
     try {
-      // Resolve the organisation: the profile's church carries organization_id;
-      // otherwise fall back to the organisation this user leads as bishop.
-      String? orgId = profile.organizationId;
-      String? orgName;
-      if (orgId != null && orgId.isNotEmpty) {
-        try {
-          final org = await client.from('organizations').select('id, name').eq('id', orgId).maybeSingle();
-          orgName = org?['name']?.toString();
-        } catch (e) {
-          debugPrint('org name lookup failed: $e');
-        }
-      } else if (uid != null) {
-        try {
-          final org = await client.from('organizations').select('id, name').eq('bishop_id', uid).maybeSingle();
-          orgId = org?['id']?.toString();
-          orgName = org?['name']?.toString();
-        } catch (e) {
-          debugPrint('bishop org fallback failed: $e');
-        }
-      }
-
-      if (orgId == null || orgId.isEmpty) {
+      // Resolve the organisation centrally: `organizations` where
+      // `bishop_id = auth.uid()` first (an apostle may lead several), then the
+      // organisation the caller's church is linked to. This is the single
+      // source of truth every org rollup on this screen is scoped to.
+      final orgSvc = ref.read(organizationServiceProvider);
+      final myOrgs = await orgSvc.resolveMyOrganisations(tenantId: profile.tenantId);
+      if (myOrgs.isEmpty) {
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _error = "No organisation is assigned to your account yet. Create one to start overseeing branches.";
+            _noOrg = true;
+            _error = null;
           });
         }
         return;
       }
-
-      final orgSvc = ref.read(organizationServiceProvider);
+      final primary = myOrgs.firstWhere(
+        (o) => o['led'] == true,
+        orElse: () => myOrgs.first,
+      );
+      final orgId = primary['id']?.toString();
+      final orgName = primary['name']?.toString();
+      if (orgId == null || orgId.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _noOrg = true;
+            _error = null;
+          });
+        }
+        return;
+      }
 
       // Independent fetches — a failure in any one degrades that section only.
       Map<String, dynamic> stats = const {};
@@ -130,6 +128,7 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
           _baskets = baskets;
           _branches = branches;
           _isLoading = false;
+          _noOrg = false;
           _error = null;
         });
       }
@@ -262,71 +261,114 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
       ),
       body: _isLoading
           ? _buildShimmer()
-          : _error != null
-              ? AppErrorView(error: _error, onRetry: _loadDashboard)
-              : RefreshIndicator(
-                  onRefresh: _loadDashboard,
-                  child: SafeArea(
-                    top: false,
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).padding.bottom + 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildHeader(theme, isApostle),
-                          const SizedBox(height: 20),
-                          _buildKpiGrid(theme),
-                          const SizedBox(height: 16),
-                          _buildEngagementRow(theme),
-                          const SizedBox(height: 28),
-                          _sectionTitle(theme, 'Network Analytics'),
-                          const SizedBox(height: 12),
-                          if (_givingSeries.isNotEmpty) ...[
-                            _buildGivingTrendCard(theme),
-                            const SizedBox(height: 16),
-                          ],
-                          _buildBranchComparisonCard(theme),
-                          const SizedBox(height: 16),
-                          _buildBasketMixCard(theme),
-                          const SizedBox(height: 28),
-                          _sectionTitle(theme, 'Branch Health'),
-                          const SizedBox(height: 12),
-                          _buildBranches(theme),
-                          if (_missions.isNotEmpty) ...[
-                            const SizedBox(height: 28),
-                            _sectionTitle(theme, 'Network Missions'),
-                            const SizedBox(height: 12),
-                            ..._missions.take(5).map((m) => _buildMissionRow(theme, m)),
-                          ],
-                          const SizedBox(height: 28),
-                          _sectionTitle(theme, 'Organisation'),
-                          const SizedBox(height: 12),
-                          _buildOrgCard(theme),
-                          const SizedBox(height: 28),
-                          _sectionTitle(theme, 'Oversight Actions'),
-                          const SizedBox(height: 12),
-                          _quickAction(theme, LucideIcons.fileText, 'Pastor Reports',
-                              'Review weekly service reports from every branch', theme.primaryColor,
-                              () => context.push('/pastor-bishop-report')),
-                          _quickAction(theme, LucideIcons.megaphone, 'Network Announcement',
-                              'Publish an org-wide notice to all branches', Colors.amber,
-                              () => context.push('/network-activity')),
-                          _quickAction(theme, LucideIcons.barChart3, 'Central Treasury',
-                              'Multi-branch financial oversight', Colors.green,
-                              () => context.push('/finance-dashboard')),
-                          _quickAction(theme, LucideIcons.piggyBank, 'Offering Basket Summary',
-                              'Organisation-wide basket collections', Colors.teal,
-                              () => context.push('/offering-baskets-summary')),
-                          _quickAction(theme, LucideIcons.map, 'Branch Map',
-                              'Geographic distribution of branches', Colors.indigo,
-                              () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BishopHeatmapScreen()))),
-                          const SizedBox(height: 140),
-                        ],
+          : _noOrg
+              ? _buildNoOrgState(theme)
+              : _error != null
+                  ? AppErrorView(error: _error, onRetry: _loadDashboard)
+                  : RefreshIndicator(
+                      onRefresh: _loadDashboard,
+                      child: SafeArea(
+                        top: false,
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).padding.bottom + 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildHeader(theme, isApostle),
+                              const SizedBox(height: 20),
+                              _buildKpiGrid(theme),
+                              const SizedBox(height: 16),
+                              _buildEngagementRow(theme),
+                              const SizedBox(height: 28),
+                              _sectionTitle(theme, 'Network Analytics'),
+                              const SizedBox(height: 12),
+                              if (_givingSeries.isNotEmpty) ...[
+                                _buildGivingTrendCard(theme),
+                                const SizedBox(height: 16),
+                              ],
+                              _buildBranchComparisonCard(theme),
+                              const SizedBox(height: 16),
+                              _buildBasketMixCard(theme),
+                              const SizedBox(height: 28),
+                              _sectionTitle(theme, 'Branch Health'),
+                              const SizedBox(height: 12),
+                              _buildBranches(theme),
+                              if (_missions.isNotEmpty) ...[
+                                const SizedBox(height: 28),
+                                _sectionTitle(theme, 'Network Missions'),
+                                const SizedBox(height: 12),
+                                ..._missions.take(5).map((m) => _buildMissionRow(theme, m)),
+                              ],
+                              const SizedBox(height: 28),
+                              _sectionTitle(theme, 'Oversight Actions'),
+                              const SizedBox(height: 12),
+                              _quickAction(theme, LucideIcons.fileText, 'Pastor Reports',
+                                  'Review weekly service reports from every branch', theme.primaryColor,
+                                  () => context.push('/pastor-bishop-report')),
+                              _quickAction(theme, LucideIcons.megaphone, 'Network Announcement',
+                                  'Publish an org-wide notice to all branches', Colors.amber,
+                                  () => context.push('/network-activity')),
+                              _quickAction(theme, LucideIcons.barChart3, 'Central Treasury',
+                                  'Multi-branch financial oversight', Colors.green,
+                                  () => context.push('/finance-dashboard')),
+                              _quickAction(theme, LucideIcons.piggyBank, 'Offering Basket Summary',
+                                  'Organisation-wide basket collections', Colors.teal,
+                                  () => context.push('/offering-baskets-summary')),
+                              _quickAction(theme, LucideIcons.map, 'Branch Map',
+                                  'Geographic distribution of branches', Colors.indigo,
+                                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BishopHeatmapScreen()))),
+                              const SizedBox(height: 140),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+    );
+  }
+
+  /// Actionable empty state when the account is not linked to an organisation
+  /// yet (very common for a freshly-registered bishop). Never an error wall.
+  Widget _buildNoOrgState(ThemeData theme) {
+    final profile = ref.read(profileProvider).value;
+    final isApostle = profile?.role == 'apostle';
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [theme.primaryColor, const Color(0xFF1A1A1A)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(26),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(LucideIcons.globe, color: Colors.white, size: 30),
+                const SizedBox(height: 14),
+                Text(isApostle ? 'No organisation linked yet' : 'You are not linked to an organisation yet',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+                const SizedBox(height: 8),
+                Text(
+                  'An organisation groups your churches (branches) so you can oversee members, giving, attendance and baskets across the whole network — not just one church.',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 12, height: 1.45),
                 ),
+              ]),
+            ),
+            const SizedBox(height: 24),
+            _quickAction(theme, LucideIcons.plus, 'Create Organisation',
+                'Start a network with your church as its HQ', theme.primaryColor, _showCreateOrgDialog),
+            _quickAction(theme, LucideIcons.refreshCw, 'Check Again',
+                'Already linked by COA? Re-check your organisation', Colors.teal, _loadDashboard),
+            _quickAction(theme, LucideIcons.map, 'Branch Map', 'See churches already on the map', Colors.indigo,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BishopHeatmapScreen()))),
+          ],
+        ),
+      ),
     );
   }
 
@@ -559,7 +601,33 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
 
   Widget _buildBranches(ThemeData theme) {
     if (_branches.isEmpty) {
-      return _emptyCard(theme, 'No branches linked to this organisation yet.');
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.amber.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.amber.withValues(alpha: 0.25)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(LucideIcons.building, color: Colors.amber, size: 18),
+            const SizedBox(width: 10),
+            const Expanded(child: Text('No branches linked yet', style: TextStyle(fontWeight: FontWeight.bold))),
+          ]),
+          const SizedBox(height: 8),
+          Text(
+            'Your organisation has no churches attached. Link a verified church to start seeing its members, giving and attendance roll up here.',
+            style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: _showLinkChurchSheet,
+            icon: const Icon(LucideIcons.link, size: 16),
+            label: const Text('LINK A CHURCH'),
+          ),
+        ]),
+      );
     }
     return Column(children: _branches.map((b) => _buildBranchRow(theme, b)).toList());
   }
@@ -686,9 +754,12 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                 onPressed: () {
                   Navigator.pop(sheetContext);
                   if (churchId == null) return;
+                  // Service reports / baskets are stored against the church's
+                  // TENANT id — passing the church row id silently returned 0.
+                  final oversightTenantId = branch['tenant_id']?.toString() ?? churchId;
                   Navigator.push(context, MaterialPageRoute(
                     builder: (_) => BranchOversightScreen(
-                      tenantId: churchId,
+                      tenantId: oversightTenantId,
                       name: name,
                       isVerified: branch['is_verified'] == true,
                       logoUrl: branch['logo_url']?.toString(),
@@ -741,35 +812,6 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
           Text(label, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
         ]),
       ),
-    );
-  }
-
-  Widget _buildOrgCard(ThemeData theme) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.15)),
-      ),
-      child: Row(children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: theme.primaryColor.withValues(alpha: 0.12), shape: BoxShape.circle),
-          child: Icon(LucideIcons.globe, color: theme.primaryColor, size: 22),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(_orgName?.isNotEmpty == true ? _orgName! : 'Organisation',
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-            const SizedBox(height: 3),
-            Text('$_branchCount branches • ${_formatCompact(_totalMembers)} members • $_activeStreams live',
-                style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.55), fontSize: 11)),
-          ]),
-        ),
-      ]),
     );
   }
 
@@ -832,13 +874,6 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
             Icon(LucideIcons.chevronRight, size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
           ]),
         ),
-      );
-
-  Widget _emptyCard(ThemeData theme, String msg) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(25),
-        decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(20)),
-        child: Center(child: Text(msg, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.45)))),
       );
 
   void _showLinkChurchSheet() {

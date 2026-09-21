@@ -129,6 +129,81 @@ class OrganizationService {
     return data != null ? Organization.fromMap(data) : null;
   }
 
+  Future<Map<String, dynamic>?> getOrganisation(String orgId) async {
+    try {
+      final data = await _client
+          .from('organizations')
+          .select('id, name, code, logo_url, bishop_id, secretary_id, treasurer_id')
+          .eq('id', orgId)
+          .maybeSingle();
+      return data != null ? Map<String, dynamic>.from(data) : null;
+    } catch (e) {
+      debugPrint('getOrganisation failed: $e');
+      return null;
+    }
+  }
+
+  /// Central organisation resolution for the bishop / apostle / pastor
+  /// "group" dashboards. An organisation is `organizations` where
+  /// `bishop_id = auth.uid()` (a leader may also be secretary/treasurer),
+  /// falling back to the organisation the caller's church
+  /// (`churches.organization_id`) is linked to. Returns one entry per
+  /// distinct organisation — an apostle can legitimately lead more than one.
+  ///
+  /// This is the single source of truth for "which organisation am I part
+  /// of" so every dashboard scopes its metrics to the same ids.
+  Future<List<Map<String, dynamic>>> resolveMyOrganisations({String? tenantId}) async {
+    final orgs = <String, Map<String, dynamic>>{};
+    final uid = _client.auth.currentUser?.id;
+
+    if (uid != null) {
+      try {
+        final led = await _client
+            .from('organizations')
+            .select('id, name, logo_url')
+            .or('bishop_id.eq.$uid,secretary_id.eq.$uid,treasurer_id.eq.$uid');
+        for (final o in (led as List)) {
+          final id = o['id']?.toString();
+          if (id == null || id.isEmpty) continue;
+          orgs[id] = {
+            'id': id,
+            'name': o['name']?.toString() ?? 'Organisation',
+            'logo_url': o['logo_url']?.toString(),
+            'led': true,
+          };
+        }
+      } catch (e) {
+        debugPrint('resolveMyOrganisations (led) failed: $e');
+      }
+    }
+
+    if (tenantId != null && tenantId.isNotEmpty) {
+      try {
+        final church = await _client
+            .from('churches')
+            .select('organization_id')
+            .eq('tenant_id', tenantId)
+            .maybeSingle();
+        final orgId = church?['organization_id']?.toString();
+        if (orgId != null && orgId.isNotEmpty && !orgs.containsKey(orgId)) {
+          final org = await getOrganisation(orgId);
+          if (org != null) {
+            orgs[orgId] = {
+              'id': orgId,
+              'name': org['name']?.toString() ?? 'Organisation',
+              'logo_url': org['logo_url']?.toString(),
+              'led': false,
+            };
+          }
+        }
+      } catch (e) {
+        debugPrint('resolveMyOrganisations (church link) failed: $e');
+      }
+    }
+
+    return orgs.values.toList();
+  }
+
   Future<List<HierarchyNode>> getOrganizationNodes(String orgId) async {
     final res = await _client
         .from('hierarchy_nodes')

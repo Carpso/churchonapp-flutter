@@ -371,13 +371,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
     return Column(
       children: [
         _buildPremiumItem(context, LucideIcons.plusCircle, "Register Your Church", onTap: () => context.push('/register-church')),
-        if (profile.isBishopOrHigher) ...[
+        if (profile.role == 'bishop') ...[
           _buildPremiumItem(context, LucideIcons.crown, "Bishop Dashboard", isHighlighted: true, onTap: () => context.push('/bishop-dashboard')),
         ],
+        if (profile.role == 'apostle') ...[
+          _buildPremiumItem(context, LucideIcons.globe, "Apostle Dashboard", isHighlighted: true, onTap: () => context.push('/apostle-dashboard')),
+        ],
         _buildPremiumItem(context, LucideIcons.calendar, "Yearly Program Planner", onTap: () => context.push('/year-planner')),
-if (profile.isPastorOrHigher) ...[
-_buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHighlighted: true, onTap: () => context.push('/pastor-dashboard')),
-],
+        if (profile.isPastor) ...[
+          _buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHighlighted: true, onTap: () => context.push('/pastor-dashboard')),
+        ],
         if (profile.isLedgerManager) ...[
           _buildPremiumItem(context, LucideIcons.qrCode, "Scan Attendance", onTap: () => context.push('/attendance-scanner')),
           _buildPremiumItem(context, LucideIcons.wallet, "Finance Dashboard", isHighlighted: true, onTap: () => context.push('/finance-dashboard')),
@@ -394,11 +397,8 @@ _buildPremiumItem(context, LucideIcons.layoutDashboard, "Pastor Dashboard", isHi
         if (profile.role == 'writer') ...[
           _buildPremiumItem(context, LucideIcons.penTool, "Writer Dashboard", isHighlighted: true, onTap: () => context.push('/writer-dashboard')),
         ],
-        if (profile.isAdminOrHigher) ...[
+        if (profile.isAdminOrHigher && !profile.isBishop) ...[
           _buildPremiumItem(context, LucideIcons.settings, "SYSTEM ADMIN HUB", onTap: () => context.push('/admin-hub')),
-        ],
-        if (profile.role == 'apostle') ...[
-          _buildPremiumItem(context, LucideIcons.globe, "APOSTLE DASHBOARD", isHighlighted: true, onTap: () => context.push('/apostle-dashboard')),
         ],
         if (profile.isEmployee) ...[
           _buildPremiumItem(context, LucideIcons.briefcase, "COA EMPLOYEE DASHBOARD", isHighlighted: true, onTap: () => context.push('/coa-employee-dashboard')),

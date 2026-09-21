@@ -18,7 +18,6 @@ import '../../events/data/event_service.dart';
 import '../data/audit_service.dart';
 import 'resolution_hub_screen.dart';
 import 'emergency_shutdown_screen.dart';
-import 'apostle_dashboard_screen.dart';
 import 'pastor_dashboard_screen.dart';
 import 'finance_dashboard_screen.dart';
 import 'logistics_dashboard_screen.dart';
@@ -777,7 +776,7 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
               spacing: 10,
               runSpacing: 10,
               children: [
-                _dashboardChip(LucideIcons.crown, "Apostle", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ApostleDashboardScreen()))),
+                _dashboardChip(LucideIcons.crown, "Apostle", () => context.push('/apostle-dashboard')),
                 _dashboardChip(LucideIcons.gem, "Bishop", () => context.push('/bishop-dashboard')),
                 _dashboardChip(LucideIcons.layoutDashboard, "Pastor", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PastorDashboardScreen()))),
                 _dashboardChip(LucideIcons.banknote, "Finance", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FinanceDashboardScreen()))),

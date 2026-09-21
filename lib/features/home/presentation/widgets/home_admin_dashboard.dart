@@ -18,13 +18,20 @@ class HomeAdminDashboard extends ConsumerWidget {
     if (profile == null || !profile.isAdminOrHigher) return const SizedBox.shrink();
 
     final brand = Theme.of(context).primaryColor;
-    // A bishop/apostle must always land on the ORGANISATION dashboard (network
-    // KPIs, branches, charts) — not the generic Admin Hub. The profile tile and
-    // the /bishop-hub route already do this; the home "Admin Tools" strip was
-    // the remaining path that sent a bishop to the basic AdminHubScreen.
-    final VoidCallback openDashboard = profile.isBishop
-        ? () => context.push('/bishop-dashboard')
-        : () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminHubScreen()));
+    // Executive roles must always land on their OWN dashboard — never the
+    // generic Admin Hub. The profile tile and the routes already do this; the
+    // home "Admin Tools" strip was the remaining path that sent a bishop to
+    // the basic AdminHubScreen.
+    final VoidCallback openDashboard;
+    if (profile.role == 'apostle') {
+      openDashboard = () => context.push('/apostle-dashboard');
+    } else if (profile.role == 'bishop') {
+      openDashboard = () => context.push('/bishop-dashboard');
+    } else if (profile.role == 'pastor') {
+      openDashboard = () => context.push('/pastor-dashboard');
+    } else {
+      openDashboard = () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminHubScreen()));
+    }
     final chips = [
       ("Dashboard", LucideIcons.layoutDashboard, brand, openDashboard),
       ("Broadcast", LucideIcons.megaphone, brand.withValues(alpha: 0.8), () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GlobalBroadcastScreen()))),

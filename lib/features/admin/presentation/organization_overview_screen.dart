@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
@@ -35,31 +34,42 @@ class _OrganizationOverviewScreenState extends ConsumerState<OrganizationOvervie
   Future<void> _load() async {
     setState(() => _isLoading = true);
     final profile = ref.read(profileProvider).value;
-    final orgId = profile?.organizationId;
-    if (orgId == null || orgId.isEmpty) {
-      setState(() {
-        _isLoading = false;
-        _error = 'Your account is not linked to an organisation.';
-      });
-      return;
-    }
+    final orgSvc = ref.read(organizationServiceProvider);
     try {
-      final client = Supabase.instance.client;
-      try {
-        final org = await client.from('organizations').select('id, name').eq('id', orgId).maybeSingle();
-        _orgName = org?['name']?.toString();
-      } catch (e) {
-        debugPrint('org name lookup failed: $e');
+      // Central resolution — `organizations.bishop_id = auth.uid()` first, then
+      // the organisation the caller's church is linked to.
+      final orgs = await orgSvc.resolveMyOrganisations(tenantId: profile?.tenantId);
+      if (orgs.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _rollupDenied = false;
+          _error = 'Your account is not linked to an organisation.';
+        });
+        return;
+      }
+      final orgId = orgs.first['id']?.toString();
+      _orgName = orgs.first['name']?.toString();
+      if (orgId == null || orgId.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _error = 'Your account is not linked to an organisation.';
+        });
+        return;
       }
 
-      final counts = await ref.read(organizationServiceProvider).getOrganizationChurchMemberCounts(orgId);
+      final counts = await orgSvc.getOrganizationChurchMemberCounts(orgId);
       if (!mounted) return;
       setState(() {
         _branches
           ..clear()
           ..addAll(counts);
         _isLoading = false;
-        _rollupDenied = counts.isEmpty;
+        // An org with zero branches is NOT a permissions problem — only an
+        // exception means the rollup was denied.
+        _rollupDenied = false;
+        _error = null;
       });
     } catch (e) {
       debugPrint('organization overview load failed: $e');
