@@ -14,6 +14,9 @@ import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/branded_stream_poster.dart';
 import 'package:church_on_app/core/widgets/marquee_ticker.dart';
 import '../../finance/presentation/giving_screen.dart';
+import 'package:church_on_app/features/media/data/transcript_service.dart';
+import 'package:church_on_app/features/media/presentation/transcribe_action.dart';
+import 'package:church_on_app/features/media/presentation/widgets/captions_overlay.dart';
 import 'package:church_on_app/features/admin/data/reporting_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/stream_analytics_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/live_stream_overlay_service.dart';
@@ -572,12 +575,39 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         overlay != null &&
         (overlay.hasSpeaker || overlay.hasCaption);
     final showVerse = showOverlays && overlay != null && overlay.hasVerse;
+    final streamId = _effectiveStreamId;
+    final transcript = (streamId != null && streamId.isNotEmpty)
+        ? ref.watch(liveStreamTranscriptProvider(streamId)).value
+        : null;
+    final captionsOn = ref.watch(captionsEnabledProvider);
+    final position = _videoPlayerController?.value.position ?? Duration.zero;
     return Stack(
       fit: StackFit.expand,
       children: [
         _buildVideoStage(),
         if (ready)
           Positioned(top: 8, left: 8, child: _healthChip()),
+        // Auto-captions from the Whisper transcript (CC toggle persisted).
+        CaptionsOverlay(
+          transcript: transcript,
+          position: position,
+          enabled: captionsOn,
+          bottomInset: showTicker ? 44 : 10,
+        ),
+        if (showOverlays)
+          Positioned(
+            bottom: 6,
+            right: 6,
+            child: Row(
+              children: [
+                const CcToggleButton(),
+                if (streamId != null && streamId.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  TranscribeAction(liveStreamId: streamId),
+                ],
+              ],
+            ),
+          ),
         if (showVerse)
           Positioned(
             left: 10,

@@ -345,7 +345,8 @@ $migrations = @(
       "20261208_klips_is_audio_and_post_policy.sql"
       "20261209_live_stream_overlay_speaker.sql"
 "20261210_notifications_autopush.sql"
-    )
+      "20261211_media_transcripts.sql"
+      )
 
 foreach ($m in $migrations) {
     $path = "supabase\migrations\$m"
@@ -418,6 +419,7 @@ $functions = @(
      "whatsapp-webhook"
      "new-member-notify"
      "hf-keep-warm"
+     "transcribe-media"
  )
 
 foreach ($f in $functions) {

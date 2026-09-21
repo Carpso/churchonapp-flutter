@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -148,7 +149,32 @@ class ChurchMap extends ConsumerStatefulWidget {
 
 class _ChurchMapState extends ConsumerState<ChurchMap> {
   final MapController _mapController = MapController();
-  late Future<PmTilesVectorTileProvider> _tileProvider;
+
+  /// Returns whether the self-hosted Protomaps PMTiles **vector** basemap can
+  /// render on this platform.
+  ///
+  /// The vector pipeline (`vector_map_tiles` + `executor_lib` + its
+  /// `path_provider`/`dart:io` disk cache) cannot run on Flutter web:
+  /// `executor_lib.newExecutor` only checks `kDebugMode`, so a **release** web
+  /// build takes the isolate `PoolExecutor` branch (`Unsupported operation:
+  /// ReceivePort`) and every tile job hangs; even in debug the disk cache
+  /// throws on web because `getTemporaryDirectory()`/`dart:io` are unavailable.
+  /// Either way the basemap renders blank with no error. Web therefore uses the
+  /// raster basemap (the upstream-documented workaround) and native keeps the
+  /// self-hosted Protomaps vector basemap.
+  static bool get _supportsVectorBasemap => !kIsWeb;
+
+  /// Cached PMTiles readers keyed by archive URL. Opening an archive reads a
+  /// bounded header + root directory, so sharing the reader avoids re-fetching
+  /// it for every map instance.
+  static final Map<String, Future<PmTilesVectorTileProvider>> _providerCache = {};
+
+  /// Null on web (vector basemap unsupported) and while no archive URL is set.
+  Future<PmTilesVectorTileProvider>? _tileProvider;
+
+  /// True when the self-hosted basemap archive could not be opened, so the map
+  /// is showing the raster fallback and a visible RETRY affordance is offered.
+  bool _basemapFailed = false;
 
   LatLng? _pinPosition;
   bool _savingPin = false;
@@ -393,8 +419,52 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
   }
 
   void _initializeProvider() {
+    _basemapFailed = false;
+    // Web can never use the vector basemap (see [_supportsVectorBasemap]):
+    // leaving the future null makes the builder render the raster basemap.
+    if (!_supportsVectorBasemap) {
+      _tileProvider = null;
+      return;
+    }
     final url = widget.pmtilesUrl ?? dotenv.env['MAPS_ZAMBIA_URL'] ?? '';
-    _tileProvider = PmTilesVectorTileProvider.fromSource(url);
+    if (url.isEmpty) {
+      _tileProvider = null;
+      return;
+    }
+    final provider = _openProvider(url);
+    _tileProvider = provider;
+    // Surface a failed open so the map never silently falls back to raster
+    // (or, worse, renders blank) without the user being able to retry.
+    provider.then(
+      (_) {},
+      onError: (Object _, StackTrace __) {
+        if (mounted) setState(() => _basemapFailed = true);
+      },
+    );
+  }
+
+  /// Opens a PMTiles archive, reusing the cached reader for the same URL.
+  /// Failed opens are evicted so [retryBasemap] can try again.
+  static Future<PmTilesVectorTileProvider> _openProvider(String url) {
+    final cached = _providerCache[url];
+    if (cached != null) return cached;
+
+    final future = PmTilesVectorTileProvider.fromSource(url);
+    _providerCache[url] = future;
+    future.then(
+      (_) {},
+      onError: (Object _, StackTrace __) {
+        if (identical(_providerCache[url], future)) _providerCache.remove(url);
+      },
+    );
+    return future;
+  }
+
+  /// Retries opening the self-hosted basemap after a failure.
+  void retryBasemap() {
+    final url = widget.pmtilesUrl ?? dotenv.env['MAPS_ZAMBIA_URL'] ?? '';
+    if (url.isNotEmpty) _providerCache.remove(url);
+    setState(_initializeProvider);
   }
 
   void _onMapTap(TapPosition tapPosition, LatLng point) {
@@ -686,8 +756,9 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
               children: [
                 // Self-hosted Protomaps vector basemap (maps.churchonapp.com).
                 // Carries street-name labels (roads/places layers) and needs no
-                // third-party tile service. Falls back to OSM raster if the
-                // archive can't be opened.
+                // third-party tile service. Native only — web always uses the
+                // raster basemap (see [_supportsVectorBasemap]) and a failed
+                // archive open shows the RETRY chip above.
                 _brandTintWrap(
                   vectorProvider != null
                       ? VectorTileLayer(
@@ -787,6 +858,15 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
         // Address search bar
         if (widget.showAddressSearch) _buildSearchBar(theme),
 
+        // Self-hosted basemap failed: make the fallback explicit instead of
+        // silently showing the raster basemap, with a one-tap retry.
+        if (_basemapFailed)
+          Positioned(
+            left: 16,
+            bottom: 80,
+            child: _buildBasemapErrorChip(theme),
+          ),
+
         // Map controls — each gets its own slot so they never overlap.
         // Slot 1: places layer toggle.
         Positioned(
@@ -810,8 +890,9 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
               onTap: _goToCurrentLocation,
             ),
           ),
-        // Slot 3: pre-cache this view for offline use.
-        if (widget.showOfflineButton)
+        // Slot 3: pre-cache this view for offline use. Native only — the web
+        // raster basemap has no disk cache to warm.
+        if (widget.showOfflineButton && _supportsVectorBasemap)
           Positioned(
             right: 16,
             bottom: 184,
@@ -956,6 +1037,44 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
           textInputAction: TextInputAction.search,
           onSubmitted: (_) => _searchAddress(),
           onChanged: (_) => setState(() {}),
+        ),
+      ),
+    );
+  }
+
+  /// Visible affordance shown when the self-hosted basemap archive failed to
+  /// open (the map is then serving the raster fallback): tap to retry.
+  Widget _buildBasemapErrorChip(ThemeData theme) {
+    return Material(
+      elevation: 4,
+      borderRadius: BorderRadius.circular(12),
+      color: theme.cardColor,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: retryBasemap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(LucideIcons.alertTriangle,
+                  size: 15, color: Colors.orange),
+              const SizedBox(width: 6),
+              const Text(
+                'Map data unavailable',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'RETRY',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: theme.primaryColor,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

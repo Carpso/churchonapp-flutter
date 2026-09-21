@@ -9,10 +9,11 @@ import 'package:rxdart/rxdart.dart';
 import 'package:church_on_app/features/modules/media/presentation/radio_screen.dart';
 import 'package:church_on_app/features/modules/media/data/radio_service.dart';
 import 'package:church_on_app/core/providers/audio_provider.dart';
+import 'package:church_on_app/core/services/audio_handler.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 
 class MockRadioService extends Mock implements RadioService {}
-class MockAudioHandler extends Mock implements AudioHandler {}
+class MockAudioHandler extends Mock implements MyAudioHandler {}
 
 class MockProfileNotifier extends ProfileNotifier {
   @override

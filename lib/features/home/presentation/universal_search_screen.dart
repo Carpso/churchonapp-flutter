@@ -6,6 +6,10 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/features/media/data/transcript_service.dart';
+import '../data/sermon_service.dart';
+import 'sermon_player_screen.dart';
+import 'live_stream_screen.dart';
 
 class UniversalSearchScreen extends ConsumerStatefulWidget {
   const UniversalSearchScreen({super.key});
@@ -91,6 +95,24 @@ class _UniversalSearchScreenState extends ConsumerState<UniversalSearchScreen> {
       final tenantId = tenant?.id;
       final results = <Map<String, dynamic>>[];
       final like = '%$q%';
+
+      // Transcript matches first — these can jump straight to the moment the
+      // words were spoken.
+      try {
+        final hits = await ref.read(transcriptServiceProvider).searchTranscripts(q);
+        for (final h in hits) {
+          results.add({
+            'type': 'Transcript',
+            'title': h.title,
+            'subtitle': h.snippet.replaceAll('<<', '').replaceAll('>>', ''),
+            'icon': LucideIcons.subtitles,
+            'route': '/sermons',
+            'hit': h,
+          });
+        }
+      } catch (e) {
+        debugPrint('Transcript search skipped: $e');
+      }
 
       final sermons = await client
           .from('sermons')
@@ -301,10 +323,7 @@ class _UniversalSearchScreenState extends ConsumerState<UniversalSearchScreen> {
       itemBuilder: (context, index) {
         final item = _results[index];
         return InkWell(
-          onTap: () {
-            final route = item['route'] as String;
-            context.push(route, extra: item['extra']);
-          },
+          onTap: () => _openResult(item),
           borderRadius: BorderRadius.circular(20),
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
@@ -338,6 +357,42 @@ class _UniversalSearchScreenState extends ConsumerState<UniversalSearchScreen> {
         );
       },
     );
+  }
+
+  /// Transcript hits jump to the timestamp; everything else uses its route.
+  Future<void> _openResult(Map<String, dynamic> item) async {
+    final hit = item['hit'];
+    if (item['type'] == 'Transcript' && hit is MediaTranscriptSearchHit) {
+      if (hit.sermonId != null) {
+        final sermon =
+            await ref.read(sermonServiceProvider).fetchSermonById(hit.sermonId!);
+        if (sermon != null && mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  SermonPlayerScreen(sermon: sermon, initialPosition: hit.start),
+            ),
+          );
+        }
+        return;
+      }
+      if (hit.liveStreamId != null && hit.streamUrl.isNotEmpty) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => LiveStreamScreen(
+              streamUrl: hit.streamUrl,
+              title: hit.title,
+              streamId: hit.liveStreamId,
+            ),
+          ),
+        );
+        return;
+      }
+    }
+    final route = item['route'] as String?;
+    if (route != null) context.push(route, extra: item['extra']);
   }
 
   Widget _buildNoResults() {

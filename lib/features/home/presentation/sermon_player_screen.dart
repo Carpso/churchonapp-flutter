@@ -18,6 +18,10 @@ import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/kael_explain_sheet.dart';
+import 'package:church_on_app/features/media/data/transcript_service.dart';
+import 'package:church_on_app/features/media/presentation/transcribe_action.dart';
+import 'package:church_on_app/features/media/presentation/transcript_sheet.dart';
+import 'package:church_on_app/features/media/presentation/widgets/captions_overlay.dart';
 import '../data/sermon_service.dart';
 import 'sermon_notes_screen.dart';
 
@@ -43,7 +47,15 @@ String? youTubeVideoIdFromUrl(String url) {
 
 class SermonPlayerScreen extends ConsumerStatefulWidget {
   final Sermon sermon;
-  const SermonPlayerScreen({super.key, required this.sermon});
+
+  /// Optional start position — used by transcript search to jump to a timestamp.
+  final Duration? initialPosition;
+
+  const SermonPlayerScreen({
+    super.key,
+    required this.sermon,
+    this.initialPosition,
+  });
 
   @override
   ConsumerState<SermonPlayerScreen> createState() => _SermonPlayerScreenState();
@@ -182,6 +194,10 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       await _videoController.initialize();
       _hasInitialized = true;
       _videoController.play();
+      final startAt = widget.initialPosition;
+      if (startAt != null && startAt > Duration.zero) {
+        await _videoController.seekTo(startAt);
+      }
       if (mounted) setState(() { _isLoading = false; });
     } catch (e) {
       debugPrint("Sermon player init error: $e");
@@ -221,6 +237,10 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
           'route': '/sermon/${song.id}',
           if (art.isNotEmpty) 'artUri': art,
         });
+        final startAt = widget.initialPosition;
+        if (startAt != null && startAt > Duration.zero) {
+          await handler.seek(startAt);
+        }
         if (mounted) setState(() { _isLoading = false; _hasError = false; });
         return;
       }
@@ -239,6 +259,10 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       }));
       await player.setUrl(url);
       player.play();
+      final startAt = widget.initialPosition;
+      if (startAt != null && startAt > Duration.zero) {
+        await player.seek(startAt);
+      }
       if (mounted) setState(() { _isLoading = false; _hasError = false; });
     } catch (e) {
       debugPrint('Sermon audio init error: $e');
@@ -278,6 +302,25 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       } else {
         p.play();
       }
+    }
+  }
+
+  /// Current playback position (audio-only vs video), used by the captions
+  /// overlay and transcript seek.
+  Duration get _currentPosition {
+    if (_isAudioOnly) return _audioPosition;
+    if (_hasInitialized) return _videoController.value.position;
+    return Duration.zero;
+  }
+
+  /// Seek to an absolute position from a transcript cue / verse marker.
+  void _seekTo(Duration position) {
+    if (position <= Duration.zero) return;
+    if (_isAudioOnly) {
+      _seekAudio(position);
+    } else if (_hasInitialized) {
+      _videoController.seekTo(position);
+      _videoController.play();
     }
   }
 
@@ -529,6 +572,9 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
   }
 
   Widget _buildScaffold(BuildContext context, Widget? ytPlayer) {
+    final transcript =
+        ref.watch(sermonTranscriptProvider(widget.sermon.id)).value;
+    final captionsOn = ref.watch(captionsEnabledProvider);
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       resizeToAvoidBottomInset: true,
@@ -624,6 +670,29 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                       ),
                     ),
                   ),
+                ),
+              ),
+              // Subtitles/captions synced to the playback position (toggle in
+              // SharedPreferences). Only meaningful for video/audio, not YT.
+              if (ytPlayer == null)
+                CaptionsOverlay(
+                  transcript: transcript,
+                  position: _currentPosition,
+                  enabled: captionsOn,
+                  bottomInset: 56,
+                ),
+              Positioned(
+                bottom: 6,
+                right: 6,
+                child: Row(
+                  children: [
+                    if (ytPlayer == null) const CcToggleButton(),
+                    const SizedBox(width: 6),
+                    TranscribeAction(
+                      sermonId: widget.sermon.id,
+                      onSeek: _seekTo,
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1649,6 +1718,8 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                   const SizedBox(width: 10),
                   const Text("Full Transcription", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const Spacer(),
+                  TranscribeAction(sermonId: widget.sermon.id, onSeek: _seekTo),
+                  const SizedBox(width: 4),
                   TextButton(
                     onPressed: () => _showFullTranscript(),
                     child: const Text("VIEW FULL", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
@@ -1657,7 +1728,13 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
               ),
               const SizedBox(height: 10),
               Text(
-                _transcriptExcerpt(widget.sermon.transcript),
+                _transcriptExcerpt(
+                  ref
+                          .watch(sermonTranscriptProvider(widget.sermon.id))
+                          .value
+                          ?.transcript ??
+                      widget.sermon.transcript,
+                ),
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic),
@@ -1678,6 +1755,13 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
   }
 
   void _showFullTranscript() {
+    // Prefer a real Whisper transcript (timestamped + seekable) when present.
+    final live =
+        ref.read(sermonTranscriptProvider(widget.sermon.id)).value;
+    if (live != null && live.isReady) {
+      showTranscriptSheet(context, transcript: live, onSeek: _seekTo);
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
