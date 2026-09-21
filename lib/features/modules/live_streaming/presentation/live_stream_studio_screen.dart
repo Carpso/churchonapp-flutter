@@ -587,11 +587,16 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
           });
         }
       } else {
-        // WHIP unavailable — arm the stream and show OBS credentials instead.
+        // WHIP unavailable / failed — the row is armed for OBS but NOTHING is
+        // publishing yet. Never claim "LIVE": the streamer must see at a glance
+        // that the feed has not connected (otherwise a failed publish looks
+        // successful and viewers wait on "Stream is starting" forever).
         if (mounted) {
           setState(() {
             _isLive = true;
-            _streamStatus = "LIVE ON HUB";
+            _streamStatus = _whipError != null
+                ? "PHONE FEED FAILED"
+                : "WAITING FOR OBS";
             _isLoading = false;
           });
           _showStreamCredentials();
@@ -1412,9 +1417,13 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
 
     final statusColor = _streamStatus == "LIVE"
         ? Colors.red
-        : _streamStatus == "CONNECTING" || _streamStatus == "RECONNECTING"
+        : _streamStatus == "CONNECTING" ||
+                _streamStatus == "RECONNECTING" ||
+                _streamStatus == "WAITING FOR OBS"
             ? Colors.amber
-            : Colors.black54;
+            : _streamStatus == "PHONE FEED FAILED"
+                ? Colors.redAccent
+                : Colors.black54;
 
     return Scaffold(
       backgroundColor: Colors.black,

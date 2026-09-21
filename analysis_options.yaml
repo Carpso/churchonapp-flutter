@@ -9,6 +9,13 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  # Vendored fork of video_player_web_hls (see pubspec dependency_overrides).
+  # It is a third-party package kept verbatim except for the hlsError fix, so
+  # its style/deprecation lints are not part of this project's analysis gate.
+  exclude:
+    - packages/**
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`

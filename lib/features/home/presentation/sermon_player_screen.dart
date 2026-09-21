@@ -96,6 +96,10 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
   /// True once we know the sermon actually has a playable video source.
   bool _hasVideoSource = false;
 
+  /// True once we know the sermon has a source `just_audio` can actually load
+  /// (a direct audio/progressive file — NOT an HLS manifest or a YouTube page).
+  bool _hasAudioSource = false;
+
   String get _audioOnlyPrefKey => 'sermon_audio_only_${widget.sermon.id}';
 
   static bool _looksLikeAudio(String url) {
@@ -107,6 +111,46 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
         clean.endsWith('.ogg') ||
         clean.endsWith('.opus') ||
         clean.endsWith('.flac');
+  }
+
+  /// True only for URLs a media element can actually fetch. Rejects empty,
+  /// literal `null`, legacy `…/null/…` placeholders, and non-http(s) values.
+  static bool _isUsableUrl(String url) {
+    final u = url.trim();
+    if (u.isEmpty) return false;
+    final lower = u.toLowerCase();
+    if (lower == 'null') return false;
+    if (lower.contains('/null/') || lower.contains('/null.')) return false;
+    return lower.startsWith('http://') || lower.startsWith('https://');
+  }
+
+  /// Normalises a possibly-null/placeholder URL to `''` when unusable, so an
+  /// empty/null/`…/null/…` value is treated as "no source" and never attempted.
+  static String _cleanUrl(String? url) {
+    final u = (url ?? '').trim();
+    return _isUsableUrl(u) ? u : '';
+  }
+
+  /// An HLS manifest (`.m3u8`) — playable by `video_player` (hls.js on web) but
+  /// NOT by `just_audio`: an HTML `<audio>` element cannot load an HLS manifest,
+  /// which is the `(4) Failed to load URL` (MEDIA_ERR_SRC_NOT_SUPPORTED) error.
+  static bool _isHlsUrl(String url) =>
+      url.split('?').first.toLowerCase().endsWith('.m3u8');
+
+  /// True for direct media files an `<audio>` element can play: audio files plus
+  /// progressive video containers (mp4/webm/mov/mkv) whose audio track just_audio
+  /// can render. Excludes HLS manifests and YouTube page URLs.
+  static bool _isDirectMediaFile(String url) {
+    if (!_isUsableUrl(url)) return false;
+    if (youTubeVideoIdFromUrl(url) != null) return false;
+    if (_isHlsUrl(url)) return false;
+    final clean = url.split('?').first.toLowerCase();
+    return _looksLikeAudio(url) ||
+        clean.endsWith('.mp4') ||
+        clean.endsWith('.m4v') ||
+        clean.endsWith('.webm') ||
+        clean.endsWith('.mov') ||
+        clean.endsWith('.mkv');
   }
 
   @override
@@ -150,9 +194,9 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
   }
 
   bool get _hasValidMedia {
-    return widget.sermon.videoUrl.isNotEmpty ||
-        widget.sermon.audioUrl.isNotEmpty ||
-        widget.sermon.archiveUrl.isNotEmpty;
+    return _cleanUrl(widget.sermon.videoUrl).isNotEmpty ||
+        _cleanUrl(widget.sermon.audioUrl).isNotEmpty ||
+        _cleanUrl(widget.sermon.archiveUrl).isNotEmpty;
   }
 
   /// Tears down whatever is currently playing so the stage can be re-selected
@@ -222,9 +266,9 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
 
     if (mounted) setState(() { _isLoading = true; _hasError = false; });
 
-    final videoUrl = widget.sermon.videoUrl.trim();
-    final audioUrl = widget.sermon.audioUrl.trim();
-    final archiveUrl = widget.sermon.archiveUrl.trim();
+    final videoUrl = _cleanUrl(widget.sermon.videoUrl);
+    final audioUrl = _cleanUrl(widget.sermon.audioUrl);
+    final archiveUrl = _cleanUrl(widget.sermon.archiveUrl);
 
     // A playable VIDEO source is any non-empty URL that is not an audio file:
     // a YouTube link, a Cloudflare Stream HLS manifest, or an R2/direct MP4.
@@ -239,14 +283,24 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
     }
     _hasVideoSource = videoSource.isNotEmpty;
 
-    // Playable audio track: the dedicated audio_url when present, otherwise the
-    // audio track of the video source (so "audio only" still works for MP4/HLS).
-    final audioSource = audioUrl.isNotEmpty
-        ? audioUrl
-        : (videoUrl.isNotEmpty ? videoUrl : archiveUrl);
+    // The audio stage may ONLY be handed a source `just_audio` can load. The
+    // previous logic fell back to `videoUrl` unconditionally, so choosing
+    // "AUDIO" on a Cloudflare Stream sermon fed just_audio an `.m3u8` manifest
+    // (and on a YouTube sermon, a youtube.com page URL) — both fail with
+    // "(4) Failed to load URL" (MEDIA_ERR_SRC_NOT_SUPPORTED).
+    String audioSource = '';
+    if (_isDirectMediaFile(audioUrl)) {
+      audioSource = audioUrl;
+    } else if (_isDirectMediaFile(videoUrl)) {
+      audioSource = videoUrl;
+    } else if (_isDirectMediaFile(archiveUrl)) {
+      audioSource = archiveUrl;
+    }
+    _hasAudioSource = audioSource.isNotEmpty;
 
     final genuinelyAudio = videoSource.isEmpty && audioSource.isNotEmpty;
-    final useAudio = _preferAudioOnly && audioSource.isNotEmpty || genuinelyAudio;
+    final useAudio =
+        genuinelyAudio || (_preferAudioOnly && audioSource.isNotEmpty);
 
     try {
       final client = ref.read(supabaseServiceProvider).client;
@@ -316,6 +370,20 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
   /// keep playing with lock-screen / notification controls (previously a private
   /// `AudioPlayer` died as soon as the screen was closed).
   Future<void> _initAudioPlayer(String url) async {
+    // Guard: never hand just_audio an empty/`null`/HLS/YouTube URL. An HTML
+    // audio element cannot load them, which produced the console error
+    // "(4) Failed to load URL". Log the exact refused value so the offending
+    // source is identifiable.
+    if (!_isDirectMediaFile(url)) {
+      debugPrint('Sermon audio init refused unusable source: "$url"');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
+      return;
+    }
     try {
       _isAudioOnly = true;
       final handler = ref.read(audioHandlerProvider);
@@ -367,7 +435,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       }
       if (mounted) setState(() { _isLoading = false; _hasError = false; });
     } catch (e) {
-      debugPrint('Sermon audio init error: $e');
+      debugPrint('Sermon audio init error for "$url": $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -823,7 +891,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
                 right: 6,
                 child: Row(
                   children: [
-                    if (_hasVideoSource) _buildAudioOnlyToggle(),
+                    if (_hasVideoSource && _hasAudioSource) _buildAudioOnlyToggle(),
                     const SizedBox(width: 6),
                     if (ytPlayer == null) const CcToggleButton(),
                     const SizedBox(width: 6),

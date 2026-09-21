@@ -236,8 +236,8 @@ class CriticalDataCache {
           .from('events')
           .select()
           .eq('church_id', tenantId)
-          .gte('event_date', DateTime.now().toIso8601String())
-          .order('event_date')
+          .gte('date', DateTime.now().toIso8601String())
+          .order('date')
           .limit(20);
 
       await _cache.cacheData('events_$tenantId', events, ttl: const Duration(hours: 12));

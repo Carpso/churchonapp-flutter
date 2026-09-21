@@ -92,6 +92,16 @@ dev_dependencies:
   flutter_launcher_icons: ^0.13.1
   mocktail: ^1.0.4
 
+# Local fork of video_player_web_hls 1.3.0. Upstream parses the hls.js
+# `hlsError` payload via Dart dynamic dispatch (`errorData.type`), which throws
+# `NoSuchMethodError: method not found: 'type'` because a JS object has no Dart
+# getters. That throw happened INSIDE the error handler, so the real playback
+# failure was never surfaced and the player never left its loading state. The
+# fork reads the payload defensively via `getProperty`.
+dependency_overrides:
+  video_player_web_hls:
+    path: packages/video_player_web_hls
+
 flutter_launcher_icons:
   android: true
   ios: true

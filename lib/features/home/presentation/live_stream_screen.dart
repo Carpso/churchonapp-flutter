@@ -28,8 +28,9 @@ import '../../../core/providers/profile_provider.dart';
 /// Why the player has (or has not) reached playback. A single explicit state
 /// removes the "spinner forever" class of bug: the UI can only show the spinner
 /// while `loading`, and every exit path (initialized, invalid URL, thrown error,
-/// or watchdog timeout) moves to `ready` or `error`.
-enum _PlayerPhase { loading, ready, error }
+/// live-but-not-publishing, or watchdog timeout) moves to `waiting`, `ready` or
+/// `error` — never an infinite "starting".
+enum _PlayerPhase { loading, waiting, ready, error }
 
 class LiveStreamScreen extends ConsumerStatefulWidget {
   final String streamUrl;
@@ -74,6 +75,10 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   _PlayerPhase _phase = _PlayerPhase.loading;
   Timer? _initWatchdog;
   Timer? _retryTimer;
+
+  /// Slow poll that reconciles the row while we are in the `waiting` state
+  /// (live row whose Cloudflare input is not connected yet).
+  Timer? _waitingTimer;
   bool _isReplay = false;
   bool _reconnecting = false;
   String? _resolvedPlaybackUrl;
@@ -83,7 +88,10 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
 
   /// Real server-side state, used to distinguish "starting" from "offline".
   String? _rowStatus;
-  bool _inputConnected = false;
+
+  /// `null` = not yet known (refresh not run/failed), `true`/`false` = the
+  /// Cloudflare live input's real connection state.
+  bool? _inputConnected;
 
   /// Auto-retry bookkeeping.
   int _autoRetries = 0;
@@ -117,10 +125,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     _resolveAndInitialize();
   }
 
-  bool _isValidUrl(String url) =>
-      url.isNotEmpty &&
-      !url.contains('/null/') &&
-      (url.startsWith('http://') || url.startsWith('https://'));
+  bool _isValidUrl(String url) {
+    final u = url.trim();
+    if (u.isEmpty) return false;
+    if (u.toLowerCase() == 'null') return false;
+    if (u.contains('/null/')) return false;
+    return u.startsWith('http://') || u.startsWith('https://');
+  }
 
   /// The viewer may be opened with a stale/empty URL (e.g. a push notification
   /// or a home card carrying only the tenant). Resolve the real playback URL
@@ -132,13 +143,12 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
             : null;
 
     var url = widget.streamUrl.trim();
-    if (_effectiveStreamId == null || !_isValidUrl(url)) {
-      // Repair path runs AUTOMATICALLY on open (not only after a failure): ask
-      // Cloudflare for the live input's real status + a fresh HLS URL so a
-      // newly-created stream (whose row predates the manifest) still plays.
-      await _loadRow(allowHttpRefresh: true);
-      url = _resolvedPlaybackUrl ?? url;
-    }
+    // Always reconcile on open (not only after a failure): this repairs a
+    // stale/empty `hls_url` AND learns whether Cloudflare reports the live
+    // input as connected — the fact that lets us tell "not publishing yet"
+    // apart from a genuine playback problem.
+    await _loadRow(allowHttpRefresh: true);
+    url = _resolvedPlaybackUrl ?? url;
     if (!mounted) return;
     _startSession();
     _startViewerCount();
@@ -204,6 +214,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     }
 
     _initWatchdog?.cancel();
+    _waitingTimer?.cancel();
     if (mounted) {
       setState(() {
         _phase = _PlayerPhase.loading;
@@ -260,30 +271,6 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   Future<void> _handlePlaybackFailure() async {
     if (!mounted || _phase == _PlayerPhase.ready) return;
     _totalFailures++;
-    if (_totalFailures > 8) {
-      // A live row must NEVER be given up on: the input may simply not have
-      // connected yet. Reconcile once more, then keep retrying slowly and keep
-      // the "starting" copy. Only a genuinely ended/unknown row (no URL at all)
-      // gets the terminal error state.
-      await _loadRow(allowHttpRefresh: true);
-      if (!mounted) return;
-      final canRetry = _isLiveRow ||
-          (_rowStatus == null && _resolvedPlaybackUrl != null);
-      if (canRetry) {
-        setState(() {
-          _phase = _PlayerPhase.loading;
-          _statusNote = 'Stream is starting — reconnecting…';
-        });
-        _retryTimer?.cancel();
-        _retryTimer = Timer(const Duration(seconds: 30), () {
-          if (!mounted) return;
-          _initializePlayer(overrideUrl: _resolvedPlaybackUrl);
-        });
-        return;
-      }
-      setState(() => _phase = _PlayerPhase.error);
-      return;
-    }
 
     // 1) Reconcile with the server (repairs a stale/empty hls_url + real state).
     final previousUrl = _resolvedPlaybackUrl;
@@ -301,7 +288,16 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     if (await _tryArchiveFallback()) return;
     if (!mounted) return;
 
-    // 3) Silent auto-retry with backoff before ever exposing RETRY.
+    // 3) Live, but Cloudflare says the live input is NOT connected: the
+    //    broadcast hasn't started publishing. Stop pretending it is
+    //    "connecting" — show the actionable waiting state and poll for the
+    //    input to connect (never an infinite "starting").
+    if (_isLiveRow && _inputConnected == false) {
+      _enterWaiting();
+      return;
+    }
+
+    // 4) Silent auto-retry with backoff before ever exposing RETRY.
     if (_autoRetries < _maxAutoRetries) {
       _autoRetries++;
       final delay = Duration(seconds: 3 * _autoRetries);
@@ -321,8 +317,33 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
       return;
     }
 
-    // 4) Give up → state-specific error copy (never "offline" while live).
+    // 5) Give up → state-specific error copy (never "offline" while live).
     if (mounted) setState(() => _phase = _PlayerPhase.error);
+  }
+
+  /// The row says `live` but Cloudflare reports the live input is not connected
+  /// (the streamer's camera/OBS hasn't published). This is a MEANINGFUL state,
+  /// not "starting": show actionable copy and poll `refresh_live_input` until
+  /// the input connects, then retry playback immediately.
+  void _enterWaiting() {
+    if (!mounted) return;
+    setState(() {
+      _phase = _PlayerPhase.waiting;
+      _statusNote = "Waiting for the broadcast to start — the streamer's "
+          "camera hasn't connected yet.";
+    });
+    _waitingTimer?.cancel();
+    _waitingTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
+      if (!mounted || _phase != _PlayerPhase.waiting) return;
+      await _loadRow(allowHttpRefresh: true);
+      if (!mounted || _phase != _PlayerPhase.waiting) return;
+      if (_inputConnected == true) {
+        _waitingTimer?.cancel();
+        _autoRetries = 0;
+        _totalFailures = 0;
+        await _initializePlayer(overrideUrl: _resolvedPlaybackUrl);
+      }
+    });
   }
 
   void _buildChewie(VideoPlayerController controller, String url) {
@@ -460,6 +481,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     _viewerTimer?.cancel();
     _initWatchdog?.cancel();
     _retryTimer?.cancel();
+    _waitingTimer?.cancel();
     unawaited(_flushSession());
     _videoPlayerController?.removeListener(_onPlayerChanged);
     _videoPlayerController?.dispose();
@@ -723,6 +745,30 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
           return Chewie(controller: chewie);
         }
         return _buildErrorState();
+      case _PlayerPhase.waiting:
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: Color(0xFFFFD700)),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Text(
+                  _statusNote ??
+                      "Waiting for the broadcast to start — the streamer's "
+                          "camera hasn't connected yet.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 12.5,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
       case _PlayerPhase.loading:
         return Center(
           child: Column(
@@ -823,7 +869,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     // while the stream row is actually live.
     final scheduled = _rowStatus == 'scheduled';
     final live = _isLiveRow;
-    final starting = live && !_inputConnected;
+    final starting = live && _inputConnected == false;
 
     final IconData icon;
     final String title;
@@ -835,9 +881,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
           'Please check back when the broadcast begins.';
     } else if (starting) {
       icon = LucideIcons.radioReceiver;
-      title = 'Stream is starting…';
-      message = 'The church is live, but the video feed is still connecting. '
-          'Hang tight — we will reconnect automatically.';
+      title = 'Waiting for the broadcast';
+      message = "Waiting for the broadcast to start — the streamer's camera "
+          "hasn't connected yet. We'll connect automatically when it does.";
     } else if (live) {
       icon = LucideIcons.wifiOff;
       title = 'Playback problem';
@@ -880,6 +926,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
           const SizedBox(height: 14),
           OutlinedButton(
             onPressed: () {
+              _waitingTimer?.cancel();
+              _initWatchdog?.cancel();
+              _retryTimer?.cancel();
               setState(() {
                 _phase = _PlayerPhase.loading;
                 _archiveTriedFor = null;

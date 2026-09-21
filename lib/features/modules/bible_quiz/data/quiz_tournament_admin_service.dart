@@ -207,15 +207,23 @@ class QuizTournamentAdminService {
   }
 
   /// Tournaments promoted onto the hub for everyone.
+  ///
+  /// Never throws: the featured banner is optional, so a failing query must hide
+  /// itself rather than surface an error and trigger repeat rebuilds/retries.
   Future<List<TournamentAdmin>> listFeatured() async {
-    final rows = await _client
-        .from('quiz_tournaments')
-        .select()
-        .eq('is_featured', true)
-        .inFilter('status', ['scheduled', 'published', 'live'])
-        .order('starts_at', ascending: true)
-        .limit(10);
-    return _asList(rows).map(TournamentAdmin.fromMap).toList();
+    try {
+      final rows = await _client
+          .from('quiz_tournaments')
+          .select()
+          .eq('is_featured', true)
+          .inFilter('status', ['scheduled', 'published', 'live'])
+          .order('starts_at', ascending: true)
+          .limit(10);
+      return _asList(rows).map(TournamentAdmin.fromMap).toList();
+    } catch (e) {
+      debugPrint('featured tournaments unavailable: $e');
+      return const [];
+    }
   }
 
   Future<String?> createTournament(Map<String, dynamic> payload) async {
