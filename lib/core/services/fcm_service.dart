@@ -32,7 +32,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     final channelName = _channelNameForType(type);
     final importance = _importanceForType(type);
     final priority = Priority.max;
-    final isRide = channelId == 'coa_rides';
+    final isRide = channelId == 'coa_rides_v2';
     final category = _categoryForChannel(channelId);
 
     final androidDetails = AndroidNotificationDetails(
@@ -70,45 +70,66 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
+/// MUST mirror `NotificationService`'s registered channels — these are the
+/// high-importance `_v2` channels created in `notification_service.dart`. A
+/// data-only push handled here posts to whatever id this returns; using a
+/// non-registered id lets Android auto-create it at DEFAULT importance, so the
+/// heads-up banner/sound never fires.
 String _channelForType(String type) {
   switch (type) {
     case 'chat':
     case 'chat_message':
-      return 'coa_chat';
+    case 'message':
+      return 'coa_chat_v2';
+    case 'post':
+    case 'social_post':
+    case 'repost':
+      return 'coa_posts_v2';
     case 'payment':
     case 'payment_confirmed':
-      return 'coa_payments';
+    case 'wallet':
+    case 'subscription_due':
+      return 'coa_payments_v2';
     case 'ride':
     case 'ride_update':
     case 'ride_accepted':
     case 'ride_counter':
-      return 'coa_rides';
+    case 'incoming_call':
+      return 'coa_rides_v2';
     case 'order':
-      return 'coa_orders';
+      return 'coa_orders_v2';
     case 'event':
-      return 'coa_events';
+    case 'event_reminder':
+      return 'coa_events_v2';
     case 'prayer':
-      return 'coa_prayers';
+    case 'bible_study':
+      return 'coa_prayers_v2';
     case 'testimony':
-      return 'coa_testimonies';
+      return 'coa_testimonies_v2';
+    case 'fasting':
+      return 'coa_fasting_v2';
     case 'klip':
-      return 'coa_klips';
+      return 'coa_klips_v2';
     case 'quiz':
     case 'pvp_invite':
+    case 'pvp_match':
     case 'pvp_result':
-      return 'coa_quiz';
+    case 'pvp_rematch':
+      return 'coa_quiz_v2';
     case 'role':
-      return 'coa_roles';
+    case 'driver_approval':
+    case 'church_approved':
+    case 'kyc_approved':
+    case 'kyc_rejected':
+      return 'coa_roles_v2';
     case 'job':
-      return 'coa_jobs';
+      return 'coa_jobs_v2';
     case 'volunteer':
-      return 'coa_volunteers';
+      return 'coa_volunteers_v2';
     case 'worship':
-      return 'coa_worship';
-    case 'incoming_call':
-      return 'coa_rides';
+      return 'coa_worship_v2';
     default:
-      return 'coa_announcements';
+      return 'coa_announcements_v2';
   }
 }
 
@@ -167,15 +188,15 @@ Importance _importanceForType(String type) {
 
 AndroidNotificationCategory? _categoryForChannel(String channelId) {
   switch (channelId) {
-    case 'coa_rides':
+    case 'coa_rides_v2':
       return AndroidNotificationCategory.call;
-    case 'coa_chat':
+    case 'coa_chat_v2':
       return AndroidNotificationCategory.message;
-    case 'coa_payments':
-    case 'coa_orders':
+    case 'coa_payments_v2':
+    case 'coa_orders_v2':
       return AndroidNotificationCategory.alarm;
-    case 'coa_events':
-    case 'coa_reminders':
+    case 'coa_events_v2':
+    case 'coa_reminders_v2':
       return AndroidNotificationCategory.reminder;
     default:
       return null;

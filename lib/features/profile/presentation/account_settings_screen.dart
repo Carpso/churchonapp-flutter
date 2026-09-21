@@ -1,7 +1,10 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/profile_provider.dart';
 import '../../../core/services/r2_service.dart';
@@ -21,6 +24,76 @@ class AccountSettingsScreen extends ConsumerStatefulWidget {
 
 class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
   bool _isUploading = false;
+  bool _isExporting = false;
+  bool _isDeleting = false;
+
+  Future<void> _exportMyData() async {
+    setState(() => _isExporting = true);
+    try {
+      final res = await Supabase.instance.client.functions.invoke('export-user-data');
+      final data = res.data;
+      final jsonStr = data is String ? data : const JsonEncoder.withIndent('  ').convert(data);
+      final file = XFile.fromData(
+        Uint8List.fromList(utf8.encode(jsonStr)),
+        mimeType: 'application/json',
+        name: 'churchonapp_my_data.json',
+      );
+      await SharePlus.instance.share(ShareParams(files: [file], text: 'My Church On App data export'));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e'), backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    final email = user?.email;
+    if (user == null || email == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Account deletion is unavailable for this sign-in method.')));
+      return;
+    }
+    final typed = await showDialog<String>(
+      context: context,
+      builder: (dialogCtx) {
+        String value = '';
+        return AlertDialog(
+          title: const Text('Delete Account'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('This permanently deletes your account and anonymises your posts, messages and comments. This cannot be undone.'),
+              const SizedBox(height: 12),
+              Text('Type $email to confirm:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              TextField(onChanged: (v) => value = v, decoration: const InputDecoration(hintText: 'Email')),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('CANCEL')),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx, value.trim().toLowerCase() == email.toLowerCase() ? email : null),
+              child: const Text('DELETE', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+    if (typed == null) return;
+    setState(() => _isDeleting = true);
+    try {
+      await Supabase.instance.client.functions.invoke('delete-account', body: {'confirm_email': typed});
+      await Supabase.instance.client.auth.signOut();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: $e'), backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _isDeleting = false);
+    }
+  }
 
   void _pickAndUploadImage() async {
     setState(() => _isUploading = true);
@@ -120,6 +193,23 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
             _buildLanguageSelector(context),
             const SizedBox(height: 20),
             _buildSwitchTenantTile(context),
+            const SizedBox(height: 15),
+            _buildActionTile(
+              icon: LucideIcons.download,
+              title: 'Download My Data',
+              subtitle: 'Export everything you own as JSON',
+              busy: _isExporting,
+              onTap: _isExporting ? null : _exportMyData,
+            ),
+            const SizedBox(height: 15),
+            _buildActionTile(
+              icon: LucideIcons.trash2,
+              title: 'Delete Account',
+              subtitle: 'Permanently remove your account',
+              busy: _isDeleting,
+              danger: true,
+              onTap: _isDeleting ? null : _deleteAccount,
+            ),
             const SizedBox(height: 40),
             ElevatedButton(
               onPressed: () => _closeOrSwitch(context),
@@ -280,6 +370,48 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
               ),
             ),
             const Icon(LucideIcons.chevronDown, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback? onTap,
+    bool busy = false,
+    bool danger = false,
+  }) {
+    final color = danger ? Colors.red : Theme.of(context).colorScheme.onSurface;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
+                ],
+              ),
+            ),
+            if (busy)
+              const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+            else
+              const Icon(LucideIcons.chevronRight, size: 18),
           ],
         ),
       ),

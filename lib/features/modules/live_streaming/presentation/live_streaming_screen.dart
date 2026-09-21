@@ -3,8 +3,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
-import 'package:church_on_app/core/widgets/app_image.dart';
-import 'package:church_on_app/core/config/sample_posters.dart';
+import 'package:church_on_app/core/widgets/branded_stream_poster.dart';
 import 'package:go_router/go_router.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/live_stream_service.dart';
 
@@ -189,13 +188,9 @@ class LiveStreamingScreen extends ConsumerWidget {
       );
 
   Widget _thumb(Map<String, dynamic> stream) {
-    final thumb = stream['thumbnail_url']?.toString() ?? '';
     final isAudioOnly = stream['is_audio_only'] == true;
-    // Default poster art when a stream has no thumbnail (audio-only keeps its
-    // mic icon instead — a photo would misrepresent it).
-    final displayUrl = (!isAudioOnly && thumb.isEmpty)
-        ? posterOrDefault(thumb, seed: stream['id'] ?? stream['title'] ?? '')
-        : thumb;
+    // Branded default poster when a stream has no custom thumbnail (audio-only
+    // keeps its mic icon instead — a poster would misrepresent it).
     return SizedBox(
       width: 64,
       height: 44,
@@ -204,15 +199,19 @@ class LiveStreamingScreen extends ConsumerWidget {
           Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: displayUrl.isNotEmpty
-                  ? AppImage(displayUrl, fit: BoxFit.cover)
-                  : Container(
+              child: isAudioOnly
+                  ? Container(
                       color: Colors.black12,
-                      child: Icon(
-                        isAudioOnly ? LucideIcons.mic : LucideIcons.video,
+                      child: const Icon(
+                        LucideIcons.mic,
                         size: 18,
                         color: Colors.grey,
                       ),
+                    )
+                  : SmartStreamPoster(
+                      url: stream['thumbnail_url']?.toString(),
+                      seed: stream['id'] ?? stream['title'] ?? '',
+                      fit: BoxFit.cover,
                     ),
             ),
           ),
@@ -320,10 +319,7 @@ class LiveStreamingScreen extends ConsumerWidget {
       'streamId': streamId,
       'title': stream['title']?.toString() ?? 'Live Service',
       'isAudioOnly': stream['is_audio_only'] == true,
-      'thumbnailUrl': posterOrDefault(
-        stream['thumbnail_url']?.toString(),
-        seed: stream['id'] ?? stream['title'] ?? '',
-      ),
+      'thumbnailUrl': stream['thumbnail_url']?.toString(),
     });
   }
 

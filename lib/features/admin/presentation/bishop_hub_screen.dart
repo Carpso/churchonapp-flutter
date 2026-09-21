@@ -114,12 +114,9 @@ class BishopHubScreen extends ConsumerWidget {
           ),
           _buildPresbyteryList(ref, stats),
         ],
-        const SliverPadding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          sliver: SliverToBoxAdapter(
-            child: Text("Secure Leadership Memos", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ),
-        ),
+        // NOTE: the "Secure Leadership Memos" header is rendered ONCE inside
+        // _buildPrivateMemoList (with its "New Memo" action). A duplicate
+        // standalone header used to sit here and appeared twice on screen.
         _buildPrivateMemoList(context, ref),
         const SliverPadding(
           padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),

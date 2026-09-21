@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/features/admin/presentation/admin_hub_screen.dart';
@@ -17,8 +18,15 @@ class HomeAdminDashboard extends ConsumerWidget {
     if (profile == null || !profile.isAdminOrHigher) return const SizedBox.shrink();
 
     final brand = Theme.of(context).primaryColor;
+    // A bishop/apostle must always land on the ORGANISATION dashboard (network
+    // KPIs, branches, charts) — not the generic Admin Hub. The profile tile and
+    // the /bishop-hub route already do this; the home "Admin Tools" strip was
+    // the remaining path that sent a bishop to the basic AdminHubScreen.
+    final VoidCallback openDashboard = profile.isBishop
+        ? () => context.push('/bishop-dashboard')
+        : () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminHubScreen()));
     final chips = [
-      ("Dashboard", LucideIcons.layoutDashboard, brand, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminHubScreen()))),
+      ("Dashboard", LucideIcons.layoutDashboard, brand, openDashboard),
       ("Broadcast", LucideIcons.megaphone, brand.withValues(alpha: 0.8), () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GlobalBroadcastScreen()))),
       ("Members", LucideIcons.users, brand.withValues(alpha: 0.6), () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MemberManagementScreen()))),
       ("Events", LucideIcons.calendarDays, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EventSchedulerScreen()))),

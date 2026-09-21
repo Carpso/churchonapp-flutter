@@ -12,6 +12,16 @@ class R2Service {
   static const int _maxVideoSize = 100 * 1024 * 1024;
   static const int _maxDocumentSize = 20 * 1024 * 1024;
 
+  /// Why the most recent [uploadFile]/[uploadBytes] returned null. Callers can
+  /// surface this so a failed upload is never a silent no-op.
+  static String? lastError;
+
+  static String? _fail(String message) {
+    lastError = message;
+    debugPrint('R2 Upload Error: $message');
+    return null;
+  }
+
   static const Set<String> _allowedExtensions = {
     '.jpg', '.jpeg', '.png', '.gif', '.webp',
     '.mp4', '.mov', '.avi', '.mkv', '.webm',
@@ -75,28 +85,28 @@ class R2Service {
     return url;
   }
 
+  // NOTE: no silent fallback to another storage system — every media upload
+  // must land in R2 (`media.churchonapp.com`) so URLs are consistent and a
+  // failure is visible to the caller instead of scattering files elsewhere.
   Future<String?> uploadFile(File file, String path) async {
+    lastError = null;
     try {
       final fileSize = await file.length();
       final extension = path.split('.').last.toLowerCase();
 
       if (!_allowedExtensions.contains('.$extension')) {
-        debugPrint("R2 Upload Error: File type .$extension not allowed");
-        return null;
+        return _fail('File type .$extension is not allowed');
       }
 
       final contentType = _getContentType(file.path);
       if (contentType.startsWith('image/') && fileSize > _maxImageSize) {
-        debugPrint("R2 Upload Error: Image exceeds 10MB limit");
-        return null;
+        return _fail('Image exceeds the 10MB limit');
       }
       if (contentType.startsWith('video/') && fileSize > _maxVideoSize) {
-        debugPrint("R2 Upload Error: Video exceeds 100MB limit");
-        return null;
+        return _fail('Video exceeds the 100MB limit');
       }
       if (contentType == 'application/pdf' && fileSize > _maxDocumentSize) {
-        debugPrint("R2 Upload Error: Document exceeds 20MB limit");
-        return null;
+        return _fail('Document exceeds the 20MB limit');
       }
 
       final response = await _client.functions.invoke('r2-sign', body: {
@@ -108,6 +118,7 @@ class R2Service {
       if (response.status == 200) {
         final signedUrl = response.data['signedUrl'];
         final publicUrl = response.data['publicUrl'];
+        if (signedUrl == null) return _fail('Storage did not return an upload URL');
 
         final uploadResponse = await http.put(
           Uri.parse(signedUrl),
@@ -120,31 +131,25 @@ class R2Service {
           if (url.contains("media.church-on-app.com")) {
             url = url.replaceAll("media.church-on-app.com", publicDomain);
           }
-          return url.isNotEmpty ? url : null;
+          return url.isNotEmpty ? url : _fail('Storage returned an empty URL');
         }
-        debugPrint('R2 Upload Error: PUT failed ${uploadResponse.statusCode}');
-      } else {
-        debugPrint('R2 Upload Error: r2-sign failed ${response.status}');
+        return _fail('Upload rejected by storage (HTTP ${uploadResponse.statusCode})');
       }
+      return _fail('Upload could not be authorised (HTTP ${response.status})');
     } catch (e) {
-      debugPrint("R2 Upload Error: $e");
+      return _fail(e.toString());
     }
-    // NOTE: no silent fallback to another storage system — every media upload
-    // must land in R2 (`media.churchonapp.com`) so URLs are consistent and a
-    // failure is visible to the caller instead of scattering files elsewhere.
-    return null;
   }
 
   Future<String?> uploadBytes(Uint8List bytes, String path, {String? contentType, String? bucket}) async {
+    lastError = null;
     try {
       final extension = path.split('.').last.toLowerCase();
       if (!_allowedExtensions.contains('.$extension')) {
-        debugPrint("R2 Upload Error: File type .$extension not allowed");
-        return null;
+        return _fail('File type .$extension is not allowed');
       }
       if (bytes.length > _maxImageSize && (contentType?.startsWith('image/') ?? false)) {
-        debugPrint("R2 Upload Error: Image exceeds 10MB limit");
-        return null;
+        return _fail('Image exceeds the 10MB limit');
       }
 
       final response = await _client.functions.invoke('r2-sign', body: {
@@ -157,6 +162,7 @@ class R2Service {
       if (response.status == 200) {
         final signedUrl = response.data['signedUrl'];
         final publicUrl = response.data['publicUrl'];
+        if (signedUrl == null) return _fail('Storage did not return an upload URL');
 
         final uploadResponse = await http.put(
           Uri.parse(signedUrl),
@@ -170,16 +176,14 @@ class R2Service {
           if (!url.startsWith('r2://') && url.contains("media.church-on-app.com")) {
             url = url.replaceAll("media.church-on-app.com", publicDomain);
           }
-          return url.isNotEmpty ? url : null;
+          return url.isNotEmpty ? url : _fail('Storage returned an empty URL');
         }
-        debugPrint('R2 Upload Error: PUT failed with ${uploadResponse.statusCode}');
-      } else {
-        debugPrint('R2 Upload Error: r2-sign failed with ${response.status}');
+        return _fail('Upload rejected by storage (HTTP ${uploadResponse.statusCode})');
       }
+      return _fail('Upload could not be authorised (HTTP ${response.status})');
     } catch (e) {
-      debugPrint('R2 Upload Error: $e');
+      return _fail(e.toString());
     }
-    return null;
   }
 
   /// Resolves a private-bucket reference (`r2://<bucket>/<key>`, as stored for

@@ -14,6 +14,7 @@ import 'package:church_on_app/core/widgets/live_stream_indicator.dart';
 import 'package:church_on_app/core/widgets/feature_lock.dart';
 import 'package:church_on_app/core/widgets/global_media_player.dart';
 import 'package:church_on_app/core/widgets/onboarding_quick_start.dart';
+import 'package:church_on_app/core/widgets/kael_explain_sheet.dart';
 import 'package:church_on_app/features/connect/presentation/create_social_post_screen.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_top_bar.dart';
 import 'package:church_on_app/features/home/presentation/widgets/home_greeting_header.dart';
@@ -645,20 +646,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'homeFab',
-        tooltip: 'Create new post',
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const CreateSocialPostScreen(),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // Home tab "Understand with Kael" — context-aware help for the app.
+          FloatingActionButton.small(
+            heroTag: 'homeKaelFab',
+            tooltip: 'Understand with Kael',
+            elevation: 2,
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            foregroundColor: Colors.amber,
+            onPressed: () => showKaelExplainSheet(
+              context,
+              action: 'exegesis',
+              title: kKaelTabHelp[0]!.title,
+              prompt: kKaelTabHelp[0]!.prompt,
+            ),
+            child: const Icon(LucideIcons.sparkles, size: 18),
           ),
-        ),
-        backgroundColor: Theme.of(context).primaryColor,
-        child: Icon(
-          LucideIcons.plus,
-          color: Theme.of(context).colorScheme.onPrimary,
-        ),
+          const SizedBox(height: 12),
+          FloatingActionButton(
+            heroTag: 'homeFab',
+            tooltip: 'Create new post',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CreateSocialPostScreen(),
+              ),
+            ),
+            backgroundColor: Theme.of(context).primaryColor,
+            child: Icon(
+              LucideIcons.plus,
+              color: Theme.of(context).colorScheme.onPrimary,
+            ),
+          ),
+        ],
       ),
     );
   }

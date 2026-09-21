@@ -205,23 +205,23 @@ serve(async (req) => {
                         // them ALL at once on reconnect. With a per-type
                         // collapse key only the LATEST queued message per type
                         // is delivered, and nothing older than the TTL is kept.
-                        collapseKey: effType,
+                        // NOTE: FCM HTTP v1 JSON is SNAKE_CASE — camelCase keys
+                        // (channelId/defaultSound/…) are silently ignored, which
+                        // drops the channel back to the manifest default.
+                        collapse_key: effType,
                         ttl: "43200s",
                         priority: "high",
                         notification: {
-                          channelId: channelForType(effType),
+                          channel_id: channelForType(effType),
                           color: "#FFDA03",
                           icon: iconForType(effType),
                           ...(notifImage ? { image: notifImage } : {}),
                           sound: "default",
-                          defaultSound: true,
-                          defaultVibrateTimings: true,
-                          defaultLightSettings: true,
+                          default_sound: true,
+                          default_vibrate_timings: true,
+                          default_light_settings: true,
                           visibility: "VISIBILITY_PUBLIC",
-                          notificationPriority: "PRIORITY_MAX",
-                          // Legacy snake_case for backward compat — FCM ignores unknown but keep both.
-                          notification_priority: "PRIORITY_MAX" as unknown as string,
-                          priority: "PRIORITY_MAX" as unknown as string,
+                          notification_priority: "PRIORITY_MAX",
                         },
                       },
                       apns: {
@@ -286,7 +286,10 @@ serve(async (req) => {
                     data: outData,
                     collapse_key: effType,
                     time_to_live: 43200,
-                    android: { priority: "high" },
+                    android: {
+                      priority: "high",
+                      notification: { channel_id: channelForType(effType) },
+                    },
                   }),
                 });
 
@@ -323,11 +326,18 @@ serve(async (req) => {
 
 function iconForType(type?: string): string {
   switch (type) {
-    case 'chat': return 'ic_notif_chat';
-    case 'post': return 'ic_notif_chat';
-    case 'payment': return 'ic_notif_payment';
+    case 'chat':
+    case 'chat_message':
+    case 'message': return 'ic_notif_chat';
+    case 'post':
+    case 'social_post':
+    case 'repost': return 'ic_notif_chat';
+    case 'payment':
+    case 'payment_confirmed':
+    case 'subscription_due': return 'ic_notif_payment';
     case 'order': return 'ic_notif_payment';
-    case 'event': return 'ic_notif_event';
+    case 'event':
+    case 'event_reminder': return 'ic_notif_event';
     case 'prayer': return 'ic_notif_prayer';
     case 'testimony': return 'ic_notif_prayer';
     case 'fasting': return 'ic_notif_prayer';
@@ -336,7 +346,10 @@ function iconForType(type?: string): string {
     case 'volunteer': return 'ic_notif_volunteers';
     case 'role': return 'ic_notif_role';
     case 'job': return 'ic_notif_job';
-    case 'ride': return 'ic_notif_ride';
+    case 'ride':
+    case 'ride_update':
+    case 'ride_accepted':
+    case 'ride_counter': return 'ic_notif_ride';
     case 'worship': return 'ic_notif_worship';
     case 'sermon': return 'ic_notif_general';
     case 'incoming_call': return 'ic_notif_ride';
@@ -361,11 +374,18 @@ function iconForType(type?: string): string {
 
 function channelForType(type?: string): string {
   switch (type) {
-    case 'chat': return 'coa_chat_v2';
-    case 'post': return 'coa_posts_v2';
-    case 'payment': return 'coa_payments_v2';
+    case 'chat':
+    case 'chat_message': return 'coa_chat_v2';
+    case 'post':
+    case 'social_post':
+    case 'repost': return 'coa_posts_v2';
+    case 'payment':
+    case 'payment_confirmed':
+    case 'wallet':
+    case 'subscription_due': return 'coa_payments_v2';
     case 'order': return 'coa_orders_v2';
-    case 'event': return 'coa_events_v2';
+    case 'event':
+    case 'event_reminder': return 'coa_events_v2';
     case 'prayer': return 'coa_prayers_v2';
     case 'testimony': return 'coa_testimonies_v2';
     case 'fasting': return 'coa_fasting_v2';
@@ -374,11 +394,15 @@ function channelForType(type?: string): string {
     case 'volunteer': return 'coa_volunteers_v2';
     case 'role': return 'coa_roles_v2';
     case 'job': return 'coa_jobs_v2';
-    case 'ride': return 'coa_rides_v2';
+    case 'ride':
+    case 'ride_update':
+    case 'ride_accepted':
+    case 'ride_counter': return 'coa_rides_v2';
     case 'worship': return 'coa_worship_v2';
     case 'sermon': return 'coa_announcements_v2';
     case 'incoming_call': return 'coa_rides_v2';
     case 'driver_approval': return 'coa_roles_v2';
+    case 'message': return 'coa_chat_v2';
     case 'pvp_invite': return 'coa_quiz_v2';
     case 'pvp_match': return 'coa_quiz_v2';
     case 'pvp_result': return 'coa_quiz_v2';

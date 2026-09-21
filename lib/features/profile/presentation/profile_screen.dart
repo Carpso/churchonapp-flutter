@@ -10,6 +10,7 @@ import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/qr_code_with_logo.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 import 'package:church_on_app/core/widgets/verification_badge.dart';
+import 'package:church_on_app/core/widgets/kael_explain_sheet.dart';
 import 'package:church_on_app/features/profile/presentation/membership_card_screen.dart';
 import '../../marketplace/presentation/my_library_screen.dart';
 import '../../modules/events/presentation/events_screen.dart';
@@ -134,6 +135,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
         overflow: TextOverflow.ellipsis,
         maxLines: 1,
       ),
+      actions: const [
+        KaelTabHelpButton(tabIndex: 4, color: Colors.amber),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         stretchModes: const [StretchMode.zoomBackground, StretchMode.blurBackground],
         background: Stack(

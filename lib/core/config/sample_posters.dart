@@ -28,8 +28,22 @@ String samplePosterFor(Object seed) {
 
 /// Returns [url] when it has a real value, otherwise a deterministic sample
 /// poster derived from [seed].
+///
+/// NOTE: new UI should prefer `SmartStreamPoster` (see
+/// `lib/core/widgets/branded_stream_poster.dart`), which renders a fully
+/// on-brand Flutter-drawn poster instead of these legacy stock photos. This
+/// function is kept for backwards compatibility with existing call sites.
 String posterOrDefault(String? url, {Object seed = ''}) {
   final trimmed = url?.trim() ?? '';
   if (trimmed.isNotEmpty) return trimmed;
   return samplePosterFor(seed);
+}
+
+/// True when [url] is one of the legacy generated sample posters (or empty) —
+/// i.e. the row has NO real custom art. Used by `SmartStreamPoster` to decide
+/// whether to render the branded default.
+bool isGeneratedSamplePoster(String? url) {
+  final trimmed = url?.trim() ?? '';
+  if (trimmed.isEmpty) return true;
+  return kSampleStreamPosters.contains(trimmed);
 }

@@ -18,6 +18,10 @@ class LiveStreamOverlay {
   final int tickerSpeed;
   final bool tickerEnabled;
   final String? logoUrl;
+  final String? speakerName;
+  final String? speakerTitle;
+  final String? speakerChurch;
+  final String? caption;
 
   const LiveStreamOverlay({
     required this.streamId,
@@ -27,11 +31,23 @@ class LiveStreamOverlay {
     this.tickerSpeed = 40,
     this.tickerEnabled = true,
     this.logoUrl,
+    this.speakerName,
+    this.speakerTitle,
+    this.speakerChurch,
+    this.caption,
   });
 
   bool get hasVerse =>
       (verseText != null && verseText!.trim().isNotEmpty) ||
       (verseRef != null && verseRef!.trim().isNotEmpty);
+
+  bool get hasSpeaker =>
+      (speakerName != null && speakerName!.trim().isNotEmpty) ||
+      (speakerTitle != null && speakerTitle!.trim().isNotEmpty) ||
+      (speakerChurch != null && speakerChurch!.trim().isNotEmpty);
+
+  bool get hasCaption =>
+      caption != null && caption!.trim().isNotEmpty;
 
   factory LiveStreamOverlay.fromMap(Map<String, dynamic> map) {
     return LiveStreamOverlay(
@@ -42,6 +58,10 @@ class LiveStreamOverlay {
       tickerSpeed: (map['ticker_speed'] as num?)?.toInt() ?? 40,
       tickerEnabled: map['ticker_enabled'] as bool? ?? true,
       logoUrl: map['logo_url']?.toString(),
+      speakerName: map['speaker_name']?.toString(),
+      speakerTitle: map['speaker_title']?.toString(),
+      speakerChurch: map['speaker_church']?.toString(),
+      caption: map['caption']?.toString(),
     );
   }
 }
@@ -86,7 +106,13 @@ class LiveStreamOverlayService {
     int? tickerSpeed,
     bool? tickerEnabled,
     String? logoUrl,
+    String? speakerName,
+    String? speakerTitle,
+    String? speakerChurch,
+    String? caption,
     bool clearVerse = false,
+    bool clearSpeaker = false,
+    bool clearCaption = false,
   }) async {
     final payload = <String, dynamic>{
       'stream_id': streamId,
@@ -101,6 +127,14 @@ class LiveStreamOverlayService {
       if (tickerSpeed != null) 'ticker_speed': tickerSpeed,
       if (tickerEnabled != null) 'ticker_enabled': tickerEnabled,
       if (logoUrl != null) 'logo_url': logoUrl,
+      if (clearSpeaker) 'speaker_name': null,
+      if (clearSpeaker) 'speaker_title': null,
+      if (clearSpeaker) 'speaker_church': null,
+      if (speakerName != null) 'speaker_name': speakerName,
+      if (speakerTitle != null) 'speaker_title': speakerTitle,
+      if (speakerChurch != null) 'speaker_church': speakerChurch,
+      if (clearCaption) 'caption': null,
+      if (caption != null) 'caption': caption,
     };
 
     await _client.from('live_stream_overlays').upsert(

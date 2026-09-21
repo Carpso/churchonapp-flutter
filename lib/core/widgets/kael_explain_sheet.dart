@@ -33,7 +33,6 @@ Future<String> kaelGenerate({
 }
 
 /// Shows a Kael AI result in a bottom sheet that NEVER closes on its own.
-///
 /// Root-cause fix for the "sheet disappears while I'm reading/scrolling" bug:
 /// - [isDismissible] `false` and [enableDrag] `false`, so a stray barrier tap
 ///   or a drag can't dismiss it. Only the explicit CLOSE button pops the sheet
@@ -87,6 +86,103 @@ class _KaelResultSheet extends StatefulWidget {
 
   @override
   State<_KaelResultSheet> createState() => _KaelResultSheetState();
+}
+
+/// Context-aware "Understand with Kael" help for the five bottom-navigation
+/// tabs. Each entry supplies the sheet title and a starter prompt explaining
+/// that tab's concepts (Home = the app, Sermons = the Word, Give = giving,
+/// Connect = community, Profile = account).
+class KaelTabHelp {
+  final String title;
+  final String prompt;
+  const KaelTabHelp(this.title, this.prompt);
+}
+
+const Map<int, KaelTabHelp> kKaelTabHelp = {
+  0: KaelTabHelp(
+    'How Church On App works',
+    'Give me a short, friendly tour of the Church On App home tab: what the '
+        'quick actions are for, how giving, sermons, the Bible, the quiz and '
+        'the Connect feed fit together, and one tip to get the most out of the '
+        'app this week. Keep it to a few short bullet points.',
+  ),
+  1: KaelTabHelp(
+    'Understand this sermon',
+    'Help me understand a sermon passage in plain language: what the key '
+        'themes and Bible references mean, the historical context, and one '
+        'practical way to apply it. If I give a topic or preacher, explain '
+        'their likely message too. Keep it warm and pastoral.',
+  ),
+  2: KaelTabHelp(
+    'Understand giving',
+    'Explain how giving works in Church On App: the difference between tithes '
+        'and offerings, the biblical basis (Malachi 3:10, 2 Corinthians 9:7, '
+        'Proverbs 3:9), how my giving record and receipts work, and how to '
+        'give by Mobile Money. Encouraging, never guilt-inducing.',
+  ),
+  3: KaelTabHelp(
+    'Understand Connect',
+    'Explain the Connect tab: what Communities and Groups are for, how to '
+        'post and share stories, how follow/followers work, and how to find '
+        'and join a community in my church. Give me three easy first steps.',
+  ),
+  4: KaelTabHelp(
+    'Understand my account',
+    'Explain my Profile tab: what Church Coins are and how to earn and spend '
+        'them, how my church subscription works, and what the account, '
+        'notification and security settings do. Keep it simple and practical.',
+  ),
+};
+
+/// A small, unobtrusive help affordance that opens Kael with the starter
+/// prompt for [tabIndex] (Home/Sermons/Give/Connect/Profile). Drop it into an
+/// AppBar's `actions` or the tab header.
+class KaelTabHelpButton extends StatelessWidget {
+  final int tabIndex;
+  final Color? color;
+  final String? contextHint;
+  final bool showLabel;
+
+  const KaelTabHelpButton({
+    super.key,
+    required this.tabIndex,
+    this.color,
+    this.contextHint,
+    this.showLabel = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final help = kKaelTabHelp[tabIndex] ?? kKaelTabHelp[0]!;
+    final accent = color ?? Colors.amber;
+    final hint = (contextHint ?? '').trim();
+    final prompt = hint.isEmpty ? help.prompt : '${help.prompt}\n\nContext: $hint';
+
+    void open() => showKaelExplainSheet(
+          context,
+          action: 'exegesis',
+          title: help.title,
+          prompt: prompt,
+        );
+
+    if (!showLabel) {
+      return IconButton(
+        tooltip: 'Understand with Kael',
+        icon: Icon(LucideIcons.sparkles, color: accent, size: 19),
+        onPressed: open,
+        visualDensity: VisualDensity.compact,
+      );
+    }
+    return TextButton.icon(
+      onPressed: open,
+      icon: Icon(LucideIcons.sparkles, color: accent, size: 15),
+      label: const Text(
+        'Understand with Kael',
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+      ),
+      style: TextButton.styleFrom(foregroundColor: accent),
+    );
+  }
 }
 
 class _KaelResultSheetState extends State<_KaelResultSheet> {

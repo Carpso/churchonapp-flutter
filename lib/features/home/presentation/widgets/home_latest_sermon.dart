@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/core/widgets/branded_stream_poster.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
-import 'package:church_on_app/core/config/sample_posters.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 import 'home_section_title.dart';
 import 'package:church_on_app/features/home/data/sermon_service.dart';
@@ -48,7 +47,7 @@ class HomeLatestSermon extends ConsumerWidget {
                     Stack(
                       alignment: Alignment.center,
                       children: [
-                        AppImage(posterOrDefault(sermon.thumbnailUrl, seed: sermon.id), height: 180, width: double.infinity, fit: BoxFit.cover),
+                        SmartStreamPoster(url: sermon.thumbnailUrl, seed: sermon.id, height: 180, width: double.infinity, fit: BoxFit.cover),
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(color: Theme.of(context).primaryColor, shape: BoxShape.circle),

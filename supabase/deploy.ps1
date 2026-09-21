@@ -341,6 +341,10 @@ $migrations = @(
       "20261204_bookshop_tenant_enhancements.sql"
       "20261205_quiz_tournament_admin_rewards.sql"
       "20261206_promo_codes.sql"
+      "20261207_daily_verse_pool_expansion.sql"
+      "20261208_klips_is_audio_and_post_policy.sql"
+      "20261209_live_stream_overlay_speaker.sql"
+"20261210_notifications_autopush.sql"
     )
 
 foreach ($m in $migrations) {

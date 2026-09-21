@@ -96,7 +96,7 @@
             android:resource="@drawable/ic_notif_general" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="coa_rides_v2" />
+            android:value="coa_announcements_v2" />
 
         <!-- Foreground Service Declarations for Play Store Compliance -->
         <service

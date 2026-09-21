@@ -4,6 +4,7 @@ import 'package:video_player/video_player.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/core/widgets/branded_stream_poster.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
 
@@ -19,6 +20,7 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> with WidgetsBind
   late Future<List<Map<String, dynamic>>> _klipsFuture;
   int _currentPage = 0;
   bool _forYouMode = true;
+  String? _fetchError;
 
   void refresh() {
     setState(() {
@@ -27,6 +29,7 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> with WidgetsBind
   }
 
   Future<List<Map<String, dynamic>>> _fetchKlips() async {
+    _fetchError = null;
     try {
       final userId = Supabase.instance.client.auth.currentUser?.id;
       final data = await Supabase.instance.client
@@ -59,7 +62,10 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> with WidgetsBind
 
       return List<Map<String, dynamic>>.from(data);
     } catch (e) {
+      // Never a silent failure: store the reason so the UI can show it and
+      // offer a retry instead of a misleading "No Klips yet".
       debugPrint('Failed to fetch klips: $e');
+      _fetchError = e.toString().replaceFirst('Exception: ', '');
       return [];
     }
   }
@@ -104,21 +110,42 @@ class KingdomKlipsScreenState extends State<KingdomKlipsScreen> with WidgetsBind
           }
           final klips = snapshot.data ?? [];
           if (klips.isEmpty) {
+            final err = _fetchError;
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(LucideIcons.video, size: 64, color: Colors.grey[700]),
+                  Icon(
+                    err != null ? LucideIcons.alertTriangle : LucideIcons.video,
+                    size: 64,
+                    color: err != null ? Colors.orangeAccent : Colors.grey[700],
+                  ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'No Klips yet',
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                  Text(
+                    err != null ? 'Could not load Klips' : 'No Klips yet',
+                    style: const TextStyle(color: Colors.white70, fontSize: 16),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Church leaders can upload short-form videos',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      err ?? 'Church leaders can upload short-form videos',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
                   ),
+                  if (err != null) ...[
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: refresh,
+                      icon: const Icon(LucideIcons.refreshCw, size: 16),
+                      label: const Text('RETRY'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFFFD700),
+                        side: const BorderSide(color: Color(0xFFFFD700)),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             );
@@ -703,7 +730,7 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
               ),
             )
           else
-            const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))),
+            const Center(child: BrandLogoMark(size: 92, padding: 14)),
 
           Container(
             decoration: BoxDecoration(

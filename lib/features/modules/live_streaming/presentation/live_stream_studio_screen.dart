@@ -15,6 +15,7 @@ import 'package:church_on_app/core/services/unified_stream_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/features/home/data/live_streaming_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/live_stream_overlay_service.dart';
+import 'package:church_on_app/features/modules/live_streaming/data/live_stream_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/stream_analytics_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/presentation/stream_projector_screen.dart';
 
@@ -67,6 +68,10 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   String? _tickerMessage;
   int _tickerSpeed = 40;
   bool _tickerEnabled = true;
+  String? _speakerName;
+  String? _speakerTitle;
+  String? _speakerChurch;
+  String? _caption;
   bool _publishingOverlay = false;
   late final StreamAnalyticsService _analytics;
   late final LiveStreamOverlayService _overlays;
@@ -520,7 +525,9 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       _streamId = result.streamId;
 
       if (_verseText != null || _verseRef != null || _logoUrl != null ||
-          _tickerMessage != null) {
+          _tickerMessage != null || _speakerName != null ||
+          _speakerTitle != null || _speakerChurch != null ||
+          _caption != null) {
         await client.from('live_streams').update({
           if (_verseText != null) 'overlay_verse': _verseText,
           if (_verseRef != null) 'overlay_verse_ref': _verseRef,
@@ -537,6 +544,23 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       _streamKey = result.streamKey;
       _hlsUrl = result.hlsUrl;
       _whipUrl = result.whipUrl;
+
+      // Repair a missing HLS URL immediately. A freshly-created Cloudflare live
+      // input can take a few seconds to expose its manifest, so the row may be
+      // stored with an empty hls_url — the viewer's automatic refresh path uses
+      // this. Credentials stay valid throughout, so the streamer is never
+      // blocked by "playback not ready".
+      if ((_hlsUrl == null || _hlsUrl!.isEmpty) && result.streamId.isNotEmpty) {
+        try {
+          final info = await ref
+              .read(liveStreamServiceProvider)
+              .refreshPlayback(result.streamId);
+          final repaired = info?.hlsUrl;
+          if (repaired != null && repaired.isNotEmpty) _hlsUrl = repaired;
+        } catch (e) {
+          debugPrint('HLS repair after create failed: $e');
+        }
+      }
 
       // Mark the church LIVE so viewers can discover it from the home screen
       // LIVE indicator (church_live_status), not just by opening the studio.
@@ -983,11 +1007,13 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     return 'something went wrong. Please try again.';
   }
 
-  /// Push the verse / ticker to every viewer in realtime.
+  /// Push the verse / speaker / caption / ticker to every viewer in realtime.
   Future<void> _publishOverlay({
     String? tenantId,
     bool silent = false,
     bool clearVerse = false,
+    bool clearSpeaker = false,
+    bool clearCaption = false,
   }) async {
     final streamId = _streamId;
     if (streamId == null) return;
@@ -998,6 +1024,14 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     if (clearVerse) {
       _verseText = null;
       _verseRef = null;
+    }
+    if (clearSpeaker) {
+      _speakerName = null;
+      _speakerTitle = null;
+      _speakerChurch = null;
+    }
+    if (clearCaption) {
+      _caption = null;
     }
 
     if (mounted) setState(() => _publishingOverlay = true);
@@ -1012,6 +1046,12 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
         tickerSpeed: _tickerSpeed,
         tickerEnabled: _tickerEnabled,
         logoUrl: _logoUrl,
+        clearSpeaker: clearSpeaker,
+        speakerName: _speakerName,
+        speakerTitle: _speakerTitle,
+        speakerChurch: _speakerChurch,
+        clearCaption: clearCaption,
+        caption: _caption,
       );
       if (!silent && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1035,6 +1075,10 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   /// Live control of the verse of the moment + scrolling ticker.
   Future<void> _showOverlayControls() async {
     final tickerCtrl = TextEditingController(text: _tickerMessage ?? '');
+    final speakerNameCtrl = TextEditingController(text: _speakerName ?? '');
+    final speakerTitleCtrl = TextEditingController(text: _speakerTitle ?? '');
+    final speakerChurchCtrl = TextEditingController(text: _speakerChurch ?? '');
+    final captionCtrl = TextEditingController(text: _caption ?? '');
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1058,6 +1102,72 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(height: 16),
+                  // ---- Speaker details (lower-third) ----
+                  Row(
+                    children: [
+                      const Icon(LucideIcons.mic, size: 18),
+                      const SizedBox(width: 8),
+                      const Text('Speaker details',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      if (_speakerName != null ||
+                          _speakerTitle != null ||
+                          _speakerChurch != null)
+                        IconButton(
+                          tooltip: 'Clear speaker',
+                          icon: const Icon(LucideIcons.x, size: 18),
+                          onPressed: () async {
+                            speakerNameCtrl.clear();
+                            speakerTitleCtrl.clear();
+                            speakerChurchCtrl.clear();
+                            await _publishOverlay(clearSpeaker: true);
+                            setSheet(() {});
+                          },
+                        ),
+                    ],
+                  ),
+                  TextField(
+                    controller: speakerNameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Speaker name',
+                      hintText: 'e.g. Pastor John Phiri',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => _speakerName = v.trim().isEmpty ? null : v.trim(),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: speakerTitleCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Role / title',
+                      hintText: 'e.g. Senior Pastor',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => _speakerTitle = v.trim().isEmpty ? null : v.trim(),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: speakerChurchCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Church',
+                      hintText: 'e.g. Rock of Ages, Kabulonga',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => _speakerChurch = v.trim().isEmpty ? null : v.trim(),
+                  ),
+                  const SizedBox(height: 12),
+                  // ---- Caption / title ----
+                  TextField(
+                    controller: captionCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'On-air caption / title',
+                      hintText: 'e.g. Sunday Celebration — Faith That Moves',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => _caption = v.trim().isEmpty ? null : v.trim(),
+                  ),
+                  const SizedBox(height: 12),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(LucideIcons.bookOpen),
@@ -1133,6 +1243,21 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                     icon: const Icon(LucideIcons.send),
                     label: const Text('PUBLISH TO VIEWERS'),
                   ),
+                  if (_speakerName != null || _speakerTitle != null || _caption != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(
+                        [
+                          if (_speakerName != null) _speakerName!,
+                          if (_speakerTitle != null) _speakerTitle!,
+                          if (_speakerChurch != null) _speakerChurch!,
+                        ].join(' · '),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -1328,6 +1453,76 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
           ),
           if (_isLoading)
             Container(color: Colors.black54, child: const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)))),
+          // Live preview of the on-air overlays (speaker lower-third + caption)
+          // so the streamer sees exactly what viewers see.
+          if (_isLive && (_speakerName != null || _speakerTitle != null || _speakerChurch != null || _caption != null))
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 150,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_caption != null && _caption!.trim().isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        _caption!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          shadows: [Shadow(color: Colors.black87, blurRadius: 6)],
+                        ),
+                      ),
+                    ),
+                  if (_speakerName != null || _speakerTitle != null || _speakerChurch != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.62),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border(
+                          left: BorderSide(color: const Color(0xFFFFD700), width: 3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_speakerName != null)
+                            Text(
+                              _speakerName!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                shadows: [Shadow(color: Colors.black87, blurRadius: 6)],
+                              ),
+                            ),
+                          if (_speakerTitle != null || _speakerChurch != null)
+                            Text(
+                              [_speakerTitle, _speakerChurch]
+                                  .whereType<String>()
+                                  .join(' · '),
+                              style: const TextStyle(
+                                color: Color(0xFFFFD700),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
           SafeArea(
             child: Column(
               children: [

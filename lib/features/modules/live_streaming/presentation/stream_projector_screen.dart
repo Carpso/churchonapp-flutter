@@ -41,11 +41,24 @@ class StreamProjectorScreen extends ConsumerWidget {
     final verseRef = data?.verseRef?.trim();
     final hasVerse = (verseText != null && verseText.isNotEmpty) ||
         (verseRef != null && verseRef.isNotEmpty);
+    final speakerName = data?.speakerName?.trim();
+    final speakerTitle = data?.speakerTitle?.trim();
+    final speakerChurch = data?.speakerChurch?.trim();
+    final hasSpeaker = (speakerName != null && speakerName.isNotEmpty) ||
+        (speakerTitle != null && speakerTitle.isNotEmpty) ||
+        (speakerChurch != null && speakerChurch.isNotEmpty);
+    final caption = data?.caption?.trim();
+    final hasCaption = caption != null && caption.isNotEmpty;
 
     final tickerItems = <String>[
       if (data?.tickerEnabled != false && (data?.tickerMessage ?? '').trim().isNotEmpty)
         data!.tickerMessage!.trim(),
       if (hasVerse) [verseRef, verseText].whereType<String>().where((e) => e.isNotEmpty).join(' — '),
+      if (hasSpeaker)
+        [speakerName, speakerTitle, speakerChurch]
+            .whereType<String>()
+            .where((e) => e.isNotEmpty)
+            .join(' · '),
       if (tenantName != null && tenantName!.isNotEmpty) '$tenantName · $title',
     ];
 
@@ -102,6 +115,68 @@ class StreamProjectorScreen extends ConsumerWidget {
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: Colors.white70, fontSize: 15),
                     ),
+                    if (hasCaption) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          caption,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (hasSpeaker) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border(
+                            left: BorderSide(color: Color(0xFFFFD700), width: 4),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            if (speakerName != null && speakerName.isNotEmpty)
+                              Text(
+                                speakerName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 30,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            if ((speakerTitle ?? '').isNotEmpty ||
+                                (speakerChurch ?? '').isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  [speakerTitle, speakerChurch]
+                                      .whereType<String>()
+                                      .where((e) => e.isNotEmpty)
+                                      .join(' · '),
+                                  style: const TextStyle(
+                                    color: Color(0xFFFFD700),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 32),
                     if (hasVerse)
                       Container(

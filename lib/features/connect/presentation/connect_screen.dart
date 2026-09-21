@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/widgets/shimmer_loader.dart';
 import '../../../core/widgets/app_image.dart';
+import '../../../core/widgets/kael_explain_sheet.dart';
 import '../data/social_service.dart';
 import 'widgets/social_post_card.dart';
 import 'widgets/stories_bar.dart';
@@ -97,7 +98,10 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
             color: Theme.of(context).colorScheme.surface,
             boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
           ),
-          child: TabBar(
+          child: Row(
+            children: [
+              Expanded(
+                child: TabBar(
             controller: _tabController,
             isScrollable: false,
             indicatorSize: TabBarIndicatorSize.label,
@@ -111,6 +115,10 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
               Tab(icon: Icon(LucideIcons.users, size: 20), text: "Communities"),
               Tab(icon: Icon(LucideIcons.video, size: 20), text: "Klips"),
               Tab(icon: Icon(LucideIcons.trophy, size: 20), text: "Quiz"),
+            ],
+                ),
+              ),
+              const KaelTabHelpButton(tabIndex: 3, color: Colors.amber),
             ],
           ),
         ),

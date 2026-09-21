@@ -121,7 +121,9 @@ class _CreateKlipScreenState extends ConsumerState<CreateKlipScreen> {
       final ext = compressed.file!.path.split('.').last;
       final videoPath = 'klips/${userId}_$ts.$ext';
       final videoUrl = await r2.uploadFile(compressed.file!, videoPath);
-      if (videoUrl == null) throw Exception('R2 upload returned null. Check network connection.');
+      if (videoUrl == null) {
+        throw Exception(R2Service.lastError ?? 'Video upload failed');
+      }
 
       if (!mounted) return;
       setState(() => _uploadProgress = 0.85);
@@ -131,6 +133,9 @@ class _CreateKlipScreenState extends ConsumerState<CreateKlipScreen> {
       if (thumbFile.existsSync()) {
         final thumbPath = 'klips/thumbs/${userId}_${ts}_thumb.jpg';
         thumbUrl = await r2.uploadFile(thumbFile, thumbPath);
+        if (thumbUrl == null) {
+          debugPrint('Klip thumbnail upload failed: ${R2Service.lastError}');
+        }
       }
 
       if (mounted) {
@@ -153,7 +158,10 @@ class _CreateKlipScreenState extends ConsumerState<CreateKlipScreen> {
           _uploadProgress = 0;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Upload failed. Try again.'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Upload failed: ${_describeError(e)}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -185,7 +193,9 @@ class _CreateKlipScreenState extends ConsumerState<CreateKlipScreen> {
         'klips/${userId}_$ts.$ext',
         contentType: contentType,
       );
-      if (url == null) throw Exception('Upload failed');
+      if (url == null) {
+        throw Exception(R2Service.lastError ?? 'Upload failed');
+      }
       if (!mounted) return;
       setState(() {
         _videoUrl = url;
@@ -304,12 +314,30 @@ class _CreateKlipScreenState extends ConsumerState<CreateKlipScreen> {
       debugPrint('Failed to create klip: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Could not post Klip: ${_describeError(e)}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  /// Turns a caught exception into a short, specific message — never a bare
+  /// "something went wrong". PostgREST/RLS/storage errors carry the real reason.
+  static String _describeError(Object e) {
+    var text = e.toString().replaceFirst('Exception: ', '').trim();
+    final lower = text.toLowerCase();
+    if (lower.contains('row-level security') || lower.contains('row level security')) {
+      return 'You do not have permission to post Klips for this church.';
+    }
+    if (lower.contains('does not exist')) {
+      return 'The Klips feature is not fully configured yet. Please update the app.';
+    }
+    if (text.length > 180) text = '${text.substring(0, 180)}…';
+    return text.isEmpty ? 'Unknown error. Please try again.' : text;
   }
 
   @override

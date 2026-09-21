@@ -37,6 +37,28 @@ class NotificationService {
 
     await _notificationsPlugin.initialize(settings: initializationSettings);
 
+    // Register the channel explicitly. If it is never created, the first post
+    // makes Android auto-create it at DEFAULT importance → no heads-up banner,
+    // no sound when the screen is locked.
+    try {
+      final androidChannelPlugin = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      await androidChannelPlugin?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'kingdom_alerts',
+          'Alerts',
+          description: 'Real-time church updates via VPS',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+          enableLights: true,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error creating notification channel: $e');
+    }
+
     // Request permissions for Android (13+) and iOS
     try {
       final androidImplementation = _notificationsPlugin
@@ -117,12 +139,23 @@ class NotificationService {
       channelDescription: 'Real-time church updates via VPS',
       importance: Importance.max,
       priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+      visibility: NotificationVisibility.public,
       showWhen: true,
     );
-    
-    const NotificationDetails platformChannelSpecifics =
-        NotificationDetails(android: androidPlatformChannelSpecifics);
-        
+    const DarwinNotificationDetails iosPlatformChannelSpecifics =
+        DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iosPlatformChannelSpecifics,
+    );
+
     await _notificationsPlugin.show(id: id, title: title, body: body, notificationDetails: platformChannelSpecifics);
   }
 

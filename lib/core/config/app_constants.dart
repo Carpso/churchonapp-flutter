@@ -5,6 +5,9 @@ class AppConstants {
   // Brand & Platform Identifiers
   static const String appName = 'Church On App';
   static const String brandPrefix = 'COA';
+
+  /// Bundled brand logo (also the default poster mark when media has no art).
+  static const String logoAsset = 'assets/app_logo.png';
   static const String defaultCountry = 'Zambia';
   static const String defaultCountryIso = 'ZM';
 

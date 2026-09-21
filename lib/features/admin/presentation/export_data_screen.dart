@@ -1,7 +1,10 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:universal_io/io.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:share_plus/share_plus.dart';
 import '../data/export_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
@@ -61,6 +64,21 @@ class _ExportDataScreenState extends ConsumerState<ExportDataScreen> {
               ],
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _generating ? null : () => _exportChurchBackup(tenant),
+                icon: const Icon(LucideIcons.archive, size: 18),
+                label: const Text('FULL CHURCH BACKUP (JSON)'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.amber.shade800,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+          ),
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
@@ -113,6 +131,25 @@ class _ExportDataScreenState extends ConsumerState<ExportDataScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _exportChurchBackup(Tenant tenant) async {
+    setState(() => _generating = true);
+    try {
+      final res = await _exportService.client.functions.invoke('export-church-data', body: {'church_id': tenant.id});
+      final data = res.data;
+      final jsonStr = data is String ? data : const JsonEncoder.withIndent('  ').convert(data);
+      final file = XFile.fromData(
+        Uint8List.fromList(utf8.encode(jsonStr)),
+        mimeType: 'application/json',
+        name: '${tenant.name.replaceAll(' ', '_')}_backup.json',
+      );
+      await SharePlus.instance.share(ShareParams(files: [file], text: '${tenant.name} data backup'));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup failed: $e')));
+    } finally {
+      if (mounted) setState(() => _generating = false);
+    }
   }
 
   Future<void> _exportData(_ExportType type, Tenant tenant) async {

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/core/widgets/branded_stream_poster.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
-import 'package:church_on_app/core/config/sample_posters.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/features/home/data/sermon_service.dart';
 import 'package:church_on_app/features/home/presentation/sermon_player_screen.dart';
@@ -11,6 +10,7 @@ import 'package:church_on_app/features/home/presentation/sermon_search_screen.da
 import 'package:church_on_app/features/home/presentation/live_stream_screen.dart';
 import 'package:church_on_app/features/home/data/live_streaming_service.dart';
 import 'package:church_on_app/features/bible/presentation/deep_study_suite_screen.dart';
+import 'package:church_on_app/core/widgets/kael_explain_sheet.dart';
 
 class SermonLibraryScreen extends ConsumerStatefulWidget {
   const SermonLibraryScreen({super.key});
@@ -105,6 +105,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
       appBar: AppBar(
         title: const Text("Sermons", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
+          const KaelTabHelpButton(tabIndex: 1),
           TextButton(
             onPressed: () {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const DeepStudySuiteScreen()));
@@ -331,7 +332,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
         child: Stack(
           fit: StackFit.expand,
           children: [
-            AppImage(posterOrDefault(sermon.thumbnailUrl, seed: sermon.id), fit: BoxFit.cover),
+            SmartStreamPoster(url: sermon.thumbnailUrl, seed: sermon.id, fit: BoxFit.cover),
             const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -492,8 +493,9 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: AppImage(
-                    posterOrDefault(sermon.thumbnailUrl, seed: sermon.id),
+                  child: SmartStreamPoster(
+                    url: sermon.thumbnailUrl,
+                    seed: sermon.id,
                     fit: BoxFit.cover,
                   ),
                 ),

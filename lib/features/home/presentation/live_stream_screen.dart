@@ -7,9 +7,11 @@ import 'package:video_player/video_player.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:intl/intl.dart';
 
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/core/widgets/branded_stream_poster.dart';
 import 'package:church_on_app/core/widgets/marquee_ticker.dart';
 import '../../finance/presentation/giving_screen.dart';
 import 'package:church_on_app/features/admin/data/reporting_service.dart';
@@ -89,6 +91,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   int _peakViewers = 0;
   Timer? _viewerTimer;
 
+  /// Viewer-side toggle: hide all on-screen overlays (verse/speaker/caption).
+  bool _overlaysHidden = false;
+
   /// Guards the archive fallback so it is attempted at most once per stream.
   String? _archiveTriedFor;
 
@@ -125,7 +130,10 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
 
     var url = widget.streamUrl.trim();
     if (_effectiveStreamId == null || !_isValidUrl(url)) {
-      await _loadRow(allowHttpRefresh: false);
+      // Repair path runs AUTOMATICALLY on open (not only after a failure): ask
+      // Cloudflare for the live input's real status + a fresh HLS URL so a
+      // newly-created stream (whose row predates the manifest) still plays.
+      await _loadRow(allowHttpRefresh: true);
       url = _resolvedPlaybackUrl ?? url;
     }
     if (!mounted) return;
@@ -250,7 +258,27 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     if (!mounted || _phase == _PlayerPhase.ready) return;
     _totalFailures++;
     if (_totalFailures > 8) {
-      if (mounted) setState(() => _phase = _PlayerPhase.error);
+      // A live row must NEVER be given up on: the input may simply not have
+      // connected yet. Reconcile once more, then keep retrying slowly and keep
+      // the "starting" copy. Only a genuinely ended/unknown row (no URL at all)
+      // gets the terminal error state.
+      await _loadRow(allowHttpRefresh: true);
+      if (!mounted) return;
+      final canRetry = _isLiveRow ||
+          (_rowStatus == null && _resolvedPlaybackUrl != null);
+      if (canRetry) {
+        setState(() {
+          _phase = _PlayerPhase.loading;
+          _statusNote = 'Stream is starting — reconnecting…';
+        });
+        _retryTimer?.cancel();
+        _retryTimer = Timer(const Duration(seconds: 30), () {
+          if (!mounted) return;
+          _initializePlayer(overrideUrl: _resolvedPlaybackUrl);
+        });
+        return;
+      }
+      setState(() => _phase = _PlayerPhase.error);
       return;
     }
 
@@ -304,9 +332,11 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
       aspectRatio: controller.value.aspectRatio == 0
           ? 16 / 9
           : controller.value.aspectRatio,
-      placeholder: (widget.thumbnailUrl != null && widget.thumbnailUrl!.isNotEmpty)
-          ? AppImage(widget.thumbnailUrl!, fit: BoxFit.cover)
-          : Container(color: Colors.black),
+      placeholder: SmartStreamPoster(
+        url: widget.thumbnailUrl,
+        seed: widget.streamId ?? widget.title,
+        fit: BoxFit.cover,
+      ),
       materialProgressColors: ChewieProgressColors(
         playedColor: const Color(0xFFFFD700),
         handleColor: const Color(0xFFFFD700),
@@ -495,6 +525,14 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
               ),
             ),
             IconButton(
+              tooltip: _overlaysHidden ? 'Show overlays' : 'Hide overlays',
+              icon: Icon(
+                _overlaysHidden ? LucideIcons.eyeOff : LucideIcons.eye,
+                color: Colors.white,
+              ),
+              onPressed: () => setState(() => _overlaysHidden = !_overlaysHidden),
+            ),
+            IconButton(
               tooltip: 'Projector / Big screen',
               icon: const Icon(LucideIcons.monitor, color: Colors.white),
               onPressed: () => _openProjector(tenant),
@@ -527,19 +565,32 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   }
 
   Widget _buildVideoArea(LiveStreamOverlay? overlay, List<String> tickerItems) {
-    final showTicker = tickerItems.isNotEmpty && _phase == _PlayerPhase.ready;
+    final ready = _phase == _PlayerPhase.ready;
+    final showOverlays = ready && !_overlaysHidden;
+    final showTicker = tickerItems.isNotEmpty && ready && !_overlaysHidden;
+    final showSpeaker = showOverlays &&
+        overlay != null &&
+        (overlay.hasSpeaker || overlay.hasCaption);
+    final showVerse = showOverlays && overlay != null && overlay.hasVerse;
     return Stack(
       fit: StackFit.expand,
       children: [
         _buildVideoStage(),
-        if (_phase == _PlayerPhase.ready)
+        if (ready)
           Positioned(top: 8, left: 8, child: _healthChip()),
-        if (overlay != null && overlay.hasVerse && _phase == _PlayerPhase.ready)
+        if (showVerse)
           Positioned(
             left: 10,
             right: 10,
             bottom: showTicker ? 34 : 10,
             child: _verseOverlayCard(overlay),
+          ),
+        if (showSpeaker)
+          Positioned(
+            left: 10,
+            right: 10,
+            top: 40,
+            child: _speakerOverlayCard(overlay),
           ),
         if (showTicker)
           Positioned(
@@ -549,6 +600,83 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
             child: MarqueeTicker(
               items: tickerItems,
               pixelsPerSecond: (overlay?.tickerSpeed ?? 40).toDouble(),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Speaker lower-third + editable caption. Always rendered over a dark,
+  /// shadowed backdrop so it is legible on any video (never white-on-white).
+  Widget _speakerOverlayCard(LiveStreamOverlay overlay) {
+    final name = overlay.speakerName?.trim() ?? '';
+    final title = overlay.speakerTitle?.trim() ?? '';
+    final church = overlay.speakerChurch?.trim() ?? '';
+    final caption = overlay.caption?.trim() ?? '';
+    final subtitle =
+        [title, church].where((e) => e.isNotEmpty).join(' · ');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (caption.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.62),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              caption,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                shadows: [Shadow(color: Colors.black87, blurRadius: 6)],
+              ),
+            ),
+          ),
+        if (name.isNotEmpty || subtitle.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.62),
+              borderRadius: BorderRadius.circular(12),
+              border: const Border(
+                left: BorderSide(color: Color(0xFFFFD700), width: 3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (name.isNotEmpty)
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      shadows: [Shadow(color: Colors.black87, blurRadius: 6)],
+                    ),
+                  ),
+                if (subtitle.isNotEmpty)
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFFFD700),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
             ),
           ),
       ],
@@ -685,10 +813,18 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
       title = 'Playback problem';
       message = 'This service is live, but the video could not load on your '
           'connection. Tap retry.';
+    } else if (_rowStatus == null && _resolvedPlaybackUrl != null) {
+      // We have a playback URL but the row state could not be read — this is a
+      // transient playback problem, never an "invalid link".
+      icon = LucideIcons.wifiOff;
+      title = 'Playback problem';
+      message = 'The video could not load yet. Check your connection and tap '
+          'retry — we reconnect automatically.';
     } else {
       icon = LucideIcons.videoOff;
-      title = 'Stream unavailable';
-      message = 'This stream has ended or the broadcast link is invalid.';
+      title = 'Stream has ended';
+      message = 'This broadcast is over. Check the recordings or join the next '
+          'live service.';
     }
 
     return Container(
@@ -914,38 +1050,74 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   }
 
   Widget _buildChatMessage(ThemeData theme, LiveChatMessage msg) {
-    final scheme = theme.colorScheme;
+    // Explicit, high-contrast palette (independent of a mis-tuned ColorScheme)
+    // so chat text can never render white-on-white in either theme.
     final isDark = theme.brightness == Brightness.dark;
+    final bubble = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
+    final border = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final textColor = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
     final senderColor = isDark ? const Color(0xFFFFD700) : const Color(0xFF7A5C00);
+    final timeColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final time = DateFormat('HH:mm').format(msg.createdAt.toLocal());
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipOval(
-            child: AppImage(msg.senderPhoto ?? '',
-                width: 20, height: 20, fit: BoxFit.cover),
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: border),
+            ),
+            child: ClipOval(
+              child: AppImage(msg.senderPhoto ?? '',
+                  width: 22, height: 22, fit: BoxFit.cover),
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
               decoration: BoxDecoration(
-                color: scheme.onSurface.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(10),
+                color: bubble,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: border),
               ),
-              child: RichText(
-                text: TextSpan(
-                  style: TextStyle(fontSize: 13, height: 1.35, color: scheme.onSurface),
-                  children: [
-                    TextSpan(
-                      text: '${msg.senderName}: ',
-                      style: TextStyle(color: senderColor, fontWeight: FontWeight.bold),
-                    ),
-                    TextSpan(text: msg.text, style: TextStyle(color: scheme.onSurface)),
-                  ],
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          msg.senderName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: senderColor,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        time,
+                        style: TextStyle(
+                          color: timeColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    msg.text,
+                    style: TextStyle(color: textColor, fontSize: 13, height: 1.35),
+                  ),
+                ],
               ),
             ),
           ),
@@ -955,39 +1127,37 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   }
 
   Widget _buildChatInput(ThemeData theme, Tenant? tenant) {
-    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final fieldBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
+    final border = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final textColor = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
+    final hintColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: scheme.onSurface.withValues(alpha: 0.06),
+        color: fieldBg,
         borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: border),
       ),
       child: Row(
         children: [
           Expanded(
-            child: Theme(
-              data: theme.copyWith(
-                textSelectionTheme: const TextSelectionThemeData(
-                  cursorColor: Color(0xFFFFD700),
-                  selectionColor: Color(0x33FFD700),
-                ),
+            child: TextField(
+              controller: _chatCtrl,
+              cursorColor: const Color(0xFFFFD700),
+              style: TextStyle(
+                color: textColor,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
               ),
-              child: TextField(
-                controller: _chatCtrl,
-                cursorColor: const Color(0xFFFFD700),
-                style: TextStyle(
-                  color: scheme.onSurface,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-                decoration: InputDecoration(
-                  hintText: "Say something...",
-                  hintStyle: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5)),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-                ),
-                onSubmitted: (_) => _handleSendMessage(tenant),
+              decoration: InputDecoration(
+                hintText: "Say something...",
+                hintStyle: TextStyle(color: hintColor),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20),
               ),
+              onSubmitted: (_) => _handleSendMessage(tenant),
             ),
           ),
           IconButton(
@@ -1047,6 +1217,18 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
           .where((e) => e.isNotEmpty)
           .join(' — ');
       if (verse.isNotEmpty) items.add('📖 $verse');
+    }
+    if (overlay != null && overlay.hasSpeaker) {
+      final speaker = [
+        overlay.speakerName,
+        overlay.speakerTitle,
+        overlay.speakerChurch,
+      ]
+          .whereType<String>()
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .join(' · ');
+      if (speaker.isNotEmpty) items.add('🎤 $speaker');
     }
     for (final a in announcements.take(3)) {
       if (a.title.trim().isNotEmpty) items.add('📣 ${a.title.trim()}');
