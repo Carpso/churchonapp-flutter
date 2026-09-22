@@ -23,6 +23,7 @@ class LipilaPaymentGateway extends ConsumerStatefulWidget {
   final String? recipientName;
   final String? recipientAccount;
   final String? paymentReason;
+  final String? reference;
   final Function(bool success, String? transactionId) onComplete;
 
   const LipilaPaymentGateway({
@@ -33,6 +34,7 @@ class LipilaPaymentGateway extends ConsumerStatefulWidget {
     this.recipientName,
     this.recipientAccount,
     this.paymentReason,
+    this.reference,
     required this.onComplete,
   });
 
@@ -116,6 +118,7 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
           amount: _totalCharged,
           description: widget.description,
           narration: widget.paymentReason,
+          reference: widget.reference,
         );
   }
 
@@ -144,6 +147,7 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
           lastName: _lastNameCtrl.text.trim(),
           email: _emailCtrl.text.trim(),
           phone: _phoneCtrl.text.isNotEmpty ? _phoneCtrl.text : null,
+          reference: widget.reference,
         );
   }
 

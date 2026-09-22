@@ -337,7 +337,8 @@ function iconForType(type?: string): string {
     case 'subscription_due': return 'ic_notif_payment';
     case 'order': return 'ic_notif_payment';
     case 'event':
-    case 'event_reminder': return 'ic_notif_event';
+    case 'event_reminder':
+    case 'meeting': return 'ic_notif_event';
     case 'prayer': return 'ic_notif_prayer';
     case 'testimony': return 'ic_notif_prayer';
     case 'fasting': return 'ic_notif_prayer';
@@ -385,7 +386,8 @@ function channelForType(type?: string): string {
     case 'subscription_due': return 'coa_payments_v2';
     case 'order': return 'coa_orders_v2';
     case 'event':
-    case 'event_reminder': return 'coa_events_v2';
+    case 'event_reminder':
+    case 'meeting': return 'coa_events_v2';
     case 'prayer': return 'coa_prayers_v2';
     case 'testimony': return 'coa_testimonies_v2';
     case 'fasting': return 'coa_fasting_v2';

@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:church_on_app/core/widgets/coa_payment_sheet.dart';
+import 'package:church_on_app/core/config/env.dart';
 import 'package:church_on_app/core/config/remote_config.dart';
+import 'package:church_on_app/core/services/platform_settings_service.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/widgets/premium_toast.dart';
+import 'package:church_on_app/features/give/presentation/lipila_payment_gateway.dart';
+import 'package:church_on_app/features/modules/events/data/meeting_service.dart';
 
 class MeetingSubscriptionSheet extends ConsumerStatefulWidget {
   final Future<bool> Function(String planType, double amountZmw, String? paymentRef) onSubscribe;
@@ -16,36 +21,68 @@ class _MeetingSubscriptionSheetState extends ConsumerState<MeetingSubscriptionSh
   String _selectedPlan = 'monthly';
   bool _isProcessing = false;
 
-  // Live prices from platform_settings (meeting_monthly_price / meeting_yearly_price).
+  // Live prices from platform_settings (server uses the same keys).
   double get _amount => _selectedPlan == 'yearly'
-      ? widgetRemoteConfig(ref).getDouble('meeting_yearly_price', 1500)
-      : widgetRemoteConfig(ref).getDouble('meeting_monthly_price', 150);
+      ? widgetRemoteConfig(ref).getDouble('meeting_pro_yearly_kwacha',
+          widgetRemoteConfig(ref).getDouble('meeting_yearly_price', 1500))
+      : widgetRemoteConfig(ref).getDouble('meeting_pro_monthly_kwacha',
+          widgetRemoteConfig(ref).getDouble('meeting_monthly_price', 150));
   double get _monthlyRate => _selectedPlan == 'yearly'
       ? (_amount / 12).floorToDouble()
       : _amount;
   String get _planLabel => _selectedPlan == 'yearly' ? 'Yearly' : 'Monthly';
 
+  /// Server-verified flow: the server re-derives the price and pre-creates the
+  /// pending `coa_payments` anchor; we pay against THAT reference. The client
+  /// never declares a price or activates itself.
   Future<void> _payWithMobileMoney() async {
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => CoaPaymentSheet(
-        serviceType: 'meeting_subscription',
-        amount: _amount,
-        serviceLabel: "Pro Meeting Suite - $_planLabel",
-        description: "Pay K${_amount.toStringAsFixed(0)} directly to Church On App to activate your $_planLabel subscription.",
-        onComplete: (paymentId, paymentRef) async {
-          Navigator.pop(ctx);
-          setState(() => _isProcessing = true);
-          final ok = await widget.onSubscribe(_selectedPlan, _amount, paymentRef);
-          setState(() => _isProcessing = false);
-          if (ok && mounted) {
-            Navigator.pop(context);
-          }
-        },
-      ),
-    );
+    final tenant = ref.read(currentTenantProvider);
+    if (tenant == null) {
+      PremiumToast.showError(context, 'Select a church first.');
+      return;
+    }
+    setState(() => _isProcessing = true);
+    try {
+      final req = await ref
+          .read(meetingServiceProvider)
+          .requestSubscription(tenantId: tenant.id, plan: _selectedPlan);
+      if (!mounted) return;
+
+      final settings = ref.read(platformSettingsProvider).value;
+      final momoName = (settings?.coaMoMoName.isNotEmpty ?? false)
+          ? settings!.coaMoMoName
+          : Env.coaMoMoName;
+      final momoNumber = (settings?.coaMoMoNumber.isNotEmpty ?? false)
+          ? settings!.coaMoMoNumber
+          : Env.coaMoMoNumber;
+
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => LipilaPaymentGateway(
+          amount: req.amountKwacha,
+          reference: req.paymentRef,
+          category: 'meeting_subscription',
+          description: 'Pro Meeting Suite - $_planLabel',
+          paymentReason: 'Pro Meeting Suite',
+          recipientName: momoName,
+          recipientAccount: momoNumber,
+          onComplete: (success, transactionId) async {
+            if (!success) return;
+            setState(() => _isProcessing = true);
+            final ok = await widget.onSubscribe(
+              req.plan, req.amountKwacha, req.paymentRef);
+            setState(() => _isProcessing = false);
+            if (ok && mounted) Navigator.pop(context);
+          },
+        ),
+      );
+    } catch (e) {
+      if (mounted) PremiumToast.showError(context, '$e');
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
   }
 
   @override

@@ -36,6 +36,7 @@ import 'church_directory_edit_screen.dart';
 import 'whatsapp_config_screen.dart';
 import 'subscription_pricing_screen.dart';
 import 'church_payout_screen.dart';
+import 'meeting_revenue_screen.dart';
 import 'employee_management_screen.dart';
 import 'kyc_review_screen.dart';
 import 'onboarding_manager_screen.dart';
@@ -1057,6 +1058,9 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             }),
             _buildGlobalAction(LucideIcons.ticket, "Promo Codes", "Create, award & track promo codes for any user", Colors.deepPurple, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const PromoCodesScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.video, "Pro Meeting Revenue", "Meeting subscriptions, MRR, refunds & COA cut", Colors.teal, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const MeetingRevenueScreen()));
             }),
           ],
         ),

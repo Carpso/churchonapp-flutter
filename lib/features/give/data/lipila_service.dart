@@ -106,6 +106,7 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
     required double amount,
     required String description,
     String? narration,
+    String? reference,
   }) async {
     if (phone.isEmpty) {
       state = AsyncData(
@@ -139,7 +140,10 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
 
     try {
       final formattedPhone = MomoPhoneInputWidget.formatPhone(phone);
-      final String referenceId = const Uuid().v4();
+      // A server-issued reference (e.g. request_meeting_subscription) is used
+      // verbatim so the confirmed coa_payments anchor is the one the server
+      // pre-created; otherwise a fresh client reference is generated.
+      final String referenceId = reference ?? const Uuid().v4();
 
       final response = await client.functions
           .invoke('lipila-collect', body: {
@@ -190,6 +194,7 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
     required String lastName,
     String? email,
     String? phone,
+    String? reference,
   }) async {
     final client = Supabase.instance.client;
     final session = client.auth.currentSession;
@@ -212,7 +217,7 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
     );
 
     try {
-      final String referenceId = const Uuid().v4();
+      final String referenceId = reference ?? const Uuid().v4();
 
       final response = await client.functions
           .invoke('lipila-card-collect', body: {

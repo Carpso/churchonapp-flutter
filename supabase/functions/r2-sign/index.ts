@@ -150,6 +150,7 @@ serve(async (req) => {
     "profile", "driver-documents", "churches", "church-logos",
     "church-banners", "church-website-logos", "church-website-banners",
     "special-offers", "audio", "quiz-questions", "stream-posters",
+    "meeting-recordings",
   ];
   if (!isReadAction && body.folder && !allowedFolders.includes(body.folder)) {
     return new Response(

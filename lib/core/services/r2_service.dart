@@ -27,7 +27,7 @@ class R2Service {
     '.mp4', '.mov', '.avi', '.mkv', '.webm',
     '.pdf', '.doc', '.docx', '.xls', '.xlsx',
     '.txt', '.csv', '.md',
-    '.mp3', '.wav', '.aac', '.ogg',
+    '.mp3', '.wav', '.aac', '.ogg', '.m4a',
   };
 
   static String get publicDomain => Env.r2PublicDomain;
@@ -259,6 +259,9 @@ class R2Service {
     if (path.endsWith('.pdf')) return 'application/pdf';
     if (path.endsWith('.mp3')) return 'audio/mpeg';
     if (path.endsWith('.wav')) return 'audio/wav';
+    if (path.endsWith('.m4a')) return 'audio/mp4';
+    if (path.endsWith('.aac')) return 'audio/aac';
+    if (path.endsWith('.ogg')) return 'audio/ogg';
     return 'application/octet-stream';
   }
 }

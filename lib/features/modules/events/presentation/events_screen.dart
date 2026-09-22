@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'business_meetings_screen.dart';
+import 'meeting_subscription_sheet.dart';
+import '../data/meeting_service.dart';
 import 'package:church_on_app/features/events/data/event_service.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
@@ -586,140 +588,521 @@ class _CreateEventBottomSheetState extends ConsumerState<CreateEventBottomSheet>
 // ==========================================
 // PRO BUSINESS MEETING BOTTOM SHEET
 // ==========================================
-class HostBusinessMeetingSheet extends StatelessWidget {
+class HostBusinessMeetingSheet extends ConsumerStatefulWidget {
   const HostBusinessMeetingSheet({super.key});
+
+  @override
+  ConsumerState<HostBusinessMeetingSheet> createState() =>
+      _HostBusinessMeetingSheetState();
+}
+
+class _HostBusinessMeetingSheetState
+    extends ConsumerState<HostBusinessMeetingSheet> {
+  bool _busy = false;
+
+  void _snack(String msg, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: error ? Colors.red.shade700 : null,
+    ));
+  }
+
+  Future<BusinessMeeting?> _createMeeting({
+    required String title,
+    String? description,
+    DateTime? scheduledAt,
+    int durationMinutes = 60,
+    int? maxParticipants,
+    bool isRecurring = false,
+    String? recurrenceRule,
+    List<String> agenda = const [],
+  }) async {
+    setState(() => _busy = true);
+    try {
+      return await ref.read(meetingServiceProvider).createMeeting(
+            title: title,
+            description: description,
+            scheduledAt: scheduledAt,
+            durationMinutes: durationMinutes,
+            maxParticipants: maxParticipants,
+            isRecurring: isRecurring,
+            recurrenceRule: recurrenceRule,
+            agenda: agenda,
+          );
+    } catch (e) {
+      _snack(e.toString(), error: true);
+      return null;
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _openMeeting(BusinessMeeting m) async {
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    await navigator.push(MaterialPageRoute(
+      builder: (_) => BusinessMeetingsScreen(initialMeeting: m),
+    ));
+    ref.invalidate(myMeetingsProvider);
+  }
+
+  Future<void> _startInstant() async {
+    final m = await _createMeeting(
+      title: 'Instant Meeting',
+      scheduledAt: DateTime.now(),
+    );
+    if (m == null || !mounted) return;
+    try {
+      await ref.read(meetingServiceProvider).startMeeting(m.id);
+    } catch (e) {
+      _snack(e.toString(), error: true);
+      return;
+    }
+    final live = await ref.read(meetingServiceProvider).fetchMeeting(m.id) ?? m;
+    if (!mounted) return;
+    await _openMeeting(live);
+  }
+
+  Future<void> _schedule() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(days: 1)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+        context: context, initialTime: const TimeOfDay(hour: 9, minute: 0));
+    if (time == null || !mounted) return;
+
+    final titleCtrl = TextEditingController(
+        text: 'Leadership Meeting ${date.day}/${date.month}');
+    final agendaCtrl = TextEditingController();
+    var duration = 60;
+    var recurring = false;
+    var rule = 'weekly';
+    final entitlement = ref.read(meetingEntitlementProvider).value;
+    final canRecur = entitlement?.recurring ?? false;
+
+    final config = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          title: const Text('Schedule meeting',
+              style: TextStyle(color: Colors.white)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: titleCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                      labelText: 'Title',
+                      labelStyle: TextStyle(color: Colors.white54)),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: agendaCtrl,
+                  maxLines: 3,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'Agenda (one item per line)',
+                    labelStyle: TextStyle(color: Colors.white54),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  initialValue: duration,
+                  dropdownColor: const Color(0xFF1E293B),
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                      labelText: 'Duration',
+                      labelStyle: TextStyle(color: Colors.white54)),
+                  items: const [15, 30, 45, 60, 90, 120]
+                      .map((m) => DropdownMenuItem(
+                          value: m, child: Text('$m minutes')))
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => duration = v ?? 60),
+                ),
+                SwitchListTile(
+                  value: recurring,
+                  onChanged: canRecur
+                      ? (v) => setDialogState(() => recurring = v)
+                      : null,
+                  activeThumbColor: Colors.amber,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Recurring',
+                      style: TextStyle(color: Colors.white, fontSize: 14)),
+                  subtitle: Text(
+                    canRecur
+                        ? 'Auto-generate the next occurrence'
+                        : 'Pro Meeting Suite only',
+                    style: const TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                ),
+                if (recurring)
+                  DropdownButtonFormField<String>(
+                    initialValue: rule,
+                    dropdownColor: const Color(0xFF1E293B),
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                        labelText: 'Repeat',
+                        labelStyle: TextStyle(color: Colors.white54)),
+                    items: const ['daily', 'weekly', 'biweekly', 'monthly']
+                        .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                        .toList(),
+                    onChanged: (v) => setDialogState(() => rule = v ?? 'weekly'),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, {
+                'title': titleCtrl.text.trim(),
+                'agenda': agendaCtrl.text
+                    .split('\n')
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty)
+                    .toList(),
+                'duration': duration,
+                'recurring': recurring,
+                'rule': rule,
+              }),
+              child: const Text('Schedule'),
+            ),
+          ],
+        ),
+      ),
+    );
+    titleCtrl.dispose();
+    agendaCtrl.dispose();
+    if (config == null || !mounted) return;
+
+    final scheduled =
+        DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    final m = await _createMeeting(
+      title: (config['title'] as String?)?.isNotEmpty == true
+          ? config['title'] as String
+          : 'Scheduled Meeting',
+      scheduledAt: scheduled,
+      durationMinutes: config['duration'] as int,
+      isRecurring: config['recurring'] as bool,
+      recurrenceRule: config['recurring'] as bool ? config['rule'] as String : null,
+      agenda: List<String>.from(config['agenda'] as List),
+    );
+    if (m == null || !mounted) return;
+    await _openMeeting(m);
+  }
+
+  Future<void> _joinWithCode() async {
+    final ctrl = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text('Join with code',
+            style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+              hintText: 'e.g. MTG-A1B2C3',
+              hintStyle: TextStyle(color: Colors.white38)),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Join'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (code == null || code.isEmpty || !mounted) return;
+    try {
+      final m = await ref.read(meetingServiceProvider).fetchMeetingByCode(code);
+      if (!mounted) return;
+      if (m == null) {
+        _snack('No meeting found for that code.', error: true);
+        return;
+      }
+      await _openMeeting(m);
+    } catch (e) {
+      _snack(e.toString(), error: true);
+    }
+  }
+
+  void _openUpgrade() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => MeetingSubscriptionSheet(
+        onSubscribe: (planType, amountZmw, paymentRef) async {
+          final tenant = ref.read(currentTenantProvider);
+          try {
+            await ref.read(meetingServiceProvider).recordSubscription(
+                  planType: planType,
+                  amountZmw: amountZmw,
+                  paymentRef: paymentRef,
+                  tenantId: tenant?.id,
+                );
+            ref.invalidate(meetingEntitlementProvider);
+            return true;
+          } catch (e) {
+            debugPrint('meeting subscription error: $e');
+            return false;
+          }
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final bottomSafe = MediaQuery.of(context).padding.bottom;
+    final entitlement = ref.watch(meetingEntitlementProvider);
+    final meetingsAsync = ref.watch(myMeetingsProvider);
+
     return Container(
-      decoration: const BoxDecoration(color: Color(0xFF1E293B), borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+      decoration: const BoxDecoration(
+          color: Color(0xFF1E293B),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(
-          padding: EdgeInsets.only(left: 25, right: 25, top: 30, bottom: bottomInset + bottomSafe + 24),
+          padding: EdgeInsets.only(
+              left: 25,
+              right: 25,
+              top: 30,
+              bottom: bottomInset + bottomSafe + 24),
           child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
-                child: Icon(LucideIcons.video, color: Theme.of(context).primaryColor),
-              ),
-              const SizedBox(width: 15),
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
                 children: [
-                  Text("Pro Business Meeting", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                  Text("Admin & Leadership VoIP/Video", style: TextStyle(color: Colors.white54, fontSize: 12)),
-                ],
-              )
-            ],
-          ),
-          const SizedBox(height: 30),
-
-          _buildMeetingOption(context, "Start Instant Meeting", "Generates secure link immediately", LucideIcons.zap, Colors.orange, () {
-            Navigator.pop(context);
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const BusinessMeetingsScreen(meetingTitle: "Instant Session X1")));
-          }),
-          const SizedBox(height: 15),
-          _buildMeetingOption(context, "Schedule Meeting", "Set date and send calendar invites", LucideIcons.calendar, Colors.green, () async {
-            final date = await showDatePicker(
-              context: context,
-              initialDate: DateTime.now().add(const Duration(days: 1)),
-              firstDate: DateTime.now(),
-              lastDate: DateTime.now().add(const Duration(days: 365)),
-            );
-            if (date == null || !context.mounted) return;
-            final time = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 9, minute: 0));
-            if (time == null || !context.mounted) return;
-            final title = "Scheduled Session ${date.day}/${date.month} ${time.format(context)}";
-            Navigator.pop(context);
-            Navigator.push(context, MaterialPageRoute(builder: (context) => BusinessMeetingsScreen(meetingTitle: title)));
-          }),
-          const SizedBox(height: 15),
-          _buildMeetingOption(context, "Join with Code", "Enter meeting ID or alias", LucideIcons.logIn, Colors.white70, () {
-            final ctrl = TextEditingController();
-            showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                backgroundColor: const Color(0xFF1E293B),
-                title: const Text("Enter Meeting Code", style: TextStyle(color: Colors.white)),
-                content: TextField(
-                  controller: ctrl,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(hintText: "e.g. MEET-2024-SYS", hintStyle: TextStyle(color: Colors.white38)),
-                ),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel", style: TextStyle(color: Colors.white54))),
-                  FilledButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      final code = ctrl.text.trim().isNotEmpty ? ctrl.text.trim() : 'MEET-2024-SYS';
-                      Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => BusinessMeetingsScreen(meetingId: code, meetingTitle: "Meeting $code")));
-                    },
-                    child: const Text("Join"),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .primaryColor
+                            .withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Icon(LucideIcons.video,
+                        color: Theme.of(context).primaryColor),
+                  ),
+                  const SizedBox(width: 15),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Pro Business Meeting",
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold)),
+                        Text("Real WebRTC video, minutes & voting",
+                            style: TextStyle(
+                                color: Colors.white54, fontSize: 12)),
+                      ],
+                    ),
                   ),
                 ],
               ),
-            );
-          }),
-          const SizedBox(height: 15),
-          _buildMeetingOption(context, "Whiteboard & Blueprint", "Interactive canvas for structural plans", LucideIcons.mousePointerClick, Theme.of(context).primaryColor, () {
-            Navigator.pop(context);
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const BusinessMeetingsScreen(meetingTitle: "Whiteboard Session")));
-          }),
-          const SizedBox(height: 15),
-          _buildMeetingOption(context, "Digital Voting System", "Secure anonymous polls for leadership", LucideIcons.barChart3, Theme.of(context).primaryColor.withValues(alpha: 0.7), () {
-            Navigator.pop(context);
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const BusinessMeetingsScreen(meetingTitle: "Voting Session")));
-          }),
-          const SizedBox(height: 30),
-          
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const BusinessMeetingsScreen()));
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
-              minimumSize: const Size(double.infinity, 60),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-            ),
-            child: const Text("START SECURE SESSION", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  children: [
+                    Icon(
+                      entitlement.value?.pro == true
+                          ? LucideIcons.crown
+                          : LucideIcons.users,
+                      color: entitlement.value?.pro == true
+                          ? Colors.amber
+                          : Colors.white54,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        entitlement.value?.pro == true
+                            ? 'Pro: up to ${entitlement.value?.maxParticipants} participants · recording · recurring'
+                            : 'Free: up to ${entitlement.value?.maxParticipants ?? 5} participants',
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 11),
+                      ),
+                    ),
+                    if (entitlement.value?.pro != true)
+                      TextButton(
+                        onPressed: _openUpgrade,
+                        child: const Text('Upgrade'),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              if (_busy)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: LinearProgressIndicator(),
+                ),
+              _buildMeetingOption(
+                context,
+                "Start Instant Meeting",
+                "Creates a real room and goes live now",
+                LucideIcons.zap,
+                Colors.orange,
+                _busy ? null : _startInstant,
+              ),
+              const SizedBox(height: 15),
+              _buildMeetingOption(
+                context,
+                "Schedule Meeting",
+                "Pick a date, duration, agenda & invitees",
+                LucideIcons.calendar,
+                Colors.green,
+                _busy ? null : _schedule,
+              ),
+              const SizedBox(height: 15),
+              _buildMeetingOption(
+                context,
+                "Join with Code",
+                "Enter the MTG-XXXXXX code to join",
+                LucideIcons.logIn,
+                Colors.white70,
+                _busy ? null : _joinWithCode,
+              ),
+              const SizedBox(height: 25),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text('MY MEETINGS',
+                        style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1)),
+                  ),
+                  IconButton(
+                    icon: const Icon(LucideIcons.refreshCw,
+                        color: Colors.white38, size: 16),
+                    onPressed: () => ref.invalidate(myMeetingsProvider),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              meetingsAsync.when(
+                data: (meetings) {
+                  if (meetings.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text('No meetings yet — start or schedule one.',
+                          style: TextStyle(color: Colors.white38, fontSize: 12)),
+                    );
+                  }
+                  return Column(
+                    children: meetings.take(8).map((m) {
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          m.isLive
+                              ? LucideIcons.radio
+                              : m.isEnded
+                                  ? LucideIcons.checkCircle2
+                                  : LucideIcons.calendarClock,
+                          color: m.isLive
+                              ? Colors.greenAccent
+                              : Colors.white38,
+                          size: 20,
+                        ),
+                        title: Text(m.title,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 14)),
+                        subtitle: Text(
+                          '${m.status.toUpperCase()} · ${m.meetingCode}',
+                          style: const TextStyle(
+                              color: Colors.white38, fontSize: 11),
+                        ),
+                        trailing: const Icon(LucideIcons.chevronRight,
+                            color: Colors.white24, size: 18),
+                        onTap: () => _openMeeting(m),
+                      );
+                    }).toList(),
+                  );
+                },
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                      child: SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2))),
+                ),
+                error: (e, _) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text('Could not load meetings: $e',
+                      style: const TextStyle(
+                          color: Colors.redAccent, fontSize: 12)),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
         ),
       ),
     );
   }
 
-  Widget _buildMeetingOption(BuildContext context, String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildMeetingOption(BuildContext context, String title,
+      String subtitle, IconData icon, Color color, VoidCallback? onTap) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 11)),
-                ],
-              ),
-            )
-          ],
+      child: Opacity(
+        opacity: onTap == null ? 0.5 : 1,
+        child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.white10)),
+          child: Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
+                    Text(subtitle,
+                        style: const TextStyle(
+                            color: Colors.white54, fontSize: 11)),
+                  ],
+                ),
+              )
+            ],
+          ),
         ),
       ),
     );

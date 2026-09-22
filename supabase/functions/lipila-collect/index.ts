@@ -206,9 +206,13 @@ serve(async (req: Request) => {
         : {};
     const meta: Record<string, unknown> = { ...rawMeta };
     if (!meta.user_id && userId) meta.user_id = userId;
+    // Idempotent anchor create: a server-side RPC (e.g.
+    // request_meeting_subscription) may have ALREADY pre-created this row with
+    // the same reference and a server-derived amount. ON CONFLICT DO NOTHING
+    // keeps that authoritative row intact instead of 500ing the collection.
     const { error: insertError } = await supabase
       .from("coa_payments")
-      .insert({
+      .upsert({
         user_id: userId,
         service_type: typeof rawMeta.service_type === "string"
           ? rawMeta.service_type
@@ -219,7 +223,7 @@ serve(async (req: Request) => {
         phone_number: accountNumber,
         category: typeof rawMeta.category === "string" ? rawMeta.category : null,
         metadata: Object.keys(meta).length > 0 ? meta : null,
-      });
+      }, { onConflict: "payment_ref", ignoreDuplicates: true });
     if (insertError) {
       // Never initiate a collection without its server-side anchor. A later
       // webhook must not have to infer ownership or amount from a phone number.
