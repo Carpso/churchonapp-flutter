@@ -1,5 +1,11 @@
--- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
--- PRO BUSINESS MEETING â€” PAYMENTS + ENTITLEMENT + COA ADMIN (2026-09-22)
+ALTER TABLE public.meeting_subscriptions ADD COLUMN IF NOT EXISTS status text DEFAULT 'active';
+ALTER TABLE public.meeting_subscriptions ADD COLUMN IF NOT EXISTS plan text;
+ALTER TABLE public.meeting_subscriptions ADD COLUMN IF NOT EXISTS amount_kwacha numeric;
+ALTER TABLE public.meeting_subscriptions ADD COLUMN IF NOT EXISTS started_at timestamptz;
+ALTER TABLE public.meeting_subscriptions ADD COLUMN IF NOT EXISTS expires_at timestamptz;
+
+-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+-- PRO BUSINESS MEETING Ã¢â‚¬â€ PAYMENTS + ENTITLEMENT + COA ADMIN (2026-09-22)
 --
 -- SECURITY PROBLEM BEING CLOSED
 --   Previously "activation" was a CLIENT-SIDE `meeting_subscriptions.insert`
@@ -21,9 +27,9 @@
 --   * meeting_entitlement() is the SINGLE UI gate; it FAILS CLOSED.
 --   * Writes to meeting_subscriptions are RPC/service-role only (no client
 --     INSERT/UPDATE/DELETE policy) + one ACTIVE subscription per tenant.
--- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
 
--- â”€â”€ 1. Extend meeting_subscriptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Ã¢â€â‚¬Ã¢â€â‚¬ 1. Extend meeting_subscriptions Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 ALTER TABLE public.meeting_subscriptions
   ADD COLUMN IF NOT EXISTS plan              text,
   ADD COLUMN IF NOT EXISTS amount_kwacha     numeric(12,2),
@@ -77,7 +83,7 @@ CREATE INDEX IF NOT EXISTS meeting_subscriptions_status_idx
 CREATE INDEX IF NOT EXISTS meeting_subscriptions_payment_idx
   ON public.meeting_subscriptions (payment_ref);
 
--- â”€â”€ 2. RLS: tenant members read own, staff read all, writes via RPC only â”€â”€â”€â”€â”€â”€â”€
+-- Ã¢â€â‚¬Ã¢â€â‚¬ 2. RLS: tenant members read own, staff read all, writes via RPC only Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 ALTER TABLE public.meeting_subscriptions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "meeting_subscriptions_select_own" ON public.meeting_subscriptions;
@@ -95,7 +101,7 @@ CREATE POLICY "meeting_subscriptions_select" ON public.meeting_subscriptions
 -- No client INSERT/UPDATE/DELETE policies: the row is written only by the
 -- SECURITY DEFINER RPCs and the coa_payments trigger (service-role equivalent).
 
--- â”€â”€ 3. Remote-configurable pricing / plan limits â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Ã¢â€â‚¬Ã¢â€â‚¬ 3. Remote-configurable pricing / plan limits Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 INSERT INTO public.platform_settings (key, value, updated_at) VALUES
   ('meeting_pro_monthly_kwacha',        '150',  now()),
   ('meeting_pro_yearly_kwacha',         '1500', now()),
@@ -107,7 +113,7 @@ INSERT INTO public.platform_settings (key, value, updated_at) VALUES
   ('meeting_free_max_participants',     '5',    now())
 ON CONFLICT (key) DO NOTHING;
 
--- â”€â”€ 4. Plan helpers (server-side price derivation â€” never trust the client) â”€â”€â”€â”€
+-- Ã¢â€â‚¬Ã¢â€â‚¬ 4. Plan helpers (server-side price derivation Ã¢â‚¬â€ never trust the client) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 CREATE OR REPLACE FUNCTION public.meeting_plan_days(p_plan text)
 RETURNS int
 LANGUAGE sql IMMUTABLE
@@ -171,7 +177,7 @@ REVOKE EXECUTE ON FUNCTION public.meeting_plan_max_participants(text) FROM publi
 GRANT  EXECUTE ON FUNCTION public.meeting_plan_price(text)            TO authenticated, service_role;
 GRANT  EXECUTE ON FUNCTION public.meeting_plan_max_participants(text) TO authenticated, service_role;
 
--- â”€â”€ 5. Expire stale active subscriptions (called by the read paths) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Ã¢â€â‚¬Ã¢â€â‚¬ 5. Expire stale active subscriptions (called by the read paths) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 CREATE OR REPLACE FUNCTION public.expire_meeting_subscriptions(p_tenant_id uuid DEFAULT NULL)
 RETURNS int
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -195,7 +201,7 @@ REVOKE EXECUTE ON FUNCTION public.expire_meeting_subscriptions(uuid) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.expire_meeting_subscriptions(uuid) FROM public;
 GRANT  EXECUTE ON FUNCTION public.expire_meeting_subscriptions(uuid) TO authenticated, service_role;
 
--- â”€â”€ 6. request_meeting_subscription â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Ã¢â€â‚¬Ã¢â€â‚¬ 6. request_meeting_subscription Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 -- Re-derives the price server-side, pre-creates the pending `coa_payments`
 -- anchor (PAYMENTS.md rule 7) and returns {payment_ref, amount_kwacha, plan}.
 -- The client NEVER supplies an amount or a price.
@@ -303,7 +309,7 @@ REVOKE EXECUTE ON FUNCTION public.request_meeting_subscription(uuid, text) FROM 
 REVOKE EXECUTE ON FUNCTION public.request_meeting_subscription(uuid, text) FROM public;
 GRANT  EXECUTE ON FUNCTION public.request_meeting_subscription(uuid, text) TO authenticated, service_role;
 
--- â”€â”€ 7. activate_meeting_subscription â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Ã¢â€â‚¬Ã¢â€â‚¬ 7. activate_meeting_subscription Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 -- Flips to `active` ONLY against a CONFIRMED coa_payments row with
 -- amount >= the server price. Idempotent.
 CREATE OR REPLACE FUNCTION public.activate_meeting_subscription(p_payment_ref text)
@@ -342,7 +348,7 @@ BEGIN
 
   -- Robustness: if no subscription row was pre-created (e.g. a legacy client
   -- that paid with a fresh reference), materialise one from the CONFIRMED
-  -- payment's server facts only â€” never from a client-declared amount/plan.
+  -- payment's server facts only Ã¢â‚¬â€ never from a client-declared amount/plan.
   IF v_sub.id IS NULL THEN
     DECLARE
       v_tid  uuid;
@@ -430,7 +436,7 @@ REVOKE EXECUTE ON FUNCTION public.activate_meeting_subscription(text) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.activate_meeting_subscription(text) FROM public;
 GRANT  EXECUTE ON FUNCTION public.activate_meeting_subscription(text) TO authenticated, service_role;
 
--- â”€â”€ 8. Auto-activate from a confirmed payment (client never has to call it) â”€â”€â”€â”€
+-- Ã¢â€â‚¬Ã¢â€â‚¬ 8. Auto-activate from a confirmed payment (client never has to call it) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 CREATE OR REPLACE FUNCTION public.trg_coa_payment_sync_meeting()
 RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -496,7 +502,7 @@ CREATE TRIGGER coa_payments_sync_meeting
   AFTER INSERT OR UPDATE OF status ON public.coa_payments
   FOR EACH ROW EXECUTE FUNCTION public.trg_coa_payment_sync_meeting();
 
--- â”€â”€ 9. meeting_entitlement â€” the SINGLE UI gate (fails closed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Ã¢â€â‚¬Ã¢â€â‚¬ 9. meeting_entitlement Ã¢â‚¬â€ the SINGLE UI gate (fails closed) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 -- Returns a SUPERSET of keys so both the newer client contract
 -- (is_pro / can_record / can_recur) and the legacy RPC contract
 -- (pro / recording / recurring) keep working. Never trusts a client plan.
@@ -568,7 +574,7 @@ REVOKE EXECUTE ON FUNCTION public.meeting_entitlement(uuid) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.meeting_entitlement(uuid) FROM public;
 GRANT  EXECUTE ON FUNCTION public.meeting_entitlement(uuid) TO authenticated, service_role;
 
--- â”€â”€ 10. cancel / refund / force-expire â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Ã¢â€â‚¬Ã¢â€â‚¬ 10. cancel / refund / force-expire Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 CREATE OR REPLACE FUNCTION public.cancel_meeting_subscription(p_subscription_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -675,7 +681,7 @@ REVOKE EXECUTE ON FUNCTION public.force_expire_meeting_subscription(uuid) FROM a
 REVOKE EXECUTE ON FUNCTION public.force_expire_meeting_subscription(uuid) FROM public;
 GRANT  EXECUTE ON FUNCTION public.force_expire_meeting_subscription(uuid) TO authenticated, service_role;
 
--- â”€â”€ 11. COA admin report (revenue totals + rows, real data only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Ã¢â€â‚¬Ã¢â€â‚¬ 11. COA admin report (revenue totals + rows, real data only) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 CREATE OR REPLACE FUNCTION public.get_meeting_admin_report(p_days int DEFAULT 30)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
