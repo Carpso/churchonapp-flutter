@@ -90,11 +90,10 @@ serve(async (req) => {
   try {
     const { action, ...params } = bodyJson ?? {};
 
-    // Service (cron) may only archive.
-    if (isService && action !== "archive_recording") {
+    // Service (cron) may only resolve/archive recordings.
+    if (isService && action !== "archive_recording" && action !== "resolve_recording") {
       return new Response(JSON.stringify({ error: "Service key may only archive recordings" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 403,
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -315,6 +314,15 @@ serve(async (req) => {
         }
         return await archiveRecording(supabaseAuth, byVideo, videoIdParam, corsHeaders);
       }
+      case "resolve_recording": {
+        // Resolves the Cloudflare Stream *video* uid + HLS manifest for a live
+        // input's finished recording and persists it on the row. This is what
+        // makes a recorded service playable: the live-input manifest
+        // (`…/<input_uid>/manifest/video.m3u8`) returns 204 once the broadcast
+        // ends, while the recording lives under its OWN video uid generated at
+        // broadcast start. Never downloads — cheap, safe to call often.
+        return await resolveAndPersistRecording(supabaseAuth, params, profile, isService, corsHeaders);
+      }
       default:
         return new Response(
           JSON.stringify({ error: "Unknown action" }),
@@ -524,7 +532,7 @@ async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<
 
   const { data: row } = await supabase
     .from("live_streams")
-    .select("id, church_id, status, cloudflare_stream_id, hls_url")
+    .select("id, church_id, status, cloudflare_stream_id, cloudflare_video_id, hls_url, preview_url, dash_url, recording_hls_url, archive_url")
     .eq("id", streamId)
     .maybeSingle();
   if (!row) return json({ error: "Stream not found" }, 404);
@@ -568,6 +576,30 @@ async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<
   if (playback.hls && playback.hls !== row.hls_url) patch.hls_url = playback.hls;
   if (playback.dash) patch.dash_url = playback.dash;
   if (playback.preview) patch.preview_url = playback.preview;
+  // Ended/archived streams: self-heal the RECORDING. The live-input manifest
+  // (`hls_url`) returns 204 once a broadcast ends, so a viewer opening a
+  // recorded service must get the recording's own video manifest. Resolve it
+  // once and persist `cloudflare_video_id` + `recording_hls_url`; the sermon
+  // sync trigger then repairs the corresponding Recorded Service sermon.
+  let recordingHls = row.recording_hls_url ?? null;
+  if (
+    ["ended", "archived"].includes(String(row.status ?? "")) &&
+    !row.archive_url && !recordingHls
+  ) {
+    try {
+      const rec = await resolveRecording(row);
+      if (rec?.uid) {
+        patch.cloudflare_video_id = rec.uid;
+        if (rec.hls) {
+          patch.recording_hls_url = rec.hls;
+          recordingHls = rec.hls;
+        }
+      }
+    } catch (_) {
+      // Non-fatal: fall through with whatever is already stored.
+    }
+  }
+
   if (Object.keys(patch).length > 0) {
     try {
       await supabase.from("live_streams").update(patch).eq("id", row.id);
@@ -586,6 +618,8 @@ async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<
     hls: playback.hls ?? row.hls_url ?? null,
     dash: playback.dash ?? null,
     preview: playback.preview ?? null,
+    recording_hls: recordingHls,
+    cloudflare_video_id: patch.cloudflare_video_id ?? row.cloudflare_video_id ?? null,
   });
 }
 // raw video bytes to `uploadURL`; Cloudflare then transcodes to adaptive HLS.
@@ -827,7 +861,8 @@ async function archiveRecording(
     return json({ error: "R2 archive is not configured (R2_ENDPOINT/keys/bucket)" }, 500);
   }
 
-  const videoId = await resolveRecordingVideoId(row, videoIdParam);
+  const rec = await resolveRecording(row, videoIdParam);
+  const videoId = rec?.uid;
   if (!videoId) {
     if (row?.id) {
       await supabase
@@ -861,9 +896,12 @@ async function archiveRecording(
       .update({
         archive_status: "processing",
         archive_error: null,
-        // Persist the resolved video id so every later retry (and the nightly
-        // cron) is deterministic and no longer depends on the live input.
+        // Persist the resolved video id + its own HLS manifest so every later
+        // retry (and the nightly cron) is deterministic and no longer depends
+        // on the live input. `recording_hls_url` is what the recorded-service
+        // sermon plays when the R2 master is not ready yet.
         cloudflare_video_id: videoId,
+        ...(rec?.hls ? { recording_hls_url: rec.hls } : {}),
       })
       .eq("id", row.id);
   }
@@ -976,26 +1014,61 @@ async function archiveRecording(
   }
 }
 
-// Finds the Cloudflare Stream video uid for a live input's latest recording.
-// Prefers the per-input video list, then falls back to the ACCOUNT video list
-// filtered by `liveInput` — so archiving still works after an input is deleted
-// (the old code relied solely on the input, and archived nothing once it was).
-async function resolveRecordingVideoId(
-  row: any,
-  videoIdParam: string | undefined,
-): Promise<string | null> {
-  if (videoIdParam) return videoIdParam;
-  if (row?.cloudflare_video_id) return row.cloudflare_video_id;
-  if (!row?.cloudflare_stream_id) return null;
+// Builds the playback manifest URL for a *video* uid on the same Stream
+// customer host as the row's existing URLs. Falls back to null when no host is
+// known (the recording list usually already carries `playback.hls`, so this is
+// only a safety net).
+function videoManifestUrl(row: any, videoId: string): string | null {
+  const candidates = [row?.hls_url, row?.preview_url, row?.dash_url]
+    .filter((u: unknown): u is string => typeof u === "string" && u.length > 0);
+  for (const u of candidates) {
+    const m = u.match(/^https?:\/\/([^/]+)\//);
+    if (m) return `https://${m[1]}/${videoId}/manifest/video.m3u8`;
+  }
+  return null;
+}
 
-  const pickLatest = (list: any[]): string | null => {
-    if (list.length === 0) return null;
+// Resolves the Cloudflare Stream *video* uid + HLS manifest for a live input's
+// latest recording. Prefers the per-input video list, then falls back to the
+// ACCOUNT video list filtered by `liveInput` — so resolution still works after
+// an input is deleted. Returns null when the input has recorded nothing.
+//
+// WHY this matters: a live input's manifest (`…/<input_uid>/manifest/video.m3u8`)
+// is only served while the input is live; after the broadcast it returns HTTP
+// 204, which a player reports as a manifest-parsing/network error. The recording
+// is a SEPARATE video uid created when the broadcast starts, and only its own
+// manifest keeps working.
+async function resolveRecording(
+  row: any,
+  videoIdParam?: string,
+): Promise<{ uid: string; hls: string | null } | null> {
+  const hlsOf = (v: any): string | null => v?.playback?.hls ?? v?.hls ?? null;
+  const pickLatest = (list: any[]): any | null => {
+    if (!Array.isArray(list) || list.length === 0) return null;
     const ready = list
       .filter((v) => v?.readyToStream)
       .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
-    const chosen = ready[0] ?? list[0];
-    return chosen?.uid ?? null;
+    return ready[0] ?? list[0] ?? null;
   };
+
+  if (videoIdParam) {
+    try {
+      const res = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/${videoIdParam}`,
+        { headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` } },
+      );
+      const j = await res.json().catch(() => null);
+      const hls = hlsOf(j?.result) ?? videoManifestUrl(row, videoIdParam);
+      return { uid: videoIdParam, hls };
+    } catch (_) {
+      return { uid: videoIdParam, hls: videoManifestUrl(row, videoIdParam) };
+    }
+  }
+
+  if (row?.cloudflare_video_id) {
+    return { uid: row.cloudflare_video_id, hls: videoManifestUrl(row, row.cloudflare_video_id) };
+  }
+  if (!row?.cloudflare_stream_id) return null;
 
   let list: any[] = [];
   try {
@@ -1008,26 +1081,71 @@ async function resolveRecordingVideoId(
   } catch (_) {
     list = [];
   }
-  const fromInput = pickLatest(list);
-  if (fromInput) return fromInput;
+  let chosen = pickLatest(list);
 
-  // Fallback: the live input may already be gone, but its recordings survive
-  // in the account and carry `liveInput` back-reference.
-  try {
-    const res = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream?limit=100`,
-      { headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` } },
-    );
-    const j = await res.json().catch(() => null);
-    const all: any[] = Array.isArray(j?.result) ? j.result : [];
-    const mine = all.filter(
-      (v) =>
-        v?.liveInput === row.cloudflare_stream_id ||
-        v?.meta?.live_input === row.cloudflare_stream_id ||
-        v?.meta?.cloudflare_stream_id === row.cloudflare_stream_id,
-    );
-    return pickLatest(mine);
-  } catch (_) {
-    return null;
+  if (!chosen?.uid) {
+    // Fallback: the live input may already be gone, but its recordings survive
+    // in the account and carry a `liveInput` back-reference.
+    try {
+      const res = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream?limit=100`,
+        { headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` } },
+      );
+      const j = await res.json().catch(() => null);
+      const all: any[] = Array.isArray(j?.result) ? j.result : [];
+      const mine = all.filter(
+        (v) =>
+          v?.liveInput === row.cloudflare_stream_id ||
+          v?.meta?.live_input === row.cloudflare_stream_id ||
+          v?.meta?.cloudflare_stream_id === row.cloudflare_stream_id,
+      );
+      chosen = pickLatest(mine);
+    } catch (_) {
+      chosen = null;
+    }
   }
+  if (!chosen?.uid) return null;
+  return { uid: chosen.uid, hls: hlsOf(chosen) ?? videoManifestUrl(row, chosen.uid) };
+}
+
+// Resolves a recording and persists `cloudflare_video_id` + `recording_hls_url`
+// on the live_streams row (without downloading anything). Also invoked
+// opportunistically by the viewer-safe `refresh_live_input` so an ended stream
+// self-heals into a playable recording.
+async function resolveAndPersistRecording(
+  supabase: any,
+  params: any,
+  profile: any,
+  isService: boolean,
+  corsHeaders: Record<string, string>,
+) {
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+  const streamId = params?.stream_id;
+  if (!streamId) return json({ error: "stream_id is required" }, 400);
+
+  const { data: row } = await supabase
+    .from("live_streams")
+    .select("id, church_id, status, cloudflare_stream_id, cloudflare_video_id, hls_url, preview_url, dash_url, recording_hls_url")
+    .eq("id", streamId)
+    .maybeSingle();
+  if (!row) return json({ error: "Stream not found" }, 404);
+
+  const isSuper = isService || ["superadmin", "coa_employee"].includes(profile?.role ?? "");
+  if (!isSuper && row.church_id !== profile?.tenant_id) {
+    return json({ error: "Not authorized to resolve this recording" }, 403);
+  }
+
+  const rec = await resolveRecording(row, params?.video_id);
+  if (!rec) return json({ success: false, error: "No recording found for this stream yet" }, 404);
+
+  await supabase
+    .from("live_streams")
+    .update({ cloudflare_video_id: rec.uid, recording_hls_url: rec.hls })
+    .eq("id", streamId);
+
+  return json({ success: true, video_id: rec.uid, hls: rec.hls });
 }

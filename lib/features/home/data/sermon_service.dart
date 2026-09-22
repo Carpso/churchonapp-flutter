@@ -83,25 +83,22 @@ class SermonService {
     try {
       final hasCategory = category != null && category.isNotEmpty;
       final hasTenant = tenantId != null && tenantId.isNotEmpty;
-      final response = hasCategory
-          ? await _client
-              .from('sermons')
-              .select()
-              .eq('category', category)
-              .order('created_at', ascending: false)
-              .range(offset, offset + limit - 1)
-          : hasTenant
-              ? await _client
-                  .from('sermons')
-                  .select()
-                  .eq('tenant_id', tenantId)
-                  .order('created_at', ascending: false)
-                  .range(offset, offset + limit - 1)
-              : await _client
-                  .from('sermons')
-                  .select()
-                  .order('created_at', ascending: false)
-                  .range(offset, offset + limit - 1);
+
+      // Apply the category AND tenant filters together. Tenant scoping is
+      // INCLUSIVE of `tenant_id IS NULL` (church-wide / global sermons such as
+      // recorded services) — an exclusive `.eq('tenant_id', …)` hid them for
+      // members whose own tenant had few/older sermons.
+      var query = _client.from('sermons').select();
+      if (hasCategory) {
+        query = query.eq('category', category);
+      }
+      if (hasTenant) {
+        query = query.or('tenant_id.eq.$tenantId,tenant_id.is.null');
+      }
+
+      final response = await query
+          .order('created_at', ascending: false)
+          .range(offset, offset + limit - 1);
 
       return (response as List).map((s) => Sermon.fromMap(s)).toList();
     } catch (e) {

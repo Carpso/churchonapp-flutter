@@ -354,6 +354,7 @@ $migrations = @(
       "20261217_events_special_guests.sql"
       "20261218_fix_profiles_role_trigger.sql"
       "20261219_fix_resolution_hub.sql"
+      "20261220_recorded_service_playable_url.sql"
       )
 
 

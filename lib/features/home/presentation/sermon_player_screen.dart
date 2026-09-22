@@ -153,6 +153,97 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
         clean.endsWith('.mkv');
   }
 
+  /// Rewrites a Cloudflare Stream URL so it points at the RECORDING's *video*
+  /// uid instead of the live-input uid (`…/<input_uid>/manifest/video.m3u8` ->
+  /// `…/<video_uid>/manifest/video.m3u8`). A live-input manifest returns HTTP
+  /// 204 once the broadcast ends, which is the `manifestParsingError` users hit
+  /// on recorded services; the recording's own manifest keeps working. Returns
+  /// null when the URL is not a Cloudflare manifest or no video id is known.
+  static String? _cfVideoManifest(String url, String? videoId) {
+    final id = (videoId ?? '').trim();
+    if (id.isEmpty) return null;
+    final u = _cleanUrl(url);
+    if (u.isEmpty) return null;
+    final m = RegExp(r'^(https?://[^/]+)/[^/]+/(manifest/video\.m3u8.*)$')
+        .firstMatch(u);
+    if (m == null) return null;
+    return '${m.group(1)}/$id/${m.group(2)}';
+  }
+
+  /// Ordered list of playable video sources to try, most-preferred first:
+  /// the stored URL (still valid for a genuinely live input), the recording's
+  /// own Cloudflare manifest, then the R2 master archive. Duplicates removed.
+  List<String> _videoSourceCandidates(String videoUrl, String archiveUrl) {
+    final out = <String>[];
+    void add(String raw) {
+      final c = _cleanUrl(raw);
+      if (c.isEmpty || _looksLikeAudio(c) || out.contains(c)) return;
+      out.add(c);
+    }
+
+    add(videoUrl);
+    final derived = _cfVideoManifest(videoUrl, widget.sermon.cloudflareVideoId);
+    if (derived != null) add(derived);
+    add(archiveUrl);
+    return out;
+  }
+
+  /// Initialises the video stage, falling back through [candidates] when a
+  /// source fails to load (dead live manifest, 403/404, network error). Only
+  /// shows the error state when EVERY candidate failed, and logs each failure.
+  Future<void> _initVideoWithFallback(
+    List<String> candidates,
+    R2Service r2,
+  ) async {
+    Object? lastError;
+    for (final source in candidates) {
+      if (!mounted) return;
+      String resolved;
+      try {
+        resolved = await r2.getSignedUrl(source) ?? source;
+      } catch (_) {
+        resolved = source;
+      }
+      _resolvedVideoUrl = resolved;
+      VideoPlayerController? controller;
+      try {
+        controller = VideoPlayerController.networkUrl(Uri.parse(resolved));
+        controller.addListener(() {
+          if (mounted) setState(() {});
+        });
+        await controller.initialize();
+        if (!mounted) {
+          await controller.dispose();
+          return;
+        }
+        _videoController = controller;
+        _hasInitialized = true;
+        _loadHlsVariants(resolved);
+        await controller.play();
+        final startAt = widget.initialPosition;
+        if (startAt != null && startAt > Duration.zero) {
+          await controller.seekTo(startAt);
+        }
+        if (mounted) setState(() { _isLoading = false; _hasError = false; });
+        return;
+      } catch (e) {
+        lastError = e;
+        debugPrint('Sermon video source failed: "$resolved" ($e)');
+        try {
+          await controller?.dispose();
+        } catch (_) {}
+        _hasInitialized = false;
+      }
+    }
+    debugPrint('All sermon video sources failed. Last error: $lastError');
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -307,9 +398,23 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       final r2 = R2Service(client);
 
       if (!useAudio) {
+        // Build the ordered source list so a dead Cloudflare live manifest can
+        // fall through to the recording's own manifest / the R2 master.
+        final candidates = _videoSourceCandidates(videoUrl, archiveUrl);
+        _hasVideoSource = candidates.isNotEmpty;
+        if (candidates.isEmpty) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _hasError = true;
+            });
+          }
+          return;
+        }
+
         // YouTube sources are played through an embedded YouTube player — the
         // raw `video_player` (ExoPlayer/AVPlayer) cannot play a YouTube page URL.
-        final ytId = youTubeVideoIdFromUrl(videoSource);
+        final ytId = youTubeVideoIdFromUrl(candidates.first);
         if (ytId != null) {
           _ytId = ytId;
           _ytController = YoutubePlayerController.fromVideoId(
@@ -332,23 +437,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
           return;
         }
 
-        final resolved = await r2.getSignedUrl(videoSource);
-        _resolvedVideoUrl = resolved ?? videoSource;
-        _loadHlsVariants(_resolvedVideoUrl);
-
-        _videoController =
-            VideoPlayerController.networkUrl(Uri.parse(_resolvedVideoUrl));
-        _videoController.addListener(() {
-          if (mounted) setState(() {});
-        });
-        await _videoController.initialize();
-        _hasInitialized = true;
-        _videoController.play();
-        final startAt = widget.initialPosition;
-        if (startAt != null && startAt > Duration.zero) {
-          await _videoController.seekTo(startAt);
-        }
-        if (mounted) setState(() { _isLoading = false; });
+        await _initVideoWithFallback(candidates, r2);
         return;
       }
 
