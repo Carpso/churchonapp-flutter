@@ -58,7 +58,7 @@ class _EventHostDashboardScreenState extends State<EventHostDashboardScreen> {
 
       _eventDetailsFuture = Supabase.instance.client
           .from('events')
-          .select('id, title, description, location, category, ticket_price, organizer_momo_phone, created_by, date, time, end_date, cover, speakers, type, price')
+          .select('id, title, description, location, category, ticket_price, organizer_momo_phone, created_by, date, end_date, image_url, speakers')
           .eq('id', widget.eventId)
           .single()
           .then((data) {

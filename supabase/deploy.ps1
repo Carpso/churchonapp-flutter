@@ -351,6 +351,7 @@ $migrations = @(
       "20261214_fix_sermon_audio_url_for_video.sql"
       "20261215_org_ownership_gates.sql"
       "20261216_fix_tenant_events_quiz_sermon_pvp.sql"
+      "20261217_events_special_guests.sql"
       )
 
 foreach ($m in $migrations) {

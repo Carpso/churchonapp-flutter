@@ -50,7 +50,7 @@ class ChurchEvent {
       speakers: map['speakers'] ?? '',
       organizerMomoPhone: map['organizer_momo_phone'] ?? '',
       organizerMomoName: map['organizer_momo_name'] ?? '',
-      interchurch: map['interchurch'] == true,
+      interchurch: map['is_inter_tenant'] == true,
     );
   }
 }
@@ -114,6 +114,8 @@ class EventService {
       'organizer_momo_name': eventData['organizer_momo_name'],
       'speakers': eventData['speakers'],
       'end_date': eventData['end_date'],
+      // Client uses the `interchurch` alias; the real column is `is_inter_tenant`.
+      'is_inter_tenant': eventData['is_inter_tenant'] ?? eventData['interchurch'] ?? false,
     };
 
     final result = await _client.from('events').insert(dbData).select().single();
