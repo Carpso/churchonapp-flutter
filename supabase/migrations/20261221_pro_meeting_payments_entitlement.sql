@@ -55,6 +55,18 @@ ALTER TABLE public.meeting_subscriptions
   ADD CONSTRAINT meeting_subscriptions_status_check
   CHECK (status IN ('pending','active','expired','cancelled','refunded')) NOT VALID;
 
+-- Keep only the newest active row per tenant before adding the unique index
+-- (legacy client inserts could have created duplicates).
+UPDATE public.meeting_subscriptions s
+   SET status = 'expired', updated_at = now()
+ WHERE s.status = 'active'
+   AND s.id <> (
+     SELECT o.id FROM public.meeting_subscriptions o
+      WHERE o.tenant_id = s.tenant_id AND o.status = 'active'
+      ORDER BY o.created_at DESC NULLS LAST, o.id DESC
+      LIMIT 1
+   );
+
 -- Exactly ONE active subscription per tenant (server-enforced).
 CREATE UNIQUE INDEX IF NOT EXISTS meeting_subscriptions_one_active_tenant
   ON public.meeting_subscriptions (tenant_id)
