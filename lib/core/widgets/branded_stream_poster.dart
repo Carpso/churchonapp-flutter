@@ -301,22 +301,26 @@ class SmartStreamPoster extends StatelessWidget {
     final useBranded =
         effective.trim().isEmpty || isGeneratedSamplePoster(effective);
 
-    final Widget child = useBranded
-        ? BrandedStreamPoster(
-            variant: variant,
-            seed: seed,
-            width: width,
-            height: height,
-            fit: fit,
-            borderRadius: borderRadius,
-          )
-        : AppImage(
-            effective,
-            width: width,
-            height: height,
-            fit: fit,
-            borderRadius: borderRadius,
-          );
-    return child;
+    final Widget branded = BrandedStreamPoster(
+      variant: variant,
+      seed: seed,
+      width: width,
+      height: height,
+      fit: fit,
+      borderRadius: borderRadius,
+    );
+    if (useBranded) return branded;
+
+    // A REAL uploaded URL that fails to decode (e.g. a dead/HTML Unsplash
+    // sample URL returning `EncodingError`) must fall back to the branded
+    // poster rather than a broken-image box.
+    return AppImage(
+      effective,
+      width: width,
+      height: height,
+      fit: fit,
+      borderRadius: borderRadius,
+      errorWidget: (_, __) => branded,
+    );
   }
 }

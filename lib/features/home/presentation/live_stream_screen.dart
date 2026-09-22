@@ -180,7 +180,18 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         if (info != null && info.success) {
           _inputConnected = info.connected;
           final hls = info.hlsUrl;
-          if (hls != null && _isValidUrl(hls)) _resolvedPlaybackUrl = hls;
+          final recording = info.recordingHlsUrl;
+          final isEnded = _rowStatus == 'ended' || _rowStatus == 'archived';
+          if (isEnded && recording != null && _isValidUrl(recording)) {
+            // Live manifest is gone for a finished service — play the recording.
+            _resolvedPlaybackUrl = recording;
+            _isReplay = true;
+          } else if (hls != null && _isValidUrl(hls)) {
+            _resolvedPlaybackUrl = hls;
+          } else if (recording != null && _isValidUrl(recording)) {
+            _resolvedPlaybackUrl = recording;
+            _isReplay = true;
+          }
         }
       }
     } catch (e) {
@@ -192,9 +203,21 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     if (row == null) return;
     _rowStatus = row['status']?.toString();
     final hls = row['hls_url']?.toString() ?? '';
+    final recording = row['recording_hls_url']?.toString() ?? '';
     final archive = row['archive_url']?.toString() ?? '';
-    if (_isValidUrl(hls)) {
+    final isEnded =
+        _rowStatus == 'ended' || _rowStatus == 'archived';
+    // An ended/archived stream's live-input manifest (`hls_url`) returns 204,
+    // so its OWN recording manifest must win. For a live stream the live
+    // manifest is preferred while it exists.
+    if (isEnded && _isValidUrl(recording)) {
+      _resolvedPlaybackUrl = recording;
+      _isReplay = true;
+    } else if (_isValidUrl(hls)) {
       _resolvedPlaybackUrl = hls;
+    } else if (_isValidUrl(recording)) {
+      _resolvedPlaybackUrl = recording;
+      _isReplay = true;
     } else if (_isValidUrl(archive)) {
       _resolvedPlaybackUrl = archive;
       _isReplay = true;
@@ -297,6 +320,15 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
       return;
     }
 
+    // 3b) Live + the input IS connected (WHIP/RTMPS publishing) but Cloudflare
+    //     has not published the HLS manifest yet — this is normal for the first
+    //     few seconds and must NOT be reported as a failure. Keep polling (the
+    //     waiting timer re-tries the moment the manifest appears).
+    if (_isLiveRow && _inputConnected == true && _totalFailures <= 12) {
+      _enterWaiting();
+      return;
+    }
+
     // 4) Hard bound: never spin silently forever. After several failed attempts
     //    with no repaired URL and no live-input waiting state, surface RETRY.
     if (_totalFailures > 6) {
@@ -355,14 +387,18 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
 
   void _buildChewie(VideoPlayerController controller, String url) {
     _resolvedPlaybackUrl = url;
+    // `value.aspectRatio` is `size.width / size.height`, which is NaN (0/0) —
+    // NOT 0 — before the first frame decodes. Passing NaN to AspectRatio lays
+    // out the subtree with non-finite constraints, which then throws deep in
+    // the framework (`Result of truncating division is NaN: NaN ~/ …`) on every
+    // frame. Guard it.
+    final ar = controller.value.aspectRatio;
     _chewieController = ChewieController(
       videoPlayerController: controller,
       autoPlay: true,
       looping: false,
       isLive: !_isReplay,
-      aspectRatio: controller.value.aspectRatio == 0
-          ? 16 / 9
-          : controller.value.aspectRatio,
+      aspectRatio: (ar.isFinite && ar > 0) ? ar : 16 / 9,
       placeholder: SmartStreamPoster(
         url: widget.thumbnailUrl,
         seed: widget.streamId ?? widget.title,
@@ -804,8 +840,12 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     }
     final value = _videoPlayerController?.value;
     if (value == null) return _chip('CONNECTING…', Colors.white70);
-    final h = value.size.height.round();
-    final res = h > 0 ? '${value.size.width.round()}×$h' : 'AUTO';
+    final w = value.size.width;
+    final hRaw = value.size.height;
+    final h = (hRaw.isFinite && hRaw > 0) ? hRaw.round() : 0;
+    final res = (h > 0 && w.isFinite)
+        ? '${w.round()}×$h'
+        : 'AUTO';
     return _chip(value.isBuffering ? 'BUFFERING · $res' : 'LIVE · $res', Colors.white70);
   }
 

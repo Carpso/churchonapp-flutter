@@ -16,7 +16,7 @@ class LiveStreamService {
   final SupabaseClient _client;
 
   static const _publicStreamColumns =
-      'id,church_id,title,description,status,streaming_backend,scheduled_at,started_at,ended_at,hls_url,dash_url,preview_url,viewer_count,created_at,cloudflare_video_id,thumbnail_url,is_audio_only,archive_url,archive_status,archived_at';
+      'id,church_id,title,description,status,streaming_backend,scheduled_at,started_at,ended_at,hls_url,recording_hls_url,dash_url,preview_url,viewer_count,created_at,cloudflare_video_id,thumbnail_url,is_audio_only,archive_url,archive_status,archived_at';
 
   LiveStreamService(this._client);
 
@@ -176,6 +176,8 @@ class LiveStreamService {
         return LiveStreamPlaybackInfo(
           success: m['success'] == true,
           hlsUrl: _asString(m['hls']),
+          recordingHlsUrl: _asString(m['recording_hls']),
+          cloudflareVideoId: _asString(m['cloudflare_video_id']),
           dashUrl: _asString(m['dash']),
           inputStatus: _asString(m['input_status']),
           connected: m['connected'] == true,
@@ -363,6 +365,13 @@ final liveStreamServiceProvider = Provider<LiveStreamService>((ref) {
 class LiveStreamPlaybackInfo {
   final bool success;
   final String? hlsUrl;
+
+  /// The finished recording's OWN HLS manifest. The live-input manifest
+  /// (`hlsUrl`) returns 204 once a broadcast ends; this one stays playable.
+  final String? recordingHlsUrl;
+
+  /// Cloudflare Stream video uid of the resolved recording (if any).
+  final String? cloudflareVideoId;
   final String? dashUrl;
 
   /// Cloudflare live-input status: connected/reconnecting/client_disconnect…
@@ -376,6 +385,8 @@ class LiveStreamPlaybackInfo {
   const LiveStreamPlaybackInfo({
     required this.success,
     this.hlsUrl,
+    this.recordingHlsUrl,
+    this.cloudflareVideoId,
     this.dashUrl,
     this.inputStatus,
     this.connected = false,

@@ -357,6 +357,8 @@ $migrations = @(
       "20261220_recorded_service_playable_url.sql"
       "20261221_business_meetings_real.sql"
       "20261221_pro_meeting_payments_entitlement.sql"
+      "20261222_profiles_tenant_fk_to_tenants.sql"
+      "20261223_orders_rls_recursion_fix.sql"
       )
 
 

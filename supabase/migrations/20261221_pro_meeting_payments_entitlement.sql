@@ -1,5 +1,5 @@
--- ═══════════════════════════════════════════════════════════════════════════════
--- PRO BUSINESS MEETING — PAYMENTS + ENTITLEMENT + COA ADMIN (2026-09-22)
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+-- PRO BUSINESS MEETING â€” PAYMENTS + ENTITLEMENT + COA ADMIN (2026-09-22)
 --
 -- SECURITY PROBLEM BEING CLOSED
 --   Previously "activation" was a CLIENT-SIDE `meeting_subscriptions.insert`
@@ -21,9 +21,9 @@
 --   * meeting_entitlement() is the SINGLE UI gate; it FAILS CLOSED.
 --   * Writes to meeting_subscriptions are RPC/service-role only (no client
 --     INSERT/UPDATE/DELETE policy) + one ACTIVE subscription per tenant.
--- ═══════════════════════════════════════════════════════════════════════════════
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
--- ── 1. Extend meeting_subscriptions ────────────────────────────────────────────
+-- â”€â”€ 1. Extend meeting_subscriptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 ALTER TABLE public.meeting_subscriptions
   ADD COLUMN IF NOT EXISTS plan              text,
   ADD COLUMN IF NOT EXISTS amount_kwacha     numeric(12,2),
@@ -39,7 +39,7 @@ ALTER TABLE public.meeting_subscriptions
 -- Backfill the new canonical columns from the legacy ones.
 UPDATE public.meeting_subscriptions
    SET plan = COALESCE(plan, plan_type, 'monthly'),
-       amount_kwacha = COALESCE(amount_kwacha, amount_zmw, 0),
+       amount_kwacha = COALESCE(amount_kwacha, 0),
        started_at = COALESCE(started_at, CASE WHEN status = 'active' THEN created_at END)
  WHERE plan IS NULL OR amount_kwacha IS NULL OR started_at IS NULL;
 
@@ -77,7 +77,7 @@ CREATE INDEX IF NOT EXISTS meeting_subscriptions_status_idx
 CREATE INDEX IF NOT EXISTS meeting_subscriptions_payment_idx
   ON public.meeting_subscriptions (payment_ref);
 
--- ── 2. RLS: tenant members read own, staff read all, writes via RPC only ───────
+-- â”€â”€ 2. RLS: tenant members read own, staff read all, writes via RPC only â”€â”€â”€â”€â”€â”€â”€
 ALTER TABLE public.meeting_subscriptions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "meeting_subscriptions_select_own" ON public.meeting_subscriptions;
@@ -95,7 +95,7 @@ CREATE POLICY "meeting_subscriptions_select" ON public.meeting_subscriptions
 -- No client INSERT/UPDATE/DELETE policies: the row is written only by the
 -- SECURITY DEFINER RPCs and the coa_payments trigger (service-role equivalent).
 
--- ── 3. Remote-configurable pricing / plan limits ───────────────────────────────
+-- â”€â”€ 3. Remote-configurable pricing / plan limits â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 INSERT INTO public.platform_settings (key, value, updated_at) VALUES
   ('meeting_pro_monthly_kwacha',        '150',  now()),
   ('meeting_pro_yearly_kwacha',         '1500', now()),
@@ -107,7 +107,7 @@ INSERT INTO public.platform_settings (key, value, updated_at) VALUES
   ('meeting_free_max_participants',     '5',    now())
 ON CONFLICT (key) DO NOTHING;
 
--- ── 4. Plan helpers (server-side price derivation — never trust the client) ────
+-- â”€â”€ 4. Plan helpers (server-side price derivation â€” never trust the client) â”€â”€â”€â”€
 CREATE OR REPLACE FUNCTION public.meeting_plan_days(p_plan text)
 RETURNS int
 LANGUAGE sql IMMUTABLE
@@ -171,7 +171,7 @@ REVOKE EXECUTE ON FUNCTION public.meeting_plan_max_participants(text) FROM publi
 GRANT  EXECUTE ON FUNCTION public.meeting_plan_price(text)            TO authenticated, service_role;
 GRANT  EXECUTE ON FUNCTION public.meeting_plan_max_participants(text) TO authenticated, service_role;
 
--- ── 5. Expire stale active subscriptions (called by the read paths) ────────────
+-- â”€â”€ 5. Expire stale active subscriptions (called by the read paths) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE OR REPLACE FUNCTION public.expire_meeting_subscriptions(p_tenant_id uuid DEFAULT NULL)
 RETURNS int
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -195,7 +195,7 @@ REVOKE EXECUTE ON FUNCTION public.expire_meeting_subscriptions(uuid) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.expire_meeting_subscriptions(uuid) FROM public;
 GRANT  EXECUTE ON FUNCTION public.expire_meeting_subscriptions(uuid) TO authenticated, service_role;
 
--- ── 6. request_meeting_subscription ────────────────────────────────────────────
+-- â”€â”€ 6. request_meeting_subscription â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- Re-derives the price server-side, pre-creates the pending `coa_payments`
 -- anchor (PAYMENTS.md rule 7) and returns {payment_ref, amount_kwacha, plan}.
 -- The client NEVER supplies an amount or a price.
@@ -268,7 +268,7 @@ BEGIN
     RETURNING id INTO v_pay_id;
 
     INSERT INTO public.meeting_subscriptions
-      (user_id, tenant_id, plan, plan_type, amount_kwacha, amount_zmw,
+      (user_id, tenant_id, plan, plan_type, amount_kwacha, amount_kwacha,
        payment_ref, coa_payment_id, status)
     VALUES
       (v_uid, p_tenant_id, v_plan, v_plan, v_amount, v_amount,
@@ -284,7 +284,7 @@ BEGIN
 
     UPDATE public.meeting_subscriptions
        SET amount_kwacha = v_amount,
-           amount_zmw = v_amount,
+           amount_kwacha = v_amount,
            updated_at = now()
      WHERE id = v_sub_id;
   END IF;
@@ -303,7 +303,7 @@ REVOKE EXECUTE ON FUNCTION public.request_meeting_subscription(uuid, text) FROM 
 REVOKE EXECUTE ON FUNCTION public.request_meeting_subscription(uuid, text) FROM public;
 GRANT  EXECUTE ON FUNCTION public.request_meeting_subscription(uuid, text) TO authenticated, service_role;
 
--- ── 7. activate_meeting_subscription ───────────────────────────────────────────
+-- â”€â”€ 7. activate_meeting_subscription â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- Flips to `active` ONLY against a CONFIRMED coa_payments row with
 -- amount >= the server price. Idempotent.
 CREATE OR REPLACE FUNCTION public.activate_meeting_subscription(p_payment_ref text)
@@ -342,7 +342,7 @@ BEGIN
 
   -- Robustness: if no subscription row was pre-created (e.g. a legacy client
   -- that paid with a fresh reference), materialise one from the CONFIRMED
-  -- payment's server facts only — never from a client-declared amount/plan.
+  -- payment's server facts only â€” never from a client-declared amount/plan.
   IF v_sub.id IS NULL THEN
     DECLARE
       v_tid  uuid;
@@ -363,7 +363,7 @@ BEGIN
       END IF;
 
       INSERT INTO public.meeting_subscriptions
-        (user_id, tenant_id, plan, plan_type, amount_kwacha, amount_zmw,
+        (user_id, tenant_id, plan, plan_type, amount_kwacha, amount_kwacha,
          payment_ref, coa_payment_id, status)
       VALUES
         (v_pay.user_id, v_tid, v_plan0, v_plan0, v_pay.amount, v_pay.amount,
@@ -430,7 +430,7 @@ REVOKE EXECUTE ON FUNCTION public.activate_meeting_subscription(text) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.activate_meeting_subscription(text) FROM public;
 GRANT  EXECUTE ON FUNCTION public.activate_meeting_subscription(text) TO authenticated, service_role;
 
--- ── 8. Auto-activate from a confirmed payment (client never has to call it) ────
+-- â”€â”€ 8. Auto-activate from a confirmed payment (client never has to call it) â”€â”€â”€â”€
 CREATE OR REPLACE FUNCTION public.trg_coa_payment_sync_meeting()
 RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -496,7 +496,7 @@ CREATE TRIGGER coa_payments_sync_meeting
   AFTER INSERT OR UPDATE OF status ON public.coa_payments
   FOR EACH ROW EXECUTE FUNCTION public.trg_coa_payment_sync_meeting();
 
--- ── 9. meeting_entitlement — the SINGLE UI gate (fails closed) ─────────────────
+-- â”€â”€ 9. meeting_entitlement â€” the SINGLE UI gate (fails closed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- Returns a SUPERSET of keys so both the newer client contract
 -- (is_pro / can_record / can_recur) and the legacy RPC contract
 -- (pro / recording / recurring) keep working. Never trusts a client plan.
@@ -568,7 +568,7 @@ REVOKE EXECUTE ON FUNCTION public.meeting_entitlement(uuid) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.meeting_entitlement(uuid) FROM public;
 GRANT  EXECUTE ON FUNCTION public.meeting_entitlement(uuid) TO authenticated, service_role;
 
--- ── 10. cancel / refund / force-expire ─────────────────────────────────────────
+-- â”€â”€ 10. cancel / refund / force-expire â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE OR REPLACE FUNCTION public.cancel_meeting_subscription(p_subscription_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -675,7 +675,7 @@ REVOKE EXECUTE ON FUNCTION public.force_expire_meeting_subscription(uuid) FROM a
 REVOKE EXECUTE ON FUNCTION public.force_expire_meeting_subscription(uuid) FROM public;
 GRANT  EXECUTE ON FUNCTION public.force_expire_meeting_subscription(uuid) TO authenticated, service_role;
 
--- ── 11. COA admin report (revenue totals + rows, real data only) ───────────────
+-- â”€â”€ 11. COA admin report (revenue totals + rows, real data only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE OR REPLACE FUNCTION public.get_meeting_admin_report(p_days int DEFAULT 30)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -697,7 +697,7 @@ BEGIN
     SELECT s.id, s.tenant_id, t.name AS tenant_name,
            COALESCE(s.plan, s.plan_type, 'monthly') AS plan,
            s.status,
-           COALESCE(s.amount_kwacha, s.amount_zmw, 0) AS amount_kwacha,
+           COALESCE(s.amount_kwacha, s.amount_kwacha, 0) AS amount_kwacha,
            s.started_at, s.expires_at, s.payment_ref, s.coa_payment_id,
            s.coa_cut_kwacha, s.auto_renew, s.cancelled_at, s.refunded_at,
            s.refund_ref, s.created_at
@@ -717,19 +717,19 @@ BEGIN
     'mrr', (
       SELECT COALESCE(SUM(
                CASE WHEN COALESCE(plan, plan_type) = 'yearly'
-                    THEN COALESCE(amount_kwacha, amount_zmw, 0) / 12.0
-                    ELSE COALESCE(amount_kwacha, amount_zmw, 0) END), 0)
+                    THEN COALESCE(amount_kwacha, 0) / 12.0
+                    ELSE COALESCE(amount_kwacha, 0) END), 0)
         FROM public.meeting_subscriptions
        WHERE status = 'active' AND (expires_at IS NULL OR expires_at > now())
     ),
     'collected', (
-      SELECT COALESCE(SUM(COALESCE(amount_kwacha, amount_zmw, 0)), 0)
+      SELECT COALESCE(SUM(COALESCE(amount_kwacha, 0)), 0)
         FROM public.meeting_subscriptions
        WHERE started_at IS NOT NULL AND started_at >= v_from
          AND status IN ('active','expired','cancelled','refunded')
     ),
     'refunds', (
-      SELECT COALESCE(SUM(COALESCE(amount_kwacha, amount_zmw, 0)), 0)
+      SELECT COALESCE(SUM(COALESCE(amount_kwacha, 0)), 0)
         FROM public.meeting_subscriptions
        WHERE status = 'refunded' AND refunded_at IS NOT NULL AND refunded_at >= v_from
     ),

@@ -50,7 +50,12 @@ class _MarqueeTickerState extends State<MarqueeTicker>
   }
 
   void _ensureAnimating(double width) {
-    if (width <= 0 || (width - _measuredWidth).abs() < 1) return;
+    // A TextPainter can report a non-finite width for a long single line; a
+    // NaN/Infinity here would poison the animation duration and the translate
+    // offset. Only animate for a real, positive, finite width.
+    if (!width.isFinite || width <= 0 || (width - _measuredWidth).abs() < 1) {
+      return;
+    }
     _measuredWidth = width;
     final ms = (width / widget.pixelsPerSecond.clamp(5, 400) * 1000).round();
     _controller.duration = Duration(milliseconds: ms.clamp(1500, 180000));
@@ -82,7 +87,10 @@ class _MarqueeTickerState extends State<MarqueeTicker>
               maxWidth: double.infinity,
               alignment: Alignment.centerLeft,
               child: Transform.translate(
-                offset: Offset(-_controller.value * painter.width, 0),
+                offset: Offset(
+                  painter.width.isFinite ? -_controller.value * painter.width : 0,
+                  0,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

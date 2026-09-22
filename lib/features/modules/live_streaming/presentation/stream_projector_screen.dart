@@ -50,9 +50,10 @@ class StreamProjectorScreen extends ConsumerWidget {
     final caption = data?.caption?.trim();
     final hasCaption = caption != null && caption.isNotEmpty;
 
+    final tickerMessage = data?.tickerMessage?.trim() ?? '';
     final tickerItems = <String>[
-      if (data?.tickerEnabled != false && (data?.tickerMessage ?? '').trim().isNotEmpty)
-        data!.tickerMessage!.trim(),
+      if (data?.tickerEnabled != false && tickerMessage.isNotEmpty)
+        tickerMessage,
       if (hasVerse) [verseRef, verseText].whereType<String>().where((e) => e.isNotEmpty).join(' — '),
       if (hasSpeaker)
         [speakerName, speakerTitle, speakerChurch]

@@ -286,7 +286,7 @@ serve(async (req) => {
         if (streamId) {
           const { data: row } = await supabaseAuth
             .from("live_streams")
-            .select("id, church_id, cloudflare_stream_id, cloudflare_video_id, archive_url, archive_status")
+            .select("id, church_id, status, cloudflare_stream_id, cloudflare_video_id, archive_url, archive_status")
             .eq("id", streamId)
             .maybeSingle();
           if (!row) {
@@ -304,7 +304,7 @@ serve(async (req) => {
 
         const { data: byVideo } = await supabaseAuth
           .from("live_streams")
-          .select("id, church_id, cloudflare_stream_id, cloudflare_video_id, archive_url, archive_status")
+          .select("id, church_id, status, cloudflare_stream_id, cloudflare_video_id, archive_url, archive_status")
           .eq("cloudflare_video_id", videoIdParam)
           .maybeSingle();
         if (!byVideo || (!isSuper && byVideo.church_id !== profile?.tenant_id)) {
@@ -861,16 +861,33 @@ async function archiveRecording(
     return json({ error: "R2 archive is not configured (R2_ENDPOINT/keys/bucket)" }, 500);
   }
 
+  // A still-live (or scheduled) stream has no finalised recording yet. This is
+  // an expected state — do NOT write `archive_status='failed'` or log a 404,
+  // which made every immediate end-of-broadcast attempt look like an error.
+  if (["live", "scheduled"].includes(String(row?.status ?? ""))) {
+    return json(
+      {
+        success: false,
+        reason: "still_live",
+        message: "Recording is only available after the broadcast ends",
+      },
+      202,
+    );
+  }
+
   const rec = await resolveRecording(row, videoIdParam);
   const videoId = rec?.uid;
   if (!videoId) {
+    // Cloudflare needs a little time to finalise a recording after a broadcast
+    // ends. This is a normal "not ready yet" state, not a failure: mark it
+    // `queued` (so the sweep retries) and return 202 instead of a 404 error.
     if (row?.id) {
       await supabase
         .from("live_streams")
-        .update({ archive_status: "failed", archive_error: "No recording found for this stream yet" })
+        .update({ archive_status: "queued", archive_error: "recording_not_ready" })
         .eq("id", row.id);
     }
-    return json({ error: "No recording found for this stream yet" }, 404);
+    return json({ success: false, reason: "recording_not_ready" }, 202);
   }
 
   // Idempotency: never re-copy (and therefore never double-charge Stream egress
