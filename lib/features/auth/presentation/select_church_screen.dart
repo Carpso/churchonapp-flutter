@@ -11,11 +11,13 @@ import 'package:church_on_app/core/utils/country_detection_util.dart';
 import 'package:church_on_app/core/config/app_constants.dart';
 import 'package:church_on_app/core/widgets/church_map.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/features/transport/data/route_service.dart';
 import 'package:church_on_app/features/navigation/presentation/main_navigation_shell.dart';
 
 class SelectTenantScreen extends ConsumerStatefulWidget {
@@ -47,6 +49,13 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
   final Set<String> _activeCountries = {"Zambia"};
   final _searchController = TextEditingController();
   LatLng? _pinPosition;
+
+  /// Map camera controller so a requested route can be fitted into view.
+  final MapController _mapController = MapController();
+
+  /// Active route polyline (user → selected entity), drawn by [ChurchMap].
+  List<LatLng>? _routePath;
+  bool _routeLoading = false;
 
   @override
   void initState() {
@@ -385,6 +394,15 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
             pmtilesUrl: dotenv.get('MAPS_ZAMBIA_URL'),
             zoom: pos != null ? 13 : 6,
             showPin: true,
+            mapController: _mapController,
+            path: _routePath,
+            // A genuinely useful discovery map: live traffic overlay, a Nearby
+            // POI panel (fuel/banks/pharmacies…) and the saved-places layer.
+            // topInset pushes the map controls below the host search bar.
+            showTraffic: true,
+            showNearby: true,
+            showPlaces: true,
+            topInset: 76,
             initialPinPosition: _pinPosition,
             onPinChanged: (point) {
               setState(() => _pinPosition = point);
@@ -440,6 +458,20 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                 ],
           ),
           _buildSearchOverlay(),
+          if (_routeLoading)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: LinearProgressIndicator(
+                  minHeight: 3,
+                  color: Theme.of(context).primaryColor,
+                  backgroundColor: Colors.transparent,
+                ),
+              ),
+            ),
           if (isSuperadmin) _buildMapCounter(),
           _buildTenantList(isSuperadmin),
         ],
@@ -984,17 +1016,9 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
               Column(
                 children: [
                   IconButton(
-                    icon: Icon(Icons.map, size: 20, color: theme.primaryColor),
-                    onPressed: () {
-                      final lat = tenant['latitude'];
-                      final lng = tenant['longitude'];
-                      if (lat != null && lng != null) {
-                        final uri = Uri.parse(
-                          "https://www.google.com/maps/search/?api=1&query=$lat,$lng",
-                        );
-                        launchUrl(uri, mode: LaunchMode.inAppWebView);
-                      }
-                    },
+                    icon: Icon(Icons.directions, size: 20, color: theme.primaryColor),
+                    tooltip: "Directions",
+                    onPressed: () => _showDirections(tenant),
                   ),
                   Icon(Icons.check_circle, size: 16, color: Colors.green),
                 ],
@@ -1430,7 +1454,170 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
     );
   }
 
+  /// Real directions from the user's current location to a tapped entity:
+  /// fetches an OSRM road route via [RouteService], draws it on the map, fits
+  /// the camera to it, and shows distance + ETA with a one-tap external
+  /// navigation hand-off.
+  Future<void> _showDirections(Map<String, dynamic> tenant) async {
+    final lat = _parseDouble(tenant['latitude']);
+    final lng = _parseDouble(tenant['longitude']);
+    if (lat == null || lng == null) {
+      _toast('This entity has no location on record.');
+      return;
+    }
+    final dest = LatLng(lat, lng);
+    final name = tenant['name']?.toString() ?? 'Destination';
+
+    if (_currentPosition == null) {
+      _toast('Enable location for distance & ETA — opening maps.',
+          backgroundColor: Colors.orange);
+      await _openExternalDirections(dest);
+      return;
+    }
+
+    setState(() => _routeLoading = true);
+    try {
+      final route = await RouteService.fetchRoute(
+        from: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+        to: dest,
+      );
+      if (!mounted) return;
+      setState(() {
+        _routePath = route.points;
+        _routeLoading = false;
+        _pinPosition = dest;
+      });
+      try {
+        _mapController.fitCamera(CameraFit.coordinates(
+          coordinates: route.points,
+          padding: const EdgeInsets.all(70),
+        ));
+      } catch (e) {
+        debugPrint('fit route camera failed (non-fatal): $e');
+      }
+      if (!mounted) return;
+      _showRouteSheet(name, route, dest);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _routeLoading = false);
+        _toast('Could not build a route: $e', backgroundColor: Colors.red);
+      }
+    }
+  }
+
+  void _showRouteSheet(String name, RouteResult route, LatLng dest) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(name,
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _routeStat(Icons.route, route.distanceText, 'Distance'),
+                const SizedBox(width: 12),
+                _routeStat(Icons.schedule, route.etaText, 'ETA'),
+                const SizedBox(width: 12),
+                _routeStat(Icons.alt_route,
+                    route.isFallback ? 'Direct' : '${route.steps.length}',
+                    'Steps'),
+              ],
+            ),
+            if (route.isFallback) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Road routing is unavailable right now — showing a straight-line estimate.',
+                style: TextStyle(fontSize: 11, color: Colors.orange.shade800),
+              ),
+            ],
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _openExternalDirections(dest);
+                },
+                icon: const Icon(Icons.navigation, size: 18),
+                label: const Text('START NAVIGATION'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() => _routePath = null);
+                },
+                icon: const Icon(Icons.close, size: 16),
+                label: const Text('CLEAR ROUTE'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _routeStat(IconData icon, String value, String label) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest
+              .withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 16, color: theme.primaryColor),
+            const SizedBox(height: 4),
+            Text(value,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w900, fontSize: 14)),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 10,
+                    color: theme.colorScheme.onSurface
+                        .withValues(alpha: 0.5))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openExternalDirections(LatLng dest) async {
+    final origin = _currentPosition != null
+        ? '&origin=${_currentPosition!.latitude},${_currentPosition!.longitude}'
+        : '';
+    final uri = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1$origin&destination=${dest.latitude},${dest.longitude}');
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('directions launch failed: $e');
+      if (mounted) _toast('Could not open maps', backgroundColor: Colors.red);
+    }
+  }
+
   Future<void> _selectTenant(Map<String, dynamic> tenant) async {
+    // Capture providers/notifiers BEFORE any `await`. Reading `ref` after the
+    // widget has been unmounted (the user navigates away while the tenant
+    // switch/notify calls are in flight) throws
+    // "Bad state: Using ref when a widget is about to or has been unmounted".
+    final tenantNotifier = ref.read(currentTenantProvider.notifier);
+    final navBarNotifier = ref.read(navBarVisibleProvider.notifier);
     try {
       final rawId = tenant['id']?.toString() ?? '';
       final rawSlug = tenant['slug']?.toString() ?? '';
@@ -1444,10 +1631,9 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
         'name': tenant['name'] ?? 'Church On App',
       });
 
-      await ref
-          .read(currentTenantProvider.notifier)
-          .setTenant(tenantObj);
+      await tenantNotifier.setTenant(tenantObj);
 
+      if (!mounted) return;
       ref.invalidate(profileProvider);
 
       final user = Supabase.instance.client.auth.currentUser;
@@ -1485,7 +1671,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
       }
 
       if (mounted) {
-        ref.read(navBarVisibleProvider.notifier).show();
+        navBarNotifier.show();
         final redirect = GoRouterState.of(context).uri.queryParameters['redirect'];
         if (redirect != null && redirect.isNotEmpty) {
           context.go(Uri.decodeComponent(redirect));

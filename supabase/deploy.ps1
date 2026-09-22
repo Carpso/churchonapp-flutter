@@ -352,7 +352,10 @@ $migrations = @(
       "20261215_org_ownership_gates.sql"
       "20261216_fix_tenant_events_quiz_sermon_pvp.sql"
       "20261217_events_special_guests.sql"
+      "20261218_fix_profiles_role_trigger.sql"
+      "20261219_fix_resolution_hub.sql"
       )
+
 
 foreach ($m in $migrations) {
     $path = "supabase\migrations\$m"

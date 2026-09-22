@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -46,6 +47,8 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
   double? _lat;
   double? _lng;
   String _detectedCountry = 'Zambia';
+  bool _detectingLocation = false;
+  String? _locationError;
 
   @override
   void initState() {
@@ -66,22 +69,85 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
     // Don't overwrite coordinates that came from the tapped place — the church
     // must be created exactly where the user tapped.
     if (_lat != null && _lng != null) return;
-    try {
-      final pos = await Geolocator.getCurrentPosition();
-      final placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
-      if (placemarks.isNotEmpty) {
-        setState(() {
-          if (_lat == null || _lng == null) {
-            _lat = pos.latitude;
-            _lng = pos.longitude;
-          }
-          _detectedCountry = detectCountryFromPlacemark(
-            placemarks.first.country,
-          ) ?? 'Zambia';
-        });
+
+    // Geolocator is unsupported on web and its web shim can throw a null-check
+    // error instead of a clear exception. Skip it and tell the user how to
+    // proceed (address text / map tap) rather than crashing into a catch all.
+    if (kIsWeb) {
+      if (mounted) {
+        setState(() => _locationError =
+            'Location unavailable on web — type the address or pick the location on the map.');
       }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _detectingLocation = true;
+        _locationError = null;
+      });
+    }
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        if (mounted) {
+          setState(() => _locationError =
+              'Location is off — type the address or pick the location on the map.');
+        }
+        return;
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          setState(() => _locationError =
+              'Location permission denied — type the address or pick the location on the map.');
+        }
+        return;
+      }
+
+      // Null-safe: getLastKnownPosition may be null and getCurrentPosition can
+      // surface a null position from the platform. Never force-unwrap.
+      Position? pos = await Geolocator.getLastKnownPosition();
+      if (pos != null &&
+          DateTime.now().difference(pos.timestamp) > const Duration(minutes: 10)) {
+        pos = null;
+      }
+      pos ??= await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 30),
+        ),
+      );
+      final position = pos;
+
+      String? country;
+      try {
+        final placemarks =
+            await placemarkFromCoordinates(position.latitude, position.longitude);
+        country = placemarks.isEmpty ? null : placemarks.first.country;
+      } catch (geocodeErr) {
+        debugPrint('Reverse geocode for country failed (non-fatal): $geocodeErr');
+      }
+
+      if (!mounted) return;
+      setState(() {
+        if (_lat == null || _lng == null) {
+          _lat = position.latitude;
+          _lng = position.longitude;
+        }
+        _detectedCountry = detectCountryFromPlacemark(country) ?? 'Zambia';
+      });
     } catch (e) {
-      debugPrint("Error detecting location: $e");
+      debugPrint('Error detecting location: $e');
+      if (mounted) {
+        setState(() => _locationError =
+            'Location unavailable — type the address or pick the location on the map.');
+      }
+    } finally {
+      if (mounted) setState(() => _detectingLocation = false);
     }
   }
 
@@ -369,6 +435,39 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
               _buildTextField(_nameController, "Church Name", LucideIcons.church),
               const SizedBox(height: 20),
               _buildTextField(_locationController, "Main Location / City", LucideIcons.mapPin),
+              if (_detectingLocation)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 8),
+                      Text("Detecting your location...", style: TextStyle(fontSize: 12)),
+                    ],
+                  ),
+                )
+              else if (_locationError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(LucideIcons.alertTriangle,
+                          size: 14, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _locationError!,
+                          style: const TextStyle(fontSize: 12, color: Colors.orange),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 20),
               _buildTextField(_treasurerPhoneController, "Treasurer / Financial Phone #", LucideIcons.phone, keyboardType: TextInputType.phone),
               

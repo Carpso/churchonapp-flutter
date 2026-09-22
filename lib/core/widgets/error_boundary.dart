@@ -63,6 +63,53 @@ class InlineErrorTile extends StatelessWidget {
   }
 }
 
+/// A small BOUNDED tile for a single failed dashboard section.
+///
+/// Unlike [CustomErrorBoundary] (a full screen), this is safe to drop into a
+/// `Column`/`Sliver` child. Dashboard sections are wrapped with
+/// [buildSafeSection] so one bad RPC row can never kill the whole screen.
+class SectionErrorTile extends StatelessWidget {
+  final String label;
+  const SectionErrorTile({super.key, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4E5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(LucideIcons.alertTriangle, color: Colors.orange, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "$label couldn't load",
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Runs [builder] defensively and returns a bounded [SectionErrorTile] instead
+/// of letting a build-time exception bubble up and kill the whole screen.
+Widget buildSafeSection(String label, Widget Function() builder) {
+  try {
+    return builder();
+  } catch (e, st) {
+    debugPrint('[section:$label] failed: $e\n$st');
+    return SectionErrorTile(label: label);
+  }
+}
+
 /// App Global Error Boundary
 /// Traps any unhandled exception in the widget tree
 /// and presents a Premium "Oops" screen instead of the 

@@ -44,10 +44,14 @@ class SmartPrefetchService {
 
   Future<void> _prefetchDevotions(SharedPreferences prefs) async {
     try {
+      // `daily_bible_verses` has NO `date` column — its real timestamp column
+      // is `created_at` (id, reference, text, posted_by, created_at, tenant_id,
+      // church_id). Ordering by a non-existent column made every prefetch fail
+      // with PostgREST 42703.
       final data = await _client
           .from('daily_bible_verses')
           .select()
-          .order('date', ascending: false)
+          .order('created_at', ascending: false)
           .limit(14);
 
       if (data.isNotEmpty) {

@@ -44,12 +44,37 @@ class RideRegistration {
   }
 }
 
+/// Raised when a passenger already has an active ride that is not stale.
+/// The ride id is included so the UI can offer to cancel it and retry.
+class ActiveRideException implements Exception {
+  final String rideId;
+  final String status;
+  final DateTime? createdAt;
+  final bool isDelivery;
+
+  ActiveRideException({
+    required this.rideId,
+    required this.status,
+    this.createdAt,
+    this.isDelivery = false,
+  });
+
+  @override
+  String toString() => isDelivery
+      ? 'You already have an active delivery. Complete or cancel it before requesting another.'
+      : 'You already have an active ride. Complete or cancel it before requesting another.';
+}
+
 class TransportService {
   final SupabaseClient _client;
   final Ref _ref;
 
   TransportService(this._client, this._ref);
 
+  /// Thrown when the passenger already has a genuine (non-stale) active ride.
+  /// Carries the ride id so the UI can offer "cancel it" instead of a dead end.
+  static const staleRideAfter = Duration(hours: 6);
+  static const staleUnmatchedAfter = Duration(minutes: 45);
   /// Match nearest available driver weighted by rating and distance score.
   Future<Map<String, dynamic>?> findNearestWeightedDriver({
     required LatLng pickupLocation,
@@ -151,19 +176,45 @@ class TransportService {
     if (user == null) return null;
 
     // Prevent double-booking: passenger can have only one active ride at a time.
+    // An ABANDONED row (never matched a driver, or older than the stale window)
+    // is auto-cleared so it can never permanently block new requests.
     try {
       final active = await _client
           .from('ride_requests')
-          .select('id')
+          .select('id, status, created_at, driver_id')
           .eq('rider_id', user.id)
           .inFilter('status', ['pending', 'accepted'])
+          .order('created_at', ascending: false)
           .limit(1)
           .maybeSingle();
       if (active != null) {
-        throw Exception('You already have an active ride. Complete or cancel it before requesting another.');
+        final createdAt = active['created_at'] != null
+            ? DateTime.tryParse(active['created_at'].toString())
+            : null;
+        final age = createdAt == null ? null : DateTime.now().difference(createdAt);
+        final hasDriver = active['driver_id'] != null;
+        final stale =
+            (active['status'] == 'pending' &&
+                !hasDriver &&
+                (age == null || age > TransportService.staleUnmatchedAfter)) ||
+            (age != null && age > TransportService.staleRideAfter);
+        if (stale) {
+          await _client.from('ride_requests').update({
+            'status': 'cancelled',
+            'cancelled_at': DateTime.now().toIso8601String(),
+            'cancelled_by': user.id,
+          }).eq('id', active['id']);
+          debugPrint('requestRide: cleared stale active ride ${active['id']}');
+        } else {
+          throw ActiveRideException(
+            rideId: active['id']?.toString() ?? '',
+            status: active['status']?.toString() ?? 'pending',
+            createdAt: createdAt,
+          );
+        }
       }
     } catch (e) {
-      if (e.toString().contains('already have an active ride')) rethrow;
+      if (e is ActiveRideException) rethrow;
       debugPrint('requestRide active check failed (proceeding): $e');
     }
 
@@ -462,6 +513,22 @@ class TransportService {
       'cancelled_at': DateTime.now().toIso8601String(),
       'cancelled_by': user.id,
     }).eq('id', requestId).eq('status', 'pending');
+  }
+
+  /// Owner-side recovery: cancel an active ride whether it is still `pending`
+  /// or already `accepted`, so a stale/abandoned row can never block a new
+  /// request. Only the ride's own rider may call this.
+  Future<void> cancelActiveRide(String requestId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+    await _client.from('ride_requests').update({
+      'status': 'cancelled',
+      'cancelled_at': DateTime.now().toIso8601String(),
+      'cancelled_by': user.id,
+    }).eq('id', requestId).eq('rider_id', user.id).inFilter(
+          'status',
+          ['pending', 'accepted'],
+        );
   }
 
   /// Passenger paid — store the Lipila anchor + mark the ride paid.

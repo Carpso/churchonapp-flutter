@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
+import 'package:church_on_app/core/widgets/error_boundary.dart';
+import 'package:church_on_app/core/utils/safe_json.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
 
 /// Read-only organisation view available to any member whose church belongs to
@@ -82,7 +84,7 @@ class _OrganizationOverviewScreenState extends ConsumerState<OrganizationOvervie
   }
 
   int get _totalMembers =>
-      _branches.fold<int>(0, (s, e) => s + ((e['member_count'] as num?)?.toInt() ?? 0));
+      _branches.fold<int>(0, (s, e) => s + asInt(e['member_count']));
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +108,7 @@ class _OrganizationOverviewScreenState extends ConsumerState<OrganizationOvervie
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(20),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      _buildHeader(theme),
+                      buildSafeSection('Header', () => _buildHeader(theme)),
                       const SizedBox(height: 20),
                       if (_rollupDenied)
                         _deniedCard(theme)
@@ -119,7 +121,7 @@ class _OrganizationOverviewScreenState extends ConsumerState<OrganizationOvervie
                         const SizedBox(height: 24),
                         Text('Branches', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                         const SizedBox(height: 12),
-                        ..._branches.map((b) => _branchRow(theme, b)),
+                        ..._branches.map((b) => buildSafeSection('Branch', () => _branchRow(theme, b))),
                       ],
                       const SizedBox(height: 40),
                     ]),
@@ -232,7 +234,7 @@ class _OrganizationOverviewScreenState extends ConsumerState<OrganizationOvervie
 
   Widget _branchRow(ThemeData theme, Map<String, dynamic> branch) {
     final name = branch['church_name']?.toString() ?? 'Branch';
-    final members = (branch['member_count'] as num?)?.toInt() ?? 0;
+    final members = asInt(branch['member_count']);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(16),

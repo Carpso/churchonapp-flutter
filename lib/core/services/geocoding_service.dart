@@ -77,16 +77,46 @@ class GeocodingService {
 
   static const _ua = 'ChurchOnApp/1.0 (churchonapp.com)';
 
+  /// Build a request [Uri] from a configured base WITHOUT ever passing a
+  /// scheme-bearing string to `Uri.https` (which expects a bare authority).
+  ///
+  /// ROOT CAUSE of `FormatException: //nominatim.openstreetmap.org`:
+  /// the callers passed `'https://nominatim.openstreetmap.org'` straight into
+  /// `Uri.https(base, '/reverse', …)`. `Uri.https` treats its first argument as
+  /// the HOST, so the `https://` prefix became part of the host and the
+  /// constructor threw. Returns null when the base is unset/blank so the
+  /// self-hosted attempt is skipped entirely instead of building a bad URI.
+  static Uri? _buildUri(
+      String base, String path, Map<String, String> query) {
+    var b = base.trim();
+    if (b.isEmpty) return null;
+    // Normalise a protocol-relative or schemeless base.
+    if (b.startsWith('//')) {
+      b = 'https:$b';
+    } else if (!b.startsWith('http://') && !b.startsWith('https://')) {
+      b = 'https://$b';
+    }
+    // Drop a trailing slash so `$b$path` never doubles up.
+    while (b.endsWith('/')) {
+      b = b.substring(0, b.length - 1);
+    }
+    if (b.isEmpty) return null;
+    final uri = Uri.tryParse('$b$path');
+    if (uri == null || uri.host.isEmpty) return null;
+    return uri.replace(queryParameters: query);
+  }
+
   static Future<String?> _nominatimReverse(
       String base, double lat, double lng) async {
     try {
-      final uri = Uri.https(base, '/reverse', {
+      final uri = _buildUri(base, '/reverse', {
         'lat': lat.toString(),
         'lon': lng.toString(),
         'format': 'jsonv2',
         'addressdetails': '1',
         'zoom': '18',
       });
+      if (uri == null) return null;
       final res = await http.get(uri, headers: {'User-Agent': _ua}).timeout(
             const Duration(seconds: 8),
           );
@@ -143,11 +173,12 @@ class GeocodingService {
   static Future<GeoPoint?> _nominatimLike(String base, String q,
       {String? withCountry}) async {
     try {
-      final uri = Uri.https(base, '/search', {
+      final uri = _buildUri(base, '/search', {
         'q': withCountry != null ? '$q, $withCountry' : q,
         'format': 'json',
         'limit': '1',
       });
+      if (uri == null) return null;
       final res = await http.get(uri, headers: {
         'User-Agent': 'ChurchOnApp/1.0 (church management app)',
         'Accept': 'application/json',

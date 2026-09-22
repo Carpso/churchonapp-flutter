@@ -6,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
+import 'package:church_on_app/core/widgets/error_boundary.dart';
+import 'package:church_on_app/core/utils/safe_json.dart';
 
 /// Read-only, single-branch oversight view for a bishop/apostle.
 ///
@@ -73,7 +75,7 @@ class _BranchOversightScreenState extends ConsumerState<BranchOversightScreen> {
           'p_days': 30,
         });
         for (final b in (res as List? ?? [])) {
-          basketTotal += ((b as Map)['total_amount'] as num?)?.toDouble() ?? 0;
+          basketTotal += asDouble((b as Map)['total_amount']);
         }
       } catch (e) {
         debugPrint('branch basket summary failed: $e');
@@ -117,11 +119,11 @@ class _BranchOversightScreenState extends ConsumerState<BranchOversightScreen> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(20),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      _buildHeader(theme),
+                      buildSafeSection('Header', () => _buildHeader(theme)),
                       const SizedBox(height: 20),
                       Text('Month to Date', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                       const SizedBox(height: 12),
-                      _buildMetrics(theme),
+                      buildSafeSection('Metrics', () => _buildMetrics(theme)),
                       const SizedBox(height: 24),
                       Text('Oversight Actions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                       const SizedBox(height: 12),
@@ -187,8 +189,8 @@ class _BranchOversightScreenState extends ConsumerState<BranchOversightScreen> {
 
   Widget _buildMetrics(ThemeData theme) {
     final currency = NumberFormat.compactCurrency(symbol: 'K');
-    final hasData = _summary.values.any((v) => (v as num?) != null && (v as num) > 0) ||
-        (_monthly['tithes_mtd'] as num?)?.toDouble() != null ||
+    final hasData = _summary.values.any((v) => asDouble(v) > 0) ||
+        asNum(_monthly['tithes_mtd']) != null ||
         _basketTotal > 0;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (!hasData)
@@ -220,12 +222,12 @@ class _BranchOversightScreenState extends ConsumerState<BranchOversightScreen> {
         crossAxisSpacing: 14,
         childAspectRatio: 1.3,
         children: [
-          _metric(theme, 'Service Reports', '${(_summary['service_count'] as num?)?.toInt() ?? 0}', LucideIcons.fileText, theme.primaryColor),
-          _metric(theme, 'Attendance', '${(_summary['attendance'] as num?)?.toInt() ?? 0}', LucideIcons.calendarCheck, Colors.green),
-          _metric(theme, 'Giving (MTD)', currency.format((_monthly['tithes_mtd'] as num?)?.toDouble() ?? 0), LucideIcons.church, Colors.orange),
+          _metric(theme, 'Service Reports', '${asInt(_summary['service_count'])}', LucideIcons.fileText, theme.primaryColor),
+          _metric(theme, 'Attendance', '${asInt(_summary['attendance'])}', LucideIcons.calendarCheck, Colors.green),
+          _metric(theme, 'Giving (MTD)', currency.format(asDouble(_monthly['tithes_mtd'])), LucideIcons.church, Colors.orange),
           _metric(theme, 'Baskets (30d)', currency.format(_basketTotal), LucideIcons.piggyBank, Colors.teal),
-          _metric(theme, 'Visitors', '${(_summary['visitors'] as num?)?.toInt() ?? 0}', LucideIcons.userPlus, Colors.indigo),
-          _metric(theme, 'Salvations', '${(_summary['salvations'] as num?)?.toInt() ?? 0}', LucideIcons.heartPulse, Colors.red),
+          _metric(theme, 'Visitors', '${asInt(_summary['visitors'])}', LucideIcons.userPlus, Colors.indigo),
+          _metric(theme, 'Salvations', '${asInt(_summary['salvations'])}', LucideIcons.heartPulse, Colors.red),
         ],
       ),
     ]);

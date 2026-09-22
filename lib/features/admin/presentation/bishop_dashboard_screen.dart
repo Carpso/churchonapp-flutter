@@ -7,7 +7,9 @@ import 'package:intl/intl.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
+import 'package:church_on_app/core/widgets/error_boundary.dart';
 import 'package:church_on_app/core/widgets/pro_charts.dart';
+import 'package:church_on_app/core/utils/safe_json.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
 import 'bishop_heatmap_screen.dart';
 import 'branch_oversight_screen.dart';
@@ -186,44 +188,44 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
 
   int _membersFor(String? churchId) {
     final snap = _snapshotFor(churchId);
-    if (snap != null) return (snap['members'] as num?)?.toInt() ?? 0;
+    if (snap != null) return asInt(snap['members']);
     if (churchId != null) {
       for (final m in _memberCounts) {
-        if (m['church_id']?.toString() == churchId) return (m['member_count'] as num?)?.toInt() ?? 0;
+        if (m['church_id']?.toString() == churchId) return asInt(m['member_count']);
       }
     }
     return 0;
   }
 
   int get _branchCount =>
-      _branches.isNotEmpty ? _branches.length : ((_stats['branches'] as num?)?.toInt() ?? _memberCounts.length);
+      _branches.isNotEmpty ? _branches.length : asInt(_stats['branches'], fallback: _memberCounts.length);
 
   int get _totalMembers {
-    final fromStats = (_stats['members'] as num?)?.toInt();
+    final fromStats = asNum(_stats['members'])?.toInt();
     if (fromStats != null && fromStats > 0) return fromStats;
-    final fromSnapshots = _snapshots.fold<int>(0, (s, e) => s + ((e['members'] as num?)?.toInt() ?? 0));
+    final fromSnapshots = _snapshots.fold<int>(0, (s, e) => s + asInt(e['members']));
     if (fromSnapshots > 0) return fromSnapshots;
-    return _memberCounts.fold<int>(0, (s, e) => s + ((e['member_count'] as num?)?.toInt() ?? 0));
+    return _memberCounts.fold<int>(0, (s, e) => s + asInt(e['member_count']));
   }
 
   int get _totalAttendance {
-    final fromSnapshots = _snapshots.fold<int>(0, (s, e) => s + ((e['attendance_mtd'] as num?)?.toInt() ?? 0));
+    final fromSnapshots = _snapshots.fold<int>(0, (s, e) => s + asInt(e['attendance_mtd']));
     if (fromSnapshots > 0) return fromSnapshots;
-    return (_service['attendance'] as num?)?.toInt() ?? 0;
+    return asInt(_service['attendance']);
   }
 
   double get _totalGiving {
-    final fromStats = (_stats['monthly_giving'] as num?)?.toDouble();
+    final fromStats = asNum(_stats['monthly_giving'])?.toDouble();
     if (fromStats != null && fromStats > 0) return fromStats;
-    final fromSnapshots = _snapshots.fold<double>(0, (s, e) => s + ((e['tithes_mtd'] as num?)?.toDouble() ?? 0));
+    final fromSnapshots = _snapshots.fold<double>(0, (s, e) => s + asDouble(e['tithes_mtd']));
     if (fromSnapshots > 0) return fromSnapshots;
-    return (_service['offering'] as num?)?.toDouble() ?? 0;
+    return asDouble(_service['offering']);
   }
 
-  int get _activeStreams => (_stats['active_streams'] as num?)?.toInt() ?? 0;
+  int get _activeStreams => asInt(_stats['active_streams']);
 
   double get _basketTotal =>
-      _baskets.fold<double>(0, (s, e) => s + ((e['total_amount'] as num?)?.toDouble() ?? 0));
+      _baskets.fold<double>(0, (s, e) => s + asDouble(e['total_amount']));
 
   @override
   Widget build(BuildContext context) {
@@ -275,25 +277,25 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildHeader(theme, isApostle),
+                              buildSafeSection('Header', () => _buildHeader(theme, isApostle)),
                               const SizedBox(height: 20),
-                              _buildKpiGrid(theme),
+                              buildSafeSection('KPIs', () => _buildKpiGrid(theme)),
                               const SizedBox(height: 16),
-                              _buildEngagementRow(theme),
+                              buildSafeSection('Engagement', () => _buildEngagementRow(theme)),
                               const SizedBox(height: 28),
                               _sectionTitle(theme, 'Network Analytics'),
                               const SizedBox(height: 12),
                               if (_givingSeries.isNotEmpty) ...[
-                                _buildGivingTrendCard(theme),
+                                buildSafeSection('Giving Trend', () => _buildGivingTrendCard(theme)),
                                 const SizedBox(height: 16),
                               ],
-                              _buildBranchComparisonCard(theme),
+                              buildSafeSection('Branch Comparison', () => _buildBranchComparisonCard(theme)),
                               const SizedBox(height: 16),
-                              _buildBasketMixCard(theme),
+                              buildSafeSection('Basket Mix', () => _buildBasketMixCard(theme)),
                               const SizedBox(height: 28),
                               _sectionTitle(theme, 'Branch Health'),
                               const SizedBox(height: 12),
-                              _buildBranches(theme),
+                              buildSafeSection('Branch Health', () => _buildBranches(theme)),
                               if (_missions.isNotEmpty) ...[
                                 const SizedBox(height: 28),
                                 _sectionTitle(theme, 'Network Missions'),
@@ -475,10 +477,10 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
       spacing: 10,
       runSpacing: 10,
       children: [
-        _engagementChip(theme, LucideIcons.fileText, '${(_service['service_count'] as num?)?.toInt() ?? 0}', 'Service reports'),
-        _engagementChip(theme, LucideIcons.userPlus, '${(_service['visitors'] as num?)?.toInt() ?? 0}', 'Visitors MTD'),
-        _engagementChip(theme, LucideIcons.heartPulse, '${(_service['salvations'] as num?)?.toInt() ?? 0}', 'Salvations MTD'),
-        _engagementChip(theme, LucideIcons.video, '${(_service['online_viewers'] as num?)?.toInt() ?? 0}', 'Online viewers'),
+        _engagementChip(theme, LucideIcons.fileText, '${asInt(_service['service_count'])}', 'Service reports'),
+        _engagementChip(theme, LucideIcons.userPlus, '${asInt(_service['visitors'])}', 'Visitors MTD'),
+        _engagementChip(theme, LucideIcons.heartPulse, '${asInt(_service['salvations'])}', 'Salvations MTD'),
+        _engagementChip(theme, LucideIcons.video, '${asInt(_service['online_viewers'])}', 'Online viewers'),
         _engagementChip(theme, LucideIcons.radio, '$_activeStreams', 'Live now'),
         _engagementChip(theme, LucideIcons.piggyBank, NumberFormat.compactCurrency(symbol: 'K').format(_basketTotal), 'Baskets 30d'),
       ],
@@ -504,7 +506,7 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
   }
 
   Widget _buildGivingTrendCard(ThemeData theme) {
-    final values = _givingSeries.map<double>((e) => (e['total'] as num?)?.toDouble() ?? 0).toList();
+    final values = _givingSeries.map<double>((e) => asDouble(e['total'])).toList();
     final labels = _givingSeries.map<String>((e) {
       final m = e['month']?.toString() ?? '';
       if (m.length >= 7) {
@@ -529,7 +531,7 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
     final rows = _snapshots
         .map((s) => (
               name: (s['church_name']?.toString() ?? 'Branch'),
-              members: (s['members'] as num?)?.toInt() ?? 0,
+              members: asInt(s['members']),
             ))
         .toList()
       ..sort((a, b) => b.members.compareTo(a.members));
@@ -567,7 +569,7 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
       Colors.purple,
       Colors.teal,
     ];
-    final rows = _baskets.where((b) => ((b['total_amount'] as num?)?.toDouble() ?? 0) > 0).toList();
+    final rows = _baskets.where((b) => asDouble(b['total_amount']) > 0).toList();
     if (rows.isEmpty) {
       return ProChartCard(
         title: 'Offering Basket Mix',
@@ -583,7 +585,7 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
     for (var i = 0; i < rows.length; i++) {
       sections.add(ProPieSection(
         label: rows[i]['basket_name']?.toString() ?? 'Basket',
-        value: (rows[i]['total_amount'] as num?)?.toDouble() ?? 0,
+        value: asDouble(rows[i]['total_amount']),
         color: palette[i % palette.length],
       ));
     }
@@ -637,8 +639,8 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
     final churchId = branch['id']?.toString();
     final members = _membersFor(churchId);
     final snapshot = _snapshotFor(churchId);
-    final attendance = (snapshot?['attendance_mtd'] as num?)?.toInt() ?? 0;
-    final giving = (snapshot?['tithes_mtd'] as num?)?.toDouble() ?? 0;
+    final attendance = asInt(snapshot?['attendance_mtd']);
+    final giving = asDouble(snapshot?['tithes_mtd']);
     final health = _branchHealth(branch);
 
     return GestureDetector(
@@ -714,9 +716,9 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
     final name = branch['name']?.toString() ?? 'Branch';
     final churchId = branch['id']?.toString();
     final members = _membersFor(churchId);
-    final attendance = (snapshot?['attendance_mtd'] as num?)?.toInt() ?? 0;
-    final giving = (snapshot?['tithes_mtd'] as num?)?.toDouble() ?? 0;
-    final reports = (snapshot?['service_reports_mtd'] as num?)?.toInt() ?? 0;
+    final attendance = asInt(snapshot?['attendance_mtd']);
+    final giving = asDouble(snapshot?['tithes_mtd']);
+    final reports = asInt(snapshot?['service_reports_mtd']);
     final health = _branchHealth(branch);
     final currency = NumberFormat.compactCurrency(symbol: 'K');
 

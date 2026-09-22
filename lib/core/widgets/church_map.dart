@@ -113,6 +113,12 @@ class ChurchMap extends ConsumerStatefulWidget {
   /// over the tiles). Purely cosmetic; set false if you want a neutral basemap.
   final bool brandTint;
 
+  /// Extra vertical inset (logical px) applied to the top-right Nearby/Traffic
+  /// controls and the traffic legend. Set this when the host screen draws its
+  /// own top overlay (e.g. the select-entity search bar) so the map controls
+  /// never sit underneath it.
+  final double topInset;
+
   // Optional external controller (for programmatic map movement)
   final MapController? mapController;
 
@@ -140,6 +146,7 @@ class ChurchMap extends ConsumerStatefulWidget {
     this.showLocateButton = true,
     this.showOfflineButton = true,
     this.brandTint = true,
+    this.topInset = 0,
     this.mapController,
   });
 
@@ -666,7 +673,7 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
     );
   }
 
-  Widget _buildTrafficLegend(ThemeData theme) {
+  Widget _buildTrafficLegend(ThemeData theme, {required bool hasData}) {
     Widget row(Color color, String label) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Row(
@@ -702,9 +709,21 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1)),
             const SizedBox(height: 4),
-            row(_trafficColor(TrafficLevel.slow), 'Slow'),
-            row(_trafficColor(TrafficLevel.medium), 'Medium'),
-            row(_trafficColor(TrafficLevel.fast), 'Fast'),
+            if (!hasData)
+              // Never look broken: the overlay is crowd-sourced from on-duty
+              // drivers, so an empty window is expected, not an error.
+              const SizedBox(
+                width: 132,
+                child: Text(
+                  'No live traffic yet — check back soon',
+                  style: TextStyle(fontSize: 10, color: Colors.black54),
+                ),
+              )
+            else ...[
+              row(_trafficColor(TrafficLevel.slow), 'Slow'),
+              row(_trafficColor(TrafficLevel.medium), 'Medium'),
+              row(_trafficColor(TrafficLevel.fast), 'Fast'),
+            ],
           ],
         ),
       ),
@@ -909,7 +928,8 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
           Positioned(
             right: 16,
             top: MediaQuery.of(context).padding.top +
-                (widget.showAddressSearch ? 74 : 14),
+                (widget.showAddressSearch ? 74 : 14) +
+                widget.topInset,
             child: _buildFloatingButton(
               icon: LucideIcons.compass,
               color: AppConstants.primaryDark,
@@ -922,7 +942,8 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
             right: 16,
             top: MediaQuery.of(context).padding.top +
                 (widget.showAddressSearch ? 74 : 14) +
-                (widget.showNearby ? 52 : 0),
+                (widget.showNearby ? 52 : 0) +
+                widget.topInset,
             child: _buildFloatingButton(
               icon: LucideIcons.navigation,
               color: AppConstants.primaryDark,
@@ -937,8 +958,13 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
           Positioned(
             left: 16,
             top: MediaQuery.of(context).padding.top +
-                (widget.showAddressSearch ? 74 : 14),
-            child: _buildTrafficLegend(theme),
+                (widget.showAddressSearch ? 74 : 14) +
+                widget.topInset,
+            child: _buildTrafficLegend(
+              theme,
+              hasData:
+                  trafficSegments.isNotEmpty || Env.trafficTilesUrl.isNotEmpty,
+            ),
           ),
         // Selected nearby place: name/address card + "take me there".
         if (_nearbySelected != null)

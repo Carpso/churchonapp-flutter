@@ -607,6 +607,7 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
   int? _counterShownDeliveryRound;
   String? _pendingRequestId;
   bool _pendingIsDelivery = false;
+  bool _pendingRecoveryRetry = false;
 
   /// Request the ride FIRST (no payment). The driver negotiates / accepts, and
   /// only after the fare is agreed does the passenger pay to start the trip.
@@ -689,13 +690,79 @@ class _RideRequestScreenState extends ConsumerState<RideRequestScreen> {
       );
     } catch (e) {
       debugPrint('Ride request failed: $e');
-      if (mounted) {
+      if (!mounted) return;
+      if (e is ActiveRideException) {
+        _pendingRecoveryRetry =
+            await _showActiveRideRecovery(e, isDelivery: isDelivery);
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Failed to request ride: $e"), backgroundColor: Colors.red),
         );
       }
     } finally {
       if (mounted) setState(() => _isRequesting = false);
+    }
+    // Retry AFTER the busy flag is cleared (otherwise the guard would no-op).
+    if (_pendingRecoveryRetry) {
+      _pendingRecoveryRetry = false;
+      if (mounted) _createRideRequest();
+    }
+  }
+
+  /// Offers to clear an abandoned/stale active ride instead of a dead end.
+  /// Returns true when the user cancelled it and wants to request again.
+  Future<bool> _showActiveRideRecovery(ActiveRideException e,
+      {required bool isDelivery}) async {
+    final age = e.createdAt == null
+        ? null
+        : DateTime.now().difference(e.createdAt!);
+    final ageText = age == null
+        ? ''
+        : age.inHours >= 1
+            ? ' (started ${age.inHours}h ago)'
+            : ' (started ${age.inMinutes}m ago)';
+    final cancel = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(isDelivery ? 'Active delivery in progress' : 'Active ride in progress'),
+        content: Text(
+          'You already have an ${e.status == 'accepted' ? 'accepted' : 'unmatched'} '
+          '${isDelivery ? 'delivery' : 'ride'}$ageText.\n\n'
+          'If this trip is no longer active, cancel it and request again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('KEEP'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('CANCEL IT'),
+          ),
+        ],
+      ),
+    );
+    if (cancel != true || !mounted) return false;
+    try {
+      await ref.read(transportServiceProvider).cancelActiveRide(e.rideId);
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Previous request cancelled. Requesting again...')),
+      );
+      return true;
+    } catch (err) {
+      debugPrint('Active ride recovery cancel failed: $err');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not cancel the previous ride. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return false;
     }
   }
 

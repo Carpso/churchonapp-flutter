@@ -7,7 +7,9 @@ import 'package:intl/intl.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_error_view.dart';
+import 'package:church_on_app/core/widgets/error_boundary.dart';
 import 'package:church_on_app/core/widgets/pro_charts.dart';
+import 'package:church_on_app/core/utils/safe_json.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
 import 'pastor_bishop_report_screen.dart';
 import 'bishop_heatmap_screen.dart';
@@ -45,17 +47,17 @@ class _OrgRollup {
   String get id => org['id']?.toString() ?? '';
   String get name => org['name']?.toString() ?? 'Organisation';
   int get branches =>
-      snapshots.isNotEmpty ? snapshots.length : ((stats['branches'] as num?)?.toInt() ?? 0);
-  int get members => (stats['members'] as num?)?.toInt() ??
-      snapshots.fold<int>(0, (s, e) => s + ((e['members'] as num?)?.toInt() ?? 0));
+      snapshots.isNotEmpty ? snapshots.length : asInt(stats['branches']);
+  int get members => (asNum(stats['members'])?.toInt()) ??
+      snapshots.fold<int>(0, (s, e) => s + asInt(e['members']));
   int get attendance =>
-      (service['attendance'] as num?)?.toInt() ??
-      snapshots.fold<int>(0, (s, e) => s + ((e['attendance_mtd'] as num?)?.toInt() ?? 0));
-  double get giving => (stats['monthly_giving'] as num?)?.toDouble() ??
-      snapshots.fold<double>(0, (s, e) => s + ((e['tithes_mtd'] as num?)?.toDouble() ?? 0));
-  int get activeStreams => (stats['active_streams'] as num?)?.toInt() ?? 0;
+      (asNum(service['attendance'])?.toInt()) ??
+      snapshots.fold<int>(0, (s, e) => s + asInt(e['attendance_mtd']));
+  double get giving => (asNum(stats['monthly_giving'])?.toDouble()) ??
+      snapshots.fold<double>(0, (s, e) => s + asDouble(e['tithes_mtd']));
+  int get activeStreams => asInt(stats['active_streams']);
   double get basketTotal =>
-      baskets.fold<double>(0, (s, e) => s + ((e['total_amount'] as num?)?.toDouble() ?? 0));
+      baskets.fold<double>(0, (s, e) => s + asDouble(e['total_amount']));
 }
 
 class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen> {
@@ -124,7 +126,7 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
           final month = point['month']?.toString() ?? '';
           if (month.isEmpty) continue;
           monthTotals[month] =
-              (monthTotals[month] ?? 0) + ((point['total'] as num?)?.toDouble() ?? 0);
+              (monthTotals[month] ?? 0) + asDouble(point['total']);
         }
         try {
           missions.addAll(await orgSvc.getOrganizationMissions(orgId, limit: 20));
@@ -189,7 +191,7 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
   double get _totalGiving => _rollups.fold<double>(0, (s, e) => s + e.giving);
   int get _activeStreams => _rollups.fold<int>(0, (s, e) => s + e.activeStreams);
   double get _basketTotal => _rollups.fold<double>(0, (s, e) => s + e.basketTotal);
-  int get _serviceCount => _rollups.fold<int>(0, (s, e) => (e.service['service_count'] as num?)?.toInt() ?? 0);
+  int get _serviceCount => _rollups.fold<int>(0, (s, e) => s + asInt(e.service['service_count']));
 
   @override
   Widget build(BuildContext context) {
@@ -217,25 +219,25 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).padding.bottom + 20),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          _buildHeader(theme),
+                          buildSafeSection('Header', () => _buildHeader(theme)),
                           const SizedBox(height: 20),
-                          _buildKpiGrid(theme),
+                          buildSafeSection('KPIs', () => _buildKpiGrid(theme)),
                           const SizedBox(height: 16),
-                          _buildEngagementRow(theme),
+                          buildSafeSection('Engagement', () => _buildEngagementRow(theme)),
                           const SizedBox(height: 28),
                           _sectionTitle(theme, 'Network Analytics'),
                           const SizedBox(height: 12),
-                          _buildGivingTrendCard(theme),
+                          buildSafeSection('Giving Trend', () => _buildGivingTrendCard(theme)),
                           const SizedBox(height: 16),
-                          _buildBasketMixCard(theme),
+                          buildSafeSection('Basket Mix', () => _buildBasketMixCard(theme)),
                           const SizedBox(height: 28),
                           _sectionTitle(theme, _orgCount == 1 ? 'Organisation' : 'Organisations'),
                           const SizedBox(height: 12),
-                          ..._rollups.map((r) => _buildOrgCard(theme, r)),
+                          ..._rollups.map((r) => buildSafeSection(r.name, () => _buildOrgCard(theme, r))),
                           const SizedBox(height: 28),
                           _sectionTitle(theme, 'Branch Health'),
                           const SizedBox(height: 12),
-                          _buildBranches(theme),
+                          buildSafeSection('Branch Health', () => _buildBranches(theme)),
                           if (_missions.isNotEmpty) ...[
                             const SizedBox(height: 28),
                             _sectionTitle(theme, 'Network Missions'),
@@ -385,7 +387,7 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
   }
 
   Widget _buildGivingTrendCard(ThemeData theme) {
-    final values = _givingSeries.map<double>((e) => (e['total'] as num?)?.toDouble() ?? 0).toList();
+    final values = _givingSeries.map<double>((e) => asDouble(e['total'])).toList();
     final labels = _givingSeries.map<String>((e) {
       final m = e['month']?.toString() ?? '';
       if (m.length >= 7) {
@@ -423,7 +425,7 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
     for (final r in _rollups) {
       rows.addAll(r.baskets);
     }
-    final nonZero = rows.where((b) => ((b['total_amount'] as num?)?.toDouble() ?? 0) > 0).toList();
+    final nonZero = rows.where((b) => asDouble(b['total_amount']) > 0).toList();
     if (nonZero.isEmpty) {
       return ProChartCard(
         title: 'Offering Basket Mix',
@@ -439,7 +441,7 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
     for (var i = 0; i < nonZero.length; i++) {
       sections.add(ProPieSection(
         label: nonZero[i]['basket_name']?.toString() ?? 'Basket',
-        value: (nonZero[i]['total_amount'] as num?)?.toDouble() ?? 0,
+        value: asDouble(nonZero[i]['total_amount']),
         color: palette[i % palette.length],
       ));
     }
@@ -538,9 +540,9 @@ class _ApostleDashboardScreenState extends ConsumerState<ApostleDashboardScreen>
 
   Widget _buildBranchRow(ThemeData theme, String orgName, Map<String, dynamic> branch) {
     final name = branch['church_name']?.toString() ?? 'Branch';
-    final members = (branch['members'] as num?)?.toInt() ?? 0;
-    final attendance = (branch['attendance_mtd'] as num?)?.toInt() ?? 0;
-    final giving = (branch['tithes_mtd'] as num?)?.toDouble() ?? 0;
+    final members = asInt(branch['members']);
+    final attendance = asInt(branch['attendance_mtd']);
+    final giving = asDouble(branch['tithes_mtd']);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(16),

@@ -550,27 +550,16 @@ class CurrentTenantNotifier extends Notifier<Tenant?> {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null && tenant.id.isNotEmpty) {
         try {
+          // Self-service tenant switch: update ONLY `tenant_id`. The client
+          // must never include `role` in this statement — the
+          // `trg_profiles_role_change` trigger rejects ANY update that changes
+          // `profiles.role` from a non-superadmin/COA account (P0001), which
+          // made every switch log "Error updating profile tenant_id on
+          // setTenant" and left the role stale. The effective per-tenant role
+          // is derived server-side from approved `role_assignments` rows.
           await Supabase.instance.client
               .from('profiles')
               .update({'tenant_id': tenant.id})
-              .eq('id', user.id);
-
-          // DERIVE ROLE FROM role_assignments FOR NEW TENANT
-          // Prevents role carryover: a pastor in Tenant1 is NOT a pastor in Tenant2
-          // unless Tenant2 explicitly assigns them that role
-          final assignment = await Supabase.instance.client
-              .from('role_assignments')
-              .select('role_name')
-              .eq('user_id', user.id)
-              .eq('tenant_id', tenant.id)
-              .eq('status', 'approved')
-              .order('created_at', ascending: false)
-              .maybeSingle();
-
-          final assignedRole = assignment?['role_name'] as String? ?? 'member';
-          await Supabase.instance.client
-              .from('profiles')
-              .update({'role': assignedRole})
               .eq('id', user.id);
         } catch (e) {
           debugPrint('Error updating profile tenant_id on setTenant: $e');
