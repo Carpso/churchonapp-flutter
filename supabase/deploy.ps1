@@ -359,6 +359,8 @@ $migrations = @(
       "20261221_pro_meeting_payments_entitlement.sql"
       "20261222_profiles_tenant_fk_to_tenants.sql"
       "20261223_orders_rls_recursion_fix.sql"
+      "20261224_verse_notes_is_liked.sql"
+      "20261225_dead_sample_poster_cleanup.sql"
       )
 
 

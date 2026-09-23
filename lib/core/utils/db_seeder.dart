@@ -21,7 +21,7 @@ class DbSeeder {
         'id': 'd0f8c8b0-0000-0000-0000-000000000002',
         'slug': 'miracle',
         'name': 'Miracle Life Family',
-        'logo_url': 'https://images.unsplash.com/photo-1510133755869-79a639739569?w=800',
+        'logo_url': 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=800',
         'latitude': -15.3900,
         'longitude': 28.3200,
         'primary_color': '#1E40AF',
@@ -116,7 +116,7 @@ class DbSeeder {
         'title': 'The Power of Favor',
         'preacher': 'Pastor Conrad Mbewe',
         'video_url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        'thumbnail_url': 'https://images.unsplash.com/photo-1510133755869-79a639739569?w=800',
+        'thumbnail_url': 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=800',
         'category': 'theology',
       },
       // Rock Of Ages Chapel Kabulonga sermon
@@ -176,7 +176,7 @@ class DbSeeder {
         'user_name': 'Prophet Amos',
         'description': 'Word of Encourgement for your week.',
         'video_url': 'https://assets.mixkit.co/videos/preview/mixkit-man-delivering-a-speech-on-a-stage-40436-large.mp4',
-        'thumbnail_url': 'https://images.unsplash.com/photo-1544427928-c49cdfebf4ad?w=400',
+        'thumbnail_url': 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=400',
         'likes': 890,
       }
     ];

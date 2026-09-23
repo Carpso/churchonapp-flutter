@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../data/discover_service.dart';
 import '../data/sermon_service.dart';
 import '../../../core/widgets/app_image.dart';
+import '../../../core/widgets/branded_stream_poster.dart';
 
 class DiscoverScreen extends ConsumerWidget {
   const DiscoverScreen({super.key});
@@ -115,7 +116,7 @@ class DiscoverScreen extends ConsumerWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  AppImage(sermon.thumbnailUrl, height: 110, width: double.infinity, fit: BoxFit.cover),
+                  SmartStreamPoster(url: sermon.thumbnailUrl, seed: sermon.id, height: 110, width: double.infinity, fit: BoxFit.cover),
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.4), shape: BoxShape.circle),
@@ -207,7 +208,7 @@ class DiscoverScreen extends ConsumerWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: AppImage(sermon.thumbnailUrl, width: 56, height: 56, fit: BoxFit.cover),
+                child: SmartStreamPoster(url: sermon.thumbnailUrl, seed: sermon.id, width: 56, height: 56, fit: BoxFit.cover),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -244,7 +245,7 @@ class DiscoverScreen extends ConsumerWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: AppImage(sermon.thumbnailUrl, height: 160, width: double.infinity, fit: BoxFit.cover),
+              child: SmartStreamPoster(url: sermon.thumbnailUrl, seed: sermon.id, height: 160, width: double.infinity, fit: BoxFit.cover),
             ),
             const SizedBox(height: 20),
             Text(sermon.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),

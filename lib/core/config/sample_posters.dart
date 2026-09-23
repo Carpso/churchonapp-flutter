@@ -6,12 +6,23 @@ library;
 
 const List<String> kSampleStreamPosters = [
   'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=1200&q=80&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1510133755869-79a639739569?w=1200&q=80&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1507699622108-4be3abd695ad?w=1200&q=80&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=1200&q=80&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1544427928-c49cdfebf4ad?w=1200&q=80&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=1200&q=80&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=1200&q=80&auto=format&fit=crop',
+];
+
+/// Dead sample URLs REMOVED from [kSampleStreamPosters] because they now
+/// return HTTP 404 (verified by HEAD request):
+///   * photo-1510133755869-79a639739569
+///   * photo-1544427928-c49cdfebf4ad
+///
+/// They are kept here only so [isGeneratedSamplePoster] still recognises rows
+/// holding the legacy URL and routes them to the branded Flutter poster
+/// instead of fetching the dead image. They are NEVER selected as fallbacks.
+const List<String> kDeprecatedSamplePosters = [
+  'https://images.unsplash.com/photo-1510133755869-79a639739569?w=1200&q=80&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1544427928-c49cdfebf4ad?w=1200&q=80&auto=format&fit=crop',
 ];
 
 /// Stable poster for a given seed (stream/sermon id) — the same id always maps
@@ -45,5 +56,6 @@ String posterOrDefault(String? url, {Object seed = ''}) {
 bool isGeneratedSamplePoster(String? url) {
   final trimmed = url?.trim() ?? '';
   if (trimmed.isEmpty) return true;
-  return kSampleStreamPosters.contains(trimmed);
+  return kSampleStreamPosters.contains(trimmed) ||
+      kDeprecatedSamplePosters.contains(trimmed);
 }

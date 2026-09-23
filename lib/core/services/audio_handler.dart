@@ -85,7 +85,15 @@ class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   /// Materialises the bundled brand logo to a local `file://` URI so the OS
   /// notification/artwork always resolves — `audio_service` reads `file` URIs
   /// directly and never performs an HTTP request for them, so this cannot 404.
+  ///
+  /// WEB: `path_provider` has no web implementation, so
+  /// `getTemporaryDirectory()` throws
+  /// `MissingPluginException(No implementation found for method
+  /// getTemporaryDirectory on channel plugins.flutter.io/path_provider)`.
+  /// The browser media session does not need a local file, so we skip artwork
+  /// entirely on web and never touch `path_provider`.
   Future<Uri?> _resolveDefaultArt() async {
+    if (kIsWeb) return null;
     if (_defaultArtUri != null) return _defaultArtUri;
     try {
       final dir = await getTemporaryDirectory();
