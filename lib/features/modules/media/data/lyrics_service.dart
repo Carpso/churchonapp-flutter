@@ -317,6 +317,10 @@ final lyricsByCategoryProvider =
 
 final setlistsStreamProvider = StreamProvider<List<Setlist>>(
   (ref) => ref.watch(lyricsServiceProvider).getSetlistsStream(),
+  // Riverpod 3 retries a failed provider up to 10x with backoff. A missing
+  // table (PostgREST 404) is permanent, so retrying just spams the endpoint.
+  // Fail once and let the UI offer a manual retry instead.
+  retry: (_, __) => null,
 );
 
 /// Management list — the current tenant's own songs only.

@@ -105,7 +105,34 @@ class _SetlistBuilderScreenState extends ConsumerState<SetlistBuilderScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error loading setlists: $err')),
+        error: (err, stack) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(LucideIcons.alertCircle, size: 48, color: theme.disabledColor),
+                const SizedBox(height: 12),
+                Text(
+                  'Could not load setlists',
+                  style: TextStyle(color: theme.disabledColor),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Please check your connection and try again.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: theme.disabledColor),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () => ref.invalidate(setlistsStreamProvider),
+                  icon: const Icon(LucideIcons.refreshCw, size: 16),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
