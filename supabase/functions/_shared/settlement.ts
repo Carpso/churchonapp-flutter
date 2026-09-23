@@ -32,6 +32,7 @@ export interface SettlementConfig {
   coaPayoutFeePercent: number;
   minFeeKwacha: number;
   businessCutPercent: number;
+  retryBackoffMinutes: number;
 }
 
 export interface SettlementResult {
@@ -51,6 +52,7 @@ export async function loadSettlementConfig(
     coaPayoutFeePercent: 0.01,
     minFeeKwacha: 3.0,
     businessCutPercent: 0.1,
+    retryBackoffMinutes: 30,
   };
   const { data } = await supabase.from("platform_settings").select("key, value");
   for (const row of data ?? []) {
@@ -60,6 +62,7 @@ export async function loadSettlementConfig(
     else if (row.key === "coa_payout_fee_percent") cfg.coaPayoutFeePercent = v;
     else if (row.key === "min_fee_kwacha") cfg.minFeeKwacha = v;
     else if (row.key === "business_cut_percent") cfg.businessCutPercent = v;
+    else if (row.key === "payout_retry_backoff_minutes") cfg.retryBackoffMinutes = v;
   }
   return cfg;
 }
@@ -526,7 +529,7 @@ async function disburse(
 
   const apiKey = Deno.env.get("LIPILA_API_KEY");
   if (!apiKey) {
-    await markTaskFailed(supabase, task, "no_api_key", net);
+    await markTaskFailed(supabase, task, "no_api_key", net, cfg.retryBackoffMinutes);
     return { taskId: task.id, ok: false, retry: true, error: "no_api_key" };
   }
 
@@ -568,7 +571,7 @@ async function disburse(
       const msg = (payoutData as Record<string, unknown>)?.error
         ? JSON.stringify(payoutData)
         : `lipila_http_${payoutRes.status}`;
-      await markTaskFailed(supabase, task, msg.slice(0, 400), net);
+      await markTaskFailed(supabase, task, msg.slice(0, 400), net, cfg.retryBackoffMinutes);
       return { taskId: task.id, ok: false, retry: true, error: msg.slice(0, 400) };
     }
 
@@ -606,15 +609,22 @@ async function markTaskFailed(
   task: Task,
   error: string,
   netAmount: number,
+  backoffMinutes = 30,
 ): Promise<void> {
   const nowIso = new Date().toISOString();
   const shouldRetry = (task.attempt_count ?? 0) < 5;
+  // chisomo retry policy: back off before the next attempt so a failing payout
+  // is never hammered (a transient MNO/API issue usually clears within 30 min).
+  const nextAttempt = shouldRetry
+    ? new Date(Date.now() + Math.max(1, backoffMinutes) * 60_000).toISOString()
+    : null;
   await supabase
     .from("payout_tasks")
     .update({
       status: shouldRetry ? "pending" : "failed",
       net_amount: netAmount,
       last_error: error,
+      next_attempt_at: nextAttempt,
       updated_at: nowIso,
     })
     .eq("id", task.id);
@@ -652,9 +662,11 @@ export async function settleReference(
 
   const { data: tasks } = await supabase
     .from("payout_tasks")
-    .select("id, user_id, source, source_ref, payment_ref, recipient_user_id, recipient_phone, recipient_role, gross_amount, attempt_count, payout_ref")
+    .select("id, user_id, source, source_ref, payment_ref, recipient_user_id, recipient_phone, recipient_role, gross_amount, attempt_count, payout_ref, next_attempt_at")
     .eq("payment_ref", reference)
     .eq("status", "pending")
+    // Honour the retry backoff so a task that just failed is not hammered.
+    .or(`next_attempt_at.is.null,next_attempt_at.lte.${new Date().toISOString()}`)
     .limit(20);
 
   let paid = 0;
@@ -703,8 +715,10 @@ export async function processPendingSettlements(
 
   const { data: tasks } = await supabase
     .from("payout_tasks")
-    .select("id, user_id, source, source_ref, payment_ref, recipient_user_id, recipient_phone, recipient_role, gross_amount, attempt_count, payout_ref")
+    .select("id, user_id, source, source_ref, payment_ref, recipient_user_id, recipient_phone, recipient_role, gross_amount, attempt_count, payout_ref, next_attempt_at")
     .eq("status", "pending")
+    // chisomo retry policy: skip anything still inside its backoff window.
+    .or(`next_attempt_at.is.null,next_attempt_at.lte.${new Date().toISOString()}`)
     .order("created_at", { ascending: true })
     .limit(20);
 
@@ -754,5 +768,217 @@ export async function enqueueChurchAutoPayouts(
     const msg = err instanceof Error ? err.message : "unknown_error";
     console.error(`[ChurchAutoPayout] enqueue error: ${msg}`);
     return { enqueued: 0, thresholdKwacha };
+  }
+}
+
+// ── Lipila base URL (chisomo/kingdom contract) ────────────────────────────────
+function lipilaApiBase(apiKey: string): string {
+  return apiKey.startsWith("lsk_")
+    ? "https://blz.lipila.io/api"
+    : "https://api.lipila.dev/api";
+}
+
+// Poll Lipila's disbursement status for a payout reference. Mirrors the
+// chisomo `checkDisbursementStatus` contract, trying the known endpoint shapes.
+async function checkPayoutStatus(
+  apiKey: string,
+  reference: string,
+): Promise<string | null> {
+  const base = lipilaApiBase(apiKey);
+  const candidates = [
+    `${base}/v1/payouts/check-status?referenceId=${encodeURIComponent(reference)}`,
+    `${base}/v1/disbursements/check-status?referenceId=${encodeURIComponent(reference)}`,
+    `${base}/v1/payouts/mobile-money/${encodeURIComponent(reference)}`,
+  ];
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url, {
+        headers: { accept: "application/json", "x-api-key": apiKey },
+      });
+      const raw = await res.text().catch(() => "");
+      if (!res.ok) continue;
+      let data: Record<string, unknown> = {};
+      try { data = JSON.parse(raw); } catch { /* ignore */ }
+      const inner = (data.data ?? data) as Record<string, unknown>;
+      const status = inner.status ?? data.status;
+      if (typeof status === "string" && status) return status;
+    } catch {
+      // try next endpoint shape
+    }
+  }
+  return null;
+}
+
+// chisomo's `runWithdrawalStatusChecks`: a payout that Lipila ACCEPTED but whose
+// webhook was lost used to stay `processing` forever (the cron only selected
+// `pending`). Re-check in-flight tasks against Lipila and finalise them.
+export async function reconcileInFlightPayouts(
+  supabase: ReturnType<typeof createClient>,
+): Promise<{ checked: number; paid: number; failed: number }> {
+  const apiKey = Deno.env.get("LIPILA_API_KEY");
+  if (!apiKey) return { checked: 0, paid: 0, failed: 0 };
+
+  const { data: tasks } = await supabase
+    .from("payout_tasks")
+    .select("id, source, source_ref, payout_ref, attempt_count")
+    .eq("status", "processing")
+    .not("payout_ref", "is", null)
+    .order("updated_at", { ascending: true })
+    .limit(50);
+
+  let paid = 0;
+  let failed = 0;
+  const now = new Date().toISOString();
+
+  for (const task of tasks ?? []) {
+    const ref = task.payout_ref as string | null;
+    if (!ref) continue;
+    try {
+      const status = await checkPayoutStatus(apiKey, ref);
+      const s = (status ?? "").toLowerCase();
+      if (["success", "successful", "complete", "completed", "settled", "paid"].includes(s)) {
+        const { data: claimed } = await supabase
+          .from("payout_tasks")
+          .update({ status: "paid", processed_at: now, updated_at: now, last_error: null })
+          .eq("id", task.id)
+          .eq("status", "processing")
+          .select("id")
+          .maybeSingle();
+        if (claimed) {
+          paid++;
+          if (task.source === "church_payout" && task.source_ref) {
+            await supabase.from("church_withdrawals").update({
+              status: "paid", processed_at: now, updated_at: now, lipila_reference: ref,
+            }).eq("id", task.source_ref);
+          }
+        }
+      } else if (["failed", "cancelled", "rejected", "declined", "error", "timeout"].includes(s)) {
+        const { data: claimed } = await supabase
+          .from("payout_tasks")
+          .update({
+            status: (task.attempt_count ?? 0) < 5 ? "pending" : "failed",
+            last_error: `lipila_${status}`,
+            next_attempt_at: (task.attempt_count ?? 0) < 5
+              ? new Date(Date.now() + 30 * 60_000).toISOString()
+              : null,
+            updated_at: now,
+          })
+          .eq("id", task.id)
+          .eq("status", "processing")
+          .select("id")
+          .maybeSingle();
+        if (claimed) {
+          failed++;
+          if (task.source === "church_payout" && task.source_ref) {
+            await supabase.from("church_withdrawals").update({
+              status: "failed", last_error: `lipila_${status}`, updated_at: now,
+            }).eq("id", task.source_ref);
+          }
+        }
+      }
+      // Unknown/pending: leave it in-flight for the next pass.
+    } catch (err) {
+      console.error(`[Reconcile] payout ${ref} status check failed: ${err}`);
+    }
+  }
+  return { checked: tasks?.length ?? 0, paid, failed };
+}
+
+// chisomo's `settlePlatformFees`/`runFeeSweep`: the COA payout cut earned on
+// every completed church withdrawal is netted off the host amount but never
+// tracked or swept. This settles it to the platform settlement number. The
+// amount is re-derived server-side from the ledger, never supplied by a client.
+export async function sweepPlatformFees(
+  supabase: ReturnType<typeof createClient>,
+): Promise<{ swept: number; amount: number }> {
+  const apiKey = Deno.env.get("LIPILA_API_KEY");
+  if (!apiKey) return { swept: 0, amount: 0 };
+
+  // Config: settlement phone + minimum sweep threshold.
+  let phone = "";
+  let minKwacha = 50;
+  const { data: settings } = await supabase
+    .from("platform_settings")
+    .select("key, value")
+    .in("key", ["coa_settlement_phone", "platform_fee_sweep_min_kwacha"]);
+  for (const row of settings ?? []) {
+    if (row.key === "coa_settlement_phone") phone = normalizePhone(row.value as string);
+    else if (row.key === "platform_fee_sweep_min_kwacha") {
+      const n = Number(row.value);
+      if (!Number.isNaN(n) && n >= 0) minKwacha = n;
+    }
+  }
+  if (!/^260\d{9}$/.test(phone)) return { swept: 0, amount: 0 };
+
+  // Pending = payout fees earned (church withdrawals processing/paid) minus
+  // already-committed sweeps (pending/success), so a missed webhook can never
+  // cause the same fees to be swept twice.
+  const { data: earnedRows } = await supabase
+    .from("church_withdrawals")
+    .select("coa_fee")
+    .in("status", ["processing", "paid"]);
+  const earned = (earnedRows ?? []).reduce((s, r) => s + Number(r.coa_fee ?? 0), 0);
+
+  const { data: settledRows } = await supabase
+    .from("fee_sweeps")
+    .select("amount")
+    .in("status", ["pending", "success"]);
+  const settled = (settledRows ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
+
+  const due = Math.round((earned - settled) * 100) / 100;
+  if (due < minKwacha || due <= 0) return { swept: 0, amount: 0 };
+
+  const ref = `SWEEP-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const { error: insertError } = await supabase.from("fee_sweeps").insert({
+    kind: "payout_fee",
+    amount: due,
+    lipila_reference: ref,
+    status: "pending",
+  });
+  if (insertError) {
+    console.error(`[FeeSweep] ledger insert failed: ${insertError.message}`);
+    return { swept: 0, amount: 0 };
+  }
+
+  const callbackBase = Deno.env.get("LIPILA_PAYOUT_WEBHOOK_URL")
+    ?? `${Deno.env.get("SUPABASE_URL")}/functions/v1/lipila-webhook`;
+  const secret = Deno.env.get("LIPILA_WEBHOOK_SECRET") || "";
+  const callbackUrl = secret
+    ? `${callbackBase}?secret=${encodeURIComponent(secret)}`
+    : callbackBase;
+
+  try {
+    const res = await fetch(`${lipilaApiBase(apiKey)}/v1/payouts/mobile-money`, {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "Content-Type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        callbackUrl,
+        referenceId: ref,
+        amount: due,
+        narration: "COA platform fee settlement",
+        accountNumber: phone,
+        currency: "ZMW",
+        email: "payouts@churchonapp.com",
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      await supabase.from("fee_sweeps").update({
+        status: "failed", last_error: body.slice(0, 400), updated_at: new Date().toISOString(),
+      }).eq("lipila_reference", ref);
+      return { swept: 0, amount: 0 };
+    }
+    return { swept: 1, amount: due };
+  } catch (err) {
+    await supabase.from("fee_sweeps").update({
+      status: "failed",
+      last_error: err instanceof Error ? err.message.slice(0, 400) : "network_error",
+      updated_at: new Date().toISOString(),
+    }).eq("lipila_reference", ref);
+    return { swept: 0, amount: 0 };
   }
 }

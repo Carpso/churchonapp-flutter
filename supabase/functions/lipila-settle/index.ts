@@ -2,7 +2,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
-import { processPendingSettlements, enqueueChurchAutoPayouts } from "../_shared/settlement.ts";
+import {
+  processPendingSettlements,
+  enqueueChurchAutoPayouts,
+  reconcileInFlightPayouts,
+  sweepPlatformFees,
+} from "../_shared/settlement.ts";
+import { chargeDuePledges } from "../_shared/dunning.ts";
 
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
@@ -125,6 +131,44 @@ serve(async (req: Request) => {
       console.error(`[Settle] Payout queue processing failed: ${payoutErr}`);
     }
 
+    // ── PAYOUT RECONCILIATION (chisomo runWithdrawalStatusChecks) ──
+    // A payout Lipila ACCEPTED but whose webhook was lost stays `processing`;
+    // re-check it against Lipila so it can never be stranded.
+    let reconciled = 0;
+    let reconcilePaid = 0;
+    let reconcileFailed = 0;
+    try {
+      const res = await reconcileInFlightPayouts(supabase);
+      reconciled = res.checked;
+      reconcilePaid = res.paid;
+      reconcileFailed = res.failed;
+    } catch (reconcileErr) {
+      console.error(`[Settle] Payout reconciliation failed: ${reconcileErr}`);
+    }
+
+    // ── PLATFORM-FEE SWEEP (chisomo settlePlatformFees) ────
+    // Settle the COA payout cut earned on completed church withdrawals to the
+    // platform settlement number once it crosses the sweep minimum.
+    let feeSweepAmount = 0;
+    try {
+      const res = await sweepPlatformFees(supabase);
+      feeSweepAmount = res.amount;
+    } catch (sweepErr) {
+      console.error(`[Settle] Fee sweep failed: ${sweepErr}`);
+    }
+
+    // ── RECURRING-PLEDGE DUNNING (chisomo recurring_pledges) ─
+    // Charge due pledges; the amount is re-derived server-side from the pledge.
+    let pledgesChecked = 0;
+    let pledgesCharged = 0;
+    try {
+      const res = await chargeDuePledges(supabase);
+      pledgesChecked = res.checked;
+      pledgesCharged = res.charged;
+    } catch (dunningErr) {
+      console.error(`[Settle] Pledge dunning failed: ${dunningErr}`);
+    }
+
     // ── CHURCH AUTO-PAYOUT ─────────────────────────────────
     // Enqueue aggregate treasurer payouts for churches whose withdrawable
     // balance has crossed the threshold. Safe against concurrent runs via the
@@ -148,6 +192,12 @@ serve(async (req: Request) => {
         payoutChecked,
         payoutPaid,
         payoutFailed,
+        reconciled,
+        reconcilePaid,
+        reconcileFailed,
+        feeSweepAmount,
+        pledgesChecked,
+        pledgesCharged,
         churchPayoutsEnqueued,
         churchPayoutThreshold,
         timestamp: new Date().toISOString(),

@@ -14,6 +14,7 @@ import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/features/finance/data/ledger_pdf_service.dart';
 import 'package:church_on_app/features/admin/data/organization_service.dart';
 import 'package:church_on_app/features/admin/presentation/church_payout_screen.dart';
+import 'package:church_on_app/features/finance/presentation/church_earnings_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'ledger_screen.dart';
@@ -240,6 +241,12 @@ class FinanceDashboardScreen extends ConsumerWidget {
     // their church's withdrawable balance but can't open COA settlement.
     final isCoaTeam =
         profile != null && (profile.isSuperadmin || profile.role == 'coa_employee');
+    // Leaders/treasurers get their own church's read-only earnings view
+    // (chisomo host-dashboard parity); COA staff use the platform settlement view.
+    final isLeader = profile != null &&
+        (profile.isLeadershipTeam ||
+            profile.role == 'treasurer' ||
+            profile.role == 'general_treasurer');
     return FutureBuilder<dynamic>(
       future: Supabase.instance.client.rpc('get_church_withdrawable_balances'),
       builder: (context, snapshot) {
@@ -300,6 +307,15 @@ class FinanceDashboardScreen extends ConsumerWidget {
                   ),
                   icon: const Icon(LucideIcons.arrowRight, size: 15),
                   label: const Text("PAYOUTS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                )
+              else if (isLeader)
+                TextButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ChurchEarningsScreen()),
+                  ),
+                  icon: const Icon(LucideIcons.arrowRight, size: 15),
+                  label: const Text("EARNINGS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                 ),
             ],
           ),

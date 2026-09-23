@@ -17,7 +17,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore URL import resolution for Supabase Edge Functions
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // @ts-ignore shared module import
-import { settleReference, enqueueChurchAutoPayouts } from "../_shared/settlement.ts";
+import { settleReference, enqueueChurchAutoPayouts, sweepPlatformFees } from "../_shared/settlement.ts";
 
 interface LipilaWebhookPayload {
   referenceId?: string;
@@ -226,6 +226,13 @@ async function processWebhook(
           status: "paid", processed_at: now, updated_at: now,
           lipila_reference: reference,
         }).eq("id", payoutTask.source_ref);
+        // The COA payout cut earned on this withdrawal is now final — sweep it
+        // to the platform settlement number (best-effort, ledger-anchored).
+        try {
+          await sweepPlatformFees(supabase);
+        } catch (sweepErr) {
+          console.error(`[Webhook] Fee sweep failed: ${sweepErr}`);
+        }
       }
     } else if (newStatus === "failed") {
       await supabase.from("payout_tasks").update({

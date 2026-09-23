@@ -36,6 +36,7 @@ import 'church_directory_edit_screen.dart';
 import 'whatsapp_config_screen.dart';
 import 'subscription_pricing_screen.dart';
 import 'church_payout_screen.dart';
+import 'platform_fee_ledger_screen.dart';
 import 'meeting_revenue_screen.dart';
 import 'employee_management_screen.dart';
 import 'kyc_review_screen.dart';
@@ -962,6 +963,9 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
             }),
             _buildGlobalAction(LucideIcons.banknote, "Church Payouts", "Withdrawable balances, ledger & settlement", Colors.green, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchPayoutScreen()));
+            }),
+            _buildGlobalAction(LucideIcons.receipt, "Platform Fees", "Payout cut ledger, reconciliation & sweeps", Colors.lightGreen, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const PlatformFeeLedgerScreen()));
             }),
             _buildGlobalAction(LucideIcons.userCog, "Employee Management", "Manage COA employees & permissions", Theme.of(context).primaryColor, () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const EmployeeManagementScreen()));
