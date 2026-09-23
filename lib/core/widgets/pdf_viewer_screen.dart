@@ -3,8 +3,8 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:universal_io/io.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:church_on_app/core/services/safe_file_paths.dart';
 
 class PDFViewerScreen extends StatefulWidget {
   final String url;
@@ -30,8 +30,17 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
   Future<void> _downloadFile() async {
     try {
       final response = await http.get(Uri.parse(widget.url));
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/temp.pdf');
+      final dirPath = await safeDocumentsDirectoryPath();
+      if (dirPath == null) {
+        if (mounted) {
+          setState(() {
+            error = 'PDF preview is not supported in the browser.';
+            isLoading = false;
+          });
+        }
+        return;
+      }
+      final file = File('$dirPath/temp.pdf');
       await file.writeAsBytes(response.bodyBytes);
       if (mounted) {
         setState(() {

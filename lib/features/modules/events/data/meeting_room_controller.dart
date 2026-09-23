@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:image_picker/image_picker.dart' show XFile;
-import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:church_on_app/core/services/r2_service.dart';
+import 'package:church_on_app/core/services/safe_file_paths.dart';
 import 'meeting_service.dart';
 
 enum MeetingRoomState { idle, connecting, live, reconnecting, ended, error }
@@ -524,9 +524,13 @@ class MeetingRoomController extends ChangeNotifier {
     if (!ent.recording) {
       throw MeetingException('Recording requires the Pro Meeting Suite.');
     }
-    final dir = await getTemporaryDirectory();
+    final dirPath = await safeTemporaryDirectoryPath();
+    if (dirPath == null) {
+      throw MeetingException(
+          'Recording is not supported in the browser. Use the mobile app.');
+    }
     _recordingPath =
-        '${dir.path}/meeting_${id}_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        '$dirPath/meeting_${id}_${DateTime.now().millisecondsSinceEpoch}.m4a';
     final recorder = MediaRecorder();
     await recorder.start(_recordingPath!, audioChannel: RecorderAudioChannel.OUTPUT);
     _recorder = recorder;

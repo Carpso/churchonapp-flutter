@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:church_on_app/core/services/safe_file_paths.dart';
 import 'package:share_plus/share_plus.dart';
 import 'payroll_service.dart';
 
@@ -284,8 +284,11 @@ class PayslipPdfService {
   static pw.Widget _divider() => pw.Divider(color: PdfColors.grey300, height: 8);
 
   static Future<String> saveToFile(Uint8List bytes, String filename) async {
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/$filename');
+    final dirPath = await safeTemporaryDirectoryPath();
+    if (dirPath == null) {
+      throw UnsupportedError('Saving files is not supported on web.');
+    }
+    final file = File('$dirPath/$filename');
     await file.writeAsBytes(bytes);
     return file.path;
   }
@@ -327,9 +330,22 @@ class PayslipPdfService {
       companyName: companyName,
     );
     final safeName = employeeName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
-    final path = await saveToFile(bytes, 'payslip_${safeName}_$periodLabel.pdf');
+    final fileName = 'payslip_${safeName}_$periodLabel.pdf';
+    final XFile file;
+    final dirPath = await safeTemporaryDirectoryPath();
+    if (dirPath == null) {
+      // Web: no temporary filesystem — share the bytes directly.
+      file = XFile.fromData(bytes,
+          mimeType: 'application/pdf', name: fileName);
+    } else {
+      file = XFile.fromData(bytes,
+          path: '$dirPath/$fileName',
+          mimeType: 'application/pdf',
+          name: fileName);
+      await File('$dirPath/$fileName').writeAsBytes(bytes);
+    }
     await SharePlus.instance.share(ShareParams(
-      files: [XFile(path)],
+      files: [file],
       text: 'Payslip for $employeeName — $periodLabel',
     ));
   }

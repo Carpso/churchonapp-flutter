@@ -1,11 +1,10 @@
 import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:church_on_app/core/services/safe_file_paths.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
@@ -102,17 +101,17 @@ Venue: ${_venueController.text}
       // On WEB there is no temporary filesystem — build the share file purely
       // from bytes (getTemporaryDirectory() throws on web and broke sharing).
       final XFile file;
-      if (kIsWeb) {
+      final dirPath = await safeTemporaryDirectoryPath();
+      if (dirPath == null) {
         file = XFile.fromData(
           png,
           mimeType: 'image/png',
           name: 'church_on_app_flyer.png',
         );
       } else {
-        final dir = await getTemporaryDirectory();
         file = XFile.fromData(
           png,
-          path: '${dir.path}/church_on_app_flyer.png',
+          path: '$dirPath/church_on_app_flyer.png',
           mimeType: 'image/png',
           name: 'church_on_app_flyer.png',
         );

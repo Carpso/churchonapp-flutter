@@ -269,7 +269,10 @@ class EventTicketingService {
         debugPrint('myTicketsStream enrich failed: $e');
         return rows.map((r) => EventTicket.fromMap(Map<String, dynamic>.from(r))).toList();
       }
-    });
+    }).handleError(
+      // Realtime subscribe timeouts must stay non-fatal (no uncaught error).
+      (e) => debugPrint('myTicketsStream realtime error (non-fatal): $e'),
+    );
   }
 
   Future<List<EventTicketTier>> fetchTiers(String eventId) async {

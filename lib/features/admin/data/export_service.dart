@@ -1,6 +1,7 @@
 import 'package:universal_io/io.dart';
 import 'dart:convert';
-import 'package:path_provider/path_provider.dart';
+import 'dart:typed_data';
+import 'package:church_on_app/core/services/safe_file_paths.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
@@ -34,7 +35,7 @@ class ExportService {
     return jsonEncode(rows.map((r) => r.data).toList());
   }
 
-  Future<File> exportToPdf({
+  Future<Uint8List> buildPdfBytes({
     required String title,
     required String tenantName,
     required List<String> columns,
@@ -65,9 +66,27 @@ class ExportService {
       ),
     );
 
-    final dir = await getApplicationDocumentsDirectory();
-    final file = File('${dir.path}/$title.pdf');
-    await file.writeAsBytes(await pdf.save());
+    return pdf.save();
+  }
+
+  Future<File> exportToPdf({
+    required String title,
+    required String tenantName,
+    required List<String> columns,
+    required List<ExportRow> rows,
+  }) async {
+    final bytes = await buildPdfBytes(
+      title: title,
+      tenantName: tenantName,
+      columns: columns,
+      rows: rows,
+    );
+    final dirPath = await safeDocumentsDirectoryPath();
+    if (dirPath == null) {
+      throw UnsupportedError('File export is not supported on web.');
+    }
+    final file = File('$dirPath/$title.pdf');
+    await file.writeAsBytes(bytes);
     return file;
   }
 

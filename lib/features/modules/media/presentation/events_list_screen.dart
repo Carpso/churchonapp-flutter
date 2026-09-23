@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:church_on_app/features/events/data/event_service.dart';
 import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
+import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/features/finance/data/finance_service.dart';
@@ -42,7 +43,10 @@ class EventsListScreen extends ConsumerWidget {
           itemCount: 3,
           itemBuilder: (context, index) => _buildShimmerCard(),
         ),
-        error: (e, s) => Center(child: Text("Error: $e")),
+        error: (e, s) => ErrorRetryWidget(
+          message: "Could not load events",
+          onRetry: () => ref.invalidate(eventsStreamProvider),
+        ),
       ),
     );
   }

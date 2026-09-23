@@ -60,14 +60,36 @@ class EventService {
   final Ref _ref;
   EventService(this._client, this._ref);
 
-  Stream<List<ChurchEvent>> getEventsStream() {
-    final baseStream = _client.from('events').stream(primaryKey: ['id']);
-    final sorted = _sortEvents;
+  List<ChurchEvent> _mapEvents(List<dynamic> data) => _sortEvents(
+        data
+            .map((map) => ChurchEvent.fromMap(Map<String, dynamic>.from(map as Map)))
+            .toList(),
+      );
+
+  Stream<List<ChurchEvent>> getEventsStream() async* {
     // Events are global — all visible to all users via RLS.
-    final mapped = baseStream
-        .limit(100)
-        .map((data) => sorted(data.map((map) => ChurchEvent.fromMap(map)).toList()));
-    return mapped;
+    //
+    // Realtime first. A realtime subscribe failure (e.g.
+    // `RealtimeSubscribeException(timedOut)` on a flaky web socket) must NOT
+    // surface as an uncaught error / red error screen on the community Events
+    // screen — fall back to a plain one-shot fetch instead.
+    try {
+      yield* _client
+          .from('events')
+          .stream(primaryKey: ['id'])
+          .limit(100)
+          .map(_mapEvents);
+    } catch (e) {
+      debugPrint('events realtime stream failed, falling back to fetch: $e');
+    }
+
+    // Fallback: one-shot fetch so the screen never ends in an error state.
+    try {
+      final data = await _client.from('events').select().limit(100);
+      yield _mapEvents(data as List);
+    } catch (e) {
+      debugPrint('events fallback fetch failed: $e');
+    }
   }
 
   /// Realtime streams must NOT use server-side `.order()` — it causes refresh
@@ -217,11 +239,13 @@ class EventService {
         .stream(primaryKey: ['id'])
         .eq('user_id', user.id)
         .asyncMap((data) async {
-           if (data.isEmpty) return [];
+           if (data.isEmpty) return <ChurchEvent>[];
            final eventIds = data.map((e) => e['event_id']).toList();
            final res = await _client.from('events').select().inFilter('id', eventIds);
            return (res as List).map((e) => ChurchEvent.fromMap(e)).toList();
-        });
+        })
+        // A realtime subscribe timeout must not become an uncaught error.
+        .handleError((e) => debugPrint('myTickets stream error (non-fatal): $e'));
   }
 
   Future<Map<String, dynamic>?> getEventById(String eventId) async {

@@ -142,15 +142,19 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AsyncValue<CallSession?>>(incomingCallStreamProvider, (
-      previous,
-      next,
-    ) {
-      if (next.hasValue && next.value != null) {
-        final call = next.value!;
-        context.push('/call', extra: call);
-      }
-    });
+    ref.listen<AsyncValue<CallSession?>>(
+      incomingCallStreamProvider,
+      (previous, next) {
+        if (next.hasValue && next.value != null) {
+          final call = next.value!;
+          context.push('/call', extra: call);
+        }
+      },
+      // A realtime timeout on the calls channel must not become an uncaught
+      // error — just log it and keep the app alive.
+      onError: (error, stackTrace) =>
+          debugPrint('incoming call listener error (non-fatal): $error'),
+    );
 
     // Handle Location Tracking based on Work Mode OR driver on-duty
     ref.listen<AsyncValue<UserProfile?>>(profileProvider, (previous, next) {

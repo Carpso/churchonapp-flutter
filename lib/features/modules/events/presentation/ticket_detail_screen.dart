@@ -9,7 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:church_on_app/core/services/safe_file_paths.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:church_on_app/core/widgets/premium_toast.dart';
@@ -226,8 +226,17 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
 
   Future<void> _downloadPdf() async {
     final bytes = await _buildPdf();
-    final dir = await getApplicationDocumentsDirectory();
-    final file = File('${dir.path}/ticket_${(_ticketId ?? widget.event.id).replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf');
+    final name = 'ticket_${(_ticketId ?? widget.event.id).replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf';
+    final dirPath = await safeDocumentsDirectoryPath();
+    if (dirPath == null) {
+      // Web: no writable filesystem — offer the share sheet instead.
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile.fromData(bytes, mimeType: 'application/pdf', name: name)],
+        text: '🎫 ${widget.event.title} - Church On App Ticket',
+      ));
+      return;
+    }
+    final file = File('$dirPath/$name');
     await file.writeAsBytes(bytes);
     if (!mounted) return;
     PremiumToast.showSuccess(context, 'Ticket saved to Downloads', title: 'Downloaded');
@@ -235,10 +244,17 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
 
   Future<void> _sharePdf() async {
     final bytes = await _buildPdf();
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/ticket_${(_ticketId ?? widget.event.id).replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf');
-    await file.writeAsBytes(bytes);
-    await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: '🎫 ${widget.event.title} - Church On App Ticket'));
+    final name = 'ticket_${(_ticketId ?? widget.event.id).replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf';
+    final dirPath = await safeTemporaryDirectoryPath();
+    final XFile file;
+    if (dirPath == null) {
+      file = XFile.fromData(bytes, mimeType: 'application/pdf', name: name);
+    } else {
+      final path = '$dirPath/$name';
+      await File(path).writeAsBytes(bytes);
+      file = XFile(path);
+    }
+    await SharePlus.instance.share(ShareParams(files: [file], text: '🎫 ${widget.event.title} - Church On App Ticket'));
   }
 
   @override

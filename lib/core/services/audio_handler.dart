@@ -2,10 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:universal_io/io.dart';
 
 import '../config/app_constants.dart';
+import 'safe_file_paths.dart';
 
 class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final _player = AudioPlayer();
@@ -96,8 +96,9 @@ class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     if (kIsWeb) return null;
     if (_defaultArtUri != null) return _defaultArtUri;
     try {
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/coa_default_art.png');
+      final dirPath = await safeTemporaryDirectoryPath();
+      if (dirPath == null) return null;
+      final file = File('$dirPath/coa_default_art.png');
       if (!await file.exists()) {
         final data = await rootBundle.load(AppConstants.logoAsset);
         await file.writeAsBytes(

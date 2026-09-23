@@ -8,7 +8,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 import 'package:universal_io/io.dart';
 import 'dart:typed_data';
-import 'package:path_provider/path_provider.dart';
+import 'package:church_on_app/core/services/safe_file_paths.dart';
 import '../data/receipt_service.dart';
 
 class ReceiptScreen extends ConsumerStatefulWidget {
@@ -387,8 +387,20 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
   Future<void> _downloadPdf(PaymentReceipt receipt) async {
     try {
       final pdfBytes = await _buildPdf(receipt);
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/receipt_${receipt.reference.substring(0, 8)}.pdf');
+      final dirPath = await safeDocumentsDirectoryPath();
+      if (dirPath == null) {
+        // Web: no writable filesystem — offer the share sheet instead.
+        await SharePlus.instance.share(ShareParams(
+          files: [
+            XFile.fromData(pdfBytes,
+                mimeType: 'application/pdf',
+                name: 'receipt_${receipt.reference.substring(0, 8)}.pdf'),
+          ],
+          text: "Church On App Payment Receipt",
+        ));
+        return;
+      }
+      final file = File('$dirPath/receipt_${receipt.reference.substring(0, 8)}.pdf');
       await file.writeAsBytes(pdfBytes);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -410,10 +422,18 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
   Future<void> _shareReceipt(PaymentReceipt receipt) async {
     try {
       final pdfBytes = await _buildPdf(receipt);
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/receipt_${receipt.reference.substring(0, 8)}.pdf');
-      await file.writeAsBytes(pdfBytes);
-      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: "Church On App Payment Receipt"));
+      final dirPath = await safeTemporaryDirectoryPath();
+      final XFile file;
+      if (dirPath == null) {
+        file = XFile.fromData(pdfBytes,
+            mimeType: 'application/pdf',
+            name: 'receipt_${receipt.reference.substring(0, 8)}.pdf');
+      } else {
+        final path = '$dirPath/receipt_${receipt.reference.substring(0, 8)}.pdf';
+        await File(path).writeAsBytes(pdfBytes);
+        file = XFile(path);
+      }
+      await SharePlus.instance.share(ShareParams(files: [file], text: "Church On App Payment Receipt"));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

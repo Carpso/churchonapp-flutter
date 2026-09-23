@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:path_provider/path_provider.dart';
+import 'package:church_on_app/core/services/safe_file_paths.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/features/admin/data/admin_service.dart';
@@ -189,12 +189,20 @@ class _MemberDirectoryScreenState
 
     try {
       final bytes = await pdf.save();
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/member_directory.pdf');
-      await file.writeAsBytes(bytes);
+      final dirPath = await safeTemporaryDirectoryPath();
+      final XFile file;
+      if (dirPath == null) {
+        // Web: no temporary filesystem — share the bytes directly.
+        file = XFile.fromData(bytes,
+            mimeType: 'application/pdf', name: 'member_directory.pdf');
+      } else {
+        final path = '$dirPath/member_directory.pdf';
+        await File(path).writeAsBytes(bytes);
+        file = XFile(path);
+      }
 
       await SharePlus.instance.share(ShareParams(
-        files: [XFile(file.path)],
+        files: [file],
         text: '${tenant?.name ?? "Church"} Member Directory PDF',
       ));
     } catch (e) {

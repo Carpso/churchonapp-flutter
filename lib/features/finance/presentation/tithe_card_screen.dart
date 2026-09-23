@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/rendering.dart';
 import 'package:universal_io/io.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:church_on_app/core/services/safe_file_paths.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
@@ -627,8 +627,19 @@ decoration: BoxDecoration(
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return;
       final pngBytes = byteData.buffer.asUint8List();
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/tithe_card.png');
+      final dirPath = await safeDocumentsDirectoryPath();
+      if (dirPath == null) {
+        // Web: no writable filesystem — offer the share sheet instead.
+        await SharePlus.instance.share(ShareParams(
+          files: [
+            XFile.fromData(pngBytes,
+                mimeType: 'image/png', name: 'tithe_card.png'),
+          ],
+          text: "My Digital Tithe Card - Church On App",
+        ));
+        return;
+      }
+      final file = File('$dirPath/tithe_card.png');
       await file.writeAsBytes(pngBytes);
       if (mounted) PremiumToast.showSuccess(context, "Tithe card saved to gallery", title: "Downloaded");
     } catch (e) {
@@ -647,10 +658,17 @@ decoration: BoxDecoration(
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return;
       final pngBytes = byteData.buffer.asUint8List();
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/tithe_card.png');
-      await file.writeAsBytes(pngBytes);
-      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: "My Digital Tithe Card - Church On App"));
+      final dirPath = await safeTemporaryDirectoryPath();
+      final XFile file;
+      if (dirPath == null) {
+        file = XFile.fromData(pngBytes,
+            mimeType: 'image/png', name: 'tithe_card.png');
+      } else {
+        final path = '$dirPath/tithe_card.png';
+        await File(path).writeAsBytes(pngBytes);
+        file = XFile(path);
+      }
+      await SharePlus.instance.share(ShareParams(files: [file], text: "My Digital Tithe Card - Church On App"));
     } catch (e) {
       if (mounted) PremiumToast.showError(context, "Failed to share: $e");
     } finally {

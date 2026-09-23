@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -52,7 +53,10 @@ class CallService {
         .map((data) => data
             .where((e) => e['status'] == 'dialing')
             .map((e) => CallSession.fromMap(e))
-            .toList());
+            .toList())
+        // A realtime subscribe timeout must never escape as an uncaught error.
+        .handleError(
+            (e) => debugPrint('incomingCallsStream error (non-fatal): $e'));
   }
 
   Future<CallSession> startCall(String recipientId, String type, Map<String, dynamic> offer) async {
@@ -119,7 +123,9 @@ class CallService {
         .from('call_candidates')
         .stream(primaryKey: ['id'])
         .eq('call_id', callId)
-        .map((data) => List<Map<String, dynamic>>.from(data));
+        .map((data) => List<Map<String, dynamic>>.from(data))
+        .handleError(
+            (e) => debugPrint('candidatesStream error (non-fatal): $e'));
   }
 
   Stream<CallSession> streamCall(String callId) {
@@ -129,7 +135,8 @@ class CallService {
         .eq('id', callId)
         .map((data) => data.isEmpty ? null : CallSession.fromMap(data.first))
         .where((call) => call != null)
-        .cast<CallSession>();
+        .cast<CallSession>()
+        .handleError((e) => debugPrint('streamCall error (non-fatal): $e'));
   }
 }
 

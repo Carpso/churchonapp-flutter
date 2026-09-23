@@ -129,7 +129,11 @@ class TransportService {
         .map((data) => data
             .where((map) => map['status'] == 'available')
             .map((map) => RideRegistration.fromMap(map))
-            .toList());
+            .toList())
+        // Realtime subscribe timeouts on ride_registrations must stay non-fatal
+        // (previously escaped as an uncaught error on the ride map).
+        .handleError((e) =>
+            debugPrint('activeDriversStream error (non-fatal): $e'));
   }
 
   Future<void> updateLocation(double lat, double lng, {double? speed}) async {

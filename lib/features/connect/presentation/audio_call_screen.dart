@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:church_on_app/core/services/safe_file_paths.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/widgets/app_image.dart';
 import '../data/call_service.dart';
@@ -321,11 +321,18 @@ class _AudioCallScreenState extends ConsumerState<AudioCallScreen> with SingleTi
       return;
     }
     try {
-      final tempDir = await getTemporaryDirectory();
+      final tempPath = await safeTemporaryDirectoryPath();
+      if (tempPath == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Call recording is not supported in the browser')));
+        }
+        return;
+      }
       final ts = DateTime.now().millisecondsSinceEpoch;
       final callId = _currentSession?.id ?? 'call';
-      _localRecordingPath = '${tempDir.path}/${callId}_${ts}_local.m4a';
-      _remoteRecordingPath = '${tempDir.path}/${callId}_${ts}_remote.m4a';
+      _localRecordingPath = '$tempPath/${callId}_${ts}_local.m4a';
+      _remoteRecordingPath = '$tempPath/${callId}_${ts}_remote.m4a';
       _localRecorder = MediaRecorder();
       _remoteRecorder = MediaRecorder();
       await _localRecorder!.start(_localRecordingPath!, audioChannel: RecorderAudioChannel.INPUT);

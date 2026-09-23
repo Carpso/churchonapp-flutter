@@ -325,7 +325,7 @@ BEGIN
   -- Idempotency: the same payment ref must never double-book.
   IF p_payment_ref IS NOT NULL THEN
     SELECT * INTO v_existing FROM public.event_ticket_orders
-      WHERE payment_ref = p_payment_ref LIMIT 1;
+      WHERE payment_ref = p_payment_ref AND buyer_id = v_uid LIMIT 1;
     IF FOUND THEN
       RETURN jsonb_build_object('success', TRUE, 'duplicate', TRUE,
         'order_id', v_existing.id, 'order_ref', v_existing.order_ref,

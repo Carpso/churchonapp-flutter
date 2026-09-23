@@ -1,10 +1,9 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:church_on_app/core/services/safe_file_paths.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../data/transcript_service.dart';
@@ -175,14 +174,14 @@ class _TranscriptSheet extends StatelessWidget {
             : _buildVttFallback(transcript),
       );
       final XFile file;
-      if (kIsWeb) {
+      final dirPath = await safeTemporaryDirectoryPath();
+      if (dirPath == null) {
         file = XFile.fromData(bytes,
             mimeType: 'text/vtt', name: 'transcript.vtt');
       } else {
-        final dir = await getTemporaryDirectory();
         file = XFile.fromData(
           bytes,
-          path: '${dir.path}/transcript.vtt',
+          path: '$dirPath/transcript.vtt',
           mimeType: 'text/vtt',
           name: 'transcript.vtt',
         );

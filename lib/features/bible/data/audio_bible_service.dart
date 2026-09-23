@@ -4,7 +4,7 @@ import 'package:universal_io/io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:church_on_app/core/services/safe_file_paths.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:church_on_app/core/services/supabase_service.dart';
@@ -412,12 +412,15 @@ class AudioBibleService {
   /// Synthesize text to audio file using flutter_tts
   Future<File?> _synthesizeToFile(String bookName, int chapter, String text) async {
     try {
-      final tempDir = await getTemporaryDirectory();
+      // Web has no filesystem and no path_provider implementation.
+      if (kIsWeb) return null;
+      final tempDir = await safeTemporaryDirectoryPath();
+      if (tempDir == null) return null;
       final fileName = '${bookName}_ch${chapter.toString().padLeft(3, '0')}.${_config.format}';
-      final file = File('${tempDir.path}/$fileName');
+      final file = File('$tempDir/$fileName');
       
       // On desktop, flutter_tts supports synthesizeToFile
-      if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
         final success = await _flutterTts.synthesizeToFile(text, file.path);
         if (success && await file.exists()) {
           return file;

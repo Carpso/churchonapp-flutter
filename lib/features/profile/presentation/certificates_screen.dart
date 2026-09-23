@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:church_on_app/core/services/safe_file_paths.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -495,17 +495,22 @@ class _CertificateCard extends StatelessWidget {
     return pdf.save();
   }
 
-  Future<String> _generatePdfFile() async {
+  Future<XFile> _generatePdfFile() async {
     final bytes = await _buildPdf();
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/certificate_${cert.id.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf');
+    final name = 'certificate_${cert.id.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf';
+    final dirPath = await safeTemporaryDirectoryPath();
+    if (dirPath == null) {
+      // Web: no temporary filesystem — share the bytes directly.
+      return XFile.fromData(bytes, mimeType: 'application/pdf', name: name);
+    }
+    final file = File('$dirPath/$name');
     await file.writeAsBytes(bytes);
-    return file.path;
+    return XFile(file.path);
   }
 
   Future<void> _sharePdf() async {
-    final path = await _generatePdfFile();
-    await SharePlus.instance.share(ShareParams(files: [XFile(path)], text: '${cert.title} - ${brand.issuerName}'));
+    final file = await _generatePdfFile();
+    await SharePlus.instance.share(ShareParams(files: [file], text: '${cert.title} - ${brand.issuerName}'));
   }
 
   Future<void> _showDetail(BuildContext context) {
@@ -602,8 +607,8 @@ class _CertificateCard extends StatelessWidget {
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         Navigator.pop(ctx);
-                        final path = await _generatePdfFile();
-                        await SharePlus.instance.share(ShareParams(files: [XFile(path)], text: '${cert.title} - ${brand.issuerName}'));
+                        final file = await _generatePdfFile();
+                        await SharePlus.instance.share(ShareParams(files: [file], text: '${cert.title} - ${brand.issuerName}'));
                       },
                       icon: const Icon(LucideIcons.download, size: 18),
                       label: const Text('Download'),
