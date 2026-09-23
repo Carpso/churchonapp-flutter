@@ -18,6 +18,9 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:church_on_app/features/events/data/event_ticketing_service.dart';
+import 'package:church_on_app/features/modules/events/presentation/buy_ticket_screen.dart';
+import 'package:church_on_app/features/modules/events/presentation/ticket_tier_manager_screen.dart';
 import 'event_host_dashboard.dart';
 
 class EventDetailsScreen extends ConsumerStatefulWidget {
@@ -120,6 +123,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                       event['description'] ?? "Join us for an incredible experience as we gather to worship, learn, and grow together. This event is designed to bring the community closer to God through inspired messages and powerful fellowship.",
                       style: TextStyle(fontSize: 16, height: 1.6, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.85)),
                     ),
+                    const SizedBox(height: 30),
+                    _EventTicketSection(event: event),
                     const SizedBox(height: 30),
                     // 1. Linked Participating Churches (For interchurch conferences)
                     FutureBuilder<List<Map<String, dynamic>>>(
@@ -639,4 +644,106 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     );
   }
 }
+
+/// Live ticket inventory for the event page: remaining / sold-out + entry
+/// points to buy tickets or (for hosts) manage tiers.
+class _EventTicketSection extends ConsumerWidget {
+  final Map<String, dynamic> event;
+  const _EventTicketSection({required this.event});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final eventId = event['id']?.toString() ?? '';
+    if (eventId.isEmpty) return const SizedBox.shrink();
+    final inventoryAsync = ref.watch(eventTicketInventoryProvider(eventId));
+
+    return inventoryAsync.maybeWhen(
+      data: (inv) {
+        if (inv.tiers.where((t) => t.isActive).isEmpty) return const SizedBox.shrink();
+        final hostAsync = ref.watch(eventTicketHostProvider(eventId));
+        final isHost = hostAsync.value ?? false;
+        final low = inv.remaining > 0 && inv.remaining <= 20;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(LucideIcons.ticket, size: 20),
+                const SizedBox(width: 8),
+                const Text('Tickets', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                if (inv.capacity > 0)
+                  Text(
+                    inv.soldOut ? 'SOLD OUT' : (low ? 'Only ${inv.remaining} left' : '${inv.remaining} left'),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: inv.soldOut ? Colors.red : (low ? Colors.orange : Colors.green),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...inv.tiers.where((t) => t.isActive).map((t) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(t.name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                      if (t.quantityTotal != null)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: Text(t.isSoldOut ? 'Sold out' : '${t.remaining} left',
+                              style: TextStyle(fontSize: 12, color: t.isSoldOut ? Colors.red : Colors.grey)),
+                        ),
+                      Text(t.price == 0 ? 'FREE' : 'K${t.price.toStringAsFixed(2)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                )),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BuyTicketScreen(
+                          eventId: eventId,
+                          eventTitle: event['title']?.toString() ?? 'Event',
+                          organizerMomoPhone: event['organizer_momo_phone']?.toString(),
+                          organizerMomoName: event['organizer_momo_name']?.toString(),
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(LucideIcons.ticket, size: 18),
+                    label: Text(inv.soldOut ? 'JOIN WAITLIST' : 'GET TICKETS', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                  ),
+                ),
+                if (isHost) ...[
+                  const SizedBox(width: 10),
+                  OutlinedButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TicketTierManagerScreen(
+                          eventId: eventId,
+                          eventTitle: event['title']?.toString() ?? 'Event',
+                        ),
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(minimumSize: const Size(56, 50)),
+                    child: const Icon(LucideIcons.settings2, size: 18),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+}
+
 

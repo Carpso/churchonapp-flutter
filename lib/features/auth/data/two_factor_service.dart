@@ -1,6 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Thrown when the Supabase project has TOTP MFA disabled — the API replies
+/// 422 with code `mfa_totp_enroll_not_enabled`. A superadmin must enable it in
+/// Supabase Dashboard → Authentication → Multi-Factor Auth; it cannot be
+/// toggled from application code, so the client surfaces this gracefully
+/// instead of leaking an [AuthApiException].
+class TotpUnavailableException implements Exception {
+  static const String userMessage =
+      'Two-factor is not enabled for this project yet — ask an administrator.';
+  const TotpUnavailableException();
+
+  @override
+  String toString() => userMessage;
+}
+
 /// Two-factor authentication backed by Supabase Auth native MFA.
 ///
 /// The TOTP secret lives ONLY on the Supabase Auth server (enroll/verify/
@@ -16,10 +30,32 @@ class TwoFactorService {
   /// raw secret shown once to the user. The factor is not active until
   /// [verifyAndActivate] succeeds.
   Future<AuthMFAEnrollResponse> enroll() async {
-    return _client.auth.mfa.enroll(
-      factorType: FactorType.totp,
-      issuer: 'ChurchOnApp',
-    );
+    try {
+      return await _client.auth.mfa.enroll(
+        factorType: FactorType.totp,
+        issuer: 'ChurchOnApp',
+      );
+    } on AuthApiException catch (e) {
+      if (isTotpUnavailableError(e)) throw const TotpUnavailableException();
+      rethrow;
+    }
+  }
+
+  /// Detects the project-level "TOTP enrollment disabled" response
+  /// (`mfa_totp_enroll_not_enabled`, HTTP 422).
+  static bool isTotpUnavailableError(Object error) {
+    if (error is TotpUnavailableException) return true;
+    if (error is AuthApiException) {
+      if (error.code == 'mfa_totp_enroll_not_enabled') return true;
+      final msg = error.message.toLowerCase();
+      if (msg.contains('totp') &&
+          (msg.contains('not enabled') || msg.contains('disabled'))) {
+        return true;
+      }
+    }
+    final s = error.toString().toLowerCase();
+    return s.contains('mfa_totp_enroll_not_enabled') ||
+        s.contains('enroll is disabled');
   }
 
   /// Confirm enrollment (and complete the login challenge when signing in)

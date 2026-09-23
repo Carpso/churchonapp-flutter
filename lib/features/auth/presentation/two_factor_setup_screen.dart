@@ -18,6 +18,7 @@ class _TwoFactorSetupScreenState extends ConsumerState<TwoFactorSetupScreen> {
   String _verificationCode = '';
   bool _isVerified = false;
   bool _isLoading = true;
+  bool _totpUnavailable = false;
 
   @override
   void initState() {
@@ -27,22 +28,39 @@ class _TwoFactorSetupScreenState extends ConsumerState<TwoFactorSetupScreen> {
 
   Future<void> _init2fa() async {
     final service = ref.read(twoFactorServiceProvider);
-    final enabled = await service.is2faEnabled();
+    try {
+      final enabled = await service.is2faEnabled();
 
-    if (enabled) {
-      setState(() {
-        _isVerified = true;
-        _isLoading = false;
-      });
-    } else {
-      // Enroll server-side — the secret never touches the client DB.
-      final enrollResponse = await service.enroll();
-      setState(() {
-        _factorId = enrollResponse.id;
-        _qrData = enrollResponse.totp?.qrCode;
-        _manualSecret = enrollResponse.totp?.secret;
-        _isLoading = false;
-      });
+      if (enabled) {
+        setState(() {
+          _isVerified = true;
+          _isLoading = false;
+        });
+      } else {
+        // Enroll server-side — the secret never touches the client DB.
+        final enrollResponse = await service.enroll();
+        if (!mounted) return;
+        setState(() {
+          _factorId = enrollResponse.id;
+          _qrData = enrollResponse.totp?.qrCode;
+          _manualSecret = enrollResponse.totp?.secret;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      // TOTP is disabled at the project level — this is not a user error.
+      if (TwoFactorService.isTotpUnavailableError(e)) {
+        setState(() {
+          _totpUnavailable = true;
+          _isLoading = false;
+        });
+        return;
+      }
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Could not start 2FA setup: $e"), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -91,15 +109,27 @@ class _TwoFactorSetupScreenState extends ConsumerState<TwoFactorSetupScreen> {
     if (confirm == true) {
       await ref.read(twoFactorServiceProvider).disable2fa();
       // Re-enroll a fresh factor for the setup flow.
-      final enrollResponse =
-          await ref.read(twoFactorServiceProvider).enroll();
-      setState(() {
-        _isVerified = false;
-        _factorId = enrollResponse.id;
-        _qrData = enrollResponse.totp?.qrCode;
-        _manualSecret = enrollResponse.totp?.secret;
-        _verificationCode = '';
-      });
+      try {
+        final enrollResponse =
+            await ref.read(twoFactorServiceProvider).enroll();
+        setState(() {
+          _isVerified = false;
+          _factorId = enrollResponse.id;
+          _qrData = enrollResponse.totp?.qrCode;
+          _manualSecret = enrollResponse.totp?.secret;
+          _verificationCode = '';
+        });
+      } catch (e) {
+        if (!mounted) return;
+        if (TwoFactorService.isTotpUnavailableError(e)) {
+          setState(() {
+            _isVerified = false;
+            _totpUnavailable = true;
+          });
+          return;
+        }
+        rethrow;
+      }
     }
   }
 
@@ -155,7 +185,36 @@ class _TwoFactorSetupScreenState extends ConsumerState<TwoFactorSetupScreen> {
                 style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 13),
             ),
             const SizedBox(height: 40),
-            if (!_isVerified) ...[
+            if (_totpUnavailable) ...[
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(LucideIcons.lock, color: Colors.orange, size: 40),
+                    const SizedBox(height: 12),
+                    Text(
+                      TotpUnavailableException.userMessage,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'A superadmin must enable TOTP in Supabase → Authentication → Multi-Factor Auth. This cannot be turned on from inside the app.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (!_isVerified) ...[
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(

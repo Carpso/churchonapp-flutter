@@ -30,7 +30,11 @@ class _KycVerificationScreenState extends ConsumerState<KycVerificationScreen> {
 
   /// Recovers photos captured by the system camera app if Android killed
   /// this activity while the camera was open (common cause of "not capturing").
+  /// `retrieveLostData()` is an Android/iOS-only API — on web it throws
+  /// `UnimplementedError: getLostData() has not been implemented`, so it must
+  /// never be called there (guarded below, plus a defensive try/catch).
   Future<void> _retrieveLostCaptures() async {
+    if (kIsWeb) return;
     try {
       final response = await _picker.retrieveLostData();
       if (response.isEmpty || response.file == null) return;

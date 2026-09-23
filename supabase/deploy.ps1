@@ -364,6 +364,7 @@ $migrations = @(
       "20261226_worship_setlists.sql"
       "20261227_payment_reconciliation_dunning.sql"
       "20261228_payment_port_hardening.sql"
+      "20261229_event_ticketing_v2.sql"
       )
 
 

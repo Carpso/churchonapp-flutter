@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
+
 import 'package:church_on_app/core/widgets/app_image.dart';
-import 'package:church_on_app/features/events/data/event_service.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/error_retry_widget.dart';
-import 'package:church_on_app/features/modules/events/presentation/ticket_detail_screen.dart';
+import 'package:church_on_app/features/events/data/event_ticketing_service.dart';
+import 'package:church_on_app/features/modules/events/presentation/event_eticket_screen.dart';
 
 class MyTicketsTab extends ConsumerWidget {
   final VoidCallback onBrowseEvents;
@@ -14,7 +15,7 @@ class MyTicketsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final myTicketsAsync = ref.watch(myTicketsStreamProvider);
+    final myTicketsAsync = ref.watch(myEventTicketsProvider);
 
     return myTicketsAsync.when(
       data: (tickets) => tickets.isEmpty
@@ -24,7 +25,7 @@ class MyTicketsTab extends ConsumerWidget {
                 children: [
                   Icon(LucideIcons.ticket, size: 80, color: Colors.grey.withValues(alpha: 0.3)),
                   const SizedBox(height: 20),
-                  const Text("No active tickets", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  const Text("No tickets yet", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
                   const SizedBox(height: 10),
                   ElevatedButton(
                     onPressed: onBrowseEvents,
@@ -38,28 +39,45 @@ class MyTicketsTab extends ConsumerWidget {
               ),
             )
           : RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(myTicketsStreamProvider);
-              },
+              onRefresh: () async => ref.invalidate(myEventTicketsProvider),
               child: ListView.builder(
                 padding: const EdgeInsets.all(20),
                 itemCount: tickets.length,
-                itemBuilder: (context, index) => _buildSimpleTicketCard(context, tickets[index]),
+                itemBuilder: (context, index) => _buildTicketCard(context, tickets[index]),
               ),
             ),
       loading: () => const _TicketSkeleton(),
       error: (err, stack) => ErrorRetryWidget(
         message: "Failed to load your tickets",
-        onRetry: () => ref.invalidate(myTicketsStreamProvider),
+        onRetry: () => ref.invalidate(myEventTicketsProvider),
       ),
     );
   }
 
-  Widget _buildSimpleTicketCard(BuildContext context, ChurchEvent event) {
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'valid':
+        return Colors.green;
+      case 'used':
+        return Colors.blue;
+      case 'pending':
+        return Colors.orange;
+      case 'refunded':
+      case 'cancelled':
+        return Colors.red;
+      case 'transferred':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Widget _buildTicketCard(BuildContext context, EventTicket ticket) {
+    final color = _statusColor(ticket.status);
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => TicketDetailScreen(event: event)),
+        MaterialPageRoute(builder: (_) => EventEticketScreen(ticketId: ticket.id)),
       ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 15),
@@ -74,7 +92,7 @@ class MyTicketsTab extends ConsumerWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: AppImage(
-                event.imageUrl,
+                ticket.eventImageUrl ?? '',
                 width: 60,
                 height: 60,
                 fit: BoxFit.cover,
@@ -92,8 +110,22 @@ class MyTicketsTab extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(event.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text(DateFormat.yMMMd().format(event.date), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  Text(ticket.eventTitle ?? 'Event', style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if (ticket.eventDate != null) DateFormat.yMMMd().format(ticket.eventDate!),
+                      ticket.tierName ?? 'General',
+                    ].join('  •  '),
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+                    child: Text(ticket.status.toUpperCase(),
+                        style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10)),
+                  ),
                 ],
               ),
             ),
