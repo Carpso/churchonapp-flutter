@@ -25,7 +25,7 @@
 
 ### Housekeeping
 - Full-Africa z15 extract from `build.protomaps.com` failed 5x from this machine (HTTP/2 PROTOCOL_ERROR, TCP timeouts, throttling) and old daily builds 404 - **run multi-GB extracts on a cloud VM next to the data and push straight to R2**. Garbage cleaned (D: 174 GB free).
-- Releases: APK **v1.0.0+345** (221.6 MB) / AAB **v1.0.0+346** (127 MB) on R2 with `latest.json`; superseded builds pruned. Web redeployed.
+- Releases: APK **v1.0.0+345** (221.6 MB) / AAB **v1.0.0+346** (127 MB), superseded builds pruned; then a fresh clean build after this session's chat/map/ticketing work: **APK v1.0.0+347 (223.0 MB) / AAB v1.0.0+348 (127.6 MB)** on R2 with `latest.json` updated. Web redeployed (196034fc.churchonapp.pages.dev).
 
 
 ## Unreleased — 2026-09-14 (Home white-screen root cause, broken images, sermon playback, Cloudflare VOD)
