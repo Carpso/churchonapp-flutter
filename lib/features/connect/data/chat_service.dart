@@ -407,9 +407,9 @@ class ChatService {
       final preview = content.length > 50 ? '${content.substring(0, 50)}...' : content;
       // Fetch group members (best-effort — fail silently if table/columns missing)
       final members = await _client
-          .from('community_members')
+          .from('community_group_members')
           .select('user_id')
-          .eq('community_id', groupId)
+          .eq('group_id', groupId)
           .neq('user_id', sender.id)
           .limit(200);
       for (final m in (members as List)) {

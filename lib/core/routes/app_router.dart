@@ -182,6 +182,7 @@ import 'package:church_on_app/features/modules/church_website/presentation/churc
 import 'package:church_on_app/features/modules/church_website/presentation/public_church_website_screen.dart';
 import 'package:church_on_app/features/modules/crm_donor_management/presentation/crm_donor_screen.dart';
 import 'package:church_on_app/features/modules/events/presentation/event_ticket_scanner_screen.dart';
+import 'package:church_on_app/features/modules/events/presentation/event_by_id_screens.dart';
 import 'package:church_on_app/features/modules/events/presentation/ticket_detail_screen.dart';
 import 'package:church_on_app/features/modules/jobs/presentation/my_applications_screen.dart';
 import 'package:church_on_app/features/modules/jobs/presentation/my_jobs_screen.dart';
@@ -496,6 +497,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             route == '/ride-scanner' ||
             route.startsWith('/events/ticket-scanner')) {
           return user.isAdminOrHigher || user.role == 'usher';
+        }
+
+        // Event host ticketing console (tier management) — leadership only.
+        // Buying (`/events/:id/tickets`) and viewing a ticket (`/ticket/:id`)
+        // stay open to any signed-in member.
+        if (route.startsWith('/events/') && route.endsWith('/manage-tickets')) {
+          return user.isAdminOrHigher || user.isLeadershipTeam;
         }
 
         // Logistics (Driver / Rider / Employee)
@@ -1490,6 +1498,31 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final event = state.extra as ChurchEvent;
           return TicketDetailScreen(event: event);
+        },
+      ),
+      // Deep link used by the e-ticket QR (`…/ticket/<id>`). Resolves the
+      // ticket by id — it must never need a `ChurchEvent` extra.
+      GoRoute(
+        path: '/ticket/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return TicketByIdScreen(ticketId: id);
+        },
+      ),
+      // Buy screen reached by event id (share links / "My Tickets").
+      GoRoute(
+        path: '/events/:id/tickets',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return BuyTicketByIdScreen(eventId: id);
+        },
+      ),
+      // Host tier manager reached by event id.
+      GoRoute(
+        path: '/events/:id/manage-tickets',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return ManageTicketsByIdScreen(eventId: id);
         },
       ),
       GoRoute(

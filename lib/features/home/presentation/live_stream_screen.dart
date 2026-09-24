@@ -250,6 +250,28 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
 
   bool get _isLiveRow => _rowStatus == 'live';
 
+  /// Chat is read-only once the broadcast is over (or we are replaying a
+  /// recording) — an ended stream must never keep accepting/merging messages.
+  bool get _chatClosed =>
+      _rowStatus == 'ended' || _rowStatus == 'archived' || _isReplay;
+
+  /// The stream whose chat we show: the resolved row id, else the caller's id.
+  String? get _chatStreamId {
+    final id = _effectiveStreamId ?? widget.streamId;
+    return (id == null || id.isEmpty) ? null : id;
+  }
+
+  @override
+  void didUpdateWidget(covariant LiveStreamScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.streamId != widget.streamId) {
+      // Switching broadcasts clears chat state immediately.
+      _effectiveStreamId = widget.streamId;
+      _chatCtrl.clear();
+      if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(0);
+    }
+  }
+
   Future<void> _initializePlayer({String? overrideUrl}) async {
     final url =
         (overrideUrl ?? _resolvedPlaybackUrl ?? widget.streamUrl).trim();
@@ -1240,13 +1262,16 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   // ---------------------------------------------------------------------------
 
   Widget _buildChatMessages(ThemeData theme, Tenant? tenant) {
-    if (tenant == null) {
+    final streamId = _chatStreamId;
+    if (streamId == null) {
       return Center(
-          child: Text("Select a church to chat",
-              style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5))));
+          child: Text("Chat will appear when the broadcast starts",
+              style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  fontSize: 12)));
     }
 
-    final chatAsync = ref.watch(liveChatStreamProvider(tenant.id));
+    final chatAsync = ref.watch(liveChatStreamProvider(streamId));
 
     return chatAsync.when(
       data: (messages) {
@@ -1364,6 +1389,26 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     final textColor = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
     final hintColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
+    if (_chatClosed) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: fieldBg,
+          borderRadius: BorderRadius.circular(25),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(LucideIcons.videoOff, size: 16, color: hintColor),
+            const SizedBox(width: 8),
+            Text("This stream has ended",
+                style: TextStyle(color: hintColor, fontSize: 12)),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -1401,7 +1446,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   }
 
   Future<void> _handleSendMessage(Tenant? tenant) async {
-    if (tenant == null || _chatCtrl.text.trim().isEmpty) return;
+    final streamId = _chatStreamId;
+    if (tenant == null ||
+        streamId == null ||
+        _chatClosed ||
+        _chatCtrl.text.trim().isEmpty) {
+      return;
+    }
 
     final profile = ref.read(profileProvider).value;
     if (profile == null) return;
@@ -1410,6 +1461,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
 
     try {
       await ref.read(liveChatServiceProvider).sendLiveMessage(
+            streamId: streamId,
             tenantId: tenant.id,
             content: message,
             userName: profile.name,

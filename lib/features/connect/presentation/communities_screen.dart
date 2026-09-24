@@ -57,6 +57,9 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
   }
 
   void _watchPresence(List<Map<String, dynamic>> members) {
+    // `ref` is unsafe once the widget is deactivated (Crashlytics:
+    // "Using ref when a widget is about to or has been unmounted").
+    if (!mounted) return;
     _presenceSub?.cancel();
     final ids = members
         .map((m) => m['id']?.toString())

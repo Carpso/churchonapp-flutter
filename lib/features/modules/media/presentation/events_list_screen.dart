@@ -193,10 +193,22 @@ class EventsListScreen extends ConsumerWidget {
         ),
       );
     } else if (action == 'reserve') {
-      final service = ref.read(eventServiceProvider);
-      await service.registerForEvent(event.id);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Apostolic Ticket successfully registered!")));
+      // registerForEvent throws when the user is already registered / RLS
+      // denies the write. Awaiting it without a guard made every repeat tap an
+      // uncaught async exception (red screen), so handle it here.
+      try {
+        final service = ref.read(eventServiceProvider);
+        await service.registerForEvent(event.id);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Apostolic Ticket successfully registered!")));
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(e.toString().replaceAll("Exception: ", "")),
+            backgroundColor: Colors.orange,
+          ));
+        }
       }
     }
   }

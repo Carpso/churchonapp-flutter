@@ -447,7 +447,7 @@ async function createLiveInput(params: any, corsHeaders: Record<string, string>)
   );
 }
 
-// Cloudflare live-input statuses that mean mediamtx is actively receiving.
+// Cloudflare live-input statuses that mean an ingest is actively connected.
 const LIVE_INPUT_CONNECTED_STATUSES = [
   "connected",
   "reconnected",
@@ -667,10 +667,25 @@ async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<
   });
 
   // Persist the authoritative surface (service role) so every later viewer gets
-  // a valid URL without another round-trip. A null `hls` CLEARS a previously
-  // fabricated HLS URL — that dead URL is what made viewers never play.
+  // a valid URL without another round-trip.
+  //
+  // HLS handling: `base.hls` is only set when Cloudflare is really emitting an
+  // adaptive manifest (the input's live VIDEO exists). When the input is
+  // CONNECTED but no live video exists, the ingest is WHIP — which Cloudflare
+  // never publishes as HLS/DASH — so we CLEAR any previously stored (fabricated)
+  // `hls_url`; that dead URL is exactly what made viewers never play. While the
+  // input is idle/starting we keep whatever we had (we cannot yet tell the
+  // ingest type apart and must not break an in-flight RTMPS stream).
   const patch: Record<string, unknown> = {};
-  if (base.hls !== row.hls_url) patch.hls_url = base.hls;
+  let finalHls = base.hls;
+  if (base.hls) {
+    if (base.hls !== row.hls_url) patch.hls_url = base.hls;
+  } else if (base.connected && !liveVideo) {
+    finalHls = null;
+    if (row.hls_url) patch.hls_url = null;
+  } else {
+    finalHls = row.hls_url ?? null;
+  }
   if (base.dash) patch.dash_url = base.dash;
   if (base.whep && base.whep !== row.preview_url) patch.preview_url = base.whep;
 
@@ -713,11 +728,11 @@ async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<
     input_status: base.input_status,
     connected: base.connected,
     enabled: base.enabled,
-    hls: base.hls,
+    hls: finalHls,
     dash: base.dash,
     preview: base.whep,
     whep: base.whep,
-    mode: base.connected ? base.mode : "idle",
+    mode: base.connected ? (finalHls ? "hls" : "webrtc") : "idle",
     recording_hls: recordingHls,
     cloudflare_video_id: patch.cloudflare_video_id ?? row.cloudflare_video_id ?? null,
   });

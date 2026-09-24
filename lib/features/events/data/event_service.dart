@@ -41,12 +41,16 @@ class ChurchEvent {
       title: map['title'] ?? '',
       description: map['description'] ?? '',
       location: map['location'] ?? '',
-      date: DateTime.parse(map['date'] ?? DateTime.now().toIso8601String()),
+      // `date` is nullable/blank in legacy rows — an unguarded DateTime.parse
+      // threw a FormatException and took down the whole community Events list.
+      date: DateTime.tryParse(map['date']?.toString() ?? '') ?? DateTime.now(),
       imageUrl: map['image_url'] ?? '',
-      ticketPrice: (map['ticket_price'] ?? 0).toDouble(),
-      attendeeCount: map['attendee_count'] ?? 0,
+      ticketPrice: (map['ticket_price'] as num?)?.toDouble() ?? 0,
+      attendeeCount: (map['attendee_count'] as num?)?.toInt() ?? 0,
       category: map['category'] ?? 'General',
-      endDate: map['end_date'] != null ? DateTime.parse(map['end_date']) : null,
+      endDate: map['end_date'] != null
+          ? DateTime.tryParse(map['end_date'].toString())
+          : null,
       speakers: map['speakers'] ?? '',
       organizerMomoPhone: map['organizer_momo_phone'] ?? '',
       organizerMomoName: map['organizer_momo_name'] ?? '',

@@ -367,6 +367,8 @@ $migrations = @(
       "20261229_event_ticketing_v2.sql"
       "20261230_dead_unsplash_poster_cleanup.sql"
       "20261231_one_active_stream_per_church.sql"
+      "20261232_community_events.sql"
+      "20261233_stream_chat_isolation.sql"
       )
 
 

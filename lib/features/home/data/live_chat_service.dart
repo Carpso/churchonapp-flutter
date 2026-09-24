@@ -39,13 +39,16 @@ class LiveChatService {
 
   LiveChatService(this._client);
 
-  Stream<List<LiveChatMessage>> streamLiveMessages(String tenantId) {
+  /// Messages for ONE broadcast. The realtime channel is filtered by
+  /// `stream_id` so an insert on any other stream never reaches this screen —
+  /// this is what stops an ended stream's chat leaking into the next one.
+  Stream<List<LiveChatMessage>> streamLiveMessages(String streamId) {
     final currentUserId = _client.auth.currentUser?.id ?? '';
 
     return _client
         .from('live_chat_messages')
         .stream(primaryKey: ['id'])
-        .eq('tenant_id', tenantId)
+        .eq('stream_id', streamId)
         .limit(50)
         .map((data) => data
             .map((map) => LiveChatMessage.fromMap(map, currentUserId))
@@ -55,6 +58,7 @@ class LiveChatService {
   }
 
   Future<void> sendLiveMessage({
+    required String streamId,
     required String tenantId,
     required String content,
     required String userName,
@@ -64,6 +68,7 @@ class LiveChatService {
     if (user == null) return;
 
     await _client.from('live_chat_messages').insert({
+      'stream_id': streamId,
       'tenant_id': tenantId,
       'user_id': user.id,
       'user_name': userName,
@@ -78,7 +83,7 @@ final liveChatServiceProvider = Provider((ref) {
   return LiveChatService(client);
 });
 
-final liveChatStreamProvider = StreamProvider.family<List<LiveChatMessage>, String>((ref, tenantId) {
-  return ref.watch(liveChatServiceProvider).streamLiveMessages(tenantId);
+final liveChatStreamProvider = StreamProvider.family<List<LiveChatMessage>, String>((ref, streamId) {
+  return ref.watch(liveChatServiceProvider).streamLiveMessages(streamId);
 });
 
