@@ -18,6 +18,7 @@ import 'package:church_on_app/features/modules/live_streaming/data/live_stream_o
 import 'package:church_on_app/features/modules/live_streaming/data/live_stream_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/stream_analytics_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/presentation/stream_projector_screen.dart';
+import 'package:church_on_app/features/modules/live_streaming/presentation/widgets/existing_stream_dialog.dart';
 
 const kKjvBooks = [
   'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges',
@@ -506,6 +507,11 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       return;
     }
 
+    // ONE active stream per church: if another broadcast is already live for
+    // this church, offer to stop it (ends the row + stops its CF input) first.
+    final proceed = await confirmReplaceActiveStream(context, ref, tenantId);
+    if (!proceed || !mounted) return;
+
     setState(() {
       _isLoading = true;
       _streamStatus = "CONNECTING";
@@ -568,7 +574,11 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
         await LiveStreamingService(client).setLiveStatus(
           tenantId,
           true,
-          streamUrl: _hlsUrl,
+          // A WHIP broadcast has no HLS — surface the WHEP playback URL so the
+          // home LIVE indicator hands the viewer a playable link either way.
+          streamUrl: (_hlsUrl != null && _hlsUrl!.isNotEmpty)
+              ? _hlsUrl
+              : result.previewUrl,
           title: _streamTitle,
         );
       } catch (e) {

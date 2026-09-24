@@ -247,8 +247,8 @@ class UnifiedStreamService {
           'cloudflare_stream_id': streamId,
           'rtmp_url': rtmpUrl,
           'stream_key': streamKey,
-          'hls_url': hlsUrl,
-          'dash_url': dashUrl,
+          'hls_url': hlsUrl.isEmpty ? null : hlsUrl,
+          'dash_url': dashUrl.isEmpty ? null : dashUrl,
           'preview_url': previewUrl,
           'whip_url': whipUrl,
           'is_audio_only': audioOnly,
@@ -273,6 +273,73 @@ class UnifiedStreamService {
       whipUrl: whipUrl,
     );
   }
+
+  /// The church's current live stream row via the server-side RPC
+  /// `get_active_stream_for_church`. Mirrors the one-live-stream-per-church
+  /// guard so the client can offer a "stop it and start yours?" hand-off before
+  /// hitting the unique index.
+  Future<Map<String, dynamic>?> findActiveStreamForChurch(String churchId) async {
+    if (churchId.isEmpty) return null;
+    try {
+      final res = await _client.rpc(
+        'get_active_stream_for_church',
+        params: {'p_church_id': churchId},
+      );
+      if (res is Map) return Map<String, dynamic>.from(res);
+      if (res is List && res.isNotEmpty && res.first is Map) {
+        return Map<String, dynamic>.from(res.first as Map);
+      }
+    } catch (e) {
+      debugPrint('[Stream] get_active_stream_for_church failed (non-fatal): $e');
+    }
+    return null;
+  }
+
+  /// Enforces ONE active stream per church. Ends every other live row for the
+  /// church (server-side, `stop_other_streams`) and disables each stopped
+  /// Cloudflare live input so it can no longer ingest. Returns the number of
+  /// streams stopped. Throws `StreamLimitException` on an authorization error.
+  Future<int> stopOtherStreams({
+    required String churchId,
+    String? keepId,
+  }) async {
+    final res = await _client.rpc(
+      'stop_other_streams',
+      params: {
+        'p_church_id': churchId,
+        if (keepId != null && keepId.isNotEmpty) 'p_keep_id': keepId,
+      },
+    );
+
+    final stopped = <Map<String, dynamic>>[];
+    if (res is Map) {
+      final list = res['stopped'];
+      if (list is List) {
+        for (final e in list) {
+          if (e is Map) stopped.add(Map<String, dynamic>.from(e));
+        }
+      }
+    }
+
+    // Stop the Cloudflare ingestion too — an ended row must not keep receiving
+    // a broadcast (which would make the "another stream is live" state linger on
+    // Cloudflare's side and keep burning minutes).
+    for (final s in stopped) {
+      final inputId = s['cloudflare_stream_id']?.toString();
+      if (inputId == null || inputId.isEmpty) continue;
+      try {
+        await _client.functions.invoke(
+          'cloudflare-stream',
+          body: {'action': 'disable_live_input', 'input_id': inputId},
+          headers: _cloudflareHeaders(),
+        );
+      } catch (e) {
+        debugPrint('[Stream] Failed to disable stopped input (non-fatal): $e');
+      }
+    }
+    return stopped.length;
+  }
+
 
   /// Archives a finished Cloudflare Stream recording into R2 (the cheap master
   /// copy) by streaming it server-side — no VPS. The Edge Function updates the

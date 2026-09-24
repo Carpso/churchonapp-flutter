@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:chewie/chewie.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:video_player/video_player.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +22,7 @@ import 'package:church_on_app/features/admin/data/reporting_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/stream_analytics_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/live_stream_overlay_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/live_stream_service.dart';
+import 'package:church_on_app/features/modules/live_streaming/data/whep_playback.dart';
 import 'package:church_on_app/features/modules/live_streaming/presentation/stream_projector_screen.dart';
 import '../data/live_chat_service.dart';
 import '../../../core/providers/profile_provider.dart';
@@ -71,6 +73,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
 
   VideoPlayerController? _videoPlayerController;
   ChewieController? _chewieController;
+
+  /// WebRTC (WHEP) playback. A WHIP-published broadcast is never emitted as
+  /// HLS/DASH by Cloudflare, so its only playable transport is WHEP.
+  WhepPlayback? _whep;
+
+  /// The row's WHEP endpoint (`preview_url`), when the broadcast is WebRTC.
+  String? _whepUrl;
 
   _PlayerPhase _phase = _PlayerPhase.loading;
   Timer? _initWatchdog;
@@ -133,6 +142,11 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     return u.startsWith('http://') || u.startsWith('https://');
   }
 
+  /// A WHEP endpoint (Cloudflare `…/<input_uid>/webRTC/play`). Played through
+  /// the WebRTC renderer, never through `video_player`.
+  bool _isWhepUrl(String url) =>
+      url.trim().toLowerCase().contains('/webrtc/play');
+
   /// The viewer may be opened with a stale/empty URL (e.g. a push notification
   /// or a home card carrying only the tenant). Resolve the real playback URL
   /// from the row before handing it to the player.
@@ -180,14 +194,19 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
         if (info != null && info.success) {
           _inputConnected = info.connected;
           final hls = info.hlsUrl;
+          final whep = info.whepUrl;
           final recording = info.recordingHlsUrl;
           final isEnded = _rowStatus == 'ended' || _rowStatus == 'archived';
+          if (whep != null && _isValidUrl(whep)) _whepUrl = whep;
           if (isEnded && recording != null && _isValidUrl(recording)) {
             // Live manifest is gone for a finished service — play the recording.
             _resolvedPlaybackUrl = recording;
             _isReplay = true;
           } else if (hls != null && _isValidUrl(hls)) {
             _resolvedPlaybackUrl = hls;
+          } else if (whep != null && _isValidUrl(whep)) {
+            // WHIP broadcast: no HLS/DASH is ever produced — play WHEP.
+            _resolvedPlaybackUrl = whep;
           } else if (recording != null && _isValidUrl(recording)) {
             _resolvedPlaybackUrl = recording;
             _isReplay = true;
@@ -205,6 +224,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     final hls = row['hls_url']?.toString() ?? '';
     final recording = row['recording_hls_url']?.toString() ?? '';
     final archive = row['archive_url']?.toString() ?? '';
+    // The WHEP endpoint is what a WHIP (phone-camera) broadcast plays from.
+    final preview = row['preview_url']?.toString() ?? '';
+    if (_isValidUrl(preview)) _whepUrl = preview;
     final isEnded =
         _rowStatus == 'ended' || _rowStatus == 'archived';
     // An ended/archived stream's live-input manifest (`hls_url`) returns 204,
@@ -215,6 +237,8 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
       _isReplay = true;
     } else if (_isValidUrl(hls)) {
       _resolvedPlaybackUrl = hls;
+    } else if (_isValidUrl(preview)) {
+      _resolvedPlaybackUrl = preview;
     } else if (_isValidUrl(recording)) {
       _resolvedPlaybackUrl = recording;
       _isReplay = true;
@@ -229,6 +253,16 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   Future<void> _initializePlayer({String? overrideUrl}) async {
     final url =
         (overrideUrl ?? _resolvedPlaybackUrl ?? widget.streamUrl).trim();
+
+    // A WHIP (phone-camera) broadcast is played over WHEP — Cloudflare never
+    // emits HLS/DASH for it. Prefer the row's WHEP endpoint when the candidate
+    // URL is a WHEP endpoint or when we have no playable HLS at all.
+    final whepCandidate =
+        _isWhepUrl(url) ? url : (_isValidUrl(_whepUrl ?? '') ? _whepUrl! : null);
+    if (whepCandidate != null && (_isWhepUrl(url) || !_isValidUrl(url))) {
+      await _startWhep(whepCandidate);
+      return;
+    }
 
     if (!_isValidUrl(url)) {
       debugPrint('LiveStream: refusing invalid stream URL: "$url"');
@@ -248,8 +282,10 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     // Tear down any previous attempt before starting a new one.
     final oldChewie = _chewieController;
     final oldVideo = _videoPlayerController;
+    final oldWhep = _whep;
     _chewieController = null;
     _videoPlayerController = null;
+    _whep = null;
     _retryTimer?.cancel();
     try {
       oldChewie?.dispose();
@@ -258,6 +294,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
       oldVideo?.removeListener(_onPlayerChanged);
       oldVideo?.dispose();
     } catch (_) {}
+    if (oldWhep != null) unawaited(oldWhep.dispose());
 
     try {
       final controller = VideoPlayerController.networkUrl(Uri.parse(url));
@@ -283,6 +320,61 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     } catch (e) {
       _initWatchdog?.cancel();
       debugPrint('LiveStream init error: $e');
+      await _handlePlaybackFailure();
+    }
+  }
+
+  /// Starts WebRTC (WHEP) playback for a WHIP-published broadcast. This is the
+  /// ONLY playable path for a phone-camera stream — its HLS manifest never
+  /// exists, so it must not be routed through `video_player`.
+  Future<void> _startWhep(String whepUrl) async {
+    _initWatchdog?.cancel();
+    _waitingTimer?.cancel();
+    _retryTimer?.cancel();
+
+    final oldChewie = _chewieController;
+    final oldVideo = _videoPlayerController;
+    final oldWhep = _whep;
+    _chewieController = null;
+    _videoPlayerController = null;
+    _whep = null;
+    try {
+      oldChewie?.dispose();
+    } catch (_) {}
+    try {
+      oldVideo?.removeListener(_onPlayerChanged);
+      oldVideo?.dispose();
+    } catch (_) {}
+    if (oldWhep != null) unawaited(oldWhep.dispose());
+
+    if (mounted) {
+      setState(() {
+        _phase = _PlayerPhase.loading;
+        _reconnecting = false;
+      });
+    }
+    _startWatchdog();
+
+    final whep = WhepPlayback();
+    _whep = whep;
+    _resolvedPlaybackUrl = whepUrl;
+    try {
+      await whep.connect(whepUrl);
+      _initWatchdog?.cancel();
+      if (!mounted) return;
+      setState(() {
+        _phase = _PlayerPhase.ready;
+        _isReplay = false;
+        _reconnecting = false;
+        _autoRetries = 0;
+        _totalFailures = 0;
+        _statusNote = null;
+      });
+    } catch (e) {
+      _initWatchdog?.cancel();
+      debugPrint('WHEP playback error: $e');
+      await whep.dispose();
+      if (_whep == whep) _whep = null;
       await _handlePlaybackFailure();
     }
   }
@@ -529,6 +621,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     _videoPlayerController?.removeListener(_onPlayerChanged);
     _videoPlayerController?.dispose();
     _chewieController?.dispose();
+    final whep = _whep;
+    _whep = null;
+    if (whep != null) unawaited(whep.dispose());
     _chatCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
@@ -783,6 +878,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
       case _PlayerPhase.error:
         return _buildErrorState();
       case _PlayerPhase.ready:
+        final whep = _whep;
+        if (whep != null) {
+          return RTCVideoView(
+            whep.renderer,
+            objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
+          );
+        }
         final chewie = _chewieController;
         if (chewie != null && chewie.videoPlayerController.value.isInitialized) {
           return Chewie(controller: chewie);
@@ -837,6 +939,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   Widget _healthChip() {
     if (_reconnecting) {
       return _chip('RECONNECTING…', Colors.orangeAccent);
+    }
+    if (_whep != null) {
+      return _chip('LIVE · WEBRTC', Colors.white70);
     }
     final value = _videoPlayerController?.value;
     if (value == null) return _chip('CONNECTING…', Colors.white70);

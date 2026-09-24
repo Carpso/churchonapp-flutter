@@ -179,6 +179,10 @@ class LiveStreamService {
           recordingHlsUrl: _asString(m['recording_hls']),
           cloudflareVideoId: _asString(m['cloudflare_video_id']),
           dashUrl: _asString(m['dash']),
+          // WHEP is the ONLY playable transport for a WHIP (phone-camera)
+          // broadcast — Cloudflare never emits HLS/DASH for WebRTC ingests.
+          whepUrl: _asString(m['whep']) ?? _asString(m['preview']),
+          mode: _asString(m['mode']),
           inputStatus: _asString(m['input_status']),
           connected: m['connected'] == true,
           enabled: m['enabled'] == true,
@@ -374,6 +378,15 @@ class LiveStreamPlaybackInfo {
   final String? cloudflareVideoId;
   final String? dashUrl;
 
+  /// WHEP endpoint (`…/<input_uid>/webRTC/play`). The only playable transport
+  /// for a WHIP (phone-camera) broadcast, which Cloudflare never emits as
+  /// HLS/DASH. `null` for an RTMPS/SRT broadcast (use [hlsUrl]).
+  final String? whepUrl;
+
+  /// `hls` when Cloudflare is emitting a real adaptive manifest, `webrtc` when
+  /// only WHEP is playable, `idle` when the input is not connected.
+  final String? mode;
+
   /// Cloudflare live-input status: connected/reconnecting/client_disconnect…
   final String? inputStatus;
   final bool connected;
@@ -388,6 +401,8 @@ class LiveStreamPlaybackInfo {
     this.recordingHlsUrl,
     this.cloudflareVideoId,
     this.dashUrl,
+    this.whepUrl,
+    this.mode,
     this.inputStatus,
     this.connected = false,
     this.enabled = false,

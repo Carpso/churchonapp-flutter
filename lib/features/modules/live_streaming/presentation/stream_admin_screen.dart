@@ -11,6 +11,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:church_on_app/core/services/unified_stream_service.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
 import 'package:church_on_app/features/modules/live_streaming/presentation/stream_projector_screen.dart';
+import 'package:church_on_app/features/modules/live_streaming/presentation/widgets/existing_stream_dialog.dart';
 
 /// Church admin streaming dashboard with trial limits
 /// Shows usage, stream key, go live, and upgrade prompt
@@ -839,6 +840,12 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
   }
 
   void _startStream() async {
+    // ONE active stream per church: if another broadcast is already live for
+    // this church, offer to stop it (ends the row + stops its CF input) first.
+    final proceed =
+        await confirmReplaceActiveStream(context, ref, widget.tenantId);
+    if (!proceed || !mounted) return;
+
     final titleController = TextEditingController(text: 'Sunday Service');
 
     await showDialog(

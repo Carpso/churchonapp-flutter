@@ -156,9 +156,22 @@ serve(async (req) => {
         return await disableLiveInput(params, corsHeaders);
       }
       case "get_live_input": {
-        if (!params?.input_id || !(await ownsStream(supabaseAuth, params.input_id, profile))) {
+        const inputId = params?.input_id as string | undefined;
+        const streamId = params?.stream_id as string | undefined;
+        // Leadership-only: a leader may inspect their own input (or any input as
+        // superadmin/COA). When a stream_id is supplied we reconcile + persist
+        // the authoritative playback surface on the row.
+        if (inputId && !(await ownsStream(supabaseAuth, inputId, profile))) {
           return new Response(JSON.stringify({ error: "Not authorized to view this input" }), {
             status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (streamId) {
+          return await refreshLiveInput(supabaseAuth, { stream_id: streamId }, corsHeaders);
+        }
+        if (!inputId) {
+          return new Response(JSON.stringify({ error: "input_id or stream_id is required" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
         return await getLiveInput(params, corsHeaders);
@@ -415,33 +428,90 @@ async function createLiveInput(params: any, corsHeaders: Record<string, string>)
     );
   }
 
-  // Live input responses usually include `playback.hls`, but older inputs /
-  // WHIP-only inputs may omit it while still exposing a WebRTC playback URL.
-  // Derive the standard HLS manifest from that so OBS/RTMPS streams remain
-  // watchable. (Note: the WebRTC playback path ends `/webRTC/play`, NOT
-  // `/webRTC/playback` — the old replace produced `.../manifest/video.m3u8/play`.)
+  // IMPORTANT — do NOT fabricate an HLS URL here.
+  //
+  // A Cloudflare live-input create/retrieve response has NO `playback` object;
+  // the authoritative HLS/DASH manifests only exist on the input's currently
+  // live VIDEO, and they are produced ONLY for RTMPS/SRT ingests. A WHIP
+  // (WebRTC) broadcast is neither recorded nor published as HLS/DASH by
+  // Cloudflare, so `…/<input_uid>/manifest/video.m3u8` returns HTTP 204 for the
+  // entire broadcast. The old code rewrote the WebRTC playback URL into an HLS
+  // URL and stored it — a URL that can never play, which is exactly why viewers
+  // sat on "Stream is starting…" forever. For a WHIP broadcast the playable URL
+  // is the WHEP endpoint (`webRTCPlayback.url`). Surfaced from
+  // `normaliseLiveInput` / `refresh_live_input` instead.
   const result = data.result ?? {};
-  const playback = deriveLivePlayback(result);
-  if (!result.playback) result.playback = {};
-  if (playback.hls && !result.playback.hls) result.playback.hls = playback.hls;
-  if (playback.dash && !result.playback.dash) result.playback.dash = playback.dash;
-
   return new Response(
     JSON.stringify(result),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 }
 
-// Normalises a Cloudflare live-input result into playable manifest URLs.
-function deriveLivePlayback(result: any): { hls?: string; dash?: string; preview?: string } {
-  const hls = result?.playback?.hls ?? result?.hls ?? undefined;
-  const dash = result?.playback?.dash ?? result?.dash ?? undefined;
-  const webrtc = result?.webRTCPlayback?.url ?? result?.preview ?? undefined;
-  let derived = hls;
-  if (!derived && webrtc) {
-    derived = String(webrtc).replace(/\/webRTC\/(play|playback)\/?$/, "/manifest/video.m3u8");
+// Cloudflare live-input statuses that mean mediamtx is actively receiving.
+const LIVE_INPUT_CONNECTED_STATUSES = [
+  "connected",
+  "reconnected",
+  "reconnecting",
+  "new_configuration_accepted",
+];
+
+function liveWhepUrl(result: any): string | undefined {
+  const u = result?.webRTCPlayback?.url ?? result?.preview ?? undefined;
+  return typeof u === "string" && u.length > 0 ? u : undefined;
+}
+
+// Normalises a Cloudflare live-input result into the authoritative playback
+// surface. `playback` (if supplied) must come from the input's live VIDEO —
+// pass it explicitly when known, otherwise HLS/DASH stay null and the caller
+// must use WHEP (`whep`) for a WHIP-ingested broadcast.
+function normaliseLiveInput(
+  result: any,
+  playback?: { hls?: string | null; dash?: string | null },
+) {
+  const hls = playback?.hls ?? result?.playback?.hls ?? null;
+  const dash = playback?.dash ?? result?.playback?.dash ?? null;
+  const whep = liveWhepUrl(result) ?? null;
+  const inputStatus = (result?.status as string | undefined) ?? null;
+  return {
+    input_status: inputStatus,
+    enabled: result?.enabled ?? null,
+    connected: !!inputStatus && LIVE_INPUT_CONNECTED_STATUSES.includes(inputStatus),
+    hls,
+    dash,
+    preview: whep,
+    whep,
+    // 'hls' when Cloudflare is emitting a real adaptive manifest (RTMPS/SRT
+    // broadcast), 'webrtc' when the only playable transport is WHEP.
+    mode: hls ? "hls" : "webrtc",
+  };
+}
+
+// Fetches the live input's currently-live VIDEO. Only RTMPS/SRT broadcasts
+// produce one; a WHIP broadcast is never recorded, so this returns null and the
+// caller falls back to WHEP.
+async function fetchLiveInputVideo(
+  inputId: string,
+): Promise<{ uid: string | null; hls: string | null; dash: string | null } | null> {
+  try {
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${inputId}/videos`,
+      { headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` } },
+    );
+    const j = await res.json().catch(() => null);
+    const list: any[] = Array.isArray(j?.result) ? j.result : [];
+    if (list.length === 0) return null;
+    const live =
+      list.find((v) => (v?.status?.state ?? "") === "live-inprogress") ??
+      list.find((v) => v?.readyToStream);
+    if (!live) return null;
+    return {
+      uid: live.uid ?? null,
+      hls: live.playback?.hls ?? live.hls ?? null,
+      dash: live.playback?.dash ?? live.dash ?? null,
+    };
+  } catch {
+    return null;
   }
-  return { hls: derived, dash, preview: webrtc };
 }
 
 async function deleteLiveInput(params: any, corsHeaders: Record<string, string>) {
@@ -495,6 +565,9 @@ async function disableLiveInput(params: any, corsHeaders: Record<string, string>
   );
 }
 
+// Leadership read of a live input, normalised to the authoritative playback
+// surface (`hls` only when Cloudflare is really emitting HLS/DASH, otherwise
+// `whep` for a WHIP broadcast). Does not persist.
 async function getLiveInput(params: any, corsHeaders: Record<string, string>) {
   const response = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${params.input_id}`,
@@ -506,16 +579,32 @@ async function getLiveInput(params: any, corsHeaders: Record<string, string>) {
   );
 
   const data = await response.json();
+  if (!data.success) {
+    const msg = data.errors?.[0]?.message || "Failed to fetch live input";
+    return new Response(
+      JSON.stringify({ success: false, error: msg, errors: data.errors ?? [] }),
+      { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  const result = data.result ?? {};
+  const liveVideo = await fetchLiveInputVideo(params.input_id);
+  const base = normaliseLiveInput(result, {
+    hls: liveVideo?.hls ?? null,
+    dash: liveVideo?.dash ?? null,
+  });
 
   return new Response(
-    JSON.stringify(data),
+    JSON.stringify({ success: true, uid: result.uid ?? null, ...base }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 }
 
 // Reconciles a `live_streams` row with Cloudflare's real live-input state.
 // The viewer calls this whenever playback fails so that:
-//   - a missing/stale `hls_url` is repaired from the live input, and
+//   - the authoritative playback surface is applied: HLS/DASH when the input's
+//     live video emits them (RTMPS/SRT), otherwise the WHEP URL (WHIP) — never a
+//     fabricated HLS URL that can only 204, and
 //   - the real state is surfaced: connected (genuinely live), not-yet-connected
 //     (starting/arming), or no input (scheduled without a Cloudflare input).
 // Any authenticated member may call it; it can never mutate anything except the
@@ -545,42 +634,51 @@ async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<
       input_status: null,
       connected: false,
       hls: row.hls_url ?? null,
+      dash: null,
+      preview: row.preview_url ?? null,
+      whep: row.preview_url ?? null,
+      mode: "idle",
       reason: "no_input",
     });
   }
 
-  let payload: any = null;
+  let result: any = null;
   try {
     const res = await fetch(
       `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${row.cloudflare_stream_id}`,
       { headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` } },
     );
-    payload = await res.json();
+    const payload = await res.json();
     if (!res.ok || !payload?.success) {
       const msg = payload?.errors?.[0]?.message || `Live input lookup failed (HTTP ${res.status})`;
       return json({ success: false, error: msg }, 502);
     }
+    result = payload.result ?? {};
   } catch (e) {
     return json({ success: false, error: e instanceof Error ? e.message : String(e) }, 502);
   }
 
-  const r = payload.result ?? {};
-  const playback = deriveLivePlayback(r);
-  const inputStatus = (r.status as string | undefined) ?? null;
-  const CONNECTED = ["connected", "reconnected", "reconnecting", "new_configuration_accepted"];
-  const connected = !!inputStatus && CONNECTED.includes(inputStatus);
+  // The live input object itself carries no playback object. HLS/DASH exist only
+  // on the input's currently-live video (RTMPS/SRT); WHIP broadcasts have none.
+  const liveVideo = await fetchLiveInputVideo(row.cloudflare_stream_id);
+  const base = normaliseLiveInput(result, {
+    hls: liveVideo?.hls ?? null,
+    dash: liveVideo?.dash ?? null,
+  });
 
-  // Persist repaired playback URLs (service role) so every later viewer gets a
-  // valid URL without another round-trip.
+  // Persist the authoritative surface (service role) so every later viewer gets
+  // a valid URL without another round-trip. A null `hls` CLEARS a previously
+  // fabricated HLS URL — that dead URL is what made viewers never play.
   const patch: Record<string, unknown> = {};
-  if (playback.hls && playback.hls !== row.hls_url) patch.hls_url = playback.hls;
-  if (playback.dash) patch.dash_url = playback.dash;
-  if (playback.preview) patch.preview_url = playback.preview;
+  if (base.hls !== row.hls_url) patch.hls_url = base.hls;
+  if (base.dash) patch.dash_url = base.dash;
+  if (base.whep && base.whep !== row.preview_url) patch.preview_url = base.whep;
+
   // Ended/archived streams: self-heal the RECORDING. The live-input manifest
-  // (`hls_url`) returns 204 once a broadcast ends, so a viewer opening a
-  // recorded service must get the recording's own video manifest. Resolve it
-  // once and persist `cloudflare_video_id` + `recording_hls_url`; the sermon
-  // sync trigger then repairs the corresponding Recorded Service sermon.
+  // returns 204 once a broadcast ends, so a viewer opening a recorded service
+  // must get the recording's own video manifest. Resolve it once and persist
+  // `cloudflare_video_id` + `recording_hls_url`; the sermon sync trigger then
+  // repairs the corresponding Recorded Service sermon.
   let recordingHls = row.recording_hls_url ?? null;
   if (
     ["ended", "archived"].includes(String(row.status ?? "")) &&
@@ -612,12 +710,14 @@ async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<
     success: true,
     id: row.id,
     status: row.status,
-    input_status: inputStatus,
-    connected,
-    enabled: r.enabled ?? null,
-    hls: playback.hls ?? row.hls_url ?? null,
-    dash: playback.dash ?? null,
-    preview: playback.preview ?? null,
+    input_status: base.input_status,
+    connected: base.connected,
+    enabled: base.enabled,
+    hls: base.hls,
+    dash: base.dash,
+    preview: base.whep,
+    whep: base.whep,
+    mode: base.connected ? base.mode : "idle",
     recording_hls: recordingHls,
     cloudflare_video_id: patch.cloudflare_video_id ?? row.cloudflare_video_id ?? null,
   });
