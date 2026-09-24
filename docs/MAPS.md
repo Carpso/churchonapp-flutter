@@ -1,6 +1,6 @@
 # Reusing the Church On App maps in other projects
 
-This documents how to reuse the map stack **in its current state** (2026-09-15).
+This documents how to reuse the map stack **in its current state** (2026-09-24).
 `church_map.dart` is still an in-app widget (not a published package), but the
 **basemap and all map assets are independent HTTP resources** that any project or
 stack can consume today.
@@ -11,17 +11,23 @@ stack can consume today.
 
 ### Basemap (vector PMTiles, self-hosted on R2)
 
-| Region | URL |
-|---|---|
-| Zambia | `https://maps.churchonapp.com/zambia.pmtiles` (612 MB) |
-| Zimbabwe | `https://maps.churchonapp.com/zimbabwe.pmtiles` (310 MB) |
+| Region | URL | Zoom | Notes |
+|---|---|---|---|
+| Southern Africa (ZM, ZW, MW, MZ) | `https://maps.churchonapp.com/region-zm-zw-mw-mz.pmtiles` | 0–15 | 1433 MB, the base archive |
+| Lusaka / Ndola / Kitwe / Livingstone / Harare / Bulawayo | `https://maps.churchonapp.com/tiles/<city>-z13-19.pmtiles` | 13–19 | high-detail, built on demand |
 
-- Format: **PMTiles v3**, `tile_type = 1` (**vector / MVT**), zoom **0–15**,
-  internal + tile compression = gzip.
+The old `zambia.pmtiles` (612 MB) and `zimbabwe.pmtiles` (310 MB) were **deleted**
+— use `region-zm-zw-mw-mz.pmtiles`, which supersedes both.
+
+- Format: **PMTiles v3**, `tile_type = 1` (**vector / MVT**), internal + tile
+  compression = gzip.
 - Source schema: **Protomaps Basemap v4.13.6** — layers:
   `boundaries, buildings, earth, landcover, landuse, places, pois, roads, water`.
 - Bucket: `church-on-app-maps` · custom domain `maps.churchonapp.com`
 - **CORS: `*`** (with `Range` allowed) → usable from any origin, including browsers.
+- `tiles/latest.json` lists every live source (url, bbox, zoom range, bytes,
+  dated rollback URL) — read it if your client wants to discover sources
+  dynamically instead of hardcoding them.
 
 ### Map assets (label fonts + POI sprites)
 
@@ -64,7 +70,7 @@ const map = new maplibregl.Map({
 map.on('load', () => {
   map.addSource('coa', {
     type: 'vector',
-    url: 'pmtiles://https://maps.churchonapp.com/zambia.pmtiles',
+    url: 'pmtiles://https://maps.churchonapp.com/region-zm-zw-mw-mz.pmtiles',
   });
   // Point the style's `glyphs` at the self-hosted fonts if you style with the
   // Protomaps v4 layers:
@@ -106,8 +112,14 @@ latlong2, geolocator, geocoding, image_picker, shared_preferences,
 http, flutter_riverpod, supabase_flutter, lucide_icons, flutter_dotenv, cached_network_image
 ```
 
-Set the env keys: `MAPS_ZAMBIA_URL`, `MAPS_ZIMBABWE_URL`, `OSRM_BASE_URL`,
-`GEOCODING_BASE_URL`.
+Set the env keys: `MAPS_ZAMBIA_URL`, `MAPS_ZIMBABWE_URL`, `MAPS_EXTRA_SOURCES`,
+`OSRM_BASE_URL`, `GEOCODING_BASE_URL`.
+
+Copy the source-switching helper too — it is pure Dart, no Supabase/riverpod:
+
+```
+lib/core/widgets/maps/map_sources.dart   # MapSourceRegion + build/resolve helpers
+```
 
 **To turn it into a real package later** (`coa_maps`): move the widget + generated
 theme + assets into `packages/coa_maps`, add a `path:` dependency, and update
@@ -115,7 +127,129 @@ imports. That has not been done on purpose (a large, risky refactor).
 
 ---
 
-## 5. Regenerating the theme / assets
+## 5. Building high-detail city tiles
+
+The z0–15 regional archive cannot show building footprints. For city detail
+(z13–19) build a clipped archive per metro:
+
+```powershell
+# Windows — all countries + all cities
+.\scripts\map\build-city-tiles.ps1
+
+# Just Lusaka and Harare
+.\scripts\map\build-city-tiles.ps1 -Cities lusaka,harare
+
+# Country-only rebuild, no uploads
+.\scripts\map\build-city-tiles.ps1 -Countries zambia,zimbabwe -SkipUpload
+
+# Force a rebuild of outputs that already exist
+.\scripts\map\build-city-tiles.ps1 -Cities lusaka -Force
+```
+
+```bash
+# Linux/macOS VM
+./scripts/map/build-city-tiles.sh --countries zambia --cities lusaka
+```
+
+| Switch | Meaning |
+|---|---|
+| `-Countries all` / `-Cities all` | every id in `scripts/map/metros.json` |
+| `-Scratch D:\mapbuild` | where PBFs + `.pmtiles` land (default `D:\mapbuild`) |
+| `-SkipDownload` | reuse PBFs already on disk |
+| `-SkipUpload` | build only; nothing touches R2 |
+| `-Force` | rebuild an output that already exists (planetiler cannot resume) |
+| `-UseDocker` | run planetiler in `ghcr.io/onthegomap/planetiler` |
+| `-OnlyFetchWays` | offline, geometry-only input (smaller, faster) |
+| `-DateStamp 20260924` | override the snapshot date in the key |
+
+What it does:
+
+1. Downloads `<country>-latest.osm.pbf` from Geofabrik (once — cached).
+2. Runs Planetiler `--area/--bounds/--minzoom/--maxzoom/--output` to a `.pmtiles`.
+3. Uploads to R2 via `r2-put.mjs` (S3 SigV4 — `wrangler r2 object put` crashes
+   on Windows for files this size; the dashboard caps at 300 MB anyway).
+4. Copies each build to a **stable key** (`tiles/lusaka-z13-19.pmtiles`) and a
+   **dated snapshot** (`tiles/lusaka-z13-19/20260924.pmtiles`).
+5. Writes `<Scratch>/build-report.json`.
+
+Publish the manifest + schedule a refresh:
+
+```powershell
+.\scripts\map\refresh-maps.ps1                    # build + manifest + upload
+.\scripts\map\refresh-maps.ps1 -SkipBuild         # manifest/upload only
+.\scripts\map\refresh-maps.ps1 -Cities lusaka     # one city
+```
+
+```bash
+./scripts/map/refresh-maps.sh --cities lusaka
+```
+
+`refresh-maps.ps1` prints the `schtasks` line; `refresh-maps.sh` prints the cron
+line. Weekly Sunday 03:00 is the suggested cadence.
+
+**Rollback:** the manifest records a `dated` URL per source. Repoint
+`MAPS_EXTRA_SOURCES` (or `MAPS_ZAMBIA_URL`) at a previous
+`tiles/<name>/<yyyyMMdd>.pmtiles` and redeploy — no rebuild needed.
+
+### Enabling the city sources in the app
+
+After the first upload, uncomment `MAPS_EXTRA_SOURCES` in `.env`:
+
+```
+MAPS_EXTRA_SOURCES=[{"name":"lusaka","bbox":[-15.78,27.66,-15.02,28.62],"minZoom":16,"maxZoom":19,"url":"https://maps.churchonapp.com/tiles/lusaka-z13-19.pmtiles"}, ...]
+```
+
+`bbox` is `[south, west, north, east]`. `build-city-tiles.ps1 -Report` writes the
+exact lines to paste (also in `build-report.json`).
+
+### How the app picks a source
+
+`lib/core/widgets/maps/map_sources.dart`:
+
+- `buildMapSourceTable(primaryUrl, zimbabweUrl, extraJson)` — world base
+  (z0–15) + optional Zimbabwe + every entry in `MAPS_EXTRA_SOURCES`.
+- `resolveMapSource(table, center, zoom)` — smallest bbox that **contains the
+  centre** and **covers the zoom**; falls back to the world base.
+- `church_map.dart` re-resolves on camera movement, keys the `VectorTileLayer`
+  on the URL (no stale tiles), and sets `maximumZoom` from the active source
+  (15 → 19 inside a city).
+- A city archive that fails to open **silently falls back to the base**; only a
+  base failure shows the RETRY chip.
+- A caller passing `ChurchMap.pmtilesUrl` explicitly pins that single archive —
+  no switching.
+
+---
+
+## 6. Routing this as a *rental* service (per-tenant billing)
+
+R2 is a dumb, cheap blob store. It serves tiles; it cannot meter them. The
+split you need to sell basemaps to other apps:
+
+| Concern | Where it runs | Why |
+|---|---|---|
+| Tile storage | **R2** (`church-on-app-maps`) | egress-free, cheap, CORS `*` |
+| Per-tenant API keys, rate limits, usage metering, billing | **Cloudflare Worker** in front of the tiles | R2 has no auth/quotas; Workers can count requests per key |
+| Routing (OSRM / Valhalla) | **Cloudflare Containers** or a small VM | needs compute + a routing graph in memory |
+| Geocoding (Photon / Nominatim) | **Cloudflare Containers** or a small VM | same — needs compute |
+| Live traffic | **paid feed or your own drivers** | there is no free global real-time traffic feed |
+
+Minimal Worker shape:
+
+```
+GET /t/<tenant_key>/<source>.pmtiles   →  look up tenant, bump KV/D1 counter,
+                                          check quota, then `env.BUCKET.get()`
+```
+
+Serve the manifest (`tiles/latest.json`) unauthenticated so clients can discover
+sources before they have a key; gate the `.pmtiles` objects themselves.
+
+Pricing intuition: R2 storage is ~$0.015/GB-month and **egress is free**, so a
+1.5 GB archive is ≈ $0.03/month to hold. Your margin comes entirely from the
+metering layer, not the storage.
+
+---
+
+## 7. Regenerating the theme / assets
 
 The v4 light theme is held locally (`maps/protomaps_light_v4_layers.dart`)
 because `ProtomapsThemes.lightV4()` hardcodes its glyph URL and does not expose
@@ -134,12 +268,18 @@ The font/sprites files come from
 
 ---
 
-## 6. Notes / constraints
+## 8. Notes / constraints
 
-- Basemap max zoom is **15**; the app lets the user zoom to 18 and the layer
-  over-zooms.
+- Basemap max zoom is **15** for the regional archive; city archives go to
+  **19**. The app sets `VectorTileLayer.maximumZoom` from whichever source is
+  active and lets the layer over-zoom past a source's top zoom.
+- **Planetiler cannot resume a partial run** — a killed build restarts from
+  scratch. The scripts skip outputs that already exist, so re-running after a
+  crash continues from the last *completed* source (`-Force`/`--force` rebuilds).
 - Glyph ranges are Latin only; other scripts need their ranges uploaded too.
 - `media.churchonapp.com` (`choa-sermons-vault`) is **public**, CORS restricted to
   the app origins. `choa-kyc-vault` is **private** (no domain, signed reads only).
 - Map tiles are cached to disk for 90 days / 250 MB in the app, so previously
   viewed areas work offline.
+- Live traffic needs a paid feed — there is no free global real-time traffic
+  source. The app falls back to crowd-sourced driver-speed segments.

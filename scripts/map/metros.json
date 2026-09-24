@@ -1,0 +1,41 @@
+{
+  "_comment": "Single source of truth for the city tile pipeline. bbox order = [south, west, north, east] (same as planetiler --bounds). Consumed by build-city-tiles.ps1 / build-city-tiles.sh; mirrored into docs/MAPS.md and the app's MAPS_EXTRA_SOURCES.",
+  "countries": [
+    {
+      "id": "zambia",
+      "name": "Zambia",
+      "pbf": "zambia-latest.osm.pbf",
+      "geofabrik": "https://download.geofabrik.de/africa/zambia-latest.osm.pbf",
+      "bbox": [-18.08, 21.98, -8.2, 33.71]
+    },
+    {
+      "id": "zimbabwe",
+      "name": "Zimbabwe",
+      "pbf": "zimbabwe-latest.osm.pbf",
+      "geofabrik": "https://download.geofabrik.de/africa/zimbabwe-latest.osm.pbf",
+      "bbox": [-22.42, 25.24, -15.61, 33.07]
+    },
+    {
+      "id": "malawi",
+      "name": "Malawi",
+      "pbf": "malawi-latest.osm.pbf",
+      "geofabrik": "https://download.geofabrik.de/africa/malawi-latest.osm.pbf",
+      "bbox": [-17.13, 32.67, -9.37, 35.92]
+    },
+    {
+      "id": "mozambique",
+      "name": "Mozambique",
+      "pbf": "mozambique-latest.osm.pbf",
+      "geofabrik": "https://download.geofabrik.de/africa/mozambique-latest.osm.pbf",
+      "bbox": [-26.87, 30.22, -10.47, 40.82]
+    }
+  ],
+  "metros": [
+    { "id": "lusaka", "name": "Lusaka", "country": "zambia", "bbox": [-15.78, 27.66, -15.02, 28.62] },
+    { "id": "ndola", "name": "Ndola", "country": "zambia", "bbox": [-13.18, 28.3, -12.68, 28.95] },
+    { "id": "kitwe", "name": "Kitwe", "country": "zambia", "bbox": [-13.02, 27.92, -12.58, 28.48] },
+    { "id": "livingstone", "name": "Livingstone", "country": "zambia", "bbox": [-17.98, 25.68, -17.3, 26.48] },
+    { "id": "harare", "name": "Harare", "country": "zimbabwe", "bbox": [-18.12, 30.7, -17.62, 31.48] },
+    { "id": "bulawayo", "name": "Bulawayo", "country": "zimbabwe", "bbox": [-20.38, 28.4, -19.82, 29.18] }
+  ]
+}

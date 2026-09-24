@@ -18,8 +18,27 @@ class Env {
     return true;
   }
   
-  static String get mapsZambiaUrl => dotenv.env['MAPS_ZAMBIA_URL'] ?? 'https://maps.churchonapp.com/zambia.pmtiles';
-  static String get mapsZimbabweUrl => dotenv.env['MAPS_ZIMBABWE_URL'] ?? 'https://maps.churchonapp.com/zimbabwe.pmtiles';
+  /// Base (country/regional) PMTiles archive — z0–15, always matches.
+  static String get mapsZambiaUrl => dotenv.env['MAPS_ZAMBIA_URL'] ?? 'https://maps.churchonapp.com/region-zm-zw-mw-mz.pmtiles';
+
+  /// Optional second country archive. Skipped automatically when it equals
+  /// [mapsZambiaUrl] (the current regional build covers Zimbabwe too).
+  static String get mapsZimbabweUrl => dotenv.env['MAPS_ZIMBABWE_URL'] ?? 'https://maps.churchonapp.com/region-zm-zw-mw-mz.pmtiles';
+
+  /// Raw `MAPS_EXTRA_SOURCES` value: a JSON array of high-detail city archives
+  /// the basemap switches to when the camera is inside one and zoomed in far
+  /// enough, e.g.
+  ///
+  /// ```json
+  /// [{"name":"lusaka",
+  ///   "bbox":[-15.78,27.66,-15.02,28.62],
+  ///   "minZoom":16,"maxZoom":19,
+  ///   "url":"https://maps.churchonapp.com/tiles/lusaka-z13-19.pmtiles"}]
+  /// ```
+  ///
+  /// `bbox` is `[south, west, north, east]`. Build these with
+  /// `scripts/map/build-city-tiles.ps1` (or `.sh`).
+  static String get mapsExtraSources => dotenv.env['MAPS_EXTRA_SOURCES'] ?? '';
   
   static String get r2PublicDomain => dotenv.env['R2_PUBLIC_DOMAIN'] ?? 'media.churchonapp.com';
 

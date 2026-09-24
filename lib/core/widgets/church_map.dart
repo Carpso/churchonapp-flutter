@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:vector_map_tiles/vector_map_tiles.dart';
 import 'package:vector_map_tiles_pmtiles/vector_map_tiles_pmtiles.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:geocoding/geocoding.dart';
@@ -19,6 +18,7 @@ import 'package:church_on_app/features/transport/data/traffic_service.dart';
 import 'package:church_on_app/features/transport/presentation/saved_places_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'maps/business_poi_layers.dart';
+import 'maps/map_sources.dart';
 import 'maps/protomaps_light_v4_layers.dart';
 import 'maps/protomaps_dark_v4_layers.dart';
 import 'nearby_places_sheet.dart';
@@ -179,6 +179,21 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
   /// Null on web (vector basemap unsupported) and while no archive URL is set.
   Future<PmTilesVectorTileProvider>? _tileProvider;
 
+  /// Source table (world base + optional country + city archives). Built once
+  /// in `_initializeProvider`; see `maps/map_sources.dart`.
+  List<MapSourceRegion> _sourceTable = const [];
+
+  /// Currently-resolved source. Null on web / before the first resolve.
+  MapSourceRegion? _activeSource;
+
+  /// URL currently open — drives the `ValueKey` on [VectorTileLayer] so a
+  /// switch tears the old tile layer down instead of painting stale tiles.
+  String _activeUrl = '';
+
+  /// Zoom of the last resolve (read on every position change).
+  double _lastResolvedZoom = 0;
+  MapLatLng _lastResolvedCenter = const MapLatLng(0, 0);
+
   /// True when the self-hosted basemap archive could not be opened, so the map
   /// is showing the raster fallback and a visible RETRY affordance is offered.
   bool _basemapFailed = false;
@@ -278,8 +293,12 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
     final originalZoom = cam.zoom;
     setState(() => _downloading = true);
     try {
-      for (final z in <double>[13, 14, 15]) {
-        _mapController.move(center, z);
+      // Cache the whole zoom range the active archive is built for, not just
+      // the regional z0–15 — a city file is only useful offline if its z16–19
+      // detail is cached too.
+      final top = (_activeSource?.maxZoom ?? 15).clamp(13, 22);
+      for (var z = 13; z <= top; z++) {
+        _mapController.move(center, z.toDouble());
         await Future.delayed(const Duration(milliseconds: 1200));
       }
     } catch (e) {
@@ -425,27 +444,115 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
     super.dispose();
   }
 
+  /// Base archive URL (what the map falls back to). An explicit
+  /// [ChurchMap.pmtilesUrl] pins the map to that single archive — the caller is
+  /// overriding source selection, so no switching is attempted.
+  String get _baseSourceUrl =>
+      widget.pmtilesUrl?.trim() ?? Env.mapsZambiaUrl.trim();
+
+  /// Highest zoom any source in the table is built for (never below 18 so the
+  /// map stays usable without city archives).
+  int get _tableMaxZoom {
+    var max = 18;
+    for (final r in _sourceTable) {
+      if (r.maxZoom > max) max = r.maxZoom;
+    }
+    return max;
+  }
+
   void _initializeProvider() {
     _basemapFailed = false;
+    _activeSource = null;
+    _activeUrl = '';
+    _lastResolvedZoom = widget.zoom;
+    _lastResolvedCenter = MapLatLng(widget.center.latitude, widget.center.longitude);
+
     // Web can never use the vector basemap (see [_supportsVectorBasemap]):
     // leaving the future null makes the builder render the raster basemap.
     if (!_supportsVectorBasemap) {
       _tileProvider = null;
+      _sourceTable = const [];
       return;
     }
-    final url = widget.pmtilesUrl ?? dotenv.env['MAPS_ZAMBIA_URL'] ?? '';
-    if (url.isEmpty) {
+
+    final base = _baseSourceUrl;
+    if (base.isEmpty) {
       _tileProvider = null;
+      _sourceTable = const [];
       return;
     }
+
+    // Explicit override = single-source table (the caller knows better).
+    _sourceTable = widget.pmtilesUrl != null
+        ? [MapSourceRegion(
+            name: 'override',
+            url: base,
+            minLat: -90,
+            minLng: -180,
+            maxLat: 90,
+            maxLng: 180,
+            minZoom: 0,
+            maxZoom: 15,
+            isBase: true,
+          )]
+        : buildMapSourceTable(
+            primaryUrl: base,
+            zimbabweUrl: Env.mapsZimbabweUrl,
+            extraJson: Env.mapsExtraSources,
+          );
+
+    _openResolved(forceBaseOnFailure: false);
+  }
+
+  /// Resolves the source for the current camera and opens it if it changed.
+  /// Called from `onPositionChanged` (cheap: table lookup only, no I/O).
+  ///
+  /// When [forceBaseOnFailure] the source may not switch away from base — used
+  /// after a base open failed so the RETRY chip can't be preempted.
+  void _openResolved({required bool forceBaseOnFailure}) {
+    if (!_supportsVectorBasemap || _sourceTable.isEmpty) return;
+
+    final resolved = resolveMapSource(
+      _sourceTable,
+      _lastResolvedCenter,
+      _lastResolvedZoom,
+    );
+    if (resolved == null) return;
+    final url = forceBaseOnFailure && _activeUrl.isEmpty
+        ? _baseSourceUrl
+        : resolved.url;
+    if (url == _activeUrl && _tileProvider != null) return;
+
+    _activeSource = resolved;
+    _activeUrl = url;
     final provider = _openProvider(url);
     _tileProvider = provider;
-    // Surface a failed open so the map never silently falls back to raster
-    // (or, worse, renders blank) without the user being able to retry.
     provider.then(
-      (_) {},
+      (_) {
+        // A settled provider must repaint: the FutureBuilder captured the old
+        // future when we swapped it inside this microtask.
+        if (mounted) setState(() {});
+      },
       onError: (Object _, StackTrace __) {
-        if (mounted) setState(() => _basemapFailed = true);
+        if (!mounted) return;
+        // A named/city archive that fails falls back to the base archive
+        // silently — losing street labels beats a blank map. The base itself
+        // failing is a real fault and shows the RETRY chip.
+        final isBase = url == _baseSourceUrl || resolved.isBase;
+        if (isBase) {
+          setState(() => _basemapFailed = true);
+        } else {
+          debugPrint('map source "$url" failed — falling back to base');
+          final base = _sourceTable.firstWhere(
+            (r) => r.isBase,
+            orElse: () => resolved,
+          );
+          setState(() {
+            _activeSource = base;
+            _activeUrl = base.url;
+            _tileProvider = _openProvider(base.url);
+          });
+        }
       },
     );
   }
@@ -469,7 +576,7 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
 
   /// Retries opening the self-hosted basemap after a failure.
   void retryBasemap() {
-    final url = widget.pmtilesUrl ?? dotenv.env['MAPS_ZAMBIA_URL'] ?? '';
+    final url = _baseSourceUrl;
     if (url.isNotEmpty) _providerCache.remove(url);
     setState(_initializeProvider);
   }
@@ -760,15 +867,29 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
               options: MapOptions(
                 initialCenter: widget.center,
                 initialZoom: widget.zoom,
-                maxZoom: 18,
+                maxZoom: _tableMaxZoom.toDouble(),
                 minZoom: 3,
                 onTap: _onMapTap,
                 onMapReady: _updateTrafficBounds,
                 onPositionChanged: (camera, hasGesture) {
                   final z = camera.zoom;
-                  if ((z - _zoom).abs() >= 0.25 && mounted) {
-                    setState(() => _zoom = z);
-                  }
+                  final c = camera.center;
+                  final zoomChanged = (z - _zoom).abs() >= 0.25;
+                  final centerChanged =
+                      (c.latitude - _lastResolvedCenter.latitude).abs() > 0.05 ||
+                          (c.longitude - _lastResolvedCenter.longitude).abs() > 0.05;
+
+                  _lastResolvedZoom = z;
+                  _lastResolvedCenter = MapLatLng(c.latitude, c.longitude);
+                  if (!zoomChanged && !centerChanged) return;
+
+                  // Re-resolve the basemap source on real movement only. Both
+                  // mutations happen inside setState so the layer (keyed by
+                  // [_activeUrl]) swaps in the same frame the flag flips.
+                  setState(() {
+                    if (zoomChanged) _zoom = z;
+                    _openResolved(forceBaseOnFailure: false);
+                  });
                   _updateTrafficBounds();
                 },
               ),
@@ -781,12 +902,20 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
                 _brandTintWrap(
                   vectorProvider != null
                       ? VectorTileLayer(
+                          // Keyed by archive URL so switching sources tears the
+                          // old tile layer down instead of painting stale tiles
+                          // from the previous region.
+                          key: ValueKey(_activeUrl),
                           tileProviders: TileProviders({'protomaps': vectorProvider}),
                           theme: widget.darkMode
                               ? _brandDarkMapTheme
                               : _brandLightMapTheme,
-                          // The archive covers z0–15; over-zoom is handled below.
-                          maximumZoom: 15,
+                          // The source's own top zoom (z15 for the regional
+                          // archive, up to z19 for a built city); past it the
+                          // raster over-zooms. Never below 15 so a resolved
+                          // source with an odd range can't collapse early.
+                          maximumZoom:
+                              (_activeSource?.maxZoom ?? 15).clamp(15, 22).toDouble(),
                           // Offline-friendly: tiles are cached to disk for 90
                           // days with a 250 MB budget, so an area a courier has
                           // already viewed keeps working with no signal.

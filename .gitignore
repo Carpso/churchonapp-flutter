@@ -52,7 +52,11 @@ key_info*.txt
 
 # Diagnostics, build outputs, crash logs
 diagnostics/
-/scripts/
+# Root-level scratch/utility scripts stay private, but the tile-pipeline is
+# part of the app's source and must be committed. NOTE: /scripts/* (not
+# /scripts/) — git cannot re-include a path whose parent dir is excluded.
+/scripts/*
+!/scripts/map/
 .wrangler/
 sql/archive/
 
