@@ -112,3 +112,6 @@ analyze_output.txt
 # Supabase CLI local state (project refs, versions)
 supabase/.temp/
 
+
+# planetiler aux inputs (scripts/map/build-city-tiles.ps1)
+/data/

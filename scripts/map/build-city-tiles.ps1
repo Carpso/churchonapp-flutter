@@ -79,7 +79,15 @@ function Format-Bytes([long]$n) {
 
 function Get-BboxCsv([object]$bbox) {
   # metros.json stores [south, west, north, east]; planetiler wants the same order.
-  return (@($bbox[0], $bbox[1], $bbox[2], $bbox[3]) -join ',')
+  # Invariant culture: under a comma-decimal locale -18.08 renders as "-18,08",
+  # planetiler counts 8 bounds and crashes with "bounds must have 4 coordinates".
+  $inv = [System.Globalization.CultureInfo]::InvariantCulture
+  return (@(
+    [Convert]::ToString([double]$bbox[0], $inv),
+    [Convert]::ToString([double]$bbox[1], $inv),
+    [Convert]::ToString([double]$bbox[2], $inv),
+    [Convert]::ToString([double]$bbox[3], $inv)
+  ) -join ',')
 }
 
 function Test-Command([string]$name) {
@@ -230,7 +238,7 @@ foreach ($c in $selCountries) {
     Write-Skip "output exists (use -Force to rebuild): $out"
   } else {
     Invoke-Planetiler -OutputPath $out -HeapGb $CountryHeapGb -Arguments @(
-      "--area=$pbf",
+      "--osm_path=$pbf",
       "--bounds=$(Get-BboxCsv $c.bbox)",
       '--minzoom=0',
       '--maxzoom=15',
@@ -260,7 +268,7 @@ foreach ($m in $selMetros) {
     Write-Skip "output exists (use -Force to rebuild): $out"
   } else {
     Invoke-Planetiler -OutputPath $out -HeapGb $CityHeapGb -Arguments @(
-      "--area=$pbf",
+      "--osm_path=$pbf",
       "--bounds=$(Get-BboxCsv $m.bbox)",
       '--minzoom=13',
       '--maxzoom=19',
@@ -286,11 +294,11 @@ foreach ($r in $report) {
   Write-Host ("  {0,-16} z{1}-{2}  {3,-9} {4}" -f $r.name, $r.min_zoom, $r.max_zoom, (Format-Bytes $r.bytes), $r.key)
 }
 
-# Paste-ready MAPS_EXTRA_SOURCES (city archives only — the base is already
+# Paste-ready MAPS_EXTRA_SOURCES (city archives only â€” the base is already
 # covered by MAPS_ZAMBIA_URL) so the app switches to them at z16+.
 $cities = @($report | Where-Object { $_.min_zoom -gt 0 })
 if ($cities.Count -gt 0) {
-  # Build real objects and let ConvertTo-Json escape them — hand-rolled JSON
+  # Build real objects and let ConvertTo-Json escape them â€” hand-rolled JSON
   # breaks on PowerShell 5.1 (no \" escape; -f would eat the braces).
   $extra = @($cities | ForEach-Object {
       [ordered]@{

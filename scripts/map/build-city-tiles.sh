@@ -216,7 +216,7 @@ for cid in "${COUNTRY_IDS[@]}"; do
     skip "output exists (use --force to rebuild): $out"
   else
     run_planetiler "$out" "$CountryHeapGb" \
-      "--area=$pbf" "--bounds=$(bbox_csv "$bbox")" \
+      "--osm_path=$pbf" "--bounds=$(bbox_csv "$bbox")" \
       --minzoom=0 --maxzoom=15 "--output=$out"
   fi
   echo "  size: $(bytes_h "$(size_of "$out")")"
@@ -240,7 +240,7 @@ if [[ -n "$Cities" ]]; then
       skip "output exists (use --force to rebuild): $out"
     else
       run_planetiler "$out" "$CityHeapGb" \
-        "--area=$pbf" "--bounds=$(bbox_csv "$bbox")" \
+        "--osm_path=$pbf" "--bounds=$(bbox_csv "$bbox")" \
         --minzoom=13 --maxzoom=19 "--output=$out"
     fi
     echo "  size: $(bytes_h "$(size_of "$out")")"
