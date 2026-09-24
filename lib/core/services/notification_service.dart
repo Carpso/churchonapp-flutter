@@ -341,6 +341,9 @@ class NotificationService {
           GoRouter.of(context).go('/');
         case 'event':
           GoRouter.of(context).push('/events/$id');
+        case 'ticket':
+        case 'event_ticket':
+          GoRouter.of(context).push('/ticket/$id');
         case 'prayer':
           GoRouter.of(context).push('/connect');
         case 'testimony':
