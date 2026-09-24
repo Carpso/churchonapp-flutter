@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased - 2026-09-24 (Push notifications fixed, per-stream live chat, single-stream enforcement, building-level map pipeline)
+
+### Fixed - Push notifications never rang (ROOT CAUSE)
+- `FCM_PROJECT_ID` + `FCM_SERVICE_ACCOUNT` were never set in the Supabase Edge Function environment, so every push silently failed. Now set and verified by a permanent secret-free probe (`GET .../push-notifications?health=fcm` -> `fcm_project_id_set:true, fcm_service_account_set:true, service_account_parses:true, project_ids_match:true`). Complements the earlier fix converting FCM v1 payloads from camelCase (silently ignored) to snake_case.
+
+### Fixed - Livestream chats were shared between streams (ROOT CAUSE)
+- Chat was keyed on `tenant_id` (one chat per **church**) with no `stream_id` column, so **messages from an ended stream kept appearing in every new stream's chat**. Migration `20261233` adds `stream_id` (FK + backfill + index `(stream_id, created_at)`), replaces blanket `USING(true)`/`WITH CHECK(true)` RLS with stream/church-scoped policies, and adds the table to realtime. Client now subscribes filtered by `.eq('stream_id', …)`, clears on stream change, and disables input with "This stream has ended" for ended/archived/replay streams.
+
+### Fixed - Only one live stream per church
+- Migration `20261231`: heals existing duplicates, adds a partial unique index `(church_id) WHERE status='live'`, RPCs `start_stream_guard` / `stop_other_streams` / `get_active_stream_for_church`. Starting a stream while another is live prompts **STOP & START / CANCEL**.
+
+### Fixed - Viewers actually see WHIP broadcasts
+- Cloudflare emits no HLS/DASH for a WebRTC/WHIP ingest (the live-input manifest returns HTTP 204 after broadcast). Viewers now play via **WHEP** (`WhepPlayback`, flutter_webrtc) with a bounded "waiting for broadcast" poll; `cloudflare-stream` exposes `whep` + authoritative `hls`/`dash`/`preview` per input.
+
+### Added - Building-level (z16-19) city map pipeline for rentable map platform
+- Protomaps public plan is **maxzoom 15 with no buildings**, so building-level detail needs self-hosted **planetiler** builds over OpenStreetMap. New `scripts/map/`: `metros.json` (Zambia/Zimbabwe/Malawi/Mozambique + Lusaka, Ndola, Kitwe, Livingstone, Harare, Bulawayo bboxes), `r2-put.mjs` (S3 SigV4 upload - required because wrangler crashes on large files and the dashboard caps at 300 MB), `build-city-tiles.ps1/.sh` (PBF -> planetiler z13-19 -> R2 `tiles/<name>.pmtiles` -> paste-ready `MAPS_EXTRA_SOURCES=` line), `refresh-maps.ps1/.sh` (dated snapshots + `tiles/latest.json` manifest + scheduled refresh, because OSM changes daily).
+- App: new `map_sources.dart` + `church_map.dart` bbox/zoom auto-switching - region PMTiles (z0-15) normally, city z16-19 file when the camera is inside a metro at zoom >= 16; smallest-bbox-wins, silent fallback to base, per-source `maximumZoom`. Driven by **`MAPS_EXTRA_SOURCES`** (JSON in `.env`) so new cities and new apps (Carpso Ride) need no code changes.
+- Hosting/rental architecture documented in `docs/MAPS.md`: **R2 = tile data** (cheap, egress-free), **Cloudflare Workers = metered API gateway with per-tenant keys/usage/billing (the rentable product)**, **routing (OSRM/Valhalla) + geocoding (Photon) = Cloudflare Containers or a small VM** (R2 cannot run compute). No free global live-traffic feed exists - paid providers or crowd-sourced driver data.
+
+### Housekeeping
+- Full-Africa z15 extract from `build.protomaps.com` failed 5x from this machine (HTTP/2 PROTOCOL_ERROR, TCP timeouts, throttling) and old daily builds 404 - **run multi-GB extracts on a cloud VM next to the data and push straight to R2**. Garbage cleaned (D: 174 GB free).
+- Releases: APK **v1.0.0+345** (221.6 MB) / AAB **v1.0.0+346** (127 MB) on R2 with `latest.json`; superseded builds pruned. Web redeployed.
+
+
 ## Unreleased — 2026-09-14 (Home white-screen root cause, broken images, sermon playback, Cloudflare VOD)
 
 ### Fixed — Home tab "blank white block under Latest Sermon" (ROOT CAUSE)

@@ -166,7 +166,8 @@ supabase functions deploy kael-ai --no-verify-jwt
 - **Package**: com.churchonapp.churchonapp
 - **Supabase**: Self-hosted or managed project
 - **Edge Functions**: 29 Edge Functions (push notifications, payments, AI, streaming management, data import, SMS, email, WhatsApp, export tools, database backup)
-- **Storage**: Cloudflare R2 for media uploads
+- **Storage**: Cloudflare R2 for media uploads + self-hosted Protomaps PMTiles basemap (regional z0-15, city z16-19 building detail via `scripts/map/`) - see [docs/MAPS.md](docs/MAPS.md)
+- **Push**: Firebase Cloud Messaging via the `push-notifications` Edge Function (probe `?health=fcm`)
 
 ## Security
 
