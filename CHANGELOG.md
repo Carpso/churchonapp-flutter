@@ -19,6 +19,10 @@
 - App: new `map_sources.dart` + `church_map.dart` bbox/zoom auto-switching - region PMTiles (z0-15) normally, city z16-19 file when the camera is inside a metro at zoom >= 16; smallest-bbox-wins, silent fallback to base, per-source `maximumZoom`. Driven by **`MAPS_EXTRA_SOURCES`** (JSON in `.env`) so new cities and new apps (Carpso Ride) need no code changes.
 - Hosting/rental architecture documented in `docs/MAPS.md`: **R2 = tile data** (cheap, egress-free), **Cloudflare Workers = metered API gateway with per-tenant keys/usage/billing (the rentable product)**, **routing (OSRM/Valhalla) + geocoding (Photon) = Cloudflare Containers or a small VM** (R2 cannot run compute). No free global live-traffic feed exists - paid providers or crowd-sourced driver data.
 
+### Fixed - Ticketing deep-link gaps resolved
+- `/ticket/:id`, `/events/:id/tickets` and `/events/:id/manage-tickets` verified registered + gated (leadership-only on manage-tickets), with thin by-id fetch screens (loading / not-found / success) so QR, share and push links resolve without an `extra` payload. Web SPA fallback `/* -> /index.html` confirmed to cover them.
+- Push payloads of type `ticket`/`event_ticket` now navigate to `/ticket/:id` (previously dead-ended: no switch case existed).
+
 ### Housekeeping
 - Full-Africa z15 extract from `build.protomaps.com` failed 5x from this machine (HTTP/2 PROTOCOL_ERROR, TCP timeouts, throttling) and old daily builds 404 - **run multi-GB extracts on a cloud VM next to the data and push straight to R2**. Garbage cleaned (D: 174 GB free).
 - Releases: APK **v1.0.0+345** (221.6 MB) / AAB **v1.0.0+346** (127 MB) on R2 with `latest.json`; superseded builds pruned. Web redeployed.
