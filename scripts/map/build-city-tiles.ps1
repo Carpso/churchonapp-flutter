@@ -1,7 +1,7 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-  Reproducible city-level PMTiles pipeline (countries z0-15 + metros z13-19).
+  Reproducible city-level PMTiles pipeline (countries z0-15 + metros z0-15).
 
 .DESCRIPTION
   Downloads Geofabrik extracts (resume-safe), runs Planetiler to produce PMTiles,
@@ -9,10 +9,10 @@
 
   Outputs per source:
     <id>-z0-15.pmtiles    (country, world-covering base tiles)
-    <id>-z13-19.pmtiles   (metro clip with building detail)
+    <id>-z0-15.pmtiles   (metro clip with building detail)
 
   R2 keys:
-    stable : tiles/<id>-z0-15.pmtiles / tiles/<id>-z13-19.pmtiles
+    stable : tiles/<id>-z0-15.pmtiles / tiles/<id>-z0-15.pmtiles
     dated  : tiles/<id>/<date>.pmtiles  (+ server-side copy to the stable key)
 
   RE-RUN / RESUME:
@@ -78,15 +78,15 @@ function Format-Bytes([long]$n) {
 }
 
 function Get-BboxCsv([object]$bbox) {
-  # metros.json stores [south, west, north, east]; planetiler wants the same order.
+  # metros.json stores [south, west, north, east]; planetiler --bounds wants west,south,east,north (x=lon first).
   # Invariant culture: under a comma-decimal locale -18.08 renders as "-18,08",
   # planetiler counts 8 bounds and crashes with "bounds must have 4 coordinates".
   $inv = [System.Globalization.CultureInfo]::InvariantCulture
   return (@(
-    [Convert]::ToString([double]$bbox[0], $inv),
     [Convert]::ToString([double]$bbox[1], $inv),
-    [Convert]::ToString([double]$bbox[2], $inv),
-    [Convert]::ToString([double]$bbox[3], $inv)
+    [Convert]::ToString([double]$bbox[0], $inv),
+    [Convert]::ToString([double]$bbox[3], $inv),
+    [Convert]::ToString([double]$bbox[2], $inv)
   ) -join ',')
 }
 
@@ -242,6 +242,7 @@ foreach ($c in $selCountries) {
       "--bounds=$(Get-BboxCsv $c.bbox)",
       '--minzoom=0',
       '--maxzoom=15',
+      '--download',
       "--output=$out"
     )
   }
@@ -257,36 +258,47 @@ foreach ($c in $selCountries) {
 
 # ------------------------------------------------------------- 2. metro clips
 foreach ($m in $selMetros) {
-  Write-Step "Metro: $($m.name) (z13-19, country=$($m.country))"
+  Write-Step "Metro: $($m.name) (z0-15, country=$($m.country))"
   $parent = $meta.countries | Where-Object { $_.id -eq $m.country } | Select-Object -First 1
   if (-not $parent) { throw "metros.json: metro '$($m.id)' references unknown country '$($m.country)'" }
   if (-not $pbfByCountry.ContainsKey($parent.id)) { $pbfByCountry[$parent.id] = Get-Pbf $parent }
   $pbf = $pbfByCountry[$parent.id]
 
-  $out = Join-Path $Scratch ("{0}-z13-19.pmtiles" -f $m.id)
+  $out = Join-Path $Scratch ("{0}-z0-15.pmtiles" -f $m.id)
   if ((Test-Path $out) -and -not $Force) {
     Write-Skip "output exists (use -Force to rebuild): $out"
   } else {
     Invoke-Planetiler -OutputPath $out -HeapGb $CityHeapGb -Arguments @(
       "--osm_path=$pbf",
       "--bounds=$(Get-BboxCsv $m.bbox)",
-      '--minzoom=13',
-      '--maxzoom=19',
+      '--minzoom=0',
+      '--maxzoom=15',
+      '--download',
       "--output=$out"
     )
   }
   Write-Host ("  size: {0}" -f (Format-Bytes (Get-Item $out).Length))
 
-  $key = Publish-Source -LocalPath $out -Name "$($m.id)-z13-19"
+  $key = Publish-Source -LocalPath $out -Name "$($m.id)-z0-15"
 
-  Add-Report -Id $m.id -Label $m.name -Bbox $m.bbox -MinZ 13 -MaxZ 19 -Path $out
+  Add-Report -Id $m.id -Label $m.name -Bbox $m.bbox -MinZ 0 -MaxZ 15 -Path $out
   $entry = $report[$report.Count - 1]
   $entry.key = $key
   $entry.url = "https://maps.churchonapp.com/$key"
 }
 
 # ----------------------------------------------------------------- 3. report
-$json = @{ generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'); date_stamp = $stamp; sources = @($report) } | ConvertTo-Json -Depth 6
+$esc = { param($t) if ($null -eq $t) { '""' } else { '"' + ([string]$t).Replace('\','\\').Replace('"','\"') + '"' } }
+  $inv = [System.Globalization.CultureInfo]::InvariantCulture
+  $entries = @($report | ForEach-Object {
+      $bb = (@($_.bbox | ForEach-Object { [Convert]::ToString([double]$_, $inv) }) -join ',')
+      ('{"id":' + (& $esc $_.id) + ',"name":' + (& $esc $_.name) + ',"path":' + (& $esc $_.path) +
+        ',"bytes":' + [string]$_.bytes + ',"bbox":[' + $bb + '],"min_zoom":' + [string]$_.min_zoom +
+        ',"max_zoom":' + [string]$_.max_zoom + ',"key":' + (& $esc $_.key) + ',"url":' + (& $esc $_.url) +
+        ',"built_at":' + (& $esc $_.built_at) + ',"date":' + (& $esc $_.date) + '}')
+    })
+  $json = ('{"generated_at":' + (& $esc (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')) +
+    ',"date_stamp":' + (& $esc $stamp) + ',"sources":[' + ($entries -join ',') + ']}')
 [System.IO.File]::WriteAllText($ReportPath, $json, [System.Text.UTF8Encoding]::new($false))
 Write-Step "Build report"
 Write-Host "  $ReportPath"
@@ -294,21 +306,11 @@ foreach ($r in $report) {
   Write-Host ("  {0,-16} z{1}-{2}  {3,-9} {4}" -f $r.name, $r.min_zoom, $r.max_zoom, (Format-Bytes $r.bytes), $r.key)
 }
 
-# Paste-ready MAPS_EXTRA_SOURCES (city archives only â€” the base is already
+# Paste-ready MAPS_EXTRA_SOURCES (city archives only Ã¢â‚¬â€ the base is already
 # covered by MAPS_ZAMBIA_URL) so the app switches to them at z16+.
-$cities = @($report | Where-Object { $_.min_zoom -gt 0 })
-if ($cities.Count -gt 0) {
-  # Build real objects and let ConvertTo-Json escape them â€” hand-rolled JSON
-  # breaks on PowerShell 5.1 (no \" escape; -f would eat the braces).
-  $extra = @($cities | ForEach-Object {
-      [ordered]@{
-        name    = $_.id
-        bbox    = @($_.bbox[0], $_.bbox[1], $_.bbox[2], $_.bbox[3])
-        minZoom = 16
-        maxZoom = $_.max_zoom
-        url     = $_.url
-      }
-    })
+$byId = @{}; foreach ($r in $report) { $byId[$r.id] = $r }
+  $extra = @($meta.metros | Where-Object { $byId.ContainsKey($_.id) } | ForEach-Object { $e = $byId[$_.id]; [ordered]@{ name = $_.id; bbox = @($_.bbox[0], $_.bbox[1], $_.bbox[2], $_.bbox[3]); minZoom = 11; maxZoom = 15; url = $e.url } })
+  if ($extra.Count -gt 0) {
   $sourcesLine = ($extra | ConvertTo-Json -Depth 4 -Compress)
   # ConvertTo-Json emits a bare object for a single-element array.
   if ($extra.Count -eq 1) { $sourcesLine = "[$sourcesLine]" }

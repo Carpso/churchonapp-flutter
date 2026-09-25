@@ -1,6 +1,6 @@
 # Reusing the Church On App maps in other projects
 
-This documents how to reuse the map stack **in its current state** (2026-09-24).
+This documents how to reuse the map stack **in its current state** (2026-09-25).
 `church_map.dart` is still an in-app widget (not a published package), but the
 **basemap and all map assets are independent HTTP resources** that any project or
 stack can consume today.
@@ -14,7 +14,7 @@ stack can consume today.
 | Region | URL | Zoom | Notes |
 |---|---|---|---|
 | Southern Africa (ZM, ZW, MW, MZ) | `https://maps.churchonapp.com/region-zm-zw-mw-mz.pmtiles` | 0–15 | 1433 MB, the base archive |
-| Lusaka / Ndola / Kitwe / Livingstone / Harare / Bulawayo | `https://maps.churchonapp.com/tiles/<city>-z13-19.pmtiles` | 13–19 | high-detail, built on demand |
+| Lusaka / Ndola / Kitwe / Livingstone / Harare / Bulawayo | `https://maps.churchonapp.com/tiles/<city>-z0-15.pmtiles` | 0–15 | clipped per city from Geofabrik PBFs — **includes building footprints** (the public Protomaps planet build has none); the app switches to these at z11+ inside the city bbox |
 
 The old `zambia.pmtiles` (612 MB) and `zimbabwe.pmtiles` (310 MB) were **deleted**
 — use `region-zm-zw-mw-mz.pmtiles`, which supersedes both.
@@ -129,8 +129,11 @@ imports. That has not been done on purpose (a large, risky refactor).
 
 ## 5. Building high-detail city tiles
 
-The z0–15 regional archive cannot show building footprints. For city detail
-(z13–19) build a clipped archive per metro:
+The regional archive is cut from the public Protomaps planet build: max z15,
+**no building footprints**. For city detail, a clipped archive is built per
+metro from Geofabrik PBFs with the **protomaps/basemaps jar** (correct
+Protomaps v4 schema — plain `planetiler.jar` emits OpenMapTiles and must not
+be used) at z0–15, which adds buildings at z13–15 inside the city bbox:
 
 ```powershell
 # Windows — all countries + all cities
@@ -165,11 +168,16 @@ The z0–15 regional archive cannot show building footprints. For city detail
 What it does:
 
 1. Downloads `<country>-latest.osm.pbf` from Geofabrik (once — cached).
-2. Runs Planetiler `--area/--bounds/--minzoom/--maxzoom/--output` to a `.pmtiles`.
+2. Runs the **protomaps/basemaps jar** (`-PlanetilerJar
+   D:\mapbuild\basemaps\tiles\target\protomaps-basemap-HEAD-with-deps.jar`,
+   args `--osm_path --bounds --minzoom=0 --maxzoom=15 --output`) to a
+   `.pmtiles`. The jar is required — without `-PlanetilerJar` the script throws.
 3. Uploads to R2 via `r2-put.mjs` (S3 SigV4 — `wrangler r2 object put` crashes
    on Windows for files this size; the dashboard caps at 300 MB anyway).
-4. Copies each build to a **stable key** (`tiles/lusaka-z13-19.pmtiles`) and a
-   **dated snapshot** (`tiles/lusaka-z13-19/20260924.pmtiles`).
+   **Bucket is always `church-on-app-maps`** unless `-Bucket` is passed —
+   a sibling project's `VITE_R2_BUCKET_NAME` must never redirect these.
+4. Copies each build to a **stable key** (`tiles/lusaka-z0-15.pmtiles`) and a
+   **dated snapshot** (`tiles/lusaka-z0-15/20260925.pmtiles`).
 5. Writes `<Scratch>/build-report.json`.
 
 Publish the manifest + schedule a refresh:
@@ -193,14 +201,17 @@ line. Weekly Sunday 03:00 is the suggested cadence.
 
 ### Enabling the city sources in the app
 
-After the first upload, uncomment `MAPS_EXTRA_SOURCES` in `.env`:
+All 6 cities are already wired in `.env` (every build also prints the exact
+line and writes `<Scratch>/map_sources_extra.txt`):
 
 ```
-MAPS_EXTRA_SOURCES=[{"name":"lusaka","bbox":[-15.78,27.66,-15.02,28.62],"minZoom":16,"maxZoom":19,"url":"https://maps.churchonapp.com/tiles/lusaka-z13-19.pmtiles"}, ...]
+MAPS_EXTRA_SOURCES=[{"name":"lusaka","bbox":[-15.78,27.66,-15.02,28.62],"minZoom":11,"maxZoom":15,"url":"https://maps.churchonapp.com/tiles/lusaka-z0-15.pmtiles"}, ...]
 ```
 
-`bbox` is `[south, west, north, east]`. `build-city-tiles.ps1 -Report` writes the
-exact lines to paste (also in `build-report.json`).
+`bbox` is `[south, west, north, east]`. The app switches to a city archive from
+z11 up (city files are z0–15 like the base; smallest bbox wins). Because
+`MAPS_EXTRA_SOURCES` is bundled at build time, changing it requires a web
+rebuild + a new APK.
 
 ### How the app picks a source
 
@@ -212,7 +223,7 @@ exact lines to paste (also in `build-report.json`).
   centre** and **covers the zoom**; falls back to the world base.
 - `church_map.dart` re-resolves on camera movement, keys the `VectorTileLayer`
   on the URL (no stale tiles), and sets `maximumZoom` from the active source
-  (15 → 19 inside a city).
+  (base and cities are both z0–15, so 15 everywhere).
 - A city archive that fails to open **silently falls back to the base**; only a
   base failure shows the RETRY chip.
 - A caller passing `ChurchMap.pmtilesUrl` explicitly pins that single archive —

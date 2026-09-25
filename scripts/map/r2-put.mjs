@@ -32,18 +32,20 @@ const DEFAULT_BUCKET = 'church-on-app-maps';
 
 // ---------------------------------------------------------------- arg parsing
 function parseArgs(argv) {
-  const out = { positional: [], options: {} };
+  // Options are flattened onto the returned object (opts.copy, opts.bucket …)
+  // because that is how main() reads them.
+  const out = { positional: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--head' || a === '--quiet' || a === '--copy' || a === '--help' || a === '-h') {
-      out.options[a.replace(/^--?/, '')] = true;
+      out[a.replace(/^--?/, '')] = true;
     } else if (a.startsWith('--')) {
       const key = a.slice(2);
       const eq = key.indexOf('=');
       if (eq >= 0) {
-        out.options[key.slice(0, eq)] = key.slice(eq + 1);
+        out[key.slice(0, eq)] = key.slice(eq + 1);
       } else {
-        out.options[key] = argv[++i];
+        out[key] = argv[++i];
       }
     } else {
       out.positional.push(a);
@@ -87,11 +89,11 @@ function resolveCredentials(opts) {
     process.env.R2_SECRET_ACCESS_KEY ||
     process.env.VITE_R2_SECRET_ACCESS_KEY ||
     '';
-  const bucket =
-    opts.bucket ||
-    process.env.R2_BUCKET ||
-    process.env.VITE_R2_BUCKET_NAME ||
-    DEFAULT_BUCKET;
+  // NOTE: VITE_R2_BUCKET_NAME from the sibling churchonapp/.env is
+  // choa-sermons-vault (the MEDIA bucket) — never honour it here or every
+  // map upload silently lands behind media.churchonapp.com instead of
+  // maps.churchonapp.com. Only an explicit --bucket or R2_BUCKET can override.
+  const bucket = opts.bucket || process.env.R2_BUCKET || DEFAULT_BUCKET;
 
   if (!accountId || !accessKeyId || !secretAccessKey) {
     console.error(

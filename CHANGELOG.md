@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased - 2026-09-25 (City map tiles LIVE: 6 metros z0-15 via protomaps/basemaps jar, manifest published, r2-put hardened)
+
+### Added - City archives shipped (supersedes the z16-19 plan below)
+- The plain `planetiler.jar` route failed on capability (caps z<=16) and correctness (emits OpenMapTiles, while our v4 style expects the Protomaps schema). Builds now use the **protomaps/basemaps jar** (`--osm_path --bounds --minzoom=0 --maxzoom=15`) over Geofabrik PBFs.
+- 6 archives **live on `maps.churchonapp.com`** (all HEAD 200): `tiles/{lusaka,ndola,kitwe,livingstone,harare,bulawayo}-z0-15.pmtiles` (23.3/6.8/6.3/3.9/14.9/7.4 MB) + dated snapshots `tiles/<city>-z0-15/20260925.pmtiles`. These **include building footprints** (the public Protomaps planet build has none) - the base regional archive stays the fallback below z11 and outside city bboxes.
+- `tiles/latest.json` manifest published (6 sources) via `refresh-maps.ps1 -SkipBuild`.
+- `MAPS_EXTRA_SOURCES` (6 entries, `minZoom` 11 / `maxZoom` 15, `bbox=[south,west,north,east]`) wired in `.env`; `docs/MAPS.md` S5 rewritten for the shipped pipeline. Because the value is bundled at build time, switching it requires a web rebuild + new APK.
+
+### Fixed - r2-put.mjs upload routing (wrong-bucket + broken flags)
+- `parseArgs` returned `{positional, options}` but `main()` read `opts.copy`/`opts.bucket`/`opts.head` flat, so `--copy`/`--head` silently fell into put mode. Options are now flattened.
+- Bucket resolution is `opts.bucket || R2_BUCKET || 'church-on-app-maps'` - a sibling project's `VITE_R2_BUCKET_NAME=choa-sermons-vault` had redirected all 6 city uploads to the media bucket (they were live behind `media.churchonapp.com`, 404 on `maps.*`). Re-published to the correct bucket after the fix.
+
+### Fixed - build-city-tiles.ps1 repairs
+- File restored from a botched in-place edit (duplicated content, glued `#Requires`), parse-clean. PS 5.1 `ConvertTo-Json` threw `Argument types do not match` on the report array - replaced with a manual JSON serializer. Extras block reordered (`$byId`/`$extra` defined before use - it previously ran against `$null` and silently emitted nothing). `Get-BboxCsv` reorders metro bboxes to planetiler's `west,south,east,north` (metros.json is `[south,west,north,east]`).
+
 ## Unreleased - 2026-09-24 (Push notifications fixed, per-stream live chat, single-stream enforcement, building-level map pipeline)
 
 ### Fixed - Push notifications never rang (ROOT CAUSE)
@@ -14,7 +29,7 @@
 ### Fixed - Viewers actually see WHIP broadcasts
 - Cloudflare emits no HLS/DASH for a WebRTC/WHIP ingest (the live-input manifest returns HTTP 204 after broadcast). Viewers now play via **WHEP** (`WhepPlayback`, flutter_webrtc) with a bounded "waiting for broadcast" poll; `cloudflare-stream` exposes `whep` + authoritative `hls`/`dash`/`preview` per input.
 
-### Added - Building-level (z16-19) city map pipeline for rentable map platform
+### Added - City map pipeline for rentable map platform (initial z16-19 planetiler plan - superseded by the 2026-09-25 entry above)
 - Protomaps public plan is **maxzoom 15 with no buildings**, so building-level detail needs self-hosted **planetiler** builds over OpenStreetMap. New `scripts/map/`: `metros.json` (Zambia/Zimbabwe/Malawi/Mozambique + Lusaka, Ndola, Kitwe, Livingstone, Harare, Bulawayo bboxes), `r2-put.mjs` (S3 SigV4 upload - required because wrangler crashes on large files and the dashboard caps at 300 MB), `build-city-tiles.ps1/.sh` (PBF -> planetiler z13-19 -> R2 `tiles/<name>.pmtiles` -> paste-ready `MAPS_EXTRA_SOURCES=` line), `refresh-maps.ps1/.sh` (dated snapshots + `tiles/latest.json` manifest + scheduled refresh, because OSM changes daily).
 - App: new `map_sources.dart` + `church_map.dart` bbox/zoom auto-switching - region PMTiles (z0-15) normally, city z16-19 file when the camera is inside a metro at zoom >= 16; smallest-bbox-wins, silent fallback to base, per-source `maximumZoom`. Driven by **`MAPS_EXTRA_SOURCES`** (JSON in `.env`) so new cities and new apps (Carpso Ride) need no code changes.
 - Hosting/rental architecture documented in `docs/MAPS.md`: **R2 = tile data** (cheap, egress-free), **Cloudflare Workers = metered API gateway with per-tenant keys/usage/billing (the rentable product)**, **routing (OSRM/Valhalla) + geocoding (Photon) = Cloudflare Containers or a small VM** (R2 cannot run compute). No free global live-traffic feed exists - paid providers or crowd-sourced driver data.
