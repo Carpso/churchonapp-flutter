@@ -424,7 +424,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           "NOW PLAYING",
                           style: TextStyle(
                             color: Color(0xFFFFDA03),
-                            fontSize: 9,
+                            fontSize: 11,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 1.2,
                           ),

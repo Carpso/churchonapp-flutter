@@ -457,7 +457,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
       child: Text(
         title,
         style: TextStyle(
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: FontWeight.w900,
           letterSpacing: 2,
           color: Theme.of(context).primaryColor.withValues(alpha: 0.8),

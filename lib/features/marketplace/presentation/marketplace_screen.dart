@@ -244,10 +244,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
           );
         },
          backgroundColor: Theme.of(context).primaryColor,
-        icon: const Icon(LucideIcons.plus, color: Colors.white),
+        icon: Icon(LucideIcons.plus, color: Theme.of(context).colorScheme.onPrimary),
         label: Text(
           (_selectedCategory == 'bookshop' || isVerifiedWriter) ? "Sell a Book" : "List Item",
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -421,9 +421,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                     decoration: BoxDecoration(color: const Color(0xFF7C3AED), borderRadius: BorderRadius.circular(8)),
                     child: const Row(
                       children: [
-                        Icon(LucideIcons.badgeCheck, color: Colors.white, size: 10),
+                        Icon(LucideIcons.badgeCheck, color: Colors.white, size: 12),
                         SizedBox(width: 4),
-                        Text("VERIFIED WRITER", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                        Text("VERIFIED WRITER", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
@@ -437,9 +437,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                     decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(8)),
                     child: const Row(
                       children: [
-                        Icon(LucideIcons.shieldCheck, color: Colors.white, size: 10),
+                        Icon(LucideIcons.shieldCheck, color: Colors.black, size: 12),
                         SizedBox(width: 4),
-                        Text("VERIFIED", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                        Text("VERIFIED", style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),

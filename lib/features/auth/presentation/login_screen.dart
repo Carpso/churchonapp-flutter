@@ -121,9 +121,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final brightness = Theme.of(context).brightness;
 
     return Theme(
-      data: AppTheme.getTheme(null),
+      data: brightness == Brightness.dark 
+          ? AppTheme.getDarkTheme(null) 
+          : AppTheme.getTheme(null),
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SingleChildScrollView(
