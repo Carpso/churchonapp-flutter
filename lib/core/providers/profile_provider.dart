@@ -234,14 +234,26 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
         if (dbTenantId != null &&
             dbTenantId.isNotEmpty &&
             (selectedTenant == null || selectedTenant.id != dbTenantId)) {
-          try {
-            final service = ref.read(tenantServiceProvider);
-            final tenant = await service.getTenantById(dbTenantId);
-            if (tenant != null) {
-              await ref.read(currentTenantProvider.notifier).setTenant(tenant);
+          // NEVER flip an explicit, in-progress selection back to the DB row.
+          // A fetch can race a user's tenant switch (or start before the
+          // profiles.tenant_id write lands): it reads the OLD tenant, and
+          // adopting it here re-wrote the DB, re-triggered this fetch and
+          // oscillated church <-> bookshop forever (the router bounced
+          // /bookshop <-> / on every flip). While the switch is fresh the
+          // LOCAL choice wins; stale restores (loadTenant) never set the
+          // flag, so they still adopt the DB tenant.
+          final midSwitch = selectedTenant != null &&
+              ref.read(currentTenantProvider.notifier).isExplicitSwitchFresh;
+          if (!midSwitch) {
+            try {
+              final service = ref.read(tenantServiceProvider);
+              final tenant = await service.getTenantById(dbTenantId);
+              if (tenant != null) {
+                await ref.read(currentTenantProvider.notifier).setTenant(tenant);
+              }
+            } catch (e) {
+              debugPrint('Error syncing tenant from DB profile: $e');
             }
-          } catch (e) {
-            debugPrint('Error syncing tenant from DB profile: $e');
           }
         } else if (selectedTenant != null && dbTenantId != selectedTenant.id) {
           try {

@@ -480,10 +480,24 @@ final tenantServiceProvider = Provider(
 );
 
 class CurrentTenantNotifier extends Notifier<Tenant?> {
+  DateTime? _lastExplicitSwitchAt;
+
   @override
   Tenant? build() {
     return null;
   }
+
+  /// True for a short window after the user explicitly picked a tenant
+  /// (select-church, join, switch buttons). Within this window the LOCAL
+  /// choice is authoritative: ProfileNotifier must not "correct" it back to
+  /// whatever `profiles.tenant_id` still says, or a fetch racing the switch
+  /// flips the selection back, re-writes the DB, and the app oscillates
+  /// church <-> bookshop forever. `loadTenant()` restores never set this
+  /// flag, so stale restores still adopt the DB tenant as before.
+  bool get isExplicitSwitchFresh =>
+      _lastExplicitSwitchAt != null &&
+      DateTime.now().difference(_lastExplicitSwitchAt!) <
+          const Duration(seconds: 10);
 
   Future<void> loadTenant() async {
     final prefs = await SharedPreferences.getInstance();
@@ -541,9 +555,9 @@ class CurrentTenantNotifier extends Notifier<Tenant?> {
   }
 
   Future<void> setTenant(Tenant? tenant) async {
-    state = tenant;
     final prefs = await SharedPreferences.getInstance();
     if (tenant != null) {
+      _lastExplicitSwitchAt = DateTime.now();
       await prefs.setString('selected_tenant_id', tenant.id);
       await prefs.setString('selected_tenant_name', tenant.name);
       await prefs.setString('selected_tenant_type', tenant.type);
@@ -569,6 +583,12 @@ class CurrentTenantNotifier extends Notifier<Tenant?> {
       await prefs.remove('selected_tenant_id');
       await prefs.remove('selected_tenant_type');
     }
+    // Publish state LAST, after prefs + the profiles write. Anything watching
+    // currentTenantProvider (ProfileNotifier's fetch, the router) then reads a
+    // DB row that already matches this tenant — a racing profile fetch can no
+    // longer see the old tenant and "correct" the selection backwards, which
+    // used to oscillate church <-> bookshop forever.
+    state = tenant;
   }
 }
 
