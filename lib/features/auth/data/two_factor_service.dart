@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Thrown when the Supabase project has TOTP MFA disabled — the API replies
-/// 422 with code `mfa_totp_enroll_not_enabled`. A superadmin must enable it in
-/// Supabase Dashboard → Authentication → Multi-Factor Auth; it cannot be
-/// toggled from application code, so the client surfaces this gracefully
-/// instead of leaking an [AuthApiException].
+/// Thrown when TOTP enrollment is unavailable — the API replies 422 with code
+/// `mfa_totp_enroll_not_enabled`. TOTP IS enabled on this project (dashboard:
+/// MFA Enabled, TOTP Enabled, max 10 factors), so this only guards genuine
+/// misconfiguration / transient server states; the client surfaces it
+/// gracefully instead of leaking an [AuthApiException].
 class TotpUnavailableException implements Exception {
   static const String userMessage =
       'Two-factor is not enabled for this project yet — ask an administrator.';
