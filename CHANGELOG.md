@@ -1,4 +1,21 @@
-# Changelog
+
+## Unreleased - 2026-09-30 (Listed as a map navigation option: geo: intent + in-app /navigate screen, release v1.0.0+352)
+
+### Added - App appears in Android's "Open with" chooser for navigation
+- `android/app/src/main/AndroidManifest.xml` registers two VIEW intent filters (`geo` + `google.navigation`, DEFAULT + BROWSABLE categories) so Android's app chooser offers Church On App when a maps/navigation link is opened from a browser, WhatsApp, etc. No `autoVerify` (non-http scheme), and no self-loop (the app issues no outbound `geo:` intents).
+- `lib/main.dart` handles the incoming `geo:` / `google.navigation:` deep links in `_handleDeepLink` via new `_openMapNavigation`: parses `geo:<lat>,<lng>(Label)` / `geo:<lat>,<lng>?q=...` / `google.navigation:q=...`, integer-or-decimal coordinates, rejects the null-island `geo:0,0` no-coords path, and resolves free-form addresses through `GeocodingService.forward`. Success routes to `/navigate`.
+- **iOS limitation (by design)**: iOS does not allow third-party apps to intercept `geo:` (Apple Maps owns it), so on iOS the entry point remains the existing `churchonapp://navigate?lat&lng&label` scheme. No `geo` scheme was registered in `Info.plist` (hijack risk / App Store rejection) - stated openly.
+
+### Added - Standalone turn-by-turn screen `/navigate`
+- New `lib/features/transport/presentation/map_navigation_screen.dart` - a destination-driven navigation screen (NOT a change to any existing ride feature): permission + location-service gating with actionable error card, `getCurrentPosition` -> `RouteService.fetchRoute` -> `navigationProvider.start(...)`, GPS stream (`distanceFilter: 15`) feeding the snap-to-route navigation controller and the map puck, arrival detection at <= 30 m (stops nav, cancels sub, announces via `VoiceDirectionService`), `ChurchMap` with destination flag + blue puck + route path (pin/save-pin controls hidden), `NavigationBanner` (voice toggle + steps sheet) and a bottom card with loading/error/arrived/ETA states (`route.isFallback` shows a straight-line fallback note).
+- Route `/navigate` registered in `app_router.dart` (parses `lat`/`lng`/`label` query params; member-level, no `hasAccess` entry needed - the default at line 545 returns true).
+
+### Added - Release v1.0.0+351 (APK) / +352 (AAB) + R2 publish cycle
+- Fresh builds after the navigation feature: APK `ChurchOnApp-1.0.0+351.apk` (234,626,961 B) + AAB `ChurchOnApp-1.0.0+352.aab` (134,599,190 B), both copied to `builds/latest/`, `builds/latest.json` manifest updated (`built_at` re-stamped), superseded `+349`/`+350` artifacts pruned (exactly 5 objects remain), all four public URLs HEAD 200 with byte-exact sizes.
+- Web redeployed (`882f94af.churchonapp.pages.dev`) and byte-verified against production (`main.dart.js` 10,962,142 = local).
+
+### Note - media.churchonapp.com edge cache of latest.json still serves stale +348
+- The plain URL returns `1.0.0+348` (`cf-cache-status: HIT`, `age` > 26h) while origin (and any `?query` cache-buster) returns `+350`. A zone Cache Rule overrides the origin `max-age=14400`; available tokens (`VITE_CLOUDFLARE_API_TOKEN` = 401, `EXPO_PUBLIC_CLOUDFLARE_API_TOKEN` = valid but zero zones / no purge route, wrangler OAuth = no purge scope) cannot purge it. Self-heals at the edge TTL; consumers wanting the current manifest should append a cache-busting query param. Nothing in this repo consumes `latest.json`.# Changelog
 
 ## Unreleased - 2026-09-25 (City map tiles LIVE: 6 metros z0-15 via protomaps/basemaps jar, manifest published, r2-put hardened)
 
