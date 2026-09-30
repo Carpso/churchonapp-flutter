@@ -37,6 +37,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 // Core service imports (for init calls and provider lifecycle)
 import 'core/services/email_service.dart';
 import 'core/services/error_reporter.dart';
+import 'core/services/geocoding_service.dart';
 import 'core/services/foreground_service_helper.dart';
 import 'core/services/payout_service.dart';
 import 'core/services/performance_service.dart';
@@ -272,6 +273,15 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
       return;
     }
 
+    // Map / navigation intents — the Android manifest registers `geo:` and
+    // `google.navigation` so Android's app chooser offers "Church On App"
+    // alongside Google Maps / Waze. Resolve the destination and open the
+    // in-app turn-by-turn navigation screen.
+    if (uri.scheme == 'geo' || uri.scheme == 'google.navigation') {
+      unawaited(_openMapNavigation(uri));
+      return;
+    }
+
     if (uri.scheme == 'churchonapp' ||
         uri.host == 'churchonapp.com' ||
         uri.host == 'www.churchonapp.com' ||
@@ -284,6 +294,77 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
         router.go(path);
       }
     }
+  }
+
+  /// Parses a `geo:` / `google.navigation:` URI and opens `/navigate`.
+  ///
+  /// Supported shapes:
+  ///  - `geo:0,0?q=<lat>,<lng>(Label)`   (Google Maps "Directions to …")
+  ///  - `geo:<lat>,<lng>`                (plain coordinate pair)
+  ///  - `geo:0,0?q=<free-form address>`  (forward-geocoded first)
+  ///  - `google.navigation:q=<lat>,<lng>` (nav "start" intent)
+  Future<void> _openMapNavigation(Uri uri) async {
+    double? lat;
+    double? lng;
+    String? label;
+
+    // google.navigation URIs keep everything in `path` ("q=lat,lng"), not in
+    // `query`, because the scheme part carries no '?'.
+    final rawQuery = uri.scheme == 'google.navigation'
+        ? uri.path
+        : uri.queryParameters['q'];
+
+    if (rawQuery != null && rawQuery.isNotEmpty) {
+      String q = rawQuery;
+      try {
+        q = Uri.decodeQueryComponent(rawQuery);
+      } catch (_) {
+        // keep the raw value
+      }
+      // lat,lng with an optional "(Label)" suffix.
+      final match = RegExp(
+        r'^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*(?:\(([^)]*)\))?\s*$',
+      ).firstMatch(q);
+      if (match != null) {
+        lat = double.tryParse(match.group(1)!);
+        lng = double.tryParse(match.group(2)!);
+        label = match.group(3)?.trim();
+      } else if (!q.contains('place_id:')) {
+        // Free-form address — resolve it server-side before navigating.
+        try {
+          final point = await GeocodingService.forward(q);
+          lat = point?.lat;
+          lng = point?.lng;
+          label = point?.label.isNotEmpty == true ? point!.label : q;
+        } catch (e) {
+          debugPrint('map navigation geocode failed: $e');
+        }
+      }
+    } else {
+      // Plain `geo:lat,lng` (optional ?z=zoom is ignored).
+      final match = RegExp(
+        r'^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$',
+      ).firstMatch(uri.path);
+      if (match != null) {
+        final parsedLat = double.tryParse(match.group(1)!);
+        final parsedLng = double.tryParse(match.group(2)!);
+        // `geo:0,0` is Google's "no coordinates, query only" placeholder —
+        // never navigate to null island.
+        if (parsedLat != 0.0 || parsedLng != 0.0) {
+          lat = parsedLat;
+          lng = parsedLng;
+        }
+      }
+    }
+
+    if (lat == null || lng == null || !mounted) {
+      debugPrint('unresolved map navigation intent: $uri');
+      return;
+    }
+    ref.read(routerProvider).go(
+          '/navigate?lat=$lat&lng=$lng'
+          '${label == null || label.isEmpty ? '' : '&label=${Uri.encodeComponent(label)}'}',
+        );
   }
 
   Future<void> _initNotifications() async {

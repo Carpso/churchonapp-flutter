@@ -59,6 +59,26 @@
                 <data android:scheme="churchonapp" />
             </intent-filter>
 
+            <!-- Listed as a MAP/NAVIGATION option: geo: directions links
+                 (Google Maps, websites, WhatsApp "Share location", other apps'
+                 "Directions" buttons) are offered by Android's app chooser as
+                 "Open with Church On App" alongside Google Maps / Waze. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="geo" />
+            </intent-filter>
+
+            <!-- Google Maps navigation deep links (google.navigation:q=lat,lng)
+                 — "Start navigation" intents also offer Church On App. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="google.navigation" />
+            </intent-filter>
+
             <!-- Supabase OAuth redirect (Google Sign-In callback) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

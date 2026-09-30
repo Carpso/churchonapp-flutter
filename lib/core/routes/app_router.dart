@@ -15,6 +15,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:church_on_app/features/home/presentation/home_screen.dart';
 import 'package:church_on_app/features/home/presentation/sermon_library_screen.dart';
 import 'package:church_on_app/features/home/presentation/sermon_by_id_screen.dart';
+import 'package:church_on_app/features/transport/presentation/map_navigation_screen.dart';
 import 'package:church_on_app/features/transport/presentation/ride_request_screen.dart';
 import 'package:church_on_app/features/connect/presentation/connect_screen.dart';
 import 'package:church_on_app/features/connect/presentation/church_social_profile_screen.dart';
@@ -1640,6 +1641,26 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/ride-scanner',
         builder: (context, state) => const CarpsoRideScannerScreen(),
+      ),
+      // Standalone turn-by-turn navigation — opened from geo: /
+      // google.navigation: intents (map-app chooser) and navigate deep links.
+      GoRoute(
+        path: '/navigate',
+        builder: (context, state) {
+          final qp = state.uri.queryParameters;
+          final lat = double.tryParse(qp['lat'] ?? '');
+          final lng = double.tryParse(qp['lng'] ?? '');
+          if (lat == null || lng == null) {
+            return const Scaffold(
+              body: Center(child: Text('Missing destination coordinates')),
+            );
+          }
+          return MapNavigationScreen(
+            lat: lat,
+            lng: lng,
+            label: qp['label'],
+          );
+        },
       ),
       GoRoute(
         path: '/account-settings',
