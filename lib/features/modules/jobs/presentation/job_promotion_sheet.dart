@@ -18,6 +18,12 @@ class _JobPromotionSheetState extends ConsumerState<JobPromotionSheet> {
   bool _isProcessing = false;
 
   Future<void> _payWithMobileMoney(double amount) async {
+    if (_isProcessing || !mounted) return;
+    setState(() => _isProcessing = true);
+    // CoaPaymentSheet pops ITSELF with the payment ref once the user taps
+    // CONTINUE on the verified-success overlay — before this fix the sheet
+    // never popped, the result was always null, and the job was NEVER
+    // featured even though money was collected.
     final paymentRef = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -27,19 +33,27 @@ class _JobPromotionSheetState extends ConsumerState<JobPromotionSheet> {
         amount: amount,
         serviceLabel: "Job Promotion",
         description: "Pay K${amount.toStringAsFixed(0)} directly to Church On App to feature your job.",
-        onComplete: (paymentId, paymentRef) {},
+        onComplete: (paymentId, paymentRef) async {},
       ),
     );
-    if (paymentRef != null && paymentRef.isNotEmpty) {
+    if (!mounted) return;
+    if (paymentRef == null || paymentRef.isEmpty) {
+      // User dismissed / cancelled — stop the spinner, stay on this sheet.
+      setState(() => _isProcessing = false);
+      return;
+    }
+    try {
       await ref.read(jobsServiceProvider).promoteJobWithMobileMoney(
         jobId: widget.jobId,
         amount: amount,
-        phone: paymentRef,
+        paymentRef: paymentRef,
       );
       if (mounted) {
         PremiumToast.showSuccess(context, "Job promoted successfully!", title: "Featured");
         Navigator.pop(context);
       }
+    } catch (e) {
+      if (mounted) PremiumToast.showError(context, "Payment received but promotion failed: $e");
       setState(() => _isProcessing = false);
     }
   }

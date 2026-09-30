@@ -9,6 +9,7 @@ import 'package:church_on_app/core/widgets/branded_stream_poster.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:church_on_app/features/connect/data/klips_feed_signal.dart';
 import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
+import 'package:church_on_app/features/finance/data/finance_service.dart';
 
 class KingdomKlipsScreen extends ConsumerStatefulWidget {
   const KingdomKlipsScreen({super.key});
@@ -879,10 +880,29 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
                           amount: 50.0,
                           description: "Klip Offering",
                           category: "offering",
-                          onComplete: (success, txId) {
+                          onComplete: (success, txId) async {
                             if (success) {
                               Navigator.pop(ctx);
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              // Capture before the await — avoids the
+                              // BuildContext-across-async-gap lint.
+                              final messenger = ScaffoldMessenger.of(context);
+                              // Giving history + coin reward. The old flow
+                              // collected the money via Lipila but never
+                              // logged the offering anywhere.
+                              try {
+                                if (txId != null) {
+                                  await FinanceService(Supabase.instance.client)
+                                      .logTransaction(
+                                    50.0,
+                                    'offering',
+                                    txId,
+                                    recipientName: 'Klip Offering',
+                                  );
+                                }
+                              } catch (e) {
+                                debugPrint('klip offering logTransaction failed: $e');
+                              }
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content: Text("Offering received! God bless your generous giving."),
                                   backgroundColor: Colors.green,

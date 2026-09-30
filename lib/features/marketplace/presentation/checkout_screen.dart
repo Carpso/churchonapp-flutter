@@ -238,6 +238,23 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return subtotal + _platformFee + _deliveryFee;
   }
 
+  /// Metadata lipila-collect / lipila-card-collect copy into the server-created
+  /// coa_payments row (service_type, category, user/tenant attribution). Without
+  /// it every marketplace payment landed unattributed — invisible in the buyer's
+  /// payment history and unjoinable to a church.
+  Map<String, dynamic> _paymentMeta(String referenceId) {
+    final user = Supabase.instance.client.auth.currentUser;
+    final tenant = ref.read(currentTenantProvider);
+    return {
+      if (user != null) 'user_id': user.id,
+      if (tenant?.id != null) 'tenant_id': tenant!.id,
+      if (tenant?.id != null) 'branch_id': tenant!.id,
+      'reference_id': referenceId,
+      'service_type': 'marketplace',
+      'category': 'marketplace',
+    };
+  }
+
   Future<void> _disburseToSeller(List<CartItem> items, double subtotal, double fee, String? tenantId, String? paymentReference) async {
     try {
       final supabase = Supabase.instance.client;
@@ -375,6 +392,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           "lastName": _lastNameCtrl.text.trim(),
           "email": _emailCtrl.text.trim(),
           "phone": _phoneCtrl.text.isNotEmpty ? _phoneCtrl.text : "",
+          "metadata": _paymentMeta(referenceId),
         });
 
         if (response.data == null) {
@@ -398,7 +416,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           _paymentStatusMessage = "Complete card payment in the secure page, then return here.";
         });
 
-        await _pollPaymentStatus(referenceId);
+        await _pollPaymentStatus(referenceId, isCard: true);
         return;
       }
 
@@ -419,6 +437,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         "amount": total,
         "narration": "Marketplace Order",
         "reference": referenceId,
+        "metadata": _paymentMeta(referenceId),
       });
 
       if (response.data == null) {
@@ -444,13 +463,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
-  Future<void> _pollPaymentStatus(String referenceId) async {
-    const maxAttempts = 20;
+  Future<void> _pollPaymentStatus(String referenceId, {bool isCard = false}) async {
+    // Card: user is finishing payment on an external redirect page (7.5 min);
+    // MoMo: PIN prompt (2 min). Was a flat 40 s for both — card always timed out.
+    final int maxAttempts = isCard ? 150 : 60;
+    final Duration pollEvery = Duration(seconds: isCard ? 3 : 2);
     int attempts = 0;
     final completer = Completer<void>();
 
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+    _pollTimer = Timer.periodic(pollEvery, (timer) async {
       attempts++;
 
       final supabase = Supabase.instance.client;
@@ -608,10 +630,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             : null,
       );
 
-      // Disburse to seller only AFTER order is confirmed
-      if (_paymentMethod == "mobile_money") {
-        await _disburseToSeller(items, subtotal, fee, tenantId, paymentReference);
-      }
+      // Disburse to seller only AFTER order is confirmed — for BOTH methods.
+      // The old guard skipped this entirely for card payments, so sellers were
+      // never paid on card orders (money collected, no payout task).
+      await _disburseToSeller(items, subtotal, fee, tenantId, paymentReference);
 
       // Optional Carpso Delivery: create a courier request for drivers
       if (_deliveryMethod == "carpso") {

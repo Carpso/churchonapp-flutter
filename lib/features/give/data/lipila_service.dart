@@ -68,7 +68,10 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
     return const LipilaPaymentState();
   }
 
-  Map<String, dynamic> _buildMetadata({String? referenceId}) {
+  Map<String, dynamic> _buildMetadata({
+    String? referenceId,
+    String? category,
+  }) {
     final profile = ref.read(profileProvider).value;
     final user = Supabase.instance.client.auth.currentUser;
     final organizationId = profile?.organizationId;
@@ -79,6 +82,10 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
       if (tenantId != null && tenantId.isNotEmpty) 'tenant_id': tenantId,
       if (tenantId != null && tenantId.isNotEmpty) 'branch_id': tenantId,
       if (referenceId != null) 'reference_id': referenceId,
+      // lipila-collect reads these into coa_payments.service_type / .category —
+      // without them every server-created payment row lands as generic 'giving'.
+      if (category != null && category.isNotEmpty) 'service_type': category,
+      if (category != null && category.isNotEmpty) 'category': category,
     };
   }
 
@@ -107,6 +114,7 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
     required String description,
     String? narration,
     String? reference,
+    String? category,
   }) async {
     if (phone.isEmpty) {
       state = AsyncData(
@@ -152,7 +160,10 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
             "amount": amount,
             "narration": narration ?? description,
             "reference": referenceId,
-            "metadata": _buildMetadata(referenceId: referenceId),
+            "metadata": _buildMetadata(
+              referenceId: referenceId,
+              category: category,
+            ),
           })
           .timeout(const Duration(seconds: 30));
 
@@ -195,6 +206,7 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
     String? email,
     String? phone,
     String? reference,
+    String? category,
   }) async {
     final client = Supabase.instance.client;
     final session = client.auth.currentSession;
@@ -228,7 +240,10 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
             "lastName": lastName,
             "email": email ?? "",
             "phone": phone ?? "",
-            "metadata": _buildMetadata(referenceId: referenceId),
+            "metadata": _buildMetadata(
+              referenceId: referenceId,
+              category: category,
+            ),
           })
           .timeout(const Duration(seconds: 30));
 
@@ -257,7 +272,7 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
       );
 
       // Start polling after redirect — user will complete card payment externally
-      await _startPolling(referenceId, client);
+      await _startPolling(referenceId, client, isCard: true);
     } catch (e) {
       _cancelPolling();
       final current = state.value;
@@ -276,9 +291,15 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
 
   Future<void> _startPolling(
     String referenceId,
-    SupabaseClient client,
-  ) async {
-    const maxAttempts = 20;
+    SupabaseClient client, {
+    bool isCard = false,
+  }) async {
+    // Card: the user is completing payment on an external redirect page, so
+    // give it room (150 x 3s = 7.5 min). MoMo: PIN prompt is near-instant
+    // (60 x 2s = 2 min — was 40s, which timed out while people were still
+    // entering their PIN).
+    final int maxAttempts = isCard ? 150 : 60;
+    final Duration pollEvery = Duration(seconds: isCard ? 3 : 2);
     int attempts = 0;
 
     _cancelPolling();
@@ -308,7 +329,7 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
       debugPrint('LipilaService: Initial DB check failed: $e');
     }
 
-    _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+    _pollTimer = Timer.periodic(pollEvery, (timer) async {
       // Skip this tick if the previous iteration is still awaiting a response,
       // so overlapping polls can never race on shared state.
       if (_isPollingInFlight) return;

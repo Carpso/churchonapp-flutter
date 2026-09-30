@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { sanitizeNarration } from "../_shared/sanitize.ts";
 import { settleReference, enqueueChurchAutoPayouts } from "../_shared/settlement.ts";
 
 serve(async (req: Request) => {
@@ -245,7 +246,7 @@ serve(async (req: Request) => {
         callbackUrl,
         referenceId,
         amount,
-        narration: narration ?? "COA payment",
+        narration: sanitizeNarration(narration ?? "") || "COA payment",
         accountNumber,
         currency: "ZMW",
         email: "payments@churchonapp.com",

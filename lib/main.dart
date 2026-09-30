@@ -286,7 +286,20 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
         uri.host == 'churchonapp.com' ||
         uri.host == 'www.churchonapp.com' ||
         uri.host == 'app.churchonapp.com') {
-      final path = uri.path.isEmpty ? '/' : uri.path;
+      // `churchonapp://pay?ref=...` parses "pay" as the HOST with an EMPTY
+      // path (authority component), so a plain uri.path would route to "/".
+      // Treat a non-domain host as the first path segment.
+      var path = uri.path;
+      const domainHosts = {
+        'churchonapp.com',
+        'www.churchonapp.com',
+        'app.churchonapp.com',
+      };
+      if (path.isEmpty) {
+        path = (uri.host.isNotEmpty && !domainHosts.contains(uri.host))
+            ? '/${uri.host}'
+            : '/';
+      }
       if (uri.queryParameters.isNotEmpty) {
         final queryString = uri.query;
         router.go('$path?$queryString');

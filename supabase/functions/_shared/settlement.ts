@@ -26,6 +26,7 @@ declare const Deno: {
 };
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sanitizeNarration } from "./sanitize.ts";
 
 export interface SettlementConfig {
   disbFeePercent: number;
@@ -470,7 +471,17 @@ async function resolveSettlement(
         return { retry: true, recipient: "", gross: 0 }; // handled elsewhere
       }
       if (withdrawal.status === "failed") {
-        return { error: "withdrawal_failed", recipient: "", gross: 0 };
+        // A retryable failure parks the ledger row at 'failed' (or an admin
+        // may have) while the TASK stays 'pending' — settleTask only ever
+        // settles pending tasks, so this payout is still owed. Recover the
+        // row instead of erroring: returning an error here used to feed
+        // markTaskFailed forever, so attempt 2..5 never reached Lipila again
+        // (retry loop seen live 2026-09-30).
+        await supabase
+          .from("church_withdrawals")
+          .update({ status: "pending", updated_at: new Date().toISOString() })
+          .eq("id", task.source_ref)
+          .eq("status", "failed");
       }
       const recipient = normalizePhone(withdrawal.recipient_phone);
       if (!/^260\d{9}$/.test(recipient)) return { error: "no_recipient", recipient: "", gross: 0 };
@@ -495,6 +506,30 @@ async function disburse(
   const coaFee = Math.round(Math.max(gross * cfg.coaPayoutFeePercent, cfg.minFeeKwacha) * 100) / 100;
   const net = Math.round((gross - lipilaFee - coaFee) * 100) / 100;
   if (net <= 0) {
+    // Fees exceed the gross (e.g. a K1 gift vs the K3 minimum fee). Retrying
+    // can NEVER succeed, so write a terminal failure instead of returning
+    // silently with no DB write — a silent return left the task 'pending' at
+    // attempt 0 forever (infinite no-op retry loop seen live 2026-09-30).
+    // 'failed' is excluded from the balance math, so the money falls back into
+    // the church's aggregate withdrawable balance and is swept out by the next
+    // church_payout instead of being lost.
+    await supabase
+      .from("payout_tasks")
+      .update({
+        status: "failed",
+        last_error: "net_zero_fees_exceed_gross",
+        net_amount: 0,
+        recipient_phone: recipient,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", task.id)
+      .eq("status", "pending");
+    if (task.source === "church_payout") {
+      await syncWithdrawal(supabase, task, {
+        status: "failed",
+        last_error: "net_zero_fees_exceed_gross",
+      });
+    }
     return { taskId: task.id, ok: false, retry: false, error: "net_zero" };
   }
 
@@ -547,28 +582,41 @@ async function disburse(
     : callbackBase;
 
   try {
-    const payoutRes = await fetch(`${baseUrl}/v1/payouts/mobile-money`, {
+    // chisomo contract (src/lipila.ts createDisbursement): the disbursement
+    // endpoint is /v1/disbursements/mobile-money — NOT /v1/payouts/... which
+    // 404s with an empty body ("Unexpected end of JSON input" seen live).
+    const payoutRes = await fetch(`${baseUrl}/v1/disbursements/mobile-money`, {
       method: "POST",
       headers: {
         "x-api-key": apiKey,
         "Content-Type": "application/json",
         "accept": "application/json",
+        // chisomo passes the callback on the header; we keep it in the body
+        // too (proven by live collections) so either shape is honoured.
+        callbackUrl,
       },
       body: JSON.stringify({
         callbackUrl,
         referenceId: payoutRef,
         amount: net,
-        narration: `COA settlement (${task.source})`,
+        narration: sanitizeNarration(`COA settlement ${task.source}`) || "COA payout",
         accountNumber: recipient,
         currency: "ZMW",
         email: "payouts@churchonapp.com",
       }),
     });
 
-    const payoutData = await payoutRes.json();
+    // Lipila may return an empty or non-JSON body (e.g. 404 HTML) — never let
+    // .json() throw and masquerade as an unknown settlement error.
+    let payoutData: Record<string, unknown> | null = null;
+    try {
+      payoutData = await payoutRes.json();
+    } catch {
+      payoutData = null;
+    }
 
     if (!payoutRes.ok) {
-      const msg = (payoutData as Record<string, unknown>)?.error
+      const msg = payoutData
         ? JSON.stringify(payoutData)
         : `lipila_http_${payoutRes.status}`;
       await markTaskFailed(supabase, task, msg.slice(0, 400), net, cfg.retryBackoffMinutes);
@@ -630,9 +678,15 @@ async function markTaskFailed(
     .eq("id", task.id);
 
   if (task.source === "church_payout") {
-    // Release the in-flight slot so the next enqueue can retry the balance.
+    // Mirror the TASK, not the attempt: a retryable failure leaves the ledger
+    // row at 'pending' (still owed, still in-flight — the unique index plus
+    // the pending-task guard in enqueue_church_auto_payouts keep duplicates
+    // away) so the next pass can actually retry the SAME withdrawal. Only a
+    // terminal failure flips it to 'failed', releasing the slot so the balance
+    // can be re-enqueued fresh. Parking it at 'failed' on every retry was the
+    // bug that made attempt 2..5 die on 'withdrawal_failed' forever.
     await syncWithdrawal(supabase, task, {
-      status: "failed",
+      status: shouldRetry ? "pending" : "failed",
       last_error: error,
       updated_at: nowIso,
     });
@@ -651,6 +705,118 @@ async function syncWithdrawal(
     .eq("id", task.source_ref);
 }
 
+// ── F3: confirmed money-in must always have a way to reach a recipient ──────
+// The normal path enqueues payout_tasks from the client's logTransaction (or
+// the enqueue_payout_task RPC). Payment flows that never touch that path —
+// the card gateway, webhook status-syncs, legacy rows — leave a confirmed
+// coa_payments row with NO task, so its money only lives in the aggregate
+// balance and never pays its intended recipient. settleReference() calls this
+// safety net so a confirmation can never be silently unpayable.
+const GIVING_CATEGORIES = new Set([
+  "giving", "tithe", "tithes", "offering", "offerings", "pledge", "pledges",
+  "first_fruits", "first fruits", "missions", "building_fund", "building fund",
+  "welfare", "donation", "fundraising", "group_giving", "group giving",
+]);
+// Platform income — money the platform keeps; never a payout task.
+const PLATFORM_INCOME_CATEGORIES = new Set([
+  "subscription", "meeting_subscription", "onboarding", "sms", "quiz_lease",
+  "quiz", "ad", "ad_promotion", "job", "job_promotion", "coins", "coin_purchase",
+  "bookshop", "platform_fee", "airtime",
+]);
+
+export async function ensurePayoutTaskForPayment(
+  supabase: ReturnType<typeof createClient>,
+  reference: string,
+): Promise<{ created: boolean; source?: string; reason?: string }> {
+  if (!reference) return { created: false, reason: "no_reference" };
+
+  // 1. Already covered? Any existing row counts: pending/processing = in
+  //    flight, paid = done, failed/cancelled = intentionally terminal
+  //    (re-creating a net_zero task would just churn).
+  const { data: existing } = await supabase
+    .from("payout_tasks")
+    .select("id")
+    .eq("payment_ref", reference)
+    .limit(1);
+  if (existing && existing.length > 0) return { created: false, reason: "exists" };
+
+  // 2. The confirmed payment itself (server-side fact — we never trust the
+  //    client for amount, category, or recipient).
+  const { data: payment } = await supabase
+    .from("coa_payments")
+    .select("id, payment_ref, status, amount, user_id, service_type, category, metadata")
+    .eq("payment_ref", reference)
+    .maybeSingle();
+  if (!payment) return { created: false, reason: "no_payment" };
+  if (!CONFIRMED.includes((payment.status ?? "").toLowerCase())) {
+    return { created: false, reason: "not_confirmed" };
+  }
+  const amount = Number(payment.amount);
+  if (!(amount > 0)) return { created: false, reason: "bad_amount" };
+
+  const meta = (payment.metadata ?? {}) as Record<string, unknown>;
+  const serviceType = String(payment.service_type ?? "").toLowerCase();
+  let category = String(payment.category ?? "").toLowerCase() ||
+      String(meta.category ?? "").toLowerCase();
+
+  if (PLATFORM_INCOME_CATEGORIES.has(serviceType) || PLATFORM_INCOME_CATEGORIES.has(category)) {
+    return { created: false, reason: "platform_income" };
+  }
+
+  // 3. Classify. Category comes from the payment row, its metadata, or the
+  //    client-side transactions row that logged the same reference — all
+  //    server-stored facts, never from this request.
+  if (!category) {
+    const { data: txn } = await supabase
+      .from("transactions")
+      .select("category")
+      .eq("reference", reference)
+      .limit(1)
+      .maybeSingle();
+    category = String(txn?.category ?? "").toLowerCase();
+  }
+  if (PLATFORM_INCOME_CATEGORIES.has(category)) {
+    return { created: false, reason: "platform_income" };
+  }
+
+  let source: "giving" | "event" | null = null;
+  if (serviceType === "event" || category === "event" || category === "event_ticket") {
+    source = "event";
+  } else if (GIVING_CATEGORIES.has(category) || GIVING_CATEGORIES.has(serviceType)) {
+    source = "giving";
+  }
+  if (!source) {
+    return { created: false, reason: `unclassified:${serviceType || "-"}/${category || "-"}` };
+  }
+
+  const insert: Record<string, unknown> = {
+    source,
+    // source_ref = the payment row id: even if the (payment_ref, source)
+    // uniqueness shape ever changes, concurrent ensures collide on this id.
+    source_ref: payment.id,
+    payment_ref: reference,
+    user_id: payment.user_id,
+    gross_amount: amount,
+    status: "pending",
+    recipient_role: source === "giving" ? "treasurer" : null,
+  };
+  if (source === "event") {
+    const organizerPhone = validRecipientPhone(
+      String(meta.organizer_momo_phone ?? meta.organizer_phone ?? meta.phone ?? ""),
+    );
+    if (organizerPhone) insert.recipient_phone = organizerPhone;
+    // event source uses the client-computed commission cap in resolveSettlement
+  }
+
+  const { error } = await supabase.from("payout_tasks").insert(insert);
+  if (error) {
+    if (error.code === "23505") return { created: false, reason: "exists" }; // race: another pass won
+    console.error(`[Settlement] F3 insert failed for ${reference}: ${error.message}`);
+    return { created: false, reason: error.message.slice(0, 120) };
+  }
+  return { created: true, source };
+}
+
 // Settle every pending task for a confirmed payment reference
 // (called by the webhook when a collection is confirmed).
 export async function settleReference(
@@ -659,6 +825,22 @@ export async function settleReference(
 ): Promise<{ checked: number; paid: number; failed: number }> {
   if (!reference) return { checked: 0, paid: 0, failed: 0 };
   const cfg = await loadSettlementConfig(supabase);
+
+  // F3 safety net: payment flows that never pass through the client's
+  // logTransaction (card gateway, webhook status-sync, legacy rows) can leave
+  // a confirmed coa_payments row with no payout task. Creating it here, in
+  // the SAME settle pass, guarantees no confirmed money-in sits unpayable.
+  try {
+    const ensured = await ensurePayoutTaskForPayment(supabase, reference);
+    if (ensured.created) {
+      console.log(`[Settlement] F3 ensured ${ensured.source} task for ${reference}`);
+    } else if (ensured.reason && !["exists", "no_payment"].includes(ensured.reason)) {
+      console.log(`[Settlement] F3 skip ${reference}: ${ensured.reason}`);
+    }
+  } catch (err) {
+    // Never let the safety net break the settle pass for existing tasks.
+    console.error(`[Settlement] F3 ensure failed for ${reference}: ${err instanceof Error ? err.message : err}`);
+  }
 
   const { data: tasks } = await supabase
     .from("payout_tasks")

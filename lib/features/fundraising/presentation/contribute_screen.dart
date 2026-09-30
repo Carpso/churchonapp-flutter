@@ -9,6 +9,8 @@ import 'package:church_on_app/features/fundraising/data/fundraising_providers.da
 import 'package:church_on_app/core/providers/auth_provider.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
+import 'package:church_on_app/features/finance/data/finance_service.dart';
+import 'package:church_on_app/features/give/presentation/lipila_payment_gateway.dart';
 import 'widgets/progress_card.dart';
 
 class ContributeScreen extends ConsumerStatefulWidget {
@@ -461,9 +463,40 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> with Single
 
   Future<void> _processContribution(double amount) async {
     setState(() => _isProcessing = true);
+    final authState = ref.read(authProvider);
+    final tenant = ref.read(currentTenantProvider);
+
+    // Real money first: the gateway creates the coa_payments anchor and polls
+    // Lipila. The old flow inserted a contribution row with NO payment behind
+    // it — pledges looked funded but nothing was ever collected.
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => LipilaPaymentGateway(
+        amount: amount,
+        description: 'Fundraising: ${_venture?.title ?? 'Campaign'}',
+        category: 'fundraising',
+        recipientName: _venture?.title ?? tenant?.name,
+        paymentReason: 'Fundraising - ${_venture?.title ?? 'Campaign'}',
+        onComplete: (success, txId) {
+          Navigator.pop(ctx, success && txId != null ? txId : null);
+        },
+      ),
+    );
+    if (result == null) {
+      if (mounted) setState(() => _isProcessing = false);
+      return; // cancelled
+    }
+
     try {
-      final authState = ref.read(authProvider);
-      final tenant = ref.read(currentTenantProvider);
+      await ref.read(financeServiceProvider).logTransaction(
+            amount,
+            'fundraising',
+            result,
+            tenantId: tenant?.id,
+            recipientName: _venture?.title ?? tenant?.name,
+          );
       await ref.read(fundraisingServiceProvider).contribute(
         ventureId: _venture!.id,
         tenantId: tenant?.id ?? '',

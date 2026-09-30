@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
-import 'package:church_on_app/core/services/coa_payment_service.dart';
 import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/core/widgets/premium_confirmation_sheet.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
@@ -127,7 +125,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
             const SizedBox(height: 30),
             _buildAmountInput(secondary),
             const SizedBox(height: 40),
-            _buildPaymentMethods(primary),
+            _buildPaymentMethods(primary, tenant),
             const SizedBox(height: 40),
             _buildProceedButton(secondary, tenant),
           ],
@@ -288,7 +286,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
     );
   }
 
-  Widget _buildPaymentMethods(Color primary) {
+  Widget _buildPaymentMethods(Color primary, Tenant? tenant) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -310,7 +308,7 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
           title: "Credit/Debit Card",
           isSelected: false,
           primary: primary,
-          onTap: _startCardPayment,
+          onTap: () => _startCardPayment(tenant),
         ),
       ],
     );
@@ -411,35 +409,53 @@ class _GivingWidgetState extends ConsumerState<GivingWidget> {
     return bg.computeLuminance() > 0.5 ? Colors.black : Colors.white;
   }
 
-  Future<void> _startCardPayment() async {
+  /// Card giving goes through the SAME gateway as mobile money (startWithCard
+  /// preselects the card tab). The old path hand-invoked lipila-card-collect
+  /// with hardcoded names, NO metadata, NO polling, and a client-side
+  /// submitPayment call (23505 conflict) — the gift was collected but never
+  /// confirmed, never attributed, and never logged as a transaction.
+  Future<void> _startCardPayment(Tenant? tenant) async {
     if (_amount <= 0) {
       PremiumToast.showWarning(context, "Please enter a valid amount.");
       return;
     }
     setState(() => _isProcessing = true);
     try {
-      final user = Supabase.instance.client.auth.currentUser;
-      final res = await Supabase.instance.client.functions.invoke('lipila-card-collect', body: {
-        'amount': _amount,
-        'narration': 'Giving: $_selectedCategory via Church On App',
-        'firstName': 'User',
-        'lastName': 'COA',
-        'phone': user?.phone ?? '',
-        'email': user?.email ?? '',
-      });
-      final data = res.data as Map<String, dynamic>?;
-      final url = data?['url'] as String?;
-      if (url != null) {
-        final paymentRef = data!['reference'] as String? ?? '';
-        await ref.read(coaPaymentServiceProvider).submitPayment(serviceType: _selectedCategory, amount: _amount, paymentRef: paymentRef);
-        if (mounted) {
-          PremiumToast.showSuccess(context, "Card payment link ready. Complete on Lipila's page.");
-        }
-      } else {
-        throw Exception(data?['error'] ?? 'Card payment failed');
-      }
-    } catch (e) {
-      if (mounted) PremiumToast.showError(context, "Card error: $e");
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => LipilaPaymentGateway(
+          startWithCard: true,
+          amount: _amount,
+          description: "Giving: $_selectedCategory",
+          category: _selectedCategory.toLowerCase(),
+          recipientName: tenant?.name ?? (widget.churchName ?? "Local Church"),
+          recipientAccount: _selectedCategory == 'Tithe'
+              ? (tenant?.pastorPhone ?? tenant?.treasurerPhone ?? "")
+              : (tenant?.treasurerPhone ?? tenant?.contactPhone ?? ""),
+          paymentReason: _selectedCategory == 'Tithe'
+              ? "$_selectedCategory ✝️ sent to Pastor"
+              : "$_selectedCategory Support",
+          onComplete: (success, txId) async {
+            Navigator.pop(ctx);
+            if (success && txId != null) {
+              await ref.read(financeServiceProvider).logTransaction(
+                    _amount,
+                    _selectedCategory.toLowerCase(),
+                    txId,
+                    tenantId: tenant?.id,
+                    recipientPhone: tenant?.treasurerPhone,
+                    recipientName: tenant?.name,
+                  );
+              if (mounted) {
+                _showSuccessSheet(txId);
+                widget.onSuccess?.call(txId);
+              }
+            }
+          },
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }

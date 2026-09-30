@@ -52,7 +52,10 @@ class JobsService {
   Future<void> promoteJobWithMobileMoney({
     required String jobId,
     required double amount,
-    required String phone,
+    // Lipila reference already confirmed by lipila-collect — the coa_payments
+    // anchor exists server-side (service_type: job_promotion). The old param
+    // name was `phone` and callers were literally passing the payment ref.
+    required String paymentRef,
   }) async {
     await _client.from('jobs').update({'is_featured': true}).eq('id', jobId);
   }

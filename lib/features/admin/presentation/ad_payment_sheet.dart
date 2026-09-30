@@ -188,9 +188,12 @@ class _AdPaymentSheetState extends ConsumerState<AdPaymentSheet> {
     }
   }
 
-  void _payWithMobileMoney(double amountZmw) {
-    Navigator.pop(context);
-    showModalBottomSheet(
+  Future<void> _payWithMobileMoney(double amountZmw) async {
+    // Keep THIS sheet alive while the payment sheet is on top of it: the old
+    // code popped first, which disposed this State — so the completion
+    // callback's `ref.read(...)` ran on a disposed ref and the promotion
+    // never happened (money collected, ad not promoted).
+    final paymentRef = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -199,18 +202,20 @@ class _AdPaymentSheetState extends ConsumerState<AdPaymentSheet> {
         amount: amountZmw,
         serviceLabel: "Ad Promotion",
         description: "Pay K$amountZmw directly to Church On App to promote your ad.",
-        onComplete: (paymentId, paymentRef) async {
-          try {
-            await ref.read(adServiceProvider).promoteWithMobileMoney(widget.adId, amountZmw, paymentRef);
-            ref.invalidate(activeAdsProvider(null));
-            if (!ctx.mounted) return;
-            PremiumToast.showSuccess(ctx, "Ad promoted successfully via Mobile Money!");
-          } catch (e) {
-            if (!ctx.mounted) return;
-            PremiumToast.showError(ctx, "Failed to promote ad: $e");
-          }
-        },
+        onComplete: (paymentId, paymentRef) async {},
       ),
     );
+    if (!mounted) return;
+    if (paymentRef == null || paymentRef.isEmpty) return; // cancelled/dismissed
+    try {
+      await ref.read(adServiceProvider).promoteWithMobileMoney(widget.adId, amountZmw, paymentRef);
+      ref.invalidate(activeAdsProvider(null));
+      if (!mounted) return;
+      PremiumToast.showSuccess(context, "Ad promoted successfully via Mobile Money!");
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      PremiumToast.showError(context, "Payment received but promotion failed: $e");
+    }
   }
 }

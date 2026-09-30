@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { sanitizeNarration, sanitizeAccountNumber } from "../_shared/sanitize.ts";
 
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
@@ -47,7 +48,7 @@ serve(async (req: Request) => {
     }
 
     const body = await req.json();
-    const { amount, narration, reference, firstName, lastName, email, phone } = body;
+    const { amount, narration, reference, firstName, lastName, email, phone, metadata } = body;
 
     if (!amount || amount <= 0) {
       return new Response(JSON.stringify({ error: "Invalid amount" }), {
@@ -75,20 +76,67 @@ serve(async (req: Request) => {
       ? "https://blz.lipila.io/api"
       : "https://api.lipila.dev/api";
 
-    const callbackUrl = Deno.env.get("LIPILA_WEBHOOK_URL")
+    // Same dual scheme as lipila-collect: the webhook secret travels in the
+    // callbackUrl query string so Lipila echoes it back on delivery.
+    const callbackBase = Deno.env.get("LIPILA_WEBHOOK_URL")
       ?? `${supabaseUrl}/functions/v1/lipila-webhook`;
+    const webhookSecret = Deno.env.get("LIPILA_WEBHOOK_SECRET") || "";
+    const callbackUrl = webhookSecret
+      ? `${callbackBase}?secret=${encodeURIComponent(webhookSecret)}`
+      : callbackBase;
 
     const referenceId = reference ?? crypto.randomUUID();
 
     // Format phone for Lipila (must be 260XXXXXXXXX format)
     let accountNumber: string = phone ?? "";
     if (accountNumber.length > 0) {
-      accountNumber = accountNumber.replace(/\D/g, '');
-      if (accountNumber.startsWith('0')) accountNumber = '260' + accountNumber.substring(1);
-      if (accountNumber.startsWith('9') && accountNumber.length == 9) accountNumber = '260' + accountNumber;
-      if (accountNumber.length == 9) accountNumber = '260' + accountNumber;
+      accountNumber = accountNumber.replace(/\D/g, "");
+      if (accountNumber.startsWith("0")) accountNumber = "260" + accountNumber.substring(1);
+      if (accountNumber.startsWith("9") && accountNumber.length == 9) accountNumber = "260" + accountNumber;
+      if (accountNumber.length == 9) accountNumber = "260" + accountNumber;
     }
 
+    // ── PENDING PAYMENT ANCHOR (same as lipila-collect) ──────────────────
+    // Card payments must land in coa_payments BEFORE the provider round-trip
+    // so the client poller finds the row, metadata survives settlement, and
+    // the settlement engine can confirm/deny it later. ON CONFLICT DO NOTHING
+    // keeps any server-pre-created (e.g. RPC-anchored) row authoritative.
+    const rawMeta: Record<string, unknown> =
+      metadata && typeof metadata === "object" && !Array.isArray(metadata)
+        ? metadata as Record<string, unknown>
+        : {};
+    const meta: Record<string, unknown> = { ...rawMeta, channel: "card" };
+    if (!meta.user_id && user.id) meta.user_id = user.id;
+    const { error: insertError } = await supabase
+      .from("coa_payments")
+      .upsert({
+        user_id: user.id,
+        service_type: typeof rawMeta.service_type === "string"
+          ? rawMeta.service_type
+          : "lipila_card",
+        amount: amount,
+        payment_ref: referenceId,
+        status: "pending",
+        phone_number: accountNumber || null,
+        category: typeof rawMeta.category === "string" ? rawMeta.category : null,
+        metadata: Object.keys(meta).length > 0 ? meta : null,
+      }, { onConflict: "payment_ref", ignoreDuplicates: true });
+    if (insertError) {
+      console.error(`[lipila-card-collect] Could not pre-create coa_payments row: ${insertError.message}`);
+      return new Response(JSON.stringify({ error: "Could not create payment anchor" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Cardholder is returned to our SPA with the reference so the poller can
+    // resume (the old bare /payment-complete 404'd — it has no route).
+    const backUrl = `https://churchonapp.com/payment-complete?ref=${encodeURIComponent(referenceId)}`;
+
+    // chisomo contract: for card collections accountNumber is the customer's
+    // email, and every free-text field is narration-sanitized (Lipila rejects
+    // anything outside letters/digits/spaces).
+    const safeEmail = email || "payments@churchonapp.com";
     const cardRes = await fetch(`${baseUrl}/v1/collections/card`, {
       method: "POST",
       headers: {
@@ -98,24 +146,24 @@ serve(async (req: Request) => {
       },
       body: JSON.stringify({
         customerInfo: {
-          firstName,
-          lastName,
-          phoneNumber: accountNumber,
+          firstName: sanitizeNarration(firstName),
+          lastName: sanitizeNarration(lastName),
+          phoneNumber: sanitizeAccountNumber(accountNumber),
           city: "Lusaka",
           country: "Zambia",
           address: "N/A",
-          email: email || "payments@churchonapp.com",
+          email: safeEmail,
           zip: "10101",
         },
         collectionRequest: {
           referenceId,
           amount,
-          narration: narration ?? "COA card payment",
-          accountNumber: accountNumber,
+          narration: sanitizeNarration(narration ?? "") || "COA card payment",
+          accountNumber: safeEmail,
           currency: "ZMW",
-          backUrl: "https://churchonapp.com/payment-complete",
+          backUrl,
           callbackUrl,
-          referenceData: narration ?? "Card payment via COA",
+          referenceData: sanitizeNarration(narration ?? "") || "Card payment via COA",
         },
       }),
     });
@@ -130,13 +178,21 @@ serve(async (req: Request) => {
       });
     }
 
-    // Lipila returns a URL for card entry (3DS flow)
-    const redirectUrl = cardData.url || cardData.data?.url || cardData.redirectUrl || cardData.data?.redirectUrl;
+    // Lipila returns the hosted-checkout URL (3DS flow) as `cardRedirectionUrl`
+    // (chisomo's field); older/other shapes use url/redirectUrl.
+    const redirectUrl =
+      cardData.cardRedirectionUrl ||
+      cardData.data?.cardRedirectionUrl ||
+      cardData.url ||
+      cardData.data?.url ||
+      cardData.redirectUrl ||
+      cardData.data?.redirectUrl;
 
     return new Response(JSON.stringify({
       success: true,
       reference: referenceId,
       url: redirectUrl,
+      cardRedirectionUrl: redirectUrl,
       data: cardData,
     }), {
       status: 200,

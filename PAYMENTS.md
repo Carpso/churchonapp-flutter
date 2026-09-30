@@ -265,6 +265,39 @@ silently stops churches from being paid.
    ```
    (If a church appears here, it has no number anywhere — set any one of the
    three, or a leader's `phone_number`, and queued payouts flow automatically.)
+6. Is Lipila rejecting the payout itself? Use the read-only auth diagnostic
+   (never prints the key; the safe POSTs omit `accountNumber`/`amount` so they
+   can never create a payout):
+   ```
+   curl -X POST "https://<ref>.supabase.co/functions/v1/lipila-payout?health=lipila"
+   ```
+   Interpreting it (live-verified 2026-09-30):
+   - `collections_post_safe.http = 400` + JSON body → key authenticates fine
+     for collections (400 = missing required fields, as designed).
+   - `disbursements_post_safe.http = 401` + empty body → **the merchant's
+     `lsk_` key is NOT authorized for disbursements** — a Lipila dashboard
+     issue (enable/disbursements product, payout-scoped key, or server-IP
+     whitelist — docs.lipila.dev "Disbursements"), NOT a code bug. Payout
+     tasks keep retrying with `last_error='lipila_http_401'` and self-heal
+     once Lipila enables disbursement access.
+   - Both 401 → wrong environment (`lsk_` live key must hit
+     `blz.lipila.io`, test key `api.lipila.dev`).
+
+### Retry-loop invariants (fixed 2026-09-30 — do not regress)
+
+- `markTaskFailed` mirrors the **task**: retryable → `church_withdrawals`
+  back to `pending` (still owed, unique index + `enqueue_church_auto_payouts`
+  pending-task guard keep duplicates away); terminal only → `failed` (releases
+  the slot for a fresh enqueue). Parking the withdrawal at `failed` on every
+  retry made attempt 2..5 die on `withdrawal_failed` forever.
+- `resolveSettlement` **recovers** a `failed` withdrawal attached to a pending
+  task (resets it to `pending` and proceeds) instead of returning
+  `withdrawal_failed` — settleTask only ever settles pending tasks, so that
+  payout is still owed.
+- Net-≤0 payouts must write `status='failed', last_error='net_zero_fees_exceed_gross'`
+  (never leave the task silently pending), and disburse() must send
+  `/v1/disbursements/mobile-money` with `callbackUrl` as BOTH header and body
+  and a try/catch JSON parse falling back to `lipila_http_<status>`.
 
 ---
 

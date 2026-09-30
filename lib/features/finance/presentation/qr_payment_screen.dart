@@ -7,6 +7,7 @@ import 'package:church_on_app/core/widgets/premium_confirmation_sheet.dart';
 import 'package:church_on_app/core/services/code_generator_service.dart';
 import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/features/give/presentation/lipila_payment_gateway.dart';
 
 class QrPaymentScreen extends ConsumerWidget {
   final double amount;
@@ -145,11 +146,32 @@ class QrPaymentScreen extends ConsumerWidget {
         ElevatedButton(
           onPressed: () async {
             final tenant = ref.read(currentTenantProvider);
+            // REAL payment flow: run the Lipila gateway against the QR's own
+            // reference so a coa_payments anchor is created server-side. The
+            // old flow wrote a transactions row directly — money was never
+            // actually collected.
+            final result = await showModalBottomSheet<String>(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (ctx) => LipilaPaymentGateway(
+                amount: amount,
+                description: description,
+                category: 'giving',
+                reference: refCode,
+                recipientName: recipient,
+                paymentReason: description,
+                onComplete: (success, txId) {
+                  Navigator.pop(ctx, success && txId != null ? txId : null);
+                },
+              ),
+            );
+            if (result == null || !context.mounted) return; // cancelled
             try {
               await ref.read(financeServiceProvider).logTransaction(
                 amount,
                 'qr_payment',
-                refCode,
+                result,
                 tenantId: tenant?.id,
                 recipientName: recipient,
               );
@@ -157,8 +179,8 @@ class QrPaymentScreen extends ConsumerWidget {
                 PremiumConfirmationSheet.show(
                   context: context,
                   title: "Payment Recorded!",
-                  message: "Your payment of K${amount.toStringAsFixed(2)} to $recipient has been recorded in the sovereign ledger.",
-                  referenceId: refCode,
+                  message: "Your payment of K${amount.toStringAsFixed(2)} to $recipient has been received.",
+                  referenceId: result,
                   type: ConfirmationType.success,
                   primaryLabel: "DONE",
                   onPrimary: () => Navigator.pop(context),
@@ -166,7 +188,7 @@ class QrPaymentScreen extends ConsumerWidget {
               }
             } catch (e) {
               if (context.mounted) {
-                PremiumToast.showError(context, "Payment failed: ${e.toString().replaceFirst("Exception: ", "")}");
+                PremiumToast.showError(context, "Payment recorded but history write failed: ${e.toString().replaceFirst("Exception: ", "")}");
               }
             }
           },

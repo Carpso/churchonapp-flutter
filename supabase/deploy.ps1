@@ -277,6 +277,8 @@ $migrations = @(
     "20261012_scope_sermon_notes_and_stream_chat.sql"
     "20261013_drop_public_church_insert.sql"
     "20261014_server_security_remediation.sql"
+    "20261015_multitenant_tithe_recipients.sql"
+    "20261022_event_payout_source.sql"
     "20261031_expire_stale_live_streams.sql"
     "20261032_fix_dashboard_settled_filters.sql"
     "20261033_fix_leadership_memo_leak.sql"
@@ -369,6 +371,8 @@ $migrations = @(
       "20261231_one_active_stream_per_church.sql"
       "20261232_community_events.sql"
       "20261233_stream_chat_isolation.sql"
+      "20261234_fix_lps_settle_cron_json.sql"
+      "20261235_church_payout_dedupe.sql"
       )
 
 

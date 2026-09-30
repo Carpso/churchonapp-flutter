@@ -24,6 +24,12 @@ class LipilaPaymentGateway extends ConsumerStatefulWidget {
   final String? recipientAccount;
   final String? paymentReason;
   final String? reference;
+  final bool startWithCard;
+  /// When false, the verification listener does NOT fire [onComplete] the
+  /// moment payment is confirmed — the caller (e.g. CoaPaymentSheet) wants the
+  /// user to see the success overlay and tap CONTINUE first, and only then pop
+  /// with the reference.
+  final bool autoCompleteOnSuccess;
   final Function(bool success, String? transactionId) onComplete;
 
   const LipilaPaymentGateway({
@@ -35,6 +41,8 @@ class LipilaPaymentGateway extends ConsumerStatefulWidget {
     this.recipientAccount,
     this.paymentReason,
     this.reference,
+    this.startWithCard = false,
+    this.autoCompleteOnSuccess = true,
     required this.onComplete,
   });
 
@@ -51,6 +59,22 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
   final _emailCtrl = TextEditingController();
   String? _errorMessage;
   _PayMethod _method = _PayMethod.mobileMoney;
+  // Fire-once guard: the ref.listen below already calls onComplete when the
+  // payment succeeds/cancels, and the Continue button used to fire it AGAIN —
+  // callers popped twice / ran completion logic twice. One terminal callback
+  // per transaction.
+  bool _completed = false;
+
+  void _complete(bool success, String? transactionId) {
+    if (_completed) return;
+    _completed = true;
+    widget.onComplete(success, transactionId);
+  }
+
+  void _resetPayment() {
+    ref.read(lipilaPaymentProvider.notifier).reset();
+    _completed = false; // a fresh attempt may complete again
+  }
 
   FeeConfig get _fees =>
       ref.read(feeConfigProvider).value ?? FeeConfig.defaults;
@@ -61,6 +85,7 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
   @override
   void initState() {
     super.initState();
+    if (widget.startWithCard) _method = _PayMethod.card;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final profileValue = ref.read(profileProvider).value;
       if (profileValue != null) {
@@ -119,6 +144,7 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
           description: widget.description,
           narration: widget.paymentReason,
           reference: widget.reference,
+          category: widget.category,
         );
   }
 
@@ -148,6 +174,7 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
           email: _emailCtrl.text.trim(),
           phone: _phoneCtrl.text.isNotEmpty ? _phoneCtrl.text : null,
           reference: widget.reference,
+          category: widget.category,
         );
   }
 
@@ -184,9 +211,9 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
               },
               tenantId: ref.read(currentTenantProvider)?.id,
             );
-        widget.onComplete(true, data.referenceId);
+        if (widget.autoCompleteOnSuccess) _complete(true, data.referenceId);
       } else if (data.status == PaymentStatus.cancelled) {
-        widget.onComplete(false, null);
+        _complete(false, null);
       } else if (data.status == PaymentStatus.cardRedirect &&
           data.cardUrl != null) {
         _launchCardUrl(data.cardUrl!);
@@ -228,7 +255,7 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
                       if (isProcessing) {
                         _showCancelConfirmationDialog(theme);
                       } else {
-                        ref.read(lipilaPaymentProvider.notifier).reset();
+                        _resetPayment();
                         Navigator.pop(context);
                       }
                     },
@@ -244,8 +271,8 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
                   referenceId: paymentState.referenceId,
                   recipientName: displayRecipient,
                   onContinue: () {
-                    ref.read(lipilaPaymentProvider.notifier).reset();
-                    widget.onComplete(true, paymentState.referenceId);
+                    _resetPayment();
+                    _complete(true, paymentState.referenceId);
                   },
                 )
               else if (paymentState.status == PaymentStatus.failed)
@@ -255,7 +282,7 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
                   errorMessage: paymentState.errorMessage,
                   amount: widget.amount,
                   onRetry: () {
-                    ref.read(lipilaPaymentProvider.notifier).reset();
+                    _resetPayment();
                     _initiatePayment();
                   },
                 )
@@ -265,7 +292,7 @@ class _LipilaPaymentGatewayState extends ConsumerState<LipilaPaymentGateway> {
                   statusMessage: paymentState.statusMessage,
                   amount: widget.amount,
                   onRetry: () {
-                    ref.read(lipilaPaymentProvider.notifier).reset();
+                    _resetPayment();
                   },
                 )
               else if (isProcessing)

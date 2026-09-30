@@ -156,6 +156,8 @@ import 'package:church_on_app/features/finance/presentation/offering_basket_mana
 import 'package:church_on_app/features/finance/presentation/offering_basket_summary_screen.dart';
 import 'package:church_on_app/features/finance/presentation/my_pledges_screen.dart';
 import 'package:church_on_app/features/finance/presentation/qr_payment_screen.dart';
+import 'package:church_on_app/features/finance/presentation/pay_by_qr_screen.dart';
+import 'package:church_on_app/features/finance/presentation/payment_complete_screen.dart';
 import 'package:church_on_app/features/finance/presentation/tithe_card_screen.dart';
 import 'package:church_on_app/features/fundraising/presentation/contribute_screen.dart';
 import 'package:church_on_app/features/fundraising/presentation/create_fundraising_screen.dart';
@@ -1147,6 +1149,29 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/payout-request',
         builder: (context, state) => const PayoutRequestScreen(),
+      ),
+      // QR / card payment landing pages — member level.
+      // /pay is reached from scanned QR deep links
+      // (churchonapp://pay?ref=... and https://churchonapp.com/pay?ref=...).
+      // /payment-complete is the card checkout backUrl target — it MUST exist
+      // on the web SPA or returning card payers land on the not-found page.
+      GoRoute(
+        path: '/pay',
+        builder: (context, state) {
+          final qp = state.uri.queryParameters;
+          return PayByQrScreen(
+            reference: qp['ref'],
+            amount: qp['amount'],
+            recipient: qp['recipient'],
+            description: qp['description'],
+          );
+        },
+      ),
+      GoRoute(
+        path: '/payment-complete',
+        builder: (context, state) => PaymentCompleteScreen(
+          reference: state.uri.queryParameters['ref'],
+        ),
       ),
       GoRoute(
         path: '/communities',

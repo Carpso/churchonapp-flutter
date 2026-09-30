@@ -8,6 +8,8 @@ import 'package:church_on_app/core/widgets/premium_toast.dart';
 import '../data/fundraising_models.dart';
 import '../data/fundraising_providers.dart';
 import '../../finance/presentation/lipila_payment_gateway.dart';
+import '../../finance/data/finance_service.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 
 class GroupContributionDetailScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -232,6 +234,22 @@ class _GroupContributionDetailScreenState extends ConsumerState<GroupContributio
         onComplete: (success, txId) async {
           Navigator.pop(ctx);
           if (success) {
+            // Giving history + coin reward (group_giving settles to the
+            // church) — was missing, so contributions never appeared in the
+            // member's transaction history.
+            try {
+              if (txId != null) {
+                await ref.read(financeServiceProvider).logTransaction(
+                      amount,
+                      'group_giving',
+                      txId,
+                      tenantId: ref.read(currentTenantProvider)?.id,
+                      recipientName: 'Group Contribution',
+                    );
+              }
+            } catch (e) {
+              debugPrint('group contribution logTransaction failed: $e');
+            }
             try {
               final service = ref.read(groupContributionServiceProvider);
               final userName = authUser.userMetadata?['full_name'] ?? authUser.email ?? "Member";

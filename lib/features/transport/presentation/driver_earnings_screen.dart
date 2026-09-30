@@ -4,7 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
-import 'package:church_on_app/features/finance/presentation/lipila_payment_gateway.dart';
+import 'package:church_on_app/features/give/presentation/widgets/momo_phone_input_widget.dart';
 import 'package:church_on_app/core/config/fee_config.dart';
 
 class DriverEarningsScreen extends ConsumerStatefulWidget {
@@ -75,35 +75,50 @@ class _DriverEarningsScreenState extends ConsumerState<DriverEarningsScreen> {
     }
   }
 
-  void _requestCashout() {
+  Future<void> _requestCashout() async {
     if (_totalEarnings <= 0) {
       PremiumToast.showError(context, 'No balance available for cashout');
       return;
     }
 
-    final user = Supabase.instance.client.auth.currentUser;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => LipilaPaymentGateway(
-        amount: _totalEarnings,
-        description: 'Driver Cashout Payout',
-        category: 'payout',
-        recipientName: user?.userMetadata?['full_name'] ?? 'Driver',
-        recipientAccount: user?.email ?? 'Mobile Money Wallet',
-        paymentReason: 'Driver Earnings Settlement',
-        onComplete: (success, txId) {
-          Navigator.pop(context);
-          if (success) {
-            PremiumToast.showSuccess(context, 'Cashout request submitted successfully!');
-            _loadEarnings();
-          } else {
-            PremiumToast.showError(context, 'Cashout failed. Please try again.');
-          }
-        },
-      ),
-    );
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) {
+      PremiumToast.showError(context, 'Please sign in to request a cashout.');
+      return;
+    }
+
+    try {
+      final profile = await client
+          .from('profiles')
+          .select('phone_number')
+          .eq('id', user.id)
+          .maybeSingle();
+      if (!mounted) return;
+      final rawPhone = (profile?['phone_number'] ?? '').toString().trim();
+      if (rawPhone.isEmpty) {
+        PremiumToast.showError(context, 'Add a mobile money number to your profile first.');
+        return;
+      }
+      final phone = MomoPhoneInputWidget.formatPhone(rawPhone);
+      // Cashout = a withdrawal request on the payout_requests ledger, approved
+      // by COA in Withdrawal Approvals. The old flow opened the COLLECTION
+      // gateway — it asked the DRIVER to enter their phone and PAY the app,
+      // which is exactly backwards for a payout.
+      await client.from('payout_requests').insert({
+        'user_id': user.id,
+        'amount': _totalEarnings,
+        'mobile_number': phone,
+        'network': MomoPhoneInputWidget.detectNetworkIdIfKnown(phone) ?? 'mtn',
+        'status': 'pending',
+      });
+      if (!mounted) return;
+      PremiumToast.showSuccess(context, 'Cashout request submitted — pending approval.');
+      await _loadEarnings();
+    } catch (e) {
+      if (!mounted) return;
+      PremiumToast.showError(context, 'Cashout failed: $e');
+    }
   }
 
   @override
