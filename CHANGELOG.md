@@ -1,3 +1,4 @@
+# Changelog
 
 ## Unreleased - 2026-09-30 (Listed as a map navigation option: geo: intent + in-app /navigate screen, release v1.0.0+352)
 
@@ -15,7 +16,8 @@
 - Web redeployed (`882f94af.churchonapp.pages.dev`) and byte-verified against production (`main.dart.js` 10,962,142 = local).
 
 ### Note - media.churchonapp.com edge cache of latest.json still serves stale +348
-- The plain URL returns `1.0.0+348` (`cf-cache-status: HIT`, `age` > 26h) while origin (and any `?query` cache-buster) returns `+350`. A zone Cache Rule overrides the origin `max-age=14400`; available tokens (`VITE_CLOUDFLARE_API_TOKEN` = 401, `EXPO_PUBLIC_CLOUDFLARE_API_TOKEN` = valid but zero zones / no purge route, wrangler OAuth = no purge scope) cannot purge it. Self-heals at the edge TTL; consumers wanting the current manifest should append a cache-busting query param. Nothing in this repo consumes `latest.json`.# Changelog
+- The plain URL returns `1.0.0+348` (`cf-cache-status: HIT`, `age` > 26h) while origin (and any `?query` cache-buster) returns `+350`. A zone Cache Rule overrides the origin `max-age=14400`; available tokens (`VITE_CLOUDFLARE_API_TOKEN` = 401, `EXPO_PUBLIC_CLOUDFLARE_API_TOKEN` = valid but zero zones / no purge route, wrangler OAuth = no purge scope) cannot purge it. Self-heals at the edge TTL; consumers wanting the current manifest should append a cache-busting query param. Nothing in this repo consumes `latest.json`.
+
 
 ## Unreleased - 2026-09-25 (City map tiles LIVE: 6 metros z0-15 via protomaps/basemaps jar, manifest published, r2-put hardened)
 
