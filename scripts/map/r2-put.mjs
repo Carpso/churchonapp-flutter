@@ -132,6 +132,7 @@ function signRequest({
   secretAccessKey,
   region,
   extraHeaders = {},
+  query = '',
 }) {
   const now = new Date();
   const amzDate = now
@@ -158,7 +159,7 @@ function signRequest({
   const canonicalRequest = [
     method,
     canonicalUri,
-    '', // no query string
+    query, // pre-sorted, URI-encoded canonical query string ("" when none)
     canonicalHeaders,
     signedHeaders,
     payloadHash,
@@ -226,22 +227,37 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+// Canonical query string for SigV4: URI-encoded, sorted by key name.
+function canonicalQuery(params) {
+  return Object.keys(params)
+    .sort()
+    .map((k) => `${uriEncode(k)}=${uriEncode(String(params[k]))}`)
+    .join('&');
+}
+
 // --------------------------------------------------------------------- main
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
 
-  if (opts.help || (opts.positional.length === 0 && !opts.head)) {
+  if (
+    opts.help ||
+    (opts.positional.length === 0 && !opts.head && !opts.list && !opts.delete)
+  ) {
     console.log(
       [
         'Usage:',
         '  node scripts/map/r2-put.mjs <local-file> <r2-key> [--bucket <b>] [--content-type <mime>] [--env-file <p>]',
         '  node scripts/map/r2-put.mjs --head <r2-key> [--bucket <b>]',
         '  node scripts/map/r2-put.mjs --copy <src-key> <dst-key> [--bucket <b>]',
+        '  node scripts/map/r2-put.mjs --list <prefix> [--bucket <b>]',
+        '  node scripts/map/r2-put.mjs --delete <r2-key> [--bucket <b>]',
         '',
         'Env: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY (or VITE_R2_*).',
       ].join('\n')
     );
-    process.exit(opts.help || opts.head ? 0 : 2);
+    process.exit(
+      opts.help || opts.head || opts.list || opts.delete ? 0 : 2
+    );
   }
 
   const creds = resolveCredentials(opts);
@@ -281,6 +297,97 @@ async function main() {
       process.exit(0);
     }
     console.error(`[r2-put] FAIL ${res.statusCode} s3://${creds.bucket}/${key}`);
+    process.exit(1);
+  }
+
+  // -------------------------------------------------------------- list mode
+  // ListObjectsV2 over a prefix — used to audit/prune release artifacts.
+  if (opts.list) {
+    const prefix = opts.list === true ? opts.positional[0] || '' : opts.list;
+    const emptyHash = sha256Hex('');
+    let token;
+    let total = 0;
+    do {
+      const params = { 'list-type': '2', prefix };
+      if (token) params['continuation-token'] = token;
+      const query = canonicalQuery(params);
+      const signed = signRequest({
+        method: 'GET',
+        bucket: creds.bucket,
+        key: '',
+        host,
+        payloadHash: emptyHash,
+        contentType: 'application/octet-stream',
+        accessKeyId: creds.accessKeyId,
+        secretAccessKey: creds.secretAccessKey,
+        region,
+        query,
+      });
+      const res = await request({
+        method: 'GET',
+        host,
+        headers: signed.headers,
+        contentLength: 0,
+        path: `${signed.canonicalUri}?${query}`,
+      });
+      if (res.statusCode !== 200) {
+        console.error(`[r2-put] list HTTP ${res.statusCode}: ${res.body.slice(0, 500)}`);
+        process.exit(1);
+      }
+      const contents = [...res.body.matchAll(
+        /<Contents>([\s\S]*?)<\/Contents>/g
+      )];
+      for (const [, block] of contents) {
+        const key = (block.match(/<Key>([\s\S]*?)<\/Key>/) || [])[1] || '';
+        const size = (block.match(/<Size>(\d+)<\/Size>/) || [])[1] || '0';
+        const last = (block.match(
+          /<LastModified>([\s\S]*?)<\/LastModified>/
+        ) || [])[1] || '';
+        console.log(`${key}\t${size}\t${last}`);
+        total++;
+      }
+      token = (res.body.match(
+        /<NextContinuationToken>([\s\S]*?)<\/NextContinuationToken>/
+      ) || [])[1];
+      const truncated = /<IsTruncated>true<\/IsTruncated>/.test(res.body);
+      if (!truncated) token = undefined;
+    } while (token);
+    if (quiet) console.error(`[r2-put] ${total} objects`);
+    process.exit(0);
+  }
+
+  // ------------------------------------------------------------ delete mode
+  if (opts.delete) {
+    const key = opts.delete === true ? opts.positional[0] : opts.delete;
+    if (!key) {
+      console.error('[r2-put] --delete requires an r2-key');
+      process.exit(2);
+    }
+    const emptyHash = sha256Hex('');
+    const signed = signRequest({
+      method: 'DELETE',
+      bucket: creds.bucket,
+      key,
+      host,
+      payloadHash: emptyHash,
+      contentType: 'application/octet-stream',
+      accessKeyId: creds.accessKeyId,
+      secretAccessKey: creds.secretAccessKey,
+      region,
+    });
+    const res = await request({
+      method: 'DELETE',
+      host,
+      headers: signed.headers,
+      contentLength: 0,
+      path: signed.canonicalUri,
+    });
+    // S3 DELETE returns 204 whether or not the key existed.
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      console.log(`[r2-put] Deleted s3://${creds.bucket}/${key}`);
+      process.exit(0);
+    }
+    console.error(`[r2-put] delete HTTP ${res.statusCode}: ${res.body.slice(0, 500)}`);
     process.exit(1);
   }
 
