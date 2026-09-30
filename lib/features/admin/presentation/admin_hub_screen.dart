@@ -290,6 +290,73 @@ class AdminHubScreen extends ConsumerWidget {
                 theme.primaryColor,
                 () => Navigator.push(context, MaterialPageRoute(builder: (context) => const GlobalBroadcastScreen())),
               ),
+            // ── Pastoral care suite (ChMS patterns) ───────────────────────
+            Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
+            Text("Pastoral Care", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+            const SizedBox(height: 20),
+            if (isLeadership)
+              _buildAdminTile(
+                context,
+                LucideIcons.users,
+                "People to See Today",
+                "Visitors, due follow-ups, absent & un-baptised",
+                Colors.deepOrange,
+                () => context.push('/people-care'),
+              ),
+            if (isLeadership)
+              _buildAdminTile(
+                context,
+                LucideIcons.home,
+                "Households",
+                "Families as the unit of care & giving envelopes",
+                Colors.teal,
+                () => context.push('/households'),
+              ),
+            if (isLeadership)
+              _buildAdminTile(
+                context,
+                LucideIcons.clipboardList,
+                "Order of Service",
+                "Songs, speakers & ushers — publish to the congregation",
+                theme.primaryColor,
+                () => context.push('/service-plans'),
+              ),
+            if (isLeadership)
+              _buildAdminTile(
+                context,
+                LucideIcons.trendingUp,
+                "Visitor Retention",
+                "First-time vs returning vs regular, month over month",
+                Colors.indigo,
+                () => context.push('/visitor-retention'),
+              ),
+            if (isLeadership)
+              _buildAdminTile(
+                context,
+                LucideIcons.calendarClock,
+                "Serving Rota",
+                "Who serves when — nudge them on WhatsApp",
+                Colors.amber,
+                () => context.push('/volunteer-rota'),
+              ),
+            if (isLeadership)
+              _buildAdminTile(
+                context,
+                LucideIcons.search,
+                "Search People",
+                "One box for name, phone, role & household",
+                Colors.blue,
+                () => context.push('/people-search'),
+              ),
+            if (isLeadership)
+              _buildAdminTile(
+                context,
+                LucideIcons.shieldCheck,
+                "Delegate Permissions",
+                "Give an usher or deacon a scoped role",
+                Colors.purple,
+                () => context.push('/delegations'),
+              ),
             Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
             ...AdminNavigationRegistry.buildAccessibleTiles(
               context,

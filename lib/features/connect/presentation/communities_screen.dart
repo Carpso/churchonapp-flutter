@@ -11,7 +11,6 @@ import '../data/presence_service.dart';
 import 'chat_messenger_screen.dart';
 import 'group_details_screen.dart';
 import 'community_forms.dart';
-import '../../modules/media/presentation/events_list_screen.dart';
 import '../../../core/widgets/shimmer_loader.dart';
 
 class CommunitiesScreen extends ConsumerStatefulWidget {
@@ -441,8 +440,10 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen> {
 
   Widget _buildEventGateway(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.push(
-          context, MaterialPageRoute(builder: (_) => const EventsListScreen())),
+      // Route to the canonical Events screen. `EventsListScreen` was a
+      // duplicate list whose event cards had no tap handler at all, so the
+      // whole community-events card was a dead end.
+      onTap: () => context.push('/events'),
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(

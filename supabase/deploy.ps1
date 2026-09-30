@@ -373,6 +373,7 @@ $migrations = @(
       "20261233_stream_chat_isolation.sql"
       "20261234_fix_lps_settle_cron_json.sql"
       "20261235_church_payout_dedupe.sql"
+"20261236_pastoral_care_households_service_plans.sql"
       )
 
 

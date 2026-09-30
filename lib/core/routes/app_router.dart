@@ -57,6 +57,13 @@ import 'package:church_on_app/features/profile/presentation/about_screen.dart';
 import 'package:church_on_app/features/support/presentation/support_hub_screen.dart';
 import 'package:church_on_app/features/admin/presentation/expansion_leads_screen.dart';
 import 'package:church_on_app/features/admin/presentation/member_management_screen.dart';
+import 'package:church_on_app/features/admin/presentation/people_care_screen.dart';
+import 'package:church_on_app/features/admin/presentation/households_screen.dart';
+import 'package:church_on_app/features/admin/presentation/service_plans_screen.dart';
+import 'package:church_on_app/features/admin/presentation/visitor_retention_screen.dart';
+import 'package:church_on_app/features/admin/presentation/volunteer_rota_screen.dart';
+import 'package:church_on_app/features/admin/presentation/people_search_screen.dart';
+import 'package:church_on_app/features/admin/presentation/delegations_screen.dart';
 import 'package:church_on_app/features/admin/presentation/event_scheduler_screen.dart';
 import 'package:church_on_app/features/admin/presentation/carpso_driver_approval_screen.dart';
 import 'package:church_on_app/features/admin/presentation/emergency_shutdown_screen.dart';
@@ -477,6 +484,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           return user.isPastorOrHigher || user.isLeadershipTeam;
         }
 
+        // Pastoral care suite: attendance records are meaningless without
+        // knowing who they belong to, so leadership gates it.
+        if (route == '/people-care' ||
+            route == '/households' ||
+            route == '/service-plans' ||
+            route == '/visitor-retention' ||
+            route == '/volunteer-rota' ||
+            route == '/people-search' ||
+            route == '/delegations') {
+          return user.isPastorOrHigher || user.isLeadershipTeam;
+        }
+
         // Finance (Treasurer / Usher / Leadership)
         if (route == '/turnover-tax') {
           return user.isLedgerManager;
@@ -753,6 +772,72 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/media-upload',
         builder: (context, state) => const MediaUploadScreen(),
+      ),
+      // ── Pastoral care / ChMS suite ──────────────────────────────────────
+      // Every screen below is tenant-scoped: the tenant comes from the
+      // caller's `extra` when supplied, otherwise from the current selection.
+      GoRoute(
+        path: '/people-care',
+        builder: (context, state) {
+          final tenantId = state.extra is String
+              ? state.extra as String
+              : ref.read(currentTenantProvider)?.id ?? '';
+          return PeopleCareScreen(tenantId: tenantId);
+        },
+      ),
+      GoRoute(
+        path: '/households',
+        builder: (context, state) {
+          final tenantId = state.extra is String
+              ? state.extra as String
+              : ref.read(currentTenantProvider)?.id ?? '';
+          return HouseholdsScreen(tenantId: tenantId);
+        },
+      ),
+      GoRoute(
+        path: '/service-plans',
+        builder: (context, state) {
+          final tenantId = state.extra is String
+              ? state.extra as String
+              : ref.read(currentTenantProvider)?.id ?? '';
+          return ServicePlansScreen(tenantId: tenantId);
+        },
+      ),
+      GoRoute(
+        path: '/visitor-retention',
+        builder: (context, state) {
+          final tenantId = state.extra is String
+              ? state.extra as String
+              : ref.read(currentTenantProvider)?.id ?? '';
+          return VisitorRetentionScreen(tenantId: tenantId);
+        },
+      ),
+      GoRoute(
+        path: '/volunteer-rota',
+        builder: (context, state) {
+          final tenantId = state.extra is String
+              ? state.extra as String
+              : ref.read(currentTenantProvider)?.id ?? '';
+          return VolunteerRotaScreen(tenantId: tenantId);
+        },
+      ),
+      GoRoute(
+        path: '/people-search',
+        builder: (context, state) {
+          final tenantId = state.extra is String
+              ? state.extra as String
+              : ref.read(currentTenantProvider)?.id ?? '';
+          return PeopleSearchScreen(tenantId: tenantId);
+        },
+      ),
+      GoRoute(
+        path: '/delegations',
+        builder: (context, state) {
+          final tenantId = state.extra is String
+              ? state.extra as String
+              : ref.read(currentTenantProvider)?.id ?? '';
+          return DelegationsScreen(tenantId: tenantId);
+        },
       ),
       GoRoute(
         path: '/global-broadcast',

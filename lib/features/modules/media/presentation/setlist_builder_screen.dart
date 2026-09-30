@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:church_on_app/features/modules/media/data/lyrics_service.dart';
+import 'package:church_on_app/features/modules/media/data/setlist_pdf_service.dart';
 import 'package:church_on_app/core/widgets/premium_toast.dart';
+import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:intl/intl.dart';
 
 class SetlistBuilderScreen extends ConsumerStatefulWidget {
@@ -88,7 +90,17 @@ class _SetlistBuilderScreenState extends ConsumerState<SetlistBuilderScreen> {
                         ),
                     ],
                   ),
-                  trailing: IconButton(
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Item 7 — printable / shareable setlist sheet.
+                      IconButton(
+                        tooltip: 'Print or share PDF',
+                        icon: const Icon(LucideIcons.fileText,
+                            size: 18, color: Color(0xFF7A5C00)),
+                        onPressed: () => _exportSetlistPdf(context, setlist),
+                      ),
+                      IconButton(
                     icon: const Icon(LucideIcons.trash2, size: 18, color: Colors.red),
                     onPressed: () async {
                       try {
@@ -98,6 +110,8 @@ class _SetlistBuilderScreenState extends ConsumerState<SetlistBuilderScreen> {
                         if (context.mounted) PremiumToast.showError(context, 'Failed to delete setlist');
                       }
                     },
+                  ),
+                    ],
                   ),
                 ),
               );
@@ -135,6 +149,89 @@ class _SetlistBuilderScreenState extends ConsumerState<SetlistBuilderScreen> {
         ),
       ),
     );
+  }
+
+  /// Item 7 — resolve the song titles behind `song_ids`, then let the leader
+  /// print or share the sheet. An unreadable song is skipped rather than
+  /// failing the whole export.
+  Future<void> _exportSetlistPdf(BuildContext context, Setlist setlist) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    List<WorshipLyric> songs = const [];
+    try {
+      final lyrics = ref.read(lyricsServiceProvider);
+      final collected = <WorshipLyric>[];
+      for (final id in setlist.songIds) {
+        try {
+          final s = await lyrics.getLyricById(id);
+          if (s != null) collected.add(s);
+        } catch (_) {/* skip an unreadable song */}
+      }
+      songs = collected;
+    } catch (_) {
+      songs = const [];
+    }
+
+    if (!context.mounted) return;
+    navigator.pop(); // close the spinner
+
+    if (songs.isEmpty) {
+      messenger.showSnackBar(
+          const SnackBar(content: Text('Could not load the songs for this setlist.')));
+      return;
+    }
+
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(LucideIcons.printer),
+              title: const Text('Print'),
+              subtitle: const Text('Send to a printer'),
+              onTap: () => Navigator.pop(ctx, 'print'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.share2),
+              title: const Text('Share'),
+              subtitle: const Text('WhatsApp, email or save the PDF'),
+              onTap: () => Navigator.pop(ctx, 'share'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.x),
+              title: const Text('Cancel'),
+              onTap: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !context.mounted) return;
+
+    final churchName = ref.read(currentTenantProvider)?.name;
+    const pdf = SetlistPdfService();
+    try {
+      if (action == 'print') {
+        await pdf.print(
+            setlist: setlist, songs: songs, churchName: churchName);
+      } else {
+        await pdf.share(
+            setlist: setlist, songs: songs, churchName: churchName);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        messenger.showSnackBar(SnackBar(
+            content: Text('Could not build the PDF: $e'),
+            backgroundColor: Colors.red));
+      }
+    }
   }
 
   void _showCreateSetlistModal(BuildContext context) {

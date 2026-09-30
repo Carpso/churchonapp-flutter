@@ -8,6 +8,7 @@ import 'package:church_on_app/core/widgets/error_retry_widget.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/features/finance/data/finance_service.dart';
+import 'package:go_router/go_router.dart';
 
 class EventsListScreen extends ConsumerWidget {
   const EventsListScreen({super.key});
@@ -52,7 +53,14 @@ class EventsListScreen extends ConsumerWidget {
   }
 
   Widget _buildEventCard(BuildContext context, WidgetRef ref, ChurchEvent event) {
-    return Container(
+    // The whole card is a tap target — previously only the GET TICKET button
+    // responded, so tapping an event did nothing.
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(30),
+        onTap: () => context.push('/event/${event.id}'),
+        child: Container(
       margin: const EdgeInsets.only(bottom: 25),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -138,6 +146,8 @@ class EventsListScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+        ),
       ),
     );
   }

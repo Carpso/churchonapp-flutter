@@ -13,7 +13,9 @@ import 'package:church_on_app/features/admin/presentation/widgets/pastor_telemet
 import 'package:go_router/go_router.dart';
 import 'church_invite_screen.dart';
 import 'global_broadcast_screen.dart';
-import 'member_management_screen.dart';
+import 'member_360_screen.dart';
+import 'people_care_screen.dart';
+import '../data/care_service.dart';
 import 'media_upload_screen.dart';
 import 'event_scheduler_screen.dart';
 import 'service_report_screen.dart';
@@ -57,6 +59,27 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
   int _salvationsMtd = 0;
   int _followUpsDue = 0;
   bool _hasOrganisation = false;
+  int _upcomingEventCount = 0;
+  bool _sermonsUnavailable = false;
+
+  /// D3 helper — the TRUE number of upcoming events (headline card), which is
+  /// independent of the 5-row preview list.
+  Future<int> _countUpcomingEvents(dynamic client, String tenantId) async {
+    try {
+      final res = await client
+          .from('events')
+          .select('id', count: 'exact')
+          .eq('tenant_id', tenantId)
+          .gte('date', DateTime.now().toIso8601String());
+      final n = (res as List).length;
+      // PostgREST returns the count in the response headers; fall back to the
+      // row length when count: 'exact' is not surfaced by this client.
+      return n;
+    } catch (e) {
+      debugPrint('upcoming event count failed: $e');
+      return 0;
+    }
+  }
 
   @override
   void initState() {
@@ -141,6 +164,7 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
 
       // "Sermons This Month" — real `sermons` table (NOT klips short-videos).
       int sermonCount = 0;
+      bool sermonsUnavailable = false;
       try {
         final sermonsRes = await client
             .from('sermons')
@@ -154,15 +178,11 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
             })
             .length;
       } catch (e) {
-        debugPrint("sermons count failed (fallback klips): $e");
-        try {
-          final sermonRes = await client
-              .from('klips')
-              .select('id')
-              .eq('tenant_id', tenantId)
-              .gte('created_at', firstOfMonth.toIso8601String());
-          sermonCount = (sermonRes as List).length;
-        } catch (_) {}
+        // D7: the old fallback counted SHORT VIDEOS as sermons, so a short
+        // video made the header read "5 sermons". Show 0 and flag the fault
+        // instead of quietly reporting the wrong thing.
+        debugPrint("sermons count unavailable: $e");
+        sermonsUnavailable = true;
       }
 
       final attThisMonth = await client
@@ -201,6 +221,10 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           .eq('tenant_id', tenantId)
           .order('created_at', ascending: false)
           .limit(5);
+
+      // D3: the events card shows the TRUE count, not the number of rows we
+      // loaded. `.limit(5)` is only for the preview list below.
+      final upcomingCount = await _countUpcomingEvents(client, tenantId);
 
       final eventsRes = await client
           .from('events')
@@ -242,18 +266,36 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
         debugPrint("pastor giving series failed: $e");
       }
 
-      // Average attendance: total check-ins ÷ distinct service-days this month.
+      // D5: average attendance = check-ins ÷ DISTINCT SERVICES held, not
+      // "days that have any check-in". The old divisor inflated the number
+      // whenever several services ran on one day.
       int avgAttendance = 0;
       try {
         final rows = attThisMonth as List;
-        final dates = rows
-            .map((a) {
-              final c = a['created_at']?.toString() ?? '';
-              return c.length >= 10 ? c.substring(0, 10) : c;
-            })
-            .where((d) => d.isNotEmpty)
-            .toSet();
-        if (dates.isNotEmpty) avgAttendance = (rows.length / dates.length).round();
+        // Prefer a real service roster: events for the month give the
+        // denominator the pastor actually thinks in ("we had 4 services").
+        final serviceDates = <String>{};
+        try {
+          final svc = await client
+              .from('events')
+              .select('date')
+              .eq('tenant_id', tenantId)
+              .gte('date', firstOfMonth.toIso8601String());
+          for (final s in (svc as List)) {
+            final raw = s['date']?.toString() ?? '';
+            if (raw.length >= 10) serviceDates.add(raw.substring(0, 10));
+          }
+        } catch (_) {/* events may be unavailable — fall back below */}
+        // Fall back to distinct attendance days when we have no roster.
+        if (serviceDates.isEmpty) {
+          for (final a in rows) {
+            final c = a['created_at']?.toString() ?? '';
+            if (c.length >= 10) serviceDates.add(c.substring(0, 10));
+          }
+        }
+        if (serviceDates.isNotEmpty) {
+          avgAttendance = (rows.length / serviceDates.length).round();
+        }
       } catch (_) {}
 
       // Weekly attendance trend (last 8 weeks) — the #1 ChMS metric pastors
@@ -311,7 +353,9 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
             .from('pastoral_followups')
             .select('id')
             .eq('tenant_id', tenantId)
-            .eq('status', 'pending');
+            // D1: the column only ever holds open|done|cancelled. The old
+            // 'pending' filter matched nothing, so this card was always 0.
+            .eq('status', 'open');
         followUps = (fu as List).length;
       } catch (_) {}
 
@@ -337,6 +381,8 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           _salvationsMtd = salvationsMtd;
           _followUpsDue = followUps;
           _hasOrganisation = hasOrganisation;
+          _upcomingEventCount = upcomingCount;
+          _sermonsUnavailable = sermonsUnavailable;
           _isLoading = false;
           _error = null;
         });
@@ -417,8 +463,14 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
           children: [
             _buildWelcomeHeader(theme),
             const SizedBox(height: 20),
+            // Items 1+4: the pastoral "people to see today" queue sits ABOVE
+            // the KPIs — this is Breeze's core value prop and it belongs at the
+            // top, not buried under charts.
+            _buildCareQueueCard(theme),
+            const SizedBox(height: 25),
             if (!_isMonthVerified) _buildVerificationBanner(theme),
             const SizedBox(height: 25),
+            if (_sermonsUnavailable) _buildDataFaultNote(theme),
             _buildSummaryRow(theme),
             const SizedBox(height: 25),
             _buildGivingTrend(theme),
@@ -457,6 +509,167 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
             const SizedBox(height: 40),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Items 1+4 — "People to see today". Reads the single care-queue RPC and
+  /// surfaces the four signals (due follow-ups, 2nd-week visitors, absent,
+  /// long-unbaptised) with one tap into the full pastoral queue.
+  Widget _buildCareQueueCard(ThemeData theme) {
+    final tenantId = _activeTenantId ?? ref.read(profileProvider).value?.tenantId;
+    if (tenantId == null || tenantId.isEmpty) return const SizedBox.shrink();
+
+    final queueAsync = ref.watch(careQueueProvider(tenantId));
+    return queueAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (queue) {
+        if (queue.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PeopleCareScreen(tenantId: tenantId),
+                ),
+              ),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF128C7E), Color(0xFF1A1A1A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(LucideIcons.userCheck,
+                          color: Colors.white, size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'People to see today',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${queue.total} need your attention',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(LucideIcons.chevronRight,
+                        color: Colors.white, size: 22),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            // Per-signal chips so the pastor sees WHY the number is what it is.
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (queue.dueFollowups > 0)
+                  _careChip(theme, '${queue.dueFollowups} follow-up',
+                      LucideIcons.clipboardList, Colors.orange),
+                if (queue.newVisitors > 0)
+                  _careChip(theme, '${queue.newVisitors} new visitor',
+                      LucideIcons.userPlus, Colors.teal),
+                if (queue.absent > 0)
+                  _careChip(theme, '${queue.absent} absent',
+                      LucideIcons.userX, Colors.red),
+                if (queue.unbaptised > 0)
+                  _careChip(theme, '${queue.unbaptised} to follow up',
+                      LucideIcons.droplet, Colors.indigo),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _careChip(ThemeData theme, String label, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.bold, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// D7 — when the sermons table can't be read, say so instead of silently
+  /// reporting 0 (or, previously, counting short videos as sermons).
+  Widget _buildDataFaultNote(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 15),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.alertTriangle, color: Colors.amber, size: 15),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              'Sermon count unavailable — upload history could not be read.',
+              style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.amber.shade900,
+                  fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -676,7 +889,8 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
       childAspectRatio: 1.1,
       children: [
         _statCard(theme, "Total Members", _formatNumber(_memberCount), LucideIcons.users, theme.primaryColor, null),
-        _statCard(theme, "Upcoming Events", _formatNumber(_upcomingEvents.length), LucideIcons.calendarDays, Colors.amber, null),
+        // D3: real count, not the 5-row preview length.
+        _statCard(theme, "Upcoming Events", _formatNumber(_upcomingEventCount), LucideIcons.calendarDays, Colors.amber, null),
         _statCard(theme, "Attendance", _formatNumber(_attendanceCount), LucideIcons.calendarCheck, Colors.green, attGrowth),
         _statCard(theme, "Giving This Month", currencyFormat.format(_givingTotal), LucideIcons.heartPulse, Colors.red, givingGrowth),
       ],
@@ -1019,7 +1233,18 @@ class _PastorDashboardScreenState extends ConsumerState<PastorDashboardScreen> {
         final role = member['role'] ?? 'member';
         final avatarUrl = member['avatar_url'];
         return GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MemberManagementScreen())),
+          // D8: tapping a member opened the whole directory, ignoring which
+          // member was tapped. Open that person's record instead.
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => Member360Screen(
+                memberId: member['id']?.toString() ?? '',
+                initialName: name?.toString() ?? 'Member',
+                initialAvatar: avatarUrl?.toString(),
+              ),
+            ),
+          ),
           child: Container(
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(15),
@@ -1156,8 +1381,21 @@ child: avatarUrl != null && avatarUrl!.isNotEmpty
            () => context.push('/stream-analytics')),
          _actionTile(theme, LucideIcons.piggyBank, "Church Financial Hub", "Building funds, group contributions & goals", Colors.green,
            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchFinancialHubScreen()))),
-         _actionTile(theme, LucideIcons.userPlus, "Invite Members", "Share church invite link, QR code & more", theme.primaryColor,
-           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchInviteScreen()))),
+        _actionTile(theme, LucideIcons.userPlus, "Invite Members", "Share church invite link, QR code & more", theme.primaryColor,
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChurchInviteScreen()))),
+        // ── Pastoral care suite (ChMS patterns) ─────────────────────────
+        _actionTile(theme, LucideIcons.search, "Search People", "One box for name, phone, role & household", Colors.blue,
+          () => context.push('/people-search')),
+        _actionTile(theme, LucideIcons.home, "Households", "Families as the unit of care & giving envelopes", Colors.teal,
+          () => context.push('/households')),
+        _actionTile(theme, LucideIcons.clipboardList, "Order of Service", "Songs, speakers & ushers — publish to the congregation", theme.primaryColor,
+          () => context.push('/service-plans')),
+        _actionTile(theme, LucideIcons.calendarClock, "Serving Rota", "Who serves when — nudge them on WhatsApp", Colors.amber,
+          () => context.push('/volunteer-rota')),
+        _actionTile(theme, LucideIcons.trendingUp, "Visitor Retention", "First-time vs returning vs regular, month over month", Colors.indigo,
+          () => context.push('/visitor-retention')),
+        _actionTile(theme, LucideIcons.shieldCheck, "Delegate Permissions", "Give an usher or deacon a scoped role", Colors.purple,
+          () => context.push('/delegations')),
          if (_hasOrganisation)
            _actionTile(theme, LucideIcons.globe, "View Organisation", "See your wider church network", Colors.purple,
              () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OrganizationOverviewScreen()))),
