@@ -34,6 +34,28 @@ jobs:
         env:
           ENV_FILE: ${{ secrets.ENV_FILE }}
 
+      # The ENV_FILE secret is a snapshot of the local .env and can go stale.
+      # supabase.churchonapp.com is fronted by a Worker that does NOT proxy
+      # WebSocket upgrades, so /realtime/* 500s and every realtime feature
+      # (live streaming, chat, prayer wall) silently dies. Fail loudly rather
+      # than publishing a broken bundle.
+      - name: Guard against the realtime-broken custom domain
+        if: env.HAS_CF == 'true'
+        run: |
+          URL="$(grep -E '^SUPABASE_URL=' .env | cut -d= -f2- | tr -d '\r' | xargs)"
+          echo "SUPABASE_URL=$URL"
+          case "$URL" in
+            *supabase.churchonapp.com*)
+              echo "::error::SUPABASE_URL points at the custom domain, whose Worker breaks /realtime/* (CF 1101). Use the project URL."
+              exit 1
+              ;;
+            *your-project*)
+              echo "::error::SUPABASE_URL is still the placeholder. Set the ENV_FILE secret."
+              exit 1
+              ;;
+          esac
+          echo "SUPABASE_URL looks safe."
+
       - name: Install dependencies
         if: env.HAS_CF == 'true'
         run: flutter pub get

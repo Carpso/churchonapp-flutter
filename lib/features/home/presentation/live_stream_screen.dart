@@ -409,6 +409,20 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     if (!mounted || _phase == _PlayerPhase.ready) return;
     _totalFailures++;
 
+    // 0) A phone-camera (WHIP) broadcast produces NO HLS/DASH — Cloudflare
+    //    answers the manifest with HTTP 204, which surfaces here as
+    //    MEDIA_ERR_NETWORK / manifestParsingError. The ONLY playable transport
+    //    for that mode is WHEP, so escalate to it BEFORE anything else. Without
+    //    this the viewer sat on "camera hasn't connected" forever even though
+    //    the stream was live, because the hls_url always *looks* valid.
+    final whepOnFailure = _isValidUrl(_whepUrl ?? '') ? _whepUrl! : null;
+    if (whepOnFailure != null && !_isWhepUrl(_resolvedPlaybackUrl ?? '')) {
+      debugPrint('LiveStream: HLS unavailable - escalating to WHEP playback');
+      _autoRetries = 0;
+      await _startWhep(whepOnFailure);
+      return;
+    }
+
     // 1) Reconcile with the server (repairs a stale/empty hls_url + real state).
     final previousUrl = _resolvedPlaybackUrl;
     await _loadRow(allowHttpRefresh: true);

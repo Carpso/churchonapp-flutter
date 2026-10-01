@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum CallStatus { dialing, ringing, connected, rejected, ended }
@@ -42,6 +44,21 @@ class CallSession {
 class CallService {
   final _client = Supabase.instance.client;
 
+  /// Turn a realtime error into an empty list instead of an error event.
+  ///
+  /// `handleError` alone is not enough: supabase_flutter's realtime channel
+  /// re-raises the failure asynchronously, so the app logged
+  /// "Unhandled async error: RealtimeSubscribeException" and the ringing
+  /// screen could see a phantom call. Swallowing the error *as data* keeps the
+  /// stream alive; the next successful push repopulates it.
+  static final StreamTransformer<List<CallSession>, List<CallSession>>
+      _swallowRealtimeErrors = StreamTransformer.fromHandlers(
+    handleError: (error, stack, sink) {
+      debugPrint('incomingCallsStream error (swallowed): $error');
+      sink.add(const <CallSession>[]);
+    },
+  );
+
   Stream<List<CallSession>> get incomingCallsStream {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return const Stream.empty();
@@ -54,9 +71,7 @@ class CallService {
             .where((e) => e['status'] == 'dialing')
             .map((e) => CallSession.fromMap(e))
             .toList())
-        // A realtime subscribe timeout must never escape as an uncaught error.
-        .handleError(
-            (e) => debugPrint('incomingCallsStream error (non-fatal): $e'));
+        .transform(_swallowRealtimeErrors);
   }
 
   Future<CallSession> startCall(String recipientId, String type, Map<String, dynamic> offer) async {

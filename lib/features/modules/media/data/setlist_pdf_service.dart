@@ -10,11 +10,72 @@ import 'lyrics_service.dart';
 /// The table (`worship_setlists`) has existed since 20261226 with no output
 /// surface at all, so this is the cheapest visible win in the whole ChMS
 /// backlog: one button, and the musicians get a sheet they can actually hold.
+///
+/// FONT NOTE: this uses the `pdf` package's BUILT-IN Helvetica, which only
+/// covers WinAnsi. The repo bundles no .ttf at all, and there is no network
+/// at PDF-build time on a church laptop, so instead of shipping a font binary
+/// we normalise every string through [sanitize] — anything outside WinAnsi
+/// (curly quotes, en/em dashes, ellipsis, ellipsis, accented letters, CJK,
+/// emoji) is folded to its ASCII equivalent. Without this the web build logs
+/// "Could not find a set of Noto fonts to display all missing characters" and
+/// renders tofu boxes for every lyric.
 class SetlistPdfService {
   const SetlistPdfService();
 
   static const _brandYellow = PdfColor.fromInt(0xFFFFDA03);
   static const _ink = PdfColor.fromInt(0xFF1A1A1A);
+
+  /// Fold text to the WinAnsi range the built-in PDF font can actually draw.
+  static String sanitize(String input) {
+    if (input.isEmpty) return input;
+    final buffer = StringBuffer();
+    for (final rune in input.runes) {
+      final ch = String.fromCharCode(rune);
+      switch (ch) {
+        // Typography -> ASCII
+        case '‘':
+        case '’':
+        case '‛':
+        case '´':
+          buffer.write("'");
+        case '“':
+        case '”':
+        case '‟':
+          buffer.write('"');
+        case '–':
+        case '—':
+        case '−':
+          buffer.write('-');
+        case '…':
+          buffer.write('...');
+        case ' ':
+          buffer.write(' ');
+        case '•':
+          buffer.write('-');
+        case '·':
+          buffer.write('-');
+        case '☐':
+        case '☑':
+        case '☒':
+          buffer.write('[ ]');
+        case '→':
+        case '⇒':
+          buffer.write('->');
+        default:
+          // Printable ASCII passes straight through.
+          if (rune >= 0x20 && rune <= 0x7E) {
+            buffer.write(ch);
+          } else if (rune >= 0xA0 && rune <= 0xFF) {
+            // WinAnsi covers all of Latin-1 supplement, so every accented
+            // letter (é, ñ, ü …) is already safe.
+            buffer.write(ch);
+          }
+          // Anything else (CJK, emoji, symbols) is dropped rather than drawn
+          // as a tofu box.
+      }
+    }
+    return buffer.toString();
+  }
 
   /// Build the setlist PDF. [churchName] is printed in the header so the sheet
   /// is self-identifying when a musician carries it between rooms.
@@ -73,7 +134,7 @@ class SetlistPdfService {
       children: [
         if (churchName != null && churchName.isNotEmpty)
           pw.Text(
-            churchName.toUpperCase(),
+            sanitize(churchName.toUpperCase()),
             style: pw.TextStyle(
               fontSize: 9,
               letterSpacing: 1.2,
@@ -83,7 +144,7 @@ class SetlistPdfService {
           ),
         pw.SizedBox(height: 4),
         pw.Text(
-          setlist.title,
+          sanitize(setlist.title),
           style: pw.TextStyle(
             fontSize: 20,
             fontWeight: pw.FontWeight.bold,
@@ -169,7 +230,7 @@ class SetlistPdfService {
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         pw.Text(
-                          s.title,
+                          sanitize(s.title),
                           style: pw.TextStyle(
                             fontSize: 12,
                             fontWeight: pw.FontWeight.bold,
@@ -178,7 +239,7 @@ class SetlistPdfService {
                         ),
                         if (s.artist.isNotEmpty)
                           pw.Text(
-                            s.artist,
+                            sanitize(s.artist),
                             style: const pw.TextStyle(
                                 fontSize: 9, color: PdfColors.grey700),
                           ),
@@ -190,7 +251,7 @@ class SetlistPdfService {
               if (s.lyrics.trim().isNotEmpty) ...[
                 pw.SizedBox(height: 6),
                 pw.Text(
-                  s.lyrics.trim(),
+                  sanitize(s.lyrics.trim()),
                   style: const pw.TextStyle(
                     fontSize: 9.5,
                     lineSpacing: 1.6,
@@ -251,6 +312,11 @@ class SetlistPdfService {
     );
   }
 
-  static String _safe(String s) =>
-      s.replaceAll(RegExp(r'[^A-Za-z0-9 _-]'), '').trim().replaceAll(' ', '_');
+  /// Keep the export filename ASCII-safe (a title with an emoji or an accent
+  /// would otherwise produce a filename some Android file pickers reject).
+  static String _safe(String s) => sanitize(s)
+      .replaceAll(RegExp(r'[^A-Za-z0-9 _-]'), '')
+      .trim()
+      .replaceAll(' ', '_')
+      .replaceAll(RegExp(r'_+'), '_');
 }
