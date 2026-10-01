@@ -357,6 +357,25 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.purple,
                 () => context.push('/delegations'),
               ),
+            // ── Live map: buses, traffic, parking, nearby (all real data) ──
+            if (isLeadership && isChurchTenant)
+              _buildAdminTile(
+                context,
+                LucideIcons.map,
+                "Live Map",
+                "Church buses, crowd-sourced traffic, parking & nearby",
+                Colors.indigo,
+                () => context.push('/live-map'),
+              ),
+            if (isLeadership && isChurchTenant)
+              _buildAdminTile(
+                context,
+                LucideIcons.bus,
+                "Church Fleet",
+                "Add buses, assign drivers, report live positions",
+                Colors.teal,
+                () => context.push('/church-fleet'),
+              ),
             Divider(height: 30, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
             ...AdminNavigationRegistry.buildAccessibleTiles(
               context,

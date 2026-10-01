@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as webrtc;
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -17,6 +18,8 @@ import 'package:church_on_app/features/home/data/live_streaming_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/live_stream_overlay_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/live_stream_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/stream_analytics_service.dart';
+import 'package:church_on_app/features/modules/logistics/data/map_live_models.dart';
+import 'package:church_on_app/features/modules/logistics/data/map_live_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/presentation/stream_projector_screen.dart';
 import 'package:church_on_app/features/modules/live_streaming/presentation/widgets/existing_stream_dialog.dart';
 
@@ -66,6 +69,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   bool _uploadingPoster = false;
   int _viewerCount = 0;
   int _peakViewers = 0;
+  StreamAudience _audience = StreamAudience.empty;
   String? _tickerMessage;
   int _tickerSpeed = 40;
   bool _tickerEnabled = true;
@@ -154,11 +158,140 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     final id = _streamId;
     if (id == null || !mounted) return;
     final res = await _analytics.refreshViewerCount(id);
-    if (res == null || !mounted) return;
+    if (!mounted) return;
+    // Also pull WHO is watching, not just how many.
+    final audience = await ref
+        .read(mapLiveServiceProvider)
+        .getStreamAudience(id);
+    if (!mounted) return;
     setState(() {
-      _viewerCount = res.count;
-      if (res.peak > _peakViewers) _peakViewers = res.peak;
+      if (res != null) {
+        _viewerCount = res.count;
+        if (res.peak > _peakViewers) _peakViewers = res.peak;
+      } else {
+        _viewerCount = audience.viewersNow;
+      }
+      _audience = audience;
     });
+  }
+
+  /// The live audience panel: everyone currently watching, newest first.
+  Future<void> _showAudience() async {
+    final id = _streamId;
+    if (id == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Start the stream first, then viewers appear here.')));
+      }
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Consumer(builder: (context, ref, _) {
+        final audience = ref.watch(streamAudienceProvider(id));
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.6,
+          maxChildSize: 0.9,
+          builder: (context, controller) => Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 12),
+              audience.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(),
+                ),
+                error: (e, _) => Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text('Could not load the audience: $e'),
+                ),
+                data: (a) => Column(
+                  children: [
+                    Text('${a.viewersNow} watching now',
+                        style: const TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.bold)),
+                    if (a.streamedMinutes != null && a.streamedMinutes! > 0)
+                      Text('Streaming for ${a.streamedMinutes} min',
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: a.watchers.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Text(
+                                'Nobody is watching yet. The list updates live.',
+                                textAlign: TextAlign.center,
+                              ),
+                            )
+                          : ListView.builder(
+                              controller: controller,
+                              padding:
+                                  const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                              itemCount: a.watchers.length,
+                              itemBuilder: (context, i) {
+                                final w = a.watchers[i];
+                                return ListTile(
+                                  dense: true,
+                                  leading: ClipOval(
+                                    child: (w.avatarUrl != null &&
+                                            w.avatarUrl!.isNotEmpty)
+                                        ? AppImage(w.avatarUrl!,
+                                            width: 38, height: 38)
+                                        : Container(
+                                            width: 38,
+                                            height: 38,
+                                            color: Theme.of(context)
+                                                .primaryColor
+                                                .withValues(alpha: 0.15),
+                                            child: Icon(
+                                                LucideIcons.user,
+                                                size: 18,
+                                                color: Theme.of(context)
+                                                    .primaryColor),
+                                          ),
+                                  ),
+                                  title: Text(w.name,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13)),
+                                  subtitle: Text(
+                                    [
+                                      if (w.role != null) w.role!,
+                                      if (w.joinedAt != null)
+                                        'joined ${DateFormat.Hm().format(w.joinedAt!.toLocal())}',
+                                    ].join(' · '),
+                                    style: const TextStyle(
+                                        fontSize: 11, color: Colors.grey),
+                                  ),
+                                  trailing: Text('watching ${w.watchedLabel}',
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.blueGrey)),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+    messenger.clearSnackBars();
   }
 
   @override
@@ -1579,19 +1712,104 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                           ),
                           if (_isLive) ...[
                             const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.55),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(LucideIcons.eye, color: Colors.white, size: 14),
-                                  const SizedBox(width: 4),
-                                  Text('$_viewerCount',
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                                ],
+                            // Live audience: tap to see WHO is watching, not
+                            // just how many.
+                            GestureDetector(
+                              onTap: _showAudience,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.55),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(LucideIcons.eye,
+                                        color: Colors.white, size: 14),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      '$_viewerCount',
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12),
+                                    ),
+                                    if (_audience.watchers.isNotEmpty) ...[
+                                      const SizedBox(width: 4),
+                                      SizedBox(
+                                        width: 54,
+                                        height: 18,
+                                        child: Stack(
+                                          children: [
+                                            for (var i = 0;
+                                                i <
+                                                    _audience.watchers.length
+                                                        .clamp(0, 3);
+                                                i++)
+                                              Positioned(
+                                                left: i * 8.0,
+                                                child: Container(
+                                                  decoration:
+                                                      BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                        color: Colors.black,
+                                                        width: 1),
+                                                  ),
+                                                  child: ClipOval(
+                                                    child: Image.network(
+                                                      _audience
+                                                              .watchers[i]
+                                                              .avatarUrl ??
+                                                          '',
+                                                      width: 18,
+                                                      height: 18,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (_, __,
+                                                              ___) =>
+                                                          CircleAvatar(
+                                                        radius: 9,
+                                                        backgroundColor:
+                                                            Colors.white
+                                                                .withValues(
+                                                                    alpha:
+                                                                        0.2),
+                                                        child: Text(
+                                                          _audience
+                                                                      .watchers[
+                                                                          i]
+                                                                      .name
+                                                                      .isNotEmpty
+                                                                  ? _audience
+                                                                          .watchers[
+                                                                              i]
+                                                                          .name[0]
+                                                                      .toUpperCase()
+                                                                  : '?',
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontSize: 9,
+                                                                  color: Colors
+                                                                      .white),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(width: 4),
+                                    const Text('TAP',
+                                        style: TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 9)),
+                                  ],
+                                ),
                               ),
                             ),
                           ],

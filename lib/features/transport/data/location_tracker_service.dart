@@ -2,7 +2,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'transport_service.dart';
+import '../../modules/logistics/data/map_live_service.dart';
 import '../../../core/providers/profile_provider.dart';
 
 /// Specialized service for real-time geolocation synchronization.
@@ -93,9 +95,60 @@ class LocationTrackerService {
       // values mean "unknown" and are dropped rather than guessed.
       speed: position.speed >= 0 ? position.speed * 3.6 : null,
     );
-    
+
+    // A church-bus driver ALSO feeds the fleet map and the crowd-sourced
+    // traffic model from this same fix. Without this, buses never report a
+    // position, the fleet map is permanently empty and the traffic overlay
+    // never has a bus source.
+    await _contributeBusTelemetry(position);
+
     _lastUpdate = now;
     debugPrint("[SYNC] GPS Heartbeat: ${position.latitude}, ${position.longitude}");
+  }
+
+  /// If the signed-in user is assigned to a church bus, push a `bus_locations`
+  /// heartbeat (newest-per-bus is what the map reads) and a traffic sample.
+  /// Failures are swallowed: a bus heartbeat must never break ride tracking.
+  Future<void> _contributeBusTelemetry(Position position) async {
+    try {
+      final profile = _ref.read(profileProvider).value;
+      final userId = profile?.id;
+      if (userId == null) return;
+
+      final bus = await Supabase.instance.client
+          .from('church_buses')
+          .select('id, tenant_id')
+          .eq('driver_id', userId)
+          .limit(1)
+          .maybeSingle();
+      if (bus == null) return;
+
+      final tenantId = bus['tenant_id']?.toString() ?? '';
+      final speedKmh =
+          position.speed >= 0 ? position.speed * 3.6 : null;
+
+      await MapLiveService(Supabase.instance.client).reportBusPosition(
+        busId: bus['id'].toString(),
+        tenantId: tenantId,
+        lat: position.latitude,
+        lng: position.longitude,
+        heading: position.heading >= 0 ? position.heading : null,
+        speedKmh: speedKmh,
+      );
+
+      if (speedKmh != null) {
+        await MapLiveService(Supabase.instance.client).contributeTrafficSample(
+          lat: position.latitude,
+          lng: position.longitude,
+          speedKmh: speedKmh,
+          source: 'bus',
+          heading: position.heading >= 0 ? position.heading : null,
+          tenantId: tenantId,
+        );
+      }
+    } catch (e) {
+      debugPrint('bus telemetry skipped (non-fatal): $e');
+    }
   }
 }
 

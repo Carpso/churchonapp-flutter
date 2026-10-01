@@ -57,6 +57,8 @@ import 'package:church_on_app/features/profile/presentation/about_screen.dart';
 import 'package:church_on_app/features/support/presentation/support_hub_screen.dart';
 import 'package:church_on_app/features/admin/presentation/expansion_leads_screen.dart';
 import 'package:church_on_app/features/admin/presentation/member_management_screen.dart';
+import 'package:church_on_app/features/modules/logistics/presentation/live_map_screen.dart';
+import 'package:church_on_app/features/modules/logistics/presentation/fleet_management_screen.dart';
 import 'package:church_on_app/features/admin/presentation/people_care_screen.dart';
 import 'package:church_on_app/features/admin/presentation/households_screen.dart';
 import 'package:church_on_app/features/admin/presentation/service_plans_screen.dart';
@@ -492,6 +494,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             route == '/visitor-retention' ||
             route == '/volunteer-rota' ||
             route == '/people-search' ||
+            route == '/church-fleet' ||
             route == '/delegations') {
           return user.isPastorOrHigher || user.isLeadershipTeam;
         }
@@ -768,6 +771,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/bookshop',
         builder: (context, state) => const BookshopWorkspaceScreen(),
+      ),
+      GoRoute(
+        path: '/live-map',
+        builder: (context, state) => const LiveMapScreen(),
+      ),
+      GoRoute(
+        path: '/church-fleet',
+        builder: (context, state) {
+          final tenantId = state.extra is String
+              ? state.extra as String
+              : ref.read(currentTenantProvider)?.id ?? '';
+          return FleetManagementScreen(tenantId: tenantId);
+        },
       ),
       GoRoute(
         path: '/media-upload',

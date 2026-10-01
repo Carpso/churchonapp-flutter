@@ -156,5 +156,37 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+
+        <!-- Package visibility for navigation (Android 11+ / API 30+).
+             Without these <intent> declarations Android HIDES Church On App
+             from choosers and from canLaunchUrl, so "open in a map app",
+             "navigate here" and the in-app map chooser all come up empty. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="geo"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="google.navigation"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="google.maps"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="waze"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="com.waze"/>
+        </intent>
+
+        <!-- Popular map / ride apps we hand directions to. Declaring the
+             package lets us resolve it by name when the user picks it. -->
+        <package android:name="com.google.android.apps.maps"/>
+        <package android:name="com.waze"/>
+        <package android:name="com.ubercab"/>
+        <package android:name="com.mapbox.mapbox.directions.v8"/>
     </queries>
 </manifest>
