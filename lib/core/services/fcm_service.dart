@@ -128,6 +128,10 @@ String _channelForType(String type) {
       return 'coa_volunteers_v2';
     case 'worship':
       return 'coa_worship_v2';
+    case 'stream_started':
+    case 'stream_ended':
+    case 'stream':
+      return 'coa_live_stream_v2';
     default:
       return 'coa_announcements_v2';
   }
@@ -163,6 +167,10 @@ String _channelNameForType(String type) {
       return 'Volunteer Roster';
     case 'worship':
       return 'Worship & Setlists';
+    case 'stream_started':
+      return 'Service is live';
+    case 'stream_ended':
+      return 'Service ended';
     default:
       return 'Updates';
   }

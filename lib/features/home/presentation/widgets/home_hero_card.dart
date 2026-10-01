@@ -47,8 +47,21 @@ class HomeHeroCard extends ConsumerWidget {
     final String subtitle = isLive
         ? "WE ARE LIVE NOW"
         : (tenant != null ? "GLORY TO GOD" : "SUNDAY MORNING");
+
+    // Viewer count: `church_live_status.viewer_count` is written once when a
+    // stream starts and then goes stale, so the card always read "0 watching".
+    // `live_streams.viewer_count` is the one the analytics RPC keeps current
+    // (and the live viewer heartbeats against), so prefer it and fall back to
+    // the status row only when it is somehow higher.
+    final rowViewerCount =
+        (activeRow?['viewer_count'] as num?)?.toInt() ?? 0;
+    final statusViewerCount = liveStatus?.viewerCount ?? 0;
+    final viewerCount =
+        rowViewerCount > 0 ? rowViewerCount : statusViewerCount;
+
+    // Don't advertise "0 watching" as if it were a real number.
     final String timeLabel = isLive
-        ? "${liveStatus?.viewerCount ?? 0} watching"
+        ? (viewerCount > 0 ? "$viewerCount watching" : "We're live")
         : (tenant != null
             ? _nextServiceLabel(
                 scheduleAsync?.value ?? const [], DateTime.now())

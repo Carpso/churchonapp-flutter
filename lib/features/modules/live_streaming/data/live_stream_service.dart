@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as dart_math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -442,9 +443,18 @@ final recentRecordingsProvider =
 });
 
 /// The church's current live stream row (or null). Keyed by tenant id.
+///
+/// Refreshes every 15s while mounted: `live_streams.viewer_count` is refreshed
+/// by the analytics RPC from live viewer heartbeats, so a one-shot fetch left
+/// the home hero card reading "0 watching" for the whole session.
 final churchActiveStreamProvider =
-    FutureProvider.family<Map<String, dynamic>?, String>((ref, churchId) async {
+    FutureProvider.autoDispose.family<Map<String, dynamic>?, String>((ref, churchId) async {
   final service = ref.watch(liveStreamServiceProvider);
+  // Timer so the count ticks up while the user is on the screen.
+  final timer = Timer.periodic(const Duration(seconds: 15), (_) {
+    ref.invalidateSelf();
+  });
+  ref.onDispose(timer.cancel);
   return service.getActiveStreamForChurch(churchId);
 });
 

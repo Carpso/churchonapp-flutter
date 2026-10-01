@@ -26,6 +26,9 @@ const String _chRoles = 'coa_roles_v2';
 const String _chJobs = 'coa_jobs_v2';
 const String _chRide = 'coa_rides_v2';
 const String _chWorship = 'coa_worship_v2';
+/// Live service start/end. Must match `channelForType` in
+/// supabase/functions/push-notifications/index.ts.
+const String _chLiveStream = 'coa_live_stream_v2';
 
 class NotificationService {
   final SupabaseClient _client;
@@ -229,6 +232,17 @@ class NotificationService {
       playSound: true,
       enableVibration: true,
     ));
+    // Live services. HIGH importance on purpose: "your service is starting now"
+    // is the one alert a member must not miss, so it uses a full-screen-worthy
+    // heads-up notification on its own channel (a leader can silence it without
+    // muting anything else).
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      _chLiveStream, 'Live Services',
+      description: 'Alerts when a service goes live and when it ends with a recording',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+    ));
   }
 
   void _onNotificationTap(NotificationResponse response) {
@@ -341,6 +355,12 @@ class NotificationService {
           GoRouter.of(context).go('/');
         case 'event':
           GoRouter.of(context).push('/events/$id');
+        // A stream notification's reference_id is the live_streams id, so the
+        // tap lands on THAT exact broadcast rather than the generic hub.
+        case 'stream_started':
+        case 'stream_ended':
+        case 'stream':
+          GoRouter.of(context).push('/live-player?id=$id');
         case 'ticket':
         case 'event_ticket':
           GoRouter.of(context).push('/ticket/$id');

@@ -181,6 +181,12 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
           widget.churchId!.isNotEmpty) {
         final row = await service.getActiveStreamForChurch(widget.churchId!);
         final id = row?['id']?.toString();
+        if (id != null &&
+            id.isNotEmpty &&
+            id != _effectiveStreamId) {
+          // A genuinely NEW broadcast: allow one WHEP escalation again.
+          _whepAttempted = false;
+        }
         if (id != null && id.isNotEmpty) _effectiveStreamId = id;
         _applyRow(row);
       } else if (_effectiveStreamId != null && _effectiveStreamId!.isNotEmpty) {
@@ -401,6 +407,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     }
   }
 
+  /// WHEP is tried at most once per playback cycle — see [_handlePlaybackFailure].
+  bool _whepAttempted = false;
+
   /// Called whenever playback cannot start. Re-resolves the row + asks
   /// Cloudflare for the real state, retries silently a couple of times with
   /// backoff, and only then surfaces the RETRY state — with copy that matches
@@ -412,11 +421,17 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     // 0) A phone-camera (WHIP) broadcast produces NO HLS/DASH — Cloudflare
     //    answers the manifest with HTTP 204, which surfaces here as
     //    MEDIA_ERR_NETWORK / manifestParsingError. The ONLY playable transport
-    //    for that mode is WHEP, so escalate to it BEFORE anything else. Without
-    //    this the viewer sat on "camera hasn't connected" forever even though
-    //    the stream was live, because the hls_url always *looks* valid.
+    //    for that mode is WHEP, so try it before anything else.
+    //
+    //    GUARD: only once per cycle. Without this, a WHEP failure re-entered
+    //    this method and escalated straight back to WHEP, producing an
+    //    unbounded HLS→WHEP→HLS loop that hammered Cloudflare with a 409
+    //    every few hundred milliseconds.
     final whepOnFailure = _isValidUrl(_whepUrl ?? '') ? _whepUrl! : null;
-    if (whepOnFailure != null && !_isWhepUrl(_resolvedPlaybackUrl ?? '')) {
+    if (whepOnFailure != null &&
+        !_whepAttempted &&
+        !_isWhepUrl(_resolvedPlaybackUrl ?? '')) {
+      _whepAttempted = true;
       debugPrint('LiveStream: HLS unavailable - escalating to WHEP playback');
       _autoRetries = 0;
       await _startWhep(whepOnFailure);

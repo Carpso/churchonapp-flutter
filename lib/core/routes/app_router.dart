@@ -149,6 +149,8 @@ import 'package:church_on_app/features/auth/presentation/two_factor_verify_scree
 import 'package:church_on_app/features/bible/presentation/bible_books_audit_screen.dart';
 import 'package:church_on_app/features/bible/presentation/bible_screen.dart';
 import 'package:church_on_app/features/bible/presentation/parallel_bible_screen.dart';
+import 'package:church_on_app/features/bible/presentation/verse_of_the_day_screen.dart';
+import 'package:church_on_app/features/weather/presentation/weather_alert_settings_screen.dart';
 import 'package:church_on_app/features/bible_study/presentation/bible_study_create_screen.dart';
 import 'package:church_on_app/features/bible_study/presentation/bible_study_detail_screen.dart';
 import 'package:church_on_app/features/bible_study/presentation/bible_study_list_screen.dart';
@@ -1385,6 +1387,26 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
+      // Public tournament bracket. A church sharing its fixtures to another
+      // church's members must not require them to be logged in as a host, so
+      // this is the member-level entry point (the /quiz-hosting/... route above
+      // stays leadership-gated). `extra` is absent on a shared link, which is
+      // exactly why this separate path is needed.
+      GoRoute(
+        path: '/quiz/tournament/:tournamentId',
+        builder: (context, state) {
+          final tournamentId = state.pathParameters['tournamentId']!;
+          final extra = state.extra;
+          final map = extra is Map ? extra : const <String, dynamic>{};
+          return QuizBracketScreen(
+            tournamentId: tournamentId,
+            title: map['title']?.toString() ??
+                state.uri.queryParameters['title'] ??
+                'Tournament',
+            isHost: false,
+          );
+        },
+      ),
       GoRoute(
         path: '/quiz-hosting/bracket/:tournamentId',
         builder: (context, state) {
@@ -1396,8 +1418,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             title: map['title']?.toString() ?? 'Tournament',
             isHost: map['isHost'] == true,
           );
-        },
-      ),
+        },      ),
       GoRoute(
         path: '/my-pledges',
         builder: (context, state) => const MyPledgesScreen(),
@@ -1591,6 +1612,30 @@ final routerProvider = Provider<GoRouter>((ref) {
           return PublicChurchWebsiteScreen(churchId: churchId);
         },
       ),
+
+      // ── Deep links (see lib/core/services/deep_links.dart) ──────────────
+      // A church's own live service. Resolves that church's current broadcast
+      // server-side, so a shared link is stable and always points at THIS
+      // tenant's stream rather than a generic list page.
+      GoRoute(
+        path: '/church/:churchId/live',
+        builder: (context, state) {
+          final churchId = state.pathParameters['churchId']!;
+          return LiveStreamingScreen(initialChurchId: churchId);
+        },
+      ),
+
+      // The Verse of the Day for a specific date, so a shared card still shows
+      // the same verse the next day.
+      GoRoute(
+        path: '/bible/verse-of-the-day/:date',
+        builder: (context, state) {
+          final raw = state.pathParameters['date'] ?? '';
+          return VerseOfTheDayScreen(
+            dateIso: raw.isEmpty ? null : raw,
+          );
+        },
+      ),
       GoRoute(
         path: '/c/:slug',
         builder: (context, state) {
@@ -1665,8 +1710,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         redirect: (context, state) => '/live-streaming',
       ),
       GoRoute(
+        path: '/weather-alerts',
+        builder: (context, state) => const WeatherAlertSettingsScreen(),
+      ),
+      GoRoute(
         path: '/live-streaming',
-        builder: (context, state) => const LiveStreamingScreen(),
+        builder: (context, state) {
+          // A church's shareable link is `?tenant=<id>`; the screen then jumps
+          // straight to that church's broadcast instead of showing the
+          // platform-wide list.
+          final tenant = state.uri.queryParameters['tenant'];
+          return LiveStreamingScreen(initialChurchId: tenant);
+        },
       ),
       GoRoute(
         path: '/stream-analytics',
@@ -1696,12 +1751,26 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/live-player',
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>?;
+          // Accept BOTH an in-app `extra` map and a shareable query string.
+          // Previously only `extra` was read, so every shared/WA link
+          // (`/live-player?id=<uuid>`) opened an empty viewer and errored —
+          // which is exactly the link a stream notification and the studio QR
+          // both hand out.
+          final q = state.uri.queryParameters;
+          String? pick(String key, String extraKey) {
+            final v = q[key] ?? extra?[extraKey]?.toString();
+            if (v == null) return null;
+            final t = v.trim();
+            return t.isEmpty ? null : t;
+          }
+
           return LiveStreamScreen(
-            streamUrl: extra?['streamUrl']?.toString() ?? '',
-            title: extra?['title']?.toString() ?? 'Live Service',
-            streamId: extra?['streamId']?.toString(),
-            isAudioOnly: extra?['isAudioOnly'] == true,
-            thumbnailUrl: extra?['thumbnailUrl']?.toString(),
+            streamUrl: q['url'] ?? extra?['streamUrl']?.toString() ?? '',
+            title: q['title'] ?? extra?['title']?.toString() ?? 'Live Service',
+            streamId: pick('id', 'streamId'),
+            churchId: pick('church', 'churchId'),
+            isAudioOnly: q['audio'] == '1' || extra?['isAudioOnly'] == true,
+            thumbnailUrl: q['thumb'] ?? extra?['thumbnailUrl']?.toString(),
           );
         },
       ),

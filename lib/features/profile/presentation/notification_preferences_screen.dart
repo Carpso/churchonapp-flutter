@@ -24,6 +24,10 @@ class _NotificationPreferencesScreenState extends ConsumerState<NotificationPref
     {'id': 'coa_testimonies', 'name': 'Testimonies', 'icon': LucideIcons.star, 'desc': 'New testimonies shared'},
     {'id': 'coa_klips', 'name': 'Klips', 'icon': LucideIcons.video, 'desc': 'New video clip uploads'},
     {'id': 'coa_fasting', 'name': 'Fasting', 'icon': LucideIcons.clock, 'desc': 'Fasting reminders and updates'},
+    // Live services have their own high-importance channel so a leader can
+    // silence everything else without ever muting "the service is starting".
+    {'id': 'coa_live_stream', 'name': 'Live Services', 'icon': LucideIcons.radio, 'desc': 'Alerts when a service goes live, and when it ends with a recording'},
+    {'id': 'weather', 'name': 'Weather', 'icon': LucideIcons.cloudSun, 'desc': 'Weather warnings you asked for (heat, cold, rain, wind)'},
   ];
 
   @override

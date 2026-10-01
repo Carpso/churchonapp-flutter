@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Plays a Cloudflare Stream WebRTC (WHEP) broadcast.
 ///
@@ -25,13 +26,47 @@ class WhepPlayback {
 
   bool get isConnected => _pc != null && !_disposed;
 
-  static Map<String, dynamic> _iceConfig() => {
-        'iceServers': [
-          {'urls': 'stun:stun.l.google.com:19302'},
-          {'urls': 'stun:stun1.l.google.com:19302'},
-        ],
-        'sdpSemantics': 'unified-plan',
-      };
+  /// ICE servers for playback.
+  ///
+  /// TURN IS NOT OPTIONAL HERE. This used to be hardcoded STUN-only while the
+  /// BROADCASTER fetched real TURN credentials — an asymmetry that worked in
+  /// the studio and failed in the pews: any viewer behind symmetric NAT (most
+  /// mobile carriers, many office and WiFi networks) could not establish a WHEP
+  /// session at all and simply saw "cannot play". Both sides need the same ICE
+  /// capability.
+  static Map<String, dynamic> _iceConfig({Map<String, dynamic>? turn}) {
+    final servers = <Map<String, dynamic>>[
+      {'urls': 'stun:stun.l.google.com:19302'},
+      {'urls': 'stun:stun1.l.google.com:19302'},
+    ];
+
+    final raw = turn?['iceServers'];
+    if (raw is List) {
+      for (final e in raw) {
+        if (e is Map && e['urls'] != null) {
+          servers.add(Map<String, dynamic>.from(e));
+        }
+      }
+    }
+    return {'iceServers': servers, 'sdpSemantics': 'unified-plan'};
+  }
+
+  /// Fetches short-lived TURN credentials. Returns null on any failure so the
+  /// viewer degrades to STUN instead of refusing to play.
+  static Future<Map<String, dynamic>?> _fetchTurn() async {
+    try {
+      final res = await Supabase.instance.client.functions
+          .invoke('turn-credentials')
+          .timeout(const Duration(seconds: 6));
+      final data = res.data;
+      if (data is Map && data['iceServers'] != null) {
+        return Map<String, dynamic>.from(data);
+      }
+    } catch (e) {
+      debugPrint('[Whep] TURN fetch failed, STUN-only: $e');
+    }
+    return null;
+  }
 
   /// Connects to [whepUrl] and starts rendering the incoming stream.
   Future<void> connect(String whepUrl) async {
@@ -39,7 +74,9 @@ class WhepPlayback {
     _connecting = true;
     await renderer.initialize();
 
-    final pc = await createPeerConnection(_iceConfig());
+    final turn = await _fetchTurn();
+    if (_disposed) return;
+    final pc = await createPeerConnection(_iceConfig(turn: turn));
     _pc = pc;
 
     pc.onTrack = (RTCTrackEvent event) {

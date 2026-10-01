@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:video_player/video_player.dart';
 
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/marquee_ticker.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/live_stream_overlay_service.dart';
+import 'package:church_on_app/features/modules/live_streaming/data/live_stream_service.dart';
+import 'package:church_on_app/features/modules/live_streaming/data/whep_playback.dart';
 
 /// Projector / Big-screen mode — designed to be cast, screen-mirrored or thrown
 /// to a second display (projector, TV, laptop). Shows the public HLS link, a QR
@@ -29,6 +33,9 @@ class StreamProjectorScreen extends ConsumerWidget {
     this.logoUrl,
     this.shareUrl = 'https://churchonapp.com/live-streaming',
   });
+
+  bool get _canPlayVideo =>
+      (hlsUrl != null && hlsUrl!.isNotEmpty) || (streamId != null && streamId!.isNotEmpty);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -86,6 +93,20 @@ class StreamProjectorScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          // THE VIDEO. This screen used to render only text overlays and a
+          // copy-link button — a "Projector / Big Screen" view that showed no
+          // picture, which is exactly what a congregation projector needs.
+          // Live RTMPS broadcasts play over HLS; a WHIP broadcast has no HLS, so
+          // the WHEP renderer is used instead (same ladder as the viewer).
+          if (_canPlayVideo)
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.5,
+              width: double.infinity,
+              child: _ProjectorVideo(
+                hlsUrl: hlsUrl,
+                streamId: streamId,
+              ),
+            ),
           Expanded(
             child: Center(
               child: Padding(
@@ -312,5 +333,177 @@ class StreamProjectorScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+/// Video surface for the projector view.
+///
+/// Prefers HLS (which is what an RTMPS/OBS broadcast produces and what scales
+/// to a whole congregation). When there is no HLS it falls back to the WHEP
+/// WebRTC renderer, because a phone-camera (WHIP) broadcast only ever emits
+/// WebRTC. When a streamId is supplied but no URL is known yet, it asks the
+/// server to resolve one � a freshly armed OBS input exposes its manifest only
+/// a few seconds after the encoder connects.
+class _ProjectorVideo extends ConsumerStatefulWidget {
+  const _ProjectorVideo({this.hlsUrl, this.streamId});
+
+  final String? hlsUrl;
+  final String? streamId;
+
+  @override
+  ConsumerState<_ProjectorVideo> createState() => _ProjectorVideoState();
+}
+
+class _ProjectorVideoState extends ConsumerState<_ProjectorVideo> {
+  VideoPlayerController? _video;
+  WhepPlayback? _whep;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _start();
+  }
+
+  Future<void> _start() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    var url = widget.hlsUrl ?? '';
+
+    // Resolve the manifest server-side when we only know the stream id.
+    if (url.isEmpty && widget.streamId != null) {
+      try {
+        final info = await ref.read(liveStreamServiceProvider).refreshPlayback(widget.streamId!);
+        url = info?.hlsUrl ?? '';
+      } catch (e) {
+        debugPrint('[Projector] playback resolve failed: $e');
+      }
+    }
+
+    if (!mounted) return;
+
+    if (url.isEmpty) {
+      // No HLS: a WHIP broadcast. Try WHEP so a phone-cam service still shows.
+      setState(() => _loading = false);
+      _connectWhep();
+      return;
+    }
+
+    try {
+      final c = VideoPlayerController.networkUrl(Uri.parse(url));
+      await c.initialize();
+      if (!mounted) {
+        await c.dispose();
+        return;
+      }
+      await c.setLooping(false);
+      await c.play();
+      setState(() {
+        _video = c;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint('[Projector] video init failed: $e');
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Video unavailable';
+        });
+      }
+    }
+  }
+
+  Future<void> _connectWhep() async {
+    final id = widget.streamId;
+    if (id == null) return;
+    try {
+      final info = await ref.read(liveStreamServiceProvider).refreshPlayback(id);
+      final whep = info?.whepUrl;
+      if (whep == null || whep.isEmpty || !mounted) {
+        setState(() => _error = 'No playable feed for this broadcast');
+        return;
+      }
+      final p = WhepPlayback();
+      await p.connect(whep);
+      if (mounted) setState(() => _whep = p);
+    } catch (e) {
+      debugPrint('[Projector] WHEP failed: $e');
+      if (mounted) setState(() => _error = 'No playable feed for this broadcast');
+    }
+  }
+
+  @override
+  void dispose() {
+    _video?.dispose();
+    _whep?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const ColoredBox(
+        color: Colors.black,
+        child: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+    if (_error != null) {
+      return ColoredBox(
+        color: Colors.black,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(LucideIcons.monitorOff, color: Colors.white38, size: 40),
+              const SizedBox(height: 10),
+              Text(_error!, style: const TextStyle(color: Colors.white54)),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () {
+                  _video?.dispose();
+                  _video = null;
+                  _start();
+                },
+                child: const Text('RETRY', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final v = _video;
+    if (v != null && v.value.isInitialized) {
+      return ColoredBox(
+        color: Colors.black,
+        child: Center(
+          child: AspectRatio(
+            aspectRatio: v.value.aspectRatio > 0 && v.value.aspectRatio.isFinite
+                ? v.value.aspectRatio
+                : 16 / 9,
+            child: VideoPlayer(v),
+          ),
+        ),
+      );
+    }
+
+    final w = _whep;
+    if (w != null) {
+      return ColoredBox(
+        color: Colors.black,
+        child: Center(
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: RTCVideoView(w.renderer),
+          ),
+        ),
+      );
+    }
+
+    return const ColoredBox(color: Colors.black, child: SizedBox.expand());
   }
 }

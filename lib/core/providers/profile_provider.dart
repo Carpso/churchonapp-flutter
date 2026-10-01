@@ -161,12 +161,35 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
 
   SupabaseClient get _client => Supabase.instance.client;
 
+  /// Explicit column list, deliberately NOT `select()`.
+  ///
+  /// A star select on `profiles` is fragile in a project that ships ~400
+  /// migrations: PostgREST answers HTTP 400 ("column ... not found in the
+  /// schema cache") whenever a migration adds a column and the API's schema
+  /// cache has not reloaded yet. That surfaced in the console as
+  /// `profiles?id=eq... 400` and, because this is the app's own profile fetch,
+  /// it broke the header/greeting for the signed-in user.
+  ///
+  /// Naming the columns makes the read immune to schema-cache lag and to future
+  /// column additions.
+  ///
+  /// `date_of_birth` is deliberately NOT listed: it does not exist on
+  /// `profiles` (verified against information_schema), and naming a column
+  /// that isn't there is itself a 400. [UserProfile.fromMap] reads it
+  /// defensively and already falls back to null.
+  ///
+  /// Keep in sync with [UserProfile.fromMap].
+  static const _profileColumns = 'id, full_name, role, coins, streak_count, '
+      'last_read_at, is_work_mode, driver_status, lat, lng, balance_cc, '
+      'balance_zmw, phone_number, avatar_url, tenant_id, organization_id, '
+      'is_verified, wallet_id, membership_id';
+
   Future<void> _fetchProfile(String userId, String? email) async {
     final seq = ++_fetchSeq;
     try {
       final res = await _client
           .from('profiles')
-          .select()
+          .select(_profileColumns)
           .eq('id', userId)
           .maybeSingle();
 
@@ -312,19 +335,18 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
               }
             } else if (assignedRole == null) {
               // Per-tenant scoping: if no approved role_assignments row for
-              // THIS tenant, user is plain member here (even if pastor elsewhere).
-              // Platform roles are global and never demoted.
+              // THIS tenant, user is plain member here (even if pastor
+              // elsewhere). Platform roles are global and never demoted.
               final currentRole = profileData['role'] as String?;
               if (currentRole != null && currentRole != 'member' && currentRole.isNotEmpty) {
                 profileData['role'] = 'member';
-                try {
-                  await _client
-                      .from('profiles')
-                      .update({'role': 'member'})
-                      .eq('id', userId);
-                } catch (e) {
-                  debugPrint('Error resetting role to member: $e');
-                }
+                // NOTE: we deliberately do NOT write this back to `profiles`.
+                // Role changes are guarded server-side ("Only superadmins and
+                // employees can change roles"), so this update ALWAYS failed
+                // and only spammed the console on every profile load. The
+                // per-tenant role is already correct in the local map, and
+                // the next role_assignments sync will persist a real change
+                // through the audited path.
               } else if (currentRole == null || currentRole.isEmpty) {
                 profileData['role'] = 'member';
               }

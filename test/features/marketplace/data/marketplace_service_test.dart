@@ -11,6 +11,21 @@ class FakeSupabaseClient extends Mock implements SupabaseClient {
 
   @override
   SupabaseQueryBuilder from(String table) => queryBuilder;
+
+  // `postProduct` reads `_client.auth.currentUser` to attribute the listing and
+  // to decide whether to notify members. An unstubbed `auth` on a mocktail mock
+  // returns null, so the read throws "type 'Null' is not a subtype of type
+  // 'GoTrueClient'" before the insert is ever reached. Returning a real
+  // GoTrueClient stub makes the unauthenticated-but-attributable path
+  // (user == null -> no fan-out) the one under test, which is exactly what this
+  // test asserts.
+  @override
+  GoTrueClient get auth => FakeGoTrueClient();
+}
+
+class FakeGoTrueClient extends Mock implements GoTrueClient {
+  @override
+  User? get currentUser => null;
 }
 
 class FakeFilterBuilder extends Mock

@@ -376,6 +376,11 @@ $migrations = @(
 "20261236_pastoral_care_households_service_plans.sql"
 "20261237_fix_live_streams_select_grant.sql"
 "20261238_real_map_logistics.sql"
+"20261239_fix_driver_location_writes.sql"
+"20261240_streaming_scale_and_notifications.sql"
+"20261241_broadcast_started_signal.sql"
+"20261242_weather_alerts_and_map_growth.sql"
+"20261244_weather_alert_candidates.sql"
       )
 
 
@@ -429,6 +434,9 @@ $functions = @(
     "lipila-payout"
     "r2-sign"
     "cloudflare-stream"
+    # Opt-in weather alerts. Called by pg_cron (every 30 min) with the shared
+    # cron secret; the forecast HTTP call lives here rather than in plpgsql.
+    "weather-alerts"
     "send-birthday-email"
     "export-church-data"
     "export-user-data"

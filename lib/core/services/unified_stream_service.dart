@@ -60,11 +60,18 @@ class UnifiedStreamService {
       debugPrint('Stale stream expiry failed (non-fatal): $e');
     }
 
-    // Check weekly minutes
-    if (!config.isPaid && usage.minutesUsed >= config.maxMinutesPerWeek) {
+    // Check weekly minutes.
+    //
+    // The `!config.isPaid &&` guard used to make this branch unreachable: every
+    // church is is_paid=true, so `!isPaid` was always false and a tenant that
+    // had genuinely burned through its weekly allowance was still allowed to
+    // start another broadcast. The cap is a real commercial limit, so it must
+    // apply to every tenant; `isPaid` is not what makes it conditional.
+    if (usage.minutesUsed >= config.maxMinutesPerWeek) {
       return StreamGateResult(
         allowed: false,
-        reason: 'Weekly streaming limit reached (${config.maxMinutesPerWeek} min)',
+        reason: 'Weekly streaming limit reached '
+            '(${usage.minutesUsed}/${config.maxMinutesPerWeek} min used)',
         upgradeRequired: true,
       );
     }
@@ -140,6 +147,21 @@ class UnifiedStreamService {
     }
 
     return StreamingUsage(tenantId: tenantId);
+  }
+
+  /// Approximate retained bytes for a finished broadcast, from its duration.
+  ///
+  /// Used only to make the storage gate real (see getStorageUsage): a
+  /// 1080p service is billed and retained by Cloudflare at roughly 1 Mbps
+  /// (~7.5 MB/min), so duration is a close enough proxy and avoids trusting a
+  /// client-reported number.
+  static int _estimateRecordingBytes(Object? startedAt) {
+    if (startedAt == null) return 0;
+    final started = DateTime.tryParse(startedAt.toString());
+    if (started == null) return 0;
+    final minutes = DateTime.now().difference(started).inMinutes;
+    if (minutes <= 0) return 0;
+    return minutes * 8 * 1024 * 1024; // ~8 MB per minute
   }
 
   /// Get R2 storage usage in GB
@@ -271,6 +293,7 @@ class UnifiedStreamService {
       dashUrl: dashUrl,
       previewUrl: previewUrl,
       whipUrl: whipUrl,
+      cloudflareInputId: data['uid']?.toString() ?? data['input_id']?.toString(),
     );
   }
 
@@ -362,7 +385,8 @@ class UnifiedStreamService {
   Future<void> endStream(String streamId) async {
     final stream = await _client
         .from('live_streams')
-        .select('streaming_backend, cloudflare_stream_id, church_id, started_at')
+        .select('streaming_backend, cloudflare_stream_id, church_id, started_at, '
+            'ingest_mode')
         .eq('id', streamId)
         .single();
 
@@ -392,6 +416,16 @@ class UnifiedStreamService {
         .update({
           'status': 'ended',
           'ended_at': DateTime.now().toIso8601String(),
+          // Record the real size of what this broadcast retained. storage_bytes
+          // was previously only ever reset to 0, which meant getStorageUsage()
+          // always returned 0 and the storage gate could never fire — a tenant
+          // could accumulate recordings forever without ever being stopped.
+          // An RTMPS broadcast retains a Cloudflare recording; a WHIP one
+          // retains nothing (Cloudflare does not record WebRTC), so its size is
+          // deliberately left at 0.
+          'storage_bytes': stream['ingest_mode'] == 'whip'
+              ? 0
+              : _estimateRecordingBytes(stream['started_at']),
         })
         .eq('id', streamId);
 
@@ -495,16 +529,73 @@ class UnifiedStreamService {
   }
 
   /// Get stream analytics
+  /// Stamps `broadcast_started_at` the first time media is CONFIRMED flowing.
+  ///
+  /// This is the single source of truth for "the service has started": the
+  /// database announces the start (and flips the home LIVE pill) only on this
+  /// column, so the congregation is never told a service is live while the
+  /// encoder is still sitting on the Start button. Idempotent — the column only
+  /// moves from NULL, so repeated heartbeats are harmless.
+  Future<void> markBroadcastStarted(String streamId) async {
+    try {
+      await _client
+          .from('live_streams')
+          .update({'broadcast_started_at': DateTime.now().toUtc().toIso8601String()})
+          .eq('id', streamId)
+          // `isFilter` is IS TRUE/FALSE only, so IS NULL is expressed through
+          // the raw filter form: broadcast_started_at=is.null
+          .filter('broadcast_started_at', 'is', null);
+    } catch (e) {
+      debugPrint('[UnifiedStream] markBroadcastStarted failed: $e');
+    }
+  }
+  /// Reads the live input's authoritative playback state from Cloudflare.
+  ///
+  /// Returns `null` on any failure so a transient error can never be mistaken
+  /// for "the broadcaster stopped" (which would wrongly end the service).
+  Future<LiveInputState?> getLiveInputState(String cloudflareStreamId) async {
+    try {
+      final token = _client.auth.currentSession?.accessToken;
+      final res = await _client.functions.invoke(
+        'cloudflare-stream',
+        body: {'action': 'refresh_live_input', 'input_id': cloudflareStreamId},
+        headers: (token == null || token.isEmpty)
+            ? null
+            : {'Authorization': 'Bearer $token'},
+      );
+      final data = res.data;
+      if (data is! Map) return null;
+      final m = Map<String, dynamic>.from(data);
+      return LiveInputState(
+        connected: m['connected'] == true,
+        inputStatus: m['input_status']?.toString() ?? 'unknown',
+        hlsUrl: m['hls']?.toString(),
+        whepUrl: m['whep']?.toString(),
+        mode: m['mode']?.toString(),
+      );
+    } catch (e) {
+      debugPrint('[UnifiedStream] getLiveInputState failed: $e');
+      return null;
+    }
+  }
+
   Future<StreamAnalytics> getAnalytics(String streamId) async {
     final stream = await _client
         .from('live_streams')
         // Explicit columns (NOT `select()`): the credential columns are not
         // SELECT-granted, so a star select fails with 42501.
-        .select('viewer_count, started_at, ended_at')
+        .select('viewer_count, peak_viewer_count, started_at, ended_at, status, '
+            'streaming_backend, cloudflare_stream_id, cloudflare_video_id, '
+            'ingest_mode, archive_status, recording_hls_url, archive_url')
         .eq('id', streamId)
         .single();
 
-    int peakViewers = stream['viewer_count'] ?? 0;
+    // `status` and `streaming_backend` were previously NOT selected, so this
+    // always read null: isLive was permanently false, backend was permanently
+    // 'unknown', and the Cloudflare-analytics branch below never ran.
+    int peakViewers = (stream['peak_viewer_count'] as num?)?.toInt() ??
+        (stream['viewer_count'] as num?)?.toInt() ??
+        0;
     Duration duration = Duration.zero;
 
     if (stream['started_at'] != null) {
@@ -540,6 +631,10 @@ class UnifiedStreamService {
       duration: duration,
       isLive: stream['status'] == 'live',
       backend: stream['streaming_backend'] ?? 'unknown',
+      ingestMode: stream['ingest_mode']?.toString(),
+      hasRecording: (stream['recording_hls_url'] != null ||
+              stream['archive_status'] == 'ready') &&
+          (stream['ingest_mode']?.toString() != 'whip'),
     );
   }
 
@@ -679,6 +774,11 @@ class StreamResult {
   final String? previewUrl;
   final String? whipUrl;
 
+  /// The Cloudflare live-input UID. Needed to ask Cloudflare whether real media
+  /// has started arriving, which is the only reliable "the service is on air"
+  /// signal for an RTMPS/OBS broadcast.
+  final String? cloudflareInputId;
+
   StreamResult({
     required this.streamId,
     required this.backend,
@@ -688,21 +788,56 @@ class StreamResult {
     this.dashUrl,
     this.previewUrl,
     this.whipUrl,
+    this.cloudflareInputId,
   });
 }
 
 /// Stream analytics
+/// Authoritative live-input state read back from Cloudflare.
+class LiveInputState {
+  const LiveInputState({
+    required this.connected,
+    required this.inputStatus,
+    this.hlsUrl,
+    this.whepUrl,
+    this.mode,
+  });
+
+  /// True only when Cloudflare reports real media arriving on the input.
+  final bool connected;
+  final String inputStatus;
+
+  /// Non-null once the input is emitting HLS (RTMPS/SRT ingests only).
+  final String? hlsUrl;
+
+  /// WHEP endpoint, for WHIP/WebRTC ingests.
+  final String? whepUrl;
+
+  /// 'hls' or 'webrtc'.
+  final String? mode;
+}
+
 class StreamAnalytics {
   final int peakViewers;
   final Duration duration;
   final bool isLive;
   final String backend;
 
+  /// 'rtmps' (HLS + auto-recording, replay available) or 'whip' (WebRTC only,
+  /// never recordable). Lets the studio tell a leader WHY there is no replay
+  /// instead of silently offering a download that will never appear.
+  final String? ingestMode;
+
+  /// True when a replay/recovery URL is actually available.
+  final bool hasRecording;
+
   StreamAnalytics({
     required this.peakViewers,
     required this.duration,
     required this.isLive,
     required this.backend,
+    this.ingestMode,
+    this.hasRecording = false,
   });
 }
 

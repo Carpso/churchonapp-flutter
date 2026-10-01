@@ -142,8 +142,17 @@ class TransportService {
 
     // Keep legacy ride_registrations for backwards compat
     try {
+      // `type` is NOT NULL (23502 when omitted) and the row IS the "who is on
+      // the road" registry, so write the real role rather than leaning on the
+      // column default. Drivers register as 'driver' so the driver-matcher
+      // query (`.eq('type','driver')`) actually finds them.
+      final meta = _client.auth.currentUser?.userMetadata;
+      final role = meta?['role']?.toString();
+      final isDriver =
+          role == 'driver' || role == 'admin' || role == 'superadmin';
       await _client.from('ride_registrations').upsert({
         'user_id': user.id,
+        'type': isDriver ? 'driver' : 'rider',
         'lat': lat,
         'lng': lng,
         'updated_at': DateTime.now().toIso8601String(),

@@ -47,13 +47,26 @@ void main() {
   });
 
   group('RadioService - playStation', () {
-    test('tries to play via fallback player when handler is null', () async {
+    // This used to assert a silent no-op ("tries to play via fallback player
+    // when handler is null"). That silent `return;` was itself the bug: on web
+    // the audio_service engine cannot initialise, so every tap did nothing and
+    // the station stayed permanently OFFLINE with no explanation. `playStation`
+    // now throws so the screen can show why. The test must assert the throw,
+    // otherwise a future "revert to silence" would look like a pass.
+    test('throws a clear error when no audio handler is available',
+        () async {
       final service = createTestService();
       final station = RadioStation(
-        id: '1', name: 'Test', streamUrl: 'https://test.com',
+        id: '1',
+        name: 'Test',
+        streamUrl: 'https://test.com',
         location: 'Global',
       );
-      await service.playStation(station);
+
+      await expectLater(
+        service.playStation(station),
+        throwsA(isA<Exception>()),
+      );
     });
   });
 

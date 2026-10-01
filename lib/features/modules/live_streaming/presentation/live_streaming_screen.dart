@@ -10,10 +10,20 @@ import 'package:church_on_app/core/services/unified_stream_service.dart';
 import 'package:church_on_app/features/media/presentation/transcript_status_chip.dart';
 
 class LiveStreamingScreen extends ConsumerWidget {
-  const LiveStreamingScreen({super.key});
+  const LiveStreamingScreen({super.key, this.initialChurchId});
+
+  /// When set (a shared `?tenant=<id>` link), the screen goes straight to that
+  /// church's broadcast instead of showing the platform-wide list.
+  final String? initialChurchId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final initial = initialChurchId;
+    if (initial != null && initial.isNotEmpty) {
+      // A per-church share link must land on that church's service, not on a
+      // list the member then has to search.
+      return _ChurchLiveGate(churchId: initial);
+    }
     final activeStreamsAsync = ref.watch(activeStreamsProvider);
     final upcomingStreamsAsync = ref.watch(upcomingStreamsProvider);
     final recentAsync = ref.watch(recentRecordingsProvider);
@@ -434,5 +444,140 @@ class LiveStreamingScreen extends ConsumerWidget {
         );
       }
     }
+  }
+}
+
+/// Resolves ONE church's current broadcast for a shared per-church link
+/// (`/live-streaming?tenant=<id>` or `/church/<id>/live`).
+///
+/// Why this exists: a church's own share link used to drop the member on the
+/// platform-wide list, where their own service was one row among every other
+/// church's. This gate does the lookup and hands off straight to the player —
+/// the tenant's members land on their own tenant's service, which is the whole
+/// point of the link.
+class _ChurchLiveGate extends ConsumerStatefulWidget {
+  const _ChurchLiveGate({required this.churchId});
+
+  final String churchId;
+
+  @override
+  ConsumerState<_ChurchLiveGate> createState() => _ChurchLiveGateState();
+}
+
+class _ChurchLiveGateState extends ConsumerState<_ChurchLiveGate> {
+  bool _redirecting = false;
+
+  Future<void> _resolve() async {
+    if (_redirecting) return;
+    _redirecting = true;
+    final service = ref.read(liveStreamServiceProvider);
+    try {
+      final row = await service.getActiveStreamForChurch(widget.churchId);
+      if (!mounted) return;
+
+      if (row != null) {
+        final id = row['id']?.toString() ?? '';
+        context.pushReplacement('/live-player', extra: {
+          'streamUrl': row['hls_url']?.toString() ?? '',
+          'streamId': id.isEmpty ? null : id,
+          'churchId': widget.churchId,
+          'title': row['title']?.toString() ?? 'Live Service',
+          'isAudioOnly': row['is_audio_only'] == true,
+          'thumbnailUrl': row['thumbnail_url']?.toString(),
+        });
+        return;
+      }
+
+      // Not live right now — fall back to the most recent recording so the link
+      // still leads somewhere useful instead of a dead end.
+      final replays = await service.getRecentRecordings();
+      if (!mounted) return;
+      final mine = replays
+          .where((r) => r['church_id']?.toString() == widget.churchId)
+          .toList();
+      if (mine.isNotEmpty) {
+        final r = mine.first;
+        final archive = r['archive_url']?.toString() ?? '';
+        final rec = r['recording_hls_url']?.toString() ?? '';
+        final url = archive.isNotEmpty ? archive : rec;
+        if (url.isNotEmpty) {
+          context.pushReplacement('/live-player', extra: {
+            'streamUrl': url,
+            'streamId': r['id']?.toString(),
+            'churchId': widget.churchId,
+            'title': r['title']?.toString() ?? 'Recent Service',
+            'thumbnailUrl': r['thumbnail_url']?.toString(),
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('[LiveStreaming] per-church link failed: $e');
+    }
+
+    if (!mounted) return;
+    setState(() => _redirecting = false);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _resolve());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final brand = Theme.of(context).colorScheme.primary;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Row(
+          children: [
+            Icon(Icons.circle, size: 10, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Live Service'),
+          ],
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_redirecting) ...[
+                CircularProgressIndicator(color: brand),
+                const SizedBox(height: 16),
+                const Text('Finding the service...', textAlign: TextAlign.center),
+              ] else ...[
+                Icon(Icons.wifi_off, size: 48, color: Colors.grey.withValues(alpha: 0.4)),
+                const SizedBox(height: 12),
+                const Text(
+                  'This church is not streaming right now',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You will get a notification the moment the service starts.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 18),
+                OutlinedButton.icon(
+                  onPressed: _resolve,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('CHECK AGAIN'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => context.go('/live-streaming'),
+                  child: const Text('Browse all churches'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

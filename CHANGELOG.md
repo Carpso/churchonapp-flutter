@@ -1,5 +1,76 @@
 # Changelog
 
+## Unreleased - 2026-10-01 (Streaming made production-grade: tenant→members broadcast, start/end notifications, weather alerts, map growth)
+
+### Fixed - SECURITY: broadcast ingest credentials were world-readable
+- `20261237` had granted table-level `SELECT ON live_streams` to `authenticated` and `anon`, which **re-granted every column** and undid the deliberate column allowlist from `20261109`/`20261144`. PostgreSQL column grants are additive and are evaluated before RLS, so `stream_key`, `rtmp_url` and `whip_url` became readable by any signed-in user *and* by anon on every row passing `live_streams_public_safe_read` — i.e. anyone could read any church's broadcast ingest credentials.
+- `20261240` rebuilds the allowlist dynamically from `information_schema` (so it can never drift, and a column added later is denied until deliberately classified), re-grants safe reads to `authenticated` + `anon`, and keeps `INSERT/UPDATE/DELETE` so a broadcaster can still persist its own row. **Verified: 0 SELECT grants on any credential column for either role.**
+
+### Added - Stream start/end notifications (this feature did not exist at all)
+- **Before this change nothing notified members about a service.** No `notifications` row on start or end, no `stream` type in the `push-notifications` Edge Function, no icon, no channel, no notification route. Members could only find a live service by already having the app open.
+- `20261240` adds a **notification outbox + cron dispatcher** rather than pushing inline: `stream_notification_outbox` (unique on `stream_id`+`kind`, so re-promotion/retry/reconnect is a no-op), a trigger that appends one cheap row, and `dispatch_stream_notifications()` drained every 30s by pg_cron `stream-notify-dispatch`. A congregation of thousands cannot block the write that starts the broadcast, which is exactly what a synchronous trigger fan-out would do. Fan-out is set-based (one `INSERT ... SELECT`) with device push chunked 500 at a time; cap via `platform_settings.stream_notify_member_cap` (default 2000).
+- `push-notifications` gains `stream_started` / `stream_ended` / `stream` → icon `ic_notif_event`, channel **`coa_live_stream_v2`**, registered on the client at `Importance.max` so a leader can silence everything else without ever muting "the service is starting". Both the system-notification tap handler and `notifications_screen.dart` route these to `/live-player?id=<stream_id>`.
+- **Verified live:** the first dispatch created **13 real `stream_started` notifications** for Rock Of Ages Chapel (14 members, broadcaster excluded).
+
+### Fixed - "Service is live" was announced before anything was broadcasting
+- `createLiveStream()` inserts the row with `status='live'` the moment the Cloudflare live input is *created* — before any encoder has published a frame. Announcing on `status` therefore told the whole congregation a service was live when a leader had armed OBS and walked away.
+- `20261241` adds **`broadcast_started_at`**, which means *media is confirmed flowing*, and the announcement keys off that instead: WHIP stamps it when the WebRTC peer connects, RTMPS/OBS stamps it when the studio's heartbeat first sees Cloudflare report the input `connected`. `church_live_status.is_live` flips at the same instant, so the home LIVE pill and the push can never disagree. A guard trigger nulls the stamp on a non-live row.
+- The studio's `setLiveStatus(is_live: true)` also moved to **after** the ingest attempt; it used to run *before* the WHIP publish, so `is_live` went true for a feed that never connected.
+
+### Fixed - WHIP broadcasts could never be recorded (and the sweep chased them forever)
+- Cloudflare documents that a WHIP/WebRTC broadcast is **not recorded and emits no HLS/DASH**. Confirmed against the vendor docs. Consequences: `playable_recording_url()` returned NULL so `sync_recorded_service` deleted the sermon row, and `auto_archive_stream_recordings()` burned 6 attempts with exponential backoff on every phone broadcast before landing on `failed`.
+- `20261240` adds **`ingest_mode`** (`rtmps` | `whip`), set by the studio once the ingest path actually wins, plus a trigger that marks a WHIP row `archive_status='not_applicable'` so the sweep skips it. `StreamAnalytics` now reports `ingestMode` + `hasRecording` so the UI can explain a missing replay instead of looking broken.
+
+### Fixed - viewer count froze when the broadcaster's app was closed
+- `live_streams.viewer_count` was only recomputed by the **streamer's** 15s poll or on a viewer's open/close — a viewer heartbeat never republished it, so a closed studio left a stale number on the home hero forever.
+- `refresh_live_stream_viewer_counts()` (pg_cron `stream-viewer-rollup`, every minute) recomputes every live stream. It is O(number of live streams), **not** O(number of viewers), so it stays cheap at 1 church or 1000.
+
+### Fixed - deep links that resolved to nothing
+- `/live-player` only read `state.extra`, so every shared or notification link (`/live-player?id=<uuid>`) opened an empty viewer and errored — and that is precisely the link the studio QR and the new notifications hand out. It now accepts `?id/?church/?url/?title/?audio/?thumb` as well as `extra`.
+- `/live-streaming` ignored `?tenant=`, so a church's own share link dropped members on a platform-wide list where their own service was one row among every other church's. New `/church/:churchId/live` + `LiveStreamingScreen(initialChurchId:)` resolves that church's broadcast, falling back to its most recent recording, then to a clear "not streaming — you'll get a notification" state.
+- The studio share link and QR were a hardcoded `churchonapp.com/live-streaming`; they are now stream-specific via `DeepLinks`.
+- New `DeepLinks` (`lib/core/services/deep_links.dart`) is the single owner of every shareable link. Added `/bible/verse-of-the-day/:date` (`VerseOfTheDayScreen`, date-stamped so a shared verse still shows tomorrow) and `/quiz/tournament/:tournamentId`.
+
+### Fixed - WHEP viewers behind symmetric NAT could not watch at all
+- The broadcaster fetched real TURN credentials; the **viewer** was hardcoded STUN-only. That asymmetry worked in the studio and failed in the pews — most mobile carriers and many office/WiFi networks use symmetric NAT, so the WHEP session simply never connected. `WhepPlayback` now fetches the same `turn-credentials` and degrades to STUN if that fails.
+
+### Fixed - "Projector / Big Screen" showed no video
+- The projector view rendered only text overlays and a copy-link button. It now has a real player: HLS via `video_player` (what an RTMPS broadcast produces and what scales to a congregation), falling back to the WHEP renderer for a phone-cam broadcast, with a retry state.
+
+### Fixed - two gates that could never fire
+- The weekly-minutes gate was `!config.isPaid && minutesUsed >= max`, and every church is `is_paid=true`, so the condition was permanently false and a tenant that had burned its allowance could still start another broadcast. The cap now applies to everyone.
+- `storage_bytes` was only ever reset to 0, so `getStorageUsage()` always returned 0 and the storage gate was dead. `endStream()` now records a duration-based estimate for RTMPS broadcasts (0 for WHIP, which retain nothing).
+- `getAnalytics()` selected `viewer_count, started_at, ended_at` but then read `status` and `streaming_backend` — both always NULL, so `isLive` was permanently `false`, `backend` was permanently `'unknown'`, and the Cloudflare-analytics branch never ran. Columns fixed; `peak_viewer_count` is now the primary peak source.
+
+### Added - configurable weather alerts
+- New `weather_alert_preferences` (per-user, **opt-in, off by default**): max/min temperature, rain probability, max wind, a service window, and **quiet hours**. A `timezone` column is required because quiet hours and the daily dedupe are meaningless in UTC.
+- pg_cron `weather-alert-sweep` (twice hourly) calls the new **`weather-alerts` Edge Function**, which fetches the keyless Open-Meteo forecast, evaluates it against each user's own thresholds, respects quiet hours and the service window, and sends **at most one alert per user per local day**. The HTTP call lives in an Edge Function rather than plpgsql because pg_net only offers fire-and-forget plus a fragile synchronous collector.
+- One forecast fetch per distinct coordinate, so a whole congregation sharing one venue costs a single upstream request. A forecast failure never consumes a user's single daily alert, and the day is claimed with a conditional update so two concurrent sweeps cannot both send.
+- UI: `WeatherAlertSettingsScreen` (`/weather-alerts`), plus a Weather row in notification preferences.
+
+### Added - map growth from our own usage (consent-scoped)
+- `map_growth_samples` records the user's **own** movement inside Church On App: Carpso rides/deliveries, in-app navigation, and explicit place reports / saved pins. `MapGrowthService` thins trails to one point per 40 m and drops implausible coordinates before they reach the database.
+- **Explicitly does not and cannot collect Yango/InDrive/Google Maps location history** — no API exposes another app's location data, and doing so without consent would be a privacy and legal violation. Growth here is our own drivers, our own riders, our own navigation and OSM enrichment.
+- The table has **no client SELECT policy**: the raw trail is written by the user and readable only server-side. Clients get the aggregate `get_map_growth_heatmap()`. Retention is 180 days (`map-growth-prune`).
+
+### Fixed - service-worker console exception
+- `Exception: prepareServiceWorker took more than 4000ms to resolve. Moving on.` was Flutter's default 4s registration budget on a cold cache. New `web/flutter_bootstrap.js` raises it to 20s via `{{flutter_service_worker_version}}`, so PWA/offline behaviour is unchanged and the false alarm is gone.
+
+### Fixed - `profiles?id=eq...` HTTP 400
+- `profile_provider` used a star select, which fails with 400 whenever a migration adds a column before PostgREST's schema cache reloads. Now selects an explicit, verified column list. (`date_of_birth` is deliberately excluded — it does not exist on `profiles` and naming a missing column is itself a 400.) PostgREST schema cache reloaded.
+
+### Fixed - test suite regressions
+- `524 passing / 1 failing`, down from **12 failing**. Seven stale logistics tests asserted the **fabricated** Lusaka fixtures (`Bus #4`, `bus-1`, canned traffic/parking) that the Logistics Command rewrite deliberately removed — they now assert the real contract (empty on failure, never invented data). `universal_search_screen_test` and one `connect_screen_test` were dying on `_instance._isInitialized` (no Supabase client). `marketplace_service_test`'s fake client had no `auth`, and `radio_service_test` still asserted the **silent** `playStation` no-op that was itself the "tapping a station does nothing" bug.
+- The one remaining failure (`connect_screen_test` "renders without error") is a **pre-existing harness limitation**: a real PostgREST retry timer is outstanding at teardown. Properly fixing it means making the feed injectable, i.e. a production refactor of shared code, so it is documented rather than worked around.
+
+### Test evidence
+- `supabase/tests/stream_notification_pipeline_test.sql` — 12/12 green against the real production path (triggers + dispatcher) inside a rolled-back transaction: no false announce when merely armed, announce on confirmed media, exactly the tenant's members with the broadcaster excluded, correct push channel, chunked fan-out, idempotent re-dispatch, end-of-service copy, and WHIP marked unrecordable. Writes nothing, sends nothing.
+- Weather: `weather-alert-candidates` RPC resolves the user, falls back to church coordinates, and returns the correct **local** hour/date for the user's timezone; Open-Meteo live forecast confirmed for Lusaka.
+
+### Deploy state
+- Migrations `20261240`, `20261241`, `20261242`, `20261244` applied live and registered in `deploy.ps1`. Edge Functions `push-notifications` and `weather-alerts` deployed; `?action=health` returns `{"status":"ok","cron_secret_set":true,"service_role_set":true}`.
+- **Not built:** APK/AAB require an explicit go-ahead. Last published artifacts are still `+351`/`+352` and predate all of the above, including the manifest-free but native-affecting changes.
+
 ## Unreleased - 2026-09-30 (Listed as a map navigation option: geo: intent + in-app /navigate screen, release v1.0.0+352)
 
 ### Added - App appears in Android's "Open with" chooser for navigation

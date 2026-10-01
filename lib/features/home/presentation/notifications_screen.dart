@@ -45,6 +45,9 @@ class NotificationsScreen extends ConsumerWidget {
       case 'order':
       case 'marketplace': return LucideIcons.shoppingBag;
       case 'klip': return LucideIcons.video;
+      case 'stream_started': return LucideIcons.radio;
+      case 'stream_ended': return LucideIcons.archive;
+      case 'stream': return LucideIcons.radio;
       default: return LucideIcons.bell;
     }
   }
@@ -57,6 +60,9 @@ class NotificationsScreen extends ConsumerWidget {
       case 'payment': return Colors.green;
       case 'event':
       case 'event_reminder': return brand.withValues(alpha: 0.75);
+      case 'stream_started': return Colors.red;
+      case 'stream_ended': return brand.withValues(alpha: 0.6);
+      case 'stream': return brand;
       case 'chat':
       case 'chat_message':
       case 'message': return brand.withValues(alpha: 0.55);
@@ -267,6 +273,18 @@ class NotificationsScreen extends ConsumerWidget {
             context.push('/sermon/$id');
           } else {
             context.go('/sermons');
+          }
+          break;
+        // reference_id is the live_streams id, so the tap opens THAT exact
+        // broadcast. A 'started' notification with no id falls back to the
+        // member's own church live page.
+        case 'stream_started':
+        case 'stream_ended':
+        case 'stream':
+          if (id != null && id.isNotEmpty) {
+            context.push('/live-player?id=$id');
+          } else {
+            context.push('/live-streaming');
           }
           break;
         case 'prayer':

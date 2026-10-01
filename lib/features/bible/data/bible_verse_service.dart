@@ -124,8 +124,8 @@ class BibleVerseService {
   /// (the pool is >= 120 verses and rotates as a full cycle). When the RPC is
   /// unreachable we fall back to a small built-in uplifting set — NEVER to
   /// random `bible_verses` rows (those produced contextless fragments).
-  Future<DailyBibleVerse> fetchLatestVerse() async {
-    final today = DateTime.now();
+  Future<DailyBibleVerse> fetchLatestVerse({DateTime? forDate}) async {
+    final today = forDate ?? DateTime.now();
     final isoDate =
         '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
     try {

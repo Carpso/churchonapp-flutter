@@ -3,6 +3,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:church_on_app/features/finance/data/finance_service.dart';
 import 'package:intl/intl.dart';
+import '../../../core/utils/pdf_text_sanitizer.dart';
 
 class LedgerPdfService {
   static Future<void> generateAndPrintLedger(List<Transaction> transactions, String churchName) async {
@@ -23,7 +24,7 @@ class LedgerPdfService {
                   pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Text(churchName, style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+                      pw.Text(PdfTextSanitizer.sanitize(churchName), style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
                       pw.Text("Ecclesiastical Financial Statement", style: pw.TextStyle(color: PdfColors.grey700)),
                     ],
                   ),
@@ -45,8 +46,8 @@ class LedgerPdfService {
                 headers: ['Date', 'Category', 'Reference', 'Amount'],
                 data: transactions.map((tx) => [
                   DateFormat('dd MMM').format(tx.createdAt),
-                  tx.category.toUpperCase(),
-                  tx.reference,
+                  PdfTextSanitizer.sanitize(tx.category.toUpperCase()),
+                  PdfTextSanitizer.sanitize(tx.reference),
                   tx.amount.toStringAsFixed(2),
                 ]).toList(),
               ),

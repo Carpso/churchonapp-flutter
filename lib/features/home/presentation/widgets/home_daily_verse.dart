@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:church_on_app/core/services/deep_links.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/features/bible/data/bible_verse_service.dart';
 import 'package:church_on_app/features/bible/data/bible_service.dart';
@@ -80,9 +80,14 @@ class HomeDailyVerse extends ConsumerWidget {
                 IconButton(
                   icon: const Icon(LucideIcons.share2, color: Colors.white70, size: 18),
                   onPressed: () {
-                    Clipboard.setData(ClipboardData(text: '"$displayText" — ${verse.reference}'));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: const Text("Daily verse copied to clipboard!"), backgroundColor: Theme.of(context).primaryColor, behavior: SnackBarBehavior.floating),
+                    // Share the verse WITH a link to it. This used to only copy
+                    // the text, so a member who shared it could not send anyone
+                    // to the verse. The link is date-stamped, which means the
+                    // recipient still sees THIS verse tomorrow.
+                    DeepLinks.shareText(
+                      '"$displayText" — ${verse.reference}',
+                      DeepLinks.verseOfTheDay(verse.createdAt),
+                      subject: 'Verse of the Day — ${verse.reference}',
                     );
                   },
                   constraints: const BoxConstraints(minWidth: 44, minHeight: 44),

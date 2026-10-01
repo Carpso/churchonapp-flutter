@@ -369,6 +369,11 @@ function iconForType(type?: string): string {
     case 'church_approved': return 'ic_notif_role';
     case 'kyc_approved': return 'ic_notif_role';
     case 'kyc_rejected': return 'ic_notif_role';
+    // Live service start/end. A service going live is time-critical (members
+    // are waiting for it) so it gets its own high-importance channel.
+    case 'stream_started': return 'ic_notif_event';
+    case 'stream_ended': return 'ic_notif_event';
+    case 'stream': return 'ic_notif_event';
     default: return 'ic_notif_general';
   }
 }
@@ -419,6 +424,11 @@ function channelForType(type?: string): string {
     case 'church_approved': return 'coa_roles_v2';
     case 'kyc_approved': return 'coa_roles_v2';
     case 'kyc_rejected': return 'coa_roles_v2';
+    // Dedicated channel so a leader can silence/quiet other alerts without
+    // ever muting "the service is starting right now".
+    case 'stream_started': return 'coa_live_stream_v2';
+    case 'stream_ended': return 'coa_live_stream_v2';
+    case 'stream': return 'coa_live_stream_v2';
     default: return 'coa_announcements_v2';
   }
 }

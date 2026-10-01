@@ -3,6 +3,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../../core/utils/pdf_text_sanitizer.dart';
 import 'lyrics_service.dart';
 
 /// Item 7 — turn a worship setlist into a printable / shareable PDF.
@@ -25,59 +26,12 @@ class SetlistPdfService {
   static const _brandYellow = PdfColor.fromInt(0xFFFFDA03);
   static const _ink = PdfColor.fromInt(0xFF1A1A1A);
 
-  /// Fold text to the WinAnsi range the built-in PDF font can actually draw.
-  static String sanitize(String input) {
-    if (input.isEmpty) return input;
-    final buffer = StringBuffer();
-    for (final rune in input.runes) {
-      final ch = String.fromCharCode(rune);
-      switch (ch) {
-        // Typography -> ASCII
-        case '‘':
-        case '’':
-        case '‛':
-        case '´':
-          buffer.write("'");
-        case '“':
-        case '”':
-        case '‟':
-          buffer.write('"');
-        case '–':
-        case '—':
-        case '−':
-          buffer.write('-');
-        case '…':
-          buffer.write('...');
-        case ' ':
-          buffer.write(' ');
-        case '•':
-          buffer.write('-');
-        case '·':
-          buffer.write('-');
-        case '☐':
-        case '☑':
-        case '☒':
-          buffer.write('[ ]');
-        case '→':
-        case '⇒':
-          buffer.write('->');
-        default:
-          // Printable ASCII passes straight through.
-          if (rune >= 0x20 && rune <= 0x7E) {
-            buffer.write(ch);
-          } else if (rune >= 0xA0 && rune <= 0xFF) {
-            // WinAnsi covers all of Latin-1 supplement, so every accented
-            // letter (é, ñ, ü …) is already safe.
-            buffer.write(ch);
-          }
-          // Anything else (CJK, emoji, symbols) is dropped rather than drawn
-          // as a tofu box.
-      }
-    }
-    return buffer.toString();
-  }
+  /// Delegates to the shared helper so every PDF in the app folds text the
+  /// same way (see PdfTextSanitizer for why this is necessary).
+  static String sanitize(String? s) => PdfTextSanitizer.sanitize(s);
 
-  /// Build the setlist PDF. [churchName] is printed in the header so the sheet
+
+  /// Delegates to the shared helper so every PDF in the app folds text\n  /// the same way.\n  static String sanitize(String? s) => PdfTextSanitizer.sanitize(s);\n\n  /// Build the setlist PDF. [churchName] is printed in the header so the sheet
   /// is self-identifying when a musician carries it between rooms.
   Future<Uint8List> build({
     required Setlist setlist,
@@ -312,11 +266,5 @@ class SetlistPdfService {
     );
   }
 
-  /// Keep the export filename ASCII-safe (a title with an emoji or an accent
-  /// would otherwise produce a filename some Android file pickers reject).
-  static String _safe(String s) => sanitize(s)
-      .replaceAll(RegExp(r'[^A-Za-z0-9 _-]'), '')
-      .trim()
-      .replaceAll(' ', '_')
-      .replaceAll(RegExp(r'_+'), '_');
+  static String _safe(String s) => PdfTextSanitizer.safeFileName(s);
 }

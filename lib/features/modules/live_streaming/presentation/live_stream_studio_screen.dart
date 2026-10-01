@@ -12,6 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
+import 'package:church_on_app/core/services/deep_links.dart';
 import 'package:church_on_app/core/services/unified_stream_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/features/home/data/live_streaming_service.dart';
@@ -62,6 +63,18 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   String? _streamKey;
   String? _hlsUrl;
   String? _whipUrl;
+
+  /// Cloudflare live-input UID, used to ask Cloudflare whether media has
+  /// actually started arriving (the true "we are on air" signal for OBS).
+  String? _inputId;
+
+  /// The tenancy being broadcast, resolved once in _startStream so the
+  /// heartbeat can mark the church live without re-resolving it.
+  String? _activeTenantId;
+
+  /// True once `broadcast_started_at` has been stamped, so the start is
+  /// announced exactly once per broadcast.
+  bool _broadcastStarted = false;
   String? _verseText;
   String? _verseRef;
   String? _logoUrl;
@@ -683,6 +696,9 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       _streamKey = result.streamKey;
       _hlsUrl = result.hlsUrl;
       _whipUrl = result.whipUrl;
+      _inputId = result.cloudflareInputId;
+      _activeTenantId = tenantId;
+      _broadcastStarted = false;
 
       // Repair a missing HLS URL immediately. A freshly-created Cloudflare live
       // input can take a few seconds to expose its manifest, so the row may be
@@ -701,25 +717,49 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
         }
       }
 
-      // Mark the church LIVE so viewers can discover it from the home screen
-      // LIVE indicator (church_live_status), not just by opening the studio.
-      try {
-        await LiveStreamingService(client).setLiveStatus(
-          tenantId,
-          true,
-          // A WHIP broadcast has no HLS — surface the WHEP playback URL so the
-          // home LIVE indicator hands the viewer a playable link either way.
-          streamUrl: (_hlsUrl != null && _hlsUrl!.isNotEmpty)
-              ? _hlsUrl
-              : result.previewUrl,
-          title: _streamTitle,
-        );
-      } catch (e) {
-        debugPrint('Failed to set live status: $e');
-      }
-
       // Try WebRTC WHIP ingest first (phone streams live to Cloudflare).
       final broadcastStarted = _whipUrl != null && await _startWhipIngest(_whipUrl!);
+
+      // Record which ingest path actually won. This is load-bearing: a WHIP
+      // (WebRTC) broadcast produces NO HLS and is NEVER recorded by Cloudflare,
+      // so the DB uses this to stop chasing a recording that can never exist
+      // and the studio can tell the leader why there is no replay.
+      await _markIngestMode(broadcastStarted ? 'whip' : 'rtmps');
+
+      if (broadcastStarted) {
+        // A connected WebRTC peer IS real media, so the service is on air now.
+        // (For OBS the heartbeat stamps this instead, once Cloudflare reports
+        // the input is actually receiving frames.)
+        _broadcastStarted = true;
+        await UnifiedStreamService(Supabase.instance.client)
+            .markBroadcastStarted(result.streamId);
+      }
+
+      // Mark the church LIVE so viewers can discover it from the home screen
+      // LIVE indicator (church_live_status), not just by opening the studio.
+      //
+      // This is deliberately AFTER the ingest attempt. It used to run BEFORE
+      // the WHIP publish, so `is_live` flipped to true even when nothing was
+      // ever published — announcing a live service that could not be watched.
+      // Only a genuinely connected feed (WHIP) or an armed OBS row that the
+      // leader is about to publish from marks the church live.
+      if (broadcastStarted) {
+        try {
+          await LiveStreamingService(client).setLiveStatus(
+            tenantId,
+            true,
+            // A WHIP broadcast has no HLS — surface the WHEP playback URL so
+            // the home LIVE indicator hands the viewer a playable link.
+            streamUrl: (_hlsUrl != null && _hlsUrl!.isNotEmpty)
+                ? _hlsUrl
+                : result.previewUrl,
+            title: _streamTitle,
+          );
+        } catch (e) {
+          debugPrint('Failed to set live status: $e');
+        }
+      }
+
 
       if (broadcastStarted) {
         if (mounted) {
@@ -809,11 +849,59 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       if (id == null) return;
       unawaited(unifiedService.sendHeartbeat(id));
       unawaited(_refreshViewerCount());
+      // RTMPS/OBS: nothing tells us the encoder started publishing except
+      // Cloudflare's live-input status, so poll it and stamp the start the
+      // first time media is genuinely arriving.
+      if (_whipUrl == null && _rtmpUrl != null) {
+        unawaited(_detectRtmpsBroadcast(id));
+      }
     }
 
     ping();
     // 15 s so the live viewer badge tracks the audience closely.
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (_) => ping());
+  }
+
+  /// Polls Cloudflare once until the RTMPS input reports connected media, then
+  /// records the true "service started" moment exactly once.
+  Future<void> _detectRtmpsBroadcast(String streamId) async {
+    if (_broadcastStarted || _inputId == null) return;
+    final state = await UnifiedStreamService(Supabase.instance.client)
+        .getLiveInputState(_inputId!);
+    if (!mounted || state == null) return;
+
+    if (state.connected) {
+      _broadcastStarted = true;
+      await UnifiedStreamService(Supabase.instance.client)
+          .markBroadcastStarted(streamId);
+
+      // Keep the viewer count honest from the first second of the broadcast.
+      unawaited(_refreshViewerCount());
+
+      if (mounted) {
+        setState(() {
+          _isLive = true;
+          _streamStatus = "LIVE";
+        });
+        // Now that real media is flowing, tell members the church is live.
+        final tid = _activeTenantId;
+        if (tid == null || tid.isEmpty) return;
+        try {
+          await LiveStreamingService(Supabase.instance.client).setLiveStatus(
+            tid,
+            true,
+            streamUrl: (state.hlsUrl?.isNotEmpty ?? false)
+                ? state.hlsUrl
+                : (_hlsUrl ?? ''),
+            title: _streamTitle,
+          );
+        } catch (e) {
+          debugPrint('setLiveStatus after RTMPS connect failed: $e');
+        }
+      }
+    } else if (_streamStatus == 'OFFLINE') {
+      setState(() => _streamStatus = 'WAITING FOR OBS');
+    }
   }
 
   void _stopHeartbeat() {
@@ -1017,6 +1105,28 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
         ],
       ),
     );
+  }
+
+  /// Persists which ingest path this broadcast is using.
+  ///
+  /// 'rtmps' = OBS/encoder -> Cloudflare emits adaptive HLS and auto-records,
+  ///           so the service gets a replay and becomes a sermon.
+  /// 'whip'  = phone camera over WebRTC -> WebRTC only. Cloudflare never emits
+  ///           HLS and never records a WebRTC broadcast, so there is no replay.
+  /// The server reads this to stop retrying a recording that can never exist,
+  /// and the studio uses it to explain the absence of a replay honestly rather
+  /// than letting the leader think the feature is broken.
+  Future<void> _markIngestMode(String mode) async {
+    final id = _streamId;
+    if (id == null) return;
+    try {
+      await Supabase.instance.client
+          .from('live_streams')
+          .update({'ingest_mode': mode})
+          .eq('id', id);
+    } catch (e) {
+      debugPrint('Could not persist ingest_mode: $e');
+    }
   }
 
   void _showStreamCredentials() {
@@ -1429,8 +1539,27 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     );
   }
 
+  /// Shareable link for the broadcast currently on air.
+  ///
+  /// This MUST be stream-specific. It used to be the hardcoded
+  /// `churchonapp.com/live-streaming` hub link, so a leader pasting it into
+  /// WhatsApp sent the congregation to a platform-wide list where their own
+  /// service was just one row among every other church's — or to nothing at all
+  /// when that list was empty. It now points straight at THIS stream, falling
+  /// back to the church so the link still resolves if the stream row is later
+  /// cleared.
+  String get _shareLink {
+    final id = _streamId;
+    final tenant = _activeTenantId;
+    if (id != null && id.isNotEmpty) return DeepLinks.streamById(id);
+    if (tenant != null && tenant.isNotEmpty) {
+      return DeepLinks.tenantLiveStream(tenant);
+    }
+    return 'https://churchonapp.com/live-streaming';
+  }
+
   void _showShareQr() {
-    const link = 'https://churchonapp.com/live-streaming';
+    final link = _shareLink;
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -1454,12 +1583,12 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
               ),
             ),
             const SizedBox(height: 12),
-            const Text(link,
-                style: TextStyle(fontSize: 12, fontFamily: 'monospace')),
+            Text(link,
+                style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: () async {
-                await Clipboard.setData(const ClipboardData(text: link));
+                await Clipboard.setData(ClipboardData(text: link));
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1480,8 +1609,8 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     // Share an APP link (opens the streaming hub in-app / on web) rather than
     // the raw HLS manifest, and actually copy it — the old code showed
     // "copied" without copying anything and pointed at the non-existent /live.
-    const link = 'https://churchonapp.com/live-streaming';
-    await Clipboard.setData(const ClipboardData(text: link));
+    final link = _shareLink;
+    await Clipboard.setData(ClipboardData(text: link));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
