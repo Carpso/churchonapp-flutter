@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased - 2026-10-01 (Push notifications fixed - every push was failing)
+
+### Fixed - push notifications were failing 100% (invalid FCM enum)
+- The FCM v1 payload sent `visibility: "VISIBILITY_PUBLIC"`. `AndroidNotification.Visibility` is an enum whose values are **bare** (`PRIVATE` / `PUBLIC` / `SECRET`), not prefixed with the enum name. FCM rejected **every** message:
+  `400 INVALID_ARGUMENT — Invalid value at 'message.android.notification.visibility', "VISIBILITY_PUBLIC"`.
+  No push of any type had ever been delivered. Corrected to `"PUBLIC"` (`notification_priority` likewise normalised to `PRIORITY_HIGH`).
+- **The failure handler then made it permanent.** It treated `INVALID_ARGUMENT` as "this device is gone" and nulled `profiles.fcm_token`. But `INVALID_ARGUMENT` is FCM's generic *"your request was malformed"* status, so one bad field in our own payload **wiped the entire device-token registry** — after which there was nothing to send to and no recovery except each user reopening the app. Token clearing is now limited to responses that genuinely mean the token is dead: `UNREGISTERED` / `NOT_FOUND` / `SENDER_ID_MISMATCH`.
+- **Diagnosability.** A failure previously returned only `{"sentCount":0,"invalid_token_cleared":1}` — indistinguishable from "one user uninstalled", which is why this went unnoticed. The response now carries the FCM HTTP status, truncated reason and whether a token was cleared (omitted on success, so clean responses are unchanged).
+- **Verified with live sends to real devices:** before `sentCount:0 / invalid_token_cleared:1`; after `success:true / sentCount:1`; multi-target `3/3 delivered, 0 failures`; tokens retained across a send.
+
+### Fixed - weather notifications were invisible on the client
+- `weather` was fully wired server-side (type, channel, dispatch) but absent from every client surface: no icon, no colour, no channel label and no tap route. A weather alert would render with a default bell icon and tap to nothing. Added to `fcm_service.dart` (channel + label), `notification_service.dart` (tap -> `/weather-alerts`) and `notifications_screen.dart` (icon, colour, route).
+- `dart analyze lib`: clean. Tests: 524 pass / 1 pre-existing failure (unchanged).
+- 2 tokens were cleared while isolating the fault; both users re-register automatically because `syncToken()` runs on sign-in **and** on app resume.
+
 ## Unreleased - 2026-10-01 (Streaming made production-grade: tenant→members broadcast, start/end notifications, weather alerts, map growth)
 
 ### Fixed - SECURITY: broadcast ingest credentials were world-readable
