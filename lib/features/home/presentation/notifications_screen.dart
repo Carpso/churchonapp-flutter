@@ -48,6 +48,7 @@ class NotificationsScreen extends ConsumerWidget {
       case 'stream_started': return LucideIcons.radio;
       case 'stream_ended': return LucideIcons.archive;
       case 'stream': return LucideIcons.radio;
+      case 'weather': return LucideIcons.cloudSun;
       default: return LucideIcons.bell;
     }
   }
@@ -63,6 +64,7 @@ class NotificationsScreen extends ConsumerWidget {
       case 'stream_started': return Colors.red;
       case 'stream_ended': return brand.withValues(alpha: 0.6);
       case 'stream': return brand;
+      case 'weather': return Colors.lightBlue;
       case 'chat':
       case 'chat_message':
       case 'message': return brand.withValues(alpha: 0.55);
@@ -286,6 +288,11 @@ class NotificationsScreen extends ConsumerWidget {
           } else {
             context.push('/live-streaming');
           }
+          break;
+        // Weather warnings carry no record id; they open the alert settings so
+        // the member can tune or switch them off.
+        case 'weather':
+          context.push('/weather-alerts');
           break;
         case 'prayer':
         case 'testimony':

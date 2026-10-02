@@ -361,6 +361,10 @@ class NotificationService {
         case 'stream_ended':
         case 'stream':
           GoRouter.of(context).push('/live-player?id=$id');
+        // A weather warning has no item to open, so it lands on the alert
+        // settings — which is where a user goes to adjust or switch it off.
+        case 'weather':
+          GoRouter.of(context).push('/weather-alerts');
         case 'ticket':
         case 'event_ticket':
           GoRouter.of(context).push('/ticket/$id');

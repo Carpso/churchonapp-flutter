@@ -132,6 +132,8 @@ String _channelForType(String type) {
     case 'stream_ended':
     case 'stream':
       return 'coa_live_stream_v2';
+    case 'weather':
+      return 'coa_announcements_v2';
     default:
       return 'coa_announcements_v2';
   }
@@ -171,6 +173,8 @@ String _channelNameForType(String type) {
       return 'Service is live';
     case 'stream_ended':
       return 'Service ended';
+    case 'weather':
+      return 'Weather warning';
     default:
       return 'Updates';
   }

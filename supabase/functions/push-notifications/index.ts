@@ -132,10 +132,26 @@ serve(async (req) => {
     }
 
     let sentCount = 0;
-    const skipped: Record<string, number> = {};
-    const bump = (k: string) => {
-      skipped[k] = (skipped[k] ?? 0) + 1;
-    };
+  const skipped: Record<string, number> = {};
+  const bump = (k: string) => {
+    skipped[k] = (skipped[k] ?? 0) + 1;
+  };
+
+  // WHY THIS EXISTS
+  //   A failed send used to be swallowed: the FCM error text went to
+  //   console.error and the response only said `invalid_token_cleared: 1`.
+  //   That made a total push outage indistinguishable from "this one device
+  //   uninstalled the app" — the token gets nulled and the next send silently
+  //   skips it, so the feature looks dead with no cause. The reason FCM gave us
+  //   is the single most useful diagnostic, so it is surfaced (truncated) in the
+  //   response and retained for inspection.
+  const failures: Array<{
+    user: string;
+    http: number;
+    reason: string;
+    token_cleared: boolean;
+  }> = [];
+
 
     for (const targetUserId of targetUserIds) {
       try {
@@ -220,8 +236,19 @@ serve(async (req) => {
                           default_sound: true,
                           default_vibrate_timings: true,
                           default_light_settings: true,
-                          visibility: "VISIBILITY_PUBLIC",
-                          notification_priority: "PRIORITY_MAX",
+                          // FCM v1 enum values are BARE, not prefixed with the
+                          // enum name: AndroidNotification.Visibility accepts
+                          // PRIVATE / PUBLIC / SECRET. Sending
+                          // "VISIBILITY_PUBLIC" is rejected with
+                          //   400 INVALID_ARGUMENT:
+                          //   Invalid value at
+                          //   'message.android.notification.visibility'
+                          // which made EVERY push fail (see the token-clearing
+                          // note further down — it also wiped the token
+                          // registry, turning one bad field into a total
+                          // outage with no way back).
+                          visibility: "PUBLIC",
+                          notification_priority: "PRIORITY_HIGH",
                         },
                       },
                       apns: {
@@ -255,7 +282,23 @@ serve(async (req) => {
                 console.error(`FCM V1 send failed: ${fcmRes.status} ${errText.slice(0, 300)}`);
                 // Dead/rotated token → clear it so the next send skips this device
                 // instead of silently failing forever.
-                if (/UNREGISTERED|NOT_FOUND|INVALID_ARGUMENT|SENDER_ID_MISMATCH/.test(errText)) {
+                // ── Token cleanup ──────────────────────────────────────────
+                // ONLY a "this device is gone" response may clear a token.
+                //
+                // `INVALID_ARGUMENT` is deliberately NOT included: it is FCM's
+                // generic "your request was malformed" status. A single bad
+                // field in OUR payload (which is exactly what happened — a
+                // malformed visibility enum) returned INVALID_ARGUMENT for
+                // every recipient, and clearing tokens on that status wiped the
+                // entire device-token registry. The outage then became
+                // self-inflicted and permanent: with no token left, nothing
+                // could ever be re-sent, and only a fresh app launch could
+                // recover.
+                //
+                // UNREGISTERED / NOT_FOUND genuinely mean the token is dead.
+                const deadToken =
+                  /UNREGISTERED|NOT_FOUND|SENDER_ID_MISMATCH/.test(errText);
+                if (deadToken) {
                   await supabase
                     .from("profiles")
                     .update({ fcm_token: null })
@@ -264,6 +307,12 @@ serve(async (req) => {
                 } else {
                   bump("fcm_error");
                 }
+                failures.push({
+                  user: targetUserId,
+                  http: fcmRes.status,
+                  reason: errText.slice(0, 400),
+                  token_cleared: deadToken,
+                });
               }
             } else {
               const serverKey = Deno.env.get("FCM_SERVER_KEY");
@@ -312,7 +361,15 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ success: true, sentCount, skipped, totalTargets: targetUserIds.length }), {
+    return new Response(JSON.stringify({
+      success: true,
+      sentCount,
+      skipped,
+      totalTargets: targetUserIds.length,
+      // Only present when something actually failed; omitted on a clean send so
+      // successful responses stay byte-identical to before.
+      ...(failures.length ? { failures } : {}),
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
