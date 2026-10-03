@@ -15,6 +15,7 @@ import 'package:http/http.dart' as http;
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:church_on_app/core/services/supabase_service.dart';
 import 'package:church_on_app/core/providers/audio_provider.dart';
+import 'package:church_on_app/core/services/media_player_config.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
 import 'package:church_on_app/core/widgets/shimmer_loader.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
@@ -207,7 +208,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
       _resolvedVideoUrl = resolved;
       VideoPlayerController? controller;
       try {
-        controller = VideoPlayerController.networkUrl(Uri.parse(resolved));
+        controller = buildMediaController(resolved);
         controller.addListener(() {
           if (mounted) setState(() {});
         });
@@ -743,7 +744,7 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
         _isLoading = true;
       });
 
-      _videoController = VideoPlayerController.networkUrl(Uri.parse(target));
+      _videoController = buildMediaController(target);
       _videoController.addListener(() {
         if (mounted) setState(() {});
       });
@@ -1199,6 +1200,20 @@ class _SermonPlayerScreenState extends ConsumerState<SermonPlayerScreen> {
               child: VideoPlayer(_videoController),
             ),
           ),
+          // Rebuffering indicator. Without this the frame simply freezes and
+          // the player looks broken; with it a stall on a slow connection
+          // reads as an understood wait instead of a bug.
+          if (isMediaBuffering(_videoController))
+            const Center(
+              child: SizedBox(
+                width: 34,
+                height: 34,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
           // Transparent tap layer so play/pause works without obstructing the
           // native video surface.
           GestureDetector(

@@ -43,6 +43,18 @@ class StreamProjectorScreen extends ConsumerWidget {
         ? const AsyncValue<LiveStreamOverlay?>.data(null)
         : ref.watch(liveStreamOverlayProvider(streamId!));
 
+    // Overlay typography scale.
+    //
+    // The overlay text was hardcoded at desktop sizes (34px verse, 24px
+    // speaker, 96px logo, 28px padding). On a short landscape projector — or a
+    // phone in landscape — those blocks no longer fit alongside the video and
+    // collided with each other and the ticker, which is the reported
+    // "overlapping details". Scaling everything by the shorter screen axis keeps
+    // the proportions identical at any size and stops the overlap.
+    final screen = MediaQuery.of(context).size;
+    final scale = (screen.shortestSide / 400).clamp(0.55, 1.35);
+    double s(double v) => v * scale;
+
     final data = overlay.value;
     final verseText = data?.verseText?.trim();
     final verseRef = data?.verseRef?.trim();
@@ -98,29 +110,48 @@ class StreamProjectorScreen extends ConsumerWidget {
           // picture, which is exactly what a congregation projector needs.
           // Live RTMPS broadcasts play over HLS; a WHIP broadcast has no HLS, so
           // the WHEP renderer is used instead (same ladder as the viewer).
+          //
+          // FLEXIBLE + AspectRatio instead of a hard `size.height * 0.5`. That
+          // assumed a tall portrait screen: on the short landscape displays
+          // projectors and TVs actually run (and on any phone in landscape) it
+          // ate most of the viewport and pushed the overlays below the fold —
+          // the reported "cut screen". This keeps the picture 16:9, capped at
+          // half the height, and always leaves room for the verse/speaker text.
           if (_canPlayVideo)
-            SizedBox(
-              height: MediaQuery.of(context).size.height * 0.5,
-              width: double.infinity,
-              child: _ProjectorVideo(
-                hlsUrl: hlsUrl,
-                streamId: streamId,
+            Flexible(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.5,
+                ),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: _ProjectorVideo(
+                    hlsUrl: hlsUrl,
+                    streamId: streamId,
+                  ),
+                ),
               ),
             ),
           Expanded(
             child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
+              child: SingleChildScrollView(
+                // Scrollable so a long verse or speaker line can never overflow
+                // and clip ("cut off") on a short screen.
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: scale * 12,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                     if (logoUrl != null && logoUrl!.isNotEmpty)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(16),
-                        child: AppImage(logoUrl!, width: 96, height: 96, fit: BoxFit.cover),
+                        child: AppImage(logoUrl!, width: s(96), height: s(96), fit: BoxFit.cover),
                       )
                     else
-                      const Icon(LucideIcons.church, color: Color(0xFFFFD700), size: 64),
+                      Icon(LucideIcons.church, color: const Color(0xFFFFD700), size: s(64)),
                     const SizedBox(height: 16),
                     Text(
                       tenantName ?? 'Church On App',
@@ -199,10 +230,10 @@ class StreamProjectorScreen extends ConsumerWidget {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 32),
+                    SizedBox(height: s(32)),
                     if (hasVerse)
                       Container(
-                        padding: const EdgeInsets.all(28),
+                        padding: EdgeInsets.all(s(28)),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(24),
@@ -226,9 +257,9 @@ class StreamProjectorScreen extends ConsumerWidget {
                               Text(
                                 '"$verseText"',
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 34,
+                                  fontSize: s(34),
                                   height: 1.35,
                                   fontStyle: FontStyle.italic,
                                   fontWeight: FontWeight.w600,
@@ -242,13 +273,14 @@ class StreamProjectorScreen extends ConsumerWidget {
                         'The verse of the moment will appear here.',
                         style: TextStyle(color: Colors.white38, fontSize: 16),
                       ),
-                    const SizedBox(height: 40),
+                    SizedBox(height: s(24)),
                     _linkCard(context, hlsUrl),
                   ],
                 ),
               ),
             ),
           ),
+              ),
           if (tickerItems.isNotEmpty)
             MarqueeTicker(
               items: tickerItems,

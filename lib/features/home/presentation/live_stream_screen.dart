@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:intl/intl.dart';
 
+import 'package:church_on_app/core/services/media_player_config.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/core/widgets/branded_stream_poster.dart';
@@ -325,7 +326,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
     if (oldWhep != null) unawaited(oldWhep.dispose());
 
     try {
-      final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+      final controller = buildMediaController(url);
       _videoPlayerController = controller;
       _resolvedPlaybackUrl = url;
       controller.addListener(_onPlayerChanged);
