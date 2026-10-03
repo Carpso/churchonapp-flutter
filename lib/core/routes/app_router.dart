@@ -36,6 +36,7 @@ import 'package:church_on_app/features/modules/events/presentation/event_details
 import 'package:church_on_app/features/modules/events/presentation/events_screen.dart';
 import 'package:church_on_app/features/events/data/event_service.dart';
 import 'package:church_on_app/features/finance/presentation/partner_redemption_screen.dart';
+import 'package:church_on_app/features/admin/presentation/church_audit_screen.dart';
 import 'package:church_on_app/features/admin/presentation/manage_partners_screen.dart';
 import 'package:church_on_app/features/admin/presentation/church_directory_edit_screen.dart';
 import '../providers/auth_provider.dart';
@@ -488,6 +489,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           return user.isPastorOrHigher || user.isLeadershipTeam;
         }
 
+        // The activity log exposes who changed what, so it is leadership-only.
+        // RLS enforces the same rule server-side; this just avoids showing a
+        // member a screen they cannot read.
+        if (route == '/church-audit') {
+          return user.isPastorOrHigher || user.isLeadershipTeam;
+        }
+
         // Pastoral care suite: attendance records are meaningless without
         // knowing who they belong to, so leadership gates it.
         if (route == '/people-care' ||
@@ -769,6 +777,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/member-attendance',
         builder: (context, state) => const MemberAttendanceScreen(),
+      ),
+      GoRoute(
+        path: '/church-audit',
+        builder: (context, state) => const ChurchAuditScreen(),
       ),
       GoRoute(
         path: '/bookshop',
