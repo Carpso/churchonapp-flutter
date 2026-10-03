@@ -65,6 +65,25 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_report_template_scope
     report_type)
   WHERE is_active;
 
+-- SECURITY: templates define the remittance RATE, so they must not be
+-- client-writable. Supabase grants `authenticated` ALL table privileges on new
+-- tables, and this table was created without RLS, which left any signed-in user
+-- able to `UPDATE report_templates SET remittance_rate = 0` (silently stopping
+-- every remittance) or `TRUNCATE` it (stopping every church filing a return).
+-- Locked down to read-only for clients; only service_role may write.
+ALTER TABLE public.report_templates ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.report_templates FROM anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.report_templates FROM authenticated;
+GRANT SELECT ON public.report_templates TO authenticated;
+
+-- Form definitions are not sensitive: any signed-in member may read them,
+-- because the return form has to render for whoever is typing it.
+DROP POLICY IF EXISTS "report_templates_read" ON public.report_templates;
+CREATE POLICY "report_templates_read"
+  ON public.report_templates FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+
 -- ---------------------------------------------------------------------------
 -- 2. SUBMISSIONS: one return per church per period
 -- ---------------------------------------------------------------------------
@@ -744,6 +763,30 @@ BEGIN
 
   IF (SELECT count(*) FROM public.report_templates) < 2 THEN
     RAISE EXCEPTION 'the default monthly and quarterly templates are missing';
+  END IF;
+
+  -- The remittance rate is money. Refuse to ship if a client can write it.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public' AND c.relname = 'report_templates'
+       AND c.relrowsecurity
+  ) THEN
+    RAISE EXCEPTION 'report_templates must have RLS enabled';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.role_table_grants
+     WHERE table_schema = 'public' AND table_name = 'report_templates'
+       AND grantee IN ('anon', 'authenticated')
+       AND privilege_type IN ('INSERT','UPDATE','DELETE','TRUNCATE')
+  ) THEN
+    RAISE EXCEPTION 'a client can write report_templates, which controls the remittance rate';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public' AND tablename = 'report_templates'
+       AND cmd <> 'SELECT'
+  ) THEN
+    RAISE EXCEPTION 'report_templates must have no write policies';
   END IF;
 END;
 $$;
