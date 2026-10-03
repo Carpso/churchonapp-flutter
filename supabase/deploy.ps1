@@ -385,6 +385,7 @@ $migrations = @(
     "20261246_stream_credentials_media_roles.sql"
     "20261247_church_audit_log.sql"
     "20261248_member_transfers.sql"
+    "20261249_member_classes_and_discipline.sql"
       )
 
 

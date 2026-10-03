@@ -38,6 +38,8 @@ import 'package:church_on_app/features/events/data/event_service.dart';
 import 'package:church_on_app/features/finance/presentation/partner_redemption_screen.dart';
 import 'package:church_on_app/features/admin/presentation/church_audit_screen.dart';
 import 'package:church_on_app/features/attendance/presentation/member_transfer_screen.dart';
+import 'package:church_on_app/features/attendance/presentation/membership_classes_screen.dart';
+import 'package:church_on_app/features/attendance/presentation/pastoral_care_screen.dart';
 import 'package:church_on_app/features/admin/presentation/manage_partners_screen.dart';
 import 'package:church_on_app/features/admin/presentation/church_directory_edit_screen.dart';
 import '../providers/auth_provider.dart';
@@ -503,6 +505,19 @@ final routerProvider = Provider<GoRouter>((ref) {
           return user.isPastorOrHigher || user.isLeadershipTeam;
         }
 
+        if (route == '/membership-classes') {
+          return user.isPastorOrHigher || user.isLeadershipTeam;
+        }
+
+        // Narrower on purpose: mirrors the server's record_discipline guard,
+        // which admits only pastoral leadership - not leader /
+        // department_leader / treasurer.
+        if (route == '/discipline-register') {
+          return user.isPastorOrHigher ||
+              user.role == 'admin' ||
+              user.role == 'general_secretary';
+        }
+
         // Pastoral care suite: attendance records are meaningless without
         // knowing who they belong to, so leadership gates it.
         if (route == '/people-care' ||
@@ -788,6 +803,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/church-audit',
         builder: (context, state) => const ChurchAuditScreen(),
+      ),
+      GoRoute(
+        path: '/membership-classes',
+        builder: (context, state) => MembershipClassesScreen(
+          tenantId: state.uri.queryParameters['tenant'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/discipline-register',
+        builder: (context, state) => PastoralCareScreen(
+          tenantId: state.uri.queryParameters['tenant'] ?? '',
+        ),
       ),
       GoRoute(
         path: '/member-transfers',

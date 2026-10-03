@@ -239,6 +239,51 @@ class AdminHubScreen extends ConsumerWidget {
             if (isLeadership && isChurchTenant)
               _buildAdminTile(
                 context,
+                LucideIcons.repeat,
+                "Transfers",
+                "Members moving in or out, with printable letters",
+                Colors.blueGrey,
+                () {
+                  final t = tenant;
+                  context.push(
+                    '/member-transfers?tenant=${t?.id ?? ''}&name=${Uri.encodeQueryComponent(t?.name ?? 'This church')}',
+                  );
+                },
+              ),
+            if (isLeadership && isChurchTenant)
+              _buildAdminTile(
+                context,
+                LucideIcons.userCheck,
+                "Membership Classes",
+                "Convert, Righteous Member & Worker progression",
+                Colors.deepPurple,
+                () {
+                  context.push('/membership-classes?tenant=${tenant?.id ?? ''}');
+                },
+              ),
+            if (isLeadership && isChurchTenant)
+              _buildAdminTile(
+                context,
+                LucideIcons.shieldAlert,
+                "Pastoral Care",
+                "Counselling, warnings & restoration register",
+                Colors.deepOrange,
+                () {
+                  context.push('/discipline-register?tenant=${tenant?.id ?? ''}');
+                },
+              ),
+            if (isLeadership && isChurchTenant)
+              _buildAdminTile(
+                context,
+                LucideIcons.scrollText,
+                "Activity Log",
+                "Who changed what, in your church",
+                Colors.blue,
+                () => context.push('/church-audit'),
+              ),
+            if (isLeadership && isChurchTenant)
+              _buildAdminTile(
+                context,
                 LucideIcons.bookOpen,
                 "Finance Dashboard",
                 "Professional ledger — trends, distribution, payouts & HQ remittance",
