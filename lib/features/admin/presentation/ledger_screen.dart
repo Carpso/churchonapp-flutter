@@ -199,41 +199,19 @@ class LedgerScreen extends ConsumerWidget {
           const SizedBox(height: 25),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                final tithesOnly = txs.where((tx) => (tx.category == 'tithe' || tx.category == 'giving') && tx.amount > 0).toList();
-                final tithesTotal = tithesOnly.fold(0.0, (sum, item) => sum + item.amount);
-                final total = tithesTotal * 0.10;
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text("Confirm Remittance (10% of Tithes)"),
-                    content: Text("Remit K ${total.toStringAsFixed(2)} (10% of K ${tithesTotal.toStringAsFixed(2)} tithes) to HQ / Bishop?"),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
-                      ElevatedButton(
-                        onPressed: () async {
-                          Navigator.pop(ctx);
-                          await ref.read(financeServiceProvider).logTransaction(
-                            -total,
-                            'remittance',
-                            'HQ Remittance - ${DateTime.now().toIso8601String()}',
-                            tenantId: tenantId,
-                          );
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Remittance completed successfully")),
-                            );
-                          }
-                        },
-                        child: const Text("Confirm"),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              icon: const Icon(LucideIcons.landmark, size: 16),
-              label: const Text("REMIT TO HQ / BISHOP", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+child: ElevatedButton.icon(
+                // Remittance no longer happens from the ledger.
+                //
+                // This posted a hardcoded 10% of tithes as a negative ledger
+                // entry: the rate was a constant in the UI rather than a
+                // conference decision, there was no record of who the money was
+                // for or for which period, and nothing tied it to an approved
+                // monthly return - so the same money could be remitted again
+                // through the proper chain. Remittance now comes from an
+                // approved return under Reporting.
+                onPressed: () => context.push('/reporting?tenant=$tenantId'),
+                icon: const Icon(LucideIcons.clipboardList, size: 16),
+                label: const Text("MONTHLY RETURN", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: const Color(0xFF0F172A),

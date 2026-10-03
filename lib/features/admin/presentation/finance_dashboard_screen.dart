@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
@@ -19,7 +19,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'ledger_screen.dart';
 
-/// Session-only privacy toggle — hides all monetary figures behind `K ****`.
+/// Session-only privacy toggle â€” hides all monetary figures behind `K ****`.
 /// Deliberately NOT persisted (SharedPreferences) so a shared device never
 /// leaks balances into unencrypted local caches.
 final financePrivacyProvider = StateProvider<bool>((ref) => false);
@@ -58,7 +58,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
         backgroundColor: theme.colorScheme.surface,
         foregroundColor: theme.colorScheme.onSurface,
         actions: [
-          // Privacy toggle — masks every currency figure on this dashboard.
+          // Privacy toggle â€” masks every currency figure on this dashboard.
           IconButton(
             tooltip: hideMoney ? 'Show amounts' : 'Hide amounts',
             icon: Icon(hideMoney ? LucideIcons.eyeOff : LucideIcons.eye),
@@ -236,7 +236,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
   Widget _buildWithdrawableCard(BuildContext context, WidgetRef ref, String tenantId, bool hideMoney) {
     final theme = Theme.of(context);
     final profile = ref.watch(profileProvider).value;
-    // PAYOUTS button → ChurchPayoutScreen (COA settlement engine) is
+    // PAYOUTS button â†’ ChurchPayoutScreen (COA settlement engine) is
     // superadmin/COA-employee-only; pastors/bishops/treasurers still see
     // their church's withdrawable balance but can't open COA settlement.
     final isCoaTeam =
@@ -259,7 +259,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
         } else if (data is List) {
           final list = data;
           if (list.isNotEmpty) {
-            // superadmin returns all churches — find this tenant's row
+            // superadmin returns all churches â€” find this tenant's row
             final match = list.cast<Map<String, dynamic>>().firstWhere(
                   (m) => m['church_id'] == tenantId || m['tenant_id'] == tenantId,
                   orElse: () => list.first as Map<String, dynamic>,
@@ -325,11 +325,16 @@ class FinanceDashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildLedgerActions(BuildContext context, WidgetRef ref, Tenant tenant, List<Transaction> txs, ThemeData theme) {
-    // Only remit 10% of tithes to HQ — not the entire ledger (which includes offerings, events, marketplace, prior remittances).
-    final tithesOnly = txs.where((t) => (t.category == 'tithe' || t.category == 'giving') && t.amount > 0).toList();
-    final tithesTotal = tithesOnly.fold<double>(0, (s, t) => s + t.amount);
-    final total = tithesTotal * 0.10;
-    // Stacked vertically — Row with two Expanded buttons overflowed on narrow phones.
+    // REMITTANCE NO LONGER HAPPENS HERE.
+    //
+    // This used to compute a hardcoded 10% of tithes and post it as a negative
+    // ledger entry. Wrong three ways: the rate was a constant in the UI rather
+    // than a conference decision, there was no record of who the money was for
+    // or for which period, and nothing tied it to an approved monthly return -
+    // so the same money could be remitted a second time through the proper
+    // chain. It now goes through Reporting, from an approved return, which
+    // stores the basis, the rate, the period and a quotable reference.
+    // Stacked vertically â€” Row with two Expanded buttons overflowed on narrow phones.
     return Column(
       children: [
         SizedBox(
@@ -352,31 +357,13 @@ class FinanceDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 10),
         SizedBox(
           width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: txs.isEmpty || total <= 0
-                ? null
-                : () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        title: const Text('Confirm Remittance (10% of Tithes)'),
-                        content: Text('Remit K ${total.toStringAsFixed(2)} (10% of K ${tithesTotal.toStringAsFixed(2)} tithes) to HQ / Bishop? This creates a negative ledger entry.'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Remit')),
-                        ],
-                      ),
-                    );
-                    if (confirm != true || !context.mounted) return;
-                    await ref.read(financeServiceProvider).logTransaction(-total, 'remittance', 'HQ Remittance - ${DateTime.now().toIso8601String()}', tenantId: tenant.id);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Remittance completed')));
-                      ref.invalidate(ledgerStreamProvider(tenant.id));
-                    }
-                  },
-            icon: const Icon(LucideIcons.landmark, size: 14, color: Colors.white),
-            label: const Text('Remit to HQ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
+              child: FilledButton.icon(
+                onPressed: () => context.push(
+                  '/reporting?tenant=${tenant.id}&org=${tenant.organizationId ?? ''}',
+                ),
+                icon: const Icon(LucideIcons.clipboardList, size: 14, color: Colors.white),
+                label: const Text('Monthly / Quarterly Return',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF0F172A),
               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -426,7 +413,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
         final total6m = values.fold<double>(0, (s, v) => s + v);
         return ProChartCard(
           title: 'Giving Trend',
-          subtitle: 'Last 6 months • ${NumberFormat.compactCurrency(symbol: 'K ').format(total6m)} total',
+          subtitle: 'Last 6 months â€¢ ${NumberFormat.compactCurrency(symbol: 'K ').format(total6m)} total',
           height: 180,
           child: ProBarChart(values: values, labels: labels),
         );
@@ -521,7 +508,7 @@ class FinanceDashboardScreen extends ConsumerWidget {
           children: [
             Icon(LucideIcons.trendingUp, size: 22, color: theme.colorScheme.onSurface.withValues(alpha: 0.18)),
             const SizedBox(height: 6),
-            Text('No trend yet — transactions will plot here', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.45), fontSize: 11, fontWeight: FontWeight.w600)),
+            Text('No trend yet â€” transactions will plot here', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.45), fontSize: 11, fontWeight: FontWeight.w600)),
           ],
         ),
       );
