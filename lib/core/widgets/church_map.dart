@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -169,7 +168,21 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
   /// Either way the basemap renders blank with no error. Web therefore uses the
   /// raster basemap (the upstream-documented workaround) and native keeps the
   /// self-hosted Protomaps vector basemap.
-  static bool get _supportsVectorBasemap => !kIsWeb;
+  /// The vector basemap works on every platform, including web.
+  ///
+  /// This used to be `!kIsWeb`, which sent every browser to the OpenStreetMap
+  /// raster fallback. OSM's tile servers enforce their usage policy by UA: a
+  /// request without a compliant, contactable User-Agent is answered with
+  /// HTTP 200 and a **"403 Access blocked" placeholder tile** rather than an
+  /// error. Browsers cannot set a custom User-Agent on fetches, so on web the
+  /// map silently rendered blocked tiles — no roads, no labels, no place
+  /// names — while looking superficially "loaded".
+  ///
+  /// The self-hosted archive avoids the problem entirely: `maps.churchonapp.com`
+  /// serves PMTiles with `Accept-Ranges: bytes` and `Access-Control-Allow-Origin: *`
+  /// (verified 206 + CORS), and the glyphs/sprites are CORS-open too — exactly
+  /// what a browser needs for HTTP range reads.
+  static bool get _supportsVectorBasemap => true;
 
   /// Cached PMTiles readers keyed by archive URL. Opening an archive reads a
   /// bounded header + root directory, so sharing the reader avoids re-fetching
@@ -896,9 +909,17 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
               children: [
                 // Self-hosted Protomaps vector basemap (maps.churchonapp.com).
                 // Carries street-name labels (roads/places layers) and needs no
-                // third-party tile service. Native only — web always uses the
-                // raster basemap (see [_supportsVectorBasemap]) and a failed
-                // archive open shows the RETRY chip above.
+                // third-party tile service.
+                //
+                // This is the ONLY basemap: the OpenStreetMap raster fallback
+                // was removed on purpose. OSM enforces its usage policy by
+                // User-Agent and answers a non-compliant request with HTTP 200
+                // carrying a "403 Access blocked" placeholder tile rather than
+                // an HTTP error, so a fallback silently rendered an empty,
+                // name-less map (Flutter sends an okhttp-style UA on Android
+                // and browsers forbid overriding it on the web). If our own
+                // archive cannot be opened we now say so and offer a retry
+                // instead of quietly showing a broken map.
                 _brandTintWrap(
                   vectorProvider != null
                       ? VectorTileLayer(
@@ -910,22 +931,27 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
                           theme: widget.darkMode
                               ? _brandDarkMapTheme
                               : _brandLightMapTheme,
-                          // The source's own top zoom (z15 for the regional
-                          // archive, up to z19 for a built city); past it the
-                          // raster over-zooms. Never below 15 so a resolved
-                          // source with an odd range can't collapse early.
-                          maximumZoom:
-                              (_activeSource?.maxZoom ?? 15).clamp(15, 22).toDouble(),
+                          // Over-zoom rather than stop requesting tiles.
+                          //
+                          // Both the regional and the city archives top out at
+                          // z15, and this was pinned to the source's own max
+                          // (15). Any screen that opens zoomed in further — ride
+                          // tracking, drop-pin, navigation — therefore
+                          // requested tiles ABOVE the archive's top zoom and
+                          // got NOTHING back, so the basemap (labels included)
+                          // simply vanished at close range. Letting the renderer
+                          // stretch the z15 tile keeps roads AND place names
+                          // drawn at every zoom the app actually uses.
+                          maximumZoom: 19,
                           // Offline-friendly: tiles are cached to disk for 90
                           // days with a 250 MB budget, so an area a courier has
                           // already viewed keeps working with no signal.
                           fileCacheTtl: const Duration(days: 90),
                           fileCacheMaximumSizeInBytes: 250 * 1024 * 1024,
                         )
-                      : TileLayer(
-                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'com.churchonapp.flutter',
-                          tileDisplay: const TileDisplay.fadeIn(),
+                      : _VectorBasemapUnavailable(
+                          onRetry: () => _openResolved(
+                              forceBaseOnFailure: true),
                         ),
                 ),
                 ...widget.extraLayers,
@@ -1390,6 +1416,61 @@ Marker buildChurchMarker({
       onTap: onTap,
     ),
   );
+}
+
+/// Shown in place of the basemap when the self-hosted vector archive could not
+/// be opened at all.
+///
+/// There is deliberately no raster third-party fallback here: OpenStreetMap
+/// answers a non-compliant User-Agent with HTTP 200 carrying a "403 Access
+/// blocked" placeholder tile, which rendered as an empty map with no place
+/// names while looking like a network error we could not see. Saying so
+/// plainly and offering a retry is far better than a silently broken map.
+class _VectorBasemapUnavailable extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _VectorBasemapUnavailable({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                LucideIcons.alertTriangle,
+                size: 34,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Map unavailable',
+                style: Theme.of(context).textTheme.titleSmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'The offline map could not be loaded. Check your connection '
+                'and try again.',
+                style: Theme.of(context).textTheme.bodySmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 14),
+              FilledButton.tonalIcon(
+                onPressed: onRetry,
+                icon: const Icon(LucideIcons.download, size: 18),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _AnimatedPin extends StatefulWidget {
