@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../../../core/services/search_suggestion_service.dart';
 import '../../../core/widgets/app_image.dart';
+import '../../../core/widgets/smart_search_field.dart';
 import '../data/care_service.dart';
 
 /// Item 10 — one search box for every person in the church.
@@ -28,6 +30,11 @@ class _PeopleSearchScreenState extends ConsumerState<PeopleSearchScreen> {
   List<PersonHit> _results = const [];
   bool _loading = false;
   String? _error;
+
+  /// Names from the current result set, offered back as search suggestions so
+  /// the screen can complete a partially typed name against real members
+  /// instead of a fixed list.
+  List<String> _entityNames = const [];
 
   static const _roles = [
     'member',
@@ -72,6 +79,10 @@ class _PeopleSearchScreenState extends ConsumerState<PeopleSearchScreen> {
       if (!mounted) return;
       setState(() {
         _results = hits;
+        _entityNames = hits
+            .map((h) => h.name.trim())
+            .where((n) => n.isNotEmpty)
+            .toList();
         _loading = false;
       });
     } catch (e) {
@@ -99,30 +110,16 @@ class _PeopleSearchScreenState extends ConsumerState<PeopleSearchScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: TextField(
+            child: SmartSearchField(
+              scope: SearchScope.members,
               controller: _searchCtl,
-              onChanged: _onChanged,
+              hint: 'Name, phone number or role…',
               autofocus: true,
-              decoration: InputDecoration(
-                hintText: 'Name, phone number or role…',
-                prefixIcon: const Icon(LucideIcons.search, size: 20),
-                suffixIcon: _searchCtl.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(LucideIcons.x, size: 18),
-                        onPressed: () {
-                          _searchCtl.clear();
-                          _run('');
-                        },
-                      ),
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              ),
+              // Real member names, so suggestions are specific to this church
+              // rather than generic. Capped so a large congregation does not
+              // build a huge suggestion list on every keystroke.
+              entities: _entityNames,
+              onChanged: (_) => _onChanged(''),
             ),
           ),
           if (_loading) const LinearProgressIndicator(minHeight: 2),

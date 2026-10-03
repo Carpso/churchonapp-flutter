@@ -62,7 +62,7 @@ void main() {
       );
       await tester.pump();
     });
-    expect(find.text('QUICK SUGGESTIONS'), findsOneWidget);
+    expect(find.text('DISCOVER'), findsOneWidget);
   });
 
   testWidgets('UniversalSearchScreen shows no results empty state', (WidgetTester tester) async {

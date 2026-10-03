@@ -15,8 +15,11 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
+import 'package:church_on_app/core/services/search_history_service.dart';
+import 'package:church_on_app/core/services/search_suggestion_service.dart';
 import 'package:church_on_app/features/transport/data/route_service.dart';
 import 'package:church_on_app/features/navigation/presentation/main_navigation_shell.dart';
 
@@ -48,6 +51,31 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
   /// Active countries that have live churches. Others show "Coming Soon".
   final Set<String> _activeCountries = {"Zambia"};
   final _searchController = TextEditingController();
+
+  /// Shared search history, so a repeat entity search is one tap.
+  SearchHistoryService? _searchHistory;
+
+  /// Recent entity searches for this screen, most recent first.
+  List<String> _recentEntitySearches() {
+    final service = _searchHistory;
+    if (service == null) return const [];
+    return service
+        .entriesFor(SearchScope.church.id)
+        .map((e) => e.query)
+        .take(5)
+        .toList();
+  }
+
+  Future<void> _initSearchHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() => _searchHistory = SearchHistoryService(prefs));
+    } catch (e) {
+      debugPrint('[SelectChurch] search history unavailable: $e');
+    }
+  }
+
   LatLng? _pinPosition;
 
   /// Map camera controller so a requested route can be fitted into view.
@@ -60,6 +88,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
   @override
   void initState() {
     super.initState();
+    _initSearchHistory();
     _initTenants();
   }
 
@@ -254,7 +283,23 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
     }
   }
 
+  /// Shared search history for this screen.
+  ///
+  /// The search box lives inside a map overlay, so a suggestion list cannot be
+  /// hung beneath it the way `SmartSearchField` does. Recording and replaying
+  /// history in the bottom sheet gives the same benefit without disturbing that
+  /// layout.
+  Future<void> _rememberEntitySearch(String query) async {
+    final service = _searchHistory;
+    if (service == null) return;
+    final q = query.trim();
+    if (q.length < 2) return;
+    await service.record(SearchScope.church.id, q);
+    if (mounted) setState(() {});
+  }
+
   void _filterTenants(String query) {
+    _rememberEntitySearch(query);
     setState(() {
       final countryFilter = _currentCountry.toLowerCase();
       final q = query.toLowerCase();
@@ -832,7 +877,10 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                         return d <= _maxNearbyKm * 1000;
                       }).toList();
                       final allDisplay = [..._filteredTenants, ...osmForList];
-                      if (allDisplay.isEmpty) {
+                      final recents = _searchController.text.trim().isEmpty
+                          ? _recentEntitySearches()
+                          : const <String>[];
+                      if (allDisplay.isEmpty && recents.isEmpty) {
                         return Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -848,9 +896,61 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
                       }
                       return ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 25),
-                        itemCount: allDisplay.length + 1,
+                        itemCount: allDisplay.length + 1 + recents.length,
                         itemBuilder: (context, index) {
-                          if (index == allDisplay.length) {
+                          if (recents.isNotEmpty && index < recents.length) {
+                            final term = recents[index];
+                            return ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(Icons.history,
+                                  size: 18,
+                                  color: theme.colorScheme.primary),
+                              title: Text(term,
+                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                              trailing: const Icon(Icons.north_west, size: 14),
+                              onTap: () {
+                                _searchController.text = term;
+                                _filterTenants(term);
+                              },
+                            );
+                          }
+                          if (recents.isNotEmpty && index == recents.length) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    "RECENT SEARCHES",
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.2,
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.5),
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () async {
+                                      await _searchHistory
+                                          ?.clear(scope: SearchScope.church.id);
+                                      if (context.mounted) setState(() {});
+                                    },
+                                    child: Text(
+                                      'CLEAR',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          final itemIndex = index - recents.length - (recents.isEmpty ? 0 : 1);
+                          if (itemIndex == allDisplay.length) {
                             return Column(children: [
                               _buildOnboardingTile(),
                               if (osmForList.isNotEmpty)

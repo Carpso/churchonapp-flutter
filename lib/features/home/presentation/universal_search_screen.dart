@@ -1,10 +1,12 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:church_on_app/core/services/search_history_service.dart';
+import 'package:church_on_app/core/services/search_suggestion_service.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/features/media/data/transcript_service.dart';
 import '../data/sermon_service.dart';
@@ -24,44 +26,75 @@ class _UniversalSearchScreenState extends ConsumerState<UniversalSearchScreen> {
   bool _loading = false;
   List<Map<String, dynamic>> _results = [];
 
-  /// Recent queries — "suggested queries" the user actually makes, most recent
-  /// first (persisted, so the search screen is useful from the second visit).
-  static const _recentKey = 'universal_search_recent_v1';
-  List<String> _recent = [];
+  /// Shared search history, keyed by scope.
+  ///
+  /// Replaces the screen's own `universal_search_recent_v1` string list. That
+  /// could not rank, had no per-query frequency, capped at 6, and was invisible
+  /// to every other search surface in the app.
+  SearchHistoryService? _history;
+  SearchSuggestionService? _suggestions;
+  List<SearchSuggestion> _suggestions_ = const [];
 
   @override
   void initState() {
     super.initState();
-    _loadRecent();
+    _bootstrapSearch();
   }
 
-  Future<void> _loadRecent() async {
+  Future<void> _bootstrapSearch() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getStringList(_recentKey) ?? const [];
-      if (mounted) setState(() => _recent = saved);
-    } catch (_) {}
+      if (!mounted) return;
+      _history = SearchHistoryService(prefs);
+      _suggestions = SearchSuggestionService(_history!);
+      _recomputeSuggestions();
+    } catch (e) {
+      debugPrint('[UniversalSearch] history unavailable: $e');
+    }
+  }
+
+  /// Suggestions for the universal scope, which additionally borrows every
+  /// other surface's history - this screen searches across the whole app, so
+  /// what the user searched on the Bible or Members screens is exactly what
+  /// should be offered here.
+  List<SearchSuggestion> _universalSuggestions(String query) {
+    final service = _suggestions;
+    if (service == null) return const [];
+    if (query.trim().isEmpty) {
+      return service.idleSuggestions(
+        SearchScope.universal,
+        limit: 12,
+      );
+    }
+    return service.querySuggestions(
+      SearchScope.universal,
+      query,
+      limit: 8,
+    );
+  }
+
+  void _recomputeSuggestions() {
+    if (!mounted) return;
+    setState(() {
+      _suggestions_ = _universalSuggestions(_searchController.text);
+    });
   }
 
   Future<void> _rememberQuery(String query) async {
-    final q = query.trim();
-    if (q.length < 2) return;
-    final next = [q, ..._recent.where((r) => r.toLowerCase() != q.toLowerCase())]
-        .take(6)
-        .toList();
-    setState(() => _recent = next);
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(_recentKey, next);
-    } catch (_) {}
+    final service = _history;
+    if (service == null) return;
+    await service.record(SearchScope.universal.id, query);
+    if (mounted) _recomputeSuggestions();
   }
 
   Future<void> _clearRecent() async {
-    setState(() => _recent = []);
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_recentKey);
-    } catch (_) {}
+    await _history?.clear();
+    if (mounted) _recomputeSuggestions();
+  }
+
+  Future<void> _removeRecent(String query) async {
+    await _history?.remove(SearchScope.universal.id, query);
+    if (mounted) _recomputeSuggestions();
   }
 
   @override
@@ -72,6 +105,9 @@ class _UniversalSearchScreenState extends ConsumerState<UniversalSearchScreen> {
   }
 
   void _onSearch(String query) {
+    // Suggestions re-rank immediately on every keystroke; the remote search
+    // stays debounced because it is the expensive half.
+    _recomputeSuggestions();
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 350), () => _search(query));
   }
@@ -89,14 +125,14 @@ class _UniversalSearchScreenState extends ConsumerState<UniversalSearchScreen> {
     _rememberQuery(q);
     try {
       // Client access inside try: an uninitialized backend must fall into
-      // the catch → empty state, never leave the spinner hanging.
+      // the catch â†’ empty state, never leave the spinner hanging.
       final client = Supabase.instance.client;
       final tenant = ref.read(currentTenantProvider);
       final tenantId = tenant?.id;
       final results = <Map<String, dynamic>>[];
       final like = '%$q%';
 
-      // Transcript matches first — these can jump straight to the moment the
+      // Transcript matches first â€” these can jump straight to the moment the
       // words were spoken.
       try {
         final hits = await ref.read(transcriptServiceProvider).searchTranscripts(q);
@@ -141,7 +177,7 @@ class _UniversalSearchScreenState extends ConsumerState<UniversalSearchScreen> {
         results.add({
           'type': 'Event',
           'title': e['title'] ?? '',
-          'subtitle': '${e['location'] ?? ''} • ${e['date'] ?? ''}',
+          'subtitle': '${e['location'] ?? ''} â€¢ ${e['date'] ?? ''}',
           'icon': LucideIcons.calendar,
           'route': '/event/${e['id']}',
         });
@@ -244,75 +280,105 @@ class _UniversalSearchScreenState extends ConsumerState<UniversalSearchScreen> {
   }
 
   Widget _buildQuickSuggestions() {
+    final theme = Theme.of(context);
+    final history = _suggestions_
+        .where((s) =>
+            s.kind == SearchSuggestionKind.history ||
+            s.kind == SearchSuggestionKind.crossHistory)
+        .toList();
+    final discover = _suggestions_
+        .where((s) =>
+            s.kind == SearchSuggestionKind.popular ||
+            s.kind == SearchSuggestionKind.entity)
+        .toList();
+
     return Padding(
-      padding: const EdgeInsets.all(25),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.all(20),
+      child: ListView(
         children: [
-          if (_recent.isNotEmpty) ...[
+          if (history.isNotEmpty) ...[
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("RECENT SEARCHES",
+                Expanded(
+                  child: Text(
+                    "RECENT SEARCHES",
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
                         letterSpacing: 1.2,
-                        color: Colors.grey)),
-                TextButton(
-                  onPressed: _clearRecent,
-                  style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(0, 0),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                        color: Colors.grey),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: _clearRecent,
                   child: const Text('CLEAR',
                       style: TextStyle(fontSize: 11, color: Colors.grey)),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: _recent
-                  .map((r) => _buildSuggestionChip(r, LucideIcons.history))
-                  .toList(),
-            ),
-            const SizedBox(height: 26),
+            const SizedBox(height: 4),
+            ...history.map((s) => _buildSuggestionRow(s, theme)),
+            const SizedBox(height: 20),
           ],
-          const Text("QUICK SUGGESTIONS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1.2, color: Colors.grey)),
-          const SizedBox(height: 15),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _buildSuggestionChip("Sunday Service", LucideIcons.video),
-              _buildSuggestionChip("Giving", LucideIcons.heart),
-              _buildSuggestionChip("Prayer Request", LucideIcons.flame),
-              _buildSuggestionChip("Klips", LucideIcons.play),
-              _buildSuggestionChip("My Schedule", LucideIcons.calendar),
-              _buildSuggestionChip("Bible Study", LucideIcons.bookOpen),
-              _buildSuggestionChip("Events", LucideIcons.calendarDays),
-              _buildSuggestionChip("Bible Quiz", LucideIcons.trophy),
-              _buildSuggestionChip("Marketplace", LucideIcons.shoppingBag),
-              _buildSuggestionChip("Jobs", LucideIcons.briefcase),
-            ],
-          ),
+          if (discover.isNotEmpty) ...[
+            Text(
+              _searchController.text.trim().isEmpty
+                  ? "DISCOVER"
+                  : "SUGGESTIONS",
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  letterSpacing: 1.2,
+                  color: Colors.grey),
+            ),
+            const SizedBox(height: 4),
+            ...discover.map((s) => _buildSuggestionRow(s, theme)),
+          ],
+          if (history.isEmpty && discover.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Center(
+                child: Text(
+                  'Type to search sermons, people, events and more',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildSuggestionChip(String label, IconData icon) {
-    return ActionChip(
-      avatar: Icon(icon, size: 14, color: Theme.of(context).primaryColor),
-      label: Text(label),
-      onPressed: () {
-        _searchController.text = label;
-        _onSearch(label);
+  /// One suggestion row. History rows can be dismissed individually;
+  /// curated and entity rows cannot, because they were not the user's own.
+  Widget _buildSuggestionRow(SearchSuggestion s, ThemeData theme) {
+    final removable = s.kind == SearchSuggestionKind.history ||
+        s.kind == SearchSuggestionKind.crossHistory;
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(s.icon, size: 18, color: theme.primaryColor),
+      title: Text(s.text,
+          maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: s.contextLabel == null
+          ? null
+          : Text(s.contextLabel!,
+              style: theme.textTheme.labelSmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+      trailing: removable
+          ? IconButton(
+              icon: const Icon(Icons.close, size: 16),
+              tooltip: 'Remove',
+              onPressed: () => _removeRecent(s.text),
+            )
+          : const Icon(Icons.north_west, size: 14),
+      onTap: () {
+        _searchController.text = s.text;
+        _searchController.selection =
+            TextSelection.collapsed(offset: s.text.length);
+        _search(s.text);
       },
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     );
   }
 
