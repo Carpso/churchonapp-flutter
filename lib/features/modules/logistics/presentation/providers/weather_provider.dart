@@ -41,8 +41,13 @@ class SelectedCityNotifier extends Notifier<CityPreset?> {
 
   static SharedPreferences? _prefsInstance;
 
-  /// Call once at startup (already done by the notification service bootstrap);
-  /// safe to call repeatedly.
+/// Hand the notifier its [SharedPreferences] at startup so an explicitly
+  /// chosen city survives a cold start.
+  ///
+  /// Called from `_initNotifications` in `main.dart`. It was previously
+  /// documented as "already done by the notification service bootstrap" —
+  /// nothing called it, so `_prefs` was always null and `selectCity` silently
+  /// wrote nothing.
   static void attachPrefs(SharedPreferences prefs) =>
       _prefsInstance = prefs;
 

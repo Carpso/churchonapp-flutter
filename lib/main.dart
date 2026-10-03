@@ -19,6 +19,8 @@ import 'package:firebase_messaging/firebase_messaging.dart'
   if (dart.library.html) 'package:church_on_app/core/services/messaging_stub.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'features/modules/logistics/presentation/providers/weather_provider.dart';
 import 'package:flutter/foundation.dart';
 
 import 'core/widgets/error_boundary.dart';
@@ -388,6 +390,19 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
     final container = ProviderScope.containerOf(context, listen: false);
     final notifService = container.read(notificationServiceProvider);
     await notifService.init();
+
+    // SharedPreferences for providers that must survive a restart.
+    //
+    // SelectedCityNotifier needs this or an explicitly picked weather city is
+    // forgotten on every cold start and the app silently reverts to exact
+    // location. It previously claimed in a comment that the notification
+    // bootstrap already did it — nothing did, so the persistence was dead.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      SelectedCityNotifier.attachPrefs(prefs);
+    } catch (e) {
+      debugPrint('SharedPreferences init failed (non-fatal): $e');
+    }
 
     if (!kIsWeb) {
       // Always init FCM (token + background handler) regardless of permission —
