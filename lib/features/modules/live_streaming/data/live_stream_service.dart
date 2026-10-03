@@ -16,8 +16,25 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class LiveStreamService {
   final SupabaseClient _client;
 
+  /// Columns safe for every authenticated reader.
+  ///
+  /// Mirrors the column allowlist enforced by migration `20261240`, which
+  /// REVOKEs SELECT on the ingest credentials (`stream_key`, `rtmp_url`,
+  /// `whip_url`, `srt_*`, `stream_secret`) and grants everything else. Keep
+  /// this list in sync with that migration's `NOT IN (...)` block.
+  ///
+  /// `ingest_mode`, `broadcast_started_at`, `last_heartbeat` and
+  /// `cloudflare_stream_id` are operational state rather than secrets, so the
+  /// studio needs them to tell "armed but OBS hasn't started" apart from
+  /// "genuinely on air" when it re-attaches to a stream whose app it just
+  /// reopened.
+  ///
+  /// NOTE: these names must match the real columns exactly. PostgREST rejects
+  /// the WHOLE select (not just the bad column) if one name is wrong, which
+  /// made re-attach silently return null when this list carried
+  /// `last_heartbeat_at`/`streamer_id` instead of `last_heartbeat`/`created_by`.
   static const _publicStreamColumns =
-      'id,church_id,title,description,status,streaming_backend,scheduled_at,started_at,ended_at,hls_url,recording_hls_url,dash_url,preview_url,viewer_count,created_at,cloudflare_video_id,thumbnail_url,is_audio_only,archive_url,archive_status,archived_at';
+      'id,church_id,title,description,status,streaming_backend,scheduled_at,started_at,ended_at,hls_url,recording_hls_url,dash_url,preview_url,viewer_count,created_at,cloudflare_video_id,thumbnail_url,is_audio_only,archive_url,archive_status,archived_at,ingest_mode,broadcast_started_at,last_heartbeat,cloudflare_stream_id,created_by';
 
   LiveStreamService(this._client);
 

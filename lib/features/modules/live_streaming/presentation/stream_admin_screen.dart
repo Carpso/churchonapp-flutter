@@ -33,6 +33,19 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
   bool _isTrial = true;
   List<Map<String, dynamic>> _recordings = [];
   String? _archivingId;
+
+  /// The stream this church currently has on air, if any. Drives the
+  /// orphan-control panel so a leader can end a broadcast that outlived the
+  /// app session that started it.
+  Map<String, dynamic>? _activeStream;
+
+  /// Whether Cloudflare reports real media on the active input. Null until the
+  /// first probe, so the panel can distinguish "unknown" from "not connected".
+  bool? _inputConnected;
+
+  /// Stream id currently being stopped, so only that button shows a spinner.
+  String? _stoppingId;
+
   Timer? _pollTimer;
 
   @override
@@ -136,8 +149,18 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
         _usage = usage;
         _isTrial = church?['subscription_status'] == 'trial';
         _recordings = recordings;
+        _activeStream = latestStream == null
+            ? null
+            : Map<String, dynamic>.from(latestStream as Map);
         _loading = false;
       });
+      // Probe the live input once so the panel can say whether an encoder is
+      // really publishing, not just whether a row exists.
+      if (latestStream != null) {
+        unawaited(_refreshInputState(
+          Map<String, dynamic>.from(latestStream as Map),
+        ));
+      }
       _schedulePoll();
     } catch (e) {
       debugPrint('Failed to load stream config: $e');
@@ -166,6 +189,27 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
     } finally {
       if (mounted) setState(() => _archivingId = null);
     }
+  }
+
+  /// Section header + body, matching the existing panel styling.
+  Widget _section(String title, Widget child) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(LucideIcons.radio, size: 18, color: theme.primaryColor),
+            const SizedBox(width: 8),
+            Text(title,
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          ],
+        ),
+        const SizedBox(height: 10),
+        child,
+      ],
+    );
   }
 
   Widget _buildRecordings() {
@@ -323,6 +367,11 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
           _buildScheduleButton(),
           SizedBox(height: 24),
 
+          // Orphans / on-air control: lets a leader stop a broadcast that is
+          // still running after they left the app. See [_buildOnAirControl].
+          _buildOnAirControl(),
+          SizedBox(height: 24),
+
           // Recording archive (Cloudflare Stream -> R2)
           _buildRecordings(),
 
@@ -331,6 +380,196 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
         ],
       ),
     );
+  }
+
+  /// On-air control panel.
+  ///
+  /// This exists because a broadcast can outlive the app that started it: with
+  /// OBS/RTMPS the encoder keeps publishing to the Cloudflare input even if the
+  /// leader closes the app, backgrounds it, or Android kills the process. The
+  /// studio previously force-ended the row in `dispose()`, which made the state
+  /// a lie — viewers saw the stream die while the congregation was still
+  /// watching, and the leader lost the stream id. So the row now stays live
+  /// (server decides based on real encoder state) and the leader needs a way to
+  /// come back and shut it down.
+  ///
+  /// The studio re-attaches and restores STOP for the common case. This panel
+  /// is the recovery path for the rest: a leader who does not have the studio
+  /// open, or a stream whose owner is unavailable.
+  Widget _buildOnAirControl() {
+    final live = _activeStream;
+    if (live == null) {
+      return _section(
+        'On air',
+        Card(
+          child: ListTile(
+            leading: Icon(Icons.circle_outlined, color: Colors.grey),
+            title: const Text('Nothing is live right now'),
+            subtitle: const Text(
+              'A broadcast that keeps running after you close the app can be '
+              'stopped here.',
+            ),
+          ),
+        ),
+      );
+    }
+
+    final id = live['id']?.toString() ?? '';
+    final connected = _inputConnected ?? false;
+    final viewers = (live['viewer_count'] as num?)?.toInt() ?? 0;
+    final ingest = live['ingest_mode']?.toString() ?? 'rtmps';
+
+    return _section(
+      'On air',
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: connected ? Colors.red : Colors.orange,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      live['title']?.toString() ?? 'Live service',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    connected ? '$viewers watching' : 'encoder not connected',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                connected
+                    ? 'This service is genuinely on air. If you closed the app, '
+                        'your encoder kept publishing — press Stop to end it for '
+                        'everyone.'
+                    : 'The input is armed but no encoder is publishing. Stop it '
+                        'to clear the slot for the next service.',
+                style: const TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: id.isEmpty
+                          ? null
+                          : () => _refreshInputState(live),
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Refresh'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.red.shade700,
+                      ),
+                      onPressed: (id.isEmpty || _stoppingId != null)
+                          ? null
+                          : () => _forceStop(live),
+                      icon: _stoppingId == id
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.stop_circle, size: 18),
+                      label: Text(_stoppingId == id ? 'STOPPING' : 'STOP'),
+                    ),
+                  ),
+                ],
+              ),
+              if (ingest == 'whip') ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Phone-camera (WHIP) broadcasts are live-only and are never '
+                  'recorded by Cloudflare, so stopping one yields no replay.',
+                  style: TextStyle(fontSize: 11),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Stops a broadcast the leader is no longer sitting in front of.
+  ///
+  /// Reuses [UnifiedStreamService.endStream], which is the same path the studio
+  /// STOP button uses: it records the minutes used, marks the row ended, kicks
+  /// off the archive, and disables the Cloudflare input (archive BEFORE
+  /// disable, or the recording is lost).
+  Future<void> _forceStop(Map<String, dynamic> stream) async {
+    final id = stream['id']?.toString();
+    if (id == null || id.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Stop this broadcast?'),
+        content: const Text(
+          'Everyone watching will be disconnected and the stream will end for '
+          'good. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Stop broadcast'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _stoppingId = id);
+    try {
+      await UnifiedStreamService(Supabase.instance.client).endStream(id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Broadcast stopped')),
+      );
+      _loadConfig();
+    } catch (e) {
+      debugPrint('force stop failed: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not stop the broadcast: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _stoppingId = null);
+    }
+  }
+
+  Future<void> _refreshInputState(Map<String, dynamic> stream) async {
+    final cfId = stream['cloudflare_stream_id']?.toString();
+    if (cfId == null || cfId.isEmpty) return;
+    final input =
+        await UnifiedStreamService(Supabase.instance.client).getLiveInputState(cfId);
+    if (!mounted) return;
+    setState(() => _inputConnected = input?.connected ?? false);
   }
 
   Widget _buildUsageMeter() {

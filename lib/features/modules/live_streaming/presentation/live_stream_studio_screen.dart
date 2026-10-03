@@ -312,7 +312,138 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     super.initState();
     _analytics = ref.read(streamAnalyticsServiceProvider);
     _overlays = ref.read(liveStreamOverlayServiceProvider);
+    // Re-attach to a stream this church already has on air BEFORE touching the
+    // camera, so returning to the studio shows the existing broadcast instead of
+    // a blank slate that invites tapping Start again.
+    unawaited(_restoreActiveStream());
     _initPreview();
+  }
+
+  /// Re-attaches the studio to this church's existing live stream.
+  ///
+  /// WHY: the studio previously never looked for an existing broadcast on open.
+  /// A leader who switched apps, took a call, or had the OS reclaim memory came
+  /// back to a screen that looked OFFLINE while their service was still on air.
+  /// Tapping Start then ran `confirmReplaceActiveStream`, which ended the
+  /// running stream and minted a NEW one with new credentials — so the encoder
+  /// they were already publishing to went nowhere and they had to reconfigure
+  /// everything. That is the "starts a new stream instead of continuing my first
+  /// one" complaint.
+  ///
+  /// Now the existing stream (and its OBS credentials) are restored, the
+  /// heartbeat restarts, and the leader keeps full control including STOP.
+  /// Server-side facts win: the real ingest mode and started state come from
+  /// the row, not from local guesswork.
+  Future<void> _restoreActiveStream() async {
+    final tenantId = widget.tenantId ?? ref.read(profileProvider).value?.tenantId;
+    if (tenantId == null || tenantId.isEmpty) return;
+
+    try {
+      final row = await ref
+          .read(liveStreamServiceProvider)
+          .getActiveStreamForChurch(tenantId);
+      if (!mounted || row == null) return;
+
+      final id = row['id']?.toString();
+      if (id == null || id.isEmpty) return;
+
+      // Ask Cloudflare what is actually happening on the input rather than
+      // trusting the row alone — it distinguishes "encoder is publishing" from
+      // "armed but nobody started OBS".
+      bool connected = false;
+      final cfId = row['cloudflare_stream_id']?.toString();
+      if (cfId != null && cfId.isNotEmpty) {
+        final input = await UnifiedStreamService(Supabase.instance.client)
+            .getLiveInputState(cfId);
+        connected = input?.connected ?? false;
+      }
+
+      if (!mounted) return;
+
+      final ingest = row['ingest_mode']?.toString();
+
+      // The ingest credentials are deliberately NOT SELECT-granted to clients
+      // (migration 20261240) so no user can read another church's RTMP key.
+      // The owner has to ask for their own through the SECURITY DEFINER RPC
+      // from migration 20261144, which authorises leadership of the owning
+      // church or COA. Without this the OBS box comes back EMPTY after the
+      // studio is closed and reopened, which is the exact complaint this
+      // re-attach path was written to fix.
+      String? rtmpUrl;
+      String? streamKey;
+      try {
+        final creds = await Supabase.instance.client.rpc(
+          'get_my_stream_credentials',
+          params: {'p_stream_id': id},
+        );
+        if (creds is Map) {
+          final m = Map<String, dynamic>.from(creds);
+          if (m['ok'] == true) {
+            rtmpUrl = m['rtmp_url']?.toString();
+            streamKey = m['stream_key']?.toString();
+          } else {
+            debugPrint(
+                '[Studio] credential RPC declined: ${m['reason']} (re-attach continues without OBS details)');
+          }
+        }
+      } catch (e) {
+        // Non-fatal: the leader still re-attaches and can still STOP the
+        // stream, they just have to re-copy the ingest details.
+        debugPrint('[Studio] credential RPC failed (non-fatal): $e');
+      }
+      if (!mounted) return;
+
+      setState(() {
+        _streamId = id;
+        _rtmpUrl = rtmpUrl;
+        _streamKey = streamKey;
+        _hlsUrl = row['hls_url']?.toString();
+        // `whip_url` is intentionally not restored: a WHIP publisher peer
+        // connection died with the previous app session and cannot be resumed,
+        // so a phone feed re-attaches as paused and must be restarted by hand.
+        _inputId = cfId;
+        _activeTenantId = tenantId;
+        _broadcastStarted =
+            row['broadcast_started_at'] != null || connected;
+
+        final title = row['title']?.toString();
+        if (title != null && title.isNotEmpty) {
+          _streamTitle = title;
+          _titleController.text = title;
+        }
+
+        // Re-attaching to a service that is genuinely on air.
+        _isLive = true;
+        _streamStatus = connected
+            ? 'LIVE (RE-ATTACHED)'
+            : (ingest == 'whip'
+                ? 'PHONE FEED PAUSED'
+                : 'WAITING FOR OBS');
+        _isLoading = false;
+      });
+
+      // Take control again: restart the heartbeat (viewer count + liveness) and
+      // re-assert the church-visible live flag.
+      _startHeartbeat();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              connected
+                  ? 'Re-attached to your live service. It kept streaming while you were away.'
+                  : 'Your service is still set up. Start your encoder to go '
+                      'on air, or press STOP to end it.',
+            ),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+    } catch (e) {
+      // Never block the studio on a restore failure — a leader must always be
+      // able to start a fresh stream.
+      debugPrint('[Studio] restore active stream failed: $e');
+    }
   }
 
   Future<void> _initPreview() async {
@@ -1623,14 +1754,28 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   @override
   void dispose() {
     _stopHeartbeat();
-    // A force-close, route pop, or OS kill must not leave a stream marked live.
-    final abandonedId = _isLive ? _streamId : null;
-    if (abandonedId != null) {
-      unawaited(Supabase.instance.client.from('live_streams').update({
-        'status': 'ended',
-        'ended_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', abandonedId));
-    }
+
+    // DELIBERATELY does NOT end the stream here.
+    //
+    // This used to force `status='ended'` whenever the studio widget was
+    // disposed, which is wrong twice over:
+    //
+    //  * A route pop, a back-swipe or an OS kill is not the same as the leader
+    //    pressing STOP. With OBS/RTMPS the encoder is the source of truth and
+    //    keeps publishing, so the service really was still live — but the row
+    //    said "ended". Viewers saw the stream die while the congregation was
+    //    still watching, and the leader lost the stream id and its credentials.
+    //    That is precisely the reported symptom: "it keeps streaming and gets
+    //    lost, making the streamer lose state of streaming".
+    //
+    //  * For a phone-camera (WHIP) broadcast, closing the app really does stop
+    //    the media - but Cloudflare itself reports the input as disconnected,
+    //    and `expire_stale_live_streams` / the archive sweep already end rows
+    //    that stopped heartbeating. Guessing here only raced that logic.
+    //
+    // So the row now simply stops heartbeating, and the server decides based on
+    // real encoder state. The leader can re-attach (see _restoreActiveStream)
+    // and stop it whenever they come back.
     _titleController.dispose();
     _pc?.dispose();
     _renderer?.dispose();
