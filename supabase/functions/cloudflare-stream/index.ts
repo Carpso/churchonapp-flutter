@@ -77,7 +77,16 @@ serve(async (req) => {
     }
     profile = prof;
 
-    const leadershipRoles = ["superadmin", "coa_employee", "bishop", "apostle", "prophet", "general_secretary", "pastor", "admin", "leader", "department_leader"];
+    // Kept in step with `get_my_stream_credentials` (migration 20261246).
+    //
+    // `worship_leader` / `praise_team_leader` are included so the media team can
+    // actually run its own service. Without this they could read ingest
+    // credentials via the RPC but be refused here, leaving them able only to
+    // take over someone else's broadcast - a worse outcome than either extreme.
+    //
+    // `praise_team_member` is deliberately excluded: rank-and-file team members
+    // are not given live-infrastructure control.
+    const leadershipRoles = ["superadmin", "coa_employee", "bishop", "apostle", "prophet", "general_secretary", "pastor", "admin", "leader", "department_leader", "worship_leader", "praise_team_leader"];
     const viewerSafe = VIEWER_SAFE_ACTIONS.includes(earlyAction);
     if (!leadershipRoles.includes(profile.role) && !viewerSafe) {
       return new Response(JSON.stringify({ error: "Insufficient role", role: profile.role }), {

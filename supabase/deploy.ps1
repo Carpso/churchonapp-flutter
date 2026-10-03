@@ -382,6 +382,7 @@ $migrations = @(
 "20261242_weather_alerts_and_map_growth.sql"
 "20261244_weather_alert_candidates.sql"
 "20261245_app_release_config.sql"
+    "20261246_stream_credentials_media_roles.sql"
       )
 
 

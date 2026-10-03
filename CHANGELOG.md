@@ -1,5 +1,45 @@
 # Changelog
 
+## Unreleased - 2026-10-02 (Map place names, stream re-attach, self-prompting updates, media-team streaming)
+
+**Maps - place names now draw on every map**
+- The self-hosted PMTiles vector basemap is now the ONLY source. The OpenStreetMap raster fallback was removed deliberately: OSM enforces its usage policy by User-Agent and answers a non-compliant request with HTTP 200 carrying a "403 Access blocked" placeholder tile rather than an error, so the app rendered a name-less map with nothing to indicate a failure. Flutter sends an okhttp-style UA on Android and browsers forbid overriding it on the web, so that fallback could never work.
+- A failed archive open now says so and offers a retry instead of quietly showing a broken map.
+- Over-zoom past the archive's z15 top, so zoomed-in screens (ride tracking, drop-pin, navigation) keep roads AND labels rather than requesting tiles above the ceiling and getting nothing.
+- Verified before touching the renderer: the regional and Lusaka archives both list `places`, `pois` and `roads`, and all 12 Noto fontstack ranges return 200. **Still unverified on physical hardware.**
+
+**Streaming - closing the studio no longer kills the broadcast**
+- `dispose()` no longer calls `endStream()`. OBS/RTMPS keeps publishing while the leader is elsewhere; previously backgrounding or reopening the app ended their own service and then started a second one.
+- On reopen the studio looks up the church's live stream, asks Cloudflare whether an encoder is actually connected, and restores the title and state.
+- OBS credentials are fetched through the `SECURITY DEFINER` RPC `get_my_stream_credentials`. They are deliberately not SELECT-granted since `20261240`, so reading them off the row returned null and left the OBS box empty - the exact complaint this fixes.
+- Added the non-secret operational columns the studio needs (`ingest_mode`, `broadcast_started_at`, `last_heartbeat`, `cloudflare_stream_id`, `created_by`). All 26 verified against `information_schema`: one wrong name makes PostgREST reject the whole select and re-attach fail silently.
+- A WHIP publisher's peer connection cannot survive the session, so a phone feed re-attaches as paused and must be restarted by hand rather than being handed a dead URL.
+- Stream admin gains an on-air panel and a remote STOP.
+
+**Media-team streaming (accepted risk)**
+- `worship_leader` and `praise_team_leader` can now read their own church's ingest credentials (`20261246`) and manage live inputs (`cloudflare-stream`).
+- **This grants broadcast-hijack capability, not just broadcast-start capability**: holding `stream_key` + `rtmp_url` allows publishing as that church. Granted deliberately so a media team can run its own service. Scoped to the caller's own church, so nothing crosses tenants.
+- `praise_team_member` is deliberately excluded - rank-and-file members would otherwise get live-infrastructure control.
+
+**Playback**
+- New `MediaPlayerConfig`: `formatHint` for HLS and DASH (without it ExoPlayer treats a `.m3u8` as media and fails `MEDIA_ERR_NETWORK` / 404), `mixWithOthers: false` so a sermon stops competing with the radio stream, `allowBackgroundPlayback`, and shared buffering states.
+- Projector lays video out with `Expanded`/`Flexible` so overlays cannot overflow on short or landscape screens.
+
+**Weather**
+- Defaults to the user's exact position (profile coordinates, then GPS with a permission prompt, then the existing fallback city). An explicit city is now optional rather than assumed.
+- Fixed the chosen city never persisting: `SelectedCityNotifier.attachPrefs` was called by nothing, despite a comment claiming the notification bootstrap did it. Every cold start forgot the choice.
+
+**App updates**
+- `app_release_config` singleton plus a `service_role`-only `publish_app_release` RPC. Installs compare their build on Home render and on app resume; optional builds get a dismissible prompt and builds below `min_supported_build` are forced. Metadata publishes only after a successful build, so a failed build cannot point users at a missing artifact.
+- Published `1.0.0+362` with APK and AAB sharing one versionCode on purpose: the release row advertises `latest_build` while `apk_url` serves the APK, so auto-incrementing between the two builds would have left sideloaded users in a permanent update loop.
+
+### Known gaps after this release
+- Map labels are unconfirmed on hardware.
+- Build 362 does NOT contain the re-attach or city-persistence fixes - both landed after it. A 363 build is required.
+- Source audio is 128 kbps MP3; player improvements cannot add quality. Needs a transcode or higher-bitrate master.
+- Viewer counts freeze while the leader's app is closed (the per-minute rollup skips streams with a heartbeat older than 10 minutes). Cosmetic.
+- One pre-existing `connect_screen_test` failure from a live PostgREST retry timer at teardown.
+
 ## Unreleased - 2026-10-01 (Push notifications fixed - every push was failing)
 
 ### Fixed - push notifications were failing 100% (invalid FCM enum)
