@@ -95,8 +95,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (user == null) return;
     if (!mounted) return;
 
-    // Check for app updates (non-blocking)
-    unawaited(AppUpdateService.checkForUpdate(context, isInForeground: false));
+    // Check for app updates. This now actually works (the previous
+    // implementation silently no-op'd because `.maybeSingle()` on a 3-row table
+    // always threw). `force: false` keeps the 6-hour throttle so returning to
+    // Home repeatedly cannot spam the user with the dialog.
+    unawaited(AppUpdateService.checkForUpdate(context));
 
     // Birthday celebration check
     unawaited(BirthdayService.checkAndShow(context, ref));

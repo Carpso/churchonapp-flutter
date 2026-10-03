@@ -7,6 +7,7 @@ import 'core/utils/responsive.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/supabase_service.dart';
 import 'core/services/tenant_service.dart';
+import 'core/services/app_update_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/fcm_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -443,6 +444,20 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
       // Re-sync the FCM token on resume — covers a token rotation that happened
       // while the app was backgrounded/killed.
       fcmInstance?.syncToken();
+
+      // Re-check for a new app release on resume. This is the one place that
+      // catches an update for a user who left the app open for days, and the
+      // 6-hour throttle inside the service stops it nagging.
+      // The container is read from the State's own context: `didChangeAppLifecycleState`
+      // has no access to the local `container` captured in initState.
+      final rootCtx = context;
+      if (!rootCtx.mounted) return;
+      final container = ProviderScope.containerOf(rootCtx, listen: false);
+      final router = container.read(routerProvider);
+      final ctx = router.routerDelegate.navigatorKey.currentContext;
+      if (ctx != null && ctx.mounted) {
+        unawaited(AppUpdateService.checkForUpdate(ctx));
+      }
     }
   }
 
