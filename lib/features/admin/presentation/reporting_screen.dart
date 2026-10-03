@@ -9,7 +9,12 @@ import '../data/reporting_chain_service.dart';
 ///   MY RETURN      the secretary files this church's monthly/quarterly return
 ///   TO REVIEW      the pastor sees what is waiting for them, across branches
 ///   CONFERENCE     the bishop sees compliance and tithes across the whole
-///                  conference, sends to HQ and confirms money received
+///                  conference, and MAY send a period to HQ
+///
+/// The chain ENDS in the church. `approved` is a decision, `local_complete` is
+/// a closed period: the return is final and stays with the church. Sending to
+/// conference is an OPTIONAL escalation from there, not the mandatory next
+/// step - so the screen never presents HQ as the only way to be finished.
 ///
 /// Keeping it in one screen means a pastor who is also a secretary does not
 /// learn two different vocabularies for the same month.
@@ -32,19 +37,43 @@ class _ReportingScreenState extends State<ReportingScreen>
   late final ReportingChainService _service =
       ReportingChainService(Supabase.instance.client);
 
-  late final TabController _tabs = TabController(length: 3, vsync: this);
+  /// Created in `initState` rather than as a field initialiser because the tab
+  /// count depends on `widget`, and a `State`'s field initialisers run before
+  /// `widget` is assigned.
+  late final TabController _tabs;
 
   List<ReportSubmission> _mine = const [];
   List<ReportSubmission> _queue = const [];
   List<ReportSubmission> _conference = const [];
   List<RemittanceRecord> _remittances = const [];
 
+  /// Which conference period the HQ buttons act on. The `send_reports_to_hq` /
+  /// `acknowledge_reports` RPCs move a whole period, not a single return, so
+  /// the conference tab has to name a period instead of implying a per-row
+  /// action. Index rather than a key: clamped on read, so it can never fall out
+  /// of range when the list reloads.
+  int _periodIndex = 0;
+
   bool _loading = true;
+  bool _working = false;
   String? _error;
+
+  /// The admin hub links in with `?org=` - an EMPTY value - for a church in no
+  /// organization, so a blank string must mean "no conference" everywhere.
+  /// Treating it as a real id produced two bugs at once: a template query for a
+  /// non-existent organization, and a `TabController(length: 3)` driving a
+  /// two-tab `TabBar` (a hard assertion at runtime).
+  String? get _orgId {
+    final raw = widget.organizationId?.trim();
+    return (raw == null || raw.isEmpty) ? null : raw;
+  }
+
+  int get _tabCount => _orgId == null ? 2 : 3;
 
   @override
   void initState() {
     super.initState();
+    _tabs = TabController(length: _tabCount, vsync: this);
     _load();
   }
 
@@ -60,7 +89,7 @@ class _ReportingScreenState extends State<ReportingScreen>
       _error = null;
     });
     try {
-      final org = widget.organizationId;
+      final org = _orgId;
       final results = await Future.wait([
         _service.fetchForTenant(widget.tenantId),
         _service.fetchReviewQueue(widget.tenantId),
@@ -81,6 +110,7 @@ class _ReportingScreenState extends State<ReportingScreen>
         _loading = false;
       });
     } catch (e) {
+      debugPrint('[reporting] load failed: $e');
       if (!mounted) return;
       setState(() {
         _error = 'Could not load reporting.';
@@ -92,6 +122,7 @@ class _ReportingScreenState extends State<ReportingScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasOrg = _orgId != null;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Reporting',
@@ -103,9 +134,9 @@ class _ReportingScreenState extends State<ReportingScreen>
           labelColor: theme.primaryColor,
           unselectedLabelColor: theme.disabledColor,
           tabs: [
-            Tab(text: 'My return'),
+            const Tab(text: 'My return'),
             Tab(text: _queue.isEmpty ? 'To review' : 'To review (${_queue.length})'),
-            if (widget.organizationId != null) const Tab(text: 'Conference'),
+            if (hasOrg) const Tab(text: 'Conference'),
           ],
         ),
       ),
@@ -125,7 +156,7 @@ class _ReportingScreenState extends State<ReportingScreen>
                   children: [
                     _myReturnTab(theme),
                     _reviewTab(theme),
-                    if (widget.organizationId != null)
+                    if (hasOrg)
                       _conferenceTab(theme)
                     else
                       const SizedBox.shrink(),
@@ -207,29 +238,24 @@ class _ReportingScreenState extends State<ReportingScreen>
                 _stat(theme, 'Baptisms', '${r.baptisms}'),
               ],
             ),
+            if (r.status.isFinalisedLocally) ...[
+              const SizedBox(height: 8),
+              _note(theme, Colors.blueGrey, Icons.lock_outline,
+                  'Approved and closed in the church. It was NOT sent to '
+                  'conference - reopen it if a figure needs correcting.'),
+            ],
             if (r.reviewNote != null && r.reviewNote!.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.feedback_outlined, size: 14, color: Colors.red.shade700),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text('Pastor: ${r.reviewNote}',
-                          style: theme.textTheme.bodySmall),
-                    ),
-                  ],
-                ),
-              ),
+              _note(theme, Colors.red, Icons.feedback_outlined,
+                  'Pastor: ${r.reviewNote}'),
             ],
             const SizedBox(height: 8),
-            Row(
+            // A Wrap, not a Row: an approved return can offer both "FINALISE
+            // LOCALLY" and "Remit to HQ" at once, which overflows a Row on a
+            // narrow phone.
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
               children: [
                 if (mine &&
                     (r.status == ReportStatus.draft ||
@@ -244,6 +270,18 @@ class _ReportingScreenState extends State<ReportingScreen>
                     onPressed: () => _review(r),
                     icon: const Icon(Icons.fact_check_outlined, size: 16),
                     label: const Text('Review'),
+                  ),
+                if (mine && r.status.isApproved)
+                  FilledButton.icon(
+                    onPressed: _working ? null : () => _finalise(r),
+                    icon: const Icon(Icons.done_all, size: 16),
+                    label: const Text('FINALISE LOCALLY'),
+                  ),
+                if (mine && r.status.isFinalisedLocally)
+                  TextButton.icon(
+                    onPressed: _working ? null : () => _reopen(r),
+                    icon: const Icon(Icons.restart_alt, size: 16),
+                    label: const Text('Reopen'),
                   ),
                 if (mine &&
                     r.status == ReportStatus.approved &&
@@ -260,6 +298,32 @@ class _ReportingScreenState extends State<ReportingScreen>
       ),
     );
   }
+
+  /// A tinted strip used for the review note and for the finalised-locally
+  /// explanation.
+  Widget _note(
+    ThemeData theme,
+    Color color,
+    IconData icon,
+    String text,
+  ) =>
+      Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(text, style: theme.textTheme.bodySmall),
+            ),
+          ],
+        ),
+      );
 
   Widget _stat(ThemeData theme, String label, String value) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -278,7 +342,8 @@ class _ReportingScreenState extends State<ReportingScreen>
         theme,
         'Nothing waiting on you',
         'When a secretary submits a return it appears here for you to check '
-            'and approve before it goes to conference.',
+            'and approve. Once approved the church can finalise it there and '
+            'forget about it, or escalate it to conference if it chooses to.',
       );
     }
     return RefreshIndicator(
@@ -350,6 +415,101 @@ class _ReportingScreenState extends State<ReportingScreen>
     }
   }
 
+  /// Close the period in the church. This is the END of the chain, so the
+  /// dialog says plainly what it does NOT do - otherwise a pastor assumes the
+  /// return is on its way somewhere and waits for an acknowledgement that will
+  /// never come.
+  Future<void> _finalise(ReportSubmission r) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Finalise this return locally?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You are approving ${r.periodLabel} as final for this church. '
+              'The figures cannot be edited afterwards - reopen the return if '
+              'something needs correcting.',
+              style: Theme.of(ctx).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'It will NOT be sent to conference. Nothing is remitted and '
+              'nobody is waiting on a response.',
+              style: Theme.of(ctx).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Finalise locally'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _working = true);
+    try {
+      await _service.completeReportLocally(reportId: r.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('${r.periodLabel} finalised in your church'),
+      ));
+      await _load();
+    } on ReportException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _reopen(ReportSubmission r) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reopen this return?'),
+        content: Text(
+          '${r.periodLabel} goes back to "Approved" so the figures can be '
+          'corrected. It is no longer final.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Reopen'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _working = true);
+    try {
+      await _service.reopenLocalReport(reportId: r.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Return reopened for correction')));
+      await _load();
+    } on ReportException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
   Future<void> _raiseRemittance(ReportSubmission r) async {
     try {
       final rem = await _service.raiseRemittance(reportId: r.id);
@@ -412,6 +572,8 @@ class _ReportingScreenState extends State<ReportingScreen>
             ),
           ),
           const SizedBox(height: 18),
+          _conferenceActions(theme),
+          const SizedBox(height: 18),
           Text('BRANCH RETURNS',
               style: TextStyle(
                   fontSize: 11,
@@ -452,13 +614,227 @@ class _ReportingScreenState extends State<ReportingScreen>
     );
   }
 
+  /// Every period present in this conference's returns, newest first.
+  List<_ReportPeriod> get _conferencePeriods {
+    final byKey = <String, _ReportPeriod>{};
+    for (final r in _conference) {
+      byKey.putIfAbsent(
+        _periodKey(r.periodStart, r.periodEnd),
+        () => _ReportPeriod(
+          r.periodStart,
+          r.periodEnd,
+          r.periodLabel.isEmpty ? r.periodStart.year.toString() : r.periodLabel,
+        ),
+      );
+    }
+    final list = byKey.values.toList()
+      ..sort((a, b) => b.start.compareTo(a.start));
+    return list;
+  }
+
+  static String _periodKey(DateTime start, DateTime end) =>
+      '${start.toIso8601String()}|${end.toIso8601String()}';
+
+  List<ReportSubmission> _rowsInPeriod(_ReportPeriod p) => _conference
+      .where((r) =>
+          r.periodStart == p.start && r.periodEnd == p.end)
+      .toList();
+
+  /// The period currently selected, clamped so it can never go out of range when
+  /// a reload shrinks the list.
+  _ReportPeriod? get _selectedPeriod {
+    final periods = _conferencePeriods;
+    if (periods.isEmpty) return null;
+    return periods[_periodIndex.clamp(0, periods.length - 1)];
+  }
+
+  /// SEND TO CONFERENCE / MARK ACKNOWLEDGED.
+  ///
+  /// These are the only two actions in the whole screen that move returns
+  /// upstream, and they are deliberately optional and explicitly labelled: the
+  /// chain is already finished for a return in `local_complete`, and pressing
+  /// this is the church choosing to escalate a period, not the next step it
+  /// owes anybody.
+  ///
+  /// They act on a WHOLE PERIOD because that is what the RPCs do - the count
+  /// each one returns is reported back, so the confirmation states the real
+  /// number instead of implying a single card was moved.
+  Widget _conferenceActions(ThemeData theme) {
+    final period = _selectedPeriod;
+    final rows = period == null ? const <ReportSubmission>[] : _rowsInPeriod(period);
+    final ready = rows.where((r) => r.status.canEscalateToConference).length;
+    final atHq = rows.where((r) => r.status == ReportStatus.submittedHq).length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('CONFERENCE HQ (OPTIONAL)',
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+                color: theme.disabledColor)),
+        const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'A return does not need conference. A branch can finalise its '
+                  'month locally and that is the end of it. Use these only when '
+                  'the conference chooses to take the return up.',
+                  style: theme.textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+                if (period == null)
+                  Text('No returns filed for this conference yet.',
+                      style: theme.textTheme.bodySmall)
+                else ...[
+                  DropdownButtonFormField<String>(
+                    initialValue: _periodKey(period.start, period.end),
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Period',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: [
+                      for (final p in _conferencePeriods)
+                        DropdownMenuItem(
+                          value: _periodKey(p.start, p.end),
+                          child: Text(
+                              '${p.label} · ${_rowsInPeriod(p).length} return(s)'),
+                        ),
+                    ],
+                    onChanged: (v) {
+                      final i = _conferencePeriods
+                          .indexWhere((p) => _periodKey(p.start, p.end) == v);
+                      if (i >= 0) setState(() => _periodIndex = i);
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    '$ready approved return(s) ready to send — including any '
+                    'finalised locally'
+                    '${atHq > 0 ? ' · $atHq waiting to be acknowledged' : ''}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _working || ready == 0
+                            ? null
+                            : () => _sendToHq(period),
+                        icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                        label: const Text('SEND TO CONFERENCE'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _working || atHq == 0
+                            ? null
+                            : () => _acknowledge(period),
+                        icon: const Icon(Icons.mark_email_read_outlined,
+                            size: 18),
+                        label: const Text('MARK ACKNOWLEDGED'),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _sendToHq(_ReportPeriod period) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Send ${period.label} to conference?'),
+        content: Text(
+          'Every approved return for this period will be marked as sent. '
+          'Branches that already finalised locally are included - this is '
+          'optional, and nothing has to be sent.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _working = true);
+    try {
+      final n = await _service.sendToHq(
+        organizationId: _orgId!,
+        periodStart: period.start,
+        periodEnd: period.end,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(n == 0
+            ? 'Nothing to send - no approved returns for ${period.label}'
+            : 'Sent $n return(s) for ${period.label} to conference'),
+      ));
+      await _load();
+    } on ReportException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _acknowledge(_ReportPeriod period) async {
+    setState(() => _working = true);
+    try {
+      final n = await _service.acknowledge(
+        organizationId: _orgId!,
+        periodStart: period.start,
+        periodEnd: period.end,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(n == 0
+            ? 'Nothing to acknowledge for ${period.label}'
+            : 'Acknowledged $n return(s) for ${period.label}'),
+      ));
+      await _load();
+    } on ReportException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
   /// The question a bishop actually asks of a conference: did every branch
-  /// file, and did the money come up?
+  /// file, did the money come up, and how many branches deliberately kept
+  /// their return to themselves?
   Widget _compliance(ThemeData theme) {
     if (_conference.isEmpty) return const SizedBox.shrink();
     final filed = _conference.length;
     final acknowledged = _conference
         .where((r) => r.status == ReportStatus.acknowledged)
+        .length;
+    // Approved and closed in the church, never escalated. Not a failure - the
+    // whole point of local completion - so it is reported, not chased.
+    final localClosed = _conference
+        .where((r) => r.status.isFinalisedLocally)
         .length;
     final received = _remittances
         .where((r) => r.status == 'received')
@@ -484,6 +860,14 @@ class _ReportingScreenState extends State<ReportingScreen>
           '${outstanding > 0 ? ' · $outstanding remittance(s) outstanding' : ''}',
           style: theme.textTheme.bodySmall,
         ),
+        if (localClosed > 0) ...[
+          const SizedBox(height: 6),
+          Text(
+            '$localClosed finalised locally and not sent to conference - '
+            'that is a valid outcome, not an outstanding return.',
+            style: theme.textTheme.bodySmall,
+          ),
+        ],
         const SizedBox(height: 6),
         Text('Received to date: K ${received.toStringAsFixed(2)}',
             style: theme.textTheme.bodySmall
@@ -573,13 +957,25 @@ class _ReportingScreenState extends State<ReportingScreen>
       isScrollControlled: true,
       builder: (_) => _ReturnFormSheet(
         tenantId: widget.tenantId,
-        organizationId: widget.organizationId,
+        organizationId: _orgId,
         service: _service,
         existing: existing,
       ),
     );
     if (saved == true) await _load();
   }
+}
+
+/// One reporting period, as the conference-wide HQ actions see it: the same
+/// start/end pair the `send_reports_to_hq` / `acknowledge_reports` RPCs take,
+/// with the human label the secretary typed.
+@immutable
+class _ReportPeriod {
+  final DateTime start;
+  final DateTime end;
+  final String label;
+
+  const _ReportPeriod(this.start, this.end, this.label);
 }
 
 /// The return form itself. Fields come from the conference's template, so a

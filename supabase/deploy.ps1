@@ -387,6 +387,10 @@ $migrations = @(
     "20261248_member_transfers.sql"
     "20261249_member_classes_and_discipline.sql"
     "20261250_reporting_chain_and_remittances.sql"
+"20261251_church_payment_accounts.sql"
+"20261252_reporting_local_completion.sql"
+"20261253_church_officers_ordination_branch_licensing.sql"
+"20261254_business_meetings_fix.sql"
       )
 
 

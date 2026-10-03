@@ -303,6 +303,13 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
     // How often to ask the server to reconcile with Lipila. Every 5th tick keeps
     // Edge invocations reasonable while still resolving well inside the poll window.
     const int activeReconcileEvery = 5;
+
+    // When this polling round began. The provider check-status endpoint is NOT
+    // called before `graceSeconds` has elapsed - see the grace-period comment
+    // in the loop. Matches chisomo (src/index.ts:3079).
+    final DateTime paymentStart = DateTime.now();
+    const int graceSeconds = 90;
+
     int attempts = 0;
 
     _cancelPolling();
@@ -393,6 +400,28 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
       }
 
       try {
+        // ------------------------------------------------------------------
+        // PROVIDER FAILURE GRACE PERIOD
+        //
+        // Lipila can briefly report a failure in the seconds right after the
+        // USSD prompt is dispatched - BEFORE the user has entered their PIN.
+        // Treating that as terminal (as this code did) told the user their
+        // payment failed while their PIN prompt was still on screen, offered
+        // them a retry that starts a second debit, and then charged them for
+        // the ORIGINAL prompt when they finished it.
+        //
+        // chisomo handles this correctly at src/index.ts:3079 with an explicit
+        // comment: only treat it as failed once the prompt has had time to
+        // settle, because webhooks are authoritative. 90 seconds is what they
+        // use; we match it.
+        // ------------------------------------------------------------------
+        final finalCheckAt =
+            DateTime.now().difference(paymentStart).inSeconds >= graceSeconds;
+        if (!finalCheckAt) {
+          await Future<void>.delayed(pollEvery);
+          return;
+        }
+
         final statusResponse = await client.functions
             .invoke('lipila-collect', body: {
               "action": "status",
@@ -446,12 +475,17 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
               status == 'declined' ||
               status == 'error' ||
               status == 'timeout') {
+            // Only reachable once the grace period has elapsed, so this is a
+            // real decline and TRY AGAIN is safe to offer here.
             timer.cancel();
             state = AsyncData(
               (state.value ?? const LipilaPaymentState()).copyWith(
                 status: PaymentStatus.failed,
-                errorMessage: "Transaction was $status by user or provider.",
-                statusMessage: "Transaction $status. Tap retry to try again.",
+                errorMessage:
+                    "The payment was cancelled or did not go through. You have "
+                    "not been charged.",
+                statusMessage: "Transaction $status.",
+                referenceId: referenceId,
               ),
             );
             _isPollingInFlight = false;
@@ -553,10 +587,11 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
             ));
             state = AsyncData(
               (state.value ?? const LipilaPaymentState()).copyWith(
-                status: PaymentStatus.failed,
+                status: PaymentStatus.unconfirmed,
                 errorMessage:
                     "We are still confirming this payment. If you completed it, "
-                    "it may take a moment to show. Reference: $referenceId",
+                    "it may take a moment to show. Please do not pay again. "
+                    "Reference: $referenceId",
                 statusMessage: "Still confirming payment. Reference: $referenceId",
               ),
             );
@@ -577,10 +612,11 @@ if (attempts >= maxAttempts) {
           ));
           state = AsyncData(
             (state.value ?? const LipilaPaymentState()).copyWith(
-              status: PaymentStatus.failed,
+              status: PaymentStatus.unconfirmed,
               errorMessage:
                   "Payment confirmation is taking longer than usual. Your money "
-                  "has been deducted and will still be recorded. Reference: $referenceId",
+                  "has been deducted and will still be recorded. Please do not "
+                  "pay again. Reference: $referenceId",
               statusMessage: "Still confirming payment. Reference: $referenceId",
             ),
           );

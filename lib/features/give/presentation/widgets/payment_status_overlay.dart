@@ -1,10 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import 'package:church_on_app/core/config/app_constants.dart';
 import 'package:church_on_app/core/theme/app_theme.dart';
 import 'package:church_on_app/core/utils/money.dart';
 
-enum PaymentStatus { idle, initiating, awaitingPin, succeeded, failed, cancelled, cardRedirect }
+enum PaymentStatus {
+  idle,
+  initiating,
+  awaitingPin,
+  succeeded,
+
+  /// The money has probably left the user's account but no authoritative
+  /// confirmation has arrived yet. This is DELIBERATELY distinct from
+  /// [failed]: it must never offer a retry, because retrying mints a NEW
+  /// reference and starts a SECOND real mobile-money debit for a payment that
+  /// may already have succeeded. Rendered amber with "do not pay again".
+  unconfirmed,
+  failed,
+  cancelled,
+  cardRedirect
+}
 
 class PaymentStatusOverlay extends StatefulWidget {
   final PaymentStatus status;
@@ -87,6 +103,8 @@ class _PaymentStatusOverlayState extends State<PaymentStatusOverlay>
         return _buildProcessingState(theme);
       case PaymentStatus.succeeded:
         return _buildSuccessState(theme);
+      case PaymentStatus.unconfirmed:
+        return _buildUnconfirmed(theme);
       case PaymentStatus.failed:
         return _buildErrorState(theme);
       case PaymentStatus.cancelled:
@@ -278,6 +296,90 @@ class _PaymentStatusOverlayState extends State<PaymentStatusOverlay>
                 backgroundColor: theme.colorScheme.error,
               ),
               child: const Text('TRY AGAIN'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Unconfirmed money movement.
+  ///
+  /// The single most important property of this screen is what it does NOT
+  /// offer: there is no "TRY AGAIN". `onRetry` re-enters `_initiatePayment`,
+  /// which mints a fresh reference and puts a second real USSD prompt in front
+  /// of a user whose first prompt may well have been paid. The recovery path is
+  /// "check the status / contact support with this reference", never "pay again".
+  Widget _buildUnconfirmed(ThemeData theme) {
+    final ref = widget.referenceId;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppConstants.sunflowerYellow.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              LucideIcons.clock,
+              color: Color(0xFF7A5C00),
+              size: 48,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text('Still confirming your payment',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleLarge),
+          const SizedBox(height: 10),
+          Text(
+            widget.errorMessage ??
+                'Your payment is still being confirmed. This can happen when '
+                    'the network is slow. Please do not pay again - if you '
+                    'completed the payment it will be recorded.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontSize: 13),
+          ),
+          if (ref != null && ref.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: [
+                  Text('Your reference',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.5))),
+                  const SizedBox(height: 3),
+                  SelectableText(
+                    ref,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        fontFamily: 'monospace'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 30),
+          // Deliberately no retry. Offering one here is a double-charge bug.
+          if (widget.onContinue != null)
+            FilledButton(
+              onPressed: widget.onContinue,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 56),
+              ),
+              child: const Text('CLOSE'),
             ),
         ],
       ),

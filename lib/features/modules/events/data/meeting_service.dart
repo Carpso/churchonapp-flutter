@@ -334,11 +334,15 @@ class MeetingService {
   String? get currentUserId => _client.auth.currentUser?.id;
 
   // ── Entitlement ───────────────────────────────────────────────────────────
+  /// The server function is `meeting_entitlement(p_user_id uuid DEFAULT
+  /// auth.uid())` and `meeting_subscriptions` is USER-scoped, so we call it with
+  /// no argument and let the server resolve the caller. [tenantId] is accepted
+  /// for call-site compatibility but is deliberately NOT sent: passing it made
+  /// PostgREST reject the call ("function ... does not exist"), which the catch
+  /// below swallowed, pinning every user to the free tier.
   Future<MeetingEntitlement> getEntitlement({String? tenantId}) async {
     try {
-      final res = await _client.rpc('meeting_entitlement', params: {
-        'p_tenant_id': tenantId,
-      });
+      final res = await _client.rpc('meeting_entitlement');
       if (res is Map) return MeetingEntitlement.fromMap(Map<String, dynamic>.from(res));
       return MeetingEntitlement.free;
     } catch (e) {
@@ -602,46 +606,55 @@ class MeetingService {
 
   /// Re-derives the price SERVER-SIDE, pre-creates the pending payment anchor
   /// and returns the payment reference + amount to pay.
+  ///
+  /// The live function is `request_meeting_subscription(p_plan text)` — there is
+  /// no tenant parameter (the subscription is user-scoped), and it returns
+  /// `{payment_ref, amount_kwacha, plan}` WITHOUT a `success` flag. Both used to
+  /// be assumed otherwise, so buying the Pro Meeting Suite always failed.
+  /// [tenantId] is accepted for call-site compatibility only.
   Future<MeetingPaymentRequest> requestSubscription({
-    required String tenantId,
     required String plan,
+    String? tenantId,
   }) async {
     final res = await _client.rpc(
       'request_meeting_subscription',
-      params: {'p_tenant_id': tenantId, 'p_plan': plan},
+      params: {'p_plan': plan},
     );
     final map = res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{};
-    if (map['success'] != true) {
+    final ref = map['payment_ref']?.toString();
+    if (map['success'] == false || ref == null || ref.isEmpty) {
       throw MeetingException(
         map['error']?.toString() ?? 'Could not start subscription payment',
       );
     }
     return MeetingPaymentRequest(
-      paymentRef: map['payment_ref'].toString(),
-      amountKwacha: (map['amount_kwacha'] as num).toDouble(),
+      paymentRef: ref,
+      amountKwacha: (map['amount_kwacha'] as num?)?.toDouble() ?? 0,
       plan: map['plan']?.toString() ?? plan,
     );
   }
 
   /// Flips to `active` ONLY against a confirmed payment; idempotent. A DB
   /// trigger also auto-activates on confirmation.
+  ///
+  /// The live function returns `{is_pro, plan, expires_at, amount_kwacha}` — no
+  /// `success` key — so requiring one reported "Payment not confirmed yet"
+  /// immediately after the member had actually paid.
   Future<bool> activateSubscription(String paymentRef) async {
     final res = await _client.rpc(
       'activate_meeting_subscription',
       params: {'p_payment_ref': paymentRef},
     );
     final map = res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{};
-    return map['success'] == true;
+    return map['success'] == true || map['is_pro'] == true;
   }
 
   /// Owner/staff cancel.
   Future<bool> cancelSubscription(String subscriptionId) async {
-    final res = await _client.rpc(
-      'cancel_meeting_subscription',
-      params: {'p_subscription_id': subscriptionId},
+    throw MeetingException(
+      'Cancelling a Pro Meeting subscription is not available yet. '
+      'Contact your church administrator.',
     );
-    final map = res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{};
-    return map['success'] == true;
   }
 
   /// Gate EVERY pro action on the server entitlement (fails closed).

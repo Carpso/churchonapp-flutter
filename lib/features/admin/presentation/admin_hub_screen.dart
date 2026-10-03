@@ -294,6 +294,54 @@ class AdminHubScreen extends ConsumerWidget {
                 Colors.blue,
                 () => context.push('/church-audit'),
               ),
+
+              // --------------------------------------------------
+              // Church operations (20261251 / 20261253)
+              // --------------------------------------------------
+              _buildAdminTile(
+                context,
+                LucideIcons.smartphone,
+                "Payment Accounts",
+                "Mobile money numbers giving is paid to",
+                Colors.teal,
+                () => context.push(
+                    '/church-payment-accounts?church=${tenant?.id ?? ''}'),
+              ),
+              _buildAdminTile(
+                context,
+                LucideIcons.badgeCheck,
+                "Church Officers",
+                "Elders, deacons and deaconesses",
+                Colors.indigo,
+                () => context.push(
+                    '/church-officers?church=${tenant?.id ?? ''}'),
+              ),
+              _buildAdminTile(
+                context,
+                LucideIcons.scrollText,
+                "Ordination & Credentials",
+                "Ministerial credentials issued by the conference",
+                Colors.deepPurple,
+                () =>
+                    context.push('/ordination?church=${tenant?.id ?? ''}'),
+              ),
+              _buildAdminTile(
+                context,
+                LucideIcons.badgePercent,
+                "Branch Licensing",
+                "Apply for and renew your branch licence",
+                Colors.amber,
+                () => context.push(
+                    '/branch-licensing?church=${tenant?.id ?? ''}'),
+              ),
+              _buildAdminTile(
+                context,
+                LucideIcons.video,
+                "Business Meetings",
+                "Agenda, minutes, motions and voting",
+                Colors.purple,
+                () => context.push('/business-meetings'),
+              ),
             if (isLeadership && isChurchTenant)
               _buildAdminTile(
                 context,

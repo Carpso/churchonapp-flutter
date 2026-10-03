@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:church_on_app/features/church/presentation/church_officers_screen.dart';
+import 'package:church_on_app/features/church/presentation/ordination_screen.dart';
+import 'package:church_on_app/features/church/presentation/branch_licensing_screen.dart';
+import 'package:church_on_app/features/finance/presentation/church_payment_accounts_screen.dart';
+import 'package:church_on_app/features/modules/events/presentation/business_meetings_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -500,6 +505,41 @@ final routerProvider = Provider<GoRouter>((ref) {
           return user.isPastorOrHigher || user.isLeadershipTeam;
         }
 
+        // Payment accounts are SECURITY-SENSITIVE: these are the mobile money
+        // numbers money is actually sent to. Leadership only, even though the
+        // underlying table lets ordinary church members read the register.
+        if (route == '/church-payment-accounts') {
+          return user.isPastorOrHigher || user.isLeadershipTeam;
+        }
+
+        // The officer roll is readable by any church member (public office
+        // roll), matching the SQL read policy, so no extra gate here.
+        if (route == '/church-officers') {
+          return true;
+        }
+
+        // Ordination is denominational authority: only a bishop / apostle /
+        // prophet / conference officer may act. The SQL enforces this too, but
+        // gating at the router avoids showing a member controls they cannot use.
+        if (route == '/ordination') {
+          return user.isPastorOrHigher ||
+              user.isLeadershipTeam ||
+              const ['bishop', 'apostle', 'prophet', 'general_secretary',
+                'general_treasurer', 'treasurer'].contains(user.role);
+        }
+
+        // Branch licensing is granted by the PARENT organisation, so a branch
+        // pastor may apply but only an org officer may decide - the SQL
+        // enforces the split, so both roles are allowed in here.
+        if (route == '/branch-licensing') {
+          return user.isPastorOrHigher || user.isLeadershipTeam;
+        }
+
+        // Business meetings: leaders create/host, members may join.
+        if (route == '/business-meetings') {
+          return true;
+        }
+
         // Filing and reviewing returns is leadership work; members have no
         // part in it.
         if (route == '/reporting') {
@@ -837,6 +877,40 @@ final routerProvider = Provider<GoRouter>((ref) {
           final name = state.uri.queryParameters['name'] ?? 'This church';
           return MemberTransferScreen(tenantId: tenantId, churchName: name);
         },
+      ),
+      // ------------------------------------------------------------------
+      // Church governance registers (20261253) + payment accounts (20261251)
+      // ------------------------------------------------------------------
+      GoRoute(
+        path: '/church-payment-accounts',
+        builder: (context, state) => ChurchPaymentAccountsScreen(
+          churchId: state.uri.queryParameters['church'],
+        ),
+      ),
+      GoRoute(
+        path: '/church-officers',
+        builder: (context, state) => ChurchOfficersScreen(
+          churchId: state.uri.queryParameters['church'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/ordination',
+        builder: (context, state) => OrdinationScreen(
+          churchId: state.uri.queryParameters['church'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/branch-licensing',
+        builder: (context, state) => BranchLicensingScreen(
+          churchId: state.uri.queryParameters['church'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/business-meetings',
+        builder: (context, state) => BusinessMeetingsScreen(
+          meetingId: state.uri.queryParameters['id'],
+          meetingCode: state.uri.queryParameters['code'],
+        ),
       ),
       GoRoute(
         path: '/bookshop',

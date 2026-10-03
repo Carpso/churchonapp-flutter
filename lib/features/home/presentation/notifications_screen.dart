@@ -264,11 +264,15 @@ class NotificationsScreen extends ConsumerWidget {
           }
           break;
         case 'meeting':
-          // Meeting reminders land on the Events Hub, which hosts the
-          // Pro Business Meeting sheet + "My Meetings" list.
-          // TODO(route): a dedicated `/meeting/:id` deep-link route would let
-          // this open the room directly (requires app_router.dart).
-          context.go('/events');
+          // Open the meeting room directly. A dedicated route now exists
+          // (app_router.dart `/business-meetings`) and accepts `?id=`, so a
+          // reminder takes the user to the actual meeting instead of dumping
+          // them on the Events Hub where they have to hunt for it.
+          if (id != null && id.isNotEmpty) {
+            context.go('/business-meetings?id=$id');
+          } else {
+            context.go('/business-meetings');
+          }
           break;
         case 'sermon':
           if (id != null && id.isNotEmpty) {

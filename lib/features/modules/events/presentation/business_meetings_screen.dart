@@ -1406,6 +1406,11 @@ class _RecordsPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notesAsync = ref.watch(meetingNotesProvider(meeting.id));
     final votesAsync = ref.watch(meetingVotesProvider(meeting.id));
+    final agenda = ref.watch(meetingAgendaProvider(meeting.id)).value ??
+        const <MeetingAgendaItem>[];
+    // The vote is on the item actually under discussion (the first open agenda
+    // item). There is no `meeting_motions` table, so we never invent a motion.
+    final currentItem = agenda.where((a) => !a.isDone).firstOrNull ?? agenda.firstOrNull;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
@@ -1436,11 +1441,15 @@ class _RecordsPanel extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
-          const Text('MOTION: "Approve the proposal on the table"',
-              style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold)),
+          Text(
+            currentItem == null
+                ? 'YES / NO VOTE'
+                : 'VOTE ON: ${currentItem.title}',
+            style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 10),
           Row(
             children: [

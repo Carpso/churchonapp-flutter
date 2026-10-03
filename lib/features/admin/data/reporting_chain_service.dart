@@ -80,6 +80,13 @@ enum ReportStatus {
   submitted('submitted', 'With pastor', Icons.send, Colors.orange),
   returned('returned', 'Needs correction', Icons.replay, Colors.red),
   approved('approved', 'Approved', Icons.verified, Colors.green),
+  // The church is finished. Deliberately NOT sent to conference.
+  localComplete(
+    'local_complete',
+    'Approved — finalised locally',
+    Icons.done_all,
+    Colors.blueGrey,
+  ),
   submittedHq('submitted_hq', 'At HQ', Icons.cloud_upload, Colors.blue),
   acknowledged('acknowledged', 'Acknowledged', Icons.verified_user, Colors.teal);
 
@@ -91,6 +98,19 @@ enum ReportStatus {
 
   static ReportStatus parse(String? v) => ReportStatus.values
       .firstWhere((s) => s.id == v, orElse: () => ReportStatus.draft);
+
+  /// Approved by the pastor but still open: the church can either finalise it
+  /// here or escalate it to conference.
+  bool get isApproved => this == ReportStatus.approved;
+
+  /// The period is closed in the church and will not go anywhere unless the
+  /// church chooses to reopen or escalate it.
+  bool get isFinalisedLocally => this == ReportStatus.localComplete;
+
+  /// Carries a real number to the conference: approved, or already signed off
+  /// locally and being escalated.
+  bool get canEscalateToConference =>
+      this == ReportStatus.approved || this == ReportStatus.localComplete;
 }
 
 @immutable
@@ -233,33 +253,49 @@ class ReportingChainService {
 
   // ------------------------------------------------------------- templates
 
+  static const _kTemplateColumns =
+      'id, report_type, name, description, field_schema, '
+      'remittance_rate, include_financials';
+
   /// The template this conference should use: its own if configured, else the
   /// platform default.
+  ///
+  /// The fallback is not optional. `report_templates` is seeded with ONE default
+  /// row per report type where `organization_id IS NULL`; a conference only has
+  /// its own row if somebody deliberately customised the form. Querying
+  /// `organization_id = X` alone therefore returned null for the common case and
+  /// the secretary got an empty form with no fields at all.
   Future<ReportTemplate?> loadTemplate({
     String? organizationId,
     required String reportType,
   }) async {
+    // The admin hub links in with `?org=` - an EMPTY value - for a church that
+    // belongs to no organization. An empty string is not a uuid, so it has to be
+    // normalised to null here rather than at every call site.
+    final org = organizationId?.trim();
+    if (org != null && org.isNotEmpty) {
+      final own = await _templateFor(reportType, organizationId: org);
+      if (own != null) return own;
+    }
+    return _templateFor(reportType);
+  }
+
+  Future<ReportTemplate?> _templateFor(
+    String reportType, {
+    String? organizationId,
+  }) async {
     final base = _client
         .from('report_templates')
-        .select(
-          'id, report_type, name, description, field_schema, '
-          'remittance_rate, include_financials',
-        )
+        .select(_kTemplateColumns)
         .eq('report_type', reportType)
         .eq('is_active', true);
 
     // postgrest has no `.is()`; a NULL test is a filter.
     final rows = organizationId == null
-        ? await base.filter('organization_id', 'is', null)
-        : await base.eq('organization_id', organizationId);
+        ? await base.filter('organization_id', 'is', null).limit(1)
+        : await base.eq('organization_id', organizationId).limit(1);
     if (rows.isEmpty) return null;
-
-    // Prefer a conference-specific template over the platform default.
-    final specific = organizationId == null
-        ? <dynamic>[]
-        : rows.where((r) => r['organization_id'] == organizationId).toList();
-    final chosen = (specific.isNotEmpty ? specific : rows).first;
-    return ReportTemplate.fromMap(Map<String, dynamic>.from(chosen));
+    return ReportTemplate.fromMap(Map<String, dynamic>.from(rows.first));
   }
 
   // ------------------------------------------------------------ submissions
@@ -403,6 +439,47 @@ class ReportingChainService {
     }
   }
 
+  /// Close the period IN the church: approved -> finalised locally.
+  ///
+  /// This is the normal end of the chain. The return is signed off by the
+  /// pastor and stays in the church; it is NOT sent to conference and no
+  /// remittance is created by this step.
+  Future<ReportSubmission> completeReportLocally({
+    required String reportId,
+  }) async {
+    try {
+      final row = await _client.rpc('complete_report_locally', params: {
+        'p_submission_id': reportId,
+      });
+      return ReportSubmission.fromMap(Map<String, dynamic>.from(row as Map));
+    } catch (e) {
+      throw ReportException(_readable(e));
+    }
+  }
+
+  /// Undo a local finalisation: local_complete -> approved.
+  ///
+  /// Provided because "final" must not be a one-way door - a wrong figure is
+  /// corrected by reopening, not by pretending the period never closed.
+  Future<ReportSubmission> reopenLocalReport({
+    required String reportId,
+  }) async {
+    try {
+      final row = await _client.rpc('reopen_local_report', params: {
+        'p_submission_id': reportId,
+      });
+      return ReportSubmission.fromMap(Map<String, dynamic>.from(row as Map));
+    } catch (e) {
+      throw ReportException(_readable(e));
+    }
+  }
+
+  /// OPTIONAL escalation: send a whole period up to conference.
+  ///
+  /// Not part of closing the period - `completeReportLocally` is. This exists
+  /// for the church/conference that WANTS the return seen upstream. The RPC
+  /// works on a period rather than a single row, so it reports how many
+  /// returns it moved instead of pretending to act on one card.
   Future<int> sendToHq({
     required String organizationId,
     required DateTime periodStart,
@@ -562,14 +639,37 @@ class ReportingChainService {
       return 'This return is not ready for review yet.';
     }
     if (s.contains('already')) return 'That step has already been done.';
+    // Checked before the remittance message: both SQL errors start
+    // "only an approved return", so the longer phrase has to win.
+    if (s.contains('only an approved return can be finalised locally')) {
+      return 'Only an approved return can be finalised. Approve it first.';
+    }
     if (s.contains('only an approved return')) {
       return 'Only an approved return can generate a remittance.';
+    }
+    // Checked BEFORE the save-draft message below: it also contains both
+    // "finalised locally" and "reopen".
+    if (s.contains('only a return finalised locally can be reopened')) {
+      return 'Only a return finalised locally can be reopened.';
+    }
+    if (s.contains('finalised locally') && s.contains('reopen')) {
+      return 'This return is final. Reopen it first to make changes.';
+    }
+    if (s.contains('may finalise this return')) {
+      return 'Only the pastor or conference leadership can finalise this return.';
+    }
+    if (s.contains('cannot be finalised by the person who prepared it')) {
+      return 'A return cannot be finalised by the person who prepared it.';
     }
     if (s.contains('prepared it')) {
       return 'A return cannot be reviewed by the person who prepared it.';
     }
     if (s.contains('may submit to HQ') || s.contains('may acknowledge')) {
       return 'Only the bishop or conference secretary can do this.';
+    }
+    if (s.contains('conference secretary, may file')) {
+      return 'Only leadership of this church, or its conference secretary, '
+          'can file its return.';
     }
     if (s.contains('only leadership of this church')) {
       return 'Only leadership of this church can file its return.';
