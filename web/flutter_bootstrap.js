@@ -20,11 +20,28 @@
 //   treating a slow-but-successful registration as a failure.
 //
 // NOTE
-//   `{{flutter_service_worker_version}}` is substituted by `flutter build web`
+//   The service-worker-version placeholder is substituted by `flutter build web`
 //   with the real version hash. Do NOT hardcode it, or the app would serve a
 //   stale cached shell after every release.
+//
+// CRITICAL - DO NOT DROP THE TWO PLACEHOLDERS BELOW
+//   The flutter-js and flutter-build-config placeholders are what inject
+//   <script src="flutter.js"> and the build config. A custom bootstrap REPLACES
+//   the generated one entirely, so if they are missing `_flutter` is never
+//   defined and the loader throws on the first line:
+//       Uncaught ReferenceError: _flutter is not defined
+//   Nothing Flutter-rendered then paints at all - which looks like "every image
+//   on the website is broken" rather than the total boot failure it actually is.
+//   Compare against Flutter's own template:
+//       packages/flutter_tools/lib/src/web/bootstrap.dart
+//
+//   DO NOT write these placeholder names anywhere else in this file - not even
+//   in a comment. `flutter build web` substitutes EVERY textual occurrence, so
+//   mentioning one inside a `//` comment injects the whole 30KB loader into
+//   that comment and corrupts the file with a syntax error.
 
-{{flutter_service_worker_version}}
+{{flutter_js}}
+{{flutter_build_config}}
 
 _flutter.loader.load({
   serviceWorkerSettings: {
