@@ -37,6 +37,7 @@ import 'package:church_on_app/features/modules/events/presentation/events_screen
 import 'package:church_on_app/features/events/data/event_service.dart';
 import 'package:church_on_app/features/finance/presentation/partner_redemption_screen.dart';
 import 'package:church_on_app/features/admin/presentation/church_audit_screen.dart';
+import 'package:church_on_app/features/admin/presentation/reporting_screen.dart';
 import 'package:church_on_app/features/attendance/presentation/member_transfer_screen.dart';
 import 'package:church_on_app/features/attendance/presentation/membership_classes_screen.dart';
 import 'package:church_on_app/features/attendance/presentation/pastoral_care_screen.dart';
@@ -499,6 +500,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           return user.isPastorOrHigher || user.isLeadershipTeam;
         }
 
+        // Filing and reviewing returns is leadership work; members have no
+        // part in it.
+        if (route == '/reporting') {
+          return user.isPastorOrHigher || user.isLeadershipTeam;
+        }
+
         // Moving a member between churches changes who a member belongs
         // to, so it is leadership-only.
         if (route == '/member-transfers') {
@@ -799,6 +806,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/member-attendance',
         builder: (context, state) => const MemberAttendanceScreen(),
+      ),
+      GoRoute(
+        path: '/reporting',
+        builder: (context, state) => ReportingScreen(
+          tenantId: state.uri.queryParameters['tenant'] ?? '',
+          organizationId: state.uri.queryParameters['org'],
+        ),
       ),
       GoRoute(
         path: '/church-audit',

@@ -253,6 +253,19 @@ class AdminHubScreen extends ConsumerWidget {
             if (isLeadership && isChurchTenant)
               _buildAdminTile(
                 context,
+                LucideIcons.clipboardList,
+                "Monthly / Quarterly Returns",
+                "Secretary files, pastor reviews, conference receives",
+                Colors.green,
+                () {
+                  context.push(
+                    '/reporting?tenant=${tenant?.id ?? ''}&org=${tenant?.organizationId ?? ''}',
+                  );
+                },
+              ),
+            if (isLeadership && isChurchTenant)
+              _buildAdminTile(
+                context,
                 LucideIcons.userCheck,
                 "Membership Classes",
                 "Convert, Righteous Member & Worker progression",
