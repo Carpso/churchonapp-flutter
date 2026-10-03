@@ -300,6 +300,9 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
     // entering their PIN).
     final int maxAttempts = isCard ? 150 : 60;
     final Duration pollEvery = Duration(seconds: isCard ? 3 : 2);
+    // How often to ask the server to reconcile with Lipila. Every 5th tick keeps
+    // Edge invocations reasonable while still resolving well inside the poll window.
+    const int activeReconcileEvery = 5;
     int attempts = 0;
 
     _cancelPolling();
@@ -492,31 +495,140 @@ class LipilaPaymentNotifier extends AsyncNotifier<LipilaPaymentState> {
             return;
           }
         }
-      } catch (e) {
-        debugPrint('LipilaService: Final DB check failed (attempt $attempts): $e');
-      }
+} catch (e) {
+          debugPrint('LipilaService: Final DB check failed (attempt $attempts): $e');
+        }
 
-      if (attempts >= maxAttempts) {
-        timer.cancel();
-        final reliability = PaymentReliabilityService(client);
-        unawaited(reliability.queuePaymentForRetry(
-          referenceId: referenceId,
-          amount: 0.0,
-          recipientPhone: '',
-          method: 'coa_payment',
-          metadata: {'type': 'coa_payment_timeout', 'reference': referenceId},
-        ));
-        state = AsyncData(
-          (state.value ?? const LipilaPaymentState()).copyWith(
-            status: PaymentStatus.failed,
-            errorMessage: "Payment verification timed out. Your money has been deducted. Reference: $referenceId",
-            statusMessage: "Still verifying payment. Reference: ${referenceId.substring(0, referenceId.length.clamp(0, 8))}",
-          ),
-        );
-      }
+        // ------------------------------------------------------------------
+        // ACTIVE RECONCILIATION (the fix for "money deducted, no receipt")
+        //
+        // Until now this poll ONLY read coa_payments, which meant the webhook
+        // was the single path to success. If Lipila took the money but the
+        // webhook was delayed, dropped or rejected, the user watched a spinner
+        // for two minutes and then saw a failure - despite having paid. That is
+        // the worst possible failure for a payment product.
+        //
+        // The Edge Function already implements `action: 'status'`, which asks
+        // Lipila directly and, when it reports a confirmed collection, WRITES
+        // `settled` back to coa_payments and runs settlement. That safety net
+        // existed but was never called by any client, so it was dead code.
+        //
+        // We now nudge it periodically while polling (throttled: every 5th
+        // tick, so a 2-minute poll makes ~24 Edge calls rather than 60), and
+        // once more at the very end before giving up. The DB poll above still
+        // decides the UI, so this can never turn a pending payment into a false
+        // success - it only makes the authoritative answer arrive sooner.
+        // ------------------------------------------------------------------
+        if (attempts % activeReconcileEvery == 0 || attempts >= maxAttempts) {
+          final wasFinalAttempt = attempts >= maxAttempts;
+          await _askServerForStatus(referenceId);
+          if (wasFinalAttempt) {
+            // Give the write a moment to land before reading it back.
+            await Future<void>.delayed(const Duration(milliseconds: 1200));
+            final settled = await _isConfirmedInDb(client, referenceId);
+            timer.cancel();
+            if (settled) {
+              state = AsyncData(
+                (state.value ?? const LipilaPaymentState()).copyWith(
+                  status: PaymentStatus.succeeded,
+                  statusMessage: "Payment confirmed.",
+                  referenceId: referenceId,
+                ),
+              );
+              _isPollingInFlight = false;
+              return;
+            }
 
-      _isPollingInFlight = false;
+            // Still unconfirmed. Do NOT tell the user it failed: the money may
+            // well have left their account. Say what is actually true, and give
+            // them the reference so support can trace it. This mirrors the
+            // wording chisomo uses, which is deliberately reassuring-but-honest.
+            final reliability = PaymentReliabilityService(client);
+            unawaited(reliability.queuePaymentForRetry(
+              referenceId: referenceId,
+              amount: 0.0,
+              recipientPhone: '',
+              method: 'coa_payment',
+              metadata: {'type': 'coa_payment_unconfirmed', 'reference': referenceId},
+            ));
+            state = AsyncData(
+              (state.value ?? const LipilaPaymentState()).copyWith(
+                status: PaymentStatus.failed,
+                errorMessage:
+                    "We are still confirming this payment. If you completed it, "
+                    "it may take a moment to show. Reference: $referenceId",
+                statusMessage: "Still confirming payment. Reference: $referenceId",
+              ),
+            );
+            _isPollingInFlight = false;
+            return;
+          }
+        }
+
+if (attempts >= maxAttempts) {
+          timer.cancel();
+          final reliability = PaymentReliabilityService(client);
+          unawaited(reliability.queuePaymentForRetry(
+            referenceId: referenceId,
+            amount: 0.0,
+            recipientPhone: '',
+            method: 'coa_payment',
+            metadata: {'type': 'coa_payment_timeout', 'reference': referenceId},
+          ));
+          state = AsyncData(
+            (state.value ?? const LipilaPaymentState()).copyWith(
+              status: PaymentStatus.failed,
+              errorMessage:
+                  "Payment confirmation is taking longer than usual. Your money "
+                  "has been deducted and will still be recorded. Reference: $referenceId",
+              statusMessage: "Still confirming payment. Reference: $referenceId",
+            ),
+          );
+        }
+
+        _isPollingInFlight = false;
     });
+  }
+
+  /// Asks the Edge Function to resolve the payment with Lipila directly.
+  ///
+  /// Fire-and-forget: the response is deliberately NOT treated as the answer,
+  /// because `coa_payments` is the single source of truth the rest of the app
+  /// (receipts, giving history, settlement) reads from. This only nudges the
+  /// server so that source of truth gets updated promptly.
+  ///
+  /// Never throws - a failure here must never break the user's payment screen.
+  Future<void> _askServerForStatus(String referenceId) async {
+    try {
+      await Supabase.instance.client.functions.invoke(
+        'lipila-collect',
+        body: {'action': 'status', 'reference': referenceId},
+      );
+      debugPrint(
+          'LipilaService: asked server to reconcile $referenceId with Lipila');
+    } catch (e) {
+      debugPrint('LipilaService: status reconcile call failed (non-fatal): $e');
+    }
+  }
+
+  /// Reads the authoritative status back out of `coa_payments`.
+  Future<bool> _isConfirmedInDb(
+      SupabaseClient client, String referenceId) async {
+    try {
+      final row = await client
+          .from('coa_payments')
+          .select('status')
+          .eq('payment_ref', referenceId)
+          .maybeSingle();
+      final s = (row?['status'] ?? '').toString().toLowerCase();
+      return s == 'approved' ||
+          s == 'completed' ||
+          s == 'confirmed' ||
+          s == 'settled';
+    } catch (e) {
+      debugPrint('LipilaService: confirmation read failed (non-fatal): $e');
+      return false;
+    }
   }
 }
 
