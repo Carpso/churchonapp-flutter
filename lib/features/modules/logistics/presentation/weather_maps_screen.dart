@@ -122,15 +122,30 @@ class _WeatherMapsScreenState extends ConsumerState<WeatherMapsScreen> {
                   height: 38,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    itemCount: WeatherService.cityPresets.length,
+                    // +1 for the leading "My location" chip.
+                    itemCount: WeatherService.cityPresets.length + 1,
                     itemBuilder: (context, index) {
-                      final city = WeatherService.cityPresets[index];
                       final selectedCity = ref.watch(selectedCityPresetProvider);
-                      final isSelected = selectedCity.name == city.name;
+
+                      // Index 0 is "use my exact location" (the default);
+                      // the rest are the explicit city presets.
+                      final isMyLocation = index == 0;
+                      final city = isMyLocation
+                          ? null
+                          : WeatherService.cityPresets[index - 1];
+                      final isSelected = isMyLocation
+                          ? selectedCity == null
+                          : selectedCity?.name == city!.name;
 
                       return GestureDetector(
                         onTap: () {
-                          ref.read(selectedCityPresetProvider.notifier).selectCity(city);
+                          final notifier =
+                              ref.read(selectedCityPresetProvider.notifier);
+                          if (isMyLocation) {
+                            notifier.useExactLocation();
+                          } else {
+                            notifier.selectCity(city!);
+                          }
                         },
                         child: Container(
                           margin: const EdgeInsets.only(right: 8),
@@ -147,7 +162,9 @@ class _WeatherMapsScreenState extends ConsumerState<WeatherMapsScreen> {
                             ),
                           ),
                           child: Text(
-                            city.name.split(',')[0],
+                            isMyLocation
+                                ? 'My location'
+                                : city!.name.split(',')[0],
                             style: TextStyle(
                               color: isSelected ? Colors.black : Colors.white,
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
