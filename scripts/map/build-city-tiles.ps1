@@ -1,7 +1,7 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-  Reproducible city-level PMTiles pipeline (countries z0-15 + metros z0-15).
+  Reproducible city-level PMTiles pipeline (countries z0-15 + metros z0-<CityMaxZoom>).
 
 .DESCRIPTION
   Downloads Geofabrik extracts (resume-safe), runs Planetiler to produce PMTiles,
@@ -25,9 +25,13 @@
   in the sibling churchonapp/.env) for uploads.
 
 .EXAMPLE
-  powershell -File scripts/map/build-city-tiles.ps1 -Cities lusaka,harare
-  powershell -File scripts/map/build-city-tiles.ps1 -All -Force -DateStamp 20260924
-#>
+    powershell -File scripts/map/build-city-tiles.ps1 -Cities lusaka,harare
+    powershell -File scripts/map/build-city-tiles.ps1 -All -Force -DateStamp 20260924
+
+    # Street-level detail (building footprints + full road geometry) for the
+    # metros. Run this ON A CLOUD VM, not a Windows workstation.
+    powershell -File scripts/map/build-city-tiles.ps1 -All -CityMaxZoom 18
+  #>
 [CmdletBinding()]
 param(
   # Where PBFs and PMTiles live (must have ~40 GB free for a full run).
@@ -41,8 +45,19 @@ param(
   # Use the Docker image instead of a local java/planetiler.jar.
   [switch]$UseDocker,
   [string]$DockerImage = 'ghcr.io/onthegomap/planetiler:latest',
-  [int]$CountryHeapGb = 8,
-  [int]$CityHeapGb = 6,
+[int]$CountryHeapGb = 8,
+    [int]$CityHeapGb = 6,
+    # Top zoom for the METRO archives. 15 is what is currently published; 18 is
+    # what street-level navigation actually needs (building footprints and full
+    # road geometry instead of a stretched parent tile).
+    #
+    # Cost scales steeply with zoom - z16-z18 is where the bulk of tiles live.
+    # Expect the 6 metros to grow from ~62 MB to a few GB. On R2 at
+    # $0.015/GB/mo that is noise; the real constraint is build time and disk, so
+    # this belongs on a cloud VM next to the OSM extract, never on a Windows
+    # workstation over a slow link.
+    [ValidateRange(10, 19)]
+    [int]$CityMaxZoom = 15,
   # Skip the Geofabrik download (PBFs already present in $Scratch).
   [switch]$SkipDownload,
   # Build only - do not upload to R2.
@@ -258,13 +273,15 @@ foreach ($c in $selCountries) {
 
 # ------------------------------------------------------------- 2. metro clips
 foreach ($m in $selMetros) {
-  Write-Step "Metro: $($m.name) (z0-15, country=$($m.country))"
+  Write-Step "Metro: $($m.name) (z0-$CityMaxZoom, country=$($m.country))"
   $parent = $meta.countries | Where-Object { $_.id -eq $m.country } | Select-Object -First 1
   if (-not $parent) { throw "metros.json: metro '$($m.id)' references unknown country '$($m.country)'" }
   if (-not $pbfByCountry.ContainsKey($parent.id)) { $pbfByCountry[$parent.id] = Get-Pbf $parent }
   $pbf = $pbfByCountry[$parent.id]
 
-  $out = Join-Path $Scratch ("{0}-z0-15.pmtiles" -f $m.id)
+  # The zoom range is baked into the filename so a z18 build can never silently
+  # overwrite the published z15 archive at the same key.
+  $out = Join-Path $Scratch ("{0}-z0-{1}.pmtiles" -f $m.id, $CityMaxZoom)
   if ((Test-Path $out) -and -not $Force) {
     Write-Skip "output exists (use -Force to rebuild): $out"
   } else {
@@ -272,16 +289,16 @@ foreach ($m in $selMetros) {
       "--osm_path=$pbf",
       "--bounds=$(Get-BboxCsv $m.bbox)",
       '--minzoom=0',
-      '--maxzoom=15',
+      "--maxzoom=$CityMaxZoom",
       '--download',
       "--output=$out"
     )
   }
   Write-Host ("  size: {0}" -f (Format-Bytes (Get-Item $out).Length))
 
-  $key = Publish-Source -LocalPath $out -Name "$($m.id)-z0-15"
+  $key = Publish-Source -LocalPath $out -Name "$($m.id)-z0-$CityMaxZoom"
 
-  Add-Report -Id $m.id -Label $m.name -Bbox $m.bbox -MinZ 0 -MaxZ 15 -Path $out
+  Add-Report -Id $m.id -Label $m.name -Bbox $m.bbox -MinZ 0 -MaxZ $CityMaxZoom -Path $out
   $entry = $report[$report.Count - 1]
   $entry.key = $key
   $entry.url = "https://maps.churchonapp.com/$key"
@@ -309,7 +326,7 @@ foreach ($r in $report) {
 # Paste-ready MAPS_EXTRA_SOURCES (city archives only Ã¢â‚¬â€ the base is already
 # covered by MAPS_ZAMBIA_URL) so the app switches to them at z16+.
 $byId = @{}; foreach ($r in $report) { $byId[$r.id] = $r }
-  $extra = @($meta.metros | Where-Object { $byId.ContainsKey($_.id) } | ForEach-Object { $e = $byId[$_.id]; [ordered]@{ name = $_.id; bbox = @($_.bbox[0], $_.bbox[1], $_.bbox[2], $_.bbox[3]); minZoom = 11; maxZoom = 15; url = $e.url } })
+  $extra = @($meta.metros | Where-Object { $byId.ContainsKey($_.id) } | ForEach-Object { $e = $byId[$_.id]; [ordered]@{ name = $_.id; bbox = @($_.bbox[0], $_.bbox[1], $_.bbox[2], $_.bbox[3]); minZoom = 11; maxZoom = [int]$e.max_zoom; url = $e.url } })
   if ($extra.Count -gt 0) {
   $sourcesLine = ($extra | ConvertTo-Json -Depth 4 -Compress)
   # ConvertTo-Json emits a bare object for a single-element array.
