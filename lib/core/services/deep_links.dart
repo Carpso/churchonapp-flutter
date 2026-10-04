@@ -85,11 +85,16 @@ class DeepLinks {
 
   // ── Maps / getting here ──────────────────────────────────────────────────
 
+  /// Turn-by-turn navigation to a coordinate.
+  ///
+  /// The query key MUST be `label`: that is what the `/navigate` route reads
+  /// (`qp['label']`) and what the `geo:`/`google.navigation:` handler emits.
+  /// It used to be `name`, so the destination name was silently dropped.
   static String navigate(double lat, double lng, {String? label}) {
     final params = <String, String>{
       'lat': lat.toString(),
       'lng': lng.toString(),
-      if (label != null && label.isNotEmpty) 'name': label,
+      if (label != null && label.isNotEmpty) 'label': label,
     };
     final query = params.entries
         .map((e) =>

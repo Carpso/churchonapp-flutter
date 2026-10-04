@@ -188,19 +188,34 @@ class FinanceService {
       );
       return;
     }
-    final profile = await _client.from('profiles').select('coins').eq('id', user.id).single();
-    final currentCoins = profile['coins'] ?? 0;
-    await _client.from('profiles').update({'coins': currentCoins + amount.toInt()}).eq('id', user.id);
-
-    // Update Central Treasury coins
+    // Church Coins are server-owned. The `coins` column UPDATE grant is revoked
+    // from `authenticated` (migration 20261255) precisely because this used to be
+    // a client-side read-modify-write, which let any member mint an unlimited
+    // balance and silently lost credits when two gifts landed at once.
+    // `add_coins` is auth-gated to the caller and enforces the +/-100,000 cap.
     try {
-      final treasury = await _client.from('profiles').select('coins').eq('id', '00000000-0000-0000-0000-000000000000').maybeSingle();
-      if (treasury != null) {
-        final treasuryCoins = treasury['coins'] ?? 0;
-        await _client.from('profiles').update({'coins': treasuryCoins + platformFee.toInt()}).eq('id', '00000000-0000-0000-0000-000000000000');
-      }
+      await _client.rpc('add_coins', params: {
+        'user_id': user.id,
+        'amount': amount.toInt(),
+      });
     } catch (e) {
-      debugPrint('Error updating treasury coins: $e');
+      debugPrint('Error crediting giving reward coins: $e');
+    }
+
+    // Platform fee accrues to the Central Treasury, which is a different user,
+    // so it needs `award_coins` (add_coins refuses any user_id but the caller).
+    // NOTE: this previously truncated platformFee with .toInt(), which silently
+    // discarded the Kwacha fraction of every single fee.
+    if (platformFee > 0) {
+      try {
+        await _client.rpc('award_coins', params: {
+          'user_id_str': '00000000-0000-0000-0000-000000000000',
+          'amount': platformFee.round(),
+          'reason_str': 'COA platform fee on giving',
+        });
+      } catch (e) {
+        debugPrint('Error crediting treasury coins: $e');
+      }
     }
 
     // Set variable scope for subsequent payout call

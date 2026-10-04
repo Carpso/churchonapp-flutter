@@ -221,8 +221,11 @@ class AdminService {
 
     final role = res['profiles']?['role'] as String?;
     final amount = (res['amount'] as num).toDouble();
-    final coins = (res['profiles']?['coins'] as num?)?.toDouble() ?? 0.0;
-    final name = res['profiles']?['full_name'] as String? ?? 'Unknown';
+      final name = res['profiles']?['full_name'] as String? ?? 'Unknown';
+      // Read for the display/validation message only. The AUTHORITATIVE balance
+      // check happens server-side inside system_transfer_coins / award_coins, so
+      // this client figure is advisory and cannot authorise an overdraft.
+      final coins = (res['profiles']?['coins'] as num?)?.toDouble() ?? 0.0;
 
     final authorizedRoles = ['superadmin', 'coa_employee', 'pastor', 'bishop', 'usher', 'writer', 'driver', 'rider'];
     if (!authorizedRoles.contains(role)) {
@@ -252,18 +255,22 @@ class AdminService {
         .eq('id', payoutId)
         .single();
 
-    final userId = res['user_id'] as String;
-    final amount = (res['amount'] as num).toDouble();
-    final coins = validation['coins'] as double;
-    final role = validation['role'] as String;
+      final userId = res['user_id'] as String;
+      final amount = (res['amount'] as num).toDouble();
+      final role = validation['role'] as String;
 
     // Process the payout
     await processPayout(payoutId, 'processed');
 
-    // Deduct coins
-    await _client.from('profiles')
-        .update({'coins': coins - amount})
-        .eq('id', userId);
+    // Deduct coins server-side. `add_coins`/`deduct_coins` both refuse a
+    // user_id other than the caller, and the `coins` column UPDATE grant is
+    // revoked (migration 20261255), so an admin adjusting someone else's balance
+    // must go through `award_coins` with a negative amount.
+    await _client.rpc('award_coins', params: {
+      'user_id_str': userId.toString(),
+      'amount': -amount.round(),
+      'reason_str': 'Coin payout approved: $payoutId',
+    });
 
     // Log settlement
     await _client.from('wallet_transactions').insert({

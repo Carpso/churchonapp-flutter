@@ -3,6 +3,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { sanitizeNarration, sanitizeAccountNumber } from "../_shared/sanitize.ts";
+import {
+  reconcileCollection,
+  CONFIRMED_STATUSES,
+  DECLINED_STATUSES,
+} from "../_shared/collection-reconcile.ts";
 
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
@@ -48,6 +53,74 @@ serve(async (req: Request) => {
     }
 
     const body = await req.json();
+    const { action } = body;
+
+    // ── CARD STATUS RECONCILIATION (C5) ──────────────────────────────────
+    // Card payments previously had NO status path at all. The Flutter poll
+    // invoked `lipila-collect` with action 'status', which queries the
+    // MOBILE-MONEY check-status endpoint with a card reference - that 404s, the
+    // candidate loop falls through, nothing is ever written, and the row stays
+    // `pending` for the full 7.5-minute card window. The user is then shown the
+    // generic failure state and offered a retry, which is a SECOND real card
+    // charge for a payment that may well have succeeded.
+    //
+    // This is the same shared reconciler the MoMo path and the `lps-settle`
+    // cron use, told to query the CARD status endpoint family.
+    if (action === "status") {
+      const { reference } = body;
+      if (!reference) {
+        return new Response(JSON.stringify({ error: "reference is required for status check" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: owned, error: ownedErr } = await supabase
+        .from("coa_payments")
+        .select("id, user_id, status")
+        .eq("payment_ref", reference)
+        .maybeSingle();
+
+      if (ownedErr) {
+        console.error(`[lipila-card-collect] ownership lookup failed: ${ownedErr.message}`);
+        return new Response(JSON.stringify({ error: "Status check failed" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Identical response for "does not exist" and "not yours" so this cannot
+      // be used to probe which references are real.
+      if (!owned || owned.user_id !== user.id) {
+        return new Response(JSON.stringify({ error: "Not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { outcome, status: providerStatus } = await reconcileCollection(
+        supabase,
+        reference,
+        { kind: "card" },
+      );
+
+      const finalStatus = String(owned.status ?? "").toLowerCase();
+      const resolved = CONFIRMED_STATUSES.includes(finalStatus)
+        ? "confirmed"
+        : DECLINED_STATUSES.includes(finalStatus)
+        ? "declined"
+        : outcome;
+
+      return new Response(
+        JSON.stringify({
+          reference,
+          status: resolved,
+          provider_status: providerStatus,
+          outcome,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const { amount, narration, reference, firstName, lastName, email, phone, metadata } = body;
 
     if (!amount || amount <= 0) {

@@ -59,11 +59,23 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
           return;
         }
 
-        final recipient = await client.from('profiles').select('coins').eq('id', recipientId).single();
-        final recipientCoins = (recipient['coins'] as num?)?.toDouble() ?? 0;
-
-        await client.from('profiles').update({'coins': senderCoins.toInt() - amount.toInt()}).eq('id', senderId);
-        await client.from('profiles').update({'coins': recipientCoins.toInt() + amount.toInt()}).eq('id', recipientId);
+        // Move the balance through the server so it is ATOMIC.
+        //
+        // This used to be two independent column writes - debit the sender,
+        // then credit the recipient. If the second failed the coins were simply
+        // destroyed, and the balance check above was a TOCTOU read-then-write so
+        // two concurrent sends could both pass it and overdraw. It is also no
+        // longer permitted at all: the `coins` column UPDATE grant is revoked
+        // (migration 20261255), because a client-writable balance is just a
+        // forgeable balance.
+        //
+        // The server also re-checks sufficiency, so a stale client-side figure
+        // can no longer authorise an overdraft.
+        await client.rpc('system_transfer_coins', params: {
+          'p_from_user': senderId,
+          'p_to_user': recipientId,
+          'p_amount': amount.toInt(),
+        });
 
         final reference = "TX${DateTime.now().millisecondsSinceEpoch}";
         await client.from('transactions').insert({

@@ -64,10 +64,15 @@ class _MapNavigationScreenState extends ConsumerState<MapNavigationScreen> {
   }
 
   Future<void> _start() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
     });
+    // Track which stage failed so the retry message is actionable. Telling
+    // someone whose GPS is perfect to "check GPS" because the public OSRM
+    // routing server was unreachable sends them down the wrong path entirely.
+    var stage = 'location';
     try {
       final serviceOn = await Geolocator.isLocationServiceEnabled();
       if (!serviceOn) {
@@ -105,6 +110,7 @@ class _MapNavigationScreenState extends ConsumerState<MapNavigationScreen> {
       if (!mounted) return;
       setState(() => _me = LatLng(pos.latitude, pos.longitude));
 
+      stage = 'routing';
       final route = await RouteService.fetchRoute(from: _me!, to: _dest);
       if (!mounted) return;
       setState(() {
@@ -137,10 +143,18 @@ class _MapNavigationScreenState extends ConsumerState<MapNavigationScreen> {
             debugPrint('MapNavigation position stream error: $e'),
       );
     } catch (e) {
-      debugPrint('MapNavigation init failed: $e');
+      debugPrint('MapNavigation init failed (stage=$stage): $e');
       if (mounted) {
         setState(() {
-          _error = 'Could not get your location. Check GPS and try again.';
+          // Be specific about WHICH stage failed. Reporting a routing outage as
+          // "check GPS" sends a user with perfect GPS signal down the wrong path
+          // and hides the real problem (the public OSRM server being
+          // unreachable) from anyone trying to diagnose it.
+          _error = stage == 'routing'
+              ? 'We have your location and the destination, but could not load '
+                  'a road route right now. The routing service may be '
+                  'unreachable - please try again in a moment.'
+              : 'Could not get your location. Check GPS and try again.';
           _loading = false;
         });
       }

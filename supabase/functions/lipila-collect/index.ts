@@ -4,6 +4,11 @@ import { checkRateLimit } from "../_shared/rate-limit.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { sanitizeNarration } from "../_shared/sanitize.ts";
 import { settleReference, enqueueChurchAutoPayouts } from "../_shared/settlement.ts";
+import {
+  reconcileCollection,
+  CONFIRMED_STATUSES,
+  DECLINED_STATUSES,
+} from "../_shared/collection-reconcile.ts";
 
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
@@ -60,94 +65,79 @@ serve(async (req: Request) => {
         });
       }
 
-      const apiKey = Deno.env.get("LIPILA_API_KEY");
-      if (!apiKey) {
-        return new Response(JSON.stringify({ error: "Lipila API key not configured on server" }), {
+      // ── OWNERSHIP (H3) ───────────────────────────────────────────────────
+      // This used to look the payment up by `payment_ref` alone and hand back
+      // Lipila's raw check-status body. Lipila's payload contains
+      // `accountNumber` - the PAYER'S PHONE NUMBER - plus amount and
+      // paymentType. Any logged-in user who learned or guessed a reference could
+      // therefore read another member's phone number and amount, and could
+      // force a `settled` write on someone else's row.
+      //
+      // chisomo returns only `{referenceId, id, status, amountCents}` from the
+      // equivalent endpoint for exactly this reason. We now do the same.
+      const { data: owned, error: ownedErr } = await supabase
+        .from("coa_payments")
+        .select("id, user_id, status")
+        .eq("payment_ref", reference)
+        .maybeSingle();
+
+      if (ownedErr) {
+        console.error(`[lipila-collect] ownership lookup failed: ${ownedErr.message}`);
+        return new Response(JSON.stringify({ error: "Status check failed" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
-      const baseUrl = apiKey.startsWith("lsk_")
-        ? "https://blz.lipila.io/api"
-        : "https://api.lipila.dev/api";
-
-      // chisomo/kingdom contract: /check-status?referenceId= is the primary
-      // status endpoint; fall back to the path-based variants if it 404s.
-      let statusData: unknown;
-      let statusResp: Response | null = null;
-      for (const candidate of [
-        `${baseUrl}/v1/collections/check-status?referenceId=${encodeURIComponent(reference)}`,
-        `${baseUrl}/v1/collections/mobile-money/status/${reference}`,
-        `${baseUrl}/v1/collections/mobile-money/${reference}`,
-      ]) {
-        statusResp = await fetch(candidate, {
-          headers: { "x-api-key": apiKey, "accept": "application/json" },
+      if (!owned) {
+        // Same shape as "not yours" for both cases so the endpoint cannot be
+        // used to probe which references exist.
+        return new Response(JSON.stringify({ error: "Not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-        if (statusResp.ok || statusResp.status !== 404) break;
       }
 
-      let respStatus = statusResp?.status ?? 500;
-      try {
-        statusData = await statusResp?.json();
-      } catch {
-        statusData = null;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      const role = String(profile?.role ?? "").toLowerCase();
+      const isStaff = ["superadmin", "super_admin", "coa_employee", "employee"]
+        .includes(role);
+      if (owned.user_id !== user.id && !isStaff) {
+        return new Response(JSON.stringify({ error: "Not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      // Server-side confirmation sync: when Lipila itself reports the
-      // collection settled, write the confirmed status into coa_payments and
-      // run settlement immediately. This guarantees the tenant payout is
-      // anchored even if a webhook delivery is lost (belt-and-suspenders).
-      const raw = statusData as Record<string, unknown>;
-      const tx =
-        (raw?.data as Record<string, unknown> | undefined) ??
-        (raw?.transaction as Record<string, unknown> | undefined) ??
-        raw;
-      const lStatus = [
-        tx?.["status"],
-        raw?.["status"],
-        tx?.["transactionStatus"],
-      ]
-        .find((s) => typeof s === "string")
-        ?.toString()
-        .toLowerCase()
-        .trim() ?? "";
-      const CONFIRMED = ["successful", "paid", "completed", "settled", "success", "approved", "accepted", "confirmed"];
-      if (CONFIRMED.includes(lStatus)) {
-        try {
-          const { data: row } = await supabase
-            .from("coa_payments")
-            .select("id")
-            .eq("payment_ref", reference)
-            .maybeSingle();
-          if (row) {
-            await supabase
-              .from("coa_payments")
-              .update({
-                status: "settled",
-                settled_at: new Date().toISOString(),
-                webhook_idempotency: `lipila-status-${reference}`,
-                phone_number: tx?.["accountNumber"] ?? raw?.["accountNumber"] ?? null,
-                network: tx?.["paymentType"] ?? raw?.["paymentType"] ?? null,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("payment_ref", reference);
-            try {
-              await settleReference(supabase, reference);
-              await enqueueChurchAutoPayouts(supabase);
-            } catch (settleErr) {
-              console.error(`[lipila-collect] Settlement sync failed for ${reference}: ${settleErr}`);
-            }
-          }
-        } catch (dbErr) {
-          console.warn(`[lipila-collect] Status DB sync failed for ${reference}: ${dbErr}`);
-        }
-      }
+      // Reconciliation itself is shared with the `lps-settle` cron so the
+      // interactive path and the background sweep can never disagree.
+      const { outcome, status: providerStatus } = await reconcileCollection(
+        supabase,
+        reference,
+        { kind: "momo" },
+      );
 
-      return new Response(JSON.stringify({ status: respStatus, data: statusData }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const finalStatus = String(owned.status ?? "").toLowerCase();
+      const resolved = CONFIRMED_STATUSES.includes(finalStatus)
+        ? "confirmed"
+        : DECLINED_STATUSES.includes(finalStatus)
+        ? "declined"
+        : outcome;
+
+      // Minimal response ONLY - never Lipila's raw payload, so the payer's
+      // phone number can never leak to another member.
+      return new Response(
+        JSON.stringify({
+          reference,
+          status: resolved,
+          provider_status: providerStatus,
+          outcome,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     if (action !== "initiate") {

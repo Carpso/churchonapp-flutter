@@ -415,10 +415,19 @@ class ProfileNotifier extends Notifier<AsyncValue<UserProfile?>> {
   Future<void> addCoins(int amount) async {
     final profile = state.value;
     if (profile == null) return;
-    await _client
-        .from('profiles')
-        .update({'coins': (profile.coins) + amount})
-        .eq('id', profile.id);
+    // Server-owned balance. This was a read-modify-write against a CACHED
+    // Riverpod snapshot, so it could double-credit from a stale value and it
+    // bypassed the +/-100,000 cap on add_coins entirely. The `coins` column
+    // UPDATE grant is now revoked (migration 20261255), so the RPC is also the
+    // only path that works.
+    try {
+      await _client.rpc('add_coins', params: {
+        'user_id': profile.id,
+        'amount': amount,
+      });
+    } catch (e) {
+      debugPrint('ProfileNotifier.addCoins failed: $e');
+    }
     ref.invalidateSelf();
   }
 

@@ -303,6 +303,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       // bounced logged-in users to /login|/landing on every cold start / web
       // reload (they appeared to be "logged out again").
       if (authState.isLoading && state.uri.path != '/splash') {
+        // Carry the destination across the wait. This used to return a bare
+        // '/splash', which silently DISCARDED any deep link that arrived while
+        // the session was still being restored - exactly what happens when a
+        // shared location/navigation link opens the app from cold. The user saw
+        // the splash spinner and then landed on home with the pin lost.
+        final cur = state.uri.toString();
+        if (cur != '/' && !cur.startsWith('/splash')) {
+          return '/splash?redirect=${Uri.encodeComponent(cur)}';
+        }
         return '/splash';
       }
 

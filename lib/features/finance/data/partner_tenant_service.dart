@@ -177,16 +177,23 @@ class PartnerTenantService {
     final codeGen = CodeGeneratorService(_client);
     final formattedVoucher = await codeGen.generateVoucherCode('Zambia');
 
-    // Deduct coins using RPC or profile update
+    // Deduct coins atomically server-side.
+    //
+    // This used to be `add_coins(negative)` with a silent `catch` that fell back
+    // to a direct column write. Once the `coins` column grant was revoked
+    // (migration 20261255) that fallback became unreachable AND its failure was
+    // swallowed by the surrounding try/catch - so a partner redemption would
+    // report SUCCESS while never deducting a single coin, i.e. free merchandise
+    // at every partner location. There is deliberately no fallback here: if the
+    // deduction fails the whole redemption must fail with the user.
     try {
-      await _client.rpc('add_coins', params: {
+      await _client.rpc('deduct_coins', params: {
         'user_id': user.id,
-        'amount': -coinsRequired,
+        'amount': coinsRequired,
       });
-    } catch (_) {
-      await _client.from('profiles').update({
-        'coins': currentCoins - coinsRequired,
-      }).eq('id', user.id);
+    } catch (e) {
+      debugPrint('Partner redemption: coin deduction failed: $e');
+      rethrow;
     }
 
     // Log redemption in DB

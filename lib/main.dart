@@ -373,7 +373,12 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
       }
     }
 
-    if (lat == null || lng == null || !mounted) {
+    // NOTE: deliberately NOT gated on `mounted`. `appLinks.getInitialLink()`
+    // resolves very early on a cold start - often before the first frame - and
+    // the old `|| !mounted` check made the handler return silently, dropping the
+    // whole intent. `router.go` does not need a mounted widget, so the check
+    // only ever threw away a valid navigation destination.
+    if (lat == null || lng == null) {
       debugPrint('unresolved map navigation intent: $uri');
       return;
     }

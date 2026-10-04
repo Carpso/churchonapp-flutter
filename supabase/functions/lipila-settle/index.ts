@@ -9,6 +9,7 @@ import {
   sweepPlatformFees,
 } from "../_shared/settlement.ts";
 import { chargeDuePledges } from "../_shared/dunning.ts";
+import { reconcilePendingCollections } from "../_shared/collection-reconcile.ts";
 
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
@@ -146,6 +147,29 @@ serve(async (req: Request) => {
       console.error(`[Settle] Payout reconciliation failed: ${reconcileErr}`);
     }
 
+    // ── PENDING COLLECTION RECONCILIATION ────────────────────────────────
+    // MONEY-IN safety net. The Flutter `status` poll only helps while the app is
+    // alive. If the phone is killed during the PIN prompt (routine on Android),
+    // goes offline, or the webhook is dropped, nothing was asking Lipila whether
+    // the money arrived and the `coa_payments` row was stranded `pending` for
+    // ever: the church was never paid and the giver got no receipt.
+    //
+    // This sweep asks Lipila directly and writes the answer back, so
+    // reconciliation no longer depends on the client at all. Rows younger than
+    // the grace window are never even queried - a provider failure during PIN
+    // entry must not be mistaken for a decline.
+    let collectionsChecked = 0;
+    let collectionsConfirmed = 0;
+    let collectionsDeclined = 0;
+    try {
+      const res = await reconcilePendingCollections(supabase);
+      collectionsChecked = res.checked;
+      collectionsConfirmed = res.confirmed;
+      collectionsDeclined = res.declined;
+    } catch (collectionErr) {
+      console.error(`[Settle] Collection reconciliation failed: ${collectionErr}`);
+    }
+
     // ── PLATFORM-FEE SWEEP (chisomo settlePlatformFees) ────
     // Settle the COA payout cut earned on completed church withdrawals to the
     // platform settlement number once it crosses the sweep minimum.
@@ -195,6 +219,9 @@ serve(async (req: Request) => {
         reconciled,
         reconcilePaid,
         reconcileFailed,
+        collectionsChecked,
+        collectionsConfirmed,
+        collectionsDeclined,
         feeSweepAmount,
         pledgesChecked,
         pledgesCharged,
