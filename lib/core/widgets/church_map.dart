@@ -1,3 +1,4 @@
+import 'package:church_on_app/core/routes/app_router.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -716,15 +717,32 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
   }
 
   Future<void> _openDirections(NearbyPlace place) async {
+    final label = place.name;
+    // Open the app's OWN turn-by-turn navigation by default.
+    //
+    // This used to launch a Google Maps web URL with
+    // `LaunchMode.externalApplication`, which meant (a) the app's own
+    // navigation screen was unreachable from the map, and (b) on a device with
+    // no browser/maps installed `launchUrl` can fail silently, leaving the user
+    // tapping a pin with nothing happening.
+    ref.read(routerProvider).go(
+          '/navigate?lat=${place.lat}&lng=${place.lng}'
+          '${label.isEmpty ? '' : '&label=${Uri.encodeComponent(label)}'}',
+        );
+  }
+
+  /// Opens the destination in an EXTERNAL maps app instead of in-app
+  /// navigation (offered as the secondary action on the directions sheet).
+  Future<void> _openDirectionsExternally(NearbyPlace place) async {
     final uri = Uri.parse(
         'https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}');
     try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (e) {
-      debugPrint('church_map: directions launch failed: $e');
+      debugPrint('church_map: external directions launch failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open directions')),
+          const SnackBar(content: Text('Could not open an external maps app')),
         );
       }
     }
@@ -780,6 +798,12 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
               icon: Icon(LucideIcons.navigation,
                   size: 20, color: theme.primaryColor),
               onPressed: () => _openDirections(place),
+            ),
+            IconButton(
+              tooltip: 'Open in another maps app',
+              icon: Icon(LucideIcons.externalLink,
+                  size: 18, color: theme.primaryColor),
+              onPressed: () => _openDirectionsExternally(place),
             ),
             IconButton(
               tooltip: 'Close',

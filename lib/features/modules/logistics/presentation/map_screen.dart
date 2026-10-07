@@ -1,10 +1,10 @@
+import 'package:church_on_app/core/routes/app_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:church_on_app/core/widgets/church_map.dart';
 import 'package:church_on_app/core/services/tenant_service.dart';
 import 'package:church_on_app/core/services/plan_service.dart';
@@ -207,17 +207,23 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton.icon(
-                  onPressed: church.latitude == null || church.longitude == null
-                      ? null
-                      : () async {
-                          final url = Uri.parse(
-                            'https://www.google.com/maps/search/?api=1&query='
-                            '${church.latitude!},${church.longitude!}',
-                          );
-                          if (await canLaunchUrl(url)) {
-                            await launchUrl(url);
-                          }
-                        },
+onPressed: church.latitude == null || church.longitude == null
+                        ? null
+                        : () {
+                            // Open the app's OWN turn-by-turn navigation.
+                            //
+                            // This launched a Google Maps URL and silently did
+                            // nothing whenever `canLaunchUrl` was false, so
+                            // tapping a church on the map appeared to do nothing
+                            // at all - and the app's navigation screen, which
+                            // exists and works, was unreachable from the map.
+                            final name = church.name;
+                            ref.read(routerProvider).go(
+                                  '/navigate?lat=${church.latitude}'
+                                  '&lng=${church.longitude}'
+                                  '${name.isEmpty ? '' : '&label=${Uri.encodeComponent(name)}'}',
+                                );
+                          },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: church.primaryColor,
                     foregroundColor: Colors.black,
