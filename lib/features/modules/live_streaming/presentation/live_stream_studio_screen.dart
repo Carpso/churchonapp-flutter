@@ -75,6 +75,16 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   /// True once `broadcast_started_at` has been stamped, so the start is
   /// announced exactly once per broadcast.
   bool _broadcastStarted = false;
+
+  /// When true the in-app camera broadcasts over WHIP instead of waiting for an
+  /// RTMP encoder.
+  ///
+  /// Defaults to FALSE. WHIP is never recorded by Cloudflare and produces no
+  /// HLS, so leading with it produced streams that no viewer could watch and no
+  /// one could replay - while looking completely successful to the leader.
+  /// It remains available as an explicit choice for a small, informal
+  /// broadcast, and the UI now says plainly that it is not recorded.
+  bool _useQuickCamera = false;
   String? _verseText;
   String? _verseRef;
   String? _logoUrl;
@@ -848,8 +858,23 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
         }
       }
 
-      // Try WebRTC WHIP ingest first (phone streams live to Cloudflare).
-      final broadcastStarted = _whipUrl != null && await _startWhipIngest(_whipUrl!);
+    // ── Ingest path selection ─────────────────────────────────────────────
+    // RTMPS is the DEFAULT and the only path Cloudflare records and serves as
+    // HLS. It works from a phone just as well as a desktop: any RTMP app (OBS
+    // Mobile, Wirecast, a drone controller, a hardware encoder) can push the
+    // credentials this screen already displays.
+    //
+    // WHIP (the in-app camera) used to be attempted FIRST and, because it
+    // succeeds, the app silently locked onto it. But Cloudflare documents that
+    // WHIP is never recorded and emits no HLS - so every broadcast started this
+    // way left viewers with nothing to watch and no replay afterwards. The live
+    // database shows the result: 40 streams, 40 on WHIP, 0 recordings, and only
+    // 3 that ever had a viewer.
+    //
+    // The camera is still fully supported, it is just an explicit opt-in that
+    // says out loud that it will not be recorded.
+    final broadcastStarted =
+        _useQuickCamera && _whipUrl != null && await _startWhipIngest(_whipUrl!);
 
       // Record which ingest path actually won. This is load-bearing: a WHIP
       // (WebRTC) broadcast produces NO HLS and is NEVER recorded by Cloudflare,
@@ -1784,6 +1809,113 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     super.dispose();
   }
 
+  /// Lets the leader choose HOW they are broadcasting, in plain language, before
+  /// pressing record.
+  ///
+  /// This exists because the app used to pick silently and picked wrong. It
+  /// defaulted to the in-app camera (WHIP), which Cloudflare neither records nor
+  /// serves as HLS, so the service "worked" for the leader and delivered nothing
+  /// to the congregation. Silently choosing is the bug; choosing out loud with
+  /// the consequence stated is the fix.
+  Widget _buildIngestChooser(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'How will you broadcast?',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _ingestOption(
+            context,
+            icon: LucideIcons.radio,
+            title: 'RTMP encoder  ·  RECOMMENDED',
+            subtitle: _useQuickCamera
+                ? 'Any RTMP app on this phone, or OBS. Recorded + replay.'
+                : 'Tap to stream with OBS / any RTMP app',
+            selected: !_useQuickCamera,
+            onTap: () => setState(() => _useQuickCamera = false),
+          ),
+          const SizedBox(height: 6),
+          _ingestOption(
+            context,
+            icon: LucideIcons.camera,
+            title: 'Quick camera  ·  NOT RECORDED',
+            subtitle: 'Stream from this phone camera. Live only, no replay.',
+            selected: _useQuickCamera,
+            warn: true,
+            onTap: () => setState(() => _useQuickCamera = true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _ingestOption(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool selected,
+    required VoidCallback onTap,
+    bool warn = false,
+  }) {
+    final accent = warn ? const Color(0xFFFFB020) : const Color(0xFFFFDA03);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? accent.withValues(alpha: 0.16) : Colors.black26,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? accent : Colors.white24,
+            width: selected ? 1.6 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: selected ? accent : Colors.white70),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: selected ? accent : Colors.white70,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontSize: 10.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (selected)
+              Icon(LucideIcons.checkCircle, size: 16, color: accent),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _bottomAction(IconData icon, String label, VoidCallback onTap,
       {Color color = Colors.white}) {
     return Column(
@@ -2151,8 +2283,9 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                       ],
                     ),
                   ),
-                const Spacer(),
-                Container(
+                  const Spacer(),
+                  if (!_isLive) _buildIngestChooser(context),
+                  Container(
                   padding: const EdgeInsets.only(bottom: 30, top: 20),
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black87]),

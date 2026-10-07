@@ -1,3 +1,4 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -201,26 +202,88 @@ class _GivingScreenState extends ConsumerState<GivingScreen> with AutomaticKeepA
             ),
             const SizedBox(height: 40),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 if (_formKey.currentState == null ||
                     !_formKey.currentState!.validate()) {
                   return;
                 }
-                final amount = double.tryParse(_amountController.text) ?? 0.0;
-                final tenant = ref.read(currentTenantProvider);
-                final isTithe = _selectedCategory.toLowerCase().contains('tithe');
-                final recipient = isTithe
-                    ? _titheRecipientPhone(tenant)
-                    : (tenant?.treasurerPhone ?? tenant?.contactPhone ?? tenant?.pastorPhone);
-                if (recipient == null || recipient.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("No payment recipient configured for this church. Please contact your administrator.")),
-                  );
-                  return;
-                }
+final messenger = ScaffoldMessenger.of(context);
+                  final amount = double.tryParse(_amountController.text) ?? 0.0;
+                  final tenant = ref.read(currentTenantProvider);
+                  final isTithe = _selectedCategory.toLowerCase().contains('tithe');
 
-                showModalBottomSheet(
-                  context: context,
+                  // Resolve the number to COLLECT to. This used to read
+                  // treasurer/contact/pastor straight off the tenant and HARD
+                  // BLOCKED when they were empty - which is why 21 of 32
+                  // churches could not receive a single offering or tither.
+                  //
+                  // The resolver prefers the church's own registered treasurer
+                  // account and otherwise falls back to the platform collection
+                  // number, because the number you COLLECT into and the number
+                  // you PAY OUT to do not have to be the same. A church with no
+                  // treasurer number yet still receives the gift: it is held
+                  // centrally and swept to the treasurer via church_withdrawals
+                  // as soon as their number is registered.
+                  String? recipient;
+                  String? collectionNote;
+                  try {
+                    final resolved = await Supabase.instance.client.rpc(
+                      'resolve_church_collection_account',
+                      params: {'p_church_id': tenant?.id},
+                    );
+                    final row = resolved is List && resolved.isNotEmpty
+                        ? resolved.first
+                        : null;
+                    recipient = row?['phone']?.toString();
+                    if (row != null && row['church_has_own'] == false) {
+                      collectionNote =
+                          row['fallback_reason']?.toString().trim().isNotEmpty ==
+                                  true
+                              ? row['fallback_reason'].toString()
+                              : 'Your gift is held safely and released to the '
+                                  'church once a treasurer number is registered.';
+                    }
+                  } catch (e) {
+                    debugPrint('giving: collection account lookup failed: $e');
+                  }
+
+                  // Tithe may have a dedicated leader number configured by the
+                  // tithe leader/elected role chain; prefer that when present.
+                  final tithePhone = isTithe ? _titheRecipientPhone(tenant) : null;
+                  if (tithePhone != null && tithePhone.isNotEmpty) {
+                    recipient = tithePhone;
+                    collectionNote = null;
+                  }
+
+                  // Last resort: whatever the tenant already had.
+                  if (recipient == null || recipient.isEmpty) {
+                    recipient = tenant?.treasurerPhone ??
+                        tenant?.contactPhone ??
+                        tenant?.pastorPhone;
+                  }
+
+                    if (recipient == null || recipient.isEmpty) {
+                      messenger.showSnackBar(
+                        const SnackBar(
+                            content: Text(
+                                "Payments are not available right now. Please contact your church administrator.")),
+                      );
+                      return;
+                    }
+
+                    // Be honest with the giver about where the money is going.
+                    if (collectionNote != null) {
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(collectionNote),
+                          duration: const Duration(seconds: 6),
+                        ),
+                      );
+                    }
+
+                    if (!context.mounted) return;
+                  showModalBottomSheet(
+                    context: context,
                   isScrollControlled: true,
                   backgroundColor: Colors.transparent,
                   builder: (sheetCtx) {
