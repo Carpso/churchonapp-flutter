@@ -38,7 +38,21 @@ class Env {
   ///
   /// `bbox` is `[south, west, north, east]`. Build these with
   /// `scripts/map/build-city-tiles.ps1` (or `.sh`).
-  static String get mapsExtraSources => dotenv.env['MAPS_EXTRA_SOURCES'] ?? '';
+    static String get mapsExtraSources => dotenv.env['MAPS_EXTRA_SOURCES'] ?? '';
+
+    /// Raster basemap template, e.g.
+    /// `https://maps.churchonapp.com/raster/{z}/{x}/{y}.png`.
+    ///
+    /// Empty by default. This is what makes the map work on WEB, where the
+    /// vector-tile executor cannot run (`Unsupported operation: ReceivePort`
+    /// from `executor_lib`'s isolate `PoolExecutor` branch, which is only
+    /// bypassed under `kDebugMode`). It must point at tiles WE host — do not
+    /// point this at OpenStreetMap's public raster servers: a browser cannot set
+    /// a compliant User-Agent, and OSM answers non-compliant requests with
+    /// HTTP 200 carrying a "403 Access blocked" tile, so the map appears to load
+    /// while showing no roads or labels.
+    static String get rasterBaseUrl =>
+        dotenv.env['MAPS_RASTER_BASE_URL'] ?? '';
   
   static String get r2PublicDomain => dotenv.env['R2_PUBLIC_DOMAIN'] ?? 'media.churchonapp.com';
 

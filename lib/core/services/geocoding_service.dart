@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -77,6 +78,70 @@ class GeocodingService {
 
   static const _ua = 'ChurchOnApp/1.0 (churchonapp.com)';
 
+  // -----------------------------------------------------------------------
+  // PUBLIC PROVIDER THROTTLE
+  //
+  // Nominatim's usage policy allows at most ONE request per second, and
+  // photon.komoot.io's public instance is explicitly "for demo and testing"
+  // rather than production traffic. Neither had any throttle here, so every
+  // client could fire in parallel - the exact pattern that gets an app's IP
+  // blocked, and a blocked geocoder is indistinguishable to a user from "we
+  // sent the driver to the wrong place", which is the single most common map
+  // complaint on comparable apps.
+  //
+  // A serialised, globally-enforced queue plus a polite User-Agent is the
+  // cheapest real mitigation available before self-hosting. It does NOT scale
+  // to thousands of members: set GEOCODING_BASE_URL to a self-hosted
+  // Photon/Nominatim for that (see the class docs).
+  // -----------------------------------------------------------------------
+  static final List<Completer<void>> _gate = <Completer<void>>[];
+  static DateTime? _lastRequestAt;
+  static const _minGap = Duration(milliseconds: 1100);
+
+  /// Serialises every outbound geocoder request across the whole app so we
+  /// never exceed the public providers' limits. Failures are chained so one
+  /// timeout cannot break the queue for everybody behind it.
+  /// Test seam for the throttle.
+  ///
+  /// The queue is private because production code has no business calling it,
+  /// but its ordering and failure behaviour are load-bearing (a leaked slot
+  /// deadlocks every later lookup), so they need a regression test that makes
+  /// no network calls.
+  @visibleForTesting
+  static Future<T> throttled<T>(Future<T> Function() body) => _polite(body);
+
+  static Future<T> _polite<T>(Future<T> Function() body) async {
+    final completer = Completer<void>();
+    _gate.add(completer);
+    // Wait on the request queued IMMEDIATELY BEFORE me - not merely "any other
+    // request". Chaining only against an arbitrary earlier entry (or testing
+    // "am I the head") lets requests 3, 4 and 5 all latch onto request 1 and
+    // then run together the moment it finishes, which is the parallel burst
+    // this throttle exists to prevent.
+    final index = _gate.lastIndexOf(completer);
+    if (index > 0) {
+      await _gate[index - 1].future;
+    }
+
+    final since = _lastRequestAt == null
+        ? null
+        : DateTime.now().difference(_lastRequestAt!);
+    if (since != null && since < _minGap) {
+      await Future<void>.delayed(_minGap - since);
+    }
+    _lastRequestAt = DateTime.now();
+
+    try {
+      return await body();
+    } finally {
+      // Release the head so the next queued request can run. Removing the
+      // completer we own (not by index) keeps this correct even if a caller
+      // somehow re-enters.
+      _gate.remove(completer);
+      if (!completer.isCompleted) completer.complete();
+    }
+  }
+
   /// Build a request [Uri] from a configured base WITHOUT ever passing a
   /// scheme-bearing string to `Uri.https` (which expects a bare authority).
   ///
@@ -117,9 +182,11 @@ class GeocodingService {
         'zoom': '18',
       });
       if (uri == null) return null;
-      final res = await http.get(uri, headers: {'User-Agent': _ua}).timeout(
-            const Duration(seconds: 8),
-          );
+      final res = await _polite(
+        () => http
+            .get(uri, headers: {'User-Agent': _ua})
+            .timeout(const Duration(seconds: 8)),
+      );
       if (res.statusCode != 200) return null;
       final data = jsonDecode(res.body);
       if (data is! Map) return null;
@@ -148,7 +215,9 @@ class GeocodingService {
         'lat': lat.toString(),
         'lon': lng.toString(),
       });
-      final res = await http.get(uri).timeout(const Duration(seconds: 8));
+      final res = await _polite(
+        () => http.get(uri, headers: {'User-Agent': _ua}).timeout(const Duration(seconds: 8)),
+      );
       if (res.statusCode != 200) return null;
       final data = jsonDecode(res.body);
       final features = data['features'];
@@ -179,10 +248,12 @@ class GeocodingService {
         'limit': '1',
       });
       if (uri == null) return null;
-      final res = await http.get(uri, headers: {
-        'User-Agent': 'ChurchOnApp/1.0 (church management app)',
-        'Accept': 'application/json',
-      }).timeout(const Duration(seconds: 10));
+      final res = await _polite(
+        () => http.get(uri, headers: {
+          'User-Agent': _ua,
+          'Accept': 'application/json',
+        }).timeout(const Duration(seconds: 10)),
+      );
       if (res.statusCode != 200) return null;
       final data = jsonDecode(res.body);
       if (data is! List || data.isEmpty) return null;
@@ -206,9 +277,12 @@ class GeocodingService {
     try {
       final uri = Uri.parse(
           'https://photon.komoot.io/api/?q=${Uri.encodeQueryComponent(q)}&limit=1');
-      final res = await http
-          .get(uri, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 10));
+      final res = await _polite(
+        () => http.get(uri, headers: {
+          'Accept': 'application/json',
+          'User-Agent': _ua,
+        }).timeout(const Duration(seconds: 10)),
+      );
       if (res.statusCode != 200) return null;
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       final features = body['features'] as List?;

@@ -1,6 +1,7 @@
 import 'package:church_on_app/core/routes/app_router.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -184,6 +185,17 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
   /// (verified 206 + CORS), and the glyphs/sprites are CORS-open too — exactly
   /// what a browser needs for HTTP range reads.
   static bool get _supportsVectorBasemap => true;
+
+  /// Whether the self-hosted RASTER basemap should be drawn beneath the
+  /// vector layer.
+  ///
+  /// True on web, where the vector executor cannot run, and on native whenever
+  /// a raster base URL is configured — so the first paint shows real geography
+  /// instead of grey while vector tiles are still being fetched.
+  ///
+  /// Never true without `Env.rasterBaseUrl` (checked at the call site), so an
+  /// unconfigured build behaves exactly as before.
+  static bool get _needsRasterBasemap => kIsWeb || Env.rasterBaseUrl.isNotEmpty;
 
   /// Cached PMTiles readers keyed by archive URL. Opening an archive reads a
   /// bounded header + root directory, so sharing the reader avoids re-fetching
@@ -1009,6 +1021,32 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
                         ),
                     ],
                   ),
+                // RASTER FALLBACK — the web basemap.
+                //
+                // The vector pipeline cannot run on Flutter web release builds:
+                // `executor_lib.newExecutor` only branches on `kDebugMode`, so a
+                // release web build takes the isolate `PoolExecutor` path and
+                // throws `Unsupported operation: ReceivePort`, leaving every
+                // tile job hung. There is deliberately no OSM raster fallback:
+                // browsers cannot set a custom User-Agent on fetches, and OSM
+                // answers a non-compliant request with HTTP 200 carrying a
+                // "403 Access blocked" tile — so the map would look loaded
+                // while showing no roads or labels at all.
+                //
+                // Instead we serve our OWN raster tiles from
+                // `maps.churchonapp.com` (same bucket as the PMTiles, CORS `*`),
+                // which no upstream usage policy can block. `Env.rasterBaseUrl`
+                // is empty by default, so enabling this is an explicit,
+                // reversible configuration choice rather than a silent change.
+                if (_needsRasterBasemap && Env.rasterBaseUrl.isNotEmpty)
+                  TileLayer(
+                    urlTemplate: Env.rasterBaseUrl,
+                    userAgentPackageName: 'com.churchonapp.churchonapp',
+                    tileDisplay: const TileDisplay.fadeIn(),
+                    // Buffer one ring of tiles so panning reveals cached tiles.
+                    panBuffer: 1,
+                  ),
+
                 // Optional real traffic raster tiles (when configured).
                 if (trafficActive && Env.trafficTilesUrl.isNotEmpty)
                   Opacity(
