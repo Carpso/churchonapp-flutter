@@ -104,6 +104,140 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   late final StreamAnalyticsService _analytics;
   late final LiveStreamOverlayService _overlays;
   int _cameraFacing = 1; // 0 = front (user), 1 = back (environment)
+
+  /// Every video input the device exposes, not just the built-in front/back
+  /// pair.
+  ///
+  /// `facingMode` can only ever reach the phone's own cameras, so it silently
+  /// made a connected camera impossible: a USB/OTG webcam, a capture card, or a
+  /// second phone acting as a camera all appear as ADDITIONAL devices that
+  /// `facingMode` cannot address. Churches streaming a Sunday service from a
+  /// tripod-mounted phone with a better camera plugged into it had no way to pick
+  /// it. Enumerating devices and selecting by `deviceId` fixes that, and costs
+  /// nothing on a phone that only has two cameras.
+  List<dynamic> _videoDevices = const [];
+
+  /// `deviceId` of the chosen camera, or null to follow `_cameraFacing`.
+  String? _selectedDeviceId;
+
+  /// Label for the camera currently in use, shown in the picker.
+  String get _activeCameraLabel {
+    if (_audioOnly) return 'Microphone only';
+    final id = _selectedDeviceId;
+    if (id != null && id.isNotEmpty) {
+      for (final d in _videoDevices) {
+        if (_deviceId(d) == id) return _deviceLabel(d);
+      }
+      return 'Connected camera';
+    }
+    return _cameraFacing == 0 ? 'Front camera' : 'Rear camera';
+  }
+
+  /// Must be called AFTER permission is granted: browsers (and Android) hide
+  /// device labels until then, so enumerating earlier returns an empty or
+  /// label-less list.
+  Future<void> _enumerateCameras() async {
+    try {
+      // `webrtc.Helper.cameras` is the package's own filtered accessor for
+      // 'videoinput'. Using it avoids depending on a MediaDeviceKind enum this
+      // version of the package does not export.
+      final cams = await webrtc.Helper.cameras;
+      if (cams.isEmpty || !mounted) return;
+
+      final activeId = _localStream == null
+          ? null
+          : (_localStream!.getVideoTracks().isEmpty
+              ? null
+              : _localStream!.getVideoTracks().first.getSettings()['deviceId']);
+
+      setState(() {
+        _videoDevices = cams;
+        final id = activeId?.toString() ?? '';
+        if (id.isNotEmpty) _selectedDeviceId = id;
+      });
+    } catch (e) {
+      debugPrint('enumerateCameras failed: $e');
+    }
+  }
+
+  String _deviceId(dynamic device) => device.deviceId?.toString() ?? '';
+  String _deviceLabel(dynamic device) {
+    final l = device.label?.toString().trim() ?? '';
+    return l.isEmpty ? 'Camera' : l;
+  }
+
+  /// Switches to a specific camera by deviceId (used by the picker).
+  Future<void> _selectCamera(dynamic device) async {
+    final id = _deviceId(device);
+    if (id.isEmpty) return;
+    setState(() {
+      _selectedDeviceId = id;
+      _cameraFacing = 1; // deviceId takes precedence over facingMode
+    });
+    await _initPreview();
+  }
+
+  Future<void> _showCameraPicker() async {
+    if (_audioOnly) return;
+    if (_videoDevices.isEmpty) await _enumerateCameras();
+    if (!mounted) return;
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
+              child: Text('Choose a camera',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
+              child: Text(
+                'A USB or OTG camera, capture card, or a second phone plugged in '
+                'as a camera will appear here.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+            if (_videoDevices.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('No cameras were reported by this device.'),
+              ),
+            for (final d in _videoDevices)
+              ListTile(
+                leading: Icon(
+                  _deviceId(d) == _selectedDeviceId
+                      ? LucideIcons.checkCircle
+                      : LucideIcons.video,
+                  color: _deviceId(d) == _selectedDeviceId
+                      ? const Color(0xFFFFDA03)
+                      : null,
+                ),
+                title: Text(
+                  _deviceId(d) == _selectedDeviceId
+                      ? '${_deviceLabel(d)}  (in use)'
+                      : _deviceLabel(d),
+                  style: const TextStyle(fontSize: 14),
+                ),
+                onTap: () async {
+                  Navigator.pop(sheetCtx);
+                  await _selectCamera(d);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
   Map<String, dynamic> _iceServers = {
     'iceServers': [
       {'urls': 'stun:stun.l.google.com:19302'},
@@ -456,6 +590,29 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     }
   }
 
+  /// Video constraint for `getUserMedia`.
+  ///
+  /// A selected `deviceId` must WIN over `facingMode`. That ordering is the
+  /// whole point: an external camera (USB/OTG webcam, capture card, second
+  /// phone) has no meaningful facing mode, and passing both makes Android
+  /// ignore the device and silently fall back to the phone's own lens - which is
+  /// exactly the bug this picker exists to fix.
+  Map<String, dynamic> _videoConstraint() {
+    final base = <String, dynamic>{
+      'width': 1280,
+      'height': 720,
+      'frameRate': 24,
+    };
+    final id = _selectedDeviceId;
+    if (id != null && id.isNotEmpty) {
+      return {...base, 'deviceId': id};
+    }
+    return {
+      ...base,
+      'facingMode': _cameraFacing == 0 ? 'user' : 'environment',
+    };
+  }
+
   Future<void> _initPreview() async {
     try {
       // Release the previous tracks before re-acquiring (e.g. when toggling
@@ -468,12 +625,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
             ? {'audio': true, 'video': false}
             : {
                 'audio': true,
-                'video': {
-                  'facingMode': _cameraFacing == 0 ? 'user' : 'environment',
-                  'width': 1280,
-                  'height': 720,
-                  'frameRate': 24,
-                },
+                'video': _videoConstraint(),
               },
       );
       if (!mounted) {
@@ -488,6 +640,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
         _renderer = renderer;
         _permissionDenied = false;
       });
+      _enumerateCameras();
       _loadChurchLogo();
     } catch (e) {
       debugPrint('Camera init error: $e');
@@ -513,6 +666,8 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     }
   }
 
+  // Retained: flipping front/back is still useful, but the camera picker now
+  // covers every case, so the quick Flip shortcut routes through it.
   Future<void> _switchCamera() async {
     if (_audioOnly) return; // no video track to switch
     setState(() => _cameraFacing = _cameraFacing == 0 ? 1 : 0);
@@ -1916,8 +2071,12 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     );
   }
 
-  Widget _bottomAction(IconData icon, String label, VoidCallback onTap,
-      {Color color = Colors.white}) {
+  Widget _bottomAction(
+    IconData icon,
+    String label,
+    VoidCallback onTap, {
+    Color color = Colors.white,
+  }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -2293,11 +2452,37 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      if (!_isLive)
-                        _bottomAction(LucideIcons.maximize,
-                            _fillPreview ? "Fill" : "Fit",
-                            () => setState(() => _fillPreview = !_fillPreview))
+                        if (!_isLive)
+                          _bottomAction(
+                            LucideIcons.camera,
+                            _videoDevices.length > 2
+                                ? 'Camera'
+                                : (_activeCameraLabel == 'Front camera'
+                                    ? 'Rear'
+                                    : 'Front'),
+                            // One control that does the right thing either way:
+                            // open the full picker when there is a choice to
+                            // make, otherwise just flip front/back.
+                            () => _videoDevices.length > 2
+                                ? _showCameraPicker()
+                                : _switchCamera(),
+                            // Turn yellow when a USB/OTG camera or a second phone
+                            // is attached, so it is obvious there is more to pick.
+                            color: _videoDevices.length > 2
+                                ? const Color(0xFFFFDA03)
+                                : Colors.white,
+                          )
+                      else if (_fillPreview)
+                        _bottomAction(
+                          LucideIcons.maximize,
+                          "Fit",
+                          () => setState(() => _fillPreview = false),
+                        )
                       else
+                        _bottomAction(LucideIcons.maximize,
+                            "Fill",
+                            () => setState(() => _fillPreview = true)),
+                      if (_isLive)
                         _bottomAction(LucideIcons.columns, "Overlay", _showOverlayControls,
                             color: Colors.amber),
                       if (_isLive)
@@ -2329,9 +2514,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                       else
                         _bottomAction(LucideIcons.share, "Share", _shareStream,
                             color: Colors.amber),
-                      _bottomAction(
-                          LucideIcons.refreshCcw, "Flip", _switchCamera),
-                    ],
+                      ],
                   ),
                 ),
               ],
