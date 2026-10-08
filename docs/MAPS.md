@@ -180,7 +180,35 @@ What it does:
    **dated snapshot** (`tiles/lusaka-z0-15/20260925.pmtiles`).
 5. Writes `<Scratch>/build-report.json`.
 
-Publish the manifest + schedule a refresh:
+  ### `-CityMaxZoom` is capped at 16 — this is NOT a config mistake
+  `-CityMaxZoom 19` exits immediately with
+  `java.lang.IllegalArgumentException: Max zoom must be <= 16, was 19`
+  from `PlanetilerConfig.<init>`. That is a hard limit inside the planetiler
+  JAR, so no city/region/country archive can exceed z16 with this toolchain.
+  **z17–19 (true Yango/Waze-level imagery) would require a patched planetiler**,
+  not a flag.
+
+  Lusaka is built at z0-16 (29.3 MB) and published as
+  `tiles/lusaka-z0-16.pmtiles`; verified layer ceilings in the archive metadata:
+  `roads 6-16`, `buildings 11-16`, `boundaries 0-16`.
+
+  ### Reading the build log — check stderr FIRST
+  Stdout is a progress stream that keeps printing planetiler's DEB argument
+  dump. It is easy to mistake leftover stdout from an EARLIER successful run
+  (e.g. the country-level z0-15 pass) for live progress on the metro just
+  launched. **Before reporting a build as running, confirm BOTH that the
+  correct `=== Metro:` header was reached AND that the `-err.log` file is
+  empty.**
+
+  Correct invocation — note `-Cities all` is a VALUE not a switch, there is no
+  `-All` parameter, and a comma-joined list binds as ONE string under
+  `powershell -File`:
+  ```
+  powershell -File scripts/map/build-city-tiles.ps1 -Cities lusaka `
+    -CityMaxZoom 16 -SkipDownload -PlanetilerJar <jar path>
+  ```
+
+  Publish the manifest + schedule a refresh:
 
 ```powershell
 .\scripts\map\refresh-maps.ps1                    # build + manifest + upload
