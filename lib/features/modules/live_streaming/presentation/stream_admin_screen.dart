@@ -88,15 +88,20 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
           .eq('id', widget.tenantId)
           .maybeSingle();
 
-      // Real Cloudflare credentials come from live_streams (the config table
-      // has NO stream_key/rtmp_url columns). Show the newest stream's creds
-      // so OBS users have something concrete to paste; empty until go-live.
-      // Broadcast credentials are NOT SELECT-granted (they'd leak to any user
-      // through the public read RLS). Read the newest stream's id, then fetch
-      // the credentials via the leadership-only RPC.
-      final latestStream = await Supabase.instance.client
+      // Active stream (only rows with status='live' are genuinely on air)
+      final activeStream = await Supabase.instance.client
           .from('live_streams')
-          .select('id, status, hls_url')
+          .select('id, title, status, hls_url, cloudflare_stream_id, viewer_count, ingest_mode')
+          .eq('church_id', widget.tenantId)
+          .eq('status', 'live')
+          .order('started_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      // Show newest stream's creds so OBS users have something concrete to paste
+      final latestStream = activeStream ?? await Supabase.instance.client
+          .from('live_streams')
+          .select('id, title, status, hls_url, cloudflare_stream_id, viewer_count, ingest_mode')
           .eq('church_id', widget.tenantId)
           .order('created_at', ascending: false)
           .limit(1)
@@ -149,16 +154,16 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
         _usage = usage;
         _isTrial = church?['subscription_status'] == 'trial';
         _recordings = recordings;
-        _activeStream = latestStream == null
+        _activeStream = activeStream == null
             ? null
-            : Map<String, dynamic>.from(latestStream as Map);
+            : Map<String, dynamic>.from(activeStream as Map);
         _loading = false;
       });
       // Probe the live input once so the panel can say whether an encoder is
       // really publishing, not just whether a row exists.
-      if (latestStream != null) {
+      if (activeStream != null) {
         unawaited(_refreshInputState(
-          Map<String, dynamic>.from(latestStream as Map),
+          Map<String, dynamic>.from(activeStream as Map),
         ));
       }
       _schedulePoll();
@@ -547,6 +552,13 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
     setState(() => _stoppingId = id);
     try {
       await UnifiedStreamService(Supabase.instance.client).endStream(id);
+      try {
+        await Supabase.instance.client.from('church_live_status').upsert({
+          'church_id': widget.tenantId,
+          'is_live': false,
+          'updated_at': DateTime.now().toIso8601String(),
+        }, onConflict: 'church_id');
+      } catch (_) {}
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Broadcast stopped')),
@@ -565,9 +577,10 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
 
   Future<void> _refreshInputState(Map<String, dynamic> stream) async {
     final cfId = stream['cloudflare_stream_id']?.toString();
+    final streamId = stream['id']?.toString();
     if (cfId == null || cfId.isEmpty) return;
     final input =
-        await UnifiedStreamService(Supabase.instance.client).getLiveInputState(cfId);
+        await UnifiedStreamService(Supabase.instance.client).getLiveInputState(cfId, streamId: streamId);
     if (!mounted) return;
     setState(() => _inputConnected = input?.connected ?? false);
   }

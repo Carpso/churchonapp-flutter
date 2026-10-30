@@ -626,26 +626,41 @@ async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<
     });
 
   const streamId = params?.stream_id;
-  if (!streamId) return json({ error: "stream_id is required" }, 400);
+  const inputId = params?.input_id;
+  if (!streamId && !inputId) return json({ error: "stream_id or input_id is required" }, 400);
 
-  const { data: row } = await supabase
-    .from("live_streams")
-    .select("id, church_id, status, cloudflare_stream_id, cloudflare_video_id, hls_url, preview_url, dash_url, recording_hls_url, archive_url")
-    .eq("id", streamId)
-    .maybeSingle();
-  if (!row) return json({ error: "Stream not found" }, 404);
+  let row: any = null;
+  if (streamId) {
+    const { data } = await supabase
+      .from("live_streams")
+      .select("id, church_id, status, cloudflare_stream_id, cloudflare_video_id, hls_url, preview_url, dash_url, recording_hls_url, archive_url")
+      .eq("id", streamId)
+      .maybeSingle();
+    row = data;
+  } else if (inputId) {
+    const { data } = await supabase
+      .from("live_streams")
+      .select("id, church_id, status, cloudflare_stream_id, cloudflare_video_id, hls_url, preview_url, dash_url, recording_hls_url, archive_url")
+      .eq("cloudflare_stream_id", inputId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    row = data;
+  }
 
-  if (!row.cloudflare_stream_id) {
+  const cfInputId = row?.cloudflare_stream_id ?? inputId;
+  if (!cfInputId) {
+    if (streamId && !row) return json({ error: "Stream not found" }, 404);
     return json({
       success: true,
-      id: row.id,
-      status: row.status,
+      id: row?.id ?? null,
+      status: row?.status ?? null,
       input_status: null,
       connected: false,
-      hls: row.hls_url ?? null,
+      hls: row?.hls_url ?? null,
       dash: null,
-      preview: row.preview_url ?? null,
-      whep: row.preview_url ?? null,
+      preview: row?.preview_url ?? null,
+      whep: row?.preview_url ?? null,
       mode: "idle",
       reason: "no_input",
     });
@@ -654,7 +669,7 @@ async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<
   let result: any = null;
   try {
     const res = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${row.cloudflare_stream_id}`,
+      `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${cfInputId}`,
       { headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` } },
     );
     const payload = await res.json();
@@ -669,7 +684,7 @@ async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<
 
   // The live input object itself carries no playback object. HLS/DASH exist only
   // on the input's currently-live video (RTMPS/SRT); WHIP broadcasts have none.
-  const liveVideo = await fetchLiveInputVideo(row.cloudflare_stream_id);
+  const liveVideo = await fetchLiveInputVideo(cfInputId);
   const base = normaliseLiveInput(result, {
     hls: liveVideo?.hls ?? null,
     dash: liveVideo?.dash ?? null,
@@ -688,23 +703,24 @@ async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<
   const patch: Record<string, unknown> = {};
   let finalHls = base.hls;
   if (base.hls) {
-    if (base.hls !== row.hls_url) patch.hls_url = base.hls;
+    if (row && base.hls !== row.hls_url) patch.hls_url = base.hls;
   } else if (base.connected && !liveVideo) {
     finalHls = null;
-    if (row.hls_url) patch.hls_url = null;
+    if (row?.hls_url) patch.hls_url = null;
   } else {
-    finalHls = row.hls_url ?? null;
+    finalHls = row?.hls_url ?? null;
   }
   if (base.dash) patch.dash_url = base.dash;
-  if (base.whep && base.whep !== row.preview_url) patch.preview_url = base.whep;
+  if (base.whep && row && base.whep !== row.preview_url) patch.preview_url = base.whep;
 
   // Ended/archived streams: self-heal the RECORDING. The live-input manifest
   // returns 204 once a broadcast ends, so a viewer opening a recorded service
   // must get the recording's own video manifest. Resolve it once and persist
   // `cloudflare_video_id` + `recording_hls_url`; the sermon sync trigger then
   // repairs the corresponding Recorded Service sermon.
-  let recordingHls = row.recording_hls_url ?? null;
+  let recordingHls = row?.recording_hls_url ?? null;
   if (
+    row &&
     ["ended", "archived"].includes(String(row.status ?? "")) &&
     !row.archive_url && !recordingHls
   ) {
@@ -722,7 +738,7 @@ async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<
     }
   }
 
-  if (Object.keys(patch).length > 0) {
+  if (row?.id && Object.keys(patch).length > 0) {
     try {
       await supabase.from("live_streams").update(patch).eq("id", row.id);
     } catch (_) {
@@ -732,8 +748,8 @@ async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<
 
   return json({
     success: true,
-    id: row.id,
-    status: row.status,
+    id: row?.id ?? null,
+    status: row?.status ?? null,
     input_status: base.input_status,
     connected: base.connected,
     enabled: base.enabled,
@@ -743,7 +759,7 @@ async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<
     whep: base.whep,
     mode: base.connected ? (finalHls ? "hls" : "webrtc") : "idle",
     recording_hls: recordingHls,
-    cloudflare_video_id: patch.cloudflare_video_id ?? row.cloudflare_video_id ?? null,
+    cloudflare_video_id: patch.cloudflare_video_id ?? row?.cloudflare_video_id ?? null,
   });
 }
 // raw video bytes to `uploadURL`; Cloudflare then transcodes to adaptive HLS.

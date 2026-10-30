@@ -498,7 +498,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       final cfId = row['cloudflare_stream_id']?.toString();
       if (cfId != null && cfId.isNotEmpty) {
         final input = await UnifiedStreamService(Supabase.instance.client)
-            .getLiveInputState(cfId);
+            .getLiveInputState(cfId, streamId: id);
         connected = input?.connected ?? false;
       }
 
@@ -1061,9 +1061,9 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
             true,
             // A WHIP broadcast has no HLS — surface the WHEP playback URL so
             // the home LIVE indicator hands the viewer a playable link.
-            streamUrl: (_hlsUrl != null && _hlsUrl!.isNotEmpty)
-                ? _hlsUrl
-                : result.previewUrl,
+            streamUrl: (result.previewUrl != null && result.previewUrl!.isNotEmpty)
+                ? result.previewUrl
+                : ((_hlsUrl != null && _hlsUrl!.isNotEmpty) ? _hlsUrl : null),
             title: _streamTitle,
           );
         } catch (e) {
@@ -1163,7 +1163,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       // RTMPS/OBS: nothing tells us the encoder started publishing except
       // Cloudflare's live-input status, so poll it and stamp the start the
       // first time media is genuinely arriving.
-      if (_whipUrl == null && _rtmpUrl != null) {
+      if (!_broadcastStarted && _inputId != null && _pc == null) {
         unawaited(_detectRtmpsBroadcast(id));
       }
     }
@@ -1178,7 +1178,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   Future<void> _detectRtmpsBroadcast(String streamId) async {
     if (_broadcastStarted || _inputId == null) return;
     final state = await UnifiedStreamService(Supabase.instance.client)
-        .getLiveInputState(_inputId!);
+        .getLiveInputState(_inputId!, streamId: streamId);
     if (!mounted || state == null) return;
 
     if (state.connected) {

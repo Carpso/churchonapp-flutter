@@ -31,11 +31,5 @@ policy = "per_worker"
 [analytics]
 enabled = false
 
-[vector]
-enabled = false
-max_buckets = 10
-max_indexes = 5
-[vector.buckets]
-
 [experimental]
 orioledb_version = ""

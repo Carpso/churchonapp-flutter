@@ -144,7 +144,12 @@ import 'package:church_on_app/features/transport/presentation/rider_onboarding_s
 import 'package:church_on_app/features/transport/presentation/driver_portal_screen.dart';
 import 'package:church_on_app/features/logistics/presentation/church_commute_screen.dart';
 import 'package:church_on_app/features/admin/presentation/financial_report_screen.dart';
-import 'package:church_on_app/features/admin/presentation/go_live_screen.dart';
+// NOTE: go_live_screen.dart is deliberately NOT imported. It is a dead screen
+// with zero call sites - the `/go-live` route redirects to `/live-studio`
+// instead (see below). Importing it was the only `flutter analyze` warning in
+// the project, and warnings are FATAL in the CI analyze gate, so a dead import
+// alone was breaking the pipeline. The file itself is kept untouched per the
+// do-not-delete rule.
 import 'package:church_on_app/features/admin/presentation/member_directory_screen.dart';
 import 'package:church_on_app/features/admin/presentation/platform_ad_screen.dart';
 import 'package:church_on_app/features/admin/presentation/radio_station_management_screen.dart';
@@ -238,7 +243,8 @@ import 'package:church_on_app/features/connect/presentation/communities_screen.d
 import 'package:church_on_app/features/connect/presentation/kingdom_klips_screen.dart';
 import 'package:church_on_app/features/connect/presentation/testimonies_screen.dart';
 import 'package:church_on_app/features/marketplace/presentation/post_product_screen.dart';
-import 'package:church_on_app/features/bible_study/data/bible_study_service.dart' show BibleStudy;
+import 'package:church_on_app/features/bible_study/data/bible_study_service.dart'
+    show BibleStudy;
 import 'package:church_on_app/core/providers/profile_provider.dart';
 
 class SplashCompletedNotifier extends Notifier<bool> {
@@ -264,9 +270,8 @@ final routerProvider = Provider<GoRouter>((ref) {
     // Without an errorBuilder GoRouter crashes; this catches those and
     // shows a brief loading screen while auth resolves and the redirect
     // fires to the correct destination.
-    errorBuilder: (context, state) => const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
-    ),
+    errorBuilder: (context, state) =>
+        const Scaffold(body: Center(child: CircularProgressIndicator())),
     redirect: (context, state) {
       // Public church websites â€” no splash, login or tenant required.
       // Shared links `churchonapp.com/church/<churchId>` and
@@ -326,14 +331,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           final redir = state.uri.queryParameters['redirect'];
           if (redir != null && redir.isNotEmpty) {
             final dec = Uri.decodeComponent(redir);
-            if (dec.startsWith('/')) return kIsWeb ? '/landing?redirect=${Uri.encodeComponent(dec)}' : '/login?redirect=${Uri.encodeComponent(dec)}';
+            if (dec.startsWith('/'))
+              return kIsWeb
+                  ? '/landing?redirect=${Uri.encodeComponent(dec)}'
+                  : '/login?redirect=${Uri.encodeComponent(dec)}';
           }
           return kIsWeb ? '/landing' : '/login';
         }
         final redir = state.uri.queryParameters['redirect'];
         if (redir != null && redir.isNotEmpty) {
           final dec = Uri.decodeComponent(redir);
-          if (dec.startsWith('/') && dec != '/splash' && dec != '/onboarding') return dec;
+          if (dec.startsWith('/') && dec != '/splash' && dec != '/onboarding')
+            return dec;
         }
         return tenant != null
             ? (tenant.isBookshop ? '/bookshop' : '/')
@@ -361,10 +370,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           state.uri.path != '/onboarding' &&
           !isLoggingIn &&
           !isSignUp &&
-           !isForgotPassword &&
-            state.uri.path != '/join' &&
-            state.uri.path != '/invite' &&
-            state.uri.path != '/auth/callback') {
+          !isForgotPassword &&
+          state.uri.path != '/join' &&
+          state.uri.path != '/invite' &&
+          state.uri.path != '/auth/callback') {
         // Preserve deep link so after tenant selection the user lands on the intended screen (not just /).
         final current = state.uri.toString();
         if (current != '/select-church' && current != '/') {
@@ -395,9 +404,9 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (loggedIn &&
           seenOnboarding &&
-           (isLoggingIn ||
-               isOAuthCallback ||
-               isLanding ||
+          (isLoggingIn ||
+              isOAuthCallback ||
+              isLanding ||
               state.uri.path == '/onboarding' ||
               isSelectingChurch)) {
         final redirect = state.uri.queryParameters['redirect'];
@@ -407,7 +416,9 @@ final routerProvider = Provider<GoRouter>((ref) {
             // After login/tenant selection, honor the original deep link.
             // If tenant still null and deep link needs tenant, let the
             // tenant-null guard above handle it on next cycle.
-            if (decoded == '/select-church' || decoded.startsWith('/select-church?')) return null;
+            if (decoded == '/select-church' ||
+                decoded.startsWith('/select-church?'))
+              return null;
             return decoded;
           }
         }
@@ -428,7 +439,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Subscription check for quiz + kids-zone routes
       if (tenant != null && tenant.isSubscriptionExpired) {
         final gatedPaths = ['/quiz', '/quiz/', '/kids-zone'];
-        if (gatedPaths.any((p) => state.uri.path == p || state.uri.path.startsWith(p))) {
+        if (gatedPaths.any(
+          (p) => state.uri.path == p || state.uri.path.startsWith(p),
+        )) {
           return '/';
         }
       }
@@ -437,7 +450,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       final path = state.uri.path;
       final profile = ref.read(profileProvider).value;
       if (profile == null &&
-          !['/login', '/signup', '/select-church', '/onboarding', '/splash', '/landing', '/register-church', '/forgot-password', '/join', '/invite'].contains(path)) {
+          ![
+            '/login',
+            '/signup',
+            '/select-church',
+            '/onboarding',
+            '/splash',
+            '/landing',
+            '/register-church',
+            '/forgot-password',
+            '/join',
+            '/invite',
+          ].contains(path)) {
         return null; // Profile loading or not required
       }
 
@@ -533,8 +557,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (route == '/ordination') {
           return user.isPastorOrHigher ||
               user.isLeadershipTeam ||
-              const ['bishop', 'apostle', 'prophet', 'general_secretary',
-                'general_treasurer', 'treasurer'].contains(user.role);
+              const [
+                'bishop',
+                'apostle',
+                'prophet',
+                'general_secretary',
+                'general_treasurer',
+                'treasurer',
+              ].contains(user.role);
         }
 
         // Branch licensing is granted by the PARENT organisation, so a branch
@@ -659,7 +689,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (profile != null && !hasAccess(path, profile)) {
-        debugPrint('Security Guard: Access denied for $path to role ${profile.role}');
+        debugPrint(
+          'Security Guard: Access denied for $path to role ${profile.role}',
+        );
         return '/';
       }
 
@@ -708,29 +740,29 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
-       GoRoute(
-         path: '/join',
-         builder: (context, state) {
-           final churchId = state.uri.queryParameters['church'];
-           final churchSlug = state.uri.queryParameters['slug'];
-           final inviteCode = state.uri.queryParameters['code'];
-           final referralCode = state.uri.queryParameters['ref'];
-           return JoinChurchScreen(
-             churchId: churchId,
-             churchSlug: churchSlug,
-             inviteCode: inviteCode,
-             referralCode: referralCode,
-           );
-         },
-       ),
-       GoRoute(
-         path: '/invite',
-         builder: (context, state) {
-           return const ChurchInviteScreen();
-         },
-       ),
-       GoRoute(
-         path: '/invite-church/:code',
+      GoRoute(
+        path: '/join',
+        builder: (context, state) {
+          final churchId = state.uri.queryParameters['church'];
+          final churchSlug = state.uri.queryParameters['slug'];
+          final inviteCode = state.uri.queryParameters['code'];
+          final referralCode = state.uri.queryParameters['ref'];
+          return JoinChurchScreen(
+            churchId: churchId,
+            churchSlug: churchSlug,
+            inviteCode: inviteCode,
+            referralCode: referralCode,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/invite',
+        builder: (context, state) {
+          return const ChurchInviteScreen();
+        },
+      ),
+      GoRoute(
+        path: '/invite-church/:code',
         builder: (context, state) {
           final code = state.pathParameters['code']!;
           return JoinChurchScreen(inviteCode: code);
@@ -1293,10 +1325,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/financial-report',
         builder: (context, state) => const FinancialReportScreen(),
       ),
-      GoRoute(
-        path: '/go-live',
-        builder: (context, state) => const GoLiveScreen(),
-      ),
+      GoRoute(path: '/go-live', redirect: (context, state) => '/live-studio'),
       GoRoute(
         path: '/member-directory',
         builder: (context, state) => const MemberDirectoryScreen(),
@@ -1423,9 +1452,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/payment-complete',
-        builder: (context, state) => PaymentCompleteScreen(
-          reference: state.uri.queryParameters['ref'],
-        ),
+        builder: (context, state) =>
+            PaymentCompleteScreen(reference: state.uri.queryParameters['ref']),
       ),
       GoRoute(
         path: '/communities',
@@ -1446,24 +1474,27 @@ final routerProvider = Provider<GoRouter>((ref) {
           return PostProductScreen(initialCategory: category);
         },
       ),
-      GoRoute(
-        path: '/bible',
-        builder: (context, state) => const BibleScreen(),
-      ),
+      GoRoute(path: '/bible', builder: (context, state) => const BibleScreen()),
       GoRoute(
         path: '/bible/:book/:chapter/:verse',
         builder: (context, state) {
           final book = state.pathParameters['book']!;
-          final chapter = int.tryParse(state.pathParameters['chapter'] ?? '1') ?? 1;
+          final chapter =
+              int.tryParse(state.pathParameters['chapter'] ?? '1') ?? 1;
           final verse = int.tryParse(state.pathParameters['verse'] ?? '1') ?? 1;
-          return BibleScreen(initialBook: book, initialChapter: chapter, initialVerse: verse);
+          return BibleScreen(
+            initialBook: book,
+            initialChapter: chapter,
+            initialVerse: verse,
+          );
         },
       ),
       GoRoute(
         path: '/bible/:book/:chapter',
         builder: (context, state) {
           final book = state.pathParameters['book']!;
-          final chapter = int.tryParse(state.pathParameters['chapter'] ?? '1') ?? 1;
+          final chapter =
+              int.tryParse(state.pathParameters['chapter'] ?? '1') ?? 1;
           return BibleScreen(initialBook: book, initialChapter: chapter);
         },
       ),
@@ -1471,7 +1502,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/bible/:book/:chapter/parallel',
         builder: (context, state) {
           final book = state.pathParameters['book']!;
-          final chapter = int.tryParse(state.pathParameters['chapter'] ?? '1') ?? 1;
+          final chapter =
+              int.tryParse(state.pathParameters['chapter'] ?? '1') ?? 1;
           return ParallelBibleScreen(book: book, chapter: chapter);
         },
       ),
@@ -1551,7 +1583,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           final map = extra is Map ? extra : const <String, dynamic>{};
           return QuizBracketScreen(
             tournamentId: tournamentId,
-            title: map['title']?.toString() ??
+            title:
+                map['title']?.toString() ??
                 state.uri.queryParameters['title'] ??
                 'Tournament',
             isHost: false,
@@ -1569,7 +1602,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             title: map['title']?.toString() ?? 'Tournament',
             isHost: map['isHost'] == true,
           );
-        },      ),
+        },
+      ),
       GoRoute(
         path: '/my-pledges',
         builder: (context, state) => const MyPledgesScreen(),
@@ -1652,7 +1686,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final article = state.extra as NewsArticle?;
               return NewsDetailScreen(
-                article: article ??
+                article:
+                    article ??
                     NewsArticle(
                       id: state.pathParameters['id'] ?? '',
                       title: 'Article',
@@ -1782,9 +1817,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/bible/verse-of-the-day/:date',
         builder: (context, state) {
           final raw = state.pathParameters['date'] ?? '';
-          return VerseOfTheDayScreen(
-            dateIso: raw.isEmpty ? null : raw,
-          );
+          return VerseOfTheDayScreen(dateIso: raw.isEmpty ? null : raw);
         },
       ),
       GoRoute(
@@ -1813,7 +1846,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final eventId = state.pathParameters['eventId']!;
           final eventTitle = state.uri.queryParameters['title'] ?? 'Event';
-          return EventTicketScannerScreen(eventId: eventId, eventTitle: eventTitle);
+          return EventTicketScannerScreen(
+            eventId: eventId,
+            eventTitle: eventTitle,
+          );
         },
       ),
       GoRoute(
@@ -1856,10 +1892,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/my-jobs',
         builder: (context, state) => const MyJobsScreen(),
       ),
-      GoRoute(
-        path: '/live',
-        redirect: (context, state) => '/live-streaming',
-      ),
+      GoRoute(path: '/live', redirect: (context, state) => '/live-streaming'),
       GoRoute(
         path: '/weather-alerts',
         builder: (context, state) => const WeatherAlertSettingsScreen(),
@@ -1880,7 +1913,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/network-stream-analytics',
-        builder: (context, state) => const StreamAnalyticsScreen(platform: true),
+        builder: (context, state) =>
+            const StreamAnalyticsScreen(platform: true),
       ),
       GoRoute(
         path: '/webview-analytics',
@@ -1968,10 +2002,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/worship-lyrics',
         builder: (context, state) => const WorshipLyricsScreen(),
       ),
-      GoRoute(
-        path: '/life-hub',
-        redirect: (context, state) => '/more-hub',
-      ),
+      GoRoute(path: '/life-hub', redirect: (context, state) => '/more-hub'),
       GoRoute(
         path: '/more-hub',
         builder: (context, state) => const MoreHubScreen(),
@@ -1980,10 +2011,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/fasting',
         builder: (context, state) => const FastingTrackerScreen(),
       ),
-      GoRoute(
-        path: '/radio',
-        builder: (context, state) => const RadioScreen(),
-      ),
+      GoRoute(path: '/radio', builder: (context, state) => const RadioScreen()),
       GoRoute(
         path: '/ride-scanner',
         builder: (context, state) => const CarpsoRideScannerScreen(),
@@ -2001,11 +2029,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               body: Center(child: Text('Missing destination coordinates')),
             );
           }
-          return MapNavigationScreen(
-            lat: lat,
-            lng: lng,
-            label: qp['label'],
-          );
+          return MapNavigationScreen(lat: lat, lng: lng, label: qp['label']);
         },
       ),
       GoRoute(

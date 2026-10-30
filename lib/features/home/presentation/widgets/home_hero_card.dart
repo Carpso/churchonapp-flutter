@@ -37,8 +37,9 @@ class HomeHeroCard extends ConsumerWidget {
         : null;
     final String? liveStreamId = activeRow?['id']?.toString();
     final String rowHls = activeRow?['hls_url']?.toString() ?? '';
+    final String rowPreview = activeRow?['preview_url']?.toString() ?? '';
     final String playbackUrl =
-        rowHls.isNotEmpty ? rowHls : (liveStatus?.streamUrl ?? '');
+        rowHls.isNotEmpty ? rowHls : (rowPreview.isNotEmpty ? rowPreview : (liveStatus?.streamUrl ?? ''));
     final String title = isLive
         ? (liveStatus?.title ?? "Live Service")
         : (tenant != null
@@ -176,7 +177,7 @@ class HomeHeroCard extends ConsumerWidget {
                     const Spacer(),
                     GestureDetector(
                       onTap: () {
-                        if (isLive && playbackUrl.isNotEmpty) {
+                        if (isLive) {
                           Navigator.push(
                             context,
                             MaterialPageRoute(

@@ -84,6 +84,9 @@ class WhepPlayback {
         renderer.srcObject = event.streams[0];
       }
     };
+    pc.onAddStream = (MediaStream stream) {
+      renderer.srcObject = stream;
+    };
 
     // Receive-only transceivers: we never publish from the viewer.
     await pc.addTransceiver(
@@ -111,7 +114,7 @@ class WhepPlayback {
       body: sdp,
     );
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw Exception('WHEP playback failed (${res.statusCode})');
+      throw Exception('WHEP playback failed (${res.statusCode}): ${res.body}');
     }
     final location = res.headers['location'];
     if (location != null && location.isNotEmpty) {

@@ -429,6 +429,19 @@ class UnifiedStreamService {
         })
         .eq('id', streamId);
 
+    // Clear church_live_status so home screen / indicator flips to offline immediately
+    if (stream['church_id'] != null) {
+      try {
+        await _client.from('church_live_status').upsert({
+          'church_id': stream['church_id'],
+          'is_live': false,
+          'updated_at': DateTime.now().toIso8601String(),
+        }, onConflict: 'church_id');
+      } catch (e) {
+        debugPrint('[Stream] Failed to clear church_live_status on end: $e');
+      }
+    }
+
     // Best-effort immediate R2 archive. Cloudflare usually needs a few minutes
     // to finalise the recording, so a 409 here is normal — the cron retries.
     // This MUST happen before the live input is touched, so the recording can
@@ -553,12 +566,16 @@ class UnifiedStreamService {
   ///
   /// Returns `null` on any failure so a transient error can never be mistaken
   /// for "the broadcaster stopped" (which would wrongly end the service).
-  Future<LiveInputState?> getLiveInputState(String cloudflareStreamId) async {
+  Future<LiveInputState?> getLiveInputState(String cloudflareStreamId, {String? streamId}) async {
     try {
       final token = _client.auth.currentSession?.accessToken;
       final res = await _client.functions.invoke(
         'cloudflare-stream',
-        body: {'action': 'refresh_live_input', 'input_id': cloudflareStreamId},
+        body: {
+          'action': 'refresh_live_input',
+          'input_id': cloudflareStreamId,
+          if (streamId != null && streamId.isNotEmpty) 'stream_id': streamId,
+        },
         headers: (token == null || token.isEmpty)
             ? null
             : {'Authorization': 'Bearer $token'},

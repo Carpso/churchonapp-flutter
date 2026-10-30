@@ -299,7 +299,7 @@ class LiveStreamService {
     required String message,
     String? replyToId,
   }) async {
-    await _client.from('stream_chat_messages').insert({
+    await _client.from('live_chat_messages').insert({
       'stream_id': streamId,
       'user_id': _client.auth.currentUser?.id,
       'content': message,
@@ -309,7 +309,7 @@ class LiveStreamService {
   /// Get live chat messages stream
   Stream<List<Map<String, dynamic>>> chatMessagesStream(String streamId) {
     return _client
-        .from('stream_chat_messages')
+        .from('live_chat_messages')
         .stream(primaryKey: ['id'])
         .eq('stream_id', streamId)
         .order('created_at')
