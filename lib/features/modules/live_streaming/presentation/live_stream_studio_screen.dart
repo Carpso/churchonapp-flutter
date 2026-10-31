@@ -100,6 +100,15 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   webrtc.MediaRecorder? _localRecorder;
   String? _localRecordingPath;
   bool _localRecording = false;
+
+  // ── Plan entitlement + capture options ──────────────────────────────────
+  // Every church gets a grant of trial streaming minutes (migration 20261260);
+  // an unpaid church that burns through it must subscribe to stream, upload
+  // replays, or capture in HD. Record-only capture stays free for everyone.
+  StreamingEntitlement? _entitlement;
+  bool _hd = false;
+  bool _recordOnlyMode = false;
+  bool _recordOnlyActive = false;
   String? _verseText;
   String? _verseRef;
   String? _logoUrl;
@@ -478,6 +487,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     // Retry any service recordings that failed to upload last time (the
     // network dropped after the service). Silent: debugPrint-only on activity.
     unawaited(ServiceRecordingUpload.retryPending());
+    unawaited(_loadEntitlement());
     _initPreview();
   }
 
@@ -615,16 +625,26 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   /// phone) has no meaningful facing mode, and passing both makes Android
   /// ignore the device and silently fall back to the phone's own lens - which is
   /// exactly the bug this picker exists to fix.
+  /// Fetches the church's streaming entitlement (trial minutes / plan gates).
+  /// Null on failure = fail-open in the UI; the DB triggers stay the hard gate.
+  Future<void> _loadEntitlement() async {
+    final tenantId = widget.tenantId ?? ref.read(profileProvider).value?.tenantId;
+    if (tenantId == null || tenantId.isEmpty) return;
+    final ent = await UnifiedStreamService(Supabase.instance.client)
+        .fetchStreamingEntitlement(tenantId);
+    if (!mounted) return;
+    setState(() => _entitlement = ent);
+  }
+
   Map<String, dynamic> _videoConstraint() {
-    // 360p (640x360 @ 20fps): a full 2-3 hour service at this size costs a
-    // fraction of the data, battery and heat of 720p - on the WHIP uplink AND
-    // on the local recording written to disk (the replay is only as good as it
-    // needs to be for a phone-watched sermon).
-    final base = <String, dynamic>{
-      'width': 640,
-      'height': 360,
-      'frameRate': 20,
-    };
+    // 360p (640x360 @ 20fps) is the DEFAULT for everyone: a full 2-3 hour
+    // service at this size costs a fraction of the data, battery and heat of
+    // 720p - on the WHIP uplink AND on the local recording written to disk.
+    // HD (720p) is an explicit opt-in reserved for churches on a paid plan.
+    final hd = _hd && (_entitlement?.canHd ?? false);
+    final base = hd
+        ? <String, dynamic>{'width': 1280, 'height': 720, 'frameRate': 24}
+        : <String, dynamic>{'width': 640, 'height': 360, 'frameRate': 20};
     final id = _selectedDeviceId;
     if (id != null && id.isNotEmpty) {
       return {...base, 'deviceId': id};
@@ -957,6 +977,78 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       ),
     );
     if (mounted) setState(() {});
+  }
+
+  /// RECORD ONLY: captures the service to this phone without going live.
+  ///
+  /// Works for EVERY church on every plan (owner decision: recording is free),
+  /// needs no Cloudflare Stream at all (the row is born 'ended' — nothing is
+  /// ever on air, so the creation gate for live/scheduled rows doesn't apply),
+  /// and therefore keeps working even while the Stream subscription is lapsed.
+  /// The replay uploads only when the plan allows it (trial minutes remaining
+  /// or is_paid) — until then the MP4 waits on the phone and uploads
+  /// automatically once the church subscribes.
+  Future<void> _startRecordOnly() async {
+    final profile = ref.read(profileProvider).value;
+    final tenantId = widget.tenantId ?? profile?.tenantId;
+    if (tenantId == null || tenantId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Select a church first")));
+      }
+      return;
+    }
+    if (_localStream == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Camera not ready")));
+      }
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _streamStatus = "CONNECTING";
+    });
+
+    try {
+      final client = Supabase.instance.client;
+      final inserted = await client.from('live_streams').insert({
+        'church_id': tenantId,
+        'title': _streamTitle.trim().isNotEmpty
+            ? _streamTitle.trim()
+            : 'Recorded Service — ${DateFormat('d MMM yyyy').format(DateTime.now())}',
+        if (_streamDescription.trim().isNotEmpty)
+          'description': _streamDescription.trim(),
+        'status': 'ended',
+        'ingest_mode': 'local',
+        'started_at': DateTime.now().toIso8601String(),
+      }).select('id').single();
+      _streamId = inserted['id'] as String;
+      _activeTenantId = tenantId;
+
+      await _startLocalRecording();
+
+      if (mounted) {
+        setState(() {
+          _isLive = true;
+          _recordOnlyActive = true;
+          _streamStatus = "RECORDING";
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Record-only start error: $e");
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _streamStatus = "OFFLINE";
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Could not start recording: ${_friendlyEndError(e)}"),
+        ));
+      }
+    }
   }
 
   Future<void> _startStream() async {
@@ -1538,6 +1630,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     // stream id is captured now because the cleanup below nulls it.
     final recordedPath = await _stopLocalRecording();
     final streamId = _streamId;
+    final wasRecordOnly = _recordOnlyActive;
 
     try {
       // Tear down WebRTC ingest first so the input stops receiving media.
@@ -1552,13 +1645,26 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
 
       final tenantId = widget.tenantId ?? ref.read(profileProvider).value?.tenantId;
 
-      if (_streamId != null) {
+      if (!wasRecordOnly && _streamId != null) {
         final client = Supabase.instance.client;
         final unifiedService = UnifiedStreamService(client);
         await unifiedService.endStream(_streamId!);
       }
 
-      if (tenantId != null) {
+      if (wasRecordOnly) {
+        // Record-only session: stamp the real end time on the row. The
+        // archive_url update below fires the recorded-service trigger; no
+        // live-status or CF teardown ever applied to this session.
+        if (streamId != null && streamId.isNotEmpty) {
+          try {
+            await Supabase.instance.client.from('live_streams').update({
+              'ended_at': DateTime.now().toIso8601String(),
+            }).eq('id', streamId);
+          } catch (e) {
+            debugPrint('Record-only end stamp failed (non-fatal): $e');
+          }
+        }
+      } else if (tenantId != null) {
         // Isolate the live-status write: it is a best-effort "viewers can stop
         // seeing the LIVE pill" cleanup and must never block the local teardown.
         try {
@@ -1574,13 +1680,14 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       // a snackbar, not a spinner; failures are queued and retried the next
       // time the studio opens.
       if (recordedPath != null && streamId != null && streamId.isNotEmpty) {
-        _beginRecordingUpload(streamId, recordedPath);
+        await _beginRecordingUpload(streamId, recordedPath);
       }
 
       if (mounted) {
         final peak = _peakViewers;
         setState(() {
           _isLive = false;
+          _recordOnlyActive = false;
           _streamStatus = "OFFLINE";
           _streamId = null;
           _rtmpUrl = null;
@@ -1693,7 +1800,36 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
 
   /// Kicks off the background upload of a finished service recording and keeps
   /// the leader informed without blocking them on a spinner.
-  void _beginRecordingUpload(String streamId, String recordedPath) {
+  ///
+  /// PLAN GATE: uploading a replay requires an active plan or trial minutes
+  /// remaining (owner decision). Without one, the recording stays on the phone
+  /// and the pending queue uploads it automatically once the church
+  /// subscribes — nothing is ever lost.
+  Future<void> _beginRecordingUpload(String streamId, String recordedPath) async {
+    // Re-fetch at decision time: a long service may have crossed the trial
+    // boundary since the studio opened. Fall back to the cached value.
+    final tenantId = _activeTenantId ??
+        widget.tenantId ??
+        ref.read(profileProvider).value?.tenantId;
+    StreamingEntitlement? ent;
+    if (tenantId != null && tenantId.isNotEmpty) {
+      ent = await UnifiedStreamService(Supabase.instance.client)
+          .fetchStreamingEntitlement(tenantId);
+    }
+    ent ??= _entitlement;
+    if (ent != null && ent.configured && !ent.canUpload) {
+      await ServiceRecordingUpload.enqueuePending(streamId, recordedPath);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Recording saved on this phone. Uploading replays needs an active plan — it will upload automatically once your church subscribes.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 6),
+        ));
+      }
+      return;
+    }
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Saving the service recording for replay…'),
@@ -2162,20 +2298,96 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
             subtitle: _useQuickCamera
                 ? 'Any RTMP app on this phone, or OBS. Recorded + replay.'
                 : 'Tap to stream with OBS / any RTMP app',
-            selected: !_useQuickCamera,
-            onTap: () => setState(() => _useQuickCamera = false),
+            selected: !_useQuickCamera && !_recordOnlyMode,
+            onTap: () => setState(() {
+              _useQuickCamera = false;
+              _recordOnlyMode = false;
+            }),
           ),
           const SizedBox(height: 6),
           _ingestOption(
             context,
             icon: LucideIcons.camera,
-            title: 'Quick camera  ·  NOT RECORDED',
-            subtitle: 'Stream from this phone camera. Live only, no replay.',
-            selected: _useQuickCamera,
-            warn: true,
-            onTap: () => setState(() => _useQuickCamera = true),
+            title: 'Quick camera  ·  LIVE + REPLAY',
+            subtitle: _useQuickCamera
+                ? 'Live from this phone. Also recorded on the phone for replay.'
+                : 'Tap to stream from this phone camera',
+            selected: _useQuickCamera && !_recordOnlyMode,
+            onTap: () => setState(() {
+              _useQuickCamera = true;
+              _recordOnlyMode = false;
+            }),
+          ),
+          const SizedBox(height: 6),
+          _ingestOption(
+            context,
+            icon: LucideIcons.disc,
+            title: 'Record only  ·  NO LIVE',
+            subtitle: _recordOnlyMode
+                ? 'Captures the service to this phone. No viewers, works offline.'
+                : 'Just record the service — no live viewers needed',
+            selected: _recordOnlyMode,
+            onTap: () => setState(() {
+              _recordOnlyMode = true;
+              _useQuickCamera = false;
+            }),
+          ),
+          const SizedBox(height: 10),
+          // Capture quality: 360p is the default for everyone (battery + data
+          // over a long service); HD is a paid-only option.
+          Row(
+            children: [
+              Text(
+                'QUALITY',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(width: 10),
+              _qualityChip(context, label: 'SD 360p', hd: false),
+              const SizedBox(width: 6),
+              _qualityChip(context, label: 'HD 720p', hd: true),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  /// One capture-quality pill. HD is locked (with a "(plan)" hint) for
+  /// churches not on a paid plan — 360p is everyone's default.
+  Widget _qualityChip(
+    BuildContext context, {
+    required String label,
+    required bool hd,
+  }) {
+    final hdAllowed = _entitlement?.canHd ?? false;
+    final selected = hd ? (_hd && hdAllowed) : !_hd;
+    final locked = hd && !hdAllowed;
+    const accent = Color(0xFFFFDA03);
+    return GestureDetector(
+      onTap: locked ? null : () => setState(() => _hd = hd),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? accent.withValues(alpha: 0.18) : Colors.black26,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? accent : Colors.white24,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          locked ? '$label (plan)' : label,
+          style: TextStyle(
+            color: locked ? Colors.white38 : (selected ? accent : Colors.white70),
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
@@ -2290,7 +2502,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       return const Scaffold(backgroundColor: Colors.black, body: Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))));
     }
 
-    final statusColor = _streamStatus == "LIVE"
+    final statusColor = _streamStatus == "LIVE" || _streamStatus == "RECORDING"
         ? Colors.red
         : _streamStatus == "CONNECTING" ||
                 _streamStatus == "RECONNECTING" ||
@@ -2434,7 +2646,9 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                             child: Row(
                               children: [
                                 Icon(
-                                  _streamStatus == "LIVE" ? LucideIcons.radioReceiver : LucideIcons.videoOff,
+                                  (_streamStatus == "LIVE" || _streamStatus == "RECORDING")
+                                      ? LucideIcons.radioReceiver
+                                      : LucideIcons.videoOff,
                                   color: Colors.white, size: 16,
                                 ),
                                 const SizedBox(width: 5),
@@ -2681,7 +2895,11 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                       if (_isLive)
                         _bottomAction(LucideIcons.monitor, "Projector", _openProjector),
                       GestureDetector(
-                        onTap: _isLoading ? null : (_isLive ? _stopStream : _startStream),
+                        onTap: _isLoading
+              ? null
+              : (_isLive
+                  ? _stopStream
+                  : (_recordOnlyMode ? _startRecordOnly : _startStream)),
                         child: Container(
                           width: 80,
                           height: 80,

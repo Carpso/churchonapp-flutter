@@ -240,3 +240,49 @@ single thing to verify with a real OBS session.
 | Per-church link | `/church/:churchId/live`, `/live-streaming?tenant=` |
 | Archive/replay | `auto_archive_stream_recordings()` cron, `sync_recorded_service` |
 | Pipeline test | `supabase/tests/stream_notification_pipeline_test.sql` |
+
+---
+
+## 8. Plans, trial minutes & record-only (migration 20261260)
+
+**The commercial model (owner decision, 2026-10-31):**
+
+| Capability | Free (trial minutes left) | Free (trial exhausted) | Paid plan (`is_paid=true`) |
+|---|---|---|---|
+| Record a service locally (no live) | ✅ free, forever | ✅ free, forever | ✅ |
+| Live stream (WHIP / RTMPS) | ✅ consumes trial minutes | ❌ blocked | ✅ |
+| Upload the replay (R2) | ✅ | ❌ blocked (queued on phone) | ✅ |
+| HD (720p) capture | ❌ (360p only) | ❌ | ✅ opt-in |
+
+**Mechanics:**
+
+- Every `church_stream_config` row gets `trial_minutes_total` (default from
+  `platform_settings.streaming_trial_minutes`, currently **120**) and
+  `trial_minutes_used`. Minutes-based, NOT time-based — the grant is consumed
+  by broadcasting, never by calendar days.
+- Consumption is **server-side**: the `trg_live_streams_consume_minutes`
+  trigger fires when a row transitions to `ended`/`archived`, computes minutes
+  from `broadcast_started_at` (confirmed media only — armed rows that never
+  broadcast are free), records weekly usage, and draws down the trial for
+  unpaid churches. This replaces the client's self-reported minutes.
+- Hard gates (the client checks are UX only):
+  - `trg_live_streams_gate_creation` — rejects `live`/`scheduled` inserts with
+    `trial_minutes_exhausted` when the grant is spent.
+  - `trg_live_streams_gate_upload` — rejects first-time `archive_url` writes
+    with `upload_requires_plan`.
+  - Both allow service/cron writes (`auth.uid() IS NULL`) and platform staff.
+- **Record-only sessions** (`ingest_mode='local'`) are born as `ended` rows,
+  never go on air, consume nothing, and work even while the Cloudflare Stream
+  subscription is lapsed. The replay uploads when the plan allows.
+- The studio fetches entitlement via `get_streaming_entitlement(p_church_id)`
+  (member-of-church or platform staff only). Client fetches fail OPEN; the
+  triggers are the real gate.
+
+**To flip a church to a paid plan after its subscription is confirmed:**
+
+```sql
+UPDATE church_stream_config SET is_paid = true WHERE church_id = '<church-uuid>';
+```
+
+**To change the trial grant for FUTURE churches** (existing grants are
+unaffected): edit `platform_settings` key `streaming_trial_minutes`.

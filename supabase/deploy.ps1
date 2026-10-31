@@ -396,6 +396,7 @@ $migrations = @(
 "20261257_church_collection_fallback.sql"
 "20261258_sync_church_live_status_on_end.sql"
 "20261259_streaming_broadcast_detection.sql"
+"20261260_streaming_trial_minutes.sql"
       )
 
 

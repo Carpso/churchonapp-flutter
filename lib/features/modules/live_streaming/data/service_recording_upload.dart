@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:universal_io/io.dart';
 
 import 'package:church_on_app/core/services/r2_service.dart';
+import 'package:church_on_app/core/services/unified_stream_service.dart';
 
 /// Uploads a locally recorded service (the phone-camera / WHIP path) to R2 and
 /// points the stream row's `archive_url` at it.
@@ -33,6 +34,25 @@ class ServiceRecordingUpload {
     required String streamId,
     required String filePath,
   }) async {
+    // PLAN GATE (mirrors trg_live_streams_gate_upload server-side): without a
+    // paid plan or remaining trial minutes, do not even START the upload — the
+    // DB would reject the archive_url write, and every retry would burn the
+    // bandwidth for a replay that cannot be published. The pending queue holds
+    // the recording until the church subscribes, then this gate opens.
+    try {
+      final ent = await UnifiedStreamService(Supabase.instance.client)
+          .fetchStreamingEntitlement(streamId);
+      if (ent != null && ent.configured && !ent.canUpload) {
+        debugPrint(
+            'Service recording upload gated: no active plan/trial minutes for $streamId');
+        return null;
+      }
+    } catch (_) {
+      // Entitlement unavailable: proceed (fail-open). The DB trigger remains
+      // the hard gate; a failed archive_url write surfaces as a normal failure
+      // and re-queues.
+    }
+
     try {
       final f = File(filePath);
       if (!await f.exists() || await f.length() == 0) {

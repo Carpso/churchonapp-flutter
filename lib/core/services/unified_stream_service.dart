@@ -103,7 +103,41 @@ class UnifiedStreamService {
       );
     }
 
+    // Trial-minutes gate: every church gets a grant of streaming minutes; an
+    // unpaid church that has burned through it must subscribe. This client
+    // check is UX only - the DB trigger (trg_live_streams_gate_creation) is
+    // the hard gate and rejects the insert server-side regardless.
+    final ent = await fetchStreamingEntitlement(tenantId);
+    if (ent != null && ent.configured && !ent.canStream) {
+      return StreamGateResult(
+        allowed: false,
+        reason: 'Your trial streaming minutes are used up '
+            '(${ent.trialUsed}/${ent.trialTotal} min). Subscribe to a plan to keep streaming.',
+        upgradeRequired: true,
+      );
+    }
+
     return StreamGateResult(allowed: true);
+  }
+
+  /// Fetches this church's streaming entitlement: trial-minute grant state and
+  /// what the current plan allows (stream / upload / HD).
+  ///
+  /// Returns null on any failure — the client gate fails OPEN because the DB
+  /// triggers are the hard gate; a transient network error must never lock a
+  /// paying church out of its own studio.
+  Future<StreamingEntitlement?> fetchStreamingEntitlement(String tenantId) async {
+    try {
+      final res = await _client
+          .rpc('get_streaming_entitlement', params: {'p_church_id': tenantId});
+      if (res is Map) {
+        return StreamingEntitlement.fromMap(Map<String, dynamic>.from(res));
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[Stream] Entitlement fetch failed (fail-open): $e');
+      return null;
+    }
   }
 
   /// Keep a live row fresh so the concurrent gate never expires an active
@@ -196,17 +230,29 @@ class UnifiedStreamService {
 
     final config = await getStreamingConfig(tenantId);
 
-    // Cloudflare Stream is the ONLY backend — every `church_stream_config` row
-    // is `cloudflare`. The legacy self-hosted MediaMTX path (stream.churchonapp
-    // .com) was dead code and has been removed.
-    return _createCloudflareStream(
-      config: config,
-      title: title,
-      description: description,
-      scheduledAt: scheduledAt,
-      audioOnly: audioOnly,
-      thumbnailUrl: thumbnailUrl,
-    );
+    try {
+      return await _createCloudflareStream(
+        config: config,
+        title: title,
+        description: description,
+        scheduledAt: scheduledAt,
+        audioOnly: audioOnly,
+        thumbnailUrl: thumbnailUrl,
+      );
+    } catch (e) {
+      // The DB creation gate is the hard stop: if the client gate somehow
+      // missed it (stale entitlement, race), translate the server rejection
+      // into the same friendly limit error.
+      if (e.toString().contains('trial_minutes_exhausted')) {
+        throw StreamLimitException(
+            'Your trial streaming minutes are used up. Subscribe to a plan to keep streaming.');
+      }
+      if (e.toString().contains('upload_requires_plan')) {
+        throw StreamLimitException(
+            'Uploading replays needs an active plan. Subscribe to upload recordings.');
+      }
+      rethrow;
+    }
   }
 
   /// Create stream via Cloudflare Stream API
@@ -393,21 +439,11 @@ class UnifiedStreamService {
     final isCloudflare = stream['streaming_backend'] == 'cloudflare' &&
         stream['cloudflare_stream_id'] != null;
 
-    // Record streaming minutes for usage tracking / cost control.
-    if (stream['started_at'] != null && stream['church_id'] != null) {
-      try {
-        final startedAt = DateTime.parse(stream['started_at']);
-        final minutes = DateTime.now().difference(startedAt).inMinutes;
-        if (minutes > 0) {
-          await _client.rpc('record_streaming_minutes', params: {
-            'p_church_id': stream['church_id'],
-            'p_minutes': minutes,
-          });
-        }
-      } catch (e) {
-        debugPrint('[Stream] Failed to record streaming minutes: $e');
-      }
-    }
+    // Minutes are consumed SERVER-SIDE by the trg_live_streams_consume_minutes
+    // trigger when the row transitions to ended/archived — computed from
+    // broadcast_started_at on every end path (leader STOP, cron expiry, the
+    // archive sweep). The client used to self-report minutes here, which was
+    // both untrusted and wrong whenever the app died mid-broadcast.
 
     // Update status FIRST so the nightly `auto_archive_stream_recordings()`
     // sweep will pick this row up even if the immediate archive below fails.
@@ -922,6 +958,55 @@ class StreamLimitException implements Exception {
 
   @override
   String toString() => 'StreamLimitException: $message';
+}
+
+/// What this church's current plan allows in the streaming studio.
+///
+/// Backed by the `get_streaming_entitlement` RPC (migration 20261260):
+/// every church gets a grant of trial streaming minutes; an unpaid church
+/// that has burned through the grant must subscribe to stream, upload
+/// replays, or capture in HD. Record-only capture stays free.
+class StreamingEntitlement {
+  final bool configured;
+  final bool isPaid;
+  final int trialTotal;
+  final int trialUsed;
+  final int weeklyUsed;
+  final int weeklyMax;
+
+  StreamingEntitlement({
+    required this.configured,
+    required this.isPaid,
+    required this.trialTotal,
+    required this.trialUsed,
+    this.weeklyUsed = 0,
+    this.weeklyMax = 0,
+  });
+
+  int get trialRemaining =>
+      (trialTotal - trialUsed) > 0 ? (trialTotal - trialUsed) : 0;
+
+  /// Live streaming: paid, or trial minutes still on the meter.
+  bool get canStream => isPaid || trialRemaining > 0;
+
+  /// Uploading a replay: same gate as streaming (owner decision — trial
+  /// minutes include uploads; once exhausted, a plan is required).
+  bool get canUpload => canStream;
+
+  /// HD (720p) capture is a paid-only option; everyone else records 360p.
+  bool get canHd => isPaid;
+
+  factory StreamingEntitlement.fromMap(Map<String, dynamic> map) {
+    int asInt(dynamic v) => (v is num) ? v.toInt() : int.tryParse('$v') ?? 0;
+    return StreamingEntitlement(
+      configured: map['configured'] == true,
+      isPaid: map['is_paid'] == true,
+      trialTotal: asInt(map['trial_total']),
+      trialUsed: asInt(map['trial_used']),
+      weeklyUsed: asInt(map['weekly_used']),
+      weeklyMax: asInt(map['weekly_max']),
+    );
+  }
 }
 
 final unifiedStreamServiceProvider = Provider<UnifiedStreamService>((ref) {
