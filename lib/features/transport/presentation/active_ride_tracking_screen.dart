@@ -283,6 +283,8 @@ class _ActiveRideTrackingScreenState
           ChurchMap(
             center: _followDriver ? _driverPos : widget.startPos,
             zoom: 16,
+            // Nearby services (fuel, food, ATMs) around the trip.
+            showNearby: true,
             markers: [
               // User pickup marker with label
               Marker(

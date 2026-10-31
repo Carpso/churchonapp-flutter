@@ -6,14 +6,25 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../config/app_constants.dart';
 import '../services/nearby_places_service.dart';
 
-/// Bottom-sheet "Nearby" search. Returns the tapped [NearbyPlace] or null.
-Future<NearbyPlace?> showNearbyPlacesSheet(
+/// Everything the Nearby sheet wants to hand back to the map: the tapped
+/// place (null if the user dismissed) AND the full result list, so the map
+/// can render every nearby service as a pin — not just the one tapped.
+class NearbySheetResult {
+  final NearbyPlace? selected;
+  final List<NearbyPlace> results;
+
+  const NearbySheetResult({this.selected, this.results = const []});
+}
+
+/// Bottom-sheet "Nearby" search. Returns the tapped place plus the full
+/// result list, or null when dismissed.
+Future<NearbySheetResult?> showNearbyPlacesSheet(
   BuildContext context, {
   required LatLng center,
   double radiusMeters = 2000,
   NearbyCategory? initialCategory,
 }) {
-  return showModalBottomSheet<NearbyPlace>(
+  return showModalBottomSheet<NearbySheetResult>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
@@ -173,7 +184,7 @@ class _NearbyPlacesSheetState extends ConsumerState<_NearbyPlacesSheet> {
                   child: ListView.builder(
                     padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                     itemCount: places.length,
-                    itemBuilder: (context, i) => _tile(theme, places[i]),
+                    itemBuilder: (context, i) => _tile(theme, places[i], places),
                   ),
                 );
               },
@@ -209,12 +220,12 @@ class _NearbyPlacesSheetState extends ConsumerState<_NearbyPlacesSheet> {
     );
   }
 
-  Widget _tile(ThemeData theme, NearbyPlace place) {
+  Widget _tile(ThemeData theme, NearbyPlace place, List<NearbyPlace> places) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => Navigator.of(context).pop(place),
+        onTap: () => Navigator.of(context).pop(NearbySheetResult(selected: place, results: places)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           child: Row(

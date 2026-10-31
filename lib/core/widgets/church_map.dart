@@ -237,6 +237,9 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
   bool _trafficVisible = false;
   TrafficBounds? _trafficBounds;
   NearbyPlace? _nearbySelected;
+  // Full result list from the last Nearby search — rendered as category-
+  // coloured teardrop pins on the map, not just the one tapped place.
+  List<NearbyPlace> _nearbyResults = const [];
   double _zoom = 14;
   final TextEditingController _searchCtrl = TextEditingController();
 
@@ -727,12 +730,17 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
       center = widget.center;
     }
 
-    final place = await showNearbyPlacesSheet(context, center: center);
-    if (place == null || !mounted) return;
+    final result = await showNearbyPlacesSheet(context, center: center);
+    if (result == null || !mounted) return;
 
+    final place = result.selected;
+    if (place == null) return;
     final point = LatLng(place.lat, place.lng);
     _controller.move(point, 16);
     setState(() {
+      // Every result becomes a pin on the map; the tapped one gets the
+      // name/address card with directions.
+      _nearbyResults = result.results;
       _nearbySelected = place;
       if (widget.showPin) _pinPosition = point;
     });
@@ -1096,6 +1104,10 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
                 MarkerLayer(
                   markers: [
                     ..._clusterMarkers(widget.markers, theme),
+                      // Nearby services (fuel, hotels, ATMs, restaurants...)
+                      // from the last Nearby search - one branded mini-pin
+                      // per result, colour-coded by category.
+                      ..._nearbyResults.map(_buildPoiMarker),
                     // Saved places layer (own places + tenant landmarks).
                     ...places
                         .where((p) => p.lat != null && p.lng != null)
@@ -1353,6 +1365,78 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
   }
 
   /// Marker for a saved place (own place or tenant landmark).
+  /// Brand colour per nearby-service category — the pins read like a legend
+  /// at a glance (fuel amber, food red, money green, health pink, stay
+  /// violet, civic blue…).
+  Color _poiColor(NearbyCategory c) {
+    switch (c) {
+      case NearbyCategory.fuel:
+        return const Color(0xFFF59E0B);
+      case NearbyCategory.restaurant:
+        return const Color(0xFFEF4444);
+      case NearbyCategory.cafe:
+        return const Color(0xFF92400E);
+      case NearbyCategory.bank:
+        return const Color(0xFF059669);
+      case NearbyCategory.hospital:
+        return const Color(0xFFE11D48);
+      case NearbyCategory.supermarket:
+        return const Color(0xFF10B981);
+      case NearbyCategory.hotel:
+        return const Color(0xFF7C3AED);
+      case NearbyCategory.church:
+        return AppConstants.sunflowerYellow;
+      case NearbyCategory.police:
+        return const Color(0xFF2563EB);
+      case NearbyCategory.busStation:
+        return const Color(0xFF0D9488);
+      case NearbyCategory.parking:
+        return const Color(0xFF475569);
+    }
+  }
+
+  /// A nearby-service result as a compact teardrop pin: circular head in the
+  /// category colour with the category icon, tapered tail — the same pin
+  /// language as the church markers, so POIs feel first-class on the map.
+  /// Tapping selects the place (name/address card + directions).
+  Marker _buildPoiMarker(NearbyPlace place) {
+    final color = _poiColor(place.category);
+    final onColor = place.category == NearbyCategory.church
+        ? AppConstants.primaryDark
+        : Colors.white;
+    return Marker(
+      point: LatLng(place.lat, place.lng),
+      width: 40,
+      height: 52,
+      child: GestureDetector(
+        onTap: () {
+          setState(() => _nearbySelected = place);
+          _mapController.move(LatLng(place.lat, place.lng),
+              _mapController.camera.zoom);
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 34,
+              height: 44,
+              child: CustomPaint(
+                painter: _TeardropPinPainter(color),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Icon(nearbyCategoryIcon(place.category),
+                        size: 14, color: onColor),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Marker _buildPlaceMarker(SavedPlace place, ThemeData theme) {
     final isLandmark = place.placeType == 'landmark' || place.isPublic;
     // Brand sunflower for personal places; dark for tenant landmarks so they

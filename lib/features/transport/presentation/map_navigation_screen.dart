@@ -203,6 +203,8 @@ class _MapNavigationScreenState extends ConsumerState<MapNavigationScreen> {
             zoom: _me != null ? 16 : 13,
             showPin: false,
             showSavePin: false,
+            // Nearby services (fuel, food, ATMs) along the journey.
+            showNearby: true,
             markers: [
               // Destination flag.
               Marker(
