@@ -192,6 +192,37 @@ serve(async (req) => {
         // live but whose stored hls_url is empty/temporarily unavailable).
         return await refreshLiveInput(supabaseAuth, params, corsHeaders);
       }
+      case "detect_broadcast": {
+        // SERVER-SIDE broadcast detection.
+        //
+        // WHY THIS EXISTS: `broadcast_started_at` was only ever stamped by the
+        // Flutter studio, from a timer. With RTMPS as the default ingest the
+        // leader is by definition NOT in the app while broadcasting - they are
+        // in OBS/Wirecast, so the app is backgrounded and its timers stop. The
+        // result, measured across the whole history of the feature: 0 of 42
+        // streams ever got a stamp, so `church_live_status.is_live` never
+        // flipped, no "Service is live now" push was ever sent, and the
+        // congregation was never told. The feature's entire notification design
+        // was inert.
+        //
+        // This action asks CLOUDFLARE whether the input is actually receiving
+        // media and stamps the row server-side, so it works no matter what the
+        // leader's phone is doing. It is called by the pg_cron
+        // `stream-broadcast-detect` job every minute (migration 20261259) and is
+        // safe to call for any live row: it is a no-op when the input is not
+        // connected or the row is already stamped.
+        //
+        // Auth: cron only (x-cron-secret). A member must never be able to force
+        // another church's row into the "broadcasting" state.
+        const secret = Deno.env.get("CRON_SECRET");
+        const provided = req.headers.get("x-cron-secret");
+        if (!secret || provided !== secret) {
+          return new Response(JSON.stringify({ error: "cron only" }), {
+            status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return await detectBroadcast(supabaseAuth, corsHeaders);
+      }
       case "get_analytics": {
         if (params?.input_id && !(await ownsStream(supabaseAuth, params.input_id, profile))) {
           return new Response(JSON.stringify({ error: "Not authorized to view analytics" }), {
@@ -761,7 +792,114 @@ async function refreshLiveInput(supabase: any, params: any, corsHeaders: Record<
     recording_hls: recordingHls,
     cloudflare_video_id: patch.cloudflare_video_id ?? row?.cloudflare_video_id ?? null,
   });
-}
+
+  /**
+   * SERVER-SIDE broadcast detection (see the `detect_broadcast` action above
+   * for why this exists).
+   *
+   * Finds every row that claims to be live but has never been confirmed as
+   * actually receiving media, asks Cloudflare about each, and stamps the ones
+   * that are genuinely connected. Deliberately bounded so one cron tick cannot
+   * fan out into an unbounded number of metered partner API calls.
+   *
+   * Also flips `church_live_status.is_live` here, because that flip previously
+   * depended on the same client-side stamp that never happened - which is why
+   * members never saw a church go live.
+   */
+  }
+
+  async function detectBroadcast(supabase: any, corsHeaders: Record<string, string>) {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+
+    if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_API_TOKEN) {
+      return json({ success: false, reason: "cloudflare_not_configured", checked: 0 });
+    }
+
+    const { data: candidates, error } = await supabase
+      .from("live_streams")
+      .select("id, church_id, cloudflare_stream_id, broadcast_started_at, title")
+      .eq("status", "live")
+      .is("broadcast_started_at", null)
+      .not("cloudflare_stream_id", "is", null)
+      .order("created_at", { ascending: true })
+      .limit(25);
+
+    if (error) {
+      console.error(`[detectBroadcast] candidate query failed: ${error.message}`);
+      return json({ success: false, reason: "query_failed", error: error.message }, 500);
+    }
+    if (!candidates?.length) return json({ success: true, checked: 0, started: 0 });
+
+    let started = 0;
+    const results: Array<Record<string, unknown>> = [];
+    for (const row of candidates) {
+      let connected = false;
+      let inputStatus: string | null = null;
+      try {
+        const res = await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${row.cloudflare_stream_id}`,
+          { headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` } },
+        );
+        const payload = await res.json();
+        if (res.ok && payload?.success) {
+          const norm = normaliseLiveInput(payload.result);
+          connected = !!norm.connected;
+          inputStatus = norm.input_status;
+        } else {
+          inputStatus = `http_${res.status}`;
+        }
+      } catch (err) {
+        console.error(`[detectBroadcast] ${row.id} provider call failed: ${err}`);
+        results.push({ id: row.id, error: String(err) });
+        continue;
+      }
+
+      if (!connected) {
+        results.push({ id: row.id, connected: false, input_status: inputStatus });
+        continue;
+      }
+
+      const now = new Date().toISOString();
+      const { error: updErr } = await supabase
+        .from("live_streams")
+        .update({ broadcast_started_at: now, updated_at: now })
+        .eq("id", row.id)
+        .is("broadcast_started_at", null);
+      if (updErr) {
+        console.error(`[detectBroadcast] ${row.id} stamp failed: ${updErr.message}`);
+        results.push({ id: row.id, connected: true, stamped: false, error: updErr.message });
+        continue;
+      }
+
+      // Flip the member-facing LIVE indicator. `church_live_status.church_id`
+      // is an FK to churches(id) while `live_streams.church_id` may hold a
+      // tenancy id for legacy rows, so an upsert failure here must not lose the
+      // stamp we just wrote.
+      try {
+        await supabase.from("church_live_status").upsert(
+          {
+            church_id: row.church_id,
+            is_live: true,
+            stream_url: row.cloudflare_stream_id,
+            updated_at: now,
+          },
+          { onConflict: "church_id" },
+        );
+      } catch (e) {
+        console.error(`[detectBroadcast] ${row.id} live-status upsert failed: ${e}`);
+      }
+
+      started++;
+      results.push({ id: row.id, connected: true, stamped: true });
+    }
+
+    console.log(`[detectBroadcast] checked=${candidates.length} started=${started}`);
+    return json({ success: true, checked: candidates.length, started, results });
+  }
+
 // raw video bytes to `uploadURL`; Cloudflare then transcodes to adaptive HLS.
 async function createDirectUpload(params: any, corsHeaders: Record<string, string>) {
   // Cloudflare caps VOD duration per upload. Default 4h, hard-capped at 8h.

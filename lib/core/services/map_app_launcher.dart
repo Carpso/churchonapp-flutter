@@ -1,3 +1,4 @@
+import 'package:church_on_app/core/services/deep_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
@@ -37,15 +38,13 @@ class MapAppLauncher {
   static const _label = 'Church On App';
 
   /// Canonical shareable link (our own domain, for copy/paste into messages).
+  ///
+  /// Built through [DeepLinks] rather than a literal host: the production
+  /// domain is currently lapsed, so links must resolve to the Pages alias until
+  /// it is renewed. A hardcoded host here would keep handing out dead links.
   static String shareableLink(LatLng destination, {String? label}) {
-    final q = Uri(
-      queryParameters: {
-        'lat': destination.latitude.toString(),
-        'lng': destination.longitude.toString(),
-        if (label != null && label.isNotEmpty) 'name': label,
-      },
-    );
-    return 'https://churchonapp.com/navigate?$q';
+    return DeepLinks.navigate(destination.latitude, destination.longitude,
+        label: label);
   }
 
   /// The navigation apps we know how to hand a destination to.
@@ -75,9 +74,8 @@ class MapAppLauncher {
       ),
       MapAppTarget(
         name: 'Our own navigation',
-        uri: Uri.parse(
-            'https://churchonapp.com/navigate?lat=$lat&lng=$lng'
-            '${name.isEmpty ? '' : '&name=${Uri.encodeComponent(name)}'}'),
+        // Built through DeepLinks so it tracks whichever host is live.
+        uri: Uri.parse(DeepLinks.navigate(lat, lng, label: name)),
         icon: LucideIcons.church,
       ),
     ];

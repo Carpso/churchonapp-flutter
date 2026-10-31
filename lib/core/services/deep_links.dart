@@ -10,8 +10,39 @@ import 'package:share_plus/share_plus.dart';
 class DeepLinks {
   const DeepLinks._();
 
-  static const String host = 'churchonapp.com';
-  static String get _base => 'https://$host';
+  /// Host the production site is *meant* to live on. NOT used to build links
+  /// while the registration is lapsed.
+  ///
+  /// `churchonapp.com` expired and every `*.churchonapp.com` subdomain stopped
+  /// resolving (2026-10-31) - including `maps.` (map tiles), `media.` (R2
+  /// images/sermons/builds) and `supabase.` (Edge Functions). Keeping this as a
+  /// constant rather than deleting it means restoring the domain is a one-line
+  /// change back to [host] plus re-pointing the `.env` map/media URLs.
+  static const String productionHost = 'churchonapp.com';
+
+  /// Host links are built against TODAY.
+  ///
+  /// Cloudflare Pages gives the project a stable alias that survives every
+  /// deployment, so it is the correct "generic dev domain": deep links, share
+  /// sheets and the web SPA all keep working without owning a domain.
+  static const String host = 'churchonapp.pages.dev';
+
+  /// Every host the deep-link router should treat as ours.
+  ///
+  /// [productionHost] is still accepted so that links shared BEFORE the domain
+  /// lapsed keep resolving once it is renewed, and so a cached web view is not
+  /// stranded.
+  static const List<String> knownHosts = [
+    host,
+    productionHost,
+    'www.churchonapp.com',
+    'app.churchonapp.com',
+  ];
+
+  /// Public base URL for anything outside this class that needs to link home.
+  static String get base => 'https://$host';
+
+  static String get _base => base;
 
   // ── Content ──────────────────────────────────────────────────────────────
 

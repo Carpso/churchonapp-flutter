@@ -29,6 +29,7 @@ import 'core/widgets/notification_permission_dialog.dart';
 import 'core/providers/global_state_provider.dart';
 import 'core/providers/fcm_provider.dart';
 import 'core/routes/app_router.dart';
+import 'core/services/deep_links.dart';
 import 'package:audio_service/audio_service.dart';
 import 'core/services/audio_handler.dart';
 import 'core/providers/audio_provider.dart' as ap;
@@ -185,7 +186,7 @@ Future<void> _initBackgroundServices() async {
         showScreenshotShareSheet(
           ctx,
           shareText: 'Church On App',
-          shareUrl: 'https://churchonapp.com',
+          shareUrl: DeepLinks.base,
         );
       });
     } catch (e) {
@@ -286,18 +287,12 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
     }
 
     if (uri.scheme == 'churchonapp' ||
-        uri.host == 'churchonapp.com' ||
-        uri.host == 'www.churchonapp.com' ||
-        uri.host == 'app.churchonapp.com') {
+        DeepLinks.knownHosts.contains(uri.host)) {
       // `churchonapp://pay?ref=...` parses "pay" as the HOST with an EMPTY
       // path (authority component), so a plain uri.path would route to "/".
       // Treat a non-domain host as the first path segment.
       var path = uri.path;
-      const domainHosts = {
-        'churchonapp.com',
-        'www.churchonapp.com',
-        'app.churchonapp.com',
-      };
+      final domainHosts = DeepLinks.knownHosts.toSet();
       if (path.isEmpty) {
         path = (uri.host.isNotEmpty && !domainHosts.contains(uri.host))
             ? '/${uri.host}'

@@ -80,12 +80,22 @@ class Env {
   // Edge Function environment (Deno.env.get). Never add them here: any value
   // in this file that is bundled as an asset ships inside every release APK/AAB.
 
+  // The custom host `supabase.churchonapp.com` stopped resolving when the
+  // domain registration lapsed, so the fallback is the project's own Supabase
+  // URL - which is what SUPABASE_URL already points at and what every other
+  // Edge call in the app uses. Once the domain is renewed, setting
+  // LIPILA_WEBHOOK_URL in .env restores the pretty host without a code change.
   static String get lipilaWebhookUrl =>
       dotenv.env['LIPILA_WEBHOOK_URL'] ??
-      'https://supabase.churchonapp.com/functions/v1/lipila-webhook';
+      '$supabaseBase/functions/v1/lipila-webhook';
   static String get lipilaPayoutWebhookUrl =>
       dotenv.env['LIPILA_PAYOUT_WEBHOOK_URL'] ??
-      'https://supabase.churchonapp.com/functions/v1/lipila-webhook';
+      '$supabaseBase/functions/v1/lipila-webhook';
+
+  /// Base for Edge Function URLs built from configuration rather than a
+  /// hardcoded vanity host. Trailing slash stripped so concatenation is safe.
+  static String get supabaseBase =>
+      (dotenv.env['SUPABASE_URL'] ?? '').replaceAll(RegExp(r'/+$'), '');
 
   static String get coaTreasuryPhone => dotenv.env['COA_TREASURY_PHONE'] ?? '2609776847775';
   static String get coaMoMoNumber => dotenv.env['COA_MOMO_NUMBER'] ?? '0976847775';
