@@ -55,17 +55,20 @@ class MiniPlayerBar extends ConsumerWidget {
                     context.push('/radio');
                   }
                 },
-                child: Container(
-                  height: 56,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(
-                        color: theme.dividerColor.withValues(alpha: 0.3),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      height: 56,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(
+                            color: theme.dividerColor.withValues(alpha: 0.3),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  child: Row(
+                      child: Row(
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
@@ -121,6 +124,33 @@ class MiniPlayerBar extends ConsumerWidget {
                       ),
                     ],
                   ),
+                ),
+                    // Slim playback progress: the in-feed "continue listening"
+                    // card was removed as a duplicate of this bar, so the
+                    // progress affordance lives here app-wide instead.
+                    StreamBuilder<Duration>(
+                      stream: handler.positionStream,
+                      builder: (context, snap) {
+                        final dur =
+                            handler.mediaItem.valueOrNull?.duration ??
+                                Duration.zero;
+                        final pos = snap.data ?? Duration.zero;
+                        final value = dur.inMilliseconds > 0
+                            ? (pos.inMilliseconds / dur.inMilliseconds)
+                                .clamp(0.0, 1.0)
+                            : 0.0;
+                        return LinearProgressIndicator(
+                          value: value,
+                          minHeight: 2,
+                          backgroundColor:
+                              theme.dividerColor.withValues(alpha: 0.25),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            theme.colorScheme.primary,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
             );

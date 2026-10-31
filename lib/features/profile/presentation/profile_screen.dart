@@ -79,7 +79,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
               ),
             );
           }
-          return CustomScrollView(
+          return RefreshIndicator(
+            onRefresh: () async {
+              // In-place refresh (never resets the header to a loading state)
+              // plus the data behind the wallet / faith cards.
+              ref.invalidate(canCollectDailyProvider);
+              ref.invalidate(myQuizRankProvider);
+              ref.invalidate(spiritualPredictionProvider);
+              await ref.read(profileProvider.notifier).refresh();
+            },
+            child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
               _buildAppBar(context, ref, profile, tenant),
@@ -112,6 +121,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with AutomaticKee
                 ),
               ),
             ],
+            ),
           );
         },
         loading: () => Center(child: CircularProgressIndicator(color: Theme.of(context).primaryColor)),

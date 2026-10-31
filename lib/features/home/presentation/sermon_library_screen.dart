@@ -33,6 +33,9 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
+  // Distinguishes "the church has no sermons" from "the load failed" — an
+  // offline user must see a RETRY, never a misleading "No sermons yet".
+  bool _loadError = false;
   int _offset = 0;
   static const int _limit = 10;
 
@@ -57,15 +60,26 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
 
   Future<void> _loadSermons() async {
     final service = ref.read(sermonServiceProvider);
-    final batch = await service.fetchLatestSermons(
-      category: _selectedCategory == "All" ? null : _selectedCategory,
-    );
-    if (mounted) {
-      setState(() {
-        _sermons = batch;
-        _hasMore = batch.length >= _limit;
-        _isLoading = false;
-      });
+    try {
+      final batch = await service.fetchLatestSermons(
+        category: _selectedCategory == "All" ? null : _selectedCategory,
+      );
+      if (mounted) {
+        setState(() {
+          _sermons = batch;
+          _hasMore = batch.length >= _limit;
+          _isLoading = false;
+          _loadError = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Sermon library load failed: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _loadError = true;
+        });
+      }
     }
   }
 
@@ -160,6 +174,46 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> with 
                         ),
                       ],
                     ),
+                  ),
+                )
+              : (_loadError && _sermons.isEmpty)
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(LucideIcons.wifiOff,
+                          size: 64,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.25)),
+                      const SizedBox(height: 16),
+                      Text("Couldn't load sermons",
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.7),
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      Text('Check your connection and try again',
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.5),
+                              fontSize: 13)),
+                      const SizedBox(height: 18),
+                      FilledButton.icon(
+                        onPressed: () {
+                          setState(() => _isLoading = true);
+                          _loadSermons();
+                        },
+                        icon: const Icon(LucideIcons.refreshCw, size: 16),
+                        label: const Text('RETRY'),
+                      ),
+                    ],
                   ),
                 )
               : _sermons.isEmpty

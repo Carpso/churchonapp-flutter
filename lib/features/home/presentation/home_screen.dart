@@ -12,7 +12,6 @@ import 'package:church_on_app/core/services/smart_prefetch_service.dart';
 import 'package:church_on_app/core/services/offline_cache_service.dart';
 import 'package:church_on_app/core/widgets/live_stream_indicator.dart';
 import 'package:church_on_app/core/widgets/feature_lock.dart';
-import 'package:church_on_app/core/widgets/global_media_player.dart';
 import 'package:church_on_app/core/widgets/onboarding_quick_start.dart';
 import 'package:church_on_app/core/widgets/kael_explain_sheet.dart';
 import 'package:church_on_app/features/connect/presentation/create_social_post_screen.dart';
@@ -378,141 +377,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildContinueListening() {
-    return ValueListenableBuilder<GlobalMediaState>(
-      valueListenable: globalMediaPlayerController.state,
-      builder: (context, m, _) {
-        if (m.title.isEmpty) return const SizedBox.shrink();
-        final progress = m.duration.inMilliseconds == 0
-            ? 0.0
-            : (m.position.inMilliseconds / m.duration.inMilliseconds).clamp(
-                0.0,
-                1.0,
-              );
-        return Container(
-          padding: const EdgeInsets.fromLTRB(14, 10, 8, 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A2E),
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 12,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFDA03),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      LucideIcons.music,
-                      color: Colors.black,
-                      size: 16,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "NOW PLAYING",
-                          style: TextStyle(
-                            color: Color(0xFFFFDA03),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          m.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (m.subtitle.isNotEmpty)
-                          Text(
-                            m.subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 11,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () =>
-                        globalMediaPlayerController.skipBackward(),
-                    icon: const Icon(
-                      LucideIcons.skipBack,
-                      color: Colors.white70,
-                      size: 20,
-                    ),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  GestureDetector(
-                    onTap: () => globalMediaPlayerController.togglePlayPause(),
-                    child: Container(
-                      padding: const EdgeInsets.all(9),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFFDA03),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        m.isPlaying
-                            ? LucideIcons.pause
-                            : LucideIcons.play,
-                        color: Colors.black,
-                        size: 18,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () =>
-                        globalMediaPlayerController.skipForward(),
-                    icon: const Icon(
-                      LucideIcons.skipForward,
-                      color: Colors.white70,
-                      size: 20,
-                    ),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: LinearProgressIndicator(
-                  value: progress.toDouble(),
-                  minHeight: 3,
-                  backgroundColor: Colors.white12,
-                  valueColor: const AlwaysStoppedAnimation(
-                    Color(0xFFFFDA03),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -572,8 +436,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           ),
                           const SizedBox(height: 30),
                           const HomeGreetingHeader(),
-                          const SizedBox(height: 16),
-                          _buildContinueListening(),
                           const SizedBox(height: 20),
                           const HomeDailyVerse(),
                           const SizedBox(height: 20),

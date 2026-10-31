@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -1102,7 +1103,12 @@ final messenger = ScaffoldMessenger.of(context);
           const SizedBox(height: 10),
           TextFormField(
             controller: _amountController,
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            // Digits and at most one 2-decimal fraction — blocks paste-in
+            // garbage and double dots on the numeric keyboard.
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+            ],
             onChanged: (v) => setState(() {}),
             validator: (v) {
               if (v == null || v.trim().isEmpty) return 'Required';
