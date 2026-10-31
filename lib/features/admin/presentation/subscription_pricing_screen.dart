@@ -36,6 +36,7 @@ class _SubscriptionPricingScreenState extends ConsumerState<SubscriptionPricingS
   ];
 
   final _featureFields = [
+    {'key': 'streaming_trial_minutes', 'label': 'Streaming Trial Minutes', 'default': '60'},
     {'key': 'coins_daily_open_reward', 'label': 'Daily Open Coins', 'default': '25'},
     {'key': 'coins_streak_bonus_per_day', 'label': 'Streak Bonus per Day', 'default': '50'},
     {'key': 'coins_attendance_reward', 'label': 'Attendance Coins', 'default': '50'},

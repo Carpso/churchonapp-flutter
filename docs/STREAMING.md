@@ -257,7 +257,7 @@ single thing to verify with a real OBS session.
 **Mechanics:**
 
 - Every `church_stream_config` row gets `trial_minutes_total` (default from
-  `platform_settings.streaming_trial_minutes`, currently **120**) and
+  `platform_settings.streaming_trial_minutes`, currently **60** (cost control, 20261031 migration)) and
   `trial_minutes_used`. Minutes-based, NOT time-based — the grant is consumed
   by broadcasting, never by calendar days.
 - Consumption is **server-side**: the `trg_live_streams_consume_minutes`
@@ -284,5 +284,12 @@ single thing to verify with a real OBS session.
 UPDATE church_stream_config SET is_paid = true WHERE church_id = '<church-uuid>';
 ```
 
-**To change the trial grant for FUTURE churches** (existing grants are
-unaffected): edit `platform_settings` key `streaming_trial_minutes`.
+**Storage cost control:** after a successful R2 archive the Edge function
+DELETES the Cloudflare copy (`archiveRecording`), so RTMPS recordings stop
+consuming the $5/1,000-minute storage bucket — the $5/month subscription
+suffices for ~100 trial churches. Delivery (viewers × minutes) is the only
+real trial cost: a 60-minute grant with a handful of viewers costs cents.
+
+**To change the trial grant for FUTURE churches**: edit `platform_settings`
+key `streaming_trial_minutes` (also editable in the admin Subscription
+Pricing screen). Existing unused grants were backfilled to 60.

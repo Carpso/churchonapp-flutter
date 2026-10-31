@@ -1296,6 +1296,23 @@ async function archiveRecording(
         .eq("id", row.id);
     }
 
+    // COST CONTROL: the R2 master is now the permanent copy — delete the
+    // Cloudflare copy so the recording stops consuming Stream storage
+    // ($5/month per 1,000 stored minutes). Without this, every RTMPS service
+    // permanently eats the storage bucket and the $5 subscription overflows.
+    // Best-effort and non-fatal: a failed deletion never fails the archive
+    // (playback prefers the R2 master via playable_recording_url; a leftover
+    // CF copy can be deleted manually from the dashboard).
+    try {
+      await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/${videoId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` },
+        },
+      );
+    } catch (_) {}
+
     return json({ success: true, archive_url: archiveUrl, video_id: videoId });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
