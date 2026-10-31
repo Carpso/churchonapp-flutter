@@ -187,52 +187,34 @@ class EventService {
     return result;
   }
 
-  Future<void> registerForEvent(String eventId) async {
-    final user = _client.auth.currentUser;
-    if (user == null) throw Exception("Please login to register");
+    Future<void> registerForEvent(String eventId) async {
+      final user = _client.auth.currentUser;
+      if (user == null) throw Exception("Please login to register");
 
-    try {
-      // Check if already registered
-      final existing = await _client
-          .from('event_registrations')
-          .select('id')
-          .eq('event_id', eventId)
-          .eq('user_id', user.id)
-          .maybeSingle();
+      try {
+        // ATOMIC registration via the register_for_event RPC (20261265): the
+        // already-registered guard, the insert, the attendee_count increment
+        // and the confirmation notification all happen server-side in one
+        // transaction. The old client flow read attendee_count then wrote
+        // count+1 in two round trips - concurrent registrations lost counts.
+        final res = await _client.rpc('register_for_event',
+            params: {'p_event_id': eventId});
+        final data =
+            res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{};
+        if (data['registered'] != true) {
+          throw Exception(
+              data['error']?.toString() ?? 'Registration failed. Try again.');
+        }
 
-      if (existing != null) {
-        throw Exception("You are already registered for this event.");
+        _ref.invalidate(myTicketsStreamProvider);
+      } catch (e) {
+        if (e.toString().contains('22023')) {
+          throw Exception("Registration failed: Invalid user session or profile role missing.");
+        }
+        rethrow;
       }
-
-      await _client.from('event_registrations').insert({
-        'event_id': eventId,
-        'user_id': user.id,
-      });
-
-      // Update attendee count
-      final res = await _client.from('events').select('attendee_count, title, tenant_id').eq('id', eventId).single();
-      final current = res['attendee_count'] ?? 0;
-      await _client.from('events').update({'attendee_count': current + 1}).eq('id', eventId);
-
-      // Notify user about registration
-      final title = res['title'] ?? 'Event';
-      await _client.from('notifications').insert({
-        'user_id': user.id,
-        'tenant_id': res['tenant_id'],
-        'title': 'Registered: $title',
-        'body': 'You have successfully registered for $title.',
-        'type': 'event',
-        'reference_id': eventId,
-      });
-
-      _ref.invalidate(myTicketsStreamProvider);
-    } catch (e) {
-      if (e.toString().contains('22023')) {
-        throw Exception("Registration failed: Invalid user session or profile role missing.");
-      }
-      rethrow;
     }
-  }
+  
 
   Stream<List<ChurchEvent>> getMyTicketsStream() {
     final user = _client.auth.currentUser;
