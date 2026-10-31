@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:church_on_app/features/modules/bible_quiz/data/quiz_hosting_service.dart';
+import 'package:church_on_app/features/modules/bible_quiz/data/pvp_service.dart';
 
 /// Bracket / spectator view for a hosted tournament.
 ///
@@ -32,10 +34,12 @@ class _QuizBracketScreenState extends ConsumerState<QuizBracketScreen> {
   Timer? _heartbeat;
   int _viewers = 0;
   final Map<String, String> _names = {};  bool _busy = false;
+  String? _uid;
 
   @override
   void initState() {
     super.initState();
+    _uid = Supabase.instance.client.auth.currentUser?.id;
     _tick();
     _heartbeat = Timer.periodic(const Duration(seconds: 30), (_) => _tick());
   }
@@ -190,16 +194,43 @@ class _QuizBracketScreenState extends ConsumerState<QuizBracketScreen> {
           const SizedBox(height: 6),
           _playerRow(theme, _name(m.awayUserId), m.awayScore,
               winner: m.winnerUserId != null && m.winnerUserId == m.awayUserId),
-          if (!isBye && widget.isHost && m.status != 'completed') ...[
+          if (!isBye && m.status != 'completed') ...[
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _busy ? null : () => _record(m),
-                icon: const Icon(LucideIcons.pencil, size: 16),
-                label: const Text('RECORD RESULT'),
+            // PLAY: a participant turns the slot into a real zero-wager PvP
+            // match (or rejoins the one already created) and both players go
+            // to the arena — the result auto-records server-side on completion.
+            if (_isMine(m) && m.matchId == null)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _busy ? null : () => _playMatch(m),
+                  icon: const Icon(LucideIcons.play, size: 16),
+                  label: const Text('PLAY MATCH',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              )
+            else if (_isMine(m) && m.matchId != null && m.status == 'playing')
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _busy ? null : () => _playMatch(m),
+                  icon: const Icon(LucideIcons.play, size: 16),
+                  label: const Text('OPEN ARENA',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
               ),
-            ),
+            // Host fallback: hand-enter a result (e.g. a player forfeited).
+            if (widget.isHost) ...[
+              if (_isMine(m)) const SizedBox(height: 6),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _busy ? null : () => _record(m),
+                  icon: const Icon(LucideIcons.pencil, size: 16),
+                  label: const Text('RECORD RESULT'),
+                ),
+              ),
+            ],
           ],
         ],
       ),
@@ -226,6 +257,64 @@ class _QuizBracketScreenState extends ConsumerState<QuizBracketScreen> {
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
       ],
     );
+  }
+
+  bool _isMine(QuizTournamentMatch m) =>
+      _uid != null && (m.homeUserId == _uid || m.awayUserId == _uid);
+
+  /// PLAY / OPEN ARENA: creates the PvP match for this bracket slot on first
+  /// tap (server-validated), notifies the opponent, and takes both players to
+  /// the existing arena. On return the bracket is refreshed — the server
+  /// trigger has already recorded the result and advanced the winner.
+  Future<void> _playMatch(QuizTournamentMatch m) async {
+    setState(() => _busy = true);
+    try {
+      var matchId = m.matchId ?? '';
+      if (matchId.isEmpty) {
+        matchId =
+            await ref.read(quizHostingServiceProvider).startBracketMatch(m.id);
+        // Push the opponent (mirrors the PvP invite push; the deep link opens
+        // the existing /quiz/invite/<id> handler which lands them in the arena).
+        final oppId = m.homeUserId == _uid ? m.awayUserId : m.homeUserId;
+        if (oppId != null) {
+          try {
+            await Supabase.instance.client.functions.invoke(
+              'push-notifications',
+              body: {
+                'userId': oppId,
+                'title': 'Tournament Match!',
+                'body': 'Your ${widget.title} match is ready. Tap to play!',
+                'data': {
+                  'type': 'pvp_invite',
+                  'reference_id': matchId,
+                  'match_id': matchId,
+                },
+              },
+            );
+          } catch (_) {}
+        }
+      }
+      final pvp = await ref.read(pvpServiceProvider).getMatchById(matchId);
+      if (!mounted) return;
+      if (pvp == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Match not found — pull to refresh the bracket.')));
+        return;
+      }
+      await context.push('/quiz/arena', extra: {
+        'mode': 'Invite',
+        'pvpMatch': pvp,
+      });
+      // Back from the arena: the trigger recorded the result — refresh.
+      if (mounted) ref.invalidate(quizBracketProvider(widget.tournamentId));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not start: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _record(QuizTournamentMatch m) async {

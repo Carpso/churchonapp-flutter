@@ -190,6 +190,10 @@ class QuizTournamentMatch {
   final int? awayScore;
   final String? winnerUserId;
   final String status;
+  /// The live PvP match backing this slot (set by `start_bracket_match`).
+  /// Null until a player taps PLAY; the arena result auto-records via the
+  /// trg_pvp_matches_bracket_sync trigger.
+  final String? matchId;
 
   const QuizTournamentMatch({
     required this.id,
@@ -201,6 +205,7 @@ class QuizTournamentMatch {
     this.awayScore,
     this.winnerUserId,
     this.status = 'pending',
+    this.matchId,
   });
 
   factory QuizTournamentMatch.fromMap(Map<String, dynamic> m) =>
@@ -214,6 +219,7 @@ class QuizTournamentMatch {
         awayScore: (m['away_score'] as num?)?.toInt(),
         winnerUserId: m['winner_user_id']?.toString(),
         status: (m['status'] ?? 'pending').toString(),
+        matchId: m['match_id']?.toString(),
       );
 }
 
@@ -463,6 +469,24 @@ class QuizHostingService {
       'p_home_score': homeScore,
       'p_away_score': awayScore,
     });
+  }
+
+  /// Turns a pending bracket slot into a real zero-wager PvP match (server
+  /// validates the caller is one of the two players or the host) and returns
+  /// the PvP match id. The opponent gets an in-app notification whose deep
+  /// link opens the existing invite handler; when the arena match completes,
+  /// the trg_pvp_matches_bracket_sync trigger auto-records the bracket result
+  /// and advances the winner.
+  Future<String> startBracketMatch(String bracketMatchId) async {
+    final res = await _client.rpc('start_bracket_match',
+        params: {'p_bracket_match_id': bracketMatchId});
+    final data =
+        res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{};
+    if (data['success'] != true || data['match_id'] == null) {
+      throw Exception(
+          data['error']?.toString() ?? 'Could not start the bracket match');
+    }
+    return data['match_id'].toString();
   }
 
   Future<bool> joinTournament(String id) async {

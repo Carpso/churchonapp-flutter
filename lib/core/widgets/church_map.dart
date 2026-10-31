@@ -30,12 +30,16 @@ import 'app_image.dart';
 /// The package's `ProtomapsThemes.lightV4()` hardcodes protomaps.github.io for
 /// font glyphs and does not expose the URL, so we build the theme from our own
 /// copy of the v4 layer list (see `maps/protomaps_light_v4_layers.dart`) and
-/// point glyphs/sprites at assets served from OUR domain (`web/map-assets/…`,
-/// bundled into every web deploy). Map labels therefore need no third-party
-/// dependency and keep working offline once cached.
+/// point glyphs/sprites at assets in OUR OWN R2 bucket (the
+/// `church-on-app-maps` bucket's dev domain — the same origin that serves the
+/// PMTiles basemap). The lapsed `maps.churchonapp.com` host is DEAD: with
+/// glyphs unresolvable the vector layer could not draw labels and the map
+/// appeared to hang on its loading spinner forever.
 final _brandLightMapTheme = ProtomapsThemes(
-  glyphs: 'https://maps.churchonapp.com/map-assets/fonts/{fontstack}/{range}.pbf',
-  sprites: 'https://maps.churchonapp.com/map-assets/sprites/v4/light',
+  glyphs:
+      'https://pub-f3c14b5846eb4de487b036d5a6d6a760.r2.dev/map-assets/fonts/{fontstack}/{range}.pbf',
+  sprites:
+      'https://pub-f3c14b5846eb4de487b036d5a6d6a760.r2.dev/map-assets/sprites/v4/light',
 ).build([
   ...kProtomapsLightV4Layers,
   // Business/amenity POI labels appended after every stock layer so existing
@@ -48,8 +52,10 @@ final _brandLightMapTheme = ProtomapsThemes(
 /// renderer, but the local layer list + self-hosted asset URLs keep dark mode
 /// free of any `protomaps.github.io` dependency and offline-capable.
 final _brandDarkMapTheme = ProtomapsThemes(
-  glyphs: 'https://maps.churchonapp.com/map-assets/fonts/{fontstack}/{range}.pbf',
-  sprites: 'https://maps.churchonapp.com/map-assets/sprites/v4/dark',
+  glyphs:
+      'https://pub-f3c14b5846eb4de487b036d5a6d6a760.r2.dev/map-assets/fonts/{fontstack}/{range}.pbf',
+  sprites:
+      'https://pub-f3c14b5846eb4de487b036d5a6d6a760.r2.dev/map-assets/sprites/v4/dark',
 ).build([
   ...kProtomapsDarkV4Layers,
   businessPoiLayer(dark: true),
@@ -585,11 +591,16 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
 
   /// Opens a PMTiles archive, reusing the cached reader for the same URL.
   /// Failed opens are evicted so [retryBasemap] can try again.
+  ///
+  /// A 20s ceiling: on a bad connection an archive open could otherwise hang
+  /// indefinitely and the map would sit on its loading state forever — a
+  /// timeout surfaces the RETRY chip instead.
   static Future<PmTilesVectorTileProvider> _openProvider(String url) {
     final cached = _providerCache[url];
     if (cached != null) return cached;
 
-    final future = PmTilesVectorTileProvider.fromSource(url);
+    final future = PmTilesVectorTileProvider.fromSource(url)
+        .timeout(const Duration(seconds: 20));
     _providerCache[url] = future;
     future.then(
       (_) {},
@@ -911,6 +922,12 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
           future: _tileProvider,
           builder: (context, snapshot) {
             final vectorProvider = snapshot.data;
+            // While the archive is opening (a network round trip) show a
+            // LOADING state, not the failure UI — previously snapshot.data
+            // was null during the wait, so every map open flashed or stuck on
+            // "Map unavailable" and looked permanently broken on slow links.
+            final waiting = _tileProvider != null &&
+                snapshot.connectionState == ConnectionState.waiting;
             return FlutterMap(
               mapController: _controller,
               options: MapOptions(
@@ -985,10 +1002,12 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
                           fileCacheTtl: const Duration(days: 90),
                           fileCacheMaximumSizeInBytes: 250 * 1024 * 1024,
                         )
-                      : _VectorBasemapUnavailable(
-                          onRetry: () => _openResolved(
-                              forceBaseOnFailure: true),
-                        ),
+                      : (waiting
+                          ? const _BasemapLoading()
+                          : _VectorBasemapUnavailable(
+                              onRetry: () => _openResolved(
+                                  forceBaseOnFailure: true),
+                            )),
                 ),
                 ...widget.extraLayers,
                 // Live traffic — crowd-sourced speed segments (drawn semi-
@@ -1488,6 +1507,30 @@ Marker buildChurchMarker({
 /// blocked" placeholder tile, which rendered as an empty map with no place
 /// names while looking like a network error we could not see. Saying so
 /// plainly and offering a retry is far better than a silently broken map.
+/// Shown while the PMTiles archive is opening — a real loading state, so a
+/// slow connection reads as "loading" instead of the failure UI flashing.
+class _BasemapLoading extends StatelessWidget {
+  const _BasemapLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(strokeWidth: 2.5),
+            SizedBox(height: 14),
+            Text('Loading map…',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _VectorBasemapUnavailable extends StatelessWidget {
   final VoidCallback onRetry;
 

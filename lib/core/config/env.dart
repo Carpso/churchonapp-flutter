@@ -19,11 +19,19 @@ class Env {
   }
   
   /// Base (country/regional) PMTiles archive — z0–15, always matches.
-  static String get mapsZambiaUrl => dotenv.env['MAPS_ZAMBIA_URL'] ?? 'https://maps.churchonapp.com/region-zm-zw-mw-mz.pmtiles';
+  ///
+  /// The fallback is the R2 dev domain: the lapsed `maps.churchonapp.com`
+  /// custom host is DEAD (DNS 000), and a build without a real `.env` must
+  /// never fall back to it or the map hangs on its loading state forever.
+  static String get mapsZambiaUrl =>
+      dotenv.env['MAPS_ZAMBIA_URL'] ??
+      'https://pub-f3c14b5846eb4de487b036d5a6d6a760.r2.dev/region-zm-zw-mw-mz.pmtiles';
 
   /// Optional second country archive. Skipped automatically when it equals
   /// [mapsZambiaUrl] (the current regional build covers Zimbabwe too).
-  static String get mapsZimbabweUrl => dotenv.env['MAPS_ZIMBABWE_URL'] ?? 'https://maps.churchonapp.com/region-zm-zw-mw-mz.pmtiles';
+  static String get mapsZimbabweUrl =>
+      dotenv.env['MAPS_ZIMBABWE_URL'] ??
+      'https://pub-f3c14b5846eb4de487b036d5a6d6a760.r2.dev/region-zm-zw-mw-mz.pmtiles';
 
   /// Raw `MAPS_EXTRA_SOURCES` value: a JSON array of high-detail city archives
   /// the basemap switches to when the camera is inside one and zoomed in far
@@ -54,7 +62,8 @@ class Env {
     static String get rasterBaseUrl =>
         dotenv.env['MAPS_RASTER_BASE_URL'] ?? '';
   
-  static String get r2PublicDomain => dotenv.env['R2_PUBLIC_DOMAIN'] ?? 'media.churchonapp.com';
+  static String get r2PublicDomain =>
+      dotenv.env['R2_PUBLIC_DOMAIN'] ?? 'pub-21d3ac216bf140caa31c8dbd2241eb61.r2.dev';
 
   /// Turn-by-turn routing endpoint (OSRM-compatible).
   ///
