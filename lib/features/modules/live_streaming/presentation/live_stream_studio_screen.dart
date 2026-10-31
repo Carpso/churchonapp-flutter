@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,7 +9,9 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:universal_io/io.dart' show File;
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:church_on_app/core/providers/profile_provider.dart';
 import 'package:church_on_app/core/services/r2_service.dart';
@@ -18,6 +21,7 @@ import 'package:church_on_app/core/widgets/app_image.dart';
 import 'package:church_on_app/features/home/data/live_streaming_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/live_stream_overlay_service.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/live_stream_service.dart';
+import 'package:church_on_app/features/modules/live_streaming/data/service_recording_upload.dart';
 import 'package:church_on_app/features/modules/live_streaming/data/stream_analytics_service.dart';
 import 'package:church_on_app/features/modules/logistics/data/map_live_models.dart';
 import 'package:church_on_app/features/modules/logistics/data/map_live_service.dart';
@@ -85,6 +89,17 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   /// It remains available as an explicit choice for a small, informal
   /// broadcast, and the UI now says plainly that it is not recorded.
   bool _useQuickCamera = false;
+
+  // ── Local service recording (quick-camera path) ───────────────────────────
+  // Cloudflare never records a WHIP broadcast, so while the phone camera is
+  // publishing live we simultaneously write the SAME tracks to a local MP4
+  // (flutter_webrtc's MediaRecorder piggybacks on the WebRTC pipeline - no
+  // second camera open, no contention). After the service it is uploaded to R2
+  // and becomes the sermon replay. Best-effort: a recorder failure must never
+  // kill the live broadcast.
+  webrtc.MediaRecorder? _localRecorder;
+  String? _localRecordingPath;
+  bool _localRecording = false;
   String? _verseText;
   String? _verseRef;
   String? _logoUrl;
@@ -460,6 +475,9 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     // camera, so returning to the studio shows the existing broadcast instead of
     // a blank slate that invites tapping Start again.
     unawaited(_restoreActiveStream());
+    // Retry any service recordings that failed to upload last time (the
+    // network dropped after the service). Silent: debugPrint-only on activity.
+    unawaited(ServiceRecordingUpload.retryPending());
     _initPreview();
   }
 
@@ -598,10 +616,14 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
   /// ignore the device and silently fall back to the phone's own lens - which is
   /// exactly the bug this picker exists to fix.
   Map<String, dynamic> _videoConstraint() {
+    // 360p (640x360 @ 20fps): a full 2-3 hour service at this size costs a
+    // fraction of the data, battery and heat of 720p - on the WHIP uplink AND
+    // on the local recording written to disk (the replay is only as good as it
+    // needs to be for a phone-watched sermon).
     final base = <String, dynamic>{
-      'width': 1280,
-      'height': 720,
-      'frameRate': 24,
+      'width': 640,
+      'height': 360,
+      'frameRate': 20,
     };
     final id = _selectedDeviceId;
     if (id != null && id.isNotEmpty) {
@@ -1041,6 +1063,10 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
         // A connected WebRTC peer IS real media, so the service is on air now.
         // (For OBS the heartbeat stamps this instead, once Cloudflare reports
         // the input is actually receiving frames.)
+        // Start the local recording FIRST so the opening moments of the
+        // service are captured - Cloudflare never records a WHIP session, so
+        // this file is the only replay that will exist.
+        await _startLocalRecording();
         _broadcastStarted = true;
         await UnifiedStreamService(Supabase.instance.client)
             .markBroadcastStarted(result.streamId);
@@ -1507,6 +1533,12 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     setState(() => _isLoading = true);
     _stopHeartbeat();
 
+    // Stop the local recording FIRST, while the camera tracks are still alive
+    // - the MP4 is the only replay a quick-camera broadcast will have. The
+    // stream id is captured now because the cleanup below nulls it.
+    final recordedPath = await _stopLocalRecording();
+    final streamId = _streamId;
+
     try {
       // Tear down WebRTC ingest first so the input stops receiving media.
       if (_pc != null) {
@@ -1535,6 +1567,14 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
         } catch (e) {
           debugPrint('Failed to clear live status (non-fatal): $e');
         }
+      }
+
+      // Archive the local recording in the background: a full service at 360p
+      // is hundreds of MB and can take many minutes to upload. The leader gets
+      // a snackbar, not a spinner; failures are queued and retried the next
+      // time the studio opens.
+      if (recordedPath != null && streamId != null && streamId.isNotEmpty) {
+        _beginRecordingUpload(streamId, recordedPath);
       }
 
       if (mounted) {
@@ -1584,6 +1624,104 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
       return 'you appear to be offline. Check your connection and try again.';
     }
     return 'something went wrong. Please try again.';
+  }
+
+  /// Starts writing the WHIP broadcast's own tracks to a local MP4.
+  ///
+  /// flutter_webrtc's MediaRecorder consumes the SAME video track that is
+  /// published to Cloudflare (audio piggybacks on the WebRTC capture path), so
+  /// there is no second camera open and no contention with the live. This is
+  /// the only replay a quick-camera broadcast will ever have, because
+  /// Cloudflare does not record WHIP sessions.
+  Future<void> _startLocalRecording() async {
+    // The platform-channel recorder does not exist on web.
+    if (kIsWeb) return;
+    try {
+      webrtc.MediaStreamTrack? videoTrack;
+      for (final t in _localStream?.getVideoTracks() ?? const []) {
+        if (t.enabled) {
+          videoTrack = t;
+          break;
+        }
+      }
+      if (videoTrack == null) {
+        debugPrint('Local recording skipped: no live video track');
+        return;
+      }
+      final dir = await getTemporaryDirectory();
+      _localRecordingPath =
+          '${dir.path}/coa_service_${DateTime.now().millisecondsSinceEpoch}.mp4';
+      final recorder = webrtc.MediaRecorder();
+      await recorder.start(
+        _localRecordingPath!,
+        videoTrack: videoTrack,
+        audioChannel: webrtc.RecorderAudioChannel.INPUT,
+      );
+      _localRecorder = recorder;
+      if (mounted) setState(() => _localRecording = true);
+      debugPrint('Local service recording started: $_localRecordingPath');
+    } catch (e) {
+      // Best-effort: a recorder failure must never kill the live broadcast.
+      debugPrint('Local recording failed to start (non-fatal): $e');
+      _localRecorder = null;
+      _localRecordingPath = null;
+    }
+  }
+
+  /// Stops the local recording and returns the MP4 path, or null if nothing
+  /// usable was recorded. Safe to call from dispose (no setState when unmounted).
+  Future<String?> _stopLocalRecording() async {
+    final recorder = _localRecorder;
+    final path = _localRecordingPath;
+    _localRecorder = null;
+    _localRecordingPath = null;
+    if (mounted) setState(() => _localRecording = false);
+    if (recorder == null) return null;
+    try {
+      final stopped = await recorder.stop();
+      final p = (stopped is String && stopped.isNotEmpty) ? stopped : path;
+      if (p == null || p.isEmpty) return null;
+      final f = File(p);
+      if (await f.exists() && await f.length() > 0) return p;
+      debugPrint('Local recording file missing/empty: $p');
+      return null;
+    } catch (e) {
+      debugPrint('Local recording stop failed: $e');
+      return null;
+    }
+  }
+
+  /// Kicks off the background upload of a finished service recording and keeps
+  /// the leader informed without blocking them on a spinner.
+  void _beginRecordingUpload(String streamId, String recordedPath) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Saving the service recording for replay…'),
+        duration: Duration(seconds: 4),
+      ));
+    }
+    unawaited(() async {
+      final url = await ServiceRecordingUpload.uploadAndArchive(
+          streamId: streamId, filePath: recordedPath);
+      if (url != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Service recording saved — the replay will appear in Sermons.'),
+            backgroundColor: Colors.green,
+          ));
+        }
+      } else {
+        await ServiceRecordingUpload.enqueuePending(streamId, recordedPath);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Recording kept on this phone — it will upload automatically next time you open the studio.'),
+            backgroundColor: Colors.orange,
+          ));
+        }
+      }
+    }());
   }
 
   /// Push the verse / speaker / caption / ticker to every viewer in realtime.
@@ -1966,6 +2104,25 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     // So the row now simply stops heartbeating, and the server decides based on
     // real encoder state. The leader can re-attach (see _restoreActiveStream)
     // and stop it whenever they come back.
+    // Stop + archive the local recording BEFORE the tracks are torn down.
+    // Calling _stopLocalRecording() queues the recorder's stop() platform
+    // message synchronously (method-channel calls preserve invocation order),
+    // so it lands before the track stops two lines below. The upload chain
+    // runs detached: it touches no widget state, only the static uploader.
+    final pendingRecording = _localRecorder != null
+        ? _stopLocalRecording()
+        : Future<String?>.value();
+    final pendingStreamId = _streamId;
+    unawaited(pendingRecording.then((path) async {
+      if (path == null || pendingStreamId == null || pendingStreamId.isEmpty) {
+        return;
+      }
+      final url = await ServiceRecordingUpload.uploadAndArchive(
+          streamId: pendingStreamId, filePath: path);
+      if (url == null) {
+        await ServiceRecordingUpload.enqueuePending(pendingStreamId, path);
+      }
+    }));
     _titleController.dispose();
     _pc?.dispose();
     _renderer?.dispose();
@@ -2285,6 +2442,32 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
                               ],
                             ),
                           ),
+                          // The local recording is running: this MP4 is the
+                          // only replay a quick-camera broadcast will have.
+                          if (_localRecording) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.85),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(LucideIcons.video,
+                                      color: Colors.white, size: 14),
+                                  SizedBox(width: 5),
+                                  Text('REC',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                          ],
                           if (_isLive) ...[
                             const SizedBox(width: 8),
                             // Live audience: tap to see WHO is watching, not

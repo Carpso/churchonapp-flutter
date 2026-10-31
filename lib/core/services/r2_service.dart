@@ -186,6 +186,63 @@ class R2Service {
     }
   }
 
+  /// Uploads a LARGE media file (a full service recording can be hundreds of
+  /// MB) without the 100MB casual-clip guard and without buffering the whole
+  /// file in RAM: the bytes stream from disk straight into the signed R2 PUT.
+  ///
+  /// `r2-sign` stamps the public URL with the SERVER's `R2_PUBLIC_DOMAIN`,
+  /// which can be a lapsed custom domain; the host is rewritten to the
+  /// client-configured public domain (`Env.r2PublicDomain`) so the stored URL
+  /// actually resolves.
+  Future<String?> uploadLargeFile(File file, String path) async {
+    lastError = null;
+    try {
+      final extension = path.split('.').last.toLowerCase();
+      if (!_allowedExtensions.contains('.$extension')) {
+        return _fail('File type .$extension is not allowed');
+      }
+      final contentType = _getContentType(file.path);
+
+      final response = await _client.functions.invoke('r2-sign', body: {
+        'filename': path.split('/').last,
+        'contentType': contentType,
+        'folder': path.split('/').first,
+      });
+      if (response.status != 200) {
+        return _fail('Upload could not be authorised (HTTP ${response.status})');
+      }
+      final signedUrl = response.data['signedUrl'];
+      final publicUrl = response.data['publicUrl'];
+      if (signedUrl == null) return _fail('Storage did not return an upload URL');
+
+      final length = await file.length();
+      final request = http.StreamedRequest('PUT', Uri.parse(signedUrl))
+        ..contentLength = length
+        ..headers['Content-Type'] = contentType;
+      // Pump the file into the request; the http client drains it as the
+      // socket accepts, so memory stays bounded regardless of file size.
+      file.openRead().listen(
+            request.sink.add,
+            onError: request.sink.addError,
+            onDone: request.sink.close,
+          );
+      final uploadResponse = await request.send();
+      await uploadResponse.stream.drain<void>().catchError((_) {});
+
+      if (uploadResponse.statusCode == 200) {
+        String url = publicUrl ?? '';
+        url = url.replaceFirst(
+          RegExp(r'^https://media\.[^/]+/'),
+          'https://$publicDomain/',
+        );
+        return url.isNotEmpty ? url : _fail('Storage returned an empty URL');
+      }
+      return _fail('Upload rejected by storage (HTTP ${uploadResponse.statusCode})');
+    } catch (e) {
+      return _fail(e.toString());
+    }
+  }
+
   /// Resolves a private-bucket reference (`r2://<bucket>/<key>`, as stored for
   /// KYC documents) into a short-lived signed URL via the `r2-sign` function.
   ///
