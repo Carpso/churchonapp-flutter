@@ -331,18 +331,20 @@ final routerProvider = Provider<GoRouter>((ref) {
           final redir = state.uri.queryParameters['redirect'];
           if (redir != null && redir.isNotEmpty) {
             final dec = Uri.decodeComponent(redir);
-            if (dec.startsWith('/'))
+            if (dec.startsWith('/')) {
               return kIsWeb
                   ? '/landing?redirect=${Uri.encodeComponent(dec)}'
                   : '/login?redirect=${Uri.encodeComponent(dec)}';
+            }
           }
           return kIsWeb ? '/landing' : '/login';
         }
         final redir = state.uri.queryParameters['redirect'];
         if (redir != null && redir.isNotEmpty) {
           final dec = Uri.decodeComponent(redir);
-          if (dec.startsWith('/') && dec != '/splash' && dec != '/onboarding')
+          if (dec.startsWith('/') && dec != '/splash' && dec != '/onboarding') {
             return dec;
+          }
         }
         return tenant != null
             ? (tenant.isBookshop ? '/bookshop' : '/')
@@ -417,8 +419,9 @@ final routerProvider = Provider<GoRouter>((ref) {
             // If tenant still null and deep link needs tenant, let the
             // tenant-null guard above handle it on next cycle.
             if (decoded == '/select-church' ||
-                decoded.startsWith('/select-church?'))
+                decoded.startsWith('/select-church?')) {
               return null;
+            }
             return decoded;
           }
         }
