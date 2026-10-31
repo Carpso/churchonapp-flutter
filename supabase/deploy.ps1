@@ -398,6 +398,7 @@ $migrations = @(
 "20261259_streaming_broadcast_detection.sql"
 "20261260_streaming_trial_minutes.sql"
 "20261261_streaming_trial_cost_control.sql"
+"20261262_dead_domain_media_backfill.sql"
       )
 
 

@@ -128,8 +128,14 @@ class R2Service {
 
         if (uploadResponse.statusCode == 200) {
           String url = publicUrl ?? '';
+          // Rewrite BOTH legacy hosts (the lapsed custom domain and the old
+          // hyphenated one) to the configured public domain — r2-sign stamps
+          // the server's R2_PUBLIC_DOMAIN, which can lag behind reality.
           if (url.contains("media.church-on-app.com")) {
             url = url.replaceAll("media.church-on-app.com", publicDomain);
+          }
+          if (url.contains("media.churchonapp.com")) {
+            url = url.replaceAll("media.churchonapp.com", publicDomain);
           }
           return url.isNotEmpty ? url : _fail('Storage returned an empty URL');
         }
@@ -172,9 +178,14 @@ class R2Service {
 
         if (uploadResponse.statusCode == 200) {
           String url = publicUrl ?? '';
-          // Private buckets return an `r2://` reference — never rewrite those.
+          // Private buckets return an `r2://` reference - never rewrite those.
+          // Both legacy hosts rewritten (see uploadFile) — the lapsed custom
+          // domain and the old hyphenated one.
           if (!url.startsWith('r2://') && url.contains("media.church-on-app.com")) {
             url = url.replaceAll("media.church-on-app.com", publicDomain);
+          }
+          if (!url.startsWith('r2://') && url.contains("media.churchonapp.com")) {
+            url = url.replaceAll("media.churchonapp.com", publicDomain);
           }
           return url.isNotEmpty ? url : _fail('Storage returned an empty URL');
         }
