@@ -1349,6 +1349,16 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     } catch (e) {
       debugPrint('WHIP ingest error: $e');
       _whipError = e.toString();
+      // AUDIT M2: release the half-built peer connection. `_pc` is the
+      // heartbeat's RTMPS liveness gate (`_detectRtmpsBroadcast` requires
+      // `_pc == null`), so leaving a dead peer here after a failed quick-camera
+      // attempt silently disabled RTMPS detection for the rest of the studio
+      // session: the leader switches to OBS and the studio stays "WAITING FOR
+      // OBS" forever.
+      try {
+        await _pc?.close();
+      } catch (_) {}
+      _pc = null;
       return false;
     }
   }
