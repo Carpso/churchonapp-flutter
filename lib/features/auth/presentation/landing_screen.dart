@@ -80,6 +80,13 @@ class LandingScreen extends ConsumerWidget {
                 _buildSmallButton("Sign Up", () => context.go('/signup')),
                 _buildSmallButton("Member Login", () => context.go('/login')),
                 _buildSmallButton("Join Ecosystem", () => context.go('/register-church'), isPrimary: true),
+                _buildSmallButton("Get the App", () async {
+                  final url = Uri.parse(
+                      'https://pub-21d3ac216bf140caa31c8dbd2241eb61.r2.dev/builds/latest/ChurchOnApp.apk');
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                }),
               ],
             ),
           ],
@@ -137,7 +144,9 @@ class LandingScreen extends ConsumerWidget {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 700),
                   child: Text(
-                    "From Lusaka to Harare, we're uniting churches with a world-class platform for sermons, ride-sharing, digital giving, and deep community engagement.",
+                    "From Lusaka to Harare, we're uniting churches with live streaming, "
+                    "offline maps with turn-by-turn navigation, mobile-money giving, "
+                    "an AI Bible study assistant, and deep community engagement — all in one app.",
                     textAlign: TextAlign.center,
                     style: GoogleFonts.inter(
                       fontSize: Responsive.isCompact(context) ? 17 : 20,
@@ -156,6 +165,13 @@ class LandingScreen extends ConsumerWidget {
               children: [
                 _buildBigButton(context, "Explore Churches", () => context.go('/select-church')),
                 _buildOutlineBigButton(context, "Register Church", () => context.go('/register-church')),
+                _buildOutlineBigButton(context, "Download Android App", () async {
+                  final url = Uri.parse(
+                      'https://pub-21d3ac216bf140caa31c8dbd2241eb61.r2.dev/builds/latest/ChurchOnApp.apk');
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                }),
               ],
             ),
             const SizedBox(height: 100),
@@ -440,18 +456,21 @@ class LandingScreen extends ConsumerWidget {
                   runSpacing: 30,
                   alignment: WrapAlignment.center,
                   children: [
-                    _featureCard(context, Icons.menu_book, "Holy Bible", "Read, study, and memorize Scripture with multiple translations and audio.", cardWidth),
-                    _featureCard(context, Icons.play_circle, "Sermons & Media", "Live streaming, recorded sermons, and worship lyrics in one place.", cardWidth),
-                    _featureCard(context, Icons.wallet, "Digital Giving", "Tithes, offerings, and fundraising via MTN, Airtel, and Zamtel mobile money.", cardWidth),
-                    _featureCard(context, Icons.calendar_today, "Events & Calendars", "Never miss a conference or fellowship again—with ticketing and check-in.", cardWidth),
-                    _featureCard(context, Icons.store, "Marketplace", "Buy and sell within your church community—books, crafts, and more.", cardWidth),
-                    _featureCard(context, Icons.quiz, "Bible Quiz", "Compete in Scripture knowledge challenges with your church and beyond.", cardWidth),
-                    _featureCard(context, Icons.directions_car, "Ride Sharing", "Carpso Ride—safe, affordable church commutes, deliveries, and SOS.", cardWidth),
+                    _featureCard(context, Icons.menu_book, "Holy Bible", "Read, study, and memorize Scripture with multiple translations, cross-references, parallel reading, and audio.", cardWidth),
+                    _featureCard(context, Icons.play_circle, "Live Streaming & Sermons", "Stream a service live from a phone in seconds, with automatic replays in Sermons — no extra hardware.", cardWidth),
+                    _featureCard(context, Icons.wallet, "Digital Giving", "Tithes, offerings, and live offering baskets via MTN, Airtel, and Zamtel mobile money — with instant church payouts.", cardWidth),
+                    _featureCard(context, Icons.calendar_today, "Events & Ticketing", "Never miss a conference or fellowship again — with Ticketmaster-grade ticketing, QR check-in, and waitlists.", cardWidth),
+                    _featureCard(context, Icons.store, "Marketplace", "Buy and sell within your church community — books, crafts, and more, with door-to-door Carpso delivery.", cardWidth),
+                    _featureCard(context, Icons.quiz, "Bible Quiz Engine", "PvP duels, wagered matches, daily challenges, and church-vs-church tournaments with brackets and prizes.", cardWidth),
+                    _featureCard(context, Icons.navigation, "Offline Maps & Navigation", "Turn-by-turn voice navigation on self-hosted maps of Zambia, Zimbabwe and six cities — working even with no signal.", cardWidth),
+                    _featureCard(context, Icons.auto_awesome, "Kael AI Assistant", "Study Scripture with AI — verse explanations, chapter summaries, exegesis, and a quiz opponent that plays back.", cardWidth),
+                    _featureCard(context, Icons.directions_car, "Carpso Ride", "Safe, affordable church commutes and deliveries with live driver tracking and proof of delivery.", cardWidth),
                     _featureCard(context, Icons.radio, "Kingdom Radio", "Broadcasting the Word 24/7 with worship music across the continent.", cardWidth),
-                    _featureCard(context, Icons.forum, "Community", "Prayer wall, chat, Klips, testimonies, and pastor-led small groups.", cardWidth),
-                    _featureCard(context, Icons.edit_note, "Notebook", "Sermon notes, personal journaling, and AI-powered study tools.", cardWidth),
-                    _featureCard(context, Icons.dashboard, "Church Micro-sites", "Every branch gets its own digital home with website builder.", cardWidth),
+                    _featureCard(context, Icons.forum, "Church Social", "Stories, Klips (short video), prayer walls, testimonies, follow friends, and pastor-led groups.", cardWidth),
+                    _featureCard(context, Icons.edit_note, "Notebook & Study", "Sermon notes, personal journaling, and deep study tools for every book and chapter.", cardWidth),
+                    _featureCard(context, Icons.dashboard, "Church Micro-sites", "Every branch gets its own digital home with a website builder and public church pages.", cardWidth),
                     _featureCard(context, Icons.volunteer_activism, "Charity & Missions", "Organize giving and track impact for those who need it most.", cardWidth),
+                    _featureCard(context, Icons.shield, "Bank-Grade Security", "Server-verified payments, encrypted KYC, multi-factor auth, and full audit trails protect every kwacha.", cardWidth),
                   ],
                 );
               },
@@ -505,9 +524,9 @@ class LandingScreen extends ConsumerWidget {
           spacing: 24,
           runSpacing: 24,
           children: [
-            _statItem("500+", "Churches Onboarded", dense),
-            _statItem("1M+", "Members Connected", dense),
-            _statItem("100%", "Service Uptime", dense),
+            _statItem("30+", "Churches & Growing", dense),
+            _statItem("2", "Nations — Zambia & Zimbabwe", dense),
+            _statItem("100+", "Features Built", dense),
           ],
         ),
       ),
@@ -746,6 +765,13 @@ class LandingScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _footerHeading("Resources"),
+                        _footerLink("Download Android App", onTap: () async {
+                          final url = Uri.parse(
+                              'https://pub-21d3ac216bf140caa31c8dbd2241eb61.r2.dev/builds/latest/ChurchOnApp.apk');
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(url, mode: LaunchMode.externalApplication);
+                          }
+                        }),
                         _footerLink("Privacy Policy", onTap: () => context.push('/privacy')),
                         _footerLink("Terms of Service", onTap: () => context.push('/terms')),
                         _footerLink("About Us", onTap: () => context.push('/about')),
