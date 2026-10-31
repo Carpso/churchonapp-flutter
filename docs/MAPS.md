@@ -322,3 +322,30 @@ The font/sprites files come from
   viewed areas work offline.
 - Live traffic needs a paid feed — there is no free global real-time traffic
   source. The app falls back to crowd-sourced driver-speed segments.
+
+## 7. Zoom ceilings — the definitive z17-19 findings (2026-10-31)
+
+Tested end-to-end on the local build toolchain:
+
+1. **planetiler core caps maxzoom at 16** (`PlanetilerConfig.MAX_MAXZOOM = 16`,
+   throws `Max zoom must be <= 16`). PATCHED: the local
+   `protomaps-basemap-HEAD-with-deps.jar` now carries a rebuilt
+   `PlanetilerConfig.class` with `MAX_MAXZOOM = 19` (backup at `.bak`; patch
+   recipe: extract the class source for the exact version 0.10.2, change the
+   constant, `javac -proc:none -cp <jar>`, `jar uf`).
+2. **But the Protomaps basemap PROFILE still emits features only to z15/16**
+   by design — with `--maxzoom=19` the archive write phases stop at z15 and
+   the archive contains no z16+ tiles (verified via the archive:write phase
+   log). Clients are expected to OVERZOOM (the app's VectorTileLayer already
+   sets `maximumZoom: 19`).
+3. True z17-19 building-level detail therefore requires patching the
+   profile's per-layer zoom ceilings (`tiles/src/main/java/com/protomaps/
+   basemap/layers/Buildings.java`, `Pois.java`, `Places.java` — raise their
+   layer maxZooms), rebuilding the jar, and rebuilding each city. Data volume
+   grows ~64x from z16 to z19 — this is why Protomaps ships z15.
+
+Required assets for a local planetiler run (all now cached in
+`D:\mapbuild\data\sources`, fetched manually with resumable curl after the
+in-app downloader kept timing out): land-polygons-split-3857.zip (909MB),
+water-polygons-split-3857.zip (889MB), natural_earth_vector.gpkg.zip (426MB),
+daylight-landcover.gpkg (34MB), qrank.csv.gz, pgf-encoding.zip.

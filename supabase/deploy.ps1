@@ -400,6 +400,7 @@ $migrations = @(
 "20261261_streaming_trial_cost_control.sql"
 "20261262_dead_domain_media_backfill.sql"
 "20261263_bracket_play.sql"
+"20261264_events_dedupe.sql"
       )
 
 
