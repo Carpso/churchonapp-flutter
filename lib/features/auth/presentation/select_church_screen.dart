@@ -120,19 +120,20 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
   }
 
   Future<void> _getUserLocation() async {
-    // Geolocator is not supported on the web platform; skip it entirely so we
-    // don't spam the console with UnsupportedError and misleading toasts.
-    if (kIsWeb) {
-      debugPrint('Location skipped on web — showing all churches.');
-      return;
-    }
+    // Web uses the browser Geolocation API (geolocator supports web): the
+    // permission prompt appears once and a denial simply falls through to
+    // "showing all churches" below. Web used to be skipped wholesale, which
+    // meant browser users NEVER got nearby sorting even after granting.
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text("Location is off — showing all churches. Enable for nearby (50 km)."),
-              action: SnackBarAction(label: "Enable", onPressed: () => Geolocator.openLocationSettings()),
+              // Browsers have no location-settings screen to open.
+              action: kIsWeb
+                  ? null
+                  : SnackBarAction(label: "Enable", onPressed: () => Geolocator.openLocationSettings()),
             ),
           );
         }
@@ -143,7 +144,7 @@ class _SelectTenantScreenState extends ConsumerState<SelectTenantScreen> {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.deniedForever) {
-        if (mounted) {
+        if (mounted && !kIsWeb) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text("Location permanently denied — open Settings to allow."),
