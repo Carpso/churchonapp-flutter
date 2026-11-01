@@ -5,8 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:church_on_app/core/widgets/app_image.dart';
 
 /// Public church website page — rendered for the shared URLs
-/// `https://churchonapp.com/church/<churchId>` and
-/// `https://churchonapp.com/site/<tenantId>`.
+/// `https://churchonapp.pages.dev/church/<churchId>` and
+/// `https://churchonapp.pages.dev/site/<tenantId>`.
 ///
 /// Works WITHOUT login: the `church_websites` RLS policy exposes rows where
 /// `is_published = true` to the anon role, so anyone with the link can view

@@ -113,7 +113,7 @@ class ReferralSystemScreen extends ConsumerWidget {
           const SizedBox(height: 25),
           ElevatedButton.icon(
             onPressed: () {
-              SharePlus.instance.share(ShareParams(text: "Join me on Church On App using my referral code: $referralCode and get 100 free Loyalty Coins! Download at: https://churchonapp.com/join?ref=$referralCode"));
+              SharePlus.instance.share(ShareParams(text: "Join me on Church On App using my referral code: $referralCode and get 100 free Loyalty Coins! Download at: https://churchonapp.pages.dev/join?ref=$referralCode"));
             },
             icon: const Icon(LucideIcons.share2),
             label: const Text("SHARE INVITE LINK"),

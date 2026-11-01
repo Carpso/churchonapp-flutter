@@ -436,7 +436,7 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> with Single
                 child: ElevatedButton.icon(
                   onPressed: () {
                     SharePlus.instance.share(ShareParams(
-                      text: 'I just contributed ${_venture!.currency} ${(_selectedAmount ?? 0).toStringAsFixed(0)} to ${_venture!.title}! Support this cause too: https://churchonapp.com/fundraising/${_venture!.id}',
+                      text: 'I just contributed ${_venture!.currency} ${(_selectedAmount ?? 0).toStringAsFixed(0)} to ${_venture!.title}! Support this cause too: https://churchonapp.pages.dev/fundraising/${_venture!.id}',
                       subject: 'Support ${_venture!.title}',
                     ));
                   },

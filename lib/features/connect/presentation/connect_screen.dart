@@ -468,7 +468,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> with AutomaticKee
   Future<void> _sharePost(String postId) async {
     // REAL share (WhatsApp/anywhere) with the post's public link — the old
     // behaviour only copied the URL to the clipboard.
-    final link = 'https://churchonapp.com/posts/$postId';
+    final link = 'https://churchonapp.pages.dev/posts/$postId';
     try {
       await SharePlus.instance.share(
         ShareParams(text: 'Check this out on Church On App:\n$link'),

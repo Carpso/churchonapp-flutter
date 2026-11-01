@@ -102,7 +102,7 @@ class _FundraisingDetailScreenState extends ConsumerState<FundraisingDetailScree
                 icon: const Icon(LucideIcons.share2, color: Colors.white),
                 onPressed: () {
                   SharePlus.instance.share(ShareParams(
-                    text: 'Support ${venture.title}! Help raise ${venture.formattedTarget} for this cause. https://churchonapp.com/fundraising/${venture.id}',
+                    text: 'Support ${venture.title}! Help raise ${venture.formattedTarget} for this cause. https://churchonapp.pages.dev/fundraising/${venture.id}',
                     subject: venture.title,
                   ));
                 },

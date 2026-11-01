@@ -19,7 +19,7 @@ import 'widgets/route_steps_sheet.dart';
 ///
 /// Opened when the phone hands us a destination — the Android app chooser
 /// listing for `geo:` / `google.navigation:` intents, a `churchonapp://navigate`
-/// link, or `https://churchonapp.com/navigate?...`. Uses the exact same engines
+/// link, or `https://churchonapp.pages.dev/navigate?...`. Uses the exact same engines
 /// as the active-ride screen: OSRM routing ([RouteService]), the live guidance
 /// controller ([navigationProvider]), the maneuver banner and voice directions.
 class MapNavigationScreen extends ConsumerStatefulWidget {

@@ -225,7 +225,7 @@ class EventRsvpService {
     // Deep link must target a REAL route — `/ticket/<id>` never existed, so the
     // QR link opened a permanent spinner. The scanner still uses the ticketRef
     // (before the `|`); the link itself opens the event.
-    final deepLink = 'https://churchonapp.com/events/$eventId';
+    final deepLink = 'https://churchonapp.pages.dev/events/$eventId';
     
     // Combined payload: TicketRef | DeepLink
     return '$ticketRef|$deepLink';

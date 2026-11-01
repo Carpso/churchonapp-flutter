@@ -945,7 +945,7 @@ class _StreamAdminScreenState extends ConsumerState<StreamAdminScreen> {
   }
 
   void _showShareQr() {
-    const link = 'https://churchonapp.com/live-streaming';
+    const link = 'https://churchonapp.pages.dev/live-streaming';
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,

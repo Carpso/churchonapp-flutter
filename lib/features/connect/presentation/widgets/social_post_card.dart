@@ -170,7 +170,7 @@ class _SocialPostCardState extends ConsumerState<SocialPostCard> with SingleTick
   /// Copies the post's public link (works for WhatsApp/anywhere).
   Future<void> _copyLink() async {
     await Clipboard.setData(
-        ClipboardData(text: 'https://churchonapp.com/posts/${widget.post.id}'));
+        ClipboardData(text: 'https://churchonapp.pages.dev/posts/${widget.post.id}'));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Link copied'),

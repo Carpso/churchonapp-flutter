@@ -329,7 +329,7 @@ class NotificationService {
 
       if (payload == null || payload.isEmpty) return;
 
-      // Handle Deep Link URLs (e.g., https://churchonapp.com/events/123 or coa://wallet)
+      // Handle Deep Link URLs (e.g., https://churchonapp.pages.dev/events/123 or coa://wallet)
       if (payload.startsWith('http://') || payload.startsWith('https://')) {
         final uri = Uri.parse(payload);
         GoRouter.of(context).go(uri.path);

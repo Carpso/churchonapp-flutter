@@ -62,7 +62,7 @@ class JobDetailsScreen extends ConsumerWidget {
             tooltip: 'Share this job',
             icon: const Icon(LucideIcons.share2, size: 20),
             onPressed: () async {
-              final link = 'https://churchonapp.com/jobs/${job.id}';
+              final link = 'https://churchonapp.pages.dev/jobs/${job.id}';
               try {
                 await SharePlus.instance.share(ShareParams(
                   text: '${job.title} at ${job.company} — '

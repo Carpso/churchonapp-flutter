@@ -214,7 +214,7 @@ class DiscoverTab extends ConsumerWidget {
                         child: IconButton(
                           icon: const Icon(LucideIcons.share2, color: Colors.black87),
                           onPressed: () async {
-                            await Clipboard.setData(ClipboardData(text: "https://churchonapp.com/events/${event.id}"));
+                            await Clipboard.setData(ClipboardData(text: "https://churchonapp.pages.dev/events/${event.id}"));
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text("Event link copied to clipboard!"), backgroundColor: Colors.green)

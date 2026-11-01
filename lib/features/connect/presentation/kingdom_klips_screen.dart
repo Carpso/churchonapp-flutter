@@ -849,7 +849,7 @@ class _VideoClipPlayerState extends State<VideoClipPlayer> with TickerProviderSt
                   icon: LucideIcons.share2,
                   label: 'Share',
                   onTap: () {
-                    final shareText = '🔥 Watch this Klip on Church On App!\n${widget.caption}\n\nhttps://churchonapp.com/klips/${widget.klipId ?? 'demo'}';
+                    final shareText = '🔥 Watch this Klip on Church On App!\n${widget.caption}\n\nhttps://churchonapp.pages.dev/klips/${widget.klipId ?? 'demo'}';
                     SharePlus.instance.share(ShareParams(text: shareText));
                   },
                 ),

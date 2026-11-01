@@ -89,7 +89,7 @@ class _SermonNotesScreenState extends ConsumerState<SermonNotesScreen> {
             onPressed: () => SharePlus.instance.share(
               ShareParams(
                 text:
-                    '${sermon.title} — ${sermon.preacher}\n\n${transcript.isNotEmpty ? transcript : ''}\n\nhttps://churchonapp.com/sermon/${sermon.id}',
+                    '${sermon.title} — ${sermon.preacher}\n\n${transcript.isNotEmpty ? transcript : ''}\n\nhttps://churchonapp.pages.dev/sermon/${sermon.id}',
               ),
             ),
           ),

@@ -6,7 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Landing page after a CARD checkout returns from Lipila — the card flow's
-/// `backUrl` is `https://churchonapp.com/payment-complete?ref=...`, so this
+/// `backUrl` is `https://churchonapp.pages.dev/payment-complete?ref=...`, so this
 /// route MUST exist on the web SPA (without it, returning card payers hit the
 /// router's not-found page).
 ///

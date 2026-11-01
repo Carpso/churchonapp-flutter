@@ -10,7 +10,7 @@ import 'package:church_on_app/features/give/presentation/lipila_payment_gateway.
 
 /// Landing screen for scanned QR deep links:
 ///   `churchonapp://pay?ref=...&amount=...&recipient=...`
-///   `https://churchonapp.com/pay?ref=...&amount=...&recipient=...`
+///   `https://churchonapp.pages.dev/pay?ref=...&amount=...&recipient=...`
 ///
 /// Runs the REAL Lipila gateway against the QR's own `ref`, so the
 /// server-side `coa_payments` anchor matches the QR reference instead of the

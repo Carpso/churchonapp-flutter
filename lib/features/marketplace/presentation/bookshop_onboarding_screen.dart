@@ -120,7 +120,7 @@ class _BookshopOnboardingScreenState extends ConsumerState<BookshopOnboardingScr
   Future<void> _showSuccessDialog(String? inviteCode, String? tenantId) async {
     final trialDays = widgetRemoteConfig(ref).getInt('subscription_trial_days', 30);
     final inviteLink = inviteCode != null
-        ? 'https://churchonapp.com/join?code=$inviteCode'
+        ? 'https://churchonapp.pages.dev/join?code=$inviteCode'
         : null;
 
     await showDialog(

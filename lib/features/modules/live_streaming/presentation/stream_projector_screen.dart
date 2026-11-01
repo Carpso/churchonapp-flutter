@@ -31,7 +31,7 @@ class StreamProjectorScreen extends ConsumerWidget {
     this.streamId,
     this.tenantName,
     this.logoUrl,
-    this.shareUrl = 'https://churchonapp.com/live-streaming',
+    this.shareUrl = 'https://churchonapp.pages.dev/live-streaming',
   });
 
   bool get _canPlayVideo =>

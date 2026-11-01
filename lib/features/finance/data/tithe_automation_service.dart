@@ -47,7 +47,7 @@ class TitheAutomationService {
         // 3. Send gentle reminder with a link to the giving/paywall page
         final name = profile['full_name'];
         final phone = profile['phone_number'];
-        final message = "Peace be with you $name. As we conclude $currentPeriod, this is a gentle reminder to honor your Tithe. Give in seconds on Church On App: https://churchonapp.com/giving . God bless your faithfulness!";
+        final message = "Peace be with you $name. As we conclude $currentPeriod, this is a gentle reminder to honor your Tithe. Give in seconds on Church On App: https://churchonapp.pages.dev/giving . God bless your faithfulness!";
         
         await smsService.sendLogisticsAlert(phoneNumber: phone, message: message);
         

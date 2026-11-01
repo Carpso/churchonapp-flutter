@@ -276,9 +276,9 @@ class _ChurchWebsiteBuilderScreenState
                   context,
                   icon: LucideIcons.link,
                   label: 'Fallback link',
-                  value: 'https://churchonapp.com/church/${widget.tenantId}',
+                  value: 'https://churchonapp.pages.dev/church/${widget.tenantId}',
                   copyValue:
-                      'https://churchonapp.com/church/${widget.tenantId}',
+                      'https://churchonapp.pages.dev/church/${widget.tenantId}',
                 ),
                 if (_viewCount > 0) ...[
                   const SizedBox(height: 12),
@@ -518,8 +518,8 @@ class _ChurchWebsiteBuilderScreenState
   String get _prettyUrl {
     final slug = _slugController.text.trim().toLowerCase();
     return slug.isEmpty
-        ? 'https://churchonapp.com/church/${widget.tenantId}'
-        : 'https://churchonapp.com/c/$slug';
+        ? 'https://churchonapp.pages.dev/church/${widget.tenantId}'
+        : 'https://churchonapp.pages.dev/c/$slug';
   }
 
   Widget _buildInfoCard(BuildContext context) {

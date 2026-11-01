@@ -324,7 +324,7 @@ class _FundraisingListScreenState extends ConsumerState<FundraisingListScreen> w
                         GestureDetector(
                           onTap: () {
                             SharePlus.instance.share(ShareParams(
-                              text: 'Support ${venture.title}! Help us raise ${venture.formattedTarget} for this cause. https://churchonapp.com/fundraising/${venture.id}',
+                              text: 'Support ${venture.title}! Help us raise ${venture.formattedTarget} for this cause. https://churchonapp.pages.dev/fundraising/${venture.id}',
                               subject: venture.title,
                             ));
                           },

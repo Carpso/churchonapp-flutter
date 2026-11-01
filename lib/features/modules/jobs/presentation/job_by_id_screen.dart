@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/job_model.dart';
 import 'job_details_screen.dart';
 
-/// Deep-link entry point for a shared job: `https://churchonapp.com/jobs/<id>`.
+/// Deep-link entry point for a shared job: `https://churchonapp.pages.dev/jobs/<id>`.
 ///
 /// In-app navigation pushes `JobDetailsScreen` directly with a `Job` in
 /// `extra`, which a link from WhatsApp/push cannot supply — so this resolves the

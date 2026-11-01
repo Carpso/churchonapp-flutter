@@ -2150,7 +2150,7 @@ class _LiveStreamStudioScreenState extends ConsumerState<LiveStreamStudioScreen>
     if (tenant != null && tenant.isNotEmpty) {
       return DeepLinks.tenantLiveStream(tenant);
     }
-    return 'https://churchonapp.com/live-streaming';
+    return 'https://churchonapp.pages.dev/live-streaming';
   }
 
   void _showShareQr() {

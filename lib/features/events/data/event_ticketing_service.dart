@@ -143,7 +143,7 @@ class EventTicket {
   bool get isValid => status == 'valid';
   bool get isUsed => status == 'used';
 
-  String get qrPayload => '$ticketCode|https://churchonapp.com/ticket/$id';
+  String get qrPayload => '$ticketCode|https://churchonapp.pages.dev/ticket/$id';
 
   factory EventTicket.fromMap(Map<String, dynamic> m) {
     Map<String, dynamic>? tier;

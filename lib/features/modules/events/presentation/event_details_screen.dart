@@ -88,7 +88,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                 icon: const Icon(LucideIcons.share2), 
                 onPressed: () {
                   SharePlus.instance.share(ShareParams(
-                    text: "Join us at ${event['title'] ?? 'this event'}! Location: ${event['location'] ?? 'TBA'}, Date: ${event['date'] ?? 'TBA'}. Details: https://churchonapp.com/events/${event['id']}",
+                    text: "Join us at ${event['title'] ?? 'this event'}! Location: ${event['location'] ?? 'TBA'}, Date: ${event['date'] ?? 'TBA'}. Details: https://churchonapp.pages.dev/events/${event['id']}",
                     subject: event['title']?.toString() ?? 'Church On App Event',
                   ));
                 }

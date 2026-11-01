@@ -12,7 +12,7 @@ import '../../../core/widgets/qr_code_with_logo.dart';
 /// Smart church invitation screen for pastors/tenant leaders.
 ///
 /// Provides 6 ways to invite members:
-/// 1. Deep Link — https://churchonapp.com/join?code={code}
+/// 1. Deep Link — https://churchonapp.pages.dev/join?code={code}
 /// 2. QR Code — Scannable from another phone's camera
 /// 3. WhatsApp — Pre-filled message with deep link
 /// 4. SMS — Pre-filled text message with deep link
@@ -87,7 +87,7 @@ class _ChurchInviteScreenState extends ConsumerState<ChurchInviteScreen> {
 
     final churchName = tenant.name;
     final inviteCode = _inviteCode!;
-    final deepLink = "https://churchonapp.com/join?code=$inviteCode";
+    final deepLink = "https://churchonapp.pages.dev/join?code=$inviteCode";
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,

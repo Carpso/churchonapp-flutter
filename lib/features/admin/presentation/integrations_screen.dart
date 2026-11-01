@@ -44,7 +44,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
       icon: LucideIcons.code, 
       color: Theme.of(context).primaryColor,
       enabled: true,
-      webhookUrl: "https://churchonapp.com/api/webhooks/stewardship",
+      webhookUrl: "https://churchonapp.pages.dev/api/webhooks/stewardship",
     ),
     Integration(
       id: "banks", 

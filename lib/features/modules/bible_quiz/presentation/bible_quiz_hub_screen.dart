@@ -2223,13 +2223,13 @@ class _BibleQuizHubScreenState extends ConsumerState<BibleQuizHubScreen> {
 
   /// Shares a PvP invite link that deep-links straight back into the match.
   ///
-  /// `https://churchonapp.com/quiz/invite/<id>` is an Android App Link
+  /// `https://churchonapp.pages.dev/quiz/invite/<id>` is an Android App Link
   /// (autoVerify) and the router already preserves deep links through
   /// splash → login → tenant selection, so the recipient lands on the invite
   /// screen in the app (and on the web fallback otherwise).
   Future<void> _shareQuizInvite(String matchId) async {
     final me = ref.read(profileProvider).value?.name ?? 'A friend';
-    final link = 'https://churchonapp.com/quiz/invite/$matchId';
+    final link = 'https://churchonapp.pages.dev/quiz/invite/$matchId';
     final text = '$me challenged you to a Bible Quiz on Church On App!\n'
         'Tap to accept and play: $link';
     try {

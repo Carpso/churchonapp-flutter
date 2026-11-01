@@ -347,7 +347,7 @@ class _RegisterChurchScreenState extends ConsumerState<RegisterChurchScreen> {
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: () {
-                            final link = "https://churchonapp.com/join?code=$inviteCode";
+                            final link = "https://churchonapp.pages.dev/join?code=$inviteCode";
                             SharePlus.instance.share(
                               ShareParams(
                                 text: "Join our church $churchName on Church On App!\n\nUse invite code: $inviteCode\nOr open: $link",

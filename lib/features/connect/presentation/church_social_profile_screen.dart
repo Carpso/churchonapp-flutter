@@ -56,7 +56,7 @@ class ChurchSocialProfileScreen extends ConsumerWidget {
   }
 
   Future<void> _sharePost(BuildContext context, String postId) async {
-    final link = "https://churchonapp.com/posts/$postId";
+    final link = "https://churchonapp.pages.dev/posts/$postId";
     try {
       await SharePlus.instance.share(
         ShareParams(text: 'Check this out on Church On App:\n$link'),

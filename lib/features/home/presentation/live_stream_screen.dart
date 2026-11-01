@@ -67,7 +67,7 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
 
 class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   static const _initTimeout = Duration(seconds: 20);
-  static const _shareUrl = 'https://churchonapp.com/live-streaming';
+  static const _shareUrl = 'https://churchonapp.pages.dev/live-streaming';
 
   /// How many times the player silently re-attempts before RETRY is offered.
   static const _maxAutoRetries = 2;

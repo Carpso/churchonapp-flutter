@@ -271,7 +271,7 @@ class _EventEticketScreenState extends ConsumerState<EventEticketScreen> {
         text: '🎫 ${t.eventTitle ?? widget.eventTitle}\n'
             'Ticket ${t.ticketCode}\n'
             '${t.eventDate != null ? DateFormat.yMMMd().add_jm().format(t.eventDate!) : ''}\n'
-            'https://churchonapp.com/ticket/${t.id}',
+            'https://churchonapp.pages.dev/ticket/${t.id}',
       ));
     } catch (e) {
       if (mounted) PremiumToast.showError(context, e.toString(), title: 'Share');

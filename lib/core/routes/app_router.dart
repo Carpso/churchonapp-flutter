@@ -1192,7 +1192,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'post',
             builder: (context, state) => const PostJobScreen(),
           ),
-          // Deep link: https://churchonapp.com/jobs/<id>
+          // Deep link: https://churchonapp.pages.dev/jobs/<id>
           // (literal routes above take precedence). Lets a job shared on
           // WhatsApp/push open the right job inside the app.
           GoRoute(
@@ -1438,7 +1438,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       // QR / card payment landing pages — member level.
       // /pay is reached from scanned QR deep links
-      // (churchonapp://pay?ref=... and https://churchonapp.com/pay?ref=...).
+      // (churchonapp://pay?ref=... and https://churchonapp.pages.dev/pay?ref=...).
       // /payment-complete is the card checkout backUrl target — it MUST exist
       // on the web SPA or returning card payers land on the not-found page.
       GoRoute(
