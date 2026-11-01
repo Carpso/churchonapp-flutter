@@ -215,6 +215,10 @@ class _CoaEmployeeDashboardState extends ConsumerState<CoaEmployeeDashboard> {
       await client.from('churches').update({
         'onboarding_fee_paid': true,
         'onboarding_fee_paid_at': DateTime.now().toIso8601String(),
+        // Payment approved: un-expire the church. Nothing else transitions
+        // subscription_status back to 'active' (expire_church_trials only
+        // goes TO expired), so a paid church would stay 'expired' forever.
+        'subscription_status': 'active',
         'promotion_platinum_until': platinumUntil.toIso8601String(),
         'subscription_ends_at': baseDate
             .add(Duration(days: widgetRemoteConfig(ref).renewalDurationDays))

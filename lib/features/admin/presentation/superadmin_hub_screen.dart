@@ -360,6 +360,8 @@ class _SuperadminHubScreenState extends ConsumerState<SuperadminHubScreen> {
       await client.from('churches').update({
         'onboarding_fee_paid': true,
         'onboarding_fee_paid_at': DateTime.now().toIso8601String(),
+        // Payment approved: un-expire the church (see coa_employee_dashboard).
+        'subscription_status': 'active',
         'promotion_platinum_until': platinumUntil.toIso8601String(),
         'subscription_ends_at': baseDate
             .add(Duration(days: widgetRemoteConfig(ref).renewalDurationDays))
