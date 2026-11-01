@@ -44,6 +44,7 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
   List<Map<String, dynamic>> _givingSeries = [];
   List<Map<String, dynamic>> _missions = [];
   List<Map<String, dynamic>> _branches = [];
+  List<Map<String, dynamic>> _careSignals = [];
 
   @override
   void initState() {
@@ -117,6 +118,18 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
       final baskets = await _fetchBaskets(orgId);
       final branches = await _fetchBranches(orgId);
 
+      // Bishop-level exception rollup: which branches need attention.
+      List<Map<String, dynamic>> careSignals = const [];
+      try {
+        final care = await Supabase.instance.client
+            .rpc('get_org_care_signals', params: {'p_org_id': orgId});
+        careSignals = (care as List? ?? const [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      } catch (e) {
+        debugPrint('get_org_care_signals failed (non-fatal): ');
+      }
+
       if (mounted) {
         setState(() {
           _orgId = orgId;
@@ -129,6 +142,7 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
           _service = service;
           _baskets = baskets;
           _branches = branches;
+          _careSignals = careSignals;
           _isLoading = false;
           _noOrg = false;
           _error = null;
@@ -291,6 +305,10 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
                               ],
                               buildSafeSection('Branch Comparison', () => _buildBranchComparisonCard(theme)),
                               const SizedBox(height: 16),
+                              if (_careSignals.any((s) => (s['attention'] as String? ?? '').isNotEmpty)) ...[
+                                const SizedBox(height: 16),
+                                buildSafeSection('Branches Needing Attention', () => _buildCareSignalsCard(theme)),
+                              ],
                               buildSafeSection('Basket Mix', () => _buildBasketMixCard(theme)),
                               const SizedBox(height: 28),
                               _sectionTitle(theme, 'Branch Health'),
@@ -598,6 +616,101 @@ class _BishopDashboardScreenState extends ConsumerState<BishopDashboardScreen> {
         centerLabel: 'BASKETS',
         centerValue: NumberFormat.compactCurrency(symbol: 'K').format(_basketTotal),
       ),
+    );
+  }
+
+  /// Branches Needing Attention: the org-level exception rollup from
+  /// get_org_care_signals — open follow-ups, absentees, overdue reports,
+  /// giving/attendance drops per branch. Only branches with at least one
+  /// reason appear (the RPC computes `attention`).
+  Widget _buildCareSignalsCard(ThemeData theme) {
+    final flagged = _careSignals
+        .where((s) => (s['attention'] as String? ?? '').isNotEmpty)
+        .toList();
+    if (flagged.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            const Icon(LucideIcons.checkCircle2, color: Colors.green, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text('All branches are healthy this month.',
+                  style: TextStyle(
+                      fontSize: 13, color: theme.colorScheme.onSurface)),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (final s in flagged)
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(LucideIcons.alertTriangle,
+                        size: 16, color: Colors.orange),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text('${s['name'] ?? 'Branch'}',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w900, fontSize: 14)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${s['attention'] ?? ''}',
+                  style: TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    _signalChip(theme, 'Follow-ups', s['open_followups']),
+                    _signalChip(theme, 'Absent 21d+', s['absentees']),
+                    _signalChip(theme, 'New visitors', s['new_visitors']),
+                  ],
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _signalChip(ThemeData theme, String label, dynamic value) {
+    final v = (value is num) ? value.toInt() : int.tryParse('$value') ?? 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: theme.primaryColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text('$label: $v',
+          style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
     );
   }
 

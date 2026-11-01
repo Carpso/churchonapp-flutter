@@ -431,6 +431,8 @@ function iconForType(type?: string): string {
     case 'stream_started': return 'ic_notif_event';
     case 'stream_ended': return 'ic_notif_event';
     case 'stream': return 'ic_notif_event';
+    case 'ops_alert':
+    case 'ops_digest': return 'ic_notif_event';
     default: return 'ic_notif_general';
   }
 }
@@ -467,6 +469,8 @@ function channelForType(type?: string): string {
     case 'incoming_call': return 'coa_rides_v2';
     case 'driver_approval': return 'coa_roles_v2';
     case 'message': return 'coa_chat_v2';
+    case 'ops_alert':
+    case 'ops_digest': return 'coa_announcements_v2';
     case 'pvp_invite': return 'coa_quiz_v2';
     case 'pvp_match': return 'coa_quiz_v2';
     case 'pvp_result': return 'coa_quiz_v2';

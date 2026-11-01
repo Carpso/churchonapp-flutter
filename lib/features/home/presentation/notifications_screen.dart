@@ -255,6 +255,12 @@ class NotificationsScreen extends ConsumerWidget {
         case 'payout':
           context.go('/wallet');
           break;
+        case 'ops_alert':
+        case 'ops_digest':
+          // Ops notifications are per-church: pastors land on their ops
+          // dashboard; bishops have their own entry via the home tools.
+          context.go('/pastor-dashboard');
+          break;
         case 'event':
         case 'event_reminder':
           if (id != null && id.isNotEmpty) {
