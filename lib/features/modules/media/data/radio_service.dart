@@ -56,21 +56,18 @@ class RadioService {
   /// Offline fallback — Christian stations only, from Zambia + worldwide.
   List<RadioStation> _fallbackStations() {
     return [
-      RadioStation(id: '1', name: "Radio Christian Voice", location: "Lusaka, Zambia", streamUrl: "http://stream.rcv.co.zm:8000/stream"),
-      RadioStation(id: '2', name: "United Voice Radio", location: "Lusaka, Zambia", streamUrl: "https://streaming.unitedvoice.radio/stream"),
-      RadioStation(id: '3', name: "Radio Maria Zambia", location: "Zambia", streamUrl: "http://net.radiomaria.org.ar:8000/Zamba"),
-      RadioStation(id: '4', name: "Radio Icengelo", location: "Copperbelt, Zambia", streamUrl: "http://45.89.84.148:8000/radio.mp3"),
-      RadioStation(id: '5', name: "Yatsani Radio", location: "Lusaka, Zambia", streamUrl: "http://yatsaniradio.stream:80/live"),
-      RadioStation(id: '6', name: "Faith FM", location: "Lusaka, Zambia", streamUrl: "http://stream.faithfm.co.zm:8000/live"),
-      RadioStation(id: '7', name: "Crossroads Radio", location: "Canada", streamUrl: "https://stream.crossroads.ca/live"),
-      RadioStation(id: '8', name: "TBN Radio", location: "USA", streamUrl: "https://stream.tbn.org/tbnradio"),
-      RadioStation(id: '9', name: "K-LOVE Radio", location: "USA", streamUrl: "https://emf.streamguys1.com/klove_mp3"),
-      RadioStation(id: '10', name: "Premier Christian", location: "UK", streamUrl: "https://premier.live.wostreaming.net/web-mp3"),
-      RadioStation(id: '11', name: "Hope FM Kenya", location: "Kenya", streamUrl: "https://icecast.hopefm.co.ke/hopefm"),
-      RadioStation(id: '12', name: "Inspiration FM Lagos", location: "Nigeria", streamUrl: "https://inspirationfm.radioca.st/stream"),
-      RadioStation(id: '13', name: "Family Radio", location: "USA", streamUrl: "https://stream.familyradio.org/fr-mp3"),
-      RadioStation(id: '14', name: "Spirit FM Zambia", location: "Global", streamUrl: "https://stream.radiojar.com/atdu3k9s1ceuv"),
-    ];
+        // VERIFIED-WORKING public streams (tested 200 + audio/* 2026-11-01).
+        // This fallback only shows when the radio_stations DB fetch fails -
+        // keep it in sync with the live rows.
+        RadioStation(id: '1', name: 'Jesus Is Lord Radio', location: 'Global (Gospel)', streamUrl: 'https://s3.radio.co/s97f38db97/listen'),
+        RadioStation(id: '2', name: 'Gospotainment Radio', location: 'Global (Gospel)', streamUrl: 'https://radio.gotright.net/radio/8000/radio.mp3'),
+        RadioStation(id: '3', name: 'Nigerian Gospel Music Radio', location: 'Africa (Gospel)', streamUrl: 'http://stream.zeno.fm/3fmqr74a7f8uv'),
+        RadioStation(id: '4', name: 'Christian Power Praise', location: 'Global (Worship)', streamUrl: 'https://listen.christianrock.net/stream/13/'),
+        RadioStation(id: '5', name: 'Radio Bautista', location: 'Global (Worship)', streamUrl: 'https://s2.radio.co/s3a7dc3d82/listen'),
+        RadioStation(id: '6', name: 'Gospel FM Jamaica', location: 'Global (Gospel)', streamUrl: 'https://stream.zeno.fm/zpksre88rm0uv'),
+        RadioStation(id: '7', name: 'Jesus Alive Radio', location: 'Global (Worship)', streamUrl: 'https://stream.zeno.fm/qyb8s75nsceuv'),
+        RadioStation(id: '8', name: 'Radio Cristiana Jamaica', location: 'Global (Worship)', streamUrl: 'https://stream.zeno.fm/r7zrx18xcfhvv'),
+      ];
   }
 
   /// Fetches playable Christian stations from radio-browser.info (worldwide,
