@@ -18,6 +18,7 @@ import 'package:church_on_app/features/bookshop/presentation/user_picker_sheet.d
 import 'package:church_on_app/features/auth/presentation/select_church_screen.dart'
     show SelectTenantScreen;
 import '../../marketplace/presentation/post_product_screen.dart';
+import '../../marketplace/data/marketplace_service.dart';
 
 class BookshopDashboardScreen extends ConsumerStatefulWidget {
   const BookshopDashboardScreen({super.key});
@@ -648,7 +649,9 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
     final stock = (product['stock'] as num?)?.toInt() ?? 0;
     final status = stock == 0 ? 'Out of Stock' : stock < _lowStockThreshold ? 'Low Stock' : 'In Stock';
     final statusColor = stock == 0 ? Colors.red : stock < _lowStockThreshold ? Colors.orange : Colors.green;
-    return Container(
+    return GestureDetector(
+      onTap: () => _showProductActions(theme, product),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -692,7 +695,107 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
           ),
         ],
       ),
+    ),
     );
+  }
+
+  /// Product management sheet: edit, adjust stock, or delete a listing.
+  void _showProductActions(ThemeData theme, Map<String, dynamic> product) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Text(product['name']?.toString() ?? 'Product',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.pencil),
+              title: const Text('Edit listing'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => PostProductScreen(
+                    initialCategory: product['category']?.toString(),
+                    product: product,
+                  )),
+                ).then((_) => _loadDashboard());
+              },
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.packagePlus),
+              title: const Text('Adjust stock'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _adjustStock(product);
+              },
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.trash2, color: Colors.red),
+              title: const Text('Delete listing', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _deleteProduct(product);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _adjustStock(Map<String, dynamic> product) async {
+    final ctrl = TextEditingController(text: '${product['stock'] ?? 0}');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Adjust stock'),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'New stock quantity'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('SAVE')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final qty = int.tryParse(ctrl.text) ?? 0;
+    try {
+      await ref.read(marketplaceServiceProvider).updateProduct(
+          product['id'].toString(), {'stock': qty});
+      if (mounted) { showAppSnackBar(context, 'Stock updated', status: AppStatus.success); }
+      _loadDashboard();
+    } catch (e) {
+      if (mounted) { showAppSnackBar(context, 'Failed: $e', status: AppStatus.error); }
+    }
+  }
+
+  Future<void> _deleteProduct(Map<String, dynamic> product) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete listing?'),
+        content: Text('This will permanently remove ${product['name']} from the marketplace.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('DELETE'), style: FilledButton.styleFrom(backgroundColor: Colors.red)),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await ref.read(marketplaceServiceProvider).deleteProduct(product['id'].toString());
+      if (mounted) { showAppSnackBar(context, 'Listing deleted', status: AppStatus.success); }
+      _loadDashboard();
+    } catch (e) {
+      if (mounted) { showAppSnackBar(context, 'Failed: $e', status: AppStatus.error); }
+    }
   }
 
   Widget _orderRow(ThemeData theme, Map<String, dynamic> order) {
