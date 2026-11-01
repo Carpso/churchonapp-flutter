@@ -46,6 +46,7 @@ ai_chat_sessions (auto-titled) + ai_chat_messages ──▶ kael-ai Edge Functio
 - **Auto-title**: sessions start as "New Chat"; the first real user question becomes the title (42-char truncation) so history stays navigable.
 - **User context**: name, role, church, streak, level, coins are injected as `userContext` for personalised replies.
 - **Professional guardrails**: anti-cheat (never answers active quiz questions), no political/denominational claims, no sensitive PII, concise warm responses with Scripture references.
+- **Health probe with REAL inference**: `GET /functions/v1/kael-ai?health=ai&probe=1` runs a 1-token call and reports the actual upstream failure (e.g. HF 402 credits exhausted) — config-only checks say "ok" while every real call fails. The generated text is never returned (not a free inference endpoint). Quota failures surface an honest "out of credits" message client-side (via `FunctionException.details`), not a vague "try again".
 
 ---
 

@@ -39,17 +39,25 @@ class R2Service {
 
   /// Resolves an R2 public-domain URL to something the <img>/player can load.
   ///
-  /// `media.churchonapp.com` (bucket `choa-sermons-vault`) is now a PUBLIC R2
-  /// domain with a CORS policy, so the stored URL is used **as-is** — no edge
-  /// round-trip, no 50-minute signed-URL expiry, and no dependency on the
-  /// `r2-sign` function for read traffic. (Signing previously produced URLs on
-  /// the `*.r2.cloudflarestorage.com` endpoint, which browsers can block.)
+  /// The bucket is PUBLIC (no signing, no edge round-trip, no 50-minute
+  /// expiry), but many DB rows still store the LAPSED custom domain
+  /// `media.churchonapp.com` — which no longer resolves, so every such image
+  /// rendered broken (avatars in church social + prayer wall broke for ALL
+  /// users this way). The read path therefore rewrites legacy hosts to the
+  /// current public domain exactly like the write path does.
   ///
   /// Sensitive material must NOT live in this bucket — KYC files are uploaded to
   /// the private `choa-kyc-vault` bucket instead and are referenced as `r2://…`.
   static Future<String> resolveReadUrl(String url) async {
-    // Public bucket → return unchanged. Non-R2 URLs also pass through.
-    return url;
+    var u = url;
+    // `r2://bucket/key` references (private buckets) are resolved elsewhere.
+    if (!u.startsWith('r2://') && u.contains('media.churchonapp.com')) {
+      final publicDomain = Env.r2PublicDomain;
+      if (publicDomain.isNotEmpty) {
+        u = u.replaceAll('media.churchonapp.com', publicDomain);
+      }
+    }
+    return u;
   }
 
   /// Force-clear a cached signed URL so the next resolve call fetches a

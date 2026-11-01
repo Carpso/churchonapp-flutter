@@ -26,9 +26,34 @@ Future<String> kaelGenerate({
     final message = e.toString().toLowerCase();
     final isRateLimit =
         message.contains('rate limit') || message.contains('429');
-    return isRateLimit
-        ? '__RATE_LIMIT__'
-        : 'Kael AI is resting right now — please try again in a moment.';
+    if (isRateLimit) return '__RATE_LIMIT__';
+    // Surface the SERVER's own message when present (e.g. the honest
+    // "out of credits" notice for a 402) instead of a generic line that
+    // hides the real cause.
+    String? serverMessage;
+    if (e is FunctionException) {
+      // functions_client's FunctionException carries the response body in
+      // `details` and the HTTP reason phrase in `reasonPhrase`; toString()
+      // embeds both, so the combined string below catches it either way.
+      final err = e.details ?? e.reasonPhrase;
+      if (err is Map) {
+        final m = err['error'] ?? err['message'];
+        if (m != null) serverMessage = m.toString();
+      } else if (err is String && err.trim().isNotEmpty) {
+        serverMessage = err;
+      }
+    }
+    final combined = '$message ${serverMessage ?? ''}'.toLowerCase();
+    if (combined.contains('402') ||
+        combined.contains('no remaining credits') ||
+        combined.contains('out of credits') ||
+        combined.contains('purchase pre-paid')) {
+      return "Kael's AI service is out of credits right now - the platform team has been notified. Please try again later.";
+    }
+    if (serverMessage != null && serverMessage.trim().isNotEmpty) {
+      return serverMessage;
+    }
+    return 'Kael AI is resting right now — please try again in a moment.';
   }
 }
 

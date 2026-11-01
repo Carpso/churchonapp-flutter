@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased - 2026-11-01 (Kael 402 root-caused, avatars fixed, web map/auth/geolocation)
+
+**Kael AI - "resting right now" root-caused (verified live)**
+- A new `?health=ai&probe=1` inference probe on `kael-ai` runs a REAL 1-token call and reports the actual upstream failure. Result: **HuggingFace 402 — the account's free inference credits are exhausted**. Every Kael call has been failing with 402 → 503 while the config-only health probe said "ok".
+- The server now returns an honest "Kael's AI service is out of credits right now" message for quota failures, and the client surfaces the server's own error body (`FunctionException.details`) instead of a generic line.
+- **Owner action required**: top up HF Inference credits (or PRO) on the account owning `HUGGINGFACE_TOKEN`, or set the dedicated `CLOUDFLARE_AI_TOKEN` (Workers AI) and redeploy the AI functions.
+
+**Broken profile avatars in church social + prayer wall - fixed**
+- Root cause completed: the media READ path (`R2Service.resolveReadUrl`) had been reduced to a bare pass-through, so every stored URL on the lapsed `media.churchonapp.com` domain rendered broken — while the same objects serve fine from the bucket's r2.dev domain (verified 200 + CORS). The read path now rewrites the legacy host exactly like the write path.
+- Migration `20261268` dynamically rewrites EVERY public text column still holding the dead domain (the earlier targeted backfill missed `prayers.user_photo` and others). Verified 0 rows left.
+
+**Web - map, forgot-password, remember-me, geolocation**
+- The vector basemap is native-only again: release web builds still die with `Unsupported operation: ReceivePort.sendPort` in the vector executor, which had left every browser map blank. Web now renders a raster fallback — self-hosted raster tiles when configured, else CARTO Voyager (browser-usable; OSM stays mobile-last-resort because it serves "403 Access blocked" placeholder tiles to browser fetches).
+- Forgot password works end-to-end again: the reset email now redirects to the live `churchonapp.pages.dev` domain (web) / the Supabase login-callback deep link (mobile) instead of the lapsed Site URL; a new `/reset-password` screen completes the flow (there was no new-password screen at all before); the redirect URL is allowlisted in the live auth config.
+- The "Remember me" checkbox restores the user's actual saved preference instead of always re-checking itself.
+- Church selection uses real browser geolocation on web (was skipped wholesale), so nearby sorting works after granting permission; denial still falls back to showing all churches.
+
 ## Unreleased - 2026-10-02 (Map place names, stream re-attach, self-prompting updates, media-team streaming)
 
 **Maps - place names now draw on every map**

@@ -401,6 +401,7 @@ $migrations = @(
 "20261262_dead_domain_media_backfill.sql"
 "20261263_bracket_play.sql"
 "20261264_events_dedupe.sql"
+"20261268_rewrite_lapsed_media_domain.sql"
       )
 
 

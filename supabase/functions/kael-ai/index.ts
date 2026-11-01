@@ -264,6 +264,18 @@ function sseErrorEvent(corsHeaders: Record<string, string>, error: string) {
 
 /** User-facing Kael failure message (existing wording preserved). */
 function providerFailureMessage(providerError: string): string {
+  const lower = providerError.toLowerCase();
+  // Quota exhaustion (HF free credits spent / 402): say so honestly instead
+  // of a vague "try again" - the fix is topping up credits or adding a
+  // CLOUDFLARE_AI_TOKEN, not retrying.
+  const isQuota =
+    lower.includes("402") ||
+    lower.includes("no remaining credits") ||
+    lower.includes("purchase pre-paid") ||
+    lower.includes("quota");
+  if (isQuota) {
+    return "Kael's AI service is out of credits right now — the platform team has been notified. Please try again later.";
+  }
   const isCold =
     providerError.includes("503") ||
     providerError.includes("loading") ||
@@ -303,9 +315,37 @@ serve(async (req) => {
   }
 
   // Secret-free health probe (which provider is active + secret presence).
+  // `&probe=1` additionally runs a REAL 1-token inference so the probe
+  // reports the actual upstream failure (quota/gated-model/401) instead of
+  // only confirming that a token exists - config checks alone said "ok"
+  // while every real call was failing.
   const url = new URL(req.url);
   if (req.method === "GET" && url.searchParams.get("health") === "ai") {
-    return jsonResponse(corsHeaders, getAiHealth());
+    const health = getAiHealth() as unknown as Record<string, unknown>;
+    if (url.searchParams.get("probe") === "1") {
+      const started = Date.now();
+      try {
+        const result = await callModel(
+          [{ role: "user", content: "Reply with the single word: ok" }],
+          { maxTokens: 5, timeoutMs: 30_000, coldStartMs: 60_000, label: "health:probe" },
+        );
+        health.inference = {
+          ok: true,
+          provider: result.provider,
+          ms: Date.now() - started,
+          // The generated text is deliberately NOT returned - the probe
+          // must not be usable as a free inference endpoint.
+        };
+      } catch (e) {
+        health.inference = {
+          ok: false,
+          status: e instanceof AiProviderError ? e.status : null,
+          error: e instanceof Error ? e.message : String(e),
+          ms: Date.now() - started,
+        };
+      }
+    }
+    return jsonResponse(corsHeaders, health);
   }
 
   if (req.method !== "POST") {
