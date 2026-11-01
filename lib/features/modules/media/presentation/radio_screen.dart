@@ -248,14 +248,14 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
     );
   }
 
-  void _skipStation(RadioService service, int direction) {
+  Future<void> _skipStation(RadioService service, int direction) async {
     if (_directory.isEmpty) return;
     final next = (_directoryIndex + direction) % _directory.length;
     _directoryIndex = next;
     final station = _directory[next];
     setState(() => _selectedStationName = station.name);
     if (station.isPrivate) return;
-    service.playStation(station);
+    await _playWithFailover(service, station);
   }
 
   Future<void> _showAddStationDialog() async {
@@ -469,6 +469,51 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
     }
   }
 
+  /// SMART PLAYBACK with auto-failover: when a station fails to connect,
+  /// automatically advance to the next one (up to 3 attempts) instead of
+  /// leaving the listener on OFFLINE. The failed station is marked
+  /// unavailable for the session (COMING SOON) and the player moves on.
+  Future<void> _playWithFailover(RadioService service, RadioStation start) async {
+    final candidates =
+        _directory.where((s) => !_unavailable.contains(s.id)).toList();
+    if (candidates.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('No stations available right now - check back later.')));
+      }
+      return;
+    }
+    RadioStation current =
+        _unavailable.contains(start.id) ? candidates.first : start;
+    var attempts = 0;
+    while (attempts < 3 && attempts < candidates.length) {
+      if (mounted) setState(() => _selectedStationName = current.name);
+      try {
+        await service.playStation(current);
+        if (mounted) setState(() => _unavailable.remove(current.id));
+        return; // connected
+      } catch (e) {
+        attempts++;
+        if (mounted) setState(() => _unavailable.add(current.id));
+        final idx = candidates.indexWhere((s) => s.id == current.id);
+        final next = candidates[(idx + 1) % candidates.length];
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content:
+                Text(' is unavailable - trying ...'),
+            duration: const Duration(seconds: 2),
+          ));
+        }
+        current = next;
+      }
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'No station could be reached right now. Check your connection and try again.')));
+    }
+  }
+
   /// The big play button previously called `service.play()` on an empty player
   /// (no source loaded) so nothing ever played and the badge stayed OFFLINE.
   Future<void> _togglePlay(RadioService service, bool playing) async {
@@ -488,16 +533,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> with SingleTickerProv
       (s) => s.name == _selectedStationName,
       orElse: () => _directory.first,
     );
-    try {
-      await service.playStation(station);
-    } catch (e) {
-      if (mounted) {
-        setState(() => _unavailable.add(station.id));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not play ${station.name}: ${e.toString().replaceFirst('Exception: ', '')}')),
-        );
-      }
-    }
+    await _playWithFailover(service, station);
   }
 
   Widget _stationStrip(

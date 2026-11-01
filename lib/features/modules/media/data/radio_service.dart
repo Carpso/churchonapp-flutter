@@ -157,18 +157,18 @@ class RadioService {
   Future<void> stop() => _handler?.stop() ?? Future.value();
   Future<void> play() => _handler?.play() ?? Future.value();
 
+  /// Now-playing label for a station. HONEST: no station metadata API is
+  /// wired, so this yields the real station identity instead of the old
+  /// rotating fabricated track names ("LIVE: Afternoon Worship Hub" etc.).
   Stream<String> getMetadataStream(String stationName) async* {
-    while (true) {
-      await Future.delayed(const Duration(seconds: 10));
-      final tracks = [
-        "LIVE: Afternoon Worship Hub",
-        "PREACHING: The Power of Perseverance",
-        "MUSIC: Pompi - Simuuzeni",
-        "LIVE: News at Top of the Hour",
-        "PRAYER: National Intercession Session"
-      ];
-      yield tracks[DateTime.now().second % tracks.length];
-    }
+    // The station list carries the location; surface it once.
+    final station = await fetchStations();
+    final match = station.where((s) => s.name == stationName).toList();
+    final location = match.isNotEmpty ? match.first.location : '';
+    yield location.isEmpty ? '$stationName · Live' : '$stationName · $location';
+    // Re-assert every 30s so a rebuilt stream keeps a stable label.
+    yield* Stream<void>.periodic(const Duration(seconds: 30))
+        .map((_) => location.isEmpty ? '$stationName · Live' : '$stationName · $location');
   }
 
   Future<String> fetchLiveMetadata(String stationUrl) async {
