@@ -32,11 +32,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _loadRememberedEmail() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final email = prefs.getString('remembered_email') ?? '';
-      if (email.isNotEmpty && mounted) {
+      // Restore the checkbox state too - previously this hard-coded
+      // `_rememberMe = true`, so a user who had UNCHECKED the box saw it
+      // re-checked on the next visit (their choice was never restored).
+      final remember = prefs.getBool('remember_me') ?? true;
+      final email = remember ? (prefs.getString('remembered_email') ?? '') : '';
+      if (mounted) {
         setState(() {
-          _emailController.text = email;
-          _rememberMe = true;
+          _rememberMe = remember;
+          if (email.isNotEmpty) _emailController.text = email;
         });
       }
     } catch (e) {

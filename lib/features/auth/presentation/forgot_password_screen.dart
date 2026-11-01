@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/services/deep_links.dart';
 import '../../../core/widgets/kingdom_logo.dart';
 import '../../../core/widgets/app_error_view.dart';
 
@@ -31,8 +33,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // Without `redirectTo` the reset email points at the Supabase project's
+      // configured Site URL - which is the LAPSED `churchonapp.com` domain,
+      // so every reset link died. Web gets the SPA route (supabase_flutter
+      // parses the `#type=recovery` fragment); mobile gets the Supabase
+      // login-callback deep link the auth layer already listens for.
+      final redirectTo = kIsWeb
+          ? '${DeepLinks.base}/reset-password'
+          : 'io.supabase.churchonapp://login-callback';
       await Supabase.instance.client.auth.resetPasswordForEmail(
         _emailController.text.trim(),
+        redirectTo: redirectTo,
       );
       if (mounted) {
         setState(() => _emailSent = true);

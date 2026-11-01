@@ -137,6 +137,7 @@ import 'package:church_on_app/features/admin/presentation/system_docs_screen.dar
 import 'package:church_on_app/features/admin/presentation/database_setup_screen.dart';
 import 'package:church_on_app/features/profile/presentation/feature_request_screen.dart';
 import 'package:church_on_app/features/auth/presentation/forgot_password_screen.dart';
+import 'package:church_on_app/features/auth/presentation/reset_password_screen.dart';
 import 'package:church_on_app/features/auth/presentation/two_factor_setup_screen.dart';
 import 'package:church_on_app/features/disciple/presentation/discipleship_screen.dart';
 import 'package:church_on_app/features/notebook/presentation/notebook_screen.dart';
@@ -364,6 +365,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isSignUp = state.uri.path == '/signup';
       final isRegisteringChurch = state.uri.path == '/register-church';
       final isForgotPassword = state.uri.path == '/forgot-password';
+      final isResetPassword = state.uri.path == '/reset-password';
 
       // Always require selected tenant/church unless onboarding or registering
       if (tenant == null &&
@@ -373,6 +375,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           !isLoggingIn &&
           !isSignUp &&
           !isForgotPassword &&
+          !isResetPassword &&
           state.uri.path != '/join' &&
           state.uri.path != '/invite' &&
           state.uri.path != '/auth/callback') {
@@ -390,7 +393,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             isOAuthCallback ||
             state.uri.path == '/onboarding' ||
             isRegisteringChurch ||
-            isForgotPassword) {
+            isForgotPassword ||
+            isResetPassword) {
           return null;
         }
         final cur = state.uri.toString();
@@ -742,6 +746,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/reset-password',
+        builder: (context, state) => const ResetPasswordScreen(),
       ),
       GoRoute(
         path: '/join',

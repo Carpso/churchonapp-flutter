@@ -784,7 +784,7 @@ class _BookshopDashboardScreenState extends ConsumerState<BookshopDashboardScree
         content: Text('This will permanently remove ${product['name']} from the marketplace.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('DELETE'), style: FilledButton.styleFrom(backgroundColor: Colors.red)),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), style: FilledButton.styleFrom(backgroundColor: Colors.red), child: const Text('DELETE')),
         ],
       ),
     );

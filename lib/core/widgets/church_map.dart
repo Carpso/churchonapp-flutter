@@ -176,21 +176,13 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
   /// Either way the basemap renders blank with no error. Web therefore uses the
   /// raster basemap (the upstream-documented workaround) and native keeps the
   /// self-hosted Protomaps vector basemap.
-  /// The vector basemap works on every platform, including web.
-  ///
-  /// This used to be `!kIsWeb`, which sent every browser to the OpenStreetMap
-  /// raster fallback. OSM's tile servers enforce their usage policy by UA: a
-  /// request without a compliant, contactable User-Agent is answered with
-  /// HTTP 200 and a **"403 Access blocked" placeholder tile** rather than an
-  /// error. Browsers cannot set a custom User-Agent on fetches, so on web the
-  /// map silently rendered blocked tiles — no roads, no labels, no place
-  /// names — while looking superficially "loaded".
-  ///
-  /// The self-hosted archive avoids the problem entirely: `maps.churchonapp.com`
-  /// serves PMTiles with `Accept-Ranges: bytes` and `Access-Control-Allow-Origin: *`
-  /// (verified 206 + CORS), and the glyphs/sprites are CORS-open too — exactly
-  /// what a browser needs for HTTP range reads.
-  static bool get _supportsVectorBasemap => true;
+  /// This was briefly `true` on the theory that the vector executor had been
+  /// fixed for web — it had not: a release web build still takes the isolate
+  /// `PoolExecutor` branch and every tile job dies with `Unsupported
+  /// operation: ReceivePort.sendPort`, leaving the map blank. The vector
+  /// basemap is therefore NATIVE ONLY; web always uses the raster fallback
+  /// (see [_needsRasterBasemap] and the raster `TileLayer`).
+  static bool get _supportsVectorBasemap => !kIsWeb;
 
   /// Whether the self-hosted RASTER basemap should be drawn beneath the
   /// vector layer.
@@ -1075,20 +1067,24 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
                 // `executor_lib.newExecutor` only branches on `kDebugMode`, so a
                 // release web build takes the isolate `PoolExecutor` path and
                 // throws `Unsupported operation: ReceivePort`, leaving every
-                // tile job hung. There is deliberately no OSM raster fallback:
-                // browsers cannot set a custom User-Agent on fetches, and OSM
-                // answers a non-compliant request with HTTP 200 carrying a
-                // "403 Access blocked" tile — so the map would look loaded
-                // while showing no roads or labels at all.
+                // tile job hung.
                 //
-                // Instead we serve our OWN raster tiles from
-                // `maps.churchonapp.com` (same bucket as the PMTiles, CORS `*`),
-                // which no upstream usage policy can block. `Env.rasterBaseUrl`
-                // is empty by default, so enabling this is an explicit,
-                // reversible configuration choice rather than a silent change.
-                if (_needsRasterBasemap && Env.rasterBaseUrl.isNotEmpty)
+                // Raster source priority on web:
+                //  1. `Env.rasterBaseUrl` (self-hosted raster tiles from
+                //     `maps.churchonapp.com` — none exist yet, but the knob is
+                //     ready for when they do).
+                //  2. CARTO "Voyager" raster basemaps — free, browser-usable
+                //     (no User-Agent policy blocking browser fetches, unlike
+                //     OSM which serves a "403 Access blocked" placeholder tile
+                //     to non-compliant requests), and CORS-open.
+                if (_needsRasterBasemap &&
+                    (Env.rasterBaseUrl.isNotEmpty || kIsWeb))
                   TileLayer(
-                    urlTemplate: Env.rasterBaseUrl,
+                    urlTemplate: Env.rasterBaseUrl.isNotEmpty
+                        ? Env.rasterBaseUrl
+                        // CARTO Voyager: roads + labels + landcover, light
+                        // palette that matches the brand's light surfaces.
+                        : 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.churchonapp.churchonapp',
                     tileDisplay: const TileDisplay.fadeIn(),
                     // Buffer one ring of tiles so panning reveals cached tiles.

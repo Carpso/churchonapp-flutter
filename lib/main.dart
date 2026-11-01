@@ -254,6 +254,18 @@ class _ChurchOnAppState extends ConsumerState<ChurchOnApp> with WidgetsBindingOb
         _handleDeepLink(uri);
       }
     });
+
+    // Password recovery: supabase_flutter establishes the recovery session
+    // itself (web: from the `#type=recovery` URL fragment; Android: from the
+    // `io.supabase.churchonapp://login-callback` deep link) and emits
+    // `passwordRecovery`. Without this listener the session was set but the
+    // user was left wherever they were - there was no new-password screen at
+    // all, so reset links could never complete.
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.passwordRecovery && mounted) {
+        ref.read(routerProvider).go('/reset-password');
+      }
+    });
   }
 
   void _handleDeepLink(Uri uri) {
