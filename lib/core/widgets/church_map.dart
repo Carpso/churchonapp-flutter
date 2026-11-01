@@ -229,6 +229,9 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
   /// True when the self-hosted basemap archive could not be opened, so the map
   /// is showing the raster fallback and a visible RETRY affordance is offered.
   bool _basemapFailed = false;
+  // The actual failure from the last archive open, shown on the retry chip
+  // so a device-side map failure is diagnosable from a screenshot.
+  String? _basemapError;
 
   LatLng? _pinPosition;
   bool _savingPin = false;
@@ -575,7 +578,10 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
         // failing is a real fault and shows the RETRY chip.
         final isBase = url == _baseSourceUrl || resolved.isBase;
         if (isBase) {
-          setState(() => _basemapFailed = true);
+          setState(() {
+            _basemapFailed = true;
+            _basemapError = err.toString();
+          });
         } else {
           debugPrint('map source "$url" failed — falling back to base');
           final base = _sourceTable.firstWhere(
@@ -1074,6 +1080,23 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
                     panBuffer: 1,
                   ),
 
+                // LAST-RESORT RASTER FALLBACK (MOBILE ONLY): if the vector
+                // pipeline failed on this device, still show a working road
+                // map instead of a blank screen. OSM's usage policy requires a
+                // User-Agent identifying the app — flutter_map sets one from
+                // `userAgentPackageName` on mobile, which satisfies it. This
+                // was previously removed wholesale because BROWSERS cannot set
+                // a compliant UA (web keeps the strict no-fallback behaviour);
+                // on Android/iOS the UA is settable, so a degraded-but-real
+                // map beats a blank one while the RETRY chip is visible.
+                if (_basemapFailed && !kIsWeb)
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.churchonapp.churchonapp',
+                    tileDisplay: const TileDisplay.fadeIn(),
+                    panBuffer: 1,
+                  ),
+
                 // Optional real traffic raster tiles (when configured).
                 if (trafficActive && Env.trafficTilesUrl.isNotEmpty)
                   Opacity(
@@ -1334,9 +1357,12 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
               const Icon(LucideIcons.alertTriangle,
                   size: 15, color: Colors.orange),
               const SizedBox(width: 6),
-              const Text(
-                'Map data unavailable',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+              Text(
+                _basemapError != null
+                    ? 'Full map unavailable - basic map shown'
+                    : 'Map data unavailable',
+                style: const TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w600),
               ),
               const SizedBox(width: 8),
               Text(

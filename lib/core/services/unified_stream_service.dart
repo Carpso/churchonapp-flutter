@@ -251,6 +251,16 @@ class UnifiedStreamService {
         throw StreamLimitException(
             'Uploading replays needs an active plan. Subscribe to upload recordings.');
       }
+      // The Cloudflare Stream subscription being inactive surfaces as a 403
+      // "Authentication error" from the create_live_input call — name it
+      // plainly instead of a generic failure, and point at the mode that
+      // still works.
+      if (e.toString().contains('403') ||
+          e.toString().contains('Authentication error')) {
+        throw StreamLimitException(
+            'Live streaming is temporarily unavailable (the video service subscription is inactive). '
+            'Use RECORD ONLY to capture the service — replays still upload.');
+      }
       rethrow;
     }
   }

@@ -3,8 +3,8 @@
 // One place for every Edge Function that talks to an LLM. Provider chain:
 //
 //   1. Cloudflare Workers AI (primary) — used ONLY when BOTH
-//      `CLOUDFLARE_ACCOUNT_ID` AND a token (`CLOUDFLARE_AI_TOKEN`, falling back
-//      to `CLOUDFLARE_API_TOKEN`) are present.
+//      `CLOUDFLARE_ACCOUNT_ID` AND the DEDICATED `CLOUDFLARE_AI_TOKEN` (the
+//      shared Stream/R2 token has no Workers AI permission - see getAiConfig).
 //   2. HuggingFace router (fallback) — the previous behaviour, unchanged.
 //   3. A clear error when neither provider is configured.
 //
@@ -20,7 +20,7 @@
 //   - other       → JSON `{"response": "..."}` (callModel)
 //
 // Secrets read (never exposed):
-//   CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_AI_TOKEN | CLOUDFLARE_API_TOKEN,
+//   CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_AI_TOKEN,
 //   CF_AI_MODEL (default `@cf/meta/llama-3.3-70b-instruct-fp8-fast`),
 //   CF_AI_GATEWAY_URL (optional),
 //   HUGGINGFACE_TOKEN, HF_MODEL_ID (default `meta-llama/Llama-3.1-8B-Instruct`).
@@ -104,7 +104,12 @@ function env(name: string): string {
 /** Resolves the provider configuration from the environment. */
 export function getAiConfig(): AiConfig {
   const accountId = env("CLOUDFLARE_ACCOUNT_ID");
-  const token = env("CLOUDFLARE_AI_TOKEN") || env("CLOUDFLARE_API_TOKEN");
+  // REQUIRE the dedicated Workers AI token. Falling back to the shared
+// CLOUDFLARE_API_TOKEN was a design flaw: that token exists for Stream/R2
+// and has NO Workers AI permission, so every call 401'd and Kael burned a
+// round-trip on a guaranteed failure before (maybe) reaching HuggingFace.
+// Without CLOUDFLARE_AI_TOKEN the HuggingFace path is used directly.
+const token = env("CLOUDFLARE_AI_TOKEN");
   const cfModel = env("CF_AI_MODEL") || CF_DEFAULT_MODEL;
   const gatewayBase = env("CF_AI_GATEWAY_URL") || null;
 

@@ -64,8 +64,8 @@ SELECT public.publish_app_release(
   '$($UpdateMessage.Replace("'", "''"))',
   '$notesArg',
   'https://play.google.com/store/apps/details?id=com.churchonapp.churchonapp',
-  'https://media.churchonapp.com/builds/latest/ChurchOnApp.apk',
-  'https://media.churchonapp.com/builds/latest/ChurchOnApp.aab',
+  'https://pub-21d3ac216bf140caa31c8dbd2241eb61.r2.dev/builds/latest/ChurchOnApp.apk',
+  'https://pub-21d3ac216bf140caa31c8dbd2241eb61.r2.dev/builds/latest/ChurchOnApp.aab',
   'build_release.ps1'
 ) AS published;
 "@
