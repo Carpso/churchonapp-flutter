@@ -571,7 +571,7 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
         // future when we swapped it inside this microtask.
         if (mounted) setState(() {});
       },
-      onError: (Object _, StackTrace __) {
+      onError: (Object err, StackTrace st) {
         if (!mounted) return;
         // A named/city archive that fails falls back to the base archive
         // silently — losing street labels beats a blank map. The base itself
