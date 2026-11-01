@@ -58,6 +58,10 @@ class WeatherData {
   final List<HourlyForecast> hourly;
   final List<DailyForecast> daily;
 
+  /// True when this reading is the offline preset, NOT live data — the UI
+  /// must never present a fabricated temperature as a real observation.
+  final bool isFallback;
+
   WeatherData({
     required this.temperature,
     required this.feelsLike,
@@ -69,6 +73,7 @@ class WeatherData {
     DateTime? timestamp,
     List<HourlyForecast>? hourly,
     List<DailyForecast>? daily,
+    this.isFallback = false,
   })  : timestamp = timestamp ?? DateTime.now(),
         hourly = hourly ?? _defaultHourly(),
         daily = daily ?? _defaultDaily();

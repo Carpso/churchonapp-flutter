@@ -232,6 +232,8 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
   // The actual failure from the last archive open, shown on the retry chip
   // so a device-side map failure is diagnosable from a screenshot.
   String? _basemapError;
+  // One automatic retry per open cycle (see the onError handler).
+  bool _autoRetried = false;
 
   LatLng? _pinPosition;
   bool _savingPin = false;
@@ -549,11 +551,14 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
   /// after a base open failed so the RETRY chip can't be preempted.
   void _openResolved({required bool forceBaseOnFailure}) {
     if (!_supportsVectorBasemap || _sourceTable.isEmpty) return;
+    _autoRetried = false;
 
     final resolved = resolveMapSource(
       _sourceTable,
       _lastResolvedCenter,
       _lastResolvedZoom,
+      // Mobile: prefer the small city archive at any zoom (see map_sources).
+      preferSmallOnMobile: !kIsWeb,
     );
     if (resolved == null) return;
     final url = forceBaseOnFailure && _activeUrl.isEmpty
@@ -578,6 +583,16 @@ class _ChurchMapState extends ConsumerState<ChurchMap> {
         // failing is a real fault and shows the RETRY chip.
         final isBase = url == _baseSourceUrl || resolved.isBase;
         if (isBase) {
+          // One automatic retry: transient r2.dev throttling and mobile-data
+          // hiccups recover within seconds; only a second failure surfaces the
+          // chip (with the OSM fallback behind it).
+          if (!_autoRetried) {
+            _autoRetried = true;
+            Future.delayed(const Duration(milliseconds: 2500), () {
+              if (mounted) _openResolved(forceBaseOnFailure: true);
+            });
+            return;
+          }
           setState(() {
             _basemapFailed = true;
             _basemapError = err.toString();

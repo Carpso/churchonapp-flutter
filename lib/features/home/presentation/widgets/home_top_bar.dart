@@ -193,18 +193,22 @@ String _churchDisplayName(Tenant? tenant) {
                             : WeatherService.weatherEmoji(w.weatherCode),
                         style: const TextStyle(fontSize: 15),
                       ),
-                      const SizedBox(height: 1),
-                      Text(
-                        '${w.temperature.isFinite ? w.temperature.round() : "--"}°',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 12,
-                          height: 1.1,
-                          shadows: [
-                            Shadow(color: Colors.black38, blurRadius: 3)
-                          ],
-                        ),
+                        // Fallback preset: show a dash, never a fabricated
+                        // temperature presented as a real observation.
+                        Text(
+                          w.isFallback
+                              ? '--'
+                                : '${w.temperature.isFinite ? w.temperature.round() : "--"}°',
+                          style: TextStyle(
+                            color: Colors.white
+                                .withValues(alpha: w.isFallback ? 0.6 : 1.0),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                            height: 1.1,
+                            shadows: const [
+                              Shadow(color: Colors.black38, blurRadius: 3)
+                            ],
+                          ),
                       ),
                     ],
                   ),

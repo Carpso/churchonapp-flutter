@@ -63,17 +63,19 @@ class WeatherService {
       debugPrint('WeatherService: Error parsing weather data: $e');
     }
 
-    // Offline / Fallback Preset Data
-    return WeatherData(
-      temperature: 29.0,
-      feelsLike: 31.0,
-      humidity: 42.0,
-      windSpeed: 14.0,
-      precipitation: 0.0,
-      weatherCode: 0,
-      location: locationName,
-      timestamp: DateTime.now(),
-    );
+    // Offline / Fallback Preset Data — flagged so the UI never presents a
+      // fabricated reading as a live observation.
+      return WeatherData(
+        temperature: 29.0,
+        feelsLike: 31.0,
+        humidity: 42.0,
+        windSpeed: 14.0,
+        precipitation: 0.0,
+        weatherCode: 0,
+        location: locationName,
+        timestamp: DateTime.now(),
+        isFallback: true,
+      );
   }
 
   static String weatherEmoji(int code) {

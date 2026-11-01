@@ -101,14 +101,40 @@ class _MapNavigationScreenState extends ConsumerState<MapNavigationScreen> {
         return;
       }
 
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 30),
-        ),
-      );
+      // FAST location cascade: a 30s high-accuracy wait read as "stuck
+      // loading" when a shared pin was opened from WhatsApp. Try high for 8s,
+      // then the last known fix (instant), then medium for 8s.
+      Position? pos;
+      try {
+        pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 8),
+          ),
+        );
+      } catch (_) {}
+      pos ??= await Geolocator.getLastKnownPosition();
+      if (pos == null) {
+        try {
+          pos = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.medium,
+              timeLimit: Duration(seconds: 8),
+            ),
+          );
+        } catch (_) {}
+      }
       if (!mounted) return;
-      setState(() => _me = LatLng(pos.latitude, pos.longitude));
+      if (pos == null) {
+        setState(() {
+          _error =
+              'Could not get your location. Check GPS and tap retry.';
+          _loading = false;
+        });
+        return;
+      }
+      final fix = pos;
+      setState(() => _me = LatLng(fix.latitude, fix.longitude));
 
       stage = 'routing';
       final route = await RouteService.fetchRoute(from: _me!, to: _dest);

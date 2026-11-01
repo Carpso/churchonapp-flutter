@@ -211,12 +211,19 @@ int _intOr(Map<String, dynamic> map, List<String> keys, int fallback) {
 MapSourceRegion? resolveMapSource(
   List<MapSourceRegion> table,
   MapLatLng center,
-  double zoom,
-) {
+  double zoom, {
+  bool preferSmallOnMobile = false,
+}) {
   MapSourceRegion? best;
   for (final r in table) {
     if (!r.contains(center.latitude, center.longitude)) continue;
-    if (!r.acceptsZoom(zoom)) continue;
+    // On mobile, a non-base region whose bbox contains the centre is
+    // preferred at ANY zoom: the city archives are full z0-16 builds of a
+    // few MB while the base archive is 1.4GB, and merely OPENING it reads a
+    // multi-megabyte directory in one range request - exactly what timed out
+    // on mobile data ("retry network"). Web keeps strict zoom gating.
+    final insideSmall = preferSmallOnMobile && !r.isBase;
+    if (!r.acceptsZoom(zoom) && !insideSmall) continue;
     if (best == null || r.area < best.area) best = r;
   }
   if (best != null) return best;
